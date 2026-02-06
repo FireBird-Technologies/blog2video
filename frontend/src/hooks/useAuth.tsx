@@ -4,9 +4,10 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from "react";
-import { UserInfo, getMe } from "../api/client";
+import { UserInfo, getMe, logoutCleanup } from "../api/client";
 
 interface AuthContextType {
   user: UserInfo | null;
@@ -30,6 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const userRef = useRef<UserInfo | null>(null);
+
+  // Keep ref in sync so beforeunload handler can read latest value
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const login = useCallback((newToken: string, newUser: UserInfo) => {
     localStorage.setItem("b2v_token", newToken);
@@ -38,7 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Call backend cleanup for free users before clearing local state
+    try {
+      await logoutCleanup();
+    } catch {
+      // ignore — user may already be unauthenticated
+    }
     localStorage.removeItem("b2v_token");
     localStorage.removeItem("b2v_user");
     setToken(null);
@@ -82,6 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [logout]);
+
+  // ── Warn free users when they try to close the tab/browser ──
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      const u = userRef.current;
+      if (u && u.plan === "free") {
+        e.preventDefault();
+        // Modern browsers show a generic message; the string is for legacy support
+        e.returnValue =
+          "You're on the free plan — your project data will be deleted when you leave. Are you sure?";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 
   return (
     <AuthContext.Provider
