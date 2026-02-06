@@ -52,3 +52,19 @@ def _migrate(eng):
                 conn.execute(text(
                     "ALTER TABLE projects ADD COLUMN player_port INTEGER"
                 ))
+            if "accent_color" not in cols:
+                conn.execute(text(
+                    "ALTER TABLE projects ADD COLUMN accent_color VARCHAR(20) DEFAULT '#7C3AED'"
+                ))
+            if "bg_color" not in cols:
+                conn.execute(text(
+                    "ALTER TABLE projects ADD COLUMN bg_color VARCHAR(20) DEFAULT '#0A0A0A'"
+                ))
+            if "text_color" not in cols:
+                conn.execute(text(
+                    "ALTER TABLE projects ADD COLUMN text_color VARCHAR(20) DEFAULT '#FFFFFF'"
+                ))
+            if "animation_instructions" not in cols:
+                conn.execute(text(
+                    "ALTER TABLE projects ADD COLUMN animation_instructions TEXT"
+                ))

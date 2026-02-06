@@ -10,6 +10,10 @@ class ProjectCreate(BaseModel):
     name: Optional[str] = None
     voice_gender: Optional[str] = "female"   # "male" or "female"
     voice_accent: Optional[str] = "american"  # "american" or "british"
+    accent_color: Optional[str] = "#7C3AED"  # purple default
+    bg_color: Optional[str] = "#0A0A0A"      # black default
+    text_color: Optional[str] = "#FFFFFF"    # white default
+    animation_instructions: Optional[str] = None
 
 
 class SceneOut(BaseModel):
@@ -60,6 +64,10 @@ class ProjectOut(BaseModel):
     status: str
     voice_gender: str = "female"
     voice_accent: str = "american"
+    accent_color: str = "#7C3AED"
+    bg_color: str = "#0A0A0A"
+    text_color: str = "#FFFFFF"
+    animation_instructions: Optional[str] = None
     studio_port: Optional[int] = None
     player_port: Optional[int] = None
     created_at: datetime

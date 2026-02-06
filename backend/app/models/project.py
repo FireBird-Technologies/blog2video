@@ -28,6 +28,10 @@ class Project(Base):
     )
     voice_gender: Mapped[str] = mapped_column(String(10), default="female")
     voice_accent: Mapped[str] = mapped_column(String(10), default="american")
+    accent_color: Mapped[str] = mapped_column(String(20), default="#7C3AED")
+    bg_color: Mapped[str] = mapped_column(String(20), default="#0A0A0A")
+    text_color: Mapped[str] = mapped_column(String(20), default="#FFFFFF")
+    animation_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     studio_port: Mapped[int | None] = mapped_column(nullable=True)
     player_port: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(

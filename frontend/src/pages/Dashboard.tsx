@@ -43,11 +43,24 @@ export default function Dashboard() {
     url: string,
     name?: string,
     voiceGender?: string,
-    voiceAccent?: string
+    voiceAccent?: string,
+    accentColor?: string,
+    bgColor?: string,
+    textColor?: string,
+    animationInstructions?: string
   ) => {
     setCreating(true);
     try {
-      const res = await createProject(url, name, voiceGender, voiceAccent);
+      const res = await createProject(
+        url,
+        name,
+        voiceGender,
+        voiceAccent,
+        accentColor,
+        bgColor,
+        textColor,
+        animationInstructions
+      );
       await refreshUser();
       setShowModal(false);
       navigate(`/project/${res.data.id}`);

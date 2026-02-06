@@ -10,8 +10,32 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { TextScene } from "./components/TextScene";
-import { ImageScene } from "./components/ImageScene";
 import { TransitionWipe } from "./components/Transitions";
+
+// ─── AI-generated scene components ───────────────────────────
+import Scene1 from "./components/generated/Scene1";
+import Scene2 from "./components/generated/Scene2";
+import Scene3 from "./components/generated/Scene3";
+import Scene4 from "./components/generated/Scene4";
+import Scene5 from "./components/generated/Scene5";
+import Scene6 from "./components/generated/Scene6";
+import Scene7 from "./components/generated/Scene7";
+import Scene8 from "./components/generated/Scene8";
+import Scene9 from "./components/generated/Scene9";
+
+const SCENE_COMPONENTS: Record<number, React.FC<{ title: string; narration: string; imageUrl?: string }>> = {
+  1: Scene1,
+  2: Scene2,
+  3: Scene3,
+  4: Scene4,
+  5: Scene5,
+  6: Scene6,
+  7: Scene7,
+  8: Scene8,
+  9: Scene9,
+};
+
+// ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
   id: number;
@@ -49,11 +73,10 @@ export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
         (sum, s) => sum + (s.durationSeconds || 5),
         0
       );
-      // Add a small buffer (2s) for transitions
       const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
 
       return {
-        durationInFrames: Math.max(totalFrames, FPS * 5), // at least 5s
+        durationInFrames: Math.max(totalFrames, FPS * 5),
         fps: FPS,
         width: 1920,
         height: 1080,
@@ -61,41 +84,13 @@ export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
     } catch (e) {
       console.warn("calculateVideoMetadata fallback:", e);
       return {
-        durationInFrames: FPS * 300, // 5 min fallback -- no artificial cap
+        durationInFrames: FPS * 300,
         fps: FPS,
         width: 1920,
         height: 1080,
       };
     }
   };
-
-// ─── Hero Scene: banner image fade-in, no text ──────────────
-
-const HeroScene: React.FC<{ imageFile: string }> = ({ imageFile }) => {
-  const frame = useCurrentFrame();
-
-  const opacity = interpolate(frame, [0, 40], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const scale = interpolate(frame, [0, 60], [1.08, 1.0], {
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: "#0f172a" }}>
-      <Img
-        src={staticFile(imageFile)}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity,
-          transform: `scale(${scale})`,
-        }}
-      />
-    </AbsoluteFill>
-  );
-};
 
 // ─── Main composition ────────────────────────────────────────
 
@@ -150,12 +145,11 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
-        // First scene with heroImage: full-screen image fade-in, no text
-        const isHeroScene =
-          index === 0 && data.heroImage && scene.images.length > 0;
-
+        // Use the AI-generated component for this scene's order,
+        // falling back to TextScene if not available.
+        const GeneratedComponent = SCENE_COMPONENTS[scene.order] || TextScene;
         const hasImages = scene.images.length > 0;
-        const SceneComponent = hasImages ? ImageScene : TextScene;
+        const imageUrl = hasImages ? staticFile(scene.images[0]) : undefined;
 
         return (
           <Sequence
@@ -164,17 +158,11 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            {isHeroScene ? (
-              <HeroScene imageFile={data.heroImage!} />
-            ) : (
-              <SceneComponent
-                title={scene.title}
-                narration={scene.narration}
-                imageUrl={
-                  hasImages ? staticFile(scene.images[0]) : undefined
-                }
-              />
-            )}
+            <GeneratedComponent
+              title={scene.title}
+              narration={scene.narration}
+              imageUrl={imageUrl}
+            />
 
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
