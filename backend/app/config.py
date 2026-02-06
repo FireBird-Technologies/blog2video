@@ -1,0 +1,50 @@
+import os
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+class Settings(BaseSettings):
+    # API Keys
+    ANTHROPIC_API_KEY: str = ""
+    ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+
+    # Stripe
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $20/mo Pro plan
+
+    # JWT
+    JWT_SECRET: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 72
+
+    # App
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Database
+    DATABASE_URL: str = "sqlite:///./blog2video.db"
+
+    # Remotion
+    REMOTION_PROJECT_PATH: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "remotion-video",
+    )
+
+    # Media storage
+    MEDIA_DIR: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media"
+    )
+
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()

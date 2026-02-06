@@ -1,0 +1,35 @@
+{
+  "projectName": "Blog2Video Preview",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "Welcome to Blog2Video",
+      "narration": "Transform any blog post into an engaging explainer video with the power of AI.",
+      "visualDescription": "Title card with animated text",
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "How It Works",
+      "narration": "Simply paste a blog URL, and our AI pipeline will scrape the content, generate a script, create visuals, and produce voiceover narration.",
+      "visualDescription": "Step by step process diagram",
+      "durationSeconds": 12,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Get Started",
+      "narration": "Create your first project now and see the magic happen. Your blog content, reimagined as video.",
+      "visualDescription": "Call to action with gradient background",
+      "durationSeconds": 8,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}
