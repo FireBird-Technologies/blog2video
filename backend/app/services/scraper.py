@@ -69,12 +69,16 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     """
     exa = Exa(api_key=settings.EXA_API_KEY)
 
-    # Request BOTH plain text AND HTML-tagged text (for code blocks + inline images)
-    # plus extras.image_links for images Exa sees on the page.
+    # Request HTML-tagged text (for code blocks + inline images) plus image_links.
+    # Use livecrawl="preferred" so Exa tries a fresh headless-browser crawl first
+    # (which executes JS → Medium/Substack images become visible), falling back
+    # to cached content if the live crawl fails.
     result = exa.get_contents(
         urls=[url],
         text={"include_html_tags": True, "max_characters": 50000},
         extras={"image_links": 40},
+        livecrawl="preferred",
+        livecrawl_timeout=15000,  # 15s timeout for live crawl
     )
 
     if not result.results:
@@ -82,6 +86,25 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
 
     page = result.results[0]
     html_text = page.text or ""
+
+    # If Exa returned very little content, the page might be paywalled/JS-rendered.
+    # Retry with livecrawl="always" to force a fresh headless crawl.
+    if len(html_text.strip()) < 500:
+        print(f"[SCRAPER] Exa returned thin content ({len(html_text)} chars), retrying with forced livecrawl...")
+        try:
+            result2 = exa.get_contents(
+                urls=[url],
+                text={"include_html_tags": True, "max_characters": 50000},
+                extras={"image_links": 40},
+                livecrawl="always",
+                livecrawl_timeout=30000,
+            )
+            if result2.results and len((result2.results[0].text or "").strip()) > len(html_text.strip()):
+                page = result2.results[0]
+                html_text = page.text or ""
+                print(f"[SCRAPER] Forced livecrawl got {len(html_text)} chars (better)")
+        except Exception as e2:
+            print(f"[SCRAPER] Forced livecrawl failed (using cached): {e2}")
 
     # --- Parse Exa's HTML (already scoped to article content) ---
     soup_exa = BeautifulSoup(html_text, "lxml") if "<" in html_text else None

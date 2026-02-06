@@ -198,7 +198,12 @@ async def _generate_scenes(project: Project, db: Session):
         db.refresh(scene)
 
     # Step 2: Generate all Remotion scene code concurrently with async DSPy
+    # IMPORTANT: Pass image FILENAMES (not absolute paths) — these resolve
+    # via staticFile() in Remotion's public/ folder.
     scene_gen = SceneCodeGenerator()
+    image_filenames = [
+        a.filename for a in project.assets if a.asset_type.value == "image"
+    ]
     scenes_data = [
         {
             "title": s.title,
@@ -209,7 +214,7 @@ async def _generate_scenes(project: Project, db: Session):
     ]
     codes = await scene_gen.generate_all_scenes(
         scenes_data,
-        image_paths,
+        image_filenames,
         accent_color=project.accent_color or "#7C3AED",
         bg_color=project.bg_color or "#0A0A0A",
         text_color=project.text_color or "#FFFFFF",

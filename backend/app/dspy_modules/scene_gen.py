@@ -439,6 +439,15 @@ class SceneToRemotion(dspy.Signature):
     - Do NOT import React
     - Output ONLY TypeScript/JSX code, no markdown fences
 
+    ═══ IMAGES (CRITICAL) ═══
+    - If the scene has images, they are passed via the `imageUrl` prop
+    - ALWAYS use the imageUrl prop: <Img src={imageUrl} ... />
+    - NEVER hardcode image paths or URLs in the component
+    - NEVER use staticFile() yourself — the caller already resolved it
+    - If imageUrl is provided, show it prominently (e.g. side-by-side with text,
+      or as a background with overlay, or in a styled frame)
+    - Always handle the case where imageUrl is undefined (show a placeholder shape)
+
     ═══ SCENE 0 (HERO) ═══
     Scene 0: image-only. Full-screen Img + fade-in + scale. NO text.
 
@@ -452,7 +461,10 @@ class SceneToRemotion(dspy.Signature):
     scene_title: str = dspy.InputField(desc="Title of this scene")
     narration: str = dspy.InputField(desc="Narration text (empty for Scene 0)")
     visual_description: str = dspy.InputField(desc="What to show visually")
-    available_images: str = dspy.InputField(desc="JSON array of image paths")
+    available_images: str = dspy.InputField(
+        desc="JSON array of image filenames available in the public folder. "
+        "Do NOT embed these in the code. Images are passed via the imageUrl prop at runtime."
+    )
     scene_index: int = dspy.InputField(desc="0-based index. Scene 0 = hero.")
     total_scenes: int = dspy.InputField(desc="Total scenes in the video")
     example_code: str = dspy.InputField(
