@@ -86,6 +86,7 @@ export interface Project {
   voice_gender: string;
   voice_accent: string;
   studio_port: number | null;
+  player_port: number | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -177,13 +178,28 @@ export const deleteProject = (id: number) =>
 export const scrapeProject = (id: number) =>
   api.post<Project>(`/projects/${id}/scrape`);
 
-export const generateScript = (id: number, targetDurationMinutes = 3) =>
-  api.post<Project>(`/projects/${id}/generate-script`, {
-    target_duration_minutes: targetDurationMinutes,
-  });
+export const generateScript = (id: number) =>
+  api.post<Project>(`/projects/${id}/generate-script`);
 
 export const generateScenes = (id: number) =>
   api.post<Project>(`/projects/${id}/generate-scenes`);
+
+// ─── Async pipeline ──────────────────────────────────────
+
+export interface PipelineStatus {
+  status: string;
+  step: number;
+  running: boolean;
+  error: string | null;
+  studio_port: number | null;
+  player_port: number | null;
+}
+
+export const startGeneration = (id: number) =>
+  api.post(`/projects/${id}/generate`);
+
+export const getPipelineStatus = (id: number) =>
+  api.get<PipelineStatus>(`/projects/${id}/status`);
 
 export const updateScene = (
   projectId: number,
@@ -196,6 +212,18 @@ export const launchStudio = (id: number) =>
 
 export const renderVideo = (id: number) =>
   api.post(`/projects/${id}/render`);
+
+export interface RenderStatus {
+  progress: number;
+  rendered_frames: number;
+  total_frames: number;
+  done: boolean;
+  error: string | null;
+  time_remaining: string | null;
+}
+
+export const getRenderStatus = (id: number) =>
+  api.get<RenderStatus>(`/projects/${id}/render-status`);
 
 export const downloadVideo = async (id: number, filename?: string) => {
   const res = await api.get(`/projects/${id}/download`, {

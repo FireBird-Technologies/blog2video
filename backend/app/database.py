@@ -48,3 +48,7 @@ def _migrate(eng):
                 conn.execute(text(
                     "ALTER TABLE projects ADD COLUMN voice_accent VARCHAR(10) DEFAULT 'american'"
                 ))
+            if "player_port" not in cols:
+                conn.execute(text(
+                    "ALTER TABLE projects ADD COLUMN player_port INTEGER"
+                ))

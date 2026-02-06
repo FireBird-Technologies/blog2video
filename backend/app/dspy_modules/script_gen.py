@@ -1,37 +1,65 @@
 import json
 import dspy
-from typing import Optional
 
-from app.config import settings
+from app.dspy_modules import ensure_dspy_configured
 
 
 class BlogToScript(dspy.Signature):
     """
-    Given blog content and a list of image URLs from the blog, create a structured
-    video script for an explainer video. The script should be engaging, clear, and
-    organized into scenes suitable for a Remotion-based video.
+    Given blog content, a list of image URLs from the blog, and a hero image path,
+    create a structured video script for an explainer video. The script should be
+    engaging, clear, and organized into scenes suitable for a Remotion-based video.
 
-    Each scene should have:
-    - A descriptive title
-    - Narration text (what the voiceover will say)
-    - Visual direction (what should appear on screen)
-    - Suggested images from the blog to use
-    - Approximate duration in seconds
+    IMPORTANT RULES:
+    - The video should be AS LONG AS NEEDED to cover the blog content thoroughly.
+    - Do NOT artificially shorten content. Each major point deserves its own scene.
+    - Output at most 10 scenes. If the blog is short, fewer scenes are fine.
+    - Combine only truly related minor points; give major topics their own scene.
+
+    FIRST SCENE RULE:
+    - The FIRST scene MUST be a "Hero Opening" with an EMPTY narration ("").
+    - It is a visual-only scene that displays the hero/banner image with a fade-in.
+    - Set its duration to 3-4 seconds. No voiceover on this scene.
+    - The actual introduction narration goes in the SECOND scene.
+
+    Duration calculation: Each scene's duration_seconds should be based on narration
+    word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
+
+    ═══ VISUAL DESCRIPTION RULES (CRITICAL) ═══
+    The visual_description field drives which visual components get used. Be SPECIFIC:
+    - If the blog has CODE → write "Show code block with: [paste actual code]"
+    - If listing features/steps → write "Animated bullet list: 1) item, 2) item, ..."
+    - If describing a flow/pipeline → write "Flow diagram: Input → Process → Output"
+    - If comparing two things → write "Comparison split-screen: X vs Y"
+    - If showing statistics → write "Big metric: 97% with animated counter"
+    - If a key quote/definition → write "Quote callout: [the quote]"
+    - If an image is relevant → write "Show image with caption: [description]"
+    - NEVER write vague descriptions like "display information" or "show content"
+    - ALWAYS include the ACTUAL content to be visualized (real items, real code, real numbers)
 
     Output the scenes as a JSON array.
     """
 
-    blog_content: str = dspy.InputField(desc="The full text content extracted from the blog post")
+    blog_content: str = dspy.InputField(
+        desc="The full text content extracted from the blog post. "
+        "May contain '═══ CODE BLOCKS FROM THIS BLOG ═══' section with actual code snippets. "
+        "Use these code blocks in visual_description when relevant."
+    )
     blog_images: str = dspy.InputField(desc="JSON array of image URLs/paths available from the blog")
-    target_duration_minutes: int = dspy.InputField(desc="Target total video duration in minutes")
+    hero_image: str = dspy.InputField(desc="Path to the main hero/header image of the blog. Use this in the first (hero opening) scene.")
 
     title: str = dspy.OutputField(desc="A compelling title for the explainer video")
     scenes_json: str = dspy.OutputField(
         desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str), "visual_description" (str), "suggested_images" (list of str), '
-        '"duration_seconds" (int). Example: [{"title": "Introduction", "narration": "Welcome...", '
-        '"visual_description": "Show title card with blog header image", '
-        '"suggested_images": ["img1.jpg"], "duration_seconds": 15}]'
+        '"narration" (str -- EMPTY STRING for the first hero scene), '
+        '"visual_description" (str), "suggested_images" (list of str), '
+        '"duration_seconds" (int). '
+        'FIRST scene must have narration="" and duration_seconds=3. '
+        'Example: [{"title": "Hero Opening", "narration": "", '
+        '"visual_description": "Full-screen hero banner image fade-in", '
+        '"suggested_images": ["hero.jpg"], "duration_seconds": 3}, '
+        '{"title": "Introduction", "narration": "Welcome to...", '
+        '"visual_description": "...", "suggested_images": [], "duration_seconds": 15}]'
     )
 
 
@@ -39,32 +67,27 @@ class ScriptGenerator:
     """Service that uses DSPy to generate video scripts from blog content."""
 
     def __init__(self):
-        self._configure_dspy()
-        self.generator = dspy.ChainOfThought(BlogToScript)
+        ensure_dspy_configured()
+        self._generator = dspy.ChainOfThought(BlogToScript)
+        self.generator = dspy.asyncify(self._generator)
 
-    def _configure_dspy(self):
-        lm = dspy.LM(
-            "anthropic/claude-sonnet-4-20250514",
-            api_key=settings.ANTHROPIC_API_KEY,
-        )
-        dspy.configure(lm=lm)
-
-    def generate(
+    async def generate(
         self,
         blog_content: str,
         blog_images: list[str],
-        target_duration_minutes: int = 3,
+        hero_image: str = "",
     ) -> dict:
         """
-        Generate a video script from blog content.
+        Generate a video script from blog content (async).
+        The video duration is determined by the content length -- no artificial limit.
 
         Returns:
             dict with 'title' and 'scenes' (list of scene dicts)
         """
-        result = self.generator(
+        result = await self.generator(
             blog_content=blog_content,
             blog_images=json.dumps(blog_images),
-            target_duration_minutes=target_duration_minutes,
+            hero_image=hero_image or "(no hero image available)",
         )
 
         # Parse the scenes JSON
@@ -89,9 +112,9 @@ class ScriptGenerator:
             if not isinstance(scenes, list):
                 scenes = [scenes]
 
-            # Validate each scene has required fields
+            # Validate each scene has required fields, cap at 10
             validated = []
-            for i, scene in enumerate(scenes):
+            for i, scene in enumerate(scenes[:10]):
                 validated.append({
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": scene.get("narration", ""),

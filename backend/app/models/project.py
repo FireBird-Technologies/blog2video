@@ -29,6 +29,7 @@ class Project(Base):
     voice_gender: Mapped[str] = mapped_column(String(10), default="female")
     voice_accent: Mapped[str] = mapped_column(String(10), default="american")
     studio_port: Mapped[int | None] = mapped_column(nullable=True)
+    player_port: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

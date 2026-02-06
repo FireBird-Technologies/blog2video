@@ -11,5 +11,5 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["src"]
+  "include": ["src", "vite.player.config.ts"]
 }

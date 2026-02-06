@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { AbsoluteFill, Audio, Sequence, staticFile } from "remotion";
+import {
+  AbsoluteFill,
+  Audio,
+  Img,
+  Sequence,
+  staticFile,
+  interpolate,
+  useCurrentFrame,
+  CalculateMetadataFunction,
+} from "remotion";
 import { TextScene } from "./components/TextScene";
 import { ImageScene } from "./components/ImageScene";
 import { TransitionWipe } from "./components/Transitions";
@@ -17,10 +26,80 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   scenes: SceneData[];
 }
 
-export const ExplainerVideo: React.FC<{ dataUrl: string }> = ({ dataUrl }) => {
+interface VideoProps {
+  dataUrl: string;
+}
+
+// ─── Calculate actual duration from data.json ────────────────
+
+export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
+  async ({ props }) => {
+    const FPS = 30;
+    try {
+      const url = staticFile(props.dataUrl.replace(/^\//, ""));
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+      const data: VideoData = await res.json();
+
+      const totalSeconds = data.scenes.reduce(
+        (sum, s) => sum + (s.durationSeconds || 5),
+        0
+      );
+      // Add a small buffer (2s) for transitions
+      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
+
+      return {
+        durationInFrames: Math.max(totalFrames, FPS * 5), // at least 5s
+        fps: FPS,
+        width: 1920,
+        height: 1080,
+      };
+    } catch (e) {
+      console.warn("calculateVideoMetadata fallback:", e);
+      return {
+        durationInFrames: FPS * 300, // 5 min fallback -- no artificial cap
+        fps: FPS,
+        width: 1920,
+        height: 1080,
+      };
+    }
+  };
+
+// ─── Hero Scene: banner image fade-in, no text ──────────────
+
+const HeroScene: React.FC<{ imageFile: string }> = ({ imageFile }) => {
+  const frame = useCurrentFrame();
+
+  const opacity = interpolate(frame, [0, 40], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+  const scale = interpolate(frame, [0, 60], [1.08, 1.0], {
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#0f172a" }}>
+      <Img
+        src={staticFile(imageFile)}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          opacity,
+          transform: `scale(${scale})`,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// ─── Main composition ────────────────────────────────────────
+
+export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
 
   useEffect(() => {
@@ -28,7 +107,6 @@ export const ExplainerVideo: React.FC<{ dataUrl: string }> = ({ dataUrl }) => {
       .then((res) => res.json())
       .then(setData)
       .catch(() => {
-        // Fallback data for preview
         setData({
           projectName: "Blog2Video Preview",
           scenes: [
@@ -72,6 +150,10 @@ export const ExplainerVideo: React.FC<{ dataUrl: string }> = ({ dataUrl }) => {
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
+        // First scene with heroImage: full-screen image fade-in, no text
+        const isHeroScene =
+          index === 0 && data.heroImage && scene.images.length > 0;
+
         const hasImages = scene.images.length > 0;
         const SceneComponent = hasImages ? ImageScene : TextScene;
 
@@ -82,14 +164,17 @@ export const ExplainerVideo: React.FC<{ dataUrl: string }> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            {/* Scene content */}
-            <SceneComponent
-              title={scene.title}
-              narration={scene.narration}
-              imageUrl={
-                hasImages ? staticFile(scene.images[0]) : undefined
-              }
-            />
+            {isHeroScene ? (
+              <HeroScene imageFile={data.heroImage!} />
+            ) : (
+              <SceneComponent
+                title={scene.title}
+                narration={scene.narration}
+                imageUrl={
+                  hasImages ? staticFile(scene.images[0]) : undefined
+                }
+              />
+            )}
 
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
