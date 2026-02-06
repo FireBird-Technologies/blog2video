@@ -69,12 +69,12 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     """
     exa = Exa(api_key=settings.EXA_API_KEY)
 
-    # Request BOTH plain text AND HTML-tagged text (for code blocks)
-    # plus extras.image_links for inline images Exa sees on the page.
+    # Request BOTH plain text AND HTML-tagged text (for code blocks + inline images)
+    # plus extras.image_links for images Exa sees on the page.
     result = exa.get_contents(
         urls=[url],
         text={"include_html_tags": True, "max_characters": 50000},
-        extras={"image_links": 20},
+        extras={"image_links": 40},
     )
 
     if not result.results:
@@ -83,12 +83,16 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     page = result.results[0]
     html_text = page.text or ""
 
-    # --- Extract code blocks from the HTML-tagged text Exa returned ---
+    # --- Parse Exa's HTML (already scoped to article content) ---
+    soup_exa = BeautifulSoup(html_text, "lxml") if "<" in html_text else None
+
+    # Extract code blocks
     code_blocks: list[dict] = []
-    if "<pre" in html_text or "<code" in html_text:
-        soup_exa = BeautifulSoup(html_text, "lxml")
+    if soup_exa and ("<pre" in html_text or "<code" in html_text):
         code_blocks = _extract_code_blocks(soup_exa)
-        # Convert HTML to clean plain text for the LLM
+
+    # Convert HTML to clean plain text for the LLM
+    if soup_exa:
         text = soup_exa.get_text(separator="\n", strip=True)
         text = re.sub(r"\n{3,}", "\n\n", text).strip()
     else:
@@ -107,18 +111,24 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
         image_urls.append(page.image)
         seen_images.add(page.image)
 
-    # 2. Body images from Exa extras.image_links
+    # 2. Inline images from Exa's article HTML (best source — already
+    #    scoped to the article body, so every image here is near the text)
+    if soup_exa:
+        for img_url in _extract_all_image_srcs(soup_exa, url):
+            if img_url not in seen_images and _is_blog_image(img_url):
+                image_urls.append(img_url)
+                seen_images.add(img_url)
+
+    # 3. Exa extras.image_links (may include some the HTML didn't have)
     if hasattr(page, "extras") and page.extras:
         exa_images = page.extras.get("image_links") or page.extras.get("imageLinks") or []
         for img_url in exa_images:
             if isinstance(img_url, str) and img_url not in seen_images:
-                # Skip tiny tracking pixels, icons, avatars
-                skip_patterns = ["avatar", "logo", "icon", "emoji", "gravatar", "pixel", "tracking", "1x1"]
-                if not any(p in img_url.lower() for p in skip_patterns):
+                if _is_blog_image(img_url):
                     image_urls.append(img_url)
                     seen_images.add(img_url)
 
-    # 3. Fallback: quick HTML fetch for images if Exa gave us fewer than 3
+    # 4. Fallback: direct HTML fetch — only look inside <article>/<main>
     if len(image_urls) < 3:
         try:
             resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=15)
@@ -132,8 +142,8 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
                         image_urls.insert(0, og_img)
                         seen_images.add(og_img)
 
-                # Extract remaining body images
-                body_images = _extract_image_urls(soup, url)
+                # Extract images ONLY from the article body container
+                body_images = _extract_article_image_urls(soup, url)
                 for img_url in body_images:
                     if img_url not in seen_images:
                         image_urls.append(img_url)
@@ -298,32 +308,58 @@ def _extract_text(soup: BeautifulSoup) -> str:
     return text
 
 
-def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
-    """Extract all meaningful image URLs from the page."""
+def _extract_article_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
+    """
+    Extract images ONLY from the article/main content area — not the
+    sidebar, header, footer, nav, or other page chrome.
+    This ensures we only get images that sit next to the blog text.
+    """
+    # Find the article body container
+    article = (
+        soup.find("article")
+        or soup.find("main")
+        or soup.find("div", class_=re.compile(r"(post|article|content|entry|story)", re.I))
+        or soup.find("div", id=re.compile(r"(post|article|content|entry|story)", re.I))
+    )
+
+    # If we can't find a specific container, fall back to body
+    # but strip nav/footer/aside/header first
+    if not article:
+        article = soup.find("body") or soup
+        for tag_name in ["nav", "footer", "header", "aside"]:
+            for el in article.find_all(tag_name):
+                el.decompose()
+
     image_urls = []
     seen = set()
 
-    for img in soup.find_all("img"):
+    for img in article.find_all("img"):
         src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
         if not src:
             continue
 
         full_url = urljoin(base_url, src)
 
+        # Skip data URIs and duplicates
+        if full_url.startswith("data:") or full_url in seen:
+            continue
+
+        # Skip images with small explicit dimensions (icons, avatars)
         width = img.get("width")
         height = img.get("height")
         if width and height:
             try:
-                if int(width) < 50 or int(height) < 50:
+                if int(width) < 100 or int(height) < 100:
                     continue
             except ValueError:
                 pass
 
-        if full_url.startswith("data:") or full_url in seen:
+        # Check alt text for icon-like content
+        alt = (img.get("alt") or "").lower()
+        if any(kw in alt for kw in ["icon", "logo", "avatar", "badge", "button", "arrow"]):
             continue
 
-        skip_patterns = ["avatar", "logo", "icon", "emoji", "gravatar", "pixel", "tracking"]
-        if any(p in full_url.lower() for p in skip_patterns):
+        if not _is_blog_image(full_url):
             continue
 
         seen.add(full_url)
@@ -332,10 +368,69 @@ def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
     return image_urls
 
 
+def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
+    """Legacy wrapper — delegates to article-scoped extraction."""
+    return _extract_article_image_urls(soup, base_url)
+
+
+# ─── Image filtering ──────────────────────────────────────
+
+# URL substrings that indicate non-blog images (icons, UI chrome, tracking)
+_SKIP_URL_PATTERNS = [
+    "avatar", "logo", "icon", "emoji", "gravatar", "pixel", "tracking",
+    "1x1", "badge", "button", "spinner", "loader", "arrow", "caret",
+    "chevron", "close", "hamburger", "menu", "nav-", "social",
+    "share", "like", "clap", "bookmark", "follow", "subscribe",
+    "profile", "author", "user-image", "thumbnail", "favicon",
+    "sprite", "widget", "ad-", "ads/", "banner-ad", "doubleclick",
+    "googlesyndication", "analytics", "stat", "beacon",
+    "placeholder", "spacer", "blank", "transparent",
+    "shield.io", "shields.io", "img.shields", "badge/",
+    "buymeacoffee", "ko-fi", "patreon", "paypal",
+    "github-mark", "twitter-logo", "linkedin-logo", "facebook-logo",
+]
+
+# File extensions that are never blog content images
+_SKIP_EXTENSIONS = {".svg", ".ico", ".gif"}
+
+# Minimum URL path length (very short paths are usually generic assets)
+_MIN_PATH_LEN = 10
+
+
+def _is_blog_image(url: str) -> bool:
+    """Return True only if the URL looks like an actual blog content image."""
+    lower = url.lower()
+
+    # Skip by extension
+    parsed = urlparse(lower)
+    ext = os.path.splitext(parsed.path)[1]
+    if ext in _SKIP_EXTENSIONS:
+        return False
+
+    # Skip by URL pattern
+    if any(p in lower for p in _SKIP_URL_PATTERNS):
+        return False
+
+    # Skip very short paths (e.g. /img.png, /x.jpg — usually site assets)
+    path = parsed.path.strip("/")
+    if len(path) < _MIN_PATH_LEN and "." in path:
+        return False
+
+    # Skip base64/data URIs
+    if lower.startswith("data:"):
+        return False
+
+    return True
+
+
+# Minimum file size in bytes to keep a downloaded image (skip tiny icons)
+_MIN_IMAGE_BYTES = 15_000  # 15 KB — real blog images are usually 50 KB+
+
+
 # ─── Image downloading ────────────────────────────────────
 
 def _download_images(project_id: int, image_urls: list[str], db: Session) -> list[str]:
-    """Download images and save them locally."""
+    """Download images, discard anything that's too small to be a real blog image."""
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
@@ -345,9 +440,15 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             response = requests.get(url, headers=_BROWSER_HEADERS, timeout=15, stream=True)
             response.raise_for_status()
 
+            # Check Content-Type — only keep actual images
+            ctype = (response.headers.get("Content-Type") or "").lower()
+            if ctype and "image" not in ctype:
+                print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
+                continue
+
             parsed = urlparse(url)
             ext = os.path.splitext(parsed.path)[1] or ".jpg"
-            if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
+            if ext not in (".jpg", ".jpeg", ".png", ".webp"):
                 ext = ".jpg"
             url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
             filename = f"img_{url_hash}{ext}"
@@ -356,6 +457,13 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             with open(local_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
+
+            # Discard tiny files — they are icons/badges, not blog images
+            file_size = os.path.getsize(local_path)
+            if file_size < _MIN_IMAGE_BYTES:
+                os.remove(local_path)
+                print(f"[SCRAPER] Discarded tiny image ({file_size} bytes): {url[:80]}")
+                continue
 
             asset = Asset(
                 project_id=project_id,
@@ -372,4 +480,5 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             continue
 
     db.commit()
+    print(f"[SCRAPER] Downloaded {len(local_paths)} blog images (discarded icons/small files)")
     return local_paths

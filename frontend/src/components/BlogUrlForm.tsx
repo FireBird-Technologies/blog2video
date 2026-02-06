@@ -17,15 +17,6 @@ interface Props {
   onClose?: () => void;
 }
 
-const PRESET_ACCENTS = [
-  { label: "Purple", value: "#7C3AED" },
-  { label: "Blue", value: "#2563EB" },
-  { label: "Emerald", value: "#059669" },
-  { label: "Rose", value: "#E11D48" },
-  { label: "Orange", value: "#EA580C" },
-  { label: "Amber", value: "#D97706" },
-];
-
 export default function BlogUrlForm({
   onSubmit,
   loading,
@@ -143,201 +134,59 @@ export default function BlogUrlForm({
         </div>
       </div>
 
-      {/* Accent Color */}
+      {/* Video Colors — three dots */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Accent Color
+          Video Colors
         </label>
-        <div className="flex items-center gap-2">
-          {PRESET_ACCENTS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              title={p.label}
-              onClick={() => setAccentColor(p.value)}
-              className={`w-7 h-7 rounded-full border-2 transition-all flex-shrink-0 ${
-                accentColor === p.value
-                  ? "border-gray-900 scale-110 shadow-md"
-                  : "border-transparent hover:border-gray-300"
-              }`}
-              style={{ backgroundColor: p.value }}
-            />
-          ))}
-          {/* Custom color picker */}
-          <label
-            title="Custom color"
-            className={`relative w-7 h-7 rounded-full border-2 cursor-pointer flex-shrink-0 overflow-hidden transition-all ${
-              !PRESET_ACCENTS.some((p) => p.value === accentColor)
-                ? "border-gray-900 scale-110 shadow-md"
-                : "border-gray-200 hover:border-gray-300"
-            }`}
-            style={{
-              backgroundColor: PRESET_ACCENTS.some(
-                (p) => p.value === accentColor
-              )
-                ? "#e5e7eb"
-                : accentColor,
-            }}
-          >
-            <input
-              type="color"
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-            {PRESET_ACCENTS.some((p) => p.value === accentColor) && (
-              <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[9px] font-bold">
-                +
-              </span>
-            )}
-          </label>
-        </div>
-      </div>
-
-      {/* Background & Text Colors */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Background
-          </label>
-          <div className="flex items-center gap-2">
-            {[
-              { label: "Black", value: "#0A0A0A" },
-              { label: "White", value: "#FFFFFF" },
-              { label: "Dark gray", value: "#1F2937" },
-            ].map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                title={c.label}
-                onClick={() => {
-                  setBgColor(c.value);
-                  // Auto-swap text color for contrast
-                  if (c.value === "#FFFFFF" || c.value === "#F9FAFB") {
-                    setTextColor("#0A0A0A");
-                  } else {
-                    setTextColor("#FFFFFF");
-                  }
-                }}
-                className={`w-7 h-7 rounded-full border-2 transition-all ${
-                  bgColor === c.value
-                    ? "border-gray-900 scale-110 shadow-md"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-                style={{ backgroundColor: c.value }}
+        <div className="flex items-center gap-4">
+          {/* Accent */}
+          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <span
+              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+              style={{ backgroundColor: accentColor }}
+            >
+              <input
+                type="color"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               />
-            ))}
-            <label
-              title="Custom background"
-              className={`relative w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden transition-all ${
-                !["#0A0A0A", "#FFFFFF", "#1F2937"].includes(bgColor)
-                  ? "border-gray-900 scale-110 shadow-md"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              style={{
-                backgroundColor: ["#0A0A0A", "#FFFFFF", "#1F2937"].includes(
-                  bgColor
-                )
-                  ? "#e5e7eb"
-                  : bgColor,
-              }}
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">Accent</span>
+          </label>
+
+          {/* Background */}
+          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <span
+              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+              style={{ backgroundColor: bgColor }}
             >
               <input
                 type="color"
                 value={bgColor}
                 onChange={(e) => setBgColor(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               />
-              {["#0A0A0A", "#FFFFFF", "#1F2937"].includes(bgColor) && (
-                <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[9px] font-bold">
-                  +
-                </span>
-              )}
-            </label>
-          </div>
-        </div>
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Text
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">Background</span>
           </label>
-          <div className="flex items-center gap-2">
-            {[
-              { label: "White", value: "#FFFFFF" },
-              { label: "Black", value: "#0A0A0A" },
-              { label: "Light gray", value: "#D1D5DB" },
-            ].map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                title={c.label}
-                onClick={() => setTextColor(c.value)}
-                className={`w-7 h-7 rounded-full border-2 transition-all ${
-                  textColor === c.value
-                    ? "border-gray-900 scale-110 shadow-md"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-                style={{ backgroundColor: c.value }}
-              />
-            ))}
-            <label
-              title="Custom text color"
-              className={`relative w-7 h-7 rounded-full border-2 cursor-pointer overflow-hidden transition-all ${
-                !["#FFFFFF", "#0A0A0A", "#D1D5DB"].includes(textColor)
-                  ? "border-gray-900 scale-110 shadow-md"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              style={{
-                backgroundColor: ["#FFFFFF", "#0A0A0A", "#D1D5DB"].includes(
-                  textColor
-                )
-                  ? "#e5e7eb"
-                  : textColor,
-              }}
+
+          {/* Text */}
+          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <span
+              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+              style={{ backgroundColor: textColor }}
             >
               <input
                 type="color"
                 value={textColor}
                 onChange={(e) => setTextColor(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               />
-              {["#FFFFFF", "#0A0A0A", "#D1D5DB"].includes(textColor) && (
-                <span className="absolute inset-0 flex items-center justify-center text-gray-400 text-[9px] font-bold">
-                  +
-                </span>
-              )}
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Preview swatch */}
-      <div
-        className="rounded-xl p-4 border border-gray-200/40 flex items-center gap-3"
-        style={{ backgroundColor: bgColor }}
-      >
-        <div
-          className="w-3 h-8 rounded-sm"
-          style={{ backgroundColor: accentColor }}
-        />
-        <div className="flex-1">
-          <p
-            className="text-sm font-semibold"
-            style={{ color: textColor }}
-          >
-            Preview Title
-          </p>
-          <p
-            className="text-xs mt-0.5 opacity-70"
-            style={{ color: textColor }}
-          >
-            Body text will look like this.
-          </p>
-        </div>
-        <div
-          className="px-3 py-1 rounded-md text-[10px] font-medium"
-          style={{ backgroundColor: accentColor, color: "#FFFFFF" }}
-        >
-          Accent
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">Text</span>
+          </label>
         </div>
       </div>
 
