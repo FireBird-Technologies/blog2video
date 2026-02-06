@@ -1,13 +1,13 @@
 {
-  "projectName": "Data Visualization as Art: Introducing Autodash's Creative Design Features",
+  "projectName": "Data Visualization is Art: Turn Data Into Beautiful Insights with Autodash",
   "heroImage": "img_b504db9243.png",
   "scenes": [
     {
-      "id": 20,
+      "id": 29,
       "order": 1,
       "title": "Hero Opening",
       "narration": "",
-      "visualDescription": "Full-screen fade-in of the Autodash hero image with the text 'Data Visualization is art. Create like a data artist' displayed prominently. Clean, artistic presentation that sets the tone for creativity and innovation.",
+      "visualDescription": "Full-screen hero banner image fade-in showing the Autodash logo and artistic data visualization concept. Smooth fade-in effect with subtle zoom.",
       "durationSeconds": 3.0,
       "voiceoverFile": null,
       "images": [
@@ -15,97 +15,85 @@
       ]
     },
     {
-      "id": 21,
+      "id": 30,
       "order": 2,
-      "title": "Introduction: Data Visualization as Art",
-      "narration": "What if data visualization wasn't just about charts and numbers, but about creating art? At Autodash, we discovered something fascinating: our users don't want standard dashboards. They want to personalize their data experience deeply, treating visualization as a true art form.",
-      "visualDescription": "Dynamic text overlay with subtle animations. Show the Autodash logo and tagline 'Turn data into insight, beautifully'. Modern, clean aesthetic with data-inspired visual elements flowing in the background.",
-      "durationSeconds": 21.8,
+      "title": "The Data Artist Vision",
+      "narration": "After testing Autodash, our AI data apps platform, we discovered something fascinating. Users don't just want standard dashboards. They want to personalize the experience deeply, treating data visualization as a form of art. We listened, and built features to help them become true data artists, turning insights into visually stunning, highly customized creations.",
+      "visualDescription": "Split screen transition: Left side shows boring standard dashboard (gray, plain), right side shows vibrant artistic data visualization with custom colors and gradients. Text overlay: 'From Standard \u2192 To Artistic'. Animate the transformation from left to right.",
+      "durationSeconds": 24.7,
       "voiceoverFile": "audio_scene_2.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 22,
+      "id": 31,
       "order": 3,
-      "title": "The Discovery: What Users Really Want",
-      "narration": "After extensive testing of Autodash, our AI-powered data visualization tool, we listened to what users were telling us. They didn't just want functional dashboards. They wanted to become data artists, creating visually stunning, highly customized creations that transform insights into art.",
-      "visualDescription": "Show user feedback concepts and transition to excited user personas. Visual metaphor of transformation from basic charts to artistic visualizations. Use icons and graphics representing customization and creativity.",
-      "durationSeconds": 21.0,
+      "title": "Feature 1: Direct Color Customization",
+      "narration": "First major feature: users can now change trace, line, bar, and component colors directly, without asking AI to regenerate the chart. No more wasted time or credits. The system auto-detects components in your visualization and lets you edit them on the fly.",
+      "visualDescription": "Show before/after comparison: Display a chart with green lines, then demonstrate the color picker interface changing the green to a different shade with lower opacity. Animate the color transition smoothly. Text callout: 'Auto-detects components \u2022 Direct editing \u2022 No regeneration needed'",
+      "durationSeconds": 19.0,
       "voiceoverFile": "audio_scene_3.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 23,
+      "id": 32,
       "order": 4,
-      "title": "Design Feature: Instant Color Customization",
-      "narration": "We've introduced powerful new design features. First up: direct color control. Now you can change trace, line, bar, and component colors instantly\u2014no regeneration needed, no credits consumed. Simply select your element and pick your perfect shade. It's like having a color palette at your fingertips.",
-      "visualDescription": "Screen recording style animation showing the color picker interface. Demonstrate changing a chart from one color scheme to another with smooth transitions. Show the before and after: green shades transforming with adjusted opacity.",
-      "durationSeconds": 22.6,
+      "title": "Feature 2: Background and Opacity Control",
+      "narration": "Second feature: complete control over chart backgrounds, KPI cards, and text backgrounds with opacity adjustment. Watch this transformation: a white background becomes black, and black text becomes white, all without regeneration. This same functionality applies to KPI cards and all visualization components.",
+      "visualDescription": "Dramatic before/after split screen: Show the exact transformation described - white chart background switching to black, black lines/text switching to white. Animate the color inversion effect smoothly. Include a KPI card example also transforming. Text overlay: 'Background + Opacity Control \u2022 Charts \u2022 KPI Cards \u2022 Text Elements'",
+      "durationSeconds": 21.5,
       "voiceoverFile": "audio_scene_4.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 24,
+      "id": 33,
       "order": 5,
-      "title": "Design Feature: Background and Opacity Controls",
-      "narration": "Want to change your chart's entire mood? You can now modify chart backgrounds, KPI card backgrounds, and text backgrounds\u2014all with adjustable opacity. Watch as we transform a white background to black, and flip text from black to white. The system auto-detects all components, making styling effortless.",
-      "visualDescription": "Animated demonstration of background color changes. Show the dramatic transformation from light theme to dark theme. Highlight KPI cards changing alongside charts. Emphasize the smooth, real-time nature of the changes.",
-      "durationSeconds": 24.5,
+      "title": "Feature 3: Dashboard-Wide Gradients",
+      "narration": "Third feature: apply colors to your entire dashboard, adjust opacity, and create stunning two-color gradients. Transform your entire workspace from standard white to custom colors or beautiful white-gray gradients that give your data a professional, artistic feel.",
+      "visualDescription": "Show the color edit panel interface, then demonstrate full dashboard transformation: Start with plain dashboard, apply solid color change, then show the white-gray gradient being applied across the entire dashboard. Animated gradient flow effect. Text: 'Whole Dashboard Control \u2022 Solid Colors \u2022 2-Color Gradients'",
+      "durationSeconds": 19.0,
       "voiceoverFile": "audio_scene_5.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 25,
+      "id": 34,
       "order": 6,
-      "title": "Design Feature: Dashboard-Wide Styling",
-      "narration": "Take it even further with dashboard-wide customization. Select a single color for your entire dashboard, adjust global opacity, or apply stunning two-color gradients. Transform your data canvas from plain white to an elegant white-gray gradient, creating a cohesive, professional look that's uniquely yours.",
-      "visualDescription": "Show the color edit panel interface. Demonstrate gradient application across an entire dashboard. Display multiple gradient examples: subtle and bold. Emphasize the artistic, cohesive result of dashboard-wide styling.",
-      "durationSeconds": 23.7,
+      "title": "Powered by AI Analytics",
+      "narration": "All of this artistic control is combined with powerful AI data analytics that get you answers fast, using Python's data science libraries to find insights in your data.",
+      "visualDescription": "Show animated flow diagram: Data Input \u2192 AI Processing (Python libraries icon) \u2192 Beautiful Visualizations. Include floating icons of pandas, matplotlib, plotly libraries. Text overlay: 'AI-Powered \u2022 Python Data Science \u2022 Fast Insights'",
+      "durationSeconds": 11.9,
       "voiceoverFile": "audio_scene_6.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 26,
+      "id": 35,
       "order": 7,
-      "title": "Powered by AI Analytics",
-      "narration": "But Autodash isn't just about beautiful visuals. Behind the scenes, powerful AI data analytics work for you. Get answers fast using Python's advanced data science libraries. Ask questions, and watch as sophisticated analytics combine with stunning design to deliver insights you can actually use.",
-      "visualDescription": "Split screen showing both beautiful visualizations and analytics queries. Display code-like elements transforming into charts. Show the query interface with example analytics questions being answered in real-time.",
-      "durationSeconds": 23.4,
+      "title": "What's Coming Next",
+      "narration": "We're not stopping here. Coming soon: Preference Memory that learns your color and aesthetic preferences automatically. Professional themes for instant inspiration. Complete font and gridline editing. A dedicated Analytics Mode like Jupyter notebooks. And comprehensive data connectors beyond Excel and CSV.",
+      "visualDescription": "Animated bullet list with icons appearing one by one: 1) \ud83e\udde0 Preference Memory - learns your style, 2) \ud83c\udfa8 Professional Themes - instant inspiration, 3) \u270f\ufe0f Font & Gridline Editing, 4) \ud83d\udcca Analytics Mode - Jupyter-like interface, 5) \ud83d\udd0c Data Connectors - SQL, databases & more. Each item fades in with a subtle pop animation.",
+      "durationSeconds": 20.9,
       "voiceoverFile": "audio_scene_7.mp3",
       "images": [
         "img_b504db9243.png"
       ]
     },
     {
-      "id": 27,
+      "id": 36,
       "order": 8,
-      "title": "Coming Soon: Even More Power",
-      "narration": "We're not stopping here. Coming soon: custom fonts and gridline controls, professionally designed themes for instant inspiration, and intelligent preference memory that learns your aesthetic choices. Plus, comprehensive data connectors and a dedicated analytics mode for building powerful data pipelines.",
-      "visualDescription": "Animated roadmap or feature preview. Show mockups or concept designs of upcoming features. Use forward-looking, exciting visuals. Display icons for: fonts, themes, memory/AI, connectors, and analytics mode.",
-      "durationSeconds": 22.0,
+      "title": "Become a Data Artist",
+      "narration": "Autodash is the perfect tool for analytics done beautifully. Data visualization is an art form, and we've built the product that turns you into the data artist. Try it at autodash.art.",
+      "visualDescription": "Montage of beautiful dashboard examples with artistic color schemes and gradients cycling through. End with big text callout: 'autodash.art' with 'Become a Data Artist' subtitle. Fade to logo.",
+      "durationSeconds": 12.7,
       "voiceoverFile": "audio_scene_8.mp3",
-      "images": [
-        "img_b504db9243.png"
-      ]
-    },
-    {
-      "id": 28,
-      "order": 9,
-      "title": "Call to Action: Become a Data Artist",
-      "narration": "Ready to become a data artist? Autodash transforms raw data into beautiful, interactive visualizations. No code. No complexity. Just your data, your vision, and the tools to bring it to life. Visit autodash.art and start creating today. Because analytics should be done beautifully.",
-      "visualDescription": "Return to hero image or show final polished dashboard examples. Display the Autodash logo and URL clearly: autodash.art. Use inspiring, uplifting visuals. End with a clean call-to-action screen.",
-      "durationSeconds": 23.5,
-      "voiceoverFile": "audio_scene_9.mp3",
       "images": [
         "img_b504db9243.png"
       ]
