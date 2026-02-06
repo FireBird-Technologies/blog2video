@@ -146,6 +146,8 @@ export const googleLogin = (credential: string) =>
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
+export const logoutCleanup = () => api.post("/auth/logout");
+
 export const getPublicConfig = () =>
   api.get<PublicConfig>("/config/public");
 

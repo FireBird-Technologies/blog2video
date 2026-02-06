@@ -102,7 +102,7 @@ async def chat_edit(
         db.refresh(project)
         try:
             write_remotion_data(project, project.scenes, db)
-            write_scene_components(project.scenes)
+            write_scene_components(project, project.scenes)
         except Exception as file_err:
             print(f"[CHAT] Warning: Failed to update Remotion files: {file_err}")
 

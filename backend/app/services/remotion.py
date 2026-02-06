@@ -3,6 +3,8 @@ import json
 import shutil
 import subprocess
 import signal
+import re
+import threading
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -15,20 +17,149 @@ _studio_processes: dict[int, subprocess.Popen] = {}
 # Track running player processes: project_id -> subprocess.Popen
 _player_processes: dict[int, subprocess.Popen] = {}
 
+# Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
+_render_progress: dict[int, dict] = {}
+
+# ─── Template files to copy into each workspace ──────────────
+
+_TEMPLATE_CONFIG_FILES = [
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "remotion.config.ts",
+    "vite.player.config.ts",
+    "player.html",
+]
+
+_TEMPLATE_SRC_FILES = [
+    "src/Root.tsx",
+    "src/index.ts",
+    "src/PlayerApp.tsx",
+    "src/components/TextScene.tsx",
+    "src/components/ImageScene.tsx",
+    "src/components/Transitions.tsx",
+]
+
+
+# ─── Per-project workspace management ────────────────────────
+
+
+def get_workspace_dir(project_id: int) -> str:
+    """Return the per-project Remotion workspace path."""
+    return os.path.join(
+        settings.MEDIA_DIR, f"projects/{project_id}/remotion-workspace"
+    )
+
+
+def provision_workspace(project_id: int) -> str:
+    """
+    Create (or ensure) a per-project Remotion workspace.
+    Copies config and template source files from the shared template.
+    Creates a directory junction (Windows) or symlink (Unix) for node_modules.
+    Returns the workspace path.
+    """
+    workspace = get_workspace_dir(project_id)
+    template = settings.REMOTION_PROJECT_PATH
+
+    os.makedirs(workspace, exist_ok=True)
+    os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
+    os.makedirs(
+        os.path.join(workspace, "src", "components", "generated"), exist_ok=True
+    )
+
+    # Link node_modules from template (junction on Windows, symlink on Unix)
+    _link_directory(
+        os.path.join(template, "node_modules"),
+        os.path.join(workspace, "node_modules"),
+    )
+
+    # Copy config files
+    for filename in _TEMPLATE_CONFIG_FILES:
+        src = os.path.join(template, filename)
+        dst = os.path.join(workspace, filename)
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+
+    # Copy static template source files
+    for rel_path in _TEMPLATE_SRC_FILES:
+        src = os.path.join(template, rel_path)
+        dst = os.path.join(workspace, rel_path)
+        if os.path.exists(src):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+
+    return workspace
+
+
+def _link_directory(src: str, dst: str) -> None:
+    """Create a directory junction (Windows) or symlink (Unix)."""
+    if os.path.exists(dst) or os.path.islink(dst):
+        return  # already linked
+    if not os.path.exists(src):
+        raise FileNotFoundError(
+            f"Template node_modules not found at {src}. "
+            f"Run 'npm install' in {os.path.dirname(src)} first."
+        )
+
+    src = os.path.abspath(src)
+    dst = os.path.abspath(dst)
+
+    if os.name == "nt":
+        # Directory junction — no admin required on Windows
+        subprocess.run(
+            ["cmd", "/c", "mklink", "/J", dst, src],
+            check=True,
+            capture_output=True,
+        )
+    else:
+        os.symlink(src, dst, target_is_directory=True)
+
+
+def safe_remove_workspace(workspace_dir: str) -> None:
+    """
+    Safely remove a workspace directory, unlinking the node_modules
+    junction/symlink first so we don't delete the shared template's
+    real node_modules.
+    """
+    if not os.path.exists(workspace_dir):
+        return
+    nm = os.path.join(workspace_dir, "node_modules")
+    # Remove junction/symlink without following it
+    if os.path.islink(nm):
+        os.unlink(nm)
+    elif os.path.isdir(nm):
+        try:
+            # os.rmdir removes a junction on Windows without following it
+            os.rmdir(nm)
+        except OSError:
+            pass  # real dir with contents — rmtree will handle it
+    shutil.rmtree(workspace_dir, ignore_errors=True)
+
+
+def rebuild_workspace(project: Project, scenes: list[Scene], db: Session) -> str:
+    """
+    Fully rebuild a project's Remotion workspace from DB data.
+    Can reconstruct at any time from stored scene code + assets.
+    """
+    workspace = provision_workspace(project.id)
+    write_remotion_data(project, scenes, db)
+    write_scene_components(project, scenes)
+    return workspace
+
+
+# ─── Write project files to workspace ────────────────────────
+
 
 def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> str:
     """
-    Write scene data and assets to the Remotion project's public folder
-    so the video components can load them at runtime.
-
-    Returns:
-        str: Path to the generated data.json file
+    Write scene data and assets to the project's Remotion workspace public folder.
+    Returns the path to data.json.
     """
-    remotion_dir = settings.REMOTION_PROJECT_PATH
-    public_dir = os.path.join(remotion_dir, "public")
+    workspace = provision_workspace(project.id)
+    public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
-    # Collect and copy ALL images to public dir once
+    # Collect and copy ALL images to public dir
     all_image_files = []
     for asset in project.assets:
         if asset.asset_type.value == "image" and os.path.exists(asset.local_path):
@@ -42,9 +173,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     # Distribute images across scenes (hero gets first, rest are round-robin)
     scene_image_map: dict[int, list[str]] = {i: [] for i in range(len(scenes))}
     if all_image_files:
-        # Scene 0 (hero) always gets the hero image
         scene_image_map[0].append(all_image_files[0])
-        # Remaining images distributed round-robin across all scenes
         remaining = all_image_files[1:]
         for idx, img_file in enumerate(remaining):
             scene_idx = idx % len(scenes)
@@ -54,25 +183,25 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     # Build scene data
     scene_data = []
     for i, scene in enumerate(scenes):
-        # Copy voiceover files to remotion public
         voiceover_filename = None
         if scene.voiceover_path and os.path.exists(scene.voiceover_path):
             voiceover_filename = f"audio_scene_{scene.order}.mp3"
             dest = os.path.join(public_dir, voiceover_filename)
             _copy_file(scene.voiceover_path, dest)
 
-        scene_data.append({
-            "id": scene.id,
-            "order": scene.order,
-            "title": scene.title,
-            "narration": scene.narration_text,
-            "visualDescription": scene.visual_description,
-            "durationSeconds": scene.duration_seconds,
-            "voiceoverFile": voiceover_filename,
-            "images": scene_image_map.get(i, []),
-        })
+        scene_data.append(
+            {
+                "id": scene.id,
+                "order": scene.order,
+                "title": scene.title,
+                "narration": scene.narration_text,
+                "visualDescription": scene.visual_description,
+                "durationSeconds": scene.duration_seconds,
+                "voiceoverFile": voiceover_filename,
+                "images": scene_image_map.get(i, []),
+            }
+        )
 
-    # Write data.json
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
@@ -85,25 +214,20 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     return data_path
 
 
-def write_scene_components(scenes: list[Scene]) -> None:
+def write_scene_components(project: Project, scenes: list[Scene]) -> None:
     """
-    Write individual Remotion scene component files generated by DSPy,
-    plus regenerate ExplainerVideo.tsx so it actually imports and renders
-    the generated scene components (instead of the hardcoded TextScene).
+    Write individual Remotion scene component files from DB-stored code,
+    plus regenerate ExplainerVideo.tsx for the workspace.
     """
-    components_dir = os.path.join(
-        settings.REMOTION_PROJECT_PATH, "src", "components", "generated"
-    )
+    workspace = get_workspace_dir(project.id)
+    components_dir = os.path.join(workspace, "src", "components", "generated")
     os.makedirs(components_dir, exist_ok=True)
 
     for scene in scenes:
         filename = f"Scene{scene.order}.tsx"
         filepath = os.path.join(components_dir, filename)
 
-        if scene.remotion_code:
-            code = scene.remotion_code
-        else:
-            code = _default_scene_component(scene)
+        code = scene.remotion_code if scene.remotion_code else _default_scene_component(scene)
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(code)
@@ -118,35 +242,34 @@ def write_scene_components(scenes: list[Scene]) -> None:
     with open(index_path, "w", encoding="utf-8") as f:
         f.write("\n".join(exports) + "\n")
 
-    # ── Regenerate ExplainerVideo.tsx with real generated scene imports ──
-    _write_explainer_video(scenes)
+    # Regenerate ExplainerVideo.tsx
+    _write_explainer_video(project, scenes)
+
+
+# ─── Studio & Player ─────────────────────────────────────────
 
 
 def launch_studio(project: Project, db: Session) -> int:
-    """
-    Launch Remotion Studio + Player preview as subprocesses.
-
-    Returns:
-        int: The studio port number
-    """
-    # Kill existing processes for this project
+    """Launch Remotion Studio + Player preview from the project workspace."""
     stop_studio(project.id)
 
-    remotion_dir = settings.REMOTION_PROJECT_PATH
+    workspace = get_workspace_dir(project.id)
 
-    # ── Studio (full editing UI) ────────────────────────────
+    # ── Studio (full editing UI) ─────────────────────────
     studio_port = 3100 + (project.id % 100)
-
     npx = shutil.which("npx") or "npx"
     studio_cmd = [
-        npx, "remotion", "studio",
-        "--port", str(studio_port),
+        npx,
+        "remotion",
+        "studio",
+        "--port",
+        str(studio_port),
         "--no-open",
     ]
 
     studio_proc = subprocess.Popen(
         studio_cmd,
-        cwd=remotion_dir,
+        cwd=workspace,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=(os.name == "nt"),
@@ -154,19 +277,21 @@ def launch_studio(project: Project, db: Session) -> int:
     )
     _studio_processes[project.id] = studio_proc
 
-    # ── Player preview (controls-only) ──────────────────────
+    # ── Player preview (controls-only) ───────────────────
     player_port = 3200 + (project.id % 100)
-
     player_cmd = [
-        npx, "vite",
-        "--config", "vite.player.config.ts",
-        "--port", str(player_port),
+        npx,
+        "vite",
+        "--config",
+        "vite.player.config.ts",
+        "--port",
+        str(player_port),
         "--strictPort",
     ]
 
     player_proc = subprocess.Popen(
         player_cmd,
-        cwd=remotion_dir,
+        cwd=workspace,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=(os.name == "nt"),
@@ -174,7 +299,6 @@ def launch_studio(project: Project, db: Session) -> int:
     )
     _player_processes[project.id] = player_proc
 
-    # Update project with both ports
     project.studio_port = studio_port
     project.player_port = player_port
     db.commit()
@@ -196,11 +320,7 @@ def stop_studio(project_id: int) -> None:
                 pass
 
 
-import re
-import threading
-
-# Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
-_render_progress: dict[int, dict] = {}
+# ─── Render ───────────────────────────────────────────────────
 
 
 def get_render_progress(project_id: int) -> dict:
@@ -209,32 +329,23 @@ def get_render_progress(project_id: int) -> dict:
 
 
 def render_video(project: Project) -> str:
-    """
-    Render the video using Remotion CLI (synchronous, blocking).
-
-    Returns:
-        str: Path to the output video file
-    """
-    remotion_dir = settings.REMOTION_PROJECT_PATH
+    """Render the video synchronously from the project workspace."""
+    workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
 
     npx = shutil.which("npx") or "npx"
-    cmd = [
-        npx, "remotion", "render",
-        "ExplainerVideo",
-        output_path,
-    ]
+    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path]
 
     result = subprocess.run(
         cmd,
-        cwd=remotion_dir,
+        cwd=workspace,
         shell=(os.name == "nt"),
         capture_output=True,
         text=True,
-        timeout=600,  # 10 minute timeout
+        timeout=600,
     )
 
     if result.returncode != 0:
@@ -244,22 +355,15 @@ def render_video(project: Project) -> str:
 
 
 def start_render_async(project: Project) -> None:
-    """
-    Kick off the Remotion render as a background subprocess.
-    Progress is tracked in _render_progress and can be polled.
-    """
-    remotion_dir = settings.REMOTION_PROJECT_PATH
+    """Kick off the Remotion render as a background subprocess with progress tracking."""
+    workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
 
     npx = shutil.which("npx") or "npx"
-    cmd = [
-        npx, "remotion", "render",
-        "ExplainerVideo",
-        output_path,
-    ]
+    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path]
 
     _render_progress[project.id] = {
         "progress": 0,
@@ -271,17 +375,15 @@ def start_render_async(project: Project) -> None:
         "time_remaining": None,
     }
 
-    # Use raw bytes (not text) so we can handle \r progress overwrites
     process = subprocess.Popen(
         cmd,
-        cwd=remotion_dir,
+        cwd=workspace,
         shell=(os.name == "nt"),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
     )
 
-    # Monitor both stdout and stderr in separate threads
     for stream in (process.stdout, process.stderr):
         t = threading.Thread(
             target=_read_render_stream,
@@ -290,20 +392,17 @@ def start_render_async(project: Project) -> None:
         )
         t.start()
 
-    # Wait for process in a separate thread and mark done
     threading.Thread(
         target=_wait_render, args=(project.id, process), daemon=True
     ).start()
 
 
+# ─── Render stream parsing ────────────────────────────────────
+
+
 def _read_render_stream(project_id: int, stream) -> None:
-    """
-    Read a raw byte stream character-by-character, splitting on both
-    \\r and \\n so we catch Remotion's carriage-return progress lines.
-    """
-    # Matches: "Rendered 1337/8631"  (no parens — actual Remotion output)
+    """Read raw byte stream, splitting on \\r and \\n for Remotion progress."""
     frame_pat = re.compile(r"Rendered\s+(\d+)\s*/\s*(\d+)")
-    # Matches: "time remaining: 2m 46s"
     time_pat = re.compile(r"time remaining:\s*(.+?)$")
 
     buf = b""
@@ -323,7 +422,6 @@ def _read_render_stream(project_id: int, stream) -> None:
                     buf = b""
             else:
                 buf += ch
-        # Flush remaining buffer
         if buf:
             _parse_render_line(
                 project_id,
@@ -332,18 +430,15 @@ def _read_render_stream(project_id: int, stream) -> None:
                 time_pat,
             )
     except Exception:
-        pass  # stream closed
+        pass
 
 
-def _parse_render_line(
-    project_id: int, line: str, frame_pat, time_pat
-) -> None:
+def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     """Parse a single line of Remotion render output for progress info."""
     line = line.strip()
     if not line:
         return
 
-    # Frame-based: "Rendered 1337/8631, time remaining: 2m 46s"
     m = frame_pat.search(line)
     if m:
         rendered = int(m.group(1))
@@ -354,7 +449,6 @@ def _parse_render_line(
             _render_progress[project_id]["progress"] = round(
                 (rendered / total) * 100
             )
-        # Extract time remaining
         tm = time_pat.search(line)
         if tm:
             _render_progress[project_id]["time_remaining"] = tm.group(1).strip()
@@ -365,20 +459,14 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
     import time
 
     try:
-        # Use a polling loop instead of bare process.wait() for Windows reliability.
-        # On Windows with shell=True, process.wait() can sometimes hang after
-        # the child has already exited.
         while True:
             retcode = process.poll()
             if retcode is not None:
                 break
-            # Check if progress already shows 100% with all frames rendered
-            # (safety net: if CLI finished outputting but process object is stale)
             prog = _render_progress.get(project_id, {})
             total = prog.get("total_frames", 0)
             rendered = prog.get("rendered_frames", 0)
             if total > 0 and rendered >= total:
-                # Frames all rendered — give CLI 10s to actually exit
                 try:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
@@ -386,11 +474,15 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 break
             time.sleep(0.5)
 
-        retcode = process.returncode if process.returncode is not None else process.poll()
+        retcode = (
+            process.returncode if process.returncode is not None else process.poll()
+        )
 
         if retcode is None or retcode == 0:
             _render_progress[project_id]["progress"] = 100
-            _render_progress[project_id]["rendered_frames"] = _render_progress[project_id].get("total_frames", 0)
+            _render_progress[project_id]["rendered_frames"] = _render_progress[
+                project_id
+            ].get("total_frames", 0)
             _render_progress[project_id]["done"] = True
         else:
             _render_progress[project_id]["error"] = (
@@ -402,15 +494,14 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
         _render_progress[project_id]["done"] = True
 
 
-def _write_explainer_video(scenes: list[Scene]) -> None:
-    """
-    Regenerate ExplainerVideo.tsx to import and render the AI-generated
-    scene components instead of the hardcoded TextScene/ImageScene.
-    """
-    remotion_dir = settings.REMOTION_PROJECT_PATH
-    filepath = os.path.join(remotion_dir, "src", "ExplainerVideo.tsx")
+# ─── Internal helpers ─────────────────────────────────────────
 
-    # Build import lines for each generated scene
+
+def _write_explainer_video(project: Project, scenes: list[Scene]) -> None:
+    """Regenerate ExplainerVideo.tsx in the project workspace."""
+    workspace = get_workspace_dir(project.id)
+    filepath = os.path.join(workspace, "src", "ExplainerVideo.tsx")
+
     scene_imports = []
     for scene in scenes:
         scene_imports.append(
@@ -418,7 +509,6 @@ def _write_explainer_video(scenes: list[Scene]) -> None:
         )
     imports_block = "\n".join(scene_imports)
 
-    # Build the scene-to-component mapping
     scene_map_entries = []
     for scene in scenes:
         scene_map_entries.append(f"  {scene.order}: Scene{scene.order},")
@@ -555,8 +645,6 @@ export const ExplainerVideo: React.FC<VideoProps> = ({{ dataUrl }}) => {{
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
-        // Use the AI-generated component for this scene's order,
-        // falling back to TextScene if not available.
         const GeneratedComponent = SCENE_COMPONENTS[scene.order] || TextScene;
         const hasImages = scene.images.length > 0;
         const imageUrl = hasImages ? staticFile(scene.images[0]) : undefined;
@@ -602,17 +690,13 @@ export const ExplainerVideo: React.FC<VideoProps> = ({{ dataUrl }}) => {{
 
 def _copy_file(src: str, dest: str) -> None:
     """Copy a file from src to dest."""
-    import shutil
     if os.path.abspath(src) != os.path.abspath(dest):
         shutil.copy2(src, dest)
 
 
 def _default_scene_component(scene: Scene) -> str:
-    """Generate a default Remotion scene component.
-    White/black background, purple accent, geometric shapes.
-    Scene 1 (hero) is image-only with fade-in."""
+    """Generate a default Remotion scene component."""
     if scene.order == 1:
-        # Hero opening: full-screen image fade-in, NO text
         return f'''import {{ AbsoluteFill, Img, interpolate, useCurrentFrame }} from "remotion";
 
 const Scene{scene.order}: React.FC<{{

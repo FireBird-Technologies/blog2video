@@ -225,9 +225,9 @@ async def _generate_scenes(project: Project, db: Session):
         scene.remotion_code = code
     db.commit()
 
-    # Step 3: Write files to Remotion project (data.json + scene components)
+    # Step 3: Write files to per-project Remotion workspace (data.json + scene components)
     write_remotion_data(project, scenes, db)
-    write_scene_components(scenes)
+    write_scene_components(project, scenes)
 
     project.status = ProjectStatus.GENERATED
     db.commit()
