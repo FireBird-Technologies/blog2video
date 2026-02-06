@@ -308,6 +308,94 @@ def _extract_text(soup: BeautifulSoup) -> str:
     return text
 
 
+def _extract_all_image_srcs(container: BeautifulSoup, base_url: str) -> list[str]:
+    """
+    Comprehensively extract image URLs from a container, handling:
+    - Regular <img src="...">
+    - Lazy-loaded <img data-src="..."> / <img data-lazy-src="...">
+    - srcset attributes on <img> and <source>
+    - <picture><source srcset="..."> wrappers
+    - <noscript><img src="..."> fallbacks (Medium uses these)
+    - <figure> wrappers with background-image styles
+
+    Returns de-duplicated, filtered URLs in order found.
+    """
+    urls: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw_url: str):
+        if not raw_url or raw_url.startswith("data:"):
+            return
+        full = urljoin(base_url, raw_url.strip())
+        if full not in seen:
+            seen.add(full)
+            urls.append(full)
+
+    def _parse_srcset(srcset: str):
+        """Extract highest-resolution URL from a srcset string."""
+        if not srcset:
+            return
+        candidates = []
+        for part in srcset.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            pieces = part.split()
+            if pieces:
+                url_candidate = pieces[0]
+                # Parse the width descriptor (e.g. "700w") to pick the largest
+                width = 0
+                if len(pieces) > 1:
+                    desc = pieces[-1]
+                    m = re.match(r"(\d+)w", desc)
+                    if m:
+                        width = int(m.group(1))
+                candidates.append((url_candidate, width))
+        if candidates:
+            # Sort by width descending, pick the largest
+            candidates.sort(key=lambda c: c[1], reverse=True)
+            _add(candidates[0][0])
+
+    # 1. <img> tags — check src, data-src, data-lazy-src, srcset
+    for img in container.find_all("img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src") or ""
+        if src and not src.startswith("data:"):
+            _add(src)
+        # Also check srcset
+        srcset = img.get("srcset") or img.get("data-srcset") or ""
+        if srcset:
+            _parse_srcset(srcset)
+
+    # 2. <picture> > <source> tags
+    for picture in container.find_all("picture"):
+        for source in picture.find_all("source"):
+            srcset = source.get("srcset") or ""
+            if srcset:
+                _parse_srcset(srcset)
+
+    # 3. <noscript> fallback images (Medium hides the real src here)
+    for noscript in container.find_all("noscript"):
+        noscript_html = noscript.string or noscript.decode_contents()
+        if "<img" in noscript_html:
+            ns_soup = BeautifulSoup(noscript_html, "lxml")
+            for img in ns_soup.find_all("img"):
+                src = img.get("src") or img.get("data-src") or ""
+                if src:
+                    _add(src)
+                srcset = img.get("srcset") or ""
+                if srcset:
+                    _parse_srcset(srcset)
+
+    # 4. <figure> with inline background-image style
+    for fig in container.find_all("figure"):
+        style = fig.get("style") or ""
+        m = re.search(r'url\(["\']?(https?://[^"\')\s]+)', style)
+        if m:
+            _add(m.group(1))
+
+    return urls
+
+
 def _extract_article_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
     """
     Extract images ONLY from the article/main content area — not the
@@ -330,40 +418,15 @@ def _extract_article_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]
             for el in article.find_all(tag_name):
                 el.decompose()
 
+    # Use comprehensive image extraction
+    raw_urls = _extract_all_image_srcs(article, base_url)
+
+    # Filter: only keep actual blog images
     image_urls = []
-    seen = set()
-
-    for img in article.find_all("img"):
-        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
-        if not src:
+    for img_url in raw_urls:
+        if not _is_blog_image(img_url):
             continue
-
-        full_url = urljoin(base_url, src)
-
-        # Skip data URIs and duplicates
-        if full_url.startswith("data:") or full_url in seen:
-            continue
-
-        # Skip images with small explicit dimensions (icons, avatars)
-        width = img.get("width")
-        height = img.get("height")
-        if width and height:
-            try:
-                if int(width) < 100 or int(height) < 100:
-                    continue
-            except ValueError:
-                pass
-
-        # Check alt text for icon-like content
-        alt = (img.get("alt") or "").lower()
-        if any(kw in alt for kw in ["icon", "logo", "avatar", "badge", "button", "arrow"]):
-            continue
-
-        if not _is_blog_image(full_url):
-            continue
-
-        seen.add(full_url)
-        image_urls.append(full_url)
+        image_urls.append(img_url)
 
     return image_urls
 
@@ -410,6 +473,15 @@ def _is_blog_image(url: str) -> bool:
     # Skip by URL pattern
     if any(p in lower for p in _SKIP_URL_PATTERNS):
         return False
+
+    # Medium-specific: resize:fill with small dimensions = avatars/icons
+    # e.g. miro.medium.com/v2/resize:fill:64:64/...  → icon
+    # but  miro.medium.com/v2/resize:fit:700/...      → content image
+    fill_match = re.search(r"resize:fill:(\d+):(\d+)", lower)
+    if fill_match:
+        w, h = int(fill_match.group(1)), int(fill_match.group(2))
+        if w < 200 or h < 200:
+            return False
 
     # Skip very short paths (e.g. /img.png, /x.jpg — usually site assets)
     path = parsed.path.strip("/")
