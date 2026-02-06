@@ -1,78 +1,109 @@
 {
-  "projectName": "Autodash: Transform Data into Art with Powerful Design Controls",
-  "heroImage": "img_b504db9243.png",
+  "projectName": "Site.pro Review: An AI Engineer's Honest Take on This No-Code Website Builder",
+  "heroImage": "img_d99e0935d3.jpeg",
   "scenes": [
     {
-      "id": 7,
+      "id": 8,
       "order": 1,
       "title": "Hero Opening",
       "narration": "",
-      "visualDescription": "Full-screen fade-in of the Autodash interface hero image showing the data visualization platform with colorful charts and controls",
+      "visualDescription": "Full-screen hero banner image fade-in showing Site.pro interface with 'Honest review of Site.pro by an AI Engineer' overlay text appearing with smooth animation",
       "durationSeconds": 3.0,
       "voiceoverFile": null,
       "images": [
-        "img_b504db9243.png"
+        "img_d99e0935d3.jpeg",
+        "img_641323181d.jpeg",
+        "img_aeee422188.png"
       ]
     },
     {
-      "id": 8,
-      "order": 2,
-      "title": "The Discovery",
-      "narration": "After testing our product Autodash, an AI Data Apps platform, we discovered something fascinating. Most users aren't just looking for standard dashboards. They want to personalize the experience deeply, treating data visualization as a form of art.",
-      "visualDescription": "Split screen showing: LEFT - traditional boring dashboard with standard colors, RIGHT - vibrant artistic data visualization with custom colors and styling. Animated transition emphasizing the artistic approach",
-      "durationSeconds": 16.9,
-      "voiceoverFile": "audio_scene_2.mp3",
-      "images": []
-    },
-    {
       "id": 9,
-      "order": 3,
-      "title": "Becoming Data Artists",
-      "narration": "Listening to their interests, we've added features designed to help users become true data artists, turning insights into visually stunning, highly customized creations. Let's walk through all the design features we introduced.",
-      "visualDescription": "Animated text callout: 'Data Visualization = Art' with paint brush icon. Show URL prominently: autodash.art. Transition to feature showcase preview with icons representing: color control, component detection, background customization",
-      "durationSeconds": 14.9,
-      "voiceoverFile": "audio_scene_3.mp3",
-      "images": []
+      "order": 2,
+      "title": "Introduction to Site.pro",
+      "narration": "Site.pro is an all-in-one website builder that lets anyone create professional websites, landing pages, and e-commerce stores without coding. It combines drag-and-drop editing with AI-assisted creation, multi-language support, and built-in SEO tools. Today, I'm giving you an honest review as an AI engineer. Full disclosure: Site.pro compensated me for my time, but these opinions are completely my own and unfiltered.",
+      "visualDescription": "Show animated feature list appearing one by one: 1) Drag-and-drop editor, 2) AI-assisted creation, 3) Multi-language support, 4) Built-in SEO tools, 5) Domains & hosting, 6) Email integration. Background shows subtle Site.pro logo watermark.",
+      "durationSeconds": 30.9,
+      "voiceoverFile": "audio_scene_2.mp3",
+      "images": [
+        "img_a6723c0aa8.png",
+        "img_9643d71bd6.png"
+      ]
     },
     {
       "id": 10,
-      "order": 4,
-      "title": "Feature 1: Direct Color Control",
-      "narration": "First major feature: Now users can change trace, line, bar, and component colors directly, instead of asking the system to regenerate the chart with a different color. This saves time and gives you instant control.",
-      "visualDescription": "Show before/after comparison: TOP - Chart with standard green line, BOTTOM - Same chart with modified green shade and lower opacity. Add animated UI element showing color picker interface with opacity slider. Highlight: 'No Regeneration Required' badge",
-      "durationSeconds": 14.5,
-      "voiceoverFile": "audio_scene_4.mp3",
-      "images": []
+      "order": 3,
+      "title": "Building a Website in Under 5 Minutes",
+      "narration": "Let me show you how quick this actually is. I decided to build a lead tracking form website. Unlike most site builders, Site.pro gives you a variety of pre-built templates to choose from right away. After selecting one, within moments I had a functional lead tracker website. The UI lets you quickly edit and change components with drag-and-drop functionality. Each component has advanced editing options when you need them.",
+      "visualDescription": "Sequential image slideshow showing: 1) Template selection screen, 2) Initial website generated, 3) Editing interface with drag-and-drop, 4) Component editing panel, 5) Final published site. Add animated arrows pointing to key UI elements.",
+      "durationSeconds": 27.3,
+      "voiceoverFile": "audio_scene_3.mp3",
+      "images": [
+        "img_5cda8f00e0.png",
+        "img_a8e748ffa6.png"
+      ]
     },
     {
       "id": 11,
-      "order": 5,
-      "title": "Feature 2: Auto-Component Detection",
-      "narration": "The system now auto-detects components generated in your visualization. This intelligent detection allows you to customize each element individually, whether it's a chart, KPI card, or text component.",
-      "visualDescription": "Animated diagram showing component detection in action: Show visualization with glowing outlines appearing around different components (charts, KPI cards, text boxes). Label each with: 'Chart Component', 'KPI Card', 'Text Element'. Add scanning animation effect to emphasize auto-detection",
-      "durationSeconds": 14.2,
-      "voiceoverFile": "audio_scene_5.mp3",
-      "images": []
+      "order": 4,
+      "title": "Template Variety and Examples",
+      "narration": "I built this lead tracker in under 5 minutes, but I wanted to test more. So I created a tech consulting landing page, an about us page, and even a restaurant website. Site.pro has over 200 templates covering most use cases people would need. Each one gave me a solid starting point that I could customize to my needs.",
+      "visualDescription": "Grid showcase of different website examples transitioning smoothly: Split-screen showing tech consulting site (professional blue theme), restaurant landing page (warm colors with food imagery), and other templates. Display big metric: '200+ Templates' with animated counter.",
+      "durationSeconds": 20.5,
+      "voiceoverFile": "audio_scene_4.mp3",
+      "images": [
+        "img_e8ded7adbd.png",
+        "img_4588424687.png"
+      ]
     },
     {
       "id": 12,
-      "order": 6,
-      "title": "Feature 3: Background & Opacity Customization",
-      "narration": "Users can now change the chart, KPI card, and text background along with opacity, without regeneration or consuming credits. Watch this transformation: white background becomes black, and black text and lines become white, creating a stunning inverted theme.",
-      "visualDescription": "Dramatic before/after split screen with animated transition: LEFT labeled 'Before' - White background chart with black text/lines, RIGHT labeled 'After' - Black background chart with white text/lines. Show opacity slider animation. Display badge: 'Zero Credits Used'",
-      "durationSeconds": 18.7,
-      "voiceoverFile": "audio_scene_6.mp3",
-      "images": []
+      "order": 5,
+      "title": "What Works Really Well",
+      "narration": "Let's talk about what I genuinely liked. First, the drag-and-drop with direct edit capabilities works smoothly - not all AI builders have this. Second, they have a unique import feature that lets you copy design elements from other websites. Third, it's fast and straightforward, giving you functional sites quickly. Fourth, they bundle domain, hosting, and email all in one place - super convenient. Fifth, and this is interesting: they avoid gradient-heavy designs that scream 'AI-generated'. The sites look like real, human-made websites. Finally, they have built-in collaboration features, so teams can work together, which most site builders don't offer.",
+      "visualDescription": "Animated bullet list appearing with checkmark icons: 1) Drag-and-drop + direct editing, 2) Import from existing websites, 3) Fast template-based generation, 4) All-in-one: domain + hosting + email, 5) No gradient overuse (natural designs), 6) Team collaboration features. Each point highlights with green checkmark animation.",
+      "durationSeconds": 43.4,
+      "voiceoverFile": "audio_scene_5.mp3",
+      "images": [
+        "img_cc98c1c184.png",
+        "img_9b582a565a.png"
+      ]
     },
     {
       "id": 13,
+      "order": 6,
+      "title": "Areas That Need Improvement",
+      "narration": "Now for the honest critique. The UI feels more old-school than modern - this might work for their target audience, but I prefer contemporary designs. The tool is heavily templated, which speeds things up but limits capabilities for power users. All generated websites have similar page structures and designs - unlike other AI builders that can create truly unique layouts from instructions. I'd love to see the ability to create entirely new components, not just use predefined ones. And the AI chatbot needs major improvement - it often falls back to finding templates rather than generating on the fly. Right now it feels more like a no-code tool with AI edits, rather than a true AI-powered builder.",
+      "visualDescription": "Animated bullet list with caution icons (orange): 1) Old-school UI design, 2) Template-heavy = limited flexibility, 3) Similar structure across sites, 4) Only predefined components (no custom creation), 5) AI chatbot relies on templates vs. generation. Visual comparison split-screen: 'Template-based' (structured, similar) vs 'AI-generated' (varied, unique).",
+      "durationSeconds": 46.2,
+      "voiceoverFile": "audio_scene_6.mp3",
+      "images": [
+        "img_4ab5990836.png",
+        "img_ff2dd8f850.png"
+      ]
+    },
+    {
+      "id": 14,
       "order": 7,
-      "title": "Call to Action",
-      "narration": "Data visualization is an art form, and we've built a product that turns you into the data artist. Start creating your masterpiece today at autodash dot art.",
-      "visualDescription": "Animated finale: Multiple example visualizations cycling through with artistic effects (color shifts, transitions). Large prominent text: 'Try it here: autodash.art' with pulsing animation. End with paint palette icon transforming into data chart",
-      "durationSeconds": 10.9,
+      "title": "Feature Wishlist and Future Potential",
+      "narration": "Here's what would make Site.pro truly powerful. First, flexible component creation - let me build entirely new components from scratch and place them anywhere, not just use predefined blocks. Second, AI-generated templates where I could define my template structure first, then have AI implement it. Basically, more granular control over the AI generation process. With these additions, Site.pro could bridge the gap between ease-of-use and power-user capabilities.",
+      "visualDescription": "Flow diagram showing ideal workflow: Step 1: User defines custom template/structure \u2192 Step 2: AI generates components based on definition \u2192 Step 3: Drag custom components anywhere \u2192 Step 4: Publish unique site. Add futuristic UI mockup showing this concept.",
+      "durationSeconds": 34.1,
       "voiceoverFile": "audio_scene_7.mp3",
-      "images": []
+      "images": [
+        "img_f60ef70923.png"
+      ]
+    },
+    {
+      "id": 15,
+      "order": 8,
+      "title": "Final Verdict and Call-to-Action",
+      "narration": "So, bottom line: Site.pro is excellent for small business owners, local businesses, and anyone who needs a professional website quickly without coding. The template quality is solid, the all-in-one hosting is convenient, and it delivers on speed. However, if you're a power user or developer looking for unlimited creative freedom, you might find it constraining. It's positioned perfectly for its target market, though. If you enjoyed this honest review, follow me at FirebirdTech for more product reviews. And if you have a product you'd like me to review, reach out via the link in the description.",
+      "visualDescription": "Comparison split-screen: Left side 'Perfect For:' (small business icons, local shops, quick sites) vs Right side 'May Limit:' (power users, developers, highly custom needs). End with animated call-to-action: 'Follow FirebirdTech for more reviews' with subscribe button pulse animation.",
+      "durationSeconds": 39.3,
+      "voiceoverFile": "audio_scene_8.mp3",
+      "images": [
+        "img_a34e1e5560.png"
+      ]
     }
   ]
 }
