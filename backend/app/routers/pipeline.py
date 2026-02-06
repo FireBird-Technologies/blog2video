@@ -207,7 +207,14 @@ async def _generate_scenes(project: Project, db: Session):
         }
         for s in scenes
     ]
-    codes = await scene_gen.generate_all_scenes(scenes_data, image_paths)
+    codes = await scene_gen.generate_all_scenes(
+        scenes_data,
+        image_paths,
+        accent_color=project.accent_color or "#7C3AED",
+        bg_color=project.bg_color or "#0A0A0A",
+        text_color=project.text_color or "#FFFFFF",
+        animation_instructions=project.animation_instructions or "",
+    )
 
     for scene, code in zip(scenes, codes):
         scene.remotion_code = code

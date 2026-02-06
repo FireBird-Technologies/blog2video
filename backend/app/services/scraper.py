@@ -63,58 +63,85 @@ def scrape_blog(project: Project, db: Session) -> Project:
 
 def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     """
-    Use Exa API to get clean text content from a URL, then do a quick
-    requests pass to extract code blocks and body images.
-    Works reliably with Medium, Substack, and other protected sites.
+    Use Exa API to get clean text content, HTML for code blocks, and
+    image URLs from a URL.  Exa handles Medium/Substack/paywalled sites.
     The hero/OG image is always first in the returned list.
     """
     exa = Exa(api_key=settings.EXA_API_KEY)
 
+    # Request BOTH plain text AND HTML-tagged text (for code blocks)
+    # plus extras.image_links for inline images Exa sees on the page.
     result = exa.get_contents(
         urls=[url],
-        text=True,
+        text={"include_html_tags": True, "max_characters": 50000},
+        extras={"image_links": 20},
     )
 
     if not result.results:
         raise ValueError("Exa returned no results")
 
     page = result.results[0]
-    text = page.text or ""
+    html_text = page.text or ""
 
-    # Hero image first (Exa returns the og:image / hero)
-    image_urls = []
+    # --- Extract code blocks from the HTML-tagged text Exa returned ---
+    code_blocks: list[dict] = []
+    if "<pre" in html_text or "<code" in html_text:
+        soup_exa = BeautifulSoup(html_text, "lxml")
+        code_blocks = _extract_code_blocks(soup_exa)
+        # Convert HTML to clean plain text for the LLM
+        text = soup_exa.get_text(separator="\n", strip=True)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    else:
+        text = html_text
+
+    # Inject code blocks with clear markers
+    if code_blocks:
+        text = _inject_code_blocks(text, code_blocks)
+
+    # --- Collect images ---
+    image_urls: list[str] = []
+    seen_images: set[str] = set()
+
+    # 1. Hero / OG image from Exa
     if hasattr(page, "image") and page.image:
         image_urls.append(page.image)
+        seen_images.add(page.image)
 
-    # Do a quick HTML fetch to extract code blocks and body images
-    # (Exa only returns plain text, losing code formatting and inline images)
-    try:
-        resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=15)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "lxml")
-
-            # Enrich text with code blocks that Exa strips out
-            code_blocks = _extract_code_blocks(soup)
-            if code_blocks:
-                text = _inject_code_blocks(text, code_blocks)
-
-            # Get hero image if Exa didn't have one
-            if not image_urls:
-                og_img = _extract_og_image_from_soup(soup, url)
-                if og_img:
-                    image_urls.append(og_img)
-
-            # Extract body images (Exa doesn't return these)
-            body_images = _extract_image_urls(soup, url)
-            hero_set = set(image_urls)
-            for img_url in body_images:
-                if img_url not in hero_set:
+    # 2. Body images from Exa extras.image_links
+    if hasattr(page, "extras") and page.extras:
+        exa_images = page.extras.get("image_links") or page.extras.get("imageLinks") or []
+        for img_url in exa_images:
+            if isinstance(img_url, str) and img_url not in seen_images:
+                # Skip tiny tracking pixels, icons, avatars
+                skip_patterns = ["avatar", "logo", "icon", "emoji", "gravatar", "pixel", "tracking", "1x1"]
+                if not any(p in img_url.lower() for p in skip_patterns):
                     image_urls.append(img_url)
-                    hero_set.add(img_url)
-    except Exception as e:
-        print(f"[SCRAPER] HTML enrichment pass failed (non-fatal): {e}")
+                    seen_images.add(img_url)
 
-    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(image_urls)} images (hero: {bool(image_urls)})")
+    # 3. Fallback: quick HTML fetch for images if Exa gave us fewer than 3
+    if len(image_urls) < 3:
+        try:
+            resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=15)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "lxml")
+
+                # Get hero image if we still don't have one
+                if not image_urls:
+                    og_img = _extract_og_image_from_soup(soup, url)
+                    if og_img and og_img not in seen_images:
+                        image_urls.insert(0, og_img)
+                        seen_images.add(og_img)
+
+                # Extract remaining body images
+                body_images = _extract_image_urls(soup, url)
+                for img_url in body_images:
+                    if img_url not in seen_images:
+                        image_urls.append(img_url)
+                        seen_images.add(img_url)
+        except Exception as e:
+            print(f"[SCRAPER] HTML image fallback failed (non-fatal): {e}")
+
+    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(code_blocks)} code blocks, {len(image_urls)} images")
     return text, image_urls
 
 

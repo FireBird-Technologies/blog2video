@@ -410,12 +410,13 @@ class SceneToRemotion(dspy.Signature):
     The narration text should be BROKEN DOWN into visual elements, not displayed as-is.
 
     ═══ DESIGN SYSTEM ═══
-    - Background: WHITE (#FFFFFF) or BLACK (#0A0A0A)
-    - Text: Black on white, White on black
-    - Accent: Purple #7C3AED for highlights, dividers, shapes, active states
+    Use the user-specified colors from the input fields:
+    - Background color: use the bg_color input field value
+    - Text color: use the text_color input field value
+    - Accent color: use the accent_color input field for highlights, dividers, shapes, active states
     - Geometric decorations: circles, bars, gradients as background accents
     - Font: "Inter, sans-serif" — fontWeight 700 headings, 500 body
-    - Bottom accent stripe: absolute, bottom 0, full width, 4px, purple
+    - Bottom accent stripe: absolute, bottom 0, full width, 4px, accent_color
 
     ═══ ANIMATION ═══
     - useCurrentFrame() + interpolate() for ALL animations — nothing should be static
@@ -426,6 +427,9 @@ class SceneToRemotion(dspy.Signature):
     - Numbers: count up via Math.floor(interpolate(...))
     - Shapes: scale/rotate in as background decorations
     - Images: fade in with subtle scale animation
+    - If the user provides animation_instructions, follow those instructions
+      for animation style. For example: "smooth fade-in transitions" or
+      "bounce effects on bullets" or "slide from right".
 
     ═══ TECHNICAL RULES ═══
     - Import from "remotion": AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig
@@ -455,10 +459,24 @@ class SceneToRemotion(dspy.Signature):
         desc="Reference Remotion component(s) for the chosen layout type(s). "
         "Follow these patterns for structure and animation."
     )
+    accent_color: str = dspy.InputField(
+        desc="User-chosen accent color hex (e.g. '#7C3AED'). Use this for all highlights, dividers, active states, accent stripe."
+    )
+    bg_color: str = dspy.InputField(
+        desc="User-chosen background color hex (e.g. '#0A0A0A'). Use this as the main background."
+    )
+    text_color: str = dspy.InputField(
+        desc="User-chosen text color hex (e.g. '#FFFFFF'). Use this for all body/heading text."
+    )
+    animation_instructions: str = dspy.InputField(
+        desc="Optional user instructions for animation style. If empty, use default animations. "
+        "If provided, adapt animation patterns accordingly (e.g. 'use bounce effects', 'slide from right')."
+    )
 
     remotion_jsx: str = dspy.OutputField(
         desc="Complete Remotion React component (TypeScript/JSX). "
         "Must match the reference layout style with real content from the narration. "
+        "Must use the user-specified accent_color, bg_color, and text_color. "
         "Single default-exported component. No markdown fences."
     )
 
@@ -514,13 +532,27 @@ class SceneCodeGenerator:
         except (json.JSONDecodeError, TypeError):
             return ["text_narration"]
 
-    def _build_example(self, component_keys: list[str]) -> str:
-        """Assemble the example code string from selected component keys."""
+    def _build_example(
+        self,
+        component_keys: list[str],
+        accent_color: str = "#7C3AED",
+        bg_color: str = "#0A0A0A",
+        text_color: str = "#FFFFFF",
+    ) -> str:
+        """Assemble the example code string from selected component keys,
+        replacing default colors with user-chosen colors."""
         parts = []
         for key in component_keys:
             info = COMPONENT_LIBRARY[key]
+            example = info["example"]
+            # Replace default colors with user-chosen ones
+            example = example.replace('#7C3AED', accent_color)
+            example = example.replace('#0A0A0A', bg_color)
+            # Be careful: only replace text color #FFFFFF in text-colored contexts
+            # The example uses #FFFFFF for text on dark bg and #0A0A0A for text on light bg
+            # We keep the logic: text_color for primary text, invert for secondary
             parts.append(
-                f"=== {info['name'].upper()} LAYOUT ===\n{info['example']}"
+                f"=== {info['name'].upper()} LAYOUT ===\n{example}"
             )
         return "\n\n".join(parts)
 
@@ -532,6 +564,10 @@ class SceneCodeGenerator:
         available_images: list[str],
         scene_index: int,
         total_scenes: int,
+        accent_color: str = "#7C3AED",
+        bg_color: str = "#0A0A0A",
+        text_color: str = "#FFFFFF",
+        animation_instructions: str = "",
     ) -> str:
         """
         Generate Remotion component code for a single scene.
@@ -539,7 +575,7 @@ class SceneCodeGenerator:
         """
         # Scene 0 (hero) always uses a fixed template — no planning needed
         if scene_index == 0:
-            return self._hero_template()
+            return self._hero_template(bg_color=bg_color)
 
         # Step 1: Pick layout with cheap LLM
         chosen = await self._pick_components(
@@ -547,7 +583,7 @@ class SceneCodeGenerator:
         )
 
         # Step 2: Build example from chosen components only
-        example = self._build_example(chosen)
+        example = self._build_example(chosen, accent_color, bg_color, text_color)
 
         # Step 3: Generate with main LLM
         result = await self.generator(
@@ -558,6 +594,10 @@ class SceneCodeGenerator:
             scene_index=scene_index,
             total_scenes=total_scenes,
             example_code=example,
+            accent_color=accent_color,
+            bg_color=bg_color,
+            text_color=text_color,
+            animation_instructions=animation_instructions or "Use default smooth animations.",
         )
 
         return self._clean_code(result.remotion_jsx)
@@ -566,6 +606,10 @@ class SceneCodeGenerator:
         self,
         scenes_data: list[dict],
         available_images: list[str],
+        accent_color: str = "#7C3AED",
+        bg_color: str = "#0A0A0A",
+        text_color: str = "#FFFFFF",
+        animation_instructions: str = "",
     ) -> list[str]:
         """Generate code for all scenes concurrently."""
         total = len(scenes_data)
@@ -577,31 +621,35 @@ class SceneCodeGenerator:
                 available_images=available_images,
                 scene_index=i,
                 total_scenes=total,
+                accent_color=accent_color,
+                bg_color=bg_color,
+                text_color=text_color,
+                animation_instructions=animation_instructions,
             )
             for i, s in enumerate(scenes_data)
         ]
         return await asyncio.gather(*tasks)
 
-    def _hero_template(self) -> str:
+    def _hero_template(self, bg_color: str = "#0A0A0A") -> str:
         """Fixed hero scene — full-screen image fade-in, no text."""
-        return '''import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+        return f'''import {{ AbsoluteFill, Img, interpolate, useCurrentFrame }} from "remotion";
 
-const HeroScene: React.FC<{ title: string; narration: string; imageUrl?: string }> = ({ imageUrl }) => {
+const HeroScene: React.FC<{{ title: string; narration: string; imageUrl?: string }}> = ({{ imageUrl }}) => {{
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 40], [0, 1], { extrapolateRight: "clamp" });
-  const scale = interpolate(frame, [0, 60], [1.08, 1.0], { extrapolateRight: "clamp" });
+  const opacity = interpolate(frame, [0, 40], [0, 1], {{ extrapolateRight: "clamp" }});
+  const scale = interpolate(frame, [0, 60], [1.08, 1.0], {{ extrapolateRight: "clamp" }});
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#0A0A0A" }}>
-      {imageUrl && (
+    <AbsoluteFill style={{{{ backgroundColor: "{bg_color}" }}}}>
+      {{imageUrl && (
         <Img
-          src={imageUrl}
-          style={{ width: "100%", height: "100%", objectFit: "cover", opacity, transform: `scale(${scale})` }}
+          src={{imageUrl}}
+          style={{{{ width: "100%", height: "100%", objectFit: "cover", opacity, transform: `scale(${{scale}})` }}}}
         />
-      )}
+      )}}
     </AbsoluteFill>
   );
-};
+}};
 export default HeroScene;'''
 
     def _clean_code(self, code: str) -> str:

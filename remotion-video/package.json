@@ -11,6 +11,7 @@
   "dependencies": {
     "@remotion/cli": "^4.0.0",
     "@remotion/player": "^4.0.0",
+    "@remotion/shapes": "^4.0.419",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "remotion": "^4.0.0"

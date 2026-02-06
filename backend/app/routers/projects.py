@@ -30,6 +30,10 @@ def create_project(
         blog_url=data.blog_url,
         voice_gender=data.voice_gender or "female",
         voice_accent=data.voice_accent or "american",
+        accent_color=data.accent_color or "#7C3AED",
+        bg_color=data.bg_color or "#0A0A0A",
+        text_color=data.text_color or "#FFFFFF",
+        animation_instructions=data.animation_instructions or None,
         status=ProjectStatus.CREATED,
     )
     db.add(project)

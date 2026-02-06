@@ -85,6 +85,10 @@ export interface Project {
   status: string;
   voice_gender: string;
   voice_accent: string;
+  accent_color: string;
+  bg_color: string;
+  text_color: string;
+  animation_instructions: string | null;
   studio_port: number | null;
   player_port: number | null;
   created_at: string;
@@ -162,9 +166,22 @@ export const createProject = (
   blog_url: string,
   name?: string,
   voice_gender?: string,
-  voice_accent?: string
+  voice_accent?: string,
+  accent_color?: string,
+  bg_color?: string,
+  text_color?: string,
+  animation_instructions?: string
 ) =>
-  api.post<Project>("/projects", { blog_url, name, voice_gender, voice_accent });
+  api.post<Project>("/projects", {
+    blog_url,
+    name,
+    voice_gender,
+    voice_accent,
+    accent_color,
+    bg_color,
+    text_color,
+    animation_instructions,
+  });
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
