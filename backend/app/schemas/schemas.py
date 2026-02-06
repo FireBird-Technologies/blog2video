@@ -8,6 +8,8 @@ from typing import Optional
 class ProjectCreate(BaseModel):
     blog_url: str
     name: Optional[str] = None
+    voice_gender: Optional[str] = "female"   # "male" or "female"
+    voice_accent: Optional[str] = "american"  # "american" or "british"
 
 
 class SceneOut(BaseModel):
@@ -56,6 +58,8 @@ class ProjectOut(BaseModel):
     blog_url: str
     blog_content: Optional[str] = None
     status: str
+    voice_gender: str = "female"
+    voice_accent: str = "american"
     studio_port: Optional[int] = None
     created_at: datetime
     updated_at: datetime

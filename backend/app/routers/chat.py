@@ -9,6 +9,7 @@ from app.models.scene import Scene
 from app.models.chat_message import ChatMessage, MessageRole
 from app.schemas.schemas import ChatRequest, ChatResponse, SceneOut
 from app.dspy_modules.editor import ScriptEditor
+from app.services.remotion import write_remotion_data, write_scene_components
 
 router = APIRouter(prefix="/api/projects/{project_id}/chat", tags=["chat"])
 
@@ -87,8 +88,14 @@ def chat_edit(
         db.add(assistant_msg)
         db.commit()
 
-        # Reload scenes
+        # Reload scenes and re-write Remotion files so Studio hot-reloads
         db.refresh(project)
+        try:
+            write_remotion_data(project, project.scenes, db)
+            write_scene_components(project.scenes)
+        except Exception as file_err:
+            print(f"[CHAT] Warning: Failed to update Remotion files: {file_err}")
+
         scene_outs = [SceneOut.model_validate(s) for s in project.scenes]
 
         return ChatResponse(
