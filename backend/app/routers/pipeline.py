@@ -1,4 +1,6 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,6 +14,7 @@ from app.schemas.schemas import (
     StudioResponse,
     RenderResponse,
 )
+from app.config import settings
 from app.services.scraper import scrape_blog
 from app.services.voiceover import generate_all_voiceovers
 from app.services.remotion import (
@@ -207,6 +210,33 @@ def render_video_endpoint(
         raise HTTPException(
             status_code=500, detail=f"Render failed: {str(e)}"
         )
+
+
+@router.get("/download")
+def download_video(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download the rendered MP4 video file."""
+    project = _get_project(project_id, user.id, db)
+
+    output_path = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
+    )
+
+    if not os.path.exists(output_path):
+        raise HTTPException(
+            status_code=404,
+            detail="Video not rendered yet. Click render first.",
+        )
+
+    safe_name = project.name.replace(" ", "_")[:50] if project.name else "video"
+    return FileResponse(
+        path=output_path,
+        media_type="video/mp4",
+        filename=f"{safe_name}.mp4",
+    )
 
 
 def _get_project(project_id: int, user_id: int, db: Session) -> Project:

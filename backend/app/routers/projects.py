@@ -28,6 +28,8 @@ def create_project(
         user_id=user.id,
         name=name,
         blog_url=data.blog_url,
+        voice_gender=data.voice_gender or "female",
+        voice_accent=data.voice_accent or "american",
         status=ProjectStatus.CREATED,
     )
     db.add(project)

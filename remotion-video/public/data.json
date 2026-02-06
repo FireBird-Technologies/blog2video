@@ -1,15 +1,77 @@
 {
-  "projectName": "Unable to Create Video - Insufficient Content",
+  "projectName": "Making AI Reports More Reliable: A Technical Guide from the Trenches",
   "scenes": [
     {
-      "id": 1,
+      "id": 14,
       "order": 1,
-      "title": "Content Error",
-      "narration": "We're unable to create a video from this content as it appears to be a redirect or error page rather than actual blog content.",
-      "visualDescription": "Display error message with simple text overlay",
-      "durationSeconds": 10.0,
+      "title": "Introduction - The AI Reporting Challenge",
+      "narration": "If you're working with AI to generate reports, you've probably faced this frustrating reality: your AI system works sometimes, but not consistently. As someone who's run an AI consulting agency for over a year, I've seen this challenge across every industry - from startups to cybersecurity firms. Today, I'll share the practical solutions I've discovered to make AI reporting truly reliable.",
+      "visualDescription": "Show title card with professional tech background, then transition to author image with overlay text showing consulting experience statistics",
+      "durationSeconds": 25.0,
       "voiceoverFile": "audio_scene_1.mp3",
-      "images": []
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
+    },
+    {
+      "id": 15,
+      "order": 2,
+      "title": "Quick Wins - The Foundation",
+      "narration": "Let's start with the simple fixes that deliver immediate results. First, always format your data in markdown - LLMs are trained on it and respond better. Second, write crystal-clear prompts. Just like humans, AI gets confused by vague instructions. And third, choose the right model for your specific task. GPT-4 isn't always the answer - sometimes Gemini's 2-million token context window is exactly what you need for detailed reports.",
+      "visualDescription": "Split-screen showing markdown table formatting vs plain text, then animated comparison of different AI models with context window sizes",
+      "durationSeconds": 30.0,
+      "voiceoverFile": "audio_scene_2.mp3",
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
+    },
+    {
+      "id": 16,
+      "order": 3,
+      "title": "Smart Prompting Techniques",
+      "narration": "Here's a game-changer: add the phrase 'explain your reasoning step by step' to your prompts. This technique, called Chain-of-Thought prompting, dramatically improves accuracy. Also, include few-shot examples - show the AI what good outputs look like. These examples guide the model toward the responses you actually want.",
+      "visualDescription": "Before/after comparison showing AI responses with and without chain-of-thought prompting, followed by examples of few-shot prompting with sample inputs and desired outputs",
+      "durationSeconds": 25.0,
+      "voiceoverFile": "audio_scene_3.mp3",
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
+    },
+    {
+      "id": 17,
+      "order": 4,
+      "title": "The Power of Evaluation",
+      "narration": "Want to know the secret to consistently improving your AI system? Build an evaluation pipeline. Create a dataset with sample inputs and expected outputs, then design metrics to score your AI's performance. This isn't just testing - it's optimization. You can automatically generate better prompts and measure improvement over time.",
+      "visualDescription": "Flowchart animation showing evaluation pipeline: input queries \u2192 AI processing \u2192 output scoring \u2192 prompt optimization \u2192 improved results",
+      "durationSeconds": 25.0,
+      "voiceoverFile": "audio_scene_4.mp3",
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
+    },
+    {
+      "id": 18,
+      "order": 5,
+      "title": "The Reliability Mathematics",
+      "narration": "Here's the crucial insight most people miss: complexity kills reliability. If each AI call has a 95% success rate, but your system makes 10 calls, your overall reliability drops to just 60%. Every additional API call exponentially reduces your system's dependability. Design for simplicity - can you solve the problem in 2 calls instead of 3? That's not just efficiency, that's exponentially better reliability.",
+      "visualDescription": "Mathematical visualization showing probability calculations: 95% success rate across multiple calls, with animated graph showing exponential reliability decline",
+      "durationSeconds": 30.0,
+      "voiceoverFile": "audio_scene_5.mp3",
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
+    },
+    {
+      "id": 19,
+      "order": 6,
+      "title": "Your Action Checklist",
+      "narration": "Ready to implement these improvements? Here's your checklist: Use markdown formatting and clear prompts. Choose the right model and optimize settings. Apply chain-of-thought prompting with examples. Build evaluation pipelines to measure and improve performance. And most importantly, simplify your system - fewer API calls mean exponentially better reliability. These aren't just theories - they're battle-tested solutions from real client projects.",
+      "visualDescription": "Animated checklist with checkmarks appearing for each point, ending with author image and contact information overlay",
+      "durationSeconds": 25.0,
+      "voiceoverFile": "audio_scene_6.mp3",
+      "images": [
+        "img_8ae4240631.jpeg"
+      ]
     }
   ]
 }

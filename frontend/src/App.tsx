@@ -9,8 +9,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -28,41 +28,19 @@ function AppNavbar() {
   if (!user) return null;
 
   return (
-    <nav className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
+    <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <a href="/dashboard" className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+        <a href="/dashboard" className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-[11px]">
             B2V
           </div>
-          <span className="text-xl font-semibold text-white">Blog2Video</span>
+          <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
         </a>
         <div className="flex items-center gap-4">
-          {/* Usage meter */}
-          <div className="hidden sm:flex items-center gap-2 text-sm">
-            <span className="text-gray-400">
-              {user.videos_used_this_period}/{user.video_limit} videos
-            </span>
-            <div className="w-20 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    (user.videos_used_this_period / user.video_limit) * 100
-                  )}%`,
-                }}
-              />
-            </div>
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded ${
-                user.plan === "pro"
-                  ? "bg-purple-900/50 text-purple-300"
-                  : "bg-gray-800 text-gray-400"
-              }`}
-            >
-              {user.plan === "pro" ? "Pro" : "Free"}
-            </span>
-          </div>
+          {/* Usage */}
+          <span className="hidden sm:block text-xs text-gray-400">
+            {user.videos_used_this_period}/{user.video_limit} videos
+          </span>
 
           {/* User avatar */}
           <div className="flex items-center gap-3">
@@ -70,17 +48,17 @@ function AppNavbar() {
               <img
                 src={user.picture}
                 alt={user.name}
-                className="w-8 h-8 rounded-full"
+                className="w-7 h-7 rounded-full"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-sm font-medium text-gray-300">
+              <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-500">
                 {user.name[0]}
               </div>
             )}
             <button
               onClick={logout}
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
             >
               Sign out
             </button>
@@ -96,14 +74,14 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-white text-gray-900">
       <AppNavbar />
 
       <Routes>

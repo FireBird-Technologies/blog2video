@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import subprocess
 import signal
 from typing import Optional
@@ -114,8 +115,10 @@ def launch_studio(project: Project, db: Session) -> int:
     # Find an available port (start from 3100 to avoid conflicts)
     port = 3100 + (project.id % 100)
 
+    # On Windows, npx must be called as npx.cmd or via shell
+    npx = shutil.which("npx") or "npx"
     cmd = [
-        "npx", "remotion", "studio",
+        npx, "remotion", "studio",
         "--port", str(port),
         "--no-open",
     ]
@@ -125,6 +128,7 @@ def launch_studio(project: Project, db: Session) -> int:
         cwd=remotion_dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        shell=(os.name == "nt"),
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
     )
 
@@ -163,8 +167,9 @@ def render_video(project: Project) -> str:
 
     output_path = os.path.join(output_dir, "video.mp4")
 
+    npx = shutil.which("npx") or "npx"
     cmd = [
-        "npx", "remotion", "render",
+        npx, "remotion", "render",
         "ExplainerVideo",
         output_path,
     ]
@@ -172,6 +177,7 @@ def render_video(project: Project) -> str:
     result = subprocess.run(
         cmd,
         cwd=remotion_dir,
+        shell=(os.name == "nt"),
         capture_output=True,
         text=True,
         timeout=600,  # 10 minute timeout

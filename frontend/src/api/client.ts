@@ -83,6 +83,8 @@ export interface Project {
   blog_url: string;
   blog_content: string | null;
   status: string;
+  voice_gender: string;
+  voice_accent: string;
   studio_port: number | null;
   created_at: string;
   updated_at: string;
@@ -155,8 +157,13 @@ export const getBillingStatus = () =>
 
 // ─── Project API ──────────────────────────────────────────
 
-export const createProject = (blog_url: string, name?: string) =>
-  api.post<Project>("/projects", { blog_url, name });
+export const createProject = (
+  blog_url: string,
+  name?: string,
+  voice_gender?: string,
+  voice_accent?: string
+) =>
+  api.post<Project>("/projects", { blog_url, name, voice_gender, voice_accent });
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
@@ -189,6 +196,20 @@ export const launchStudio = (id: number) =>
 
 export const renderVideo = (id: number) =>
   api.post(`/projects/${id}/render`);
+
+export const downloadVideo = async (id: number, filename?: string) => {
+  const res = await api.get(`/projects/${id}/download`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "video.mp4";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
 
 export const sendChatMessage = (id: number, message: string) =>
   api.post<ChatResponse>(`/projects/${id}/chat`, { message });

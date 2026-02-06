@@ -69,9 +69,8 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     exa = Exa(api_key=settings.EXA_API_KEY)
 
     result = exa.get_contents(
-        ids=[url],
+        urls=[url],
         text=True,
-        # Exa returns clean markdown text by default
     )
 
     if not result.results:
