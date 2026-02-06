@@ -1,5 +1,6 @@
 import os
 import time
+from mutagen.mp3 import MP3
 from elevenlabs import ElevenLabs
 from sqlalchemy.orm import Session
 
@@ -11,33 +12,57 @@ from app.models.asset import Asset, AssetType
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
 SCENE_DELAY = 2  # seconds between scenes to avoid rate limits
+DURATION_PAD = 1.0  # extra seconds added to voiceover duration for scene
 
-# ElevenLabs pre-made voice IDs mapped by gender + accent
+# ElevenLabs voices -- documentary narrator style
+# These are deep, authoritative voices ideal for explainer/documentary content
 VOICE_MAP = {
-    ("female", "american"): "21m00Tcm4TlvDq8ikWAM",  # Rachel
-    ("male", "american"): "pNInz6obpgDQGcFmaJgB",    # Adam
-    ("female", "british"): "XB0fDUnXU5powFXDhCwa",    # Charlotte
-    ("male", "british"): "N2lVS1w4EtoT3dr4eOWO",     # Callum
+    ("female", "american"): "EXAVITQu4vr4xnSDxMaL",  # Bella  -- warm, narrative
+    ("male", "american"): "onwK4e9ZLuTAKqWW03F9",    # Daniel -- deep, documentary
+    ("female", "british"): "XB0fDUnXU5powFXDhCwa",    # Charlotte -- authoritative
+    ("male", "british"): "N2lVS1w4EtoT3dr4eOWO",     # Callum -- calm narrator
 }
+
+# Fallback: Daniel (deep male documentary voice) if no match
+DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9"
 
 
 def _get_voice_id(project: Project) -> str:
     """Pick an ElevenLabs voice ID based on project preferences."""
     key = (
-        getattr(project, "voice_gender", "female"),
+        getattr(project, "voice_gender", "male"),
         getattr(project, "voice_accent", "american"),
     )
-    return VOICE_MAP.get(key, settings.ELEVENLABS_VOICE_ID)
+    return VOICE_MAP.get(key, DEFAULT_VOICE_ID)
+
+
+def _get_audio_duration(filepath: str) -> float:
+    """Get the duration of an MP3 file in seconds."""
+    try:
+        audio = MP3(filepath)
+        return audio.info.length
+    except Exception:
+        # Fallback: estimate from file size (~16KB per second at 128kbps)
+        try:
+            size = os.path.getsize(filepath)
+            return size / 16000
+        except Exception:
+            return 10.0
 
 
 def generate_voiceover(scene: Scene, db: Session) -> str:
     """
     Generate voiceover audio for a scene using ElevenLabs TTS.
+    After generation, updates scene.duration_seconds to audio length + 1s.
     Retries on connection errors.
 
     Returns:
         str: Local path to the generated audio file
     """
+    # Skip scenes with no narration (e.g. hero opening)
+    if not scene.narration_text or not scene.narration_text.strip():
+        return ""
+
     client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
 
     audio_dir = os.path.join(
@@ -50,7 +75,7 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
 
     # Determine voice from project preferences
     project = db.query(Project).filter(Project.id == scene.project_id).first()
-    voice_id = _get_voice_id(project) if project else settings.ELEVENLABS_VOICE_ID
+    voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
 
     # Retry loop for connection issues
     last_error = None
@@ -67,6 +92,10 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
                 for chunk in audio_generator:
                     f.write(chunk)
 
+            # Measure audio duration and set scene duration = audio + pad
+            audio_duration = _get_audio_duration(output_path)
+            scene.duration_seconds = round(audio_duration + DURATION_PAD, 1)
+
             # Success -- update DB
             scene.voiceover_path = output_path
             db.commit()
@@ -81,6 +110,7 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
             db.add(asset)
             db.commit()
 
+            print(f"[VOICEOVER] Scene {scene.order}: audio={audio_duration:.1f}s, scene={scene.duration_seconds}s")
             return output_path
 
         except Exception as e:
@@ -100,7 +130,7 @@ def generate_all_voiceovers(scenes: list[Scene], db: Session) -> list[str]:
             path = generate_voiceover(scene, db)
             paths.append(path)
             # Wait between scenes to avoid rate limits
-            if i < len(scenes) - 1:
+            if i < len(scenes) - 1 and path:
                 time.sleep(SCENE_DELAY)
         except Exception as e:
             print(f"[VOICEOVER] Failed to generate voiceover for scene {scene.order} after {MAX_RETRIES} retries: {e}")

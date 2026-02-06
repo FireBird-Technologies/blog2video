@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Landing from "./pages/Landing";
+import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 
@@ -37,6 +38,11 @@ function AppNavbar() {
           <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
         </a>
         <div className="flex items-center gap-4">
+          {/* Pricing link */}
+          <a href="/pricing" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
+            Pricing
+          </a>
+
           {/* Usage */}
           <span className="hidden sm:block text-xs text-gray-400">
             {user.videos_used_this_period}/{user.video_limit} videos
@@ -90,6 +96,7 @@ function AppRoutes() {
           path="/"
           element={user ? <Navigate to="/dashboard" replace /> : <Landing />}
         />
+        <Route path="/pricing" element={<Pricing />} />
 
         {/* Protected */}
         <Route

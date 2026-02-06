@@ -1,76 +1,113 @@
 {
-  "projectName": "Making AI Reports More Reliable: A Technical Guide from the Trenches",
+  "projectName": "Data Visualization as Art: Introducing Autodash's Creative Design Features",
+  "heroImage": "img_b504db9243.png",
   "scenes": [
     {
-      "id": 14,
+      "id": 20,
       "order": 1,
-      "title": "Introduction - The AI Reporting Challenge",
-      "narration": "If you're working with AI to generate reports, you've probably faced this frustrating reality: your AI system works sometimes, but not consistently. As someone who's run an AI consulting agency for over a year, I've seen this challenge across every industry - from startups to cybersecurity firms. Today, I'll share the practical solutions I've discovered to make AI reporting truly reliable.",
-      "visualDescription": "Show title card with professional tech background, then transition to author image with overlay text showing consulting experience statistics",
-      "durationSeconds": 25.0,
-      "voiceoverFile": "audio_scene_1.mp3",
+      "title": "Hero Opening",
+      "narration": "",
+      "visualDescription": "Full-screen fade-in of the Autodash hero image with the text 'Data Visualization is art. Create like a data artist' displayed prominently. Clean, artistic presentation that sets the tone for creativity and innovation.",
+      "durationSeconds": 3.0,
+      "voiceoverFile": null,
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
       ]
     },
     {
-      "id": 15,
+      "id": 21,
       "order": 2,
-      "title": "Quick Wins - The Foundation",
-      "narration": "Let's start with the simple fixes that deliver immediate results. First, always format your data in markdown - LLMs are trained on it and respond better. Second, write crystal-clear prompts. Just like humans, AI gets confused by vague instructions. And third, choose the right model for your specific task. GPT-4 isn't always the answer - sometimes Gemini's 2-million token context window is exactly what you need for detailed reports.",
-      "visualDescription": "Split-screen showing markdown table formatting vs plain text, then animated comparison of different AI models with context window sizes",
-      "durationSeconds": 30.0,
+      "title": "Introduction: Data Visualization as Art",
+      "narration": "What if data visualization wasn't just about charts and numbers, but about creating art? At Autodash, we discovered something fascinating: our users don't want standard dashboards. They want to personalize their data experience deeply, treating visualization as a true art form.",
+      "visualDescription": "Dynamic text overlay with subtle animations. Show the Autodash logo and tagline 'Turn data into insight, beautifully'. Modern, clean aesthetic with data-inspired visual elements flowing in the background.",
+      "durationSeconds": 21.8,
       "voiceoverFile": "audio_scene_2.mp3",
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
       ]
     },
     {
-      "id": 16,
+      "id": 22,
       "order": 3,
-      "title": "Smart Prompting Techniques",
-      "narration": "Here's a game-changer: add the phrase 'explain your reasoning step by step' to your prompts. This technique, called Chain-of-Thought prompting, dramatically improves accuracy. Also, include few-shot examples - show the AI what good outputs look like. These examples guide the model toward the responses you actually want.",
-      "visualDescription": "Before/after comparison showing AI responses with and without chain-of-thought prompting, followed by examples of few-shot prompting with sample inputs and desired outputs",
-      "durationSeconds": 25.0,
+      "title": "The Discovery: What Users Really Want",
+      "narration": "After extensive testing of Autodash, our AI-powered data visualization tool, we listened to what users were telling us. They didn't just want functional dashboards. They wanted to become data artists, creating visually stunning, highly customized creations that transform insights into art.",
+      "visualDescription": "Show user feedback concepts and transition to excited user personas. Visual metaphor of transformation from basic charts to artistic visualizations. Use icons and graphics representing customization and creativity.",
+      "durationSeconds": 21.0,
       "voiceoverFile": "audio_scene_3.mp3",
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
       ]
     },
     {
-      "id": 17,
+      "id": 23,
       "order": 4,
-      "title": "The Power of Evaluation",
-      "narration": "Want to know the secret to consistently improving your AI system? Build an evaluation pipeline. Create a dataset with sample inputs and expected outputs, then design metrics to score your AI's performance. This isn't just testing - it's optimization. You can automatically generate better prompts and measure improvement over time.",
-      "visualDescription": "Flowchart animation showing evaluation pipeline: input queries \u2192 AI processing \u2192 output scoring \u2192 prompt optimization \u2192 improved results",
-      "durationSeconds": 25.0,
+      "title": "Design Feature: Instant Color Customization",
+      "narration": "We've introduced powerful new design features. First up: direct color control. Now you can change trace, line, bar, and component colors instantly\u2014no regeneration needed, no credits consumed. Simply select your element and pick your perfect shade. It's like having a color palette at your fingertips.",
+      "visualDescription": "Screen recording style animation showing the color picker interface. Demonstrate changing a chart from one color scheme to another with smooth transitions. Show the before and after: green shades transforming with adjusted opacity.",
+      "durationSeconds": 22.6,
       "voiceoverFile": "audio_scene_4.mp3",
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
       ]
     },
     {
-      "id": 18,
+      "id": 24,
       "order": 5,
-      "title": "The Reliability Mathematics",
-      "narration": "Here's the crucial insight most people miss: complexity kills reliability. If each AI call has a 95% success rate, but your system makes 10 calls, your overall reliability drops to just 60%. Every additional API call exponentially reduces your system's dependability. Design for simplicity - can you solve the problem in 2 calls instead of 3? That's not just efficiency, that's exponentially better reliability.",
-      "visualDescription": "Mathematical visualization showing probability calculations: 95% success rate across multiple calls, with animated graph showing exponential reliability decline",
-      "durationSeconds": 30.0,
+      "title": "Design Feature: Background and Opacity Controls",
+      "narration": "Want to change your chart's entire mood? You can now modify chart backgrounds, KPI card backgrounds, and text backgrounds\u2014all with adjustable opacity. Watch as we transform a white background to black, and flip text from black to white. The system auto-detects all components, making styling effortless.",
+      "visualDescription": "Animated demonstration of background color changes. Show the dramatic transformation from light theme to dark theme. Highlight KPI cards changing alongside charts. Emphasize the smooth, real-time nature of the changes.",
+      "durationSeconds": 24.5,
       "voiceoverFile": "audio_scene_5.mp3",
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
       ]
     },
     {
-      "id": 19,
+      "id": 25,
       "order": 6,
-      "title": "Your Action Checklist",
-      "narration": "Ready to implement these improvements? Here's your checklist: Use markdown formatting and clear prompts. Choose the right model and optimize settings. Apply chain-of-thought prompting with examples. Build evaluation pipelines to measure and improve performance. And most importantly, simplify your system - fewer API calls mean exponentially better reliability. These aren't just theories - they're battle-tested solutions from real client projects.",
-      "visualDescription": "Animated checklist with checkmarks appearing for each point, ending with author image and contact information overlay",
-      "durationSeconds": 25.0,
+      "title": "Design Feature: Dashboard-Wide Styling",
+      "narration": "Take it even further with dashboard-wide customization. Select a single color for your entire dashboard, adjust global opacity, or apply stunning two-color gradients. Transform your data canvas from plain white to an elegant white-gray gradient, creating a cohesive, professional look that's uniquely yours.",
+      "visualDescription": "Show the color edit panel interface. Demonstrate gradient application across an entire dashboard. Display multiple gradient examples: subtle and bold. Emphasize the artistic, cohesive result of dashboard-wide styling.",
+      "durationSeconds": 23.7,
       "voiceoverFile": "audio_scene_6.mp3",
       "images": [
-        "img_8ae4240631.jpeg"
+        "img_b504db9243.png"
+      ]
+    },
+    {
+      "id": 26,
+      "order": 7,
+      "title": "Powered by AI Analytics",
+      "narration": "But Autodash isn't just about beautiful visuals. Behind the scenes, powerful AI data analytics work for you. Get answers fast using Python's advanced data science libraries. Ask questions, and watch as sophisticated analytics combine with stunning design to deliver insights you can actually use.",
+      "visualDescription": "Split screen showing both beautiful visualizations and analytics queries. Display code-like elements transforming into charts. Show the query interface with example analytics questions being answered in real-time.",
+      "durationSeconds": 23.4,
+      "voiceoverFile": "audio_scene_7.mp3",
+      "images": [
+        "img_b504db9243.png"
+      ]
+    },
+    {
+      "id": 27,
+      "order": 8,
+      "title": "Coming Soon: Even More Power",
+      "narration": "We're not stopping here. Coming soon: custom fonts and gridline controls, professionally designed themes for instant inspiration, and intelligent preference memory that learns your aesthetic choices. Plus, comprehensive data connectors and a dedicated analytics mode for building powerful data pipelines.",
+      "visualDescription": "Animated roadmap or feature preview. Show mockups or concept designs of upcoming features. Use forward-looking, exciting visuals. Display icons for: fonts, themes, memory/AI, connectors, and analytics mode.",
+      "durationSeconds": 22.0,
+      "voiceoverFile": "audio_scene_8.mp3",
+      "images": [
+        "img_b504db9243.png"
+      ]
+    },
+    {
+      "id": 28,
+      "order": 9,
+      "title": "Call to Action: Become a Data Artist",
+      "narration": "Ready to become a data artist? Autodash transforms raw data into beautiful, interactive visualizations. No code. No complexity. Just your data, your vision, and the tools to bring it to life. Visit autodash.art and start creating today. Because analytics should be done beautifully.",
+      "visualDescription": "Return to hero image or show final polished dashboard examples. Display the Autodash logo and URL clearly: autodash.art. Use inspiring, uplifting visuals. End with a clean call-to-action screen.",
+      "durationSeconds": 23.5,
+      "voiceoverFile": "audio_scene_9.mp3",
+      "images": [
+        "img_b504db9243.png"
       ]
     }
   ]

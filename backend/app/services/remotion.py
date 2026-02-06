@@ -12,6 +12,8 @@ from app.models.scene import Scene
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
+# Track running player processes: project_id -> subprocess.Popen
+_player_processes: dict[int, subprocess.Popen] = {}
 
 
 def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> str:
@@ -55,9 +57,13 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             "images": image_files,
         })
 
+    # Identify hero image (first image asset = OG/hero from scraper)
+    hero_image_file = image_files[0] if image_files else None
+
     # Write data.json
     data = {
         "projectName": project.name,
+        "heroImage": hero_image_file,
         "scenes": scene_data,
     }
     data_path = os.path.join(public_dir, "data.json")
@@ -102,61 +108,93 @@ def write_scene_components(scenes: list[Scene]) -> None:
 
 def launch_studio(project: Project, db: Session) -> int:
     """
-    Launch Remotion Studio as a subprocess.
+    Launch Remotion Studio + Player preview as subprocesses.
 
     Returns:
-        int: The port number the studio is running on
+        int: The studio port number
     """
-    # Kill existing studio for this project
+    # Kill existing processes for this project
     stop_studio(project.id)
 
     remotion_dir = settings.REMOTION_PROJECT_PATH
 
-    # Find an available port (start from 3100 to avoid conflicts)
-    port = 3100 + (project.id % 100)
+    # ── Studio (full editing UI) ────────────────────────────
+    studio_port = 3100 + (project.id % 100)
 
-    # On Windows, npx must be called as npx.cmd or via shell
     npx = shutil.which("npx") or "npx"
-    cmd = [
+    studio_cmd = [
         npx, "remotion", "studio",
-        "--port", str(port),
+        "--port", str(studio_port),
         "--no-open",
     ]
 
-    process = subprocess.Popen(
-        cmd,
+    studio_proc = subprocess.Popen(
+        studio_cmd,
         cwd=remotion_dir,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=(os.name == "nt"),
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
     )
+    _studio_processes[project.id] = studio_proc
 
-    _studio_processes[project.id] = process
+    # ── Player preview (controls-only) ──────────────────────
+    player_port = 3200 + (project.id % 100)
 
-    # Update project with studio port
-    project.studio_port = port
+    player_cmd = [
+        npx, "vite",
+        "--config", "vite.player.config.ts",
+        "--port", str(player_port),
+        "--strictPort",
+    ]
+
+    player_proc = subprocess.Popen(
+        player_cmd,
+        cwd=remotion_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=(os.name == "nt"),
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+    )
+    _player_processes[project.id] = player_proc
+
+    # Update project with both ports
+    project.studio_port = studio_port
+    project.player_port = player_port
     db.commit()
 
-    return port
+    return studio_port
 
 
 def stop_studio(project_id: int) -> None:
-    """Stop a running Remotion Studio subprocess."""
-    process = _studio_processes.pop(project_id, None)
-    if process and process.poll() is None:
-        try:
-            if os.name == "nt":
-                process.terminate()
-            else:
-                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        except (ProcessLookupError, OSError):
-            pass
+    """Stop running Remotion Studio and Player subprocesses."""
+    for store in (_studio_processes, _player_processes):
+        process = store.pop(project_id, None)
+        if process and process.poll() is None:
+            try:
+                if os.name == "nt":
+                    process.terminate()
+                else:
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass
+
+
+import re
+import threading
+
+# Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
+_render_progress: dict[int, dict] = {}
+
+
+def get_render_progress(project_id: int) -> dict:
+    """Return the current render progress for a project."""
+    return _render_progress.get(project_id, {})
 
 
 def render_video(project: Project) -> str:
     """
-    Render the video using Remotion CLI.
+    Render the video using Remotion CLI (synchronous, blocking).
 
     Returns:
         str: Path to the output video file
@@ -189,6 +227,165 @@ def render_video(project: Project) -> str:
     return output_path
 
 
+def start_render_async(project: Project) -> None:
+    """
+    Kick off the Remotion render as a background subprocess.
+    Progress is tracked in _render_progress and can be polled.
+    """
+    remotion_dir = settings.REMOTION_PROJECT_PATH
+    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_path = os.path.join(output_dir, "video.mp4")
+
+    npx = shutil.which("npx") or "npx"
+    cmd = [
+        npx, "remotion", "render",
+        "ExplainerVideo",
+        output_path,
+    ]
+
+    _render_progress[project.id] = {
+        "progress": 0,
+        "total_frames": 0,
+        "rendered_frames": 0,
+        "done": False,
+        "error": None,
+        "output_path": output_path,
+        "time_remaining": None,
+    }
+
+    # Use raw bytes (not text) so we can handle \r progress overwrites
+    process = subprocess.Popen(
+        cmd,
+        cwd=remotion_dir,
+        shell=(os.name == "nt"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+    )
+
+    # Monitor both stdout and stderr in separate threads
+    for stream in (process.stdout, process.stderr):
+        t = threading.Thread(
+            target=_read_render_stream,
+            args=(project.id, stream),
+            daemon=True,
+        )
+        t.start()
+
+    # Wait for process in a separate thread and mark done
+    threading.Thread(
+        target=_wait_render, args=(project.id, process), daemon=True
+    ).start()
+
+
+def _read_render_stream(project_id: int, stream) -> None:
+    """
+    Read a raw byte stream character-by-character, splitting on both
+    \\r and \\n so we catch Remotion's carriage-return progress lines.
+    """
+    # Matches: "Rendered 1337/8631"  (no parens — actual Remotion output)
+    frame_pat = re.compile(r"Rendered\s+(\d+)\s*/\s*(\d+)")
+    # Matches: "time remaining: 2m 46s"
+    time_pat = re.compile(r"time remaining:\s*(.+?)$")
+
+    buf = b""
+    try:
+        while True:
+            ch = stream.read(1)
+            if not ch:
+                break
+            if ch in (b"\r", b"\n"):
+                if buf:
+                    _parse_render_line(
+                        project_id,
+                        buf.decode("utf-8", errors="replace"),
+                        frame_pat,
+                        time_pat,
+                    )
+                    buf = b""
+            else:
+                buf += ch
+        # Flush remaining buffer
+        if buf:
+            _parse_render_line(
+                project_id,
+                buf.decode("utf-8", errors="replace"),
+                frame_pat,
+                time_pat,
+            )
+    except Exception:
+        pass  # stream closed
+
+
+def _parse_render_line(
+    project_id: int, line: str, frame_pat, time_pat
+) -> None:
+    """Parse a single line of Remotion render output for progress info."""
+    line = line.strip()
+    if not line:
+        return
+
+    # Frame-based: "Rendered 1337/8631, time remaining: 2m 46s"
+    m = frame_pat.search(line)
+    if m:
+        rendered = int(m.group(1))
+        total = int(m.group(2))
+        _render_progress[project_id]["rendered_frames"] = rendered
+        _render_progress[project_id]["total_frames"] = total
+        if total > 0:
+            _render_progress[project_id]["progress"] = round(
+                (rendered / total) * 100
+            )
+        # Extract time remaining
+        tm = time_pat.search(line)
+        if tm:
+            _render_progress[project_id]["time_remaining"] = tm.group(1).strip()
+
+
+def _wait_render(project_id: int, process: subprocess.Popen) -> None:
+    """Wait for the render process to finish and update status."""
+    import time
+
+    try:
+        # Use a polling loop instead of bare process.wait() for Windows reliability.
+        # On Windows with shell=True, process.wait() can sometimes hang after
+        # the child has already exited.
+        while True:
+            retcode = process.poll()
+            if retcode is not None:
+                break
+            # Check if progress already shows 100% with all frames rendered
+            # (safety net: if CLI finished outputting but process object is stale)
+            prog = _render_progress.get(project_id, {})
+            total = prog.get("total_frames", 0)
+            rendered = prog.get("rendered_frames", 0)
+            if total > 0 and rendered >= total:
+                # Frames all rendered — give CLI 10s to actually exit
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.terminate()
+                break
+            time.sleep(0.5)
+
+        retcode = process.returncode if process.returncode is not None else process.poll()
+
+        if retcode is None or retcode == 0:
+            _render_progress[project_id]["progress"] = 100
+            _render_progress[project_id]["rendered_frames"] = _render_progress[project_id].get("total_frames", 0)
+            _render_progress[project_id]["done"] = True
+        else:
+            _render_progress[project_id]["error"] = (
+                f"Render failed (exit code {retcode})"
+            )
+            _render_progress[project_id]["done"] = True
+    except Exception as e:
+        _render_progress[project_id]["error"] = str(e)
+        _render_progress[project_id]["done"] = True
+
+
 def _copy_file(src: str, dest: str) -> None:
     """Copy a file from src to dest."""
     import shutil
@@ -197,60 +394,69 @@ def _copy_file(src: str, dest: str) -> None:
 
 
 def _default_scene_component(scene: Scene) -> str:
-    """Generate a default Remotion scene component."""
-    return f'''import {{ AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig }} from "remotion";
+    """Generate a default Remotion scene component.
+    White/black background, purple accent, geometric shapes.
+    Scene 1 (hero) is image-only with fade-in."""
+    if scene.order == 1:
+        # Hero opening: full-screen image fade-in, NO text
+        return f'''import {{ AbsoluteFill, Img, interpolate, useCurrentFrame }} from "remotion";
 
 const Scene{scene.order}: React.FC<{{
   title: string;
   narration: string;
   imageUrl?: string;
-}}> = ({{ title, narration, imageUrl }}) => {{
+}}> = ({{ imageUrl }}) => {{
   const frame = useCurrentFrame();
-  const {{ fps }} = useVideoConfig();
-
-  const titleOpacity = interpolate(frame, [0, 30], [0, 1], {{
-    extrapolateRight: "clamp",
-  }});
-  const textY = interpolate(frame, [10, 40], [30, 0], {{
-    extrapolateRight: "clamp",
-  }});
-  const textOpacity = interpolate(frame, [10, 40], [0, 1], {{
-    extrapolateRight: "clamp",
-  }});
+  const opacity = interpolate(frame, [0, 40], [0, 1], {{ extrapolateRight: "clamp" }});
+  const scale = interpolate(frame, [0, 60], [1.08, 1.0], {{ extrapolateRight: "clamp" }});
 
   return (
-    <AbsoluteFill
-      style={{{{
-        backgroundColor: "#0f172a",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        padding: 80,
-      }}}}
-    >
-      <h1
-        style={{{{
-          color: "#f1f5f9",
-          fontSize: 56,
-          fontWeight: 700,
-          opacity: titleOpacity,
-          marginBottom: 24,
-        }}}}
-      >
-        {{title}}
-      </h1>
-      <p
-        style={{{{
-          color: "#cbd5e1",
-          fontSize: 28,
-          lineHeight: 1.6,
-          opacity: textOpacity,
-          transform: `translateY(${{textY}}px)`,
-          maxWidth: 900,
-        }}}}
-      >
-        {{narration}}
-      </p>
+    <AbsoluteFill style={{{{ backgroundColor: "#0A0A0A" }}}}>
+      {{imageUrl && (
+        <Img
+          src={{imageUrl}}
+          style={{{{ width: "100%", height: "100%", objectFit: "cover", opacity, transform: `scale(${{scale}})` }}}}
+        />
+      )}}
+    </AbsoluteFill>
+  );
+}};
+
+export default Scene{scene.order};
+'''
+    else:
+        return f'''import {{ AbsoluteFill, interpolate, useCurrentFrame }} from "remotion";
+
+const ACCENT = "#7C3AED";
+
+const Scene{scene.order}: React.FC<{{
+  title: string;
+  narration: string;
+  imageUrl?: string;
+}}> = ({{ title, narration }}) => {{
+  const frame = useCurrentFrame();
+  const titleOpacity = interpolate(frame, [0, 25], [0, 1], {{ extrapolateRight: "clamp" }});
+  const textOpacity = interpolate(frame, [12, 35], [0, 1], {{ extrapolateRight: "clamp" }});
+  const textY = interpolate(frame, [12, 35], [20, 0], {{ extrapolateRight: "clamp" }});
+  const barWidth = interpolate(frame, [5, 25], [0, 120], {{ extrapolateRight: "clamp" }});
+  const circleScale = interpolate(frame, [0, 35], [0, 1], {{ extrapolateRight: "clamp" }});
+
+  return (
+    <AbsoluteFill style={{{{ backgroundColor: "#FFFFFF", padding: "80px 120px", display: "flex", flexDirection: "column", justifyContent: "center" }}}}>
+      {{/* Geometric shapes */}}
+      <div style={{{{ position: "absolute", top: -60, right: -60, width: 300, height: 300, borderRadius: "50%", border: `2px solid ${{ACCENT}}20`, transform: `scale(${{circleScale}})` }}}} />
+      <div style={{{{ position: "absolute", top: 80, left: 120, width: barWidth, height: 4, backgroundColor: ACCENT, borderRadius: 2 }}}} />
+      <div style={{{{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 5, backgroundColor: ACCENT }}}} />
+
+      <div style={{{{ position: "relative", zIndex: 1, maxWidth: 1100 }}}}>
+        <h1 style={{{{ color: "#0A0A0A", fontSize: 54, fontWeight: 700, opacity: titleOpacity, marginBottom: 24, fontFamily: "Inter, sans-serif", lineHeight: 1.2 }}}}>
+          {{title}}
+        </h1>
+        <div style={{{{ width: 50, height: 4, backgroundColor: ACCENT, borderRadius: 2, marginBottom: 24 }}}} />
+        <p style={{{{ color: "#404040", fontSize: 27, lineHeight: 1.8, opacity: textOpacity, transform: `translateY(${{textY}}px)`, maxWidth: 950, fontFamily: "Inter, sans-serif" }}}}>
+          {{narration}}
+        </p>
+      </div>
     </AbsoluteFill>
   );
 }};

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ChatMessage, sendChatMessage, getChatHistory } from "../api/client";
+import { useAuth } from "../hooks/useAuth";
+import UpgradeModal from "./UpgradeModal";
 
 interface Props {
   projectId: number;
@@ -7,9 +9,12 @@ interface Props {
 }
 
 export default function ChatPanel({ projectId, onScenesUpdated }: Props) {
+  const { user } = useAuth();
+  const isPro = user?.plan === "pro";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,6 +35,11 @@ export default function ChatPanel({ projectId, onScenesUpdated }: Props) {
   };
 
   const handleSend = async () => {
+    if (!isPro) {
+      setShowUpgrade(true);
+      return;
+    }
+
     const msg = input.trim();
     if (!msg || loading) return;
 
@@ -73,70 +83,106 @@ export default function ChatPanel({ projectId, onScenesUpdated }: Props) {
     }
   };
 
+  const handleInputFocus = () => {
+    if (!isPro) {
+      setShowUpgrade(true);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full glass-card overflow-hidden">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-400 py-8">
-            <p className="text-sm font-medium mb-1">Edit with AI</p>
-            <p className="text-xs text-gray-300">
-              "Make scene 2 more dramatic" or "Add an introduction"
-            </p>
-          </div>
-        )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
+    <>
+      <div className="flex flex-col h-full glass-card overflow-hidden">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <div className="text-center text-gray-400 py-8">
+              <p className="text-sm font-medium mb-1">Edit with AI</p>
+              <p className="text-xs text-gray-300">
+                "Make scene 2 more dramatic" or "Add an introduction"
+              </p>
+            </div>
+          )}
+          {messages.map((msg) => (
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-purple-600 text-white"
-                  : "glass text-gray-700"
+              key={msg.id}
+              className={`flex ${
+                msg.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="glass rounded-2xl px-4 py-2.5">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
-                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-100" />
-                <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-200" />
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-purple-600 text-white"
+                    : "glass text-gray-700"
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
               </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="glass rounded-2xl px-4 py-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-100" />
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse delay-200" />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-200/30 p-3">
-        <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your edit request..."
-            rows={1}
-            className="flex-1 px-4 py-2 bg-white/80 border border-gray-200/40 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-none"
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-xl transition-colors"
-          >
-            Send
-          </button>
+        {/* Input */}
+        <div className="border-t border-gray-200/30 p-3">
+          {!isPro && (
+            <button
+              onClick={() => setShowUpgrade(true)}
+              className="w-full mb-2 px-3 py-2.5 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 rounded-lg transition-colors text-left group"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold text-purple-600">
+                    Upgrade to Pro
+                  </p>
+                  <p className="text-[10px] text-purple-400">
+                    AI chat editing is a Pro feature
+                  </p>
+                </div>
+                <svg className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </button>
+          )}
+          <div className="flex gap-2">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={handleInputFocus}
+              placeholder={isPro ? "Type your edit request..." : "Upgrade to Pro to edit..."}
+              rows={1}
+              disabled={!isPro}
+              className="flex-1 px-4 py-2 bg-white/80 border border-gray-200/40 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={handleSend}
+              disabled={loading || !input.trim() || !isPro}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-xl transition-colors"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <UpgradeModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature="AI Chat Editor"
+      />
+    </>
   );
 }

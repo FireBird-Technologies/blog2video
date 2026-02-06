@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
-from app.models.user import User
+from app.models.user import User, PlanTier
 from app.models.project import Project
 from app.models.scene import Scene
 from app.models.chat_message import ChatMessage, MessageRole
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/projects/{project_id}/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-def chat_edit(
+async def chat_edit(
     project_id: int,
     body: ChatRequest,
     user: User = Depends(get_current_user),
@@ -23,8 +23,17 @@ def chat_edit(
 ):
     """
     Chat endpoint for editing the video script with natural language.
-    Uses DSPy with reflexion for quality edits.
+    Uses DSPy with reflexion for quality edits (async).
+    Only modifies the specific scenes requested -- voiceover and remotion code
+    for untouched scenes are preserved.
     """
+    # Chat editing is a Pro-only feature
+    if user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="AI chat editing is available on the Pro plan. Upgrade to edit your videos.",
+        )
+
     project = (
         db.query(Project)
         .filter(Project.id == project_id, Project.user_id == user.id)
@@ -55,9 +64,10 @@ def chat_edit(
         for msg in project.chat_messages
     ]
 
-    # Build current scenes data
+    # Build current scenes data (include order so editor knows which scene is which)
     current_scenes = [
         {
+            "order": s.order,
             "title": s.title,
             "narration": s.narration_text,
             "visual_description": s.visual_description,
@@ -68,15 +78,15 @@ def chat_edit(
 
     try:
         editor = ScriptEditor()
-        result = editor.edit(
+        result = await editor.edit(
             current_scenes=current_scenes,
             user_request=body.message,
             conversation_history=history,
         )
 
-        # Update scenes with edited data
-        updated_scenes_data = result["scenes"]
-        _update_scenes(project_id, updated_scenes_data, db)
+        # Apply ONLY the changed scenes -- leave everything else intact
+        changed_scenes = result["changed_scenes"]
+        _apply_scene_changes(scenes, changed_scenes, db)
 
         # Save assistant reply
         reply = f"{result['changes_made']}\n\n{result['explanation']}"
@@ -135,20 +145,36 @@ def get_chat_history(
     ]
 
 
-def _update_scenes(project_id: int, scenes_data: list[dict], db: Session):
-    """Update or recreate scenes from edited data."""
-    # Delete old scenes
-    db.query(Scene).filter(Scene.project_id == project_id).delete()
-    db.flush()
+def _apply_scene_changes(
+    existing_scenes: list[Scene],
+    changed_scenes: list[dict],
+    db: Session,
+):
+    """
+    Apply partial edits to existing scenes. Only updates scenes whose 'order'
+    matches a changed scene. Preserves voiceover_path and remotion_code for
+    untouched scenes.
+    """
+    # Build lookup by order
+    scene_by_order = {s.order: s for s in existing_scenes}
 
-    # Create new scenes from edited data
-    for i, scene_data in enumerate(scenes_data):
-        scene = Scene(
-            project_id=project_id,
-            order=i + 1,
-            title=scene_data.get("title", f"Scene {i + 1}"),
-            narration_text=scene_data.get("narration", ""),
-            visual_description=scene_data.get("visual_description", ""),
-            duration_seconds=scene_data.get("duration_seconds", 10),
-        )
-        db.add(scene)
+    for change in changed_scenes:
+        order = change.get("order")
+        if order is None:
+            continue
+
+        scene = scene_by_order.get(order)
+        if not scene:
+            continue
+
+        # Update only the script fields -- keep voiceover_path and remotion_code
+        if "title" in change:
+            scene.title = change["title"]
+        if "narration" in change:
+            scene.narration_text = change["narration"]
+        if "visual_description" in change:
+            scene.visual_description = change["visual_description"]
+        if "duration_seconds" in change:
+            scene.duration_seconds = change["duration_seconds"]
+
+    db.flush()

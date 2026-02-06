@@ -11,7 +11,7 @@ export const TransitionWipe: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#0f172a",
+        backgroundColor: "#FFFFFF",
         opacity: progress,
       }}
     />
@@ -29,7 +29,7 @@ export const TransitionFade: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        background: "linear-gradient(135deg, #0f172a, #1e293b)",
+        backgroundColor: "#0A0A0A",
         opacity,
       }}
     />

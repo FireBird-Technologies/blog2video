@@ -1,7 +1,7 @@
 import json
 import dspy
 
-from app.config import settings
+from app.dspy_modules import ensure_dspy_configured
 
 
 class EditScript(dspy.Signature):
@@ -10,14 +10,20 @@ class EditScript(dspy.Signature):
     assistant that modifies explainer video scripts.
 
     Given the current script (as JSON), user's edit request, and conversation history,
-    produce an updated script that accurately reflects the requested changes.
+    produce ONLY the scenes that need to change. Return the updated scene(s) as a
+    JSON array. Each scene MUST include an "order" field (1-based) so the system
+    knows which scene to update.
 
-    Be precise: only change what the user asks for. Maintain the overall structure
-    and coherence of the video.
+    CRITICAL RULES:
+    - Only return scenes that you actually changed.
+    - Do NOT return unchanged scenes.
+    - Preserve the "order" field exactly to match the original scene.
+    - Never add or remove scenes -- only modify existing ones.
+    - Do NOT touch Scene 1 (Hero Opening) unless explicitly asked.
     """
 
     current_script: str = dspy.InputField(
-        desc="Current video script as JSON array of scenes"
+        desc="Current video script as JSON array of scenes (each has 'order', 'title', 'narration', 'visual_description', 'duration_seconds')"
     )
     user_request: str = dspy.InputField(
         desc="The user's edit request in natural language"
@@ -26,8 +32,10 @@ class EditScript(dspy.Signature):
         desc="Previous chat messages for context"
     )
 
-    updated_script: str = dspy.OutputField(
-        desc="Updated script as JSON array of scenes (same format as input)"
+    updated_scenes: str = dspy.OutputField(
+        desc='JSON array of ONLY the modified scenes. Each MUST include "order" (int), '
+        '"title" (str), "narration" (str), "visual_description" (str), "duration_seconds" (int). '
+        'Return ONLY changed scenes, not the entire script.'
     )
     changes_made: str = dspy.OutputField(
         desc="Brief summary of what changes were made"
@@ -42,11 +50,13 @@ class CritiqueEdit(dspy.Signature):
     Review an edit made to a video script. Check if the edit is coherent, factually
     consistent with the original blog content, and accurately fulfills the user's request.
 
+    Also verify that ONLY the requested scenes were changed and no others were modified.
+
     If the edit has problems, describe them. If it's good, say so.
     """
 
     original_script: str = dspy.InputField(desc="The original script before editing")
-    edited_script: str = dspy.InputField(desc="The script after editing")
+    edited_scenes: str = dspy.InputField(desc="The modified scenes (partial, not full script)")
     user_request: str = dspy.InputField(desc="What the user asked for")
 
     is_good: bool = dspy.OutputField(desc="True if the edit is satisfactory, False if it needs improvement")
@@ -57,82 +67,78 @@ class CritiqueEdit(dspy.Signature):
 
 class ScriptEditor:
     """
-    DSPy-based script editor with reflexion.
-    Uses a generate-then-critique loop to ensure high quality edits.
+    DSPy-based script editor with reflexion (async).
+    Returns ONLY changed scenes to preserve voiceover and Remotion code for untouched ones.
     """
 
     MAX_RETRIES = 2
 
     def __init__(self):
-        self._configure_dspy()
-        self.editor = dspy.ChainOfThought(EditScript)
-        self.critic = dspy.ChainOfThought(CritiqueEdit)
+        ensure_dspy_configured()
+        self._editor = dspy.ChainOfThought(EditScript)
+        self._critic = dspy.ChainOfThought(CritiqueEdit)
+        self.editor = dspy.asyncify(self._editor)
+        self.critic = dspy.asyncify(self._critic)
 
-    def _configure_dspy(self):
-        lm = dspy.LM(
-            "anthropic/claude-sonnet-4-20250514",
-            api_key=settings.ANTHROPIC_API_KEY,
-        )
-        dspy.configure(lm=lm)
-
-    def edit(
+    async def edit(
         self,
         current_scenes: list[dict],
         user_request: str,
         conversation_history: list[dict] | None = None,
     ) -> dict:
         """
-        Edit the script with reflexion loop.
+        Edit the script with reflexion loop (async).
+        Returns ONLY the changed scenes with their 'order' field intact.
 
         Returns:
-            dict with 'scenes', 'changes_made', 'explanation'
+            dict with 'changed_scenes' (list of dicts with 'order'), 'changes_made', 'explanation'
         """
         current_script_json = json.dumps(current_scenes, indent=2)
         history_str = self._format_history(conversation_history or [])
 
         # Initial edit
-        edit_result = self.editor(
+        edit_result = await self.editor(
             current_script=current_script_json,
             user_request=user_request,
             conversation_history=history_str,
         )
 
-        updated_script = edit_result.updated_script
+        updated_scenes_json = edit_result.updated_scenes
         changes_made = edit_result.changes_made
         explanation = edit_result.explanation
 
         # Reflexion loop: critique and retry if needed
         for attempt in range(self.MAX_RETRIES):
-            critique_result = self.critic(
+            critique_result = await self.critic(
                 original_script=current_script_json,
-                edited_script=updated_script,
+                edited_scenes=updated_scenes_json,
                 user_request=user_request,
             )
 
             if critique_result.is_good:
                 break
 
-            # Retry with the critique feedback
             enhanced_request = (
                 f"Original request: {user_request}\n\n"
                 f"Previous attempt had issues: {critique_result.critique}\n\n"
-                f"Please fix these issues while fulfilling the original request."
+                f"Please fix these issues while fulfilling the original request. "
+                f"Remember: only return the scenes you changed, with their 'order' field."
             )
 
-            edit_result = self.editor(
+            edit_result = await self.editor(
                 current_script=current_script_json,
                 user_request=enhanced_request,
                 conversation_history=history_str,
             )
-            updated_script = edit_result.updated_script
+            updated_scenes_json = edit_result.updated_scenes
             changes_made = edit_result.changes_made
             explanation = edit_result.explanation
 
-        # Parse the updated scenes
-        scenes = self._parse_scenes(updated_script)
+        # Parse the changed scenes
+        changed_scenes = self._parse_scenes(updated_scenes_json)
 
         return {
-            "scenes": scenes,
+            "changed_scenes": changed_scenes,
             "changes_made": changes_made,
             "explanation": explanation,
         }
@@ -143,7 +149,7 @@ class ScriptEditor:
             return "No previous conversation."
 
         lines = []
-        for msg in history[-10:]:  # Last 10 messages
+        for msg in history[-10:]:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             lines.append(f"{role}: {content}")
@@ -162,7 +168,6 @@ class ScriptEditor:
                 scenes = [scenes]
             return scenes
         except json.JSONDecodeError:
-            # Return as a single modified scene
-            return [{"title": "Modified Content", "narration": scenes_json[:500],
+            return [{"order": 1, "title": "Modified Content", "narration": scenes_json[:500],
                       "visual_description": "Updated content", "suggested_images": [],
                       "duration_seconds": 15}]

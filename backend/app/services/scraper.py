@@ -63,8 +63,10 @@ def scrape_blog(project: Project, db: Session) -> Project:
 
 def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     """
-    Use Exa API to get clean text content and images from a URL.
+    Use Exa API to get clean text content from a URL, then do a quick
+    requests pass to extract code blocks and body images.
     Works reliably with Medium, Substack, and other protected sites.
+    The hero/OG image is always first in the returned list.
     """
     exa = Exa(api_key=settings.EXA_API_KEY)
 
@@ -79,12 +81,40 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     page = result.results[0]
     text = page.text or ""
 
-    # Extract image URLs from the Exa result if available
+    # Hero image first (Exa returns the og:image / hero)
     image_urls = []
     if hasattr(page, "image") and page.image:
         image_urls.append(page.image)
 
-    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(image_urls)} images")
+    # Do a quick HTML fetch to extract code blocks and body images
+    # (Exa only returns plain text, losing code formatting and inline images)
+    try:
+        resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=15)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            # Enrich text with code blocks that Exa strips out
+            code_blocks = _extract_code_blocks(soup)
+            if code_blocks:
+                text = _inject_code_blocks(text, code_blocks)
+
+            # Get hero image if Exa didn't have one
+            if not image_urls:
+                og_img = _extract_og_image_from_soup(soup, url)
+                if og_img:
+                    image_urls.append(og_img)
+
+            # Extract body images (Exa doesn't return these)
+            body_images = _extract_image_urls(soup, url)
+            hero_set = set(image_urls)
+            for img_url in body_images:
+                if img_url not in hero_set:
+                    image_urls.append(img_url)
+                    hero_set.add(img_url)
+    except Exception as e:
+        print(f"[SCRAPER] HTML enrichment pass failed (non-fatal): {e}")
+
+    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(image_urls)} images (hero: {bool(image_urls)})")
     return text, image_urls
 
 
@@ -93,6 +123,7 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
 def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
     """
     Fallback scraper using requests + BeautifulSoup.
+    Hero/OG image is always first in the returned list.
     """
     session = requests.Session()
     session.headers.update(_BROWSER_HEADERS)
@@ -107,15 +138,116 @@ def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
 
     soup = BeautifulSoup(response.text, "lxml")
     text = _extract_text(soup)
+
+    # Extract hero image (og:image) first, then remaining images
+    hero_url = _extract_og_image_from_soup(soup, url)
     image_urls = _extract_image_urls(soup, url)
+
+    # Ensure hero image is first and deduplicated
+    if hero_url:
+        image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
 
     return text, image_urls
 
 
+def _extract_og_image(url: str) -> str | None:
+    """Quick fetch to extract og:image from a URL's HTML head."""
+    try:
+        resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=10)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text[:10000], "lxml")  # only parse head
+            return _extract_og_image_from_soup(soup, url)
+    except Exception:
+        pass
+    return None
+
+
+def _extract_og_image_from_soup(soup: BeautifulSoup, base_url: str) -> str | None:
+    """Extract the og:image or twitter:image from parsed HTML."""
+    for prop in ["og:image", "twitter:image", "twitter:image:src"]:
+        tag = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
+        if tag and tag.get("content"):
+            return urljoin(base_url, tag["content"])
+    return None
+
+
+def _extract_code_blocks(soup: BeautifulSoup) -> list[dict]:
+    """
+    Extract code blocks (<pre>, <code>, or <pre><code>) from the HTML.
+    Returns a list of { "language": str|None, "code": str }.
+    """
+    blocks = []
+    seen_code = set()
+
+    # Find <pre> tags (often wrapping <code>)
+    for pre in soup.find_all("pre"):
+        code_tag = pre.find("code")
+        raw = (code_tag or pre).get_text(strip=False)
+        raw = raw.strip()
+        if not raw or len(raw) < 10 or raw in seen_code:
+            continue
+        seen_code.add(raw)
+
+        # Try to detect language from class
+        lang = None
+        for tag in [code_tag, pre]:
+            if tag and tag.get("class"):
+                for cls in tag["class"]:
+                    m = re.match(r"(?:language-|lang-|highlight-)(\w+)", cls, re.I)
+                    if m:
+                        lang = m.group(1)
+                        break
+            if lang:
+                break
+
+        blocks.append({"language": lang, "code": raw})
+
+    # Also find standalone <code> blocks that are long enough to be meaningful
+    for code_tag in soup.find_all("code"):
+        if code_tag.parent and code_tag.parent.name == "pre":
+            continue  # Already captured
+        raw = code_tag.get_text(strip=False).strip()
+        if len(raw) > 40 and raw not in seen_code:
+            seen_code.add(raw)
+            blocks.append({"language": None, "code": raw})
+
+    return blocks
+
+
+def _inject_code_blocks(text: str, code_blocks: list[dict]) -> str:
+    """
+    Append extracted code blocks to the text content with clear markers
+    so the LLM knows code exists in the blog.
+    """
+    if not code_blocks:
+        return text
+
+    code_section = "\n\n═══ CODE BLOCKS FROM THIS BLOG ═══\n"
+    for i, block in enumerate(code_blocks, 1):
+        lang_label = block["language"] or "code"
+        code_section += f"\n--- Code Block {i} ({lang_label}) ---\n"
+        # Limit each block to first 60 lines to avoid token explosion
+        lines = block["code"].split("\n")
+        if len(lines) > 60:
+            code_section += "\n".join(lines[:60])
+            code_section += f"\n... ({len(lines) - 60} more lines truncated)\n"
+        else:
+            code_section += block["code"]
+        code_section += "\n"
+
+    return text + code_section
+
+
 def _extract_text(soup: BeautifulSoup) -> str:
-    """Extract the main article text from the page."""
+    """
+    Extract the main article text from the page, preserving code blocks
+    with clear markers so the LLM can identify them.
+    """
     for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
         element.decompose()
+
+    # Extract code blocks BEFORE decomposing them
+    code_blocks = _extract_code_blocks(soup)
 
     article = (
         soup.find("article")
@@ -131,7 +263,12 @@ def _extract_text(soup: BeautifulSoup) -> str:
         text = body.get_text(separator="\n", strip=True) if body else soup.get_text(separator="\n", strip=True)
 
     text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+    text = text.strip()
+
+    # Inject code blocks with clear markers
+    text = _inject_code_blocks(text, code_blocks)
+
+    return text
 
 
 def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:

@@ -61,6 +61,7 @@ class ProjectOut(BaseModel):
     voice_gender: str = "female"
     voice_accent: str = "american"
     studio_port: Optional[int] = None
+    player_port: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
@@ -106,10 +107,6 @@ class ChatResponse(BaseModel):
 
 
 # ─── Pipeline ─────────────────────────────────────────────
-
-class GenerateScriptRequest(BaseModel):
-    target_duration_minutes: int = 3
-
 
 class StudioResponse(BaseModel):
     studio_url: str
