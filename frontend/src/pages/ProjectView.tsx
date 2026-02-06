@@ -202,8 +202,21 @@ export default function ProjectView() {
   const [renderTimeLeft, setRenderTimeLeft] = useState<string | null>(null);
   const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Auto-download trigger (only when render finishes during this session)
+  const autoDownloadRef = useRef(false);
+
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  // Auto-download once render finishes (only during this session, not on reload)
+  useEffect(() => {
+    if (autoDownloadRef.current && rendered && project && !downloading) {
+      autoDownloadRef.current = false;
+      const safeName =
+        project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+      downloadVideo(projectId, `${safeName}.mp4`).catch(() => {});
+    }
+  }, [rendered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProject = useCallback(async () => {
     try {
@@ -357,6 +370,8 @@ export default function ProjectView() {
             setRenderProgress(100);
             stopRenderPolling();
             await loadProject();
+            // Auto-download the video
+            autoDownloadRef.current = true;
           }
         } catch {
           // Network hiccup — keep polling

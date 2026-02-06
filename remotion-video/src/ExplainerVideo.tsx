@@ -20,8 +20,6 @@ import Scene4 from "./components/generated/Scene4";
 import Scene5 from "./components/generated/Scene5";
 import Scene6 from "./components/generated/Scene6";
 import Scene7 from "./components/generated/Scene7";
-import Scene8 from "./components/generated/Scene8";
-import Scene9 from "./components/generated/Scene9";
 
 const SCENE_COMPONENTS: Record<number, React.FC<{ title: string; narration: string; imageUrl?: string }>> = {
   1: Scene1,
@@ -31,8 +29,6 @@ const SCENE_COMPONENTS: Record<number, React.FC<{ title: string; narration: stri
   5: Scene5,
   6: Scene6,
   7: Scene7,
-  8: Scene8,
-  9: Scene9,
 };
 
 // ─── Types ───────────────────────────────────────────────────
