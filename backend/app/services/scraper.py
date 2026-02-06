@@ -5,37 +5,53 @@ import requests
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
+from exa_py import Exa
 
 from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.asset import Asset, AssetType
 
+# Browser headers for image downloads and fallback scraping
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+}
+
+
+# ─── Main entry point ─────────────────────────────────────
 
 def scrape_blog(project: Project, db: Session) -> Project:
     """
     Scrape blog content and images from the project's blog_url.
-    Updates the project with extracted text and downloads images.
+    Uses Exa API as primary method (handles Medium, Substack, etc.),
+    falls back to direct requests + BeautifulSoup.
     """
     url = project.blog_url
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
 
-    response = requests.get(url, headers=headers, timeout=30)
-    response.raise_for_status()
+    # Try Exa first, then fallback to requests
+    if settings.EXA_API_KEY:
+        try:
+            text, image_urls = _scrape_with_exa(url)
+        except Exception as e:
+            print(f"[SCRAPER] Exa failed, falling back to requests: {e}")
+            text, image_urls = _scrape_with_requests(url)
+    else:
+        text, image_urls = _scrape_with_requests(url)
 
-    soup = BeautifulSoup(response.text, "lxml")
+    if not text or len(text.strip()) < 50:
+        raise ValueError("Could not extract meaningful content from the URL.")
 
-    # Extract main text content
-    blog_text = _extract_text(soup)
-
-    # Extract and download images
-    image_urls = _extract_image_urls(soup, url)
+    # Download images
     _download_images(project.id, image_urls, db)
 
     # Update project
-    project.blog_content = blog_text
+    project.blog_content = text
     project.status = ProjectStatus.SCRAPED
     db.commit()
     db.refresh(project)
@@ -43,13 +59,65 @@ def scrape_blog(project: Project, db: Session) -> Project:
     return project
 
 
+# ─── Exa API scraping ─────────────────────────────────────
+
+def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
+    """
+    Use Exa API to get clean text content and images from a URL.
+    Works reliably with Medium, Substack, and other protected sites.
+    """
+    exa = Exa(api_key=settings.EXA_API_KEY)
+
+    result = exa.get_contents(
+        ids=[url],
+        text=True,
+        # Exa returns clean markdown text by default
+    )
+
+    if not result.results:
+        raise ValueError("Exa returned no results")
+
+    page = result.results[0]
+    text = page.text or ""
+
+    # Extract image URLs from the Exa result if available
+    image_urls = []
+    if hasattr(page, "image") and page.image:
+        image_urls.append(page.image)
+
+    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(image_urls)} images")
+    return text, image_urls
+
+
+# ─── Requests + BeautifulSoup fallback ────────────────────
+
+def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
+    """
+    Fallback scraper using requests + BeautifulSoup.
+    """
+    session = requests.Session()
+    session.headers.update(_BROWSER_HEADERS)
+
+    response = session.get(url, timeout=30, allow_redirects=True)
+
+    # Retry once (some sites set cookies on first 403)
+    if response.status_code == 403:
+        response = session.get(url, timeout=30, allow_redirects=True)
+
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "lxml")
+    text = _extract_text(soup)
+    image_urls = _extract_image_urls(soup, url)
+
+    return text, image_urls
+
+
 def _extract_text(soup: BeautifulSoup) -> str:
     """Extract the main article text from the page."""
-    # Remove script and style elements
     for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
         element.decompose()
 
-    # Try to find the article content using common selectors
     article = (
         soup.find("article")
         or soup.find("main")
@@ -60,11 +128,9 @@ def _extract_text(soup: BeautifulSoup) -> str:
     if article:
         text = article.get_text(separator="\n", strip=True)
     else:
-        # Fallback: get body text
         body = soup.find("body")
         text = body.get_text(separator="\n", strip=True) if body else soup.get_text(separator="\n", strip=True)
 
-    # Clean up multiple newlines
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
@@ -79,10 +145,8 @@ def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
         if not src:
             continue
 
-        # Resolve relative URLs
         full_url = urljoin(base_url, src)
 
-        # Skip tiny icons, tracking pixels, etc.
         width = img.get("width")
         height = img.get("height")
         if width and height:
@@ -92,11 +156,9 @@ def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
             except ValueError:
                 pass
 
-        # Skip data URIs and duplicates
         if full_url.startswith("data:") or full_url in seen:
             continue
 
-        # Skip common non-content images
         skip_patterns = ["avatar", "logo", "icon", "emoji", "gravatar", "pixel", "tracking"]
         if any(p in full_url.lower() for p in skip_patterns):
             continue
@@ -107,18 +169,19 @@ def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
     return image_urls
 
 
+# ─── Image downloading ────────────────────────────────────
+
 def _download_images(project_id: int, image_urls: list[str], db: Session) -> list[str]:
-    """Download images and save them locally. Returns list of local paths."""
+    """Download images and save them locally."""
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
     local_paths = []
     for url in image_urls:
         try:
-            response = requests.get(url, timeout=15, stream=True)
+            response = requests.get(url, headers=_BROWSER_HEADERS, timeout=15, stream=True)
             response.raise_for_status()
 
-            # Determine filename
             parsed = urlparse(url)
             ext = os.path.splitext(parsed.path)[1] or ".jpg"
             if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"):
@@ -131,7 +194,6 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-            # Create asset record
             asset = Asset(
                 project_id=project_id,
                 asset_type=AssetType.IMAGE,
@@ -143,7 +205,7 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             local_paths.append(local_path)
 
         except Exception as e:
-            print(f"Failed to download image {url}: {e}")
+            print(f"[SCRAPER] Failed to download image {url}: {e}")
             continue
 
     db.commit()

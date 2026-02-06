@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
+    EXA_API_KEY: str = ""
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
