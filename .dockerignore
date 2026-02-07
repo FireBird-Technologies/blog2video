@@ -1,0 +1,35 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*.db
+
+# Env files (secrets set via Cloud Run env vars)
+.env
+backend/.env
+frontend/.env
+
+# Frontend (deployed separately on Vercel)
+frontend/
+
+# Node modules (rebuilt in Docker)
+node_modules/
+remotion-video/node_modules/
+
+# Media (ephemeral on Cloud Run)
+backend/media/
+
+# Remotion generated files
+remotion-video/out/
+remotion-video/src/components/generated/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
