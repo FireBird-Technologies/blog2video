@@ -64,10 +64,11 @@ export default function UpgradeModal({ open, onClose, feature }: Props) {
           </p>
 
           <div className="glass-card p-4 mb-6 text-left">
-            <div className="flex items-baseline justify-between mb-3">
+            <div className="flex items-baseline justify-between mb-1">
               <span className="text-sm font-medium text-gray-900">Pro plan</span>
               <span className="text-lg font-bold text-gray-900">$50<span className="text-xs font-normal text-gray-400">/month</span></span>
             </div>
+            <p className="text-[11px] text-gray-400 mb-3">or $40/mo billed annually (save 20%)</p>
             <ul className="space-y-2">
               {[
                 "100 videos per month",

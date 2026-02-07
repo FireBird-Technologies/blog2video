@@ -346,26 +346,31 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Start free. Scale when you're ready.
+            Start free. Pay per video. Or go Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is completely free. Upgrade to Pro for 100 videos/month,
-            AI chat editing, and full Remotion Studio access.
+            Your first video is free. Then $5/video pay-as-you-go, or $50/month
+            for 100 videos with AI editing and Studio access.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="glass-card px-8 py-6 text-center min-w-[200px]">
+            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
               <p className="text-xs text-gray-400 mt-1">1 video, forever</p>
             </div>
-            <div className="glass-card px-8 py-6 text-center min-w-[200px] ring-1 ring-purple-200 relative">
+            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
+              <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
+              <p className="text-3xl font-bold text-gray-900">$5</p>
+              <p className="text-xs text-gray-400 mt-1">pay as you go</p>
+            </div>
+            <div className="glass-card px-7 py-6 text-center min-w-[170px] ring-1 ring-purple-200 relative">
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Popular</span>
+                <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
-              <p className="text-xs text-gray-400 mt-1">100 videos/month</p>
+              <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
             </div>
           </div>
 
