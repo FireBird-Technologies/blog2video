@@ -1,7 +1,11 @@
 import axios from "axios";
 
+// In production, VITE_BACKEND_URL points to the Cloud Run backend.
+// In local dev it's empty — Vite proxy handles /api and /media routing.
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: `${BACKEND_URL}/api`,
   headers: {
     "Content-Type": "application/json",
   },
