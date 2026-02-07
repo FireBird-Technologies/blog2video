@@ -1,13 +1,31 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.pool import QueuePool, StaticPool
 from app.config import settings
 
-# Handle SQLite-specific connect args
+# Handle SQLite vs PostgreSQL connection args
 connect_args = {}
+engine_kwargs = {}
+
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    engine_kwargs["poolclass"] = StaticPool
+else:
+    # PostgreSQL connection pool settings
+    engine_kwargs["poolclass"] = QueuePool
+    engine_kwargs["pool_size"] = 5
+    engine_kwargs["max_overflow"] = 10
+    engine_kwargs["pool_pre_ping"] = True  # reconnect on stale connections
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args)
+    # Neon requires SSL
+    if "sslmode" not in settings.DATABASE_URL:
+        connect_args["sslmode"] = "require"
+
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args=connect_args,
+    **engine_kwargs,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -33,38 +51,30 @@ def init_db():
 
 
 def _migrate(eng):
-    """Add columns that may be missing from older schemas (SQLite-safe)."""
+    """Add columns that may be missing from older schemas."""
     from sqlalchemy import text, inspect
 
     insp = inspect(eng)
-    if "projects" in insp.get_table_names():
-        cols = {c["name"] for c in insp.get_columns("projects")}
-        with eng.begin() as conn:
-            if "voice_gender" not in cols:
+    if "projects" not in insp.get_table_names():
+        return
+
+    cols = {c["name"] for c in insp.get_columns("projects")}
+    is_pg = not settings.DATABASE_URL.startswith("sqlite")
+
+    with eng.begin() as conn:
+        # Helper: ALTER TABLE ADD COLUMN (Postgres ignores IF NOT EXISTS style,
+        # so we check the column set in Python first)
+        migrations = {
+            "voice_gender": "VARCHAR(10) DEFAULT 'female'",
+            "voice_accent": "VARCHAR(10) DEFAULT 'american'",
+            "player_port": "INTEGER",
+            "accent_color": "VARCHAR(20) DEFAULT '#7C3AED'",
+            "bg_color": "VARCHAR(20) DEFAULT '#0A0A0A'",
+            "text_color": "VARCHAR(20) DEFAULT '#FFFFFF'",
+            "animation_instructions": "TEXT",
+        }
+        for col_name, col_def in migrations.items():
+            if col_name not in cols:
                 conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN voice_gender VARCHAR(10) DEFAULT 'female'"
-                ))
-            if "voice_accent" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN voice_accent VARCHAR(10) DEFAULT 'american'"
-                ))
-            if "player_port" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN player_port INTEGER"
-                ))
-            if "accent_color" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN accent_color VARCHAR(20) DEFAULT '#7C3AED'"
-                ))
-            if "bg_color" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN bg_color VARCHAR(20) DEFAULT '#0A0A0A'"
-                ))
-            if "text_color" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN text_color VARCHAR(20) DEFAULT '#FFFFFF'"
-                ))
-            if "animation_instructions" not in cols:
-                conn.execute(text(
-                    "ALTER TABLE projects ADD COLUMN animation_instructions TEXT"
+                    f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}"
                 ))

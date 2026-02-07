@@ -34,7 +34,7 @@ RUN mkdir -p /data/media
 # ── Runtime config ───────────────────────────────────────────
 ENV REMOTION_PROJECT_PATH=/app/remotion-video
 ENV MEDIA_DIR=/data/media
-ENV DATABASE_URL=sqlite:////data/blog2video.db
+# DATABASE_URL set via fly secrets (Neon PostgreSQL)
 
 WORKDIR /app/backend
 

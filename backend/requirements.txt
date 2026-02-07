@@ -17,3 +17,5 @@ aiofiles>=24.0.0
 PyJWT>=2.8.0
 google-auth>=2.29.0
 stripe>=10.0.0
+# PostgreSQL driver
+psycopg2-binary>=2.9.0
