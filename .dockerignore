@@ -1,0 +1,38 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+*.db
+
+# Env files (secrets set via fly secrets)
+.env
+backend/.env
+frontend/.env
+
+# Frontend (not needed in backend image)
+frontend/
+
+# Node
+node_modules/
+remotion-video/node_modules/
+
+# Media (lives on persistent volume)
+backend/media/
+
+# Remotion generated files
+remotion-video/out/
+remotion-video/src/components/generated/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Fly config (not needed inside image)
+fly.toml

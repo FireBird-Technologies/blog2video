@@ -1,0 +1,31 @@
+app = "blog2video"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  REMOTION_PROJECT_PATH = "/app/remotion-video"
+  MEDIA_DIR = "/data/media"
+  DATABASE_URL = "sqlite:////data/blog2video.db"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+# Persistent volume for SQLite DB + media files
+[mounts]
+  source = "blog2video_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"
