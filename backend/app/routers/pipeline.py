@@ -302,11 +302,10 @@ def download_studio_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Download the project's Remotion workspace as a zip (Pro users only)."""
-    if user.plan_tier != PlanTier.PRO:
-        raise HTTPException(status_code=403, detail="Studio download requires Pro plan")
-
+    """Download the project's Remotion workspace as a zip (Pro or per-video paid)."""
     project = _get_project(project_id, user.id, db)
+    if user.plan != PlanTier.PRO and not project.studio_unlocked:
+        raise HTTPException(status_code=403, detail="Studio requires Pro plan or per-video purchase")
 
     try:
         zip_path = create_studio_zip(project.id)

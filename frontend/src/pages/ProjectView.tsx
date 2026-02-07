@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   getProject,
   startGeneration,
@@ -179,10 +179,12 @@ function AudioRow({
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const isPro = user?.plan === "pro";
 
   const [project, setProject] = useState<Project | null>(null);
+  const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -234,6 +236,15 @@ export default function ProjectView() {
       setLoading(false);
     }
   }, [projectId]);
+
+  // Handle ?purchased=true redirect from Stripe per-video checkout
+  useEffect(() => {
+    if (searchParams.get("purchased") === "true") {
+      // Clear the query param and refresh project to pick up studio_unlocked
+      setSearchParams({}, { replace: true });
+      loadProject();
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-start generation when project loads and isn't complete
   useEffect(() => {
@@ -317,11 +328,16 @@ export default function ProjectView() {
     }
   };
 
+  // Track highest-seen render progress so we never go backward
+  const renderHighWaterRef = useRef(0);
+
   const handleRender = async () => {
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
+    setRenderTimeLeft(null);
     setError(null);
+    renderHighWaterRef.current = 0;
 
     try {
       await renderVideo(projectId);
@@ -340,8 +356,14 @@ export default function ProjectView() {
             time_remaining,
           } = res.data;
 
-          setRenderProgress(progress);
-          setRenderFrames({ rendered: rendered_frames, total: total_frames });
+          // Never go backward — only update if progress moved forward
+          if (progress >= renderHighWaterRef.current) {
+            renderHighWaterRef.current = progress;
+            setRenderProgress(progress);
+          }
+          if (rendered_frames > 0) {
+            setRenderFrames({ rendered: rendered_frames, total: total_frames });
+          }
           if (time_remaining) setRenderTimeLeft(time_remaining);
 
           if (renderErr) {
@@ -361,7 +383,7 @@ export default function ProjectView() {
             stuckAt100Count++;
           }
 
-          if (done || stuckAt100Count >= 3) {
+          if (done || stuckAt100Count >= 2) {
             setRendered(true);
             setRendering(false);
             setRenderProgress(100);
@@ -372,7 +394,7 @@ export default function ProjectView() {
         } catch {
           // Network hiccup — keep polling
         }
-      }, 1500);
+      }, 10_000); // Poll every 10 seconds
     } catch (err: any) {
       setError(
         err?.response?.data?.detail || "Render failed. Please try again."
@@ -665,8 +687,8 @@ export default function ProjectView() {
                 <StatusBadge status={project.status} />
               </div>
               <div className="flex items-center gap-2">
-                {/* Open Studio — Pro only (download workspace zip) */}
-                {isPro ? (
+                {/* Open Studio — Pro or per-video paid (download workspace zip) */}
+                {hasStudioAccess ? (
                   <button
                     onClick={handleDownloadStudio}
                     disabled={downloadingStudio}
@@ -695,7 +717,7 @@ export default function ProjectView() {
                   <button
                     onClick={() => setShowUpgrade(true)}
                     className="px-3 py-1.5 border border-gray-200 text-gray-400 hover:border-purple-200 hover:text-purple-500 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
-                    title="Studio is a Pro feature"
+                    title="Unlock Studio with per-video or Pro plan"
                   >
                     <svg
                       className="w-3.5 h-3.5"
@@ -711,9 +733,6 @@ export default function ProjectView() {
                       />
                     </svg>
                     Studio
-                    <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded">
-                      PRO
-                    </span>
                   </button>
                 )}
 
@@ -834,6 +853,8 @@ export default function ProjectView() {
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature="Remotion Studio"
+        projectId={projectId}
+        onPurchased={() => loadProject()}
       />
 
       {/* Upper area: loader when running, editor when complete */}

@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $20/mo Pro plan
+    STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $50/mo Pro plan
+    STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"

@@ -529,10 +529,17 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
+    # Use image-specific Accept header so servers like Medium
+    # respond with the correct Content-Type (including webp)
+    _IMAGE_HEADERS = {
+        **_BROWSER_HEADERS,
+        "Accept": "image/webp,image/avif,image/png,image/jpeg,image/*,*/*;q=0.8",
+    }
+
     local_paths = []
     for url in image_urls:
         try:
-            response = requests.get(url, headers=_BROWSER_HEADERS, timeout=15, stream=True)
+            response = requests.get(url, headers=_IMAGE_HEADERS, timeout=15, stream=True)
             response.raise_for_status()
 
             # Check Content-Type — only keep actual images
@@ -541,10 +548,28 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
                 print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
                 continue
 
-            parsed = urlparse(url)
-            ext = os.path.splitext(parsed.path)[1] or ".jpg"
-            if ext not in (".jpg", ".jpeg", ".png", ".webp"):
-                ext = ".jpg"
+            # Determine correct extension from Content-Type first (Medium
+            # serves WebP images from URLs with no extension at all)
+            _CTYPE_TO_EXT = {
+                "image/webp": ".webp",
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/gif": ".gif",
+                "image/avif": ".avif",
+            }
+            ext = None
+            for ct_key, ct_ext in _CTYPE_TO_EXT.items():
+                if ct_key in ctype:
+                    ext = ct_ext
+                    break
+
+            # Fallback: try to get extension from the URL path
+            if not ext:
+                parsed = urlparse(url)
+                ext = os.path.splitext(parsed.path)[1] or ".jpg"
+                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif"):
+                    ext = ".jpg"
             url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
             filename = f"img_{url_hash}{ext}"
             local_path = os.path.join(project_media_dir, filename)

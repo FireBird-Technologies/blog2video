@@ -93,6 +93,7 @@ export interface Project {
   bg_color: string;
   text_color: string;
   animation_instructions: string | null;
+  studio_unlocked: boolean;
   studio_port: number | null;
   player_port: number | null;
   created_at: string;
@@ -159,6 +160,11 @@ export const getPublicConfig = () =>
 
 export const createCheckoutSession = () =>
   api.post<{ checkout_url: string }>("/billing/checkout");
+
+export const createPerVideoCheckout = (projectId: number) =>
+  api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
+    project_id: projectId,
+  });
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");

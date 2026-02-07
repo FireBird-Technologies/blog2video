@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import String, Text, Enum, DateTime, ForeignKey, Integer
+from sqlalchemy import String, Text, Enum, DateTime, ForeignKey, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -32,6 +32,7 @@ class Project(Base):
     bg_color: Mapped[str] = mapped_column(String(20), default="#0A0A0A")
     text_color: Mapped[str] = mapped_column(String(20), default="#FFFFFF")
     animation_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    studio_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
     studio_port: Mapped[int | None] = mapped_column(nullable=True)
     player_port: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -68,6 +68,7 @@ class ProjectOut(BaseModel):
     bg_color: str = "#0A0A0A"
     text_color: str = "#FFFFFF"
     animation_instructions: Optional[str] = None
+    studio_unlocked: bool = False
     studio_port: Optional[int] = None
     player_port: Optional[int] = None
     created_at: datetime
