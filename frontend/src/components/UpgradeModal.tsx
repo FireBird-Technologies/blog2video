@@ -1,102 +1,229 @@
 import { useState } from "react";
-import { createCheckoutSession } from "../api/client";
+import { createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   feature: string; // e.g. "AI Chat Editor", "Remotion Studio"
+  projectId?: number; // If provided, show per-video option
+  onPurchased?: () => void; // Called after returning from checkout
 }
 
-export default function UpgradeModal({ open, onClose, feature }: Props) {
+export default function UpgradeModal({
+  open,
+  onClose,
+  feature,
+  projectId,
+  onPurchased,
+}: Props) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loadingPro, setLoadingPro] = useState(false);
+  const [loadingVideo, setLoadingVideo] = useState(false);
 
   if (!open) return null;
 
-  const handleUpgrade = async () => {
+  const handleUpgradePro = async () => {
     if (!user) {
-      // Not logged in — send to pricing page
       window.location.href = "/pricing";
       return;
     }
-    setLoading(true);
+    setLoadingPro(true);
     try {
       const res = await createCheckoutSession();
       window.location.href = res.data.checkout_url;
     } catch {
-      setLoading(false);
+      setLoadingPro(false);
     }
   };
+
+  const handleBuyVideo = async () => {
+    if (!user || !projectId) {
+      window.location.href = "/pricing";
+      return;
+    }
+    setLoadingVideo(true);
+    try {
+      const res = await createPerVideoCheckout(projectId);
+      window.location.href = res.data.checkout_url;
+    } catch {
+      setLoadingVideo(false);
+    }
+  };
+
+  const anyLoading = loadingPro || loadingVideo;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       {/* modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-in fade-in zoom-in">
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 animate-in fade-in zoom-in">
         {/* close */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
 
         {/* content */}
         <div className="text-center">
           <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-purple-50 flex items-center justify-center">
-            <svg className="w-7 h-7 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <svg
+              className="w-7 h-7 text-purple-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
             </svg>
           </div>
 
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Upgrade to Pro
+            Unlock {feature}
           </h3>
 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            <span className="font-medium text-gray-700">{feature}</span> is a Pro feature.
-            Upgrade to unlock it along with 100 videos/month, full Remotion Studio access, and AI chat editing.
+            Choose how you want to unlock{" "}
+            <span className="font-medium text-gray-700">{feature}</span>.
           </p>
 
-          <div className="glass-card p-4 mb-6 text-left">
-            <div className="flex items-baseline justify-between mb-1">
-              <span className="text-sm font-medium text-gray-900">Pro plan</span>
-              <span className="text-lg font-bold text-gray-900">$50<span className="text-xs font-normal text-gray-400">/month</span></span>
+          {/* Two-option layout */}
+          <div className={`grid gap-3 mb-6 ${projectId ? "grid-cols-2" : "grid-cols-1"}`}>
+            {/* Per-video option — only show if projectId is provided */}
+            {projectId && (
+              <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    This video
+                  </span>
+                  <span className="text-lg font-bold text-gray-900">
+                    $5
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                  One-time payment. Unlocks Studio + extra videos for this
+                  project.
+                </p>
+                <ul className="space-y-1.5 mb-4">
+                  {[
+                    "Remotion Studio access",
+                    "Download project files",
+                    "No subscription needed",
+                  ].map((f) => (
+                    <li
+                      key={f}
+                      className="flex items-center gap-1.5 text-[11px] text-gray-600"
+                    >
+                      <svg
+                        className="w-3 h-3 text-purple-500 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={handleBuyVideo}
+                  disabled={anyLoading}
+                  className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
+                >
+                  {loadingVideo ? "Redirecting..." : "Buy this video — $5"}
+                </button>
+              </div>
+            )}
+
+            {/* Pro subscription option */}
+            <div className="glass-card p-4 text-left border-2 border-purple-200 rounded-xl relative">
+              <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[9px] font-semibold rounded-full">
+                  Best value
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pro plan
+                </span>
+                <div className="text-right">
+                  <span className="text-lg font-bold text-gray-900">$50</span>
+                  <span className="text-[10px] text-gray-400">/mo</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                100 videos/month. All features. $40/mo if billed annually.
+              </p>
+              <ul className="space-y-1.5 mb-4">
+                {[
+                  "100 videos per month",
+                  "AI chat editor",
+                  "Remotion Studio on all videos",
+                  "Priority support",
+                ].map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-center gap-1.5 text-[11px] text-gray-600"
+                  >
+                    <svg
+                      className="w-3 h-3 text-purple-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={handleUpgradePro}
+                disabled={anyLoading}
+                className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
+              >
+                {loadingPro ? "Redirecting..." : "Upgrade to Pro"}
+              </button>
             </div>
-            <p className="text-[11px] text-gray-400 mb-3">or $40/mo billed annually (save 20%)</p>
-            <ul className="space-y-2">
-              {[
-                "100 videos per month",
-                "AI chat editor",
-                "Full Remotion Studio access",
-                "Priority support",
-              ].map((f) => (
-                <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
-                  <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {f}
-                </li>
-              ))}
-            </ul>
           </div>
 
           <button
-            onClick={handleUpgrade}
-            disabled={loading}
-            className="w-full py-3 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
-          >
-            {loading ? "Redirecting to checkout..." : "Upgrade now"}
-          </button>
-
-          <button
             onClick={onClose}
-            className="mt-3 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             Maybe later
           </button>
