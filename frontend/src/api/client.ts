@@ -215,7 +215,6 @@ export interface PipelineStatus {
   running: boolean;
   error: string | null;
   studio_port: number | null;
-  player_port: number | null;
 }
 
 export const startGeneration = (id: number) =>
@@ -256,6 +255,20 @@ export const downloadVideo = async (id: number, filename?: string) => {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename || "video.mp4";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const downloadStudioZip = async (id: number, filename?: string) => {
+  const res = await api.get(`/projects/${id}/download-studio`, {
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "studio_project.zip";
   document.body.appendChild(a);
   a.click();
   a.remove();

@@ -9,7 +9,7 @@ export default function ScriptPanel({ scenes, projectName }: Props) {
   if (scenes.length === 0) {
     return (
       <p className="text-center py-16 text-xs text-gray-400">
-        No script generated yet. Click "Generate Video" to start.
+        Script is generating.
       </p>
     );
   }

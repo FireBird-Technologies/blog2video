@@ -60,7 +60,7 @@ export default function Landing() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight mb-6">
-            Your blog's voice,
+            Your voice,
             <br />
             <span className="bg-gradient-to-r from-purple-600 to-violet-500 bg-clip-text text-transparent">
               now in video
@@ -269,7 +269,7 @@ export default function Landing() {
             Built for
           </p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-            Writers and educators who want to be seen
+            Writers, researchers and educators who want to be seen
           </h2>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">

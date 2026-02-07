@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.models.user import User
+from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.schemas.schemas import (
@@ -20,11 +21,12 @@ from app.services.scraper import scrape_blog
 from app.services.voiceover import generate_all_voiceovers
 from app.services.remotion import (
     write_remotion_data,
-    write_scene_components,
     launch_studio,
+    create_studio_zip,
     render_video,
     start_render_async,
     get_render_progress,
+    get_workspace_dir,
 )
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.scene_gen import SceneCodeGenerator
@@ -44,7 +46,7 @@ async def generate_video(
     db: Session = Depends(get_db),
 ):
     """
-    Kick off the full pipeline (scrape -> script -> scenes -> studio).
+    Kick off the full pipeline (scrape -> script -> scenes -> done).
     Returns immediately. Poll /status for progress.
     """
     project = _get_project(project_id, user.id, db)
@@ -82,7 +84,6 @@ def get_pipeline_status(
         "running": progress.get("running", False),
         "error": progress.get("error"),
         "studio_port": project.studio_port,
-        "player_port": project.player_port,
     }
 
 
@@ -112,7 +113,7 @@ async def _run_pipeline(project_id: int, user_id: int):
                 _set_error(project_id, project, db, f"Script generation failed: {e}")
                 return
 
-        # Step 3: Generate scene code + voiceovers (async DSPy for code, sync for voiceovers)
+        # Step 3: Generate scene descriptors + voiceovers
         if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED, ProjectStatus.SCRIPTED):
             _pipeline_progress[project_id]["step"] = 3
             try:
@@ -121,15 +122,8 @@ async def _run_pipeline(project_id: int, user_id: int):
                 _set_error(project_id, project, db, f"Scene generation failed: {e}")
                 return
 
-        # Step 4: Launch studio
+        # Step 4: Done (no more studio launch — frontend handles preview)
         _pipeline_progress[project_id]["step"] = 4
-        try:
-            launch_studio(project, db)
-        except Exception as e:
-            print(f"[PIPELINE] Studio launch failed (non-fatal): {e}")
-
-        # Done
-        _pipeline_progress[project_id]["step"] = 5
         _pipeline_progress[project_id]["running"] = False
 
     except Exception as e:
@@ -183,23 +177,19 @@ async def _generate_script(project: Project, db: Session):
 
 
 async def _generate_scenes(project: Project, db: Session):
-    """Generate voiceovers first, then scene code (async), then write Remotion files."""
+    """Generate voiceovers first, then scene layout descriptors, then write Remotion data."""
     scenes = project.scenes
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
 
     # Step 1: Generate voiceovers FIRST (sync, runs in thread)
-    # Voiceovers must be done before writing Remotion data so audio files
-    # are available when data.json is built.
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
 
-    # Refresh scenes to pick up voiceover_path set by generate_all_voiceovers
+    # Refresh scenes to pick up voiceover_path
     for scene in scenes:
         db.refresh(scene)
 
-    # Step 2: Generate all Remotion scene code concurrently with async DSPy
-    # IMPORTANT: Pass image FILENAMES (not absolute paths) — these resolve
-    # via staticFile() in Remotion's public/ folder.
+    # Step 2: Generate layout descriptors concurrently with async DSPy
     scene_gen = SceneCodeGenerator()
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
@@ -212,7 +202,7 @@ async def _generate_scenes(project: Project, db: Session):
         }
         for s in scenes
     ]
-    codes = await scene_gen.generate_all_scenes(
+    descriptors = await scene_gen.generate_all_scenes(
         scenes_data,
         image_filenames,
         accent_color=project.accent_color or "#7C3AED",
@@ -221,13 +211,13 @@ async def _generate_scenes(project: Project, db: Session):
         animation_instructions=project.animation_instructions or "",
     )
 
-    for scene, code in zip(scenes, codes):
-        scene.remotion_code = code
+    # Store descriptors as JSON in remotion_code
+    for scene, descriptor in zip(scenes, descriptors):
+        scene.remotion_code = json.dumps(descriptor)
     db.commit()
 
-    # Step 3: Write files to per-project Remotion workspace (data.json + scene components)
+    # Step 3: Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db)
-    write_scene_components(project, scenes)
 
     project.status = ProjectStatus.GENERATED
     db.commit()
@@ -278,7 +268,7 @@ async def generate_scenes_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Generate Remotion code + voiceovers for each scene (async)."""
+    """Generate Remotion layout descriptors + voiceovers for each scene (async)."""
     project = _get_project(project_id, user.id, db)
     if not project.scenes:
         raise HTTPException(status_code=400, detail="No scenes found.")
@@ -297,13 +287,38 @@ def launch_studio_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Launch Remotion Studio for this project."""
+    """Launch Remotion Studio for this project (local dev only)."""
     project = _get_project(project_id, user.id, db)
     try:
         port = launch_studio(project, db)
         return StudioResponse(studio_url=f"http://localhost:{port}", port=port)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to launch studio: {str(e)}")
+
+
+@router.get("/download-studio")
+def download_studio_endpoint(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download the project's Remotion workspace as a zip (Pro users only)."""
+    if user.plan_tier != PlanTier.PRO:
+        raise HTTPException(status_code=403, detail="Studio download requires Pro plan")
+
+    project = _get_project(project_id, user.id, db)
+
+    try:
+        zip_path = create_studio_zip(project.id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Workspace not found. Generate the video first.")
+
+    safe_name = project.name.replace(" ", "_")[:50] if project.name else "project"
+    return FileResponse(
+        path=zip_path,
+        media_type="application/zip",
+        filename=f"{safe_name}_studio.zip",
+    )
 
 
 @router.post("/render")
