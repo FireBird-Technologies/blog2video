@@ -9,6 +9,7 @@ import {
   downloadVideo,
   Project,
   Scene,
+  BACKEND_URL,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
@@ -40,7 +41,7 @@ function AudioRow({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const audioUrl = scene.voiceover_path
-    ? `/media/projects/${projectId}/audio/scene_${scene.order}.mp3`
+    ? `${BACKEND_URL}/media/projects/${projectId}/audio/scene_${scene.order}.mp3`
     : null;
 
   useEffect(() => {
@@ -429,7 +430,7 @@ export default function ProjectView() {
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
   const sceneImageMap: Record<number, string[]> = {};
   if (project.scenes.length > 0 && imageAssets.length > 0) {
-    const heroUrl = `/media/projects/${project.id}/images/${imageAssets[0].filename}`;
+    const heroUrl = `${BACKEND_URL}/media/projects/${project.id}/images/${imageAssets[0].filename}`;
     const remaining = imageAssets.slice(1);
 
     project.scenes.forEach((_, idx) => {
@@ -440,7 +441,7 @@ export default function ProjectView() {
     remaining.forEach((asset, i) => {
       const sceneIdx = i % project.scenes.length;
       sceneImageMap[sceneIdx].push(
-        `/media/projects/${project.id}/images/${asset.filename}`
+        `${BACKEND_URL}/media/projects/${project.id}/images/${asset.filename}`
       );
     });
   }
@@ -565,7 +566,7 @@ export default function ProjectView() {
   // ─── Completed view (video player + actions + chat) ──────
   const renderCompleted = () => {
     const videoSrc = rendered
-      ? `/media/projects/${project.id}/output/video.mp4`
+      ? `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`
       : null;
 
     return (
