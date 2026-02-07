@@ -13,6 +13,9 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.models.user import User, PlanTier
 from app.models.project import Project
+from app.models.subscription import (
+    Subscription, SubscriptionStatus, SubscriptionPlan,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -38,6 +41,38 @@ class BillingStatusOut(BaseModel):
     can_create_video: bool
     stripe_subscription_id: str | None = None
     is_active: bool
+
+
+# ─── Plans (public) ───────────────────────────────────────
+
+class PlanOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    description: str | None
+    price_cents: int
+    currency: str
+    billing_interval: str
+    video_limit: int
+    includes_studio: bool
+    includes_chat_editor: bool
+    includes_priority_support: bool
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/plans", response_model=list[PlanOut])
+def list_plans(db: Session = Depends(get_db)):
+    """Return all active subscription plans (public, no auth needed)."""
+    plans = (
+        db.query(SubscriptionPlan)
+        .filter(SubscriptionPlan.is_active == True)
+        .order_by(SubscriptionPlan.sort_order)
+        .all()
+    )
+    return plans
 
 
 # ─── Pro Subscription Checkout ────────────────────────────
@@ -203,6 +238,7 @@ def _handle_checkout_completed(session: dict, db: Session):
     customer_id = session.get("customer")
     metadata = session.get("metadata", {})
     checkout_type = metadata.get("type", "pro_subscription")
+    session_id = session.get("id")
 
     if checkout_type == "per_video":
         # One-time per-video payment — unlock studio for the specific project
@@ -212,6 +248,21 @@ def _handle_checkout_completed(session: dict, db: Session):
             project = db.query(Project).filter(Project.id == int(project_id)).first()
             if project:
                 project.studio_unlocked = True
+
+                # Record the subscription/purchase
+                plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+                if plan and user_id:
+                    sub = Subscription(
+                        user_id=int(user_id),
+                        plan_id=plan.id,
+                        status=SubscriptionStatus.COMPLETED,
+                        stripe_checkout_session_id=session_id,
+                        project_id=int(project_id),
+                        amount_paid_cents=plan.price_cents,
+                        videos_used=1,
+                    )
+                    db.add(sub)
+
                 db.commit()
                 print(f"[BILLING] Per-video purchase: unlocked studio for project {project_id}")
     else:
@@ -223,13 +274,35 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.stripe_subscription_id = subscription_id
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
+
+            # Record the subscription
+            plan = db.query(SubscriptionPlan).filter_by(slug="pro_monthly").first()
+            if plan:
+                # Deactivate any previous active subscription for this user
+                db.query(Subscription).filter(
+                    Subscription.user_id == user.id,
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                ).update({"status": SubscriptionStatus.CANCELED, "canceled_at": datetime.utcnow()})
+
+                sub = Subscription(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    status=SubscriptionStatus.ACTIVE,
+                    stripe_subscription_id=subscription_id,
+                    stripe_checkout_session_id=session_id,
+                    current_period_start=datetime.utcnow(),
+                    amount_paid_cents=plan.price_cents,
+                )
+                db.add(sub)
+
             db.commit()
 
 
-def _handle_subscription_updated(subscription: dict, db: Session):
+def _handle_subscription_updated(subscription_data: dict, db: Session):
     """Handle plan changes."""
-    customer_id = subscription.get("customer")
-    status = subscription.get("status")
+    customer_id = subscription_data.get("customer")
+    status = subscription_data.get("status")
+    stripe_sub_id = subscription_data.get("id")
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
@@ -237,26 +310,74 @@ def _handle_subscription_updated(subscription: dict, db: Session):
             user.plan = PlanTier.PRO
         elif status in ("canceled", "unpaid", "past_due"):
             user.plan = PlanTier.FREE
+
+        # Update the Subscription record
+        sub = db.query(Subscription).filter_by(
+            stripe_subscription_id=stripe_sub_id
+        ).first()
+        if sub:
+            if status in ("active", "trialing"):
+                sub.status = SubscriptionStatus.ACTIVE
+            elif status == "past_due":
+                sub.status = SubscriptionStatus.PAST_DUE
+            elif status in ("canceled", "unpaid"):
+                sub.status = SubscriptionStatus.CANCELED
+                sub.canceled_at = datetime.utcnow()
+
+            # Update period from Stripe data
+            period_start = subscription_data.get("current_period_start")
+            period_end = subscription_data.get("current_period_end")
+            if period_start:
+                sub.current_period_start = datetime.utcfromtimestamp(period_start)
+            if period_end:
+                sub.current_period_end = datetime.utcfromtimestamp(period_end)
+
         db.commit()
 
 
-def _handle_subscription_deleted(subscription: dict, db: Session):
+def _handle_subscription_deleted(subscription_data: dict, db: Session):
     """Downgrade to free when subscription is canceled."""
-    customer_id = subscription.get("customer")
+    customer_id = subscription_data.get("customer")
+    stripe_sub_id = subscription_data.get("id")
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         user.plan = PlanTier.FREE
         user.stripe_subscription_id = None
+
+        # Mark the Subscription record as canceled
+        sub = db.query(Subscription).filter_by(
+            stripe_subscription_id=stripe_sub_id
+        ).first()
+        if sub:
+            sub.status = SubscriptionStatus.CANCELED
+            sub.canceled_at = datetime.utcnow()
+
         db.commit()
 
 
 def _handle_invoice_paid(invoice: dict, db: Session):
     """Reset usage counter on new billing period."""
     customer_id = invoice.get("customer")
+    stripe_sub_id = invoice.get("subscription")
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
         user.videos_used_this_period = 0
         user.period_start = datetime.utcnow()
+
+        # Reset usage on the Subscription record too
+        if stripe_sub_id:
+            sub = db.query(Subscription).filter_by(
+                stripe_subscription_id=stripe_sub_id
+            ).first()
+            if sub:
+                sub.videos_used = 0
+                period_start = invoice.get("period_start")
+                period_end = invoice.get("period_end")
+                if period_start:
+                    sub.current_period_start = datetime.utcfromtimestamp(period_start)
+                if period_end:
+                    sub.current_period_end = datetime.utcfromtimestamp(period_end)
+
         db.commit()
