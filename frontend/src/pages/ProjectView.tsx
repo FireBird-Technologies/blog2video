@@ -771,7 +771,7 @@ export default function ProjectView() {
                       Your browser does not support the video tag.
                     </video>
                   </div>
-                ) : playerUrl ? (
+                ) : playerUrl && !BACKEND_URL ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
                     <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg border border-gray-200/40 bg-black">
                       <iframe
@@ -786,6 +786,20 @@ export default function ProjectView() {
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
                     </p>
+                  </div>
+                ) : playerUrl && BACKEND_URL ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+                    <div className="w-full max-w-md aspect-video rounded-xl bg-gray-900/50 border border-gray-200/40 flex flex-col items-center justify-center gap-4 p-8">
+                      <p className="text-sm text-gray-500 text-center">
+                        Live preview runs locally. Render your video to see the result.
+                      </p>
+                      <button
+                        onClick={handleRender}
+                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        Render MP4
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">

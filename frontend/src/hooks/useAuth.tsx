@@ -81,8 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Bad data
       }
-      // Verify token is still valid
-      getMe()
+      // Verify token is still valid (8s timeout - don't block UI when backend is cold)
+      Promise.race([
+        getMe(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 8000)
+        ),
+      ])
         .then((res) => {
           setUser(res.data);
           localStorage.setItem("b2v_user", JSON.stringify(res.data));
