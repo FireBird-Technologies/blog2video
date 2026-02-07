@@ -75,10 +75,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS — build allowed origins from FRONTEND_URL (comma-separated ok)
+_origins = [
+    o.strip()
+    for o in settings.FRONTEND_URL.split(",")
+    if o.strip()
+]
+# Always allow local dev
+for dev_origin in ["http://localhost:5173", "http://localhost:3000"]:
+    if dev_origin not in _origins:
+        _origins.append(dev_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://blog2video.*\.vercel\.app",  # Vercel preview deploys
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
