@@ -2,36 +2,12 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  Img,
   Sequence,
   staticFile,
-  interpolate,
-  useCurrentFrame,
   CalculateMetadataFunction,
 } from "remotion";
-import { TextScene } from "./components/TextScene";
+import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./components/layouts";
 import { TransitionWipe } from "./components/Transitions";
-
-// ─── AI-generated scene components ───────────────────────────
-import Scene1 from "./components/generated/Scene1";
-import Scene2 from "./components/generated/Scene2";
-import Scene3 from "./components/generated/Scene3";
-import Scene4 from "./components/generated/Scene4";
-import Scene5 from "./components/generated/Scene5";
-import Scene6 from "./components/generated/Scene6";
-import Scene7 from "./components/generated/Scene7";
-import Scene8 from "./components/generated/Scene8";
-
-const SCENE_COMPONENTS: Record<number, React.FC<{ title: string; narration: string; imageUrl?: string }>> = {
-  1: Scene1,
-  2: Scene2,
-  3: Scene3,
-  4: Scene4,
-  5: Scene5,
-  6: Scene6,
-  7: Scene7,
-  8: Scene8,
-};
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -40,7 +16,8 @@ interface SceneData {
   order: number;
   title: string;
   narration: string;
-  visualDescription: string;
+  layout: LayoutType;
+  layoutProps: Record<string, any>;
   durationSeconds: number;
   voiceoverFile: string | null;
   images: string[];
@@ -49,6 +26,9 @@ interface SceneData {
 interface VideoData {
   projectName: string;
   heroImage?: string | null;
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
   scenes: SceneData[];
 }
 
@@ -102,13 +82,17 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       .catch(() => {
         setData({
           projectName: "Blog2Video Preview",
+          accentColor: "#7C3AED",
+          bgColor: "#0A0A0A",
+          textColor: "#FFFFFF",
           scenes: [
             {
               id: 1,
               order: 1,
               title: "Welcome",
               narration: "This is a preview of your Blog2Video project.",
-              visualDescription: "Title card",
+              layout: "text_narration",
+              layoutProps: {},
               durationSeconds: 5,
               voiceoverFile: null,
               images: [],
@@ -137,17 +121,30 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#0f172a" }}>
+    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#0f172a" }}>
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
-        // Use the AI-generated component for this scene's order,
-        // falling back to TextScene if not available.
-        const GeneratedComponent = SCENE_COMPONENTS[scene.order] || TextScene;
-        const hasImages = scene.images.length > 0;
-        const imageUrl = hasImages ? staticFile(scene.images[0]) : undefined;
+        // Pick layout component from registry
+        const LayoutComponent =
+          LAYOUT_REGISTRY[scene.layout] || LAYOUT_REGISTRY.text_narration;
+
+        // Resolve image URL via staticFile
+        const imageUrl =
+          scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+
+        // Build props for the layout component
+        const layoutProps: SceneLayoutProps = {
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl,
+          accentColor: data.accentColor || "#7C3AED",
+          bgColor: data.bgColor || "#0A0A0A",
+          textColor: data.textColor || "#FFFFFF",
+          ...scene.layoutProps,
+        };
 
         return (
           <Sequence
@@ -156,11 +153,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <GeneratedComponent
-              title={scene.title}
-              narration={scene.narration}
-              imageUrl={imageUrl}
-            />
+            <LayoutComponent {...layoutProps} />
 
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
@@ -169,10 +162,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
             {/* Transition overlay */}
             {index < data.scenes.length - 1 && (
-              <Sequence
-                from={durationFrames - 15}
-                durationInFrames={15}
-              >
+              <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <TransitionWipe />
               </Sequence>
             )}

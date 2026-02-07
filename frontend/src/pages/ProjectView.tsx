@@ -7,6 +7,7 @@ import {
   renderVideo,
   getRenderStatus,
   downloadVideo,
+  downloadStudioZip,
   Project,
   Scene,
   BACKEND_URL,
@@ -17,6 +18,7 @@ import ScriptPanel from "../components/ScriptPanel";
 import SceneCard from "../components/SceneCard";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
+import VideoPreview from "../components/VideoPreview";
 
 type Tab = "script" | "scenes" | "audio";
 
@@ -24,7 +26,6 @@ const PIPELINE_STEPS = [
   { id: 1, label: "Scraping" },
   { id: 2, label: "Script" },
   { id: 3, label: "Scenes" },
-  { id: 4, label: "Studio" },
 ] as const;
 
 // ─── Audio Player Row ────────────────────────────────────────
@@ -184,8 +185,6 @@ export default function ProjectView() {
   const [project, setProject] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
-  const [studioUrl, setStudioUrl] = useState<string | null>(null);
-  const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Pipeline state
@@ -198,6 +197,7 @@ export default function ProjectView() {
   const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderTimeLeft, setRenderTimeLeft] = useState<string | null>(null);
@@ -209,7 +209,7 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  // Auto-download once render finishes (only during this session, not on reload)
+  // Auto-download once render finishes
   useEffect(() => {
     if (autoDownloadRef.current && rendered && project && !downloading) {
       autoDownloadRef.current = false;
@@ -223,12 +223,6 @@ export default function ProjectView() {
     try {
       const res = await getProject(projectId);
       setProject(res.data);
-      if (res.data.studio_port) {
-        setStudioUrl(`http://localhost:${res.data.studio_port}`);
-      }
-      if (res.data.player_port) {
-        setPlayerUrl(`http://localhost:${res.data.player_port}/player.html`);
-      }
       if (res.data.status === "done") {
         setRendered(true);
       }
@@ -256,7 +250,10 @@ export default function ProjectView() {
       }
     };
     init();
-    return () => { stopPolling(); stopRenderPolling(); };
+    return () => {
+      stopPolling();
+      stopRenderPolling();
+    };
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kickOffGeneration = async () => {
@@ -280,7 +277,7 @@ export default function ProjectView() {
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
-        const { step, running, error: pipelineError, studio_port, player_port } = res.data;
+        const { step, running, error: pipelineError } = res.data;
 
         setPipelineStep(step);
 
@@ -295,13 +292,7 @@ export default function ProjectView() {
         if (!running) {
           setPipelineRunning(false);
           stopPolling();
-          const proj = await loadProject();
-          if (studio_port && proj) {
-            setStudioUrl(`http://localhost:${studio_port}`);
-          }
-          if (player_port && proj) {
-            setPlayerUrl(`http://localhost:${player_port}/player.html`);
-          }
+          await loadProject();
           return;
         }
 
@@ -335,13 +326,19 @@ export default function ProjectView() {
     try {
       await renderVideo(projectId);
 
-      // Start polling for render progress
       stopRenderPolling();
-      let stuckAt100Count = 0; // Track how many polls show 100% without done
+      let stuckAt100Count = 0;
       renderPollingRef.current = setInterval(async () => {
         try {
           const res = await getRenderStatus(projectId);
-          const { progress, rendered_frames, total_frames, done, error: renderErr, time_remaining } = res.data;
+          const {
+            progress,
+            rendered_frames,
+            total_frames,
+            done,
+            error: renderErr,
+            time_remaining,
+          } = res.data;
 
           setRenderProgress(progress);
           setRenderFrames({ rendered: rendered_frames, total: total_frames });
@@ -354,12 +351,11 @@ export default function ProjectView() {
             return;
           }
 
-          // Done flag from backend OR progress-based fallback:
-          // If progress is 100% for several consecutive polls, treat as done
-          // (handles Windows process.wait() hangs)
           const effectivelyDone =
             done ||
-            (progress >= 100 && total_frames > 0 && rendered_frames >= total_frames);
+            (progress >= 100 &&
+              total_frames > 0 &&
+              rendered_frames >= total_frames);
 
           if (effectivelyDone) {
             stuckAt100Count++;
@@ -371,7 +367,6 @@ export default function ProjectView() {
             setRenderProgress(100);
             stopRenderPolling();
             await loadProject();
-            // Auto-download the video
             autoDownloadRef.current = true;
           }
         } catch {
@@ -397,6 +392,24 @@ export default function ProjectView() {
       setError(err?.response?.data?.detail || "Download failed.");
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadStudio = async () => {
+    if (!project) return;
+    setDownloadingStudio(true);
+    try {
+      const safeName =
+        project.name?.replace(/\s+/g, "_").slice(0, 50) || "project";
+      await downloadStudioZip(projectId, `${safeName}_studio.zip`);
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setShowUpgrade(true);
+      } else {
+        setError(err?.response?.data?.detail || "Studio download failed.");
+      }
+    } finally {
+      setDownloadingStudio(false);
     }
   };
 
@@ -563,7 +576,7 @@ export default function ProjectView() {
     );
   };
 
-  // ─── Completed view (video player + actions + chat) ──────
+  // ─── Completed view (video preview + actions + chat) ──────
   const renderCompleted = () => {
     const videoSrc = rendered
       ? `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`
@@ -579,9 +592,18 @@ export default function ProjectView() {
           >
             <div className="w-full max-w-md text-center px-6 py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <svg
+                  className="w-7 h-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
               </div>
 
@@ -594,7 +616,6 @@ export default function ProjectView() {
                   : "Preparing render..."}
               </p>
 
-              {/* Progress bar */}
               <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
                 <div
                   className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out"
@@ -644,31 +665,33 @@ export default function ProjectView() {
                 <StatusBadge status={project.status} />
               </div>
               <div className="flex items-center gap-2">
-                {/* Open Studio — Pro only */}
-                {isPro && studioUrl && (
-                  <a
-                    href={studioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 border border-purple-200 text-purple-600 hover:bg-purple-50 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                {/* Open Studio — Pro only (download workspace zip) */}
+                {isPro ? (
+                  <button
+                    onClick={handleDownloadStudio}
+                    disabled={downloadingStudio}
+                    className="px-3 py-1.5 border border-purple-200 text-purple-600 hover:bg-purple-50 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
+                    {downloadingStudio ? (
+                      <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    ) : (
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    )}
                     Open Studio
-                  </a>
-                )}
-                {!isPro && studioUrl && (
+                  </button>
+                ) : (
                   <button
                     onClick={() => setShowUpgrade(true)}
                     className="px-3 py-1.5 border border-gray-200 text-gray-400 hover:border-purple-200 hover:text-purple-500 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
@@ -688,7 +711,9 @@ export default function ProjectView() {
                       />
                     </svg>
                     Studio
-                    <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded">PRO</span>
+                    <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded">
+                      PRO
+                    </span>
                   </button>
                 )}
 
@@ -711,7 +736,7 @@ export default function ProjectView() {
                         d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                       />
                     </svg>
-                    Download MP4
+                    Render MP4
                   </button>
                 ) : (
                   <button
@@ -771,35 +796,16 @@ export default function ProjectView() {
                       Your browser does not support the video tag.
                     </video>
                   </div>
-                ) : playerUrl && !BACKEND_URL ? (
+                ) : project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-                    <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg border border-gray-200/40 bg-black">
-                      <iframe
-                        src={playerUrl}
-                        className="w-full h-full border-0"
-                        title="Video Preview"
-                        allow="autoplay"
-                      />
+                    <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
+                      <VideoPreview project={project} />
                     </div>
                     <p className="text-[11px] text-gray-400">
                       Live preview · {project.scenes.length} scenes
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
                     </p>
-                  </div>
-                ) : playerUrl && BACKEND_URL ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
-                    <div className="w-full max-w-md aspect-video rounded-xl bg-gray-900/50 border border-gray-200/40 flex flex-col items-center justify-center gap-4 p-8">
-                      <p className="text-sm text-gray-500 text-center">
-                        Live preview runs locally. Render your video to see the result.
-                      </p>
-                      <button
-                        onClick={handleRender}
-                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
-                      >
-                        Render MP4
-                      </button>
-                    </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
@@ -808,7 +814,7 @@ export default function ProjectView() {
                       <div className="relative text-center">
                         <div className="w-6 h-6 mx-auto mb-2 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
                         <p className="text-xs text-white/40">
-                          Starting preview...
+                          Generating scenes...
                         </p>
                       </div>
                     </div>
@@ -939,7 +945,6 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* Summary bar */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-4">
                     <h2 className="text-base font-medium text-gray-900">
@@ -963,7 +968,6 @@ export default function ProjectView() {
                   </div>
                 </div>
 
-                {/* Audio rows */}
                 <div className="space-y-2">
                   {project.scenes.map((scene) => (
                     <AudioRow
