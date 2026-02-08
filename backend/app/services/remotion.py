@@ -500,48 +500,22 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
     import time
 
     try:
-        while True:
-            retcode = process.poll()
-            if retcode is not None:
-                break
-            prog = _render_progress.get(project_id, {})
-            total = prog.get("total_frames", 0)
-            rendered = prog.get("rendered_frames", 0)
-            if total > 0 and rendered >= total:
-                try:
-                    process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    process.terminate()
-                break
-            time.sleep(0.5)
-
-        # Ensure process has fully exited before touching the output file
-        try:
-            process.wait(timeout=15)
-        except subprocess.TimeoutExpired:
-            pass
+        # Wait for the render process to fully exit on its own.
+        # Do NOT try to terminate early — after all frames are rendered,
+        # Remotion still needs time to encode/mux the final MP4.
+        process.wait()  # block until process exits naturally
 
         retcode = process.returncode
+        output_path = _render_progress[project_id].get("output_path", "")
 
-        if retcode is not None and retcode == 0:
+        if retcode == 0 and output_path and os.path.exists(output_path) and _is_valid_mp4(output_path):
             _render_progress[project_id]["progress"] = 100
             _render_progress[project_id]["rendered_frames"] = _render_progress[
                 project_id
             ].get("total_frames", 0)
-            # NOTE: do NOT set done=True yet — R2 upload must finish first
-            # so the frontend stays in "rendering 100%" until the video URL is ready.
-
-            # Small delay to ensure the file is fully flushed to disk
-            time.sleep(2)
 
             # Upload rendered video to R2
-            output_path = _render_progress[project_id].get("output_path", "")
-            if output_path and os.path.exists(output_path):
-                # Verify the file looks like a valid MP4 (starts with ftyp or moov atom)
-                if _is_valid_mp4(output_path):
-                    upload_rendered_video_to_r2(project_id, output_path)
-                else:
-                    print(f"[REMOTION] Skipping R2 upload — file doesn't look like valid MP4: {output_path}")
+            upload_rendered_video_to_r2(project_id, output_path)
 
             # Clean up the workspace to free disk space
             workspace = get_workspace_dir(project_id)
@@ -550,9 +524,9 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
 
             # NOW mark as done — R2 upload is complete, video URL is in DB
             _render_progress[project_id]["done"] = True
-        elif retcode is None:
-            # Process never exited cleanly — mark as error
-            _render_progress[project_id]["error"] = "Render process did not exit"
+        elif retcode == 0:
+            # Process exited OK but no valid MP4 found
+            _render_progress[project_id]["error"] = "Render completed but no valid video file was produced"
             _render_progress[project_id]["done"] = True
         else:
             _render_progress[project_id]["error"] = (
