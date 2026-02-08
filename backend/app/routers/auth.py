@@ -160,6 +160,8 @@ def _cleanup_free_user_data(user: User, db: Session) -> None:
             safe_remove_workspace(workspace)
             shutil.rmtree(project_media, ignore_errors=True)
 
-    # Delete all project records (cascades to scenes, assets, chat messages)
-    db.query(Project).filter(Project.user_id == user.id).delete()
+        # Delete the project object itself (cascades to scenes, assets, chat messages)
+        # Using db.delete() on the ORM object triggers cascade deletes
+        db.delete(project)
+
     db.commit()
