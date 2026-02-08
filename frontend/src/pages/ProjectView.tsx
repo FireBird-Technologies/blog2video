@@ -238,6 +238,33 @@ export default function ProjectView() {
   // Auto-download trigger (only when render finishes during this session)
   const autoDownloadRef = useRef(false);
 
+  // Smooth pipeline progress: gradually fills between discrete step updates
+  const [smoothProgress, setSmoothProgress] = useState(0);
+  const smoothProgressRef = useRef(0);
+
+  useEffect(() => {
+    if (!pipelineRunning) {
+      setSmoothProgress(0);
+      smoothProgressRef.current = 0;
+      return;
+    }
+
+    // Target progress based on step (evenly spaced across 0-95%)
+    const stepTargets: Record<number, number> = { 0: 3, 1: 20, 2: 48, 3: 72, 4: 100 };
+    const target = stepTargets[pipelineStep] ?? 100;
+
+    // Animate towards target in small increments
+    const timer = setInterval(() => {
+      smoothProgressRef.current = Math.min(
+        smoothProgressRef.current + 0.4,
+        target
+      );
+      setSmoothProgress(Math.round(smoothProgressRef.current));
+    }, 150);
+
+    return () => clearInterval(timer);
+  }, [pipelineRunning, pipelineStep]);
+
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
 
@@ -589,9 +616,9 @@ export default function ProjectView() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "script", label: "Script" },
-    { id: "scenes", label: "Scenes" },
     { id: "images", label: "Images" },
     { id: "audio", label: "Audio" },
+    { id: "scenes", label: "Scenes" },
   ];
 
   const pipelineComplete = ["generated", "rendering", "done"].includes(
@@ -631,10 +658,7 @@ export default function ProjectView() {
   const renderGenerationLoader = () => {
     const stepLabels = PIPELINE_STEPS.map((s) => s.label);
     const currentStepIdx = Math.max(0, pipelineStep - 1);
-    const progress = Math.min(
-      ((pipelineStep - 1) / PIPELINE_STEPS.length) * 100 + 12,
-      100
-    );
+    const progress = smoothProgress;
 
     return (
       <div
@@ -743,96 +767,66 @@ export default function ProjectView() {
 
     return (
       <div className="space-y-4">
-        {/* Render loading overlay with progress */}
-        {(rendering || saving) && (
+        {/* ── Phase 1: Rendering progress ── */}
+        {rendering && (
           <div
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
             <div className="w-full max-w-md text-center px-6 py-12">
-              <div className={`w-14 h-14 mx-auto mb-6 rounded-2xl flex items-center justify-center ${saving ? "bg-green-600" : "bg-purple-600"}`}>
-                {saving ? (
-                  <svg
-                    className="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-7 h-7 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                )}
+              <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
+                <svg
+                  className="w-7 h-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
               </div>
 
               <h2 className="text-base font-semibold text-gray-900 mb-1">
-                {saving ? "Saving your video" : "Rendering your video"}
+                Creating your video
               </h2>
               <p className="text-xs text-gray-400 mb-6">
-                {saving
-                  ? "Uploading to cloud storage..."
-                  : renderFrames.total > 0
+                {renderFrames.total > 0
                   ? `Frame ${renderFrames.rendered.toLocaleString()} of ${renderFrames.total.toLocaleString()}`
-                  : "Preparing render..."}
+                  : "Preparing..."}
               </p>
 
               <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
-                {saving ? (
-                  <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: "100%" }} />
-                ) : (
-                  <div
-                    className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${renderProgress}%` }}
-                  />
-                )}
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${renderProgress}%` }}
+                />
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-gray-400">
-                {saving ? (
-                  <>
-                    <span>100%</span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin" />
-                      Saving to cloud
-                    </span>
-                  </>
+                <span>{renderProgress}%</span>
+                {renderTimeLeft ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    {renderTimeLeft} remaining
+                  </span>
                 ) : (
-                  <>
-                    <span>{renderProgress}%</span>
-                    {renderTimeLeft ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                        {renderTimeLeft} remaining
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                        Encoding
-                      </span>
-                    )}
-                  </>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                    Encoding
+                  </span>
                 )}
               </div>
 
+              <p className="mt-6 text-[11px] text-gray-300">
+                Feel free to browse other tabs — just don't close this one.
+              </p>
+
               {error && (
-                <div className="mt-6">
+                <div className="mt-4">
                   <p className="text-xs text-red-500 mb-3">{error}</p>
                   <button
                     onClick={() => handleRender()}
@@ -842,6 +836,54 @@ export default function ProjectView() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Phase 2: Saving to cloud ── */}
+        {saving && !rendering && (
+          <div
+            className="glass-card flex items-center justify-center"
+            style={{ minHeight: "60vh" }}
+          >
+            <div className="w-full max-w-sm text-center px-6 py-12">
+              <div className="w-14 h-14 mx-auto mb-6 bg-green-600 rounded-2xl flex items-center justify-center">
+                <svg
+                  className="w-7 h-7 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+              </div>
+
+              <h2 className="text-base font-semibold text-gray-900 mb-1">
+                Saving your video
+              </h2>
+              <p className="text-xs text-gray-400 mb-6">
+                Uploading to cloud storage...
+              </p>
+
+              <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: "100%" }} />
+              </div>
+
+              <div className="flex items-center justify-center text-[11px] text-gray-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin" />
+                  Almost done
+                </span>
+              </div>
+
+              <p className="mt-6 text-[11px] text-gray-300">
+                Hang tight — your download will start automatically.
+              </p>
             </div>
           </div>
         )}
@@ -907,11 +949,11 @@ export default function ProjectView() {
                   </button>
                 )}
 
-                {/* Render / Download */}
+                {/* Download MP4 */}
                 {!rendered ? (
                   <div className="relative" ref={resMenuRef}>
                     <div className="flex">
-                      {/* Main render button */}
+                      {/* Main download button */}
                       <button
                         onClick={() => handleRender()}
                         className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5"
@@ -926,10 +968,10 @@ export default function ProjectView() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                           />
                         </svg>
-                        Render {selectedResolution}
+                        Download {selectedResolution}
                       </button>
 
                       {/* Dropdown trigger */}
