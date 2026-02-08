@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
@@ -7,7 +7,8 @@ import { useScrollReveal } from "../hooks/useScrollReveal";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
-const DEMO_VIDEOS: {
+// blogImage is auto-fetched from the blog's OG tags if left undefined
+interface DemoVideo {
   id: string;
   title: string;
   youtubeId: string;
@@ -15,7 +16,9 @@ const DEMO_VIDEOS: {
   blogTitle?: string;
   blogExcerpt?: string;
   blogImage?: string;
-}[] = [
+}
+
+const INITIAL_DEMOS: DemoVideo[] = [
   {
     id: "demo-1",
     title: "Blog2Video Demo",
@@ -23,18 +26,58 @@ const DEMO_VIDEOS: {
     blogUrl: "https://www.firebird-technologies.com/p/building-a-reliable-text-to-sql-pipeline",
     blogTitle: "Building a Reliable Text-to-SQL Pipeline",
     blogExcerpt: "How to build a robust pipeline that converts natural language into SQL queries.",
-    blogImage: undefined, // Add OG image URL from the blog if available
   },
   // Add more like:
-  // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "...", blogImage: "..." },
+  // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "..." },
 ];
+
+/**
+ * Fetch OG image, title, and description from a URL via jsonlink.io (free, no key needed).
+ * Falls back gracefully if the service is unavailable.
+ */
+async function fetchOgData(url: string): Promise<{ image?: string; title?: string; description?: string }> {
+  try {
+    const res = await fetch(`https://jsonlink.io/api/extract?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    return {
+      image: data.images?.[0] || undefined,
+      title: data.title || undefined,
+      description: data.description || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const scrollRef = useScrollReveal();
+
+  // Auto-fetch OG images for demos that don't have one
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const updated = await Promise.all(
+        INITIAL_DEMOS.map(async (demo) => {
+          if (demo.blogImage || !demo.blogUrl) return demo;
+          const og = await fetchOgData(demo.blogUrl);
+          return {
+            ...demo,
+            blogImage: og.image || demo.blogImage,
+            blogTitle: demo.blogTitle || og.title,
+            blogExcerpt: demo.blogExcerpt || og.description,
+          };
+        })
+      );
+      if (!cancelled) setDemos(updated);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -140,9 +183,9 @@ export default function Landing() {
           </div>
 
           {/* Video tabs */}
-          {DEMO_VIDEOS.length > 1 && (
+          {demos.length > 1 && (
             <div className="flex items-center justify-center gap-2 mb-8 reveal">
-              {DEMO_VIDEOS.map((video, idx) => (
+              {demos.map((video, idx) => (
                 <button
                   key={video.id}
                   onClick={() => setActiveVideoIdx(idx)}
@@ -158,8 +201,8 @@ export default function Landing() {
             </div>
           )}
 
-          {DEMO_VIDEOS.length > 0 && (() => {
-            const v = DEMO_VIDEOS[activeVideoIdx];
+          {demos.length > 0 && (() => {
+            const v = demos[activeVideoIdx];
             return (
               <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch reveal-scale">
                 {/* ── Blog Card (left) ── */}

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
@@ -32,22 +32,22 @@ function AppNavbar() {
   return (
     <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <a href="/dashboard" className="flex items-center gap-2.5">
+        <Link to="/dashboard" className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-[11px]">
             B2V
           </div>
           <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
-        </a>
+        </Link>
         <div className="flex items-center gap-4">
           {/* Pricing link */}
-          <a href="/pricing" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
+          <Link to="/pricing" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
             Pricing
-          </a>
+          </Link>
 
           {/* Billing link */}
-          <a href="/subscription" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
+          <Link to="/subscription" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
             Billing
-          </a>
+          </Link>
 
           {/* Usage */}
           <span className="hidden sm:block text-xs text-gray-400">
