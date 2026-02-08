@@ -317,7 +317,7 @@ export default function Landing() {
                       youtube.com
                     </p>
                     <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
-                      {v.title}
+                      {v.blogTitle || v.title}
                     </h3>
                     <div className="flex items-center gap-3 mt-auto">
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
@@ -378,6 +378,87 @@ export default function Landing() {
                 <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Origin story ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              Why I built this
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-6">
+              I had 50+ blog posts. Turning them into video almost cost me $30K.
+            </h2>
+            <p className="text-sm text-gray-500 text-center max-w-2xl mx-auto mb-14 leading-relaxed">
+              I'm a blogger who gets clients from long-form content. It works — but blog traffic plateaued.
+              Social algorithms favor video. So I tried making the switch.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 reveal-group">
+            {/* Attempt 1 */}
+            <div className="glass-card p-7 relative overflow-hidden reveal">
+              <div className="absolute top-0 left-0 w-full h-1 bg-red-400" />
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center text-sm font-bold">1</span>
+                <h3 className="text-sm font-semibold text-gray-900">Hired video editors</h3>
+              </div>
+              <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                Quality was good, but at <span className="font-semibold text-gray-700">$300–$1,000 per video</span>, converting
+                50+ posts would have cost me over $30K. Not sustainable for a solo blogger.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-red-500 font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                Too expensive at scale
+              </div>
+            </div>
+
+            {/* Attempt 2 */}
+            <div className="glass-card p-7 relative overflow-hidden reveal">
+              <div className="absolute top-0 left-0 w-full h-1 bg-orange-400" />
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center text-sm font-bold">2</span>
+                <h3 className="text-sm font-semibold text-gray-900">AI video generators</h3>
+              </div>
+              <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                Generic stock footage over a robot voice. <span className="font-semibold text-gray-700">Didn't sound like me</span>, didn't
+                use my actual content, and still cost $20–50 per video for long-form posts.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-orange-500 font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                Looked like AI slop
+              </div>
+            </div>
+
+            {/* Solution */}
+            <div className="glass-card p-7 relative overflow-hidden ring-2 ring-purple-100 reveal">
+              <div className="absolute top-0 left-0 w-full h-1 bg-purple-500" />
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">3</span>
+                <h3 className="text-sm font-semibold text-gray-900">Built Blog2Video</h3>
+              </div>
+              <p className="text-sm text-gray-500 leading-relaxed mb-4">
+                Scrapes <span className="font-semibold text-gray-700">your actual blog</span>. AI <em>programs</em> the video using
+                Remotion — no image/video models. Real voice, real content, real diagrams.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-purple-600 font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                Saved $30K+ on 50 posts
+              </div>
+            </div>
+          </div>
+
+          {/* Key differentiator callout */}
+          <div className="mt-10 glass-card p-6 bg-purple-50/50 border border-purple-100 text-center reveal">
+            <p className="text-sm text-gray-700 leading-relaxed max-w-2xl mx-auto">
+              <span className="font-semibold">The key insight:</span> Instead of using expensive AI image
+              and video models, Blog2Video uses AI to <span className="font-semibold text-purple-700">write code</span> that
+              renders your video programmatically. Animated diagrams, code blocks, bullet reveals —
+              all generated as React components, not AI pixels.
+            </p>
           </div>
         </div>
       </section>
