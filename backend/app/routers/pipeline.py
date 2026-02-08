@@ -80,10 +80,28 @@ def get_pipeline_status(
     project = _get_project(project_id, user.id, db)
 
     progress = _pipeline_progress.get(project_id, {})
+    running = progress.get("running", False)
+    step = progress.get("step", 0)
+
+    # If in-memory progress is lost (e.g. Cloud Run cold start / new container)
+    # but the project is still mid-generation, infer the step from project status
+    # so the frontend keeps showing the loading screen.
+    if not running and project.status in (
+        ProjectStatus.CREATED,
+        ProjectStatus.SCRAPED,
+        ProjectStatus.SCRIPTED,
+    ):
+        _STATUS_TO_STEP = {
+            ProjectStatus.CREATED: 1,   # about to scrape or scraping
+            ProjectStatus.SCRAPED: 2,   # about to generate script
+            ProjectStatus.SCRIPTED: 3,  # about to generate scenes
+        }
+        step = max(step, _STATUS_TO_STEP.get(project.status, 0))
+
     return {
         "status": project.status.value,
-        "step": progress.get("step", 0),
-        "running": progress.get("running", False),
+        "step": step,
+        "running": running,
         "error": progress.get("error"),
         "studio_port": project.studio_port,
     }
