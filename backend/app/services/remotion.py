@@ -357,9 +357,15 @@ RESOLUTION_PRESETS = {
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "720p"
 ) -> list[str]:
-    """Build the Remotion render command with resolution scaling."""
-    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path,
-           "--concurrency", "100%"]
+    """Build the Remotion render command with resolution scaling and optimizations."""
+    cmd = [
+        npx, "remotion", "render", "ExplainerVideo", output_path,
+        "--concurrency", "100%",              # use all CPU cores
+        "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
+        "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
+        "--jpeg-quality", "70",               # faster encoding, minimal quality loss
+        "--bundle-cache", "true",             # reuse webpack bundle across renders
+    ]
 
     preset = RESOLUTION_PRESETS.get(resolution, RESOLUTION_PRESETS["720p"])
     scale = preset["scale"]

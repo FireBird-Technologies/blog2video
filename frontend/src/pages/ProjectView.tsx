@@ -473,11 +473,17 @@ export default function ProjectView() {
             return;
           }
 
-          if (done) {
+          // Transition to saving screen when:
+          // - backend says done (render + R2 upload complete), OR
+          // - all frames rendered (100% / frames match) — encoding + R2 still in progress
+          const allFramesRendered =
+            progress >= 100 && total_frames > 0 && rendered_frames >= total_frames;
+
+          if (done || allFramesRendered) {
             setRenderProgress(100);
             stopRenderPolling();
 
-            // Transition: rendering → saving
+            // Transition: rendering → saving (encoding + uploading to cloud)
             setRendering(false);
             setSaving(true);
 
@@ -845,10 +851,10 @@ export default function ProjectView() {
               </div>
 
               <h2 className="text-base font-semibold text-gray-900 mb-1">
-                Saving your video
+                Finalizing your video
               </h2>
               <p className="text-xs text-gray-400 mb-6">
-                Uploading to cloud storage...
+                Encoding &amp; uploading to cloud...
               </p>
 
               <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
