@@ -207,8 +207,8 @@ async def _generate_scenes(project: Project, db: Session):
         scenes_data,
         image_filenames,
         accent_color=project.accent_color or "#7C3AED",
-        bg_color=project.bg_color or "#0A0A0A",
-        text_color=project.text_color or "#FFFFFF",
+        bg_color=project.bg_color or "#FFFFFF",
+        text_color=project.text_color or "#000000",
         animation_instructions=project.animation_instructions or "",
     )
 

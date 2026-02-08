@@ -48,6 +48,13 @@ def scrape_blog(project: Project, db: Session) -> Project:
     if not text or len(text.strip()) < 50:
         raise ValueError("Could not extract meaningful content from the URL.")
 
+    # If we only got 0-1 images, try Exa search for more topic-related images
+    if len(image_urls) <= 1 and settings.EXA_API_KEY:
+        extra_images = _find_extra_images_via_exa(url, text, image_urls)
+        if extra_images:
+            print(f"[SCRAPER] Found {len(extra_images)} extra images via Exa search")
+            image_urls.extend(extra_images)
+
     # Download images
     _download_images(project.id, image_urls, db)
 
@@ -211,6 +218,83 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
 
     print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(code_blocks)} code blocks, {len(image_urls)} images")
     return text, image_urls
+
+
+# ─── Exa image search fallback ─────────────────────────────
+
+def _find_extra_images_via_exa(
+    original_url: str,
+    text: str,
+    existing_images: list[str],
+) -> list[str]:
+    """
+    When the initial scrape only found 0-1 images, use Exa's search to find
+    additional relevant images from pages about the same topic.
+    Extracts the blog title/topic from the first ~200 chars and searches Exa
+    for related content with image_links.
+    """
+    try:
+        exa = Exa(api_key=settings.EXA_API_KEY)
+
+        # Build a short topic query from the blog text
+        topic = text[:300].split("\n")[0].strip()
+        if len(topic) > 120:
+            topic = topic[:120]
+
+        # Search Exa for pages about this topic — request image_links
+        search_results = exa.search_and_contents(
+            query=topic,
+            num_results=5,
+            text={"max_characters": 500},
+            extras={"image_links": 20},
+            type="neural",
+        )
+
+        existing_set = set(existing_images)
+        extra: list[str] = []
+        seen_ids: set[str] = set()
+
+        for result in search_results.results:
+            # Skip the original article itself
+            if result.url and result.url.rstrip("/") == original_url.rstrip("/"):
+                continue
+
+            # Collect images from extras.image_links
+            if hasattr(result, "extras") and result.extras:
+                imgs = result.extras.get("image_links") or result.extras.get("imageLinks") or []
+                for img_url in imgs:
+                    if not isinstance(img_url, str):
+                        continue
+                    if img_url in existing_set:
+                        continue
+                    if not _is_content_image_light_filter(img_url):
+                        continue
+
+                    # Deduplicate by Medium image ID
+                    mid = _extract_medium_image_id(img_url)
+                    if mid and mid in seen_ids:
+                        continue
+
+                    extra.append(img_url)
+                    existing_set.add(img_url)
+                    if mid:
+                        seen_ids.add(mid)
+
+                    # Cap at 8 extra images
+                    if len(extra) >= 8:
+                        return extra
+
+            # Also check page.image (hero/OG image)
+            if hasattr(result, "image") and result.image:
+                img_url = result.image
+                if img_url not in existing_set and _is_content_image_light_filter(img_url):
+                    extra.append(img_url)
+                    existing_set.add(img_url)
+
+        return extra
+    except Exception as e:
+        print(f"[SCRAPER] Exa image search fallback failed (non-fatal): {e}")
+        return []
 
 
 # ─── Requests + BeautifulSoup fallback ────────────────────

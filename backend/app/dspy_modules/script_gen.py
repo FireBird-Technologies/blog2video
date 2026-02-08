@@ -17,10 +17,11 @@ class BlogToScript(dspy.Signature):
     - Combine only truly related minor points; give major topics their own scene.
 
     FIRST SCENE RULE:
-    - The FIRST scene MUST be a "Hero Opening" with an EMPTY narration ("").
-    - It is a visual-only scene that displays the hero/banner image with a fade-in.
-    - Set its duration to 3-4 seconds. No voiceover on this scene.
-    - The actual introduction narration goes in the SECOND scene.
+    - The FIRST scene MUST be a "Hero Opening" that displays the hero/banner image
+      with the blog title overlaid and a SHORT narration (1-2 sentences, ~15-25 words).
+    - The narration should be a compelling hook or introduction, e.g. "Ever wondered how X works? Let's break it down."
+    - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
+    - The second scene continues with the main introduction/content.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -29,13 +30,25 @@ class BlogToScript(dspy.Signature):
     The visual_description field drives which visual components get used. Be SPECIFIC:
     - If the blog has CODE → write "Show code block with: [paste actual code]"
     - If listing features/steps → write "Animated bullet list: 1) item, 2) item, ..."
-    - If describing a flow/pipeline → write "Flow diagram: Input → Process → Output"
+    - If describing a flow/pipeline/architecture → write "Flow diagram: Step1 → Step2 → Step3 → Output"
     - If comparing two things → write "Comparison split-screen: X vs Y"
     - If showing statistics → write "Big metric: 97% with animated counter"
     - If a key quote/definition → write "Quote callout: [the quote]"
     - If an image is relevant → write "Show image with caption: [description]"
+    - If describing phases or history → write "Timeline: Phase1, Phase2, Phase3"
     - NEVER write vague descriptions like "display information" or "show content"
     - ALWAYS include the ACTUAL content to be visualized (real items, real code, real numbers)
+
+    ═══ MAXIMIZE VISUAL VARIETY ═══
+    Your video should feel like a polished DOCUMENTARY, not a lecture. To achieve this:
+    - EVERY scene should have a SPECIFIC visual layout hint in visual_description
+    - Strongly prefer flow diagrams, bullet lists, metrics, comparisons, and timelines
+    - Use plain text narration as an ABSOLUTE LAST RESORT — only if nothing else fits
+    - Think about what a designer would PUT ON SCREEN: charts, diagrams, lists, numbers
+    - If the narration describes any process or workflow, always suggest a flow diagram
+    - If there are any numbers, stats, or metrics, always suggest animated metric counters
+    - If comparing approaches, technologies, or ideas, always suggest a comparison layout
+    - Aim for at least 70% of scenes to use structured visuals (not plain text)
 
     Output the scenes as a JSON array.
     """
@@ -51,13 +64,14 @@ class BlogToScript(dspy.Signature):
     title: str = dspy.OutputField(desc="A compelling title for the explainer video")
     scenes_json: str = dspy.OutputField(
         desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str -- EMPTY STRING for the first hero scene), '
+        '"narration" (str -- short 1-2 sentence hook for the hero scene), '
         '"visual_description" (str), "suggested_images" (list of str), '
         '"duration_seconds" (int). '
-        'FIRST scene must have narration="" and duration_seconds=3. '
-        'Example: [{"title": "Hero Opening", "narration": "", '
-        '"visual_description": "Full-screen hero banner image fade-in", '
-        '"suggested_images": ["hero.jpg"], "duration_seconds": 3}, '
+        'FIRST scene must have a short narration hook (15-25 words) and duration_seconds=6. '
+        'Example: [{"title": "How AI is Changing Everything", '
+        '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
+        '"visual_description": "Hero banner image with title overlay and fade-in", '
+        '"suggested_images": ["hero.jpg"], "duration_seconds": 6}, '
         '{"title": "Introduction", "narration": "Welcome to...", '
         '"visual_description": "...", "suggested_images": [], "duration_seconds": 15}]'
     )

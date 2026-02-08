@@ -77,8 +77,8 @@ def _migrate(eng):
             "voice_accent": "VARCHAR(10) DEFAULT 'american'",
             "player_port": "INTEGER",
             "accent_color": "VARCHAR(20) DEFAULT '#7C3AED'",
-            "bg_color": "VARCHAR(20) DEFAULT '#0A0A0A'",
-            "text_color": "VARCHAR(20) DEFAULT '#FFFFFF'",
+            "bg_color": "VARCHAR(20) DEFAULT '#FFFFFF'",
+            "text_color": "VARCHAR(20) DEFAULT '#000000'",
             "animation_instructions": "TEXT",
             "studio_unlocked": "BOOLEAN DEFAULT 0",
             "r2_video_key": "VARCHAR(512)",
@@ -97,6 +97,7 @@ def _migrate(eng):
             asset_migrations = {
                 "r2_key": "VARCHAR(512)",
                 "r2_url": "VARCHAR(2048)",
+                "excluded": "BOOLEAN DEFAULT 0",
             }
             for col_name, col_def in asset_migrations.items():
                 if col_name not in asset_cols:

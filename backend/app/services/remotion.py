@@ -170,10 +170,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
-    # Collect and copy ALL images to public dir
+    # Collect and copy non-excluded images to public dir
     all_image_files = []
     for asset in project.assets:
-        if asset.asset_type.value == "image" and os.path.exists(asset.local_path):
+        if asset.asset_type.value == "image" and not asset.excluded and os.path.exists(asset.local_path):
             dest = os.path.join(public_dir, asset.filename)
             _copy_file(asset.local_path, dest)
             all_image_files.append(asset.filename)
@@ -230,8 +230,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "projectName": project.name,
         "heroImage": hero_image_file,
         "accentColor": project.accent_color or "#7C3AED",
-        "bgColor": project.bg_color or "#0A0A0A",
-        "textColor": project.text_color or "#FFFFFF",
+        "bgColor": project.bg_color or "#FFFFFF",
+        "textColor": project.text_color or "#000000",
         "scenes": scene_data,
     }
     data_path = os.path.join(public_dir, "data.json")

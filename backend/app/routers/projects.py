@@ -36,8 +36,8 @@ def create_project(
         voice_gender=data.voice_gender or "female",
         voice_accent=data.voice_accent or "american",
         accent_color=data.accent_color or "#7C3AED",
-        bg_color=data.bg_color or "#0A0A0A",
-        text_color=data.text_color or "#FFFFFF",
+        bg_color=data.bg_color or "#FFFFFF",
+        text_color=data.text_color or "#000000",
         animation_instructions=data.animation_instructions or None,
         status=ProjectStatus.CREATED,
     )
@@ -113,6 +113,38 @@ def delete_project(
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
+
+
+@router.patch("/{project_id}/assets/{asset_id}/exclude")
+def toggle_asset_exclusion(
+    project_id: int,
+    asset_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Toggle an image's excluded status (paid users only)."""
+    from app.models.asset import Asset
+
+    if user.plan == "free":
+        raise HTTPException(
+            status_code=403,
+            detail="Image editing is a Pro feature. Upgrade to exclude images.",
+        )
+
+    _get_user_project(project_id, user.id, db)
+
+    asset = (
+        db.query(Asset)
+        .filter(Asset.id == asset_id, Asset.project_id == project_id)
+        .first()
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    asset.excluded = not asset.excluded
+    db.commit()
+    db.refresh(asset)
+    return {"id": asset.id, "excluded": asset.excluded}
 
 
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneOut)
