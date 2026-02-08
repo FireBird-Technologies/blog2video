@@ -117,19 +117,20 @@ export default function UpgradeModal({
               <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    This video
+                    Premium access
                   </span>
                   <span className="text-lg font-bold text-gray-900">
                     $5
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-                  One-time payment. Unlocks Studio + extra videos for this
-                  project.
+                  Get premium access for this video and the next.
+                  One-time payment — no subscription needed.
                 </p>
                 <ul className="space-y-1.5 mb-4">
                   {[
                     "Remotion Studio access",
+                    "AI chat editor",
                     "Download project files",
                     "No subscription needed",
                   ].map((f) => (
@@ -159,7 +160,7 @@ export default function UpgradeModal({
                   disabled={anyLoading}
                   className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
                 >
-                  {loadingVideo ? "Redirecting..." : "Buy this video — $5"}
+                  {loadingVideo ? "Redirecting..." : "Get premium access — $5"}
                 </button>
               </div>
             )}

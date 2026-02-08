@@ -132,7 +132,7 @@ SEED_PLANS = [
     {
         "slug": "free",
         "name": "Free",
-        "description": "Get started with 1 free video",
+        "description": "First video free — no credit card needed",
         "price_cents": 0,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": 1,
@@ -145,12 +145,12 @@ SEED_PLANS = [
     {
         "slug": "per_video",
         "name": "Per Video",
-        "description": "Pay $5 per video — includes Studio access",
+        "description": "Pay $5 per video — includes Studio & AI chat editor",
         "price_cents": 500,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": -1,  # 1 video per purchase
         "includes_studio": True,
-        "includes_chat_editor": False,
+        "includes_chat_editor": True,
         "includes_priority_support": False,
         "stripe_price_id": None,  # Set from STRIPE_PER_VIDEO_PRICE_ID
         "sort_order": 1,
