@@ -48,39 +48,29 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Nav */}
-      <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-          <a
-            href={user ? "/dashboard" : "/"}
-            className="flex items-center gap-3"
-          >
-            <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              B2V
-            </div>
-            <span className="text-xl font-semibold text-gray-900">
-              Blog2Video
-            </span>
-          </a>
-          <div className="flex items-center gap-6">
-            {user ? (
-              <a
-                href="/dashboard"
-                className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
-              >
-                Dashboard
-              </a>
-            ) : (
+      {/* Nav — only shown for logged-out users (logged-in users get AppNavbar) */}
+      {!user && (
+        <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                B2V
+              </div>
+              <span className="text-xl font-semibold text-gray-900">
+                Blog2Video
+              </span>
+            </a>
+            <div className="flex items-center gap-6">
               <a
                 href="/"
                 className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
               >
                 Home
               </a>
-            )}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Pricing header */}
       <div className="relative overflow-hidden">

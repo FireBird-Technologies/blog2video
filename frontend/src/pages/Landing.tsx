@@ -6,14 +6,26 @@ import { useAuth } from "../hooks/useAuth";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
-const DEMO_VIDEOS: { id: string; title: string; youtubeId: string }[] = [
+const DEMO_VIDEOS: {
+  id: string;
+  title: string;
+  youtubeId: string;
+  blogUrl?: string;
+  blogTitle?: string;
+  blogExcerpt?: string;
+  blogImage?: string;
+}[] = [
   {
     id: "demo-1",
     title: "Blog2Video Demo",
     youtubeId: "2gZ1FMYLcdQ",
+    blogUrl: "https://www.firebird-technologies.com/p/building-a-reliable-text-to-sql-pipeline",
+    blogTitle: "Building a Reliable Text-to-SQL Pipeline",
+    blogExcerpt: "How to build a robust pipeline that converts natural language into SQL queries.",
+    blogImage: undefined, // Add OG image URL from the blog if available
   },
   // Add more like:
-  // { id: "demo-2", title: "Technical Blog Example", youtubeId: "XXXXXXXXXXX" },
+  // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "...", blogImage: "..." },
 ];
 
 export default function Landing() {
@@ -156,14 +168,72 @@ export default function Landing() {
                   style={{ border: "none" }}
                 />
               </div>
-              {DEMO_VIDEOS.length > 1 && (
-                <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100">
-                  <p className="text-sm font-medium text-gray-900">
-                    {DEMO_VIDEOS[activeVideoIdx].title}
-                  </p>
-                </div>
-              )}
+              <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-900">
+                  {DEMO_VIDEOS[activeVideoIdx].title}
+                </p>
+                {DEMO_VIDEOS[activeVideoIdx].blogUrl && (
+                  <a
+                    href={DEMO_VIDEOS[activeVideoIdx].blogUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Read original blog post
+                  </a>
+                )}
+              </div>
             </div>
+          )}
+
+          {/* Blog preview card */}
+          {DEMO_VIDEOS.length > 0 && DEMO_VIDEOS[activeVideoIdx].blogUrl && (
+            <a
+              href={DEMO_VIDEOS[activeVideoIdx].blogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block glass-card overflow-hidden hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all group"
+            >
+              <div className="flex flex-col sm:flex-row">
+                <div className="sm:w-48 flex-shrink-0 aspect-video sm:aspect-[4/3] bg-gray-100 flex items-center justify-center">
+                  {DEMO_VIDEOS[activeVideoIdx].blogImage ? (
+                    <img
+                      src={DEMO_VIDEOS[activeVideoIdx].blogImage!}
+                      alt={DEMO_VIDEOS[activeVideoIdx].blogTitle || "Blog preview"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4m-4 6h.01M17 16h.01" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 p-5 min-w-0">
+                  <p className="text-[10px] font-medium text-purple-600 uppercase tracking-wider mb-2">
+                    Original blog post
+                  </p>
+                  <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1.5 line-clamp-2">
+                    {DEMO_VIDEOS[activeVideoIdx].blogTitle || "View blog post"}
+                  </h3>
+                  {DEMO_VIDEOS[activeVideoIdx].blogExcerpt && (
+                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                      {DEMO_VIDEOS[activeVideoIdx].blogExcerpt}
+                    </p>
+                  )}
+                  <span className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-purple-600">
+                    Read article
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            </a>
           )}
         </div>
       </section>
