@@ -4,10 +4,23 @@ import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
+// ─── Demo videos ─────────────────────────────────────────
+// Add more entries here to show them as tabs in "See it in action"
+const DEMO_VIDEOS: { id: string; title: string; youtubeId: string }[] = [
+  {
+    id: "demo-1",
+    title: "Blog2Video Demo",
+    youtubeId: "2gZ1FMYLcdQ",
+  },
+  // Add more like:
+  // { id: "demo-2", title: "Technical Blog Example", youtubeId: "XXXXXXXXXXX" },
+];
+
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
+  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -23,8 +36,6 @@ export default function Landing() {
     }
   };
 
-  const exampleVideos: { title: string; url: string; thumbnail?: string }[] = [];
-
   return (
     <div className="min-h-screen bg-white">
       {/* ─── Nav ─── */}
@@ -39,6 +50,7 @@ export default function Landing() {
             </span>
           </div>
           <div className="flex items-center gap-6">
+            <a href="#demo" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Demo</a>
             <a href="#how" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">How it works</a>
             <a href="#features" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Features</a>
             <a href="/pricing" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Pricing</a>
@@ -95,6 +107,64 @@ export default function Landing() {
               First video free — no credit card required
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* ─── See it in action (right after hero) ─── */}
+      <section id="demo" className="py-20 border-t border-gray-100">
+        <div className="max-w-4xl mx-auto px-6">
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+            See it in action
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            Watch a blog turn into a video
+          </h2>
+          <p className="text-sm text-gray-500 text-center mb-8 max-w-lg mx-auto leading-relaxed">
+            Real examples generated from technical blog posts — fully automated, no editing needed.
+          </p>
+
+          {/* Video tabs */}
+          {DEMO_VIDEOS.length > 1 && (
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {DEMO_VIDEOS.map((video, idx) => (
+                <button
+                  key={video.id}
+                  onClick={() => setActiveVideoIdx(idx)}
+                  className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+                    activeVideoIdx === idx
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {video.title}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* YouTube embed */}
+          {DEMO_VIDEOS.length > 0 && (
+            <div className="glass-card overflow-hidden">
+              <div className="aspect-video">
+                <iframe
+                  key={DEMO_VIDEOS[activeVideoIdx].youtubeId}
+                  src={`https://www.youtube.com/embed/${DEMO_VIDEOS[activeVideoIdx].youtubeId}?rel=0&modestbranding=1`}
+                  title={DEMO_VIDEOS[activeVideoIdx].title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                  style={{ border: "none" }}
+                />
+              </div>
+              {DEMO_VIDEOS.length > 1 && (
+                <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">
+                    {DEMO_VIDEOS[activeVideoIdx].title}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -286,58 +356,6 @@ export default function Landing() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ─── Examples ─── */}
-      <section id="examples" className="py-20 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl font-semibold text-gray-900 text-center mb-4">
-            See it in action
-          </h2>
-          <p className="text-sm text-gray-500 text-center mb-16 max-w-lg mx-auto leading-relaxed">
-            Example videos generated from real technical blog posts.
-          </p>
-
-          {exampleVideos.length === 0 ? (
-            <div className="glass-card p-16 text-center">
-              <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-purple-50 flex items-center justify-center">
-                <svg className="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Example videos coming soon</h3>
-              <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
-                We're creating sample explainer videos from popular technical blogs. Check back soon.
-              </p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-6">
-              {exampleVideos.map((video) => (
-                <a key={video.url} href={video.url} target="_blank" rel="noopener noreferrer" className="glass-card overflow-hidden group hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all">
-                  <div className="aspect-video bg-gray-100 flex items-center justify-center relative">
-                    {video.thumbnail ? (
-                      <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    )}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                        <svg className="w-6 h-6 text-purple-600 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <h3 className="text-sm font-medium text-gray-900 group-hover:text-purple-600 transition-colors">{video.title}</h3>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 

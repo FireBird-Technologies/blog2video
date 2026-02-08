@@ -208,7 +208,7 @@ export default function Subscription() {
               </>
             ) : (
               <button
-                onClick={handleUpgrade}
+                onClick={() => handleUpgrade()}
                 disabled={actionLoading === "upgrade"}
                 className="px-5 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
               >
@@ -488,7 +488,7 @@ export default function Subscription() {
               </div>
             ) : (
               <button
-                onClick={handleUpgrade}
+                onClick={() => handleUpgrade()}
                 disabled={actionLoading === "upgrade"}
                 className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
               >
