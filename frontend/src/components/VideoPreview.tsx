@@ -22,7 +22,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     };
 
     // Build image map (same logic as backend — hero to scene 0, rest round-robin)
-    const imageAssets = project.assets.filter((a) => a.asset_type === "image");
+    const imageAssets = project.assets.filter((a) => a.asset_type === "image" && !a.excluded);
     const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
     const sceneImageMap: Record<number, string> = {};
 
@@ -92,8 +92,8 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
   const inputProps: VideoCompositionProps = {
     scenes,
     accentColor: project.accent_color || "#7C3AED",
-    bgColor: project.bg_color || "#0A0A0A",
-    textColor: project.text_color || "#FFFFFF",
+    bgColor: project.bg_color || "#FFFFFF",
+    textColor: project.text_color || "#000000",
   };
 
   return (

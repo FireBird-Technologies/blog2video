@@ -11,8 +11,8 @@ class ProjectCreate(BaseModel):
     voice_gender: Optional[str] = "female"   # "male" or "female"
     voice_accent: Optional[str] = "american"  # "american" or "british"
     accent_color: Optional[str] = "#7C3AED"  # purple default
-    bg_color: Optional[str] = "#0A0A0A"      # black default
-    text_color: Optional[str] = "#FFFFFF"    # white default
+    bg_color: Optional[str] = "#FFFFFF"      # white default
+    text_color: Optional[str] = "#000000"    # black default
     animation_instructions: Optional[str] = None
 
 
@@ -41,6 +41,7 @@ class AssetOut(BaseModel):
     filename: str
     r2_key: Optional[str] = None
     r2_url: Optional[str] = None
+    excluded: bool = False
     created_at: datetime
 
     class Config:
@@ -67,8 +68,8 @@ class ProjectOut(BaseModel):
     voice_gender: str = "female"
     voice_accent: str = "american"
     accent_color: str = "#7C3AED"
-    bg_color: str = "#0A0A0A"
-    text_color: str = "#FFFFFF"
+    bg_color: str = "#FFFFFF"
+    text_color: str = "#000000"
     animation_instructions: Optional[str] = None
     studio_unlocked: bool = False
     studio_port: Optional[int] = None

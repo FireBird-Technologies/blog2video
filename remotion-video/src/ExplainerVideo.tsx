@@ -83,8 +83,8 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         setData({
           projectName: "Blog2Video Preview",
           accentColor: "#7C3AED",
-          bgColor: "#0A0A0A",
-          textColor: "#FFFFFF",
+          bgColor: "#FFFFFF",
+          textColor: "#000000",
           scenes: [
             {
               id: 1,
@@ -106,13 +106,13 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: "#0f172a",
+          backgroundColor: "#FFFFFF",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <p style={{ color: "white", fontSize: 36 }}>Loading...</p>
+        <p style={{ color: "#000000", fontSize: 36 }}>Loading...</p>
       </AbsoluteFill>
     );
   }
@@ -121,7 +121,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#0f172a" }}>
+    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
@@ -141,8 +141,8 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           narration: scene.narration,
           imageUrl,
           accentColor: data.accentColor || "#7C3AED",
-          bgColor: data.bgColor || "#0A0A0A",
-          textColor: data.textColor || "#FFFFFF",
+          bgColor: data.bgColor || "#FFFFFF",
+          textColor: data.textColor || "#000000",
           ...scene.layoutProps,
         };
 

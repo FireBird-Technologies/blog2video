@@ -29,7 +29,7 @@ export const TransitionFade: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#0A0A0A",
+        backgroundColor: "#FFFFFF",
         opacity,
       }}
     />

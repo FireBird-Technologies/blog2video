@@ -63,11 +63,26 @@ class SceneToDescriptor(dspy.Signature):
     ═══ VARIETY IS CRITICAL ═══
     A good explainer video uses a MIX of visual styles across its scenes.
     - NEVER use the same layout for more than 2 consecutive scenes
-    - AVOID over-relying on "text_narration" — it's the LEAST engaging layout
-    - A 7-scene video should ideally use 4-6 DIFFERENT layout types
+    - text_narration is the LEAST engaging layout — use it as an ABSOLUTE LAST RESORT
+    - You should use text_narration for AT MOST 1 scene in the entire video (ideally zero)
+    - A 7-scene video should ideally use 5-7 DIFFERENT layout types
     - Think like a filmmaker: alternate between data-heavy scenes (metric, code_block),
       visual scenes (image_caption, flow_diagram), and impact scenes (quote_callout, comparison)
     - The viewer should feel visual momentum — each scene should LOOK different from the last
+
+    ═══ PREFER VISUAL LAYOUTS ═══
+    Always try to express content as a VISUAL element rather than plain text:
+    - Any process, workflow, or "how it works" → flow_diagram (even if not explicitly stated)
+    - Any list of items, features, benefits → bullet_list (animated, numbered points)
+    - Any before/after, pros/cons, two options → comparison (split-screen)
+    - Any number, percentage, stat, or performance claim → metric (animated counter)
+    - Any quote, definition, or key insight → quote_callout (accent bar + glow)
+    - Any phases, timeline, or ordered events → timeline (vertical dots)
+    - If the narration describes a system architecture, data pipeline, or multi-step process,
+      ALWAYS use flow_diagram — decompose it into 3-5 short step labels
+    - If the narration mentions benefits, features, or takeaways, ALWAYS use bullet_list
+    - If there are numbers anywhere in the narration, STRONGLY prefer metric layout
+    - When in doubt between text_narration and ANY other layout, ALWAYS choose the other layout
 
     ═══ CONTENT EXTRACTION ═══
     - Extract REAL content from the narration — NEVER fabricate data
@@ -211,8 +226,8 @@ class SceneCodeGenerator:
         scenes_data: list[dict],
         available_images: list[str] | None = None,
         accent_color: str = "#7C3AED",
-        bg_color: str = "#0A0A0A",
-        text_color: str = "#FFFFFF",
+        bg_color: str = "#FFFFFF",
+        text_color: str = "#000000",
         animation_instructions: str = "",
     ) -> list[dict]:
         """Generate layout descriptors for all scenes concurrently."""

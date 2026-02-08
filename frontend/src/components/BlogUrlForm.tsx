@@ -30,8 +30,8 @@ export default function BlogUrlForm({
     "american"
   );
   const [accentColor, setAccentColor] = useState("#7C3AED");
-  const [bgColor, setBgColor] = useState("#0A0A0A");
-  const [textColor, setTextColor] = useState("#FFFFFF");
+  const [bgColor, setBgColor] = useState("#FFFFFF");
+  const [textColor, setTextColor] = useState("#000000");
   const [animationInstructions, setAnimationInstructions] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -217,7 +217,7 @@ export default function BlogUrlForm({
           <textarea
             value={animationInstructions}
             onChange={(e) => setAnimationInstructions(e.target.value)}
-            placeholder="e.g. Use smooth fade-in transitions, add bounce effects on bullet points, slide code blocks from the right..."
+            placeholder="e.g. Use flow diagrams for processes, show metrics with animated counters, use comparison layouts for pros/cons, add timelines for phases..."
             rows={3}
             className="mt-2 w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all resize-none"
           />

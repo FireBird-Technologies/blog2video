@@ -49,7 +49,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#0A0A0A" }}>
+    <AbsoluteFill style={{ backgroundColor: "#FFFFFF" }}>
       {/* Background image -- right side only */}
       {imageUrl && (
         <div
@@ -78,7 +78,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({
               position: "absolute",
               inset: 0,
               background:
-                "linear-gradient(to right, #0A0A0A 0%, rgba(10,10,10,0.5) 60%, rgba(10,10,10,0.2) 100%)",
+                "linear-gradient(to right, #FFFFFF 0%, rgba(255,255,255,0.5) 60%, rgba(255,255,255,0.2) 100%)",
             }}
           />
         </div>
@@ -151,7 +151,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({
         {/* Title */}
         <h1
           style={{
-            color: "#FFFFFF",
+            color: "#000000",
             fontSize: 52,
             fontWeight: 700,
             fontFamily: "Inter, system-ui, sans-serif",
@@ -167,7 +167,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({
         {/* Narration */}
         <p
           style={{
-            color: "#D4D4D4",
+            color: "#404040",
             fontSize: 26,
             fontFamily: "Inter, system-ui, sans-serif",
             lineHeight: 1.8,

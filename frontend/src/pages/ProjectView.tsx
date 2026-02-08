@@ -8,6 +8,7 @@ import {
   getRenderStatus,
   downloadVideo,
   downloadStudioZip,
+  toggleAssetExclusion,
   Project,
   Scene,
   BACKEND_URL,
@@ -15,12 +16,12 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneCard from "../components/SceneCard";
+
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
 
-type Tab = "script" | "scenes" | "audio";
+type Tab = "script" | "scenes" | "images" | "audio";
 
 const PIPELINE_STEPS = [
   { id: 1, label: "Scraping" },
@@ -239,6 +240,12 @@ export default function ProjectView() {
 
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  // Scenes tab: expanded scene detail
+  const [expandedScene, setExpandedScene] = useState<number | null>(null);
+
+  // Images tab: toggling exclusion
+  const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
 
   // Auto-download once render finishes
   useEffect(() => {
@@ -470,6 +477,28 @@ export default function ProjectView() {
     }
   };
 
+  const handleToggleExclusion = async (assetId: number) => {
+    if (!project || !isPro) return;
+    setTogglingAsset(assetId);
+    try {
+      const res = await toggleAssetExclusion(projectId, assetId);
+      // Update local state
+      setProject((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          assets: prev.assets.map((a) =>
+            a.id === assetId ? { ...a, excluded: res.data.excluded } : a
+          ),
+        };
+      });
+    } catch {
+      // Silently fail
+    } finally {
+      setTogglingAsset(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -489,6 +518,7 @@ export default function ProjectView() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "script", label: "Script" },
     { id: "scenes", label: "Scenes" },
+    { id: "images", label: "Images" },
     { id: "audio", label: "Audio" },
   ];
 
@@ -498,10 +528,11 @@ export default function ProjectView() {
 
   // ─── Distribute blog images across scenes ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
+  const activeImageAssets = imageAssets.filter((a) => !a.excluded);
   const sceneImageMap: Record<number, string[]> = {};
-  if (project.scenes.length > 0 && imageAssets.length > 0) {
-    const heroUrl = resolveAssetUrl(imageAssets[0], project.id);
-    const remaining = imageAssets.slice(1);
+  if (project.scenes.length > 0 && activeImageAssets.length > 0) {
+    const heroUrl = resolveAssetUrl(activeImageAssets[0], project.id);
+    const remaining = activeImageAssets.slice(1);
 
     project.scenes.forEach((_, idx) => {
       sceneImageMap[idx] = [];
@@ -1013,13 +1044,318 @@ export default function ProjectView() {
                 </div>
 
                 <div className="space-y-2">
-                  {project.scenes.map((scene, idx) => (
-                    <SceneCard
-                      key={scene.id}
-                      scene={scene}
-                      images={sceneImageMap[idx] || []}
-                    />
-                  ))}
+                  {project.scenes.map((scene, idx) => {
+                    const isExpanded = expandedScene === scene.id;
+                    const sceneImages = sceneImageMap[idx] || [];
+                    const matchingAudio = audioAssets.find(
+                      (a) => a.filename === `scene_${scene.order}.mp3`
+                    );
+                    const audioUrl = matchingAudio
+                      ? resolveAssetUrl(matchingAudio, project.id)
+                      : scene.voiceover_path
+                      ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
+                      : null;
+
+                    return (
+                      <div key={scene.id}>
+                        {/* Clickable scene header */}
+                        <button
+                          onClick={() =>
+                            setExpandedScene(isExpanded ? null : scene.id)
+                          }
+                          className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
+                              {scene.order}
+                            </span>
+                            <h3 className="text-sm font-medium text-gray-900 flex-1">
+                              {scene.title}
+                            </h3>
+
+                            {/* Status pills */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  scene.remotion_code
+                                    ? "bg-green-50 text-green-600"
+                                    : "bg-gray-50 text-gray-300"
+                                }`}
+                              >
+                                Scene
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  scene.voiceover_path
+                                    ? "bg-green-50 text-green-600"
+                                    : "bg-gray-50 text-gray-300"
+                                }`}
+                              >
+                                Audio
+                              </span>
+                              <span className="text-[11px] text-gray-300 ml-1">
+                                {scene.duration_seconds}s
+                              </span>
+
+                              {/* Expand chevron */}
+                              <svg
+                                className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
+                                  isExpanded ? "rotate-180" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* Expanded scene detail */}
+                        {isExpanded && (
+                          <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4">
+                            {/* Narration */}
+                            <div>
+                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                Narration
+                              </h4>
+                              <p className="text-sm text-gray-700 leading-relaxed">
+                                {scene.narration_text || (
+                                  <span className="italic text-gray-300">
+                                    No narration
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Visual Description */}
+                            <div>
+                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                Visual Description
+                              </h4>
+                              <p className="text-xs text-gray-500 italic leading-relaxed">
+                                {scene.visual_description || "—"}
+                              </p>
+                            </div>
+
+                            {/* Layout (from remotion_code JSON) */}
+                            {scene.remotion_code && (() => {
+                              try {
+                                const desc = JSON.parse(scene.remotion_code);
+                                return (
+                                  <div>
+                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                      Layout
+                                    </h4>
+                                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                                      {desc.layout?.replace(/_/g, " ") || "text narration"}
+                                    </span>
+                                  </div>
+                                );
+                              } catch {
+                                return null;
+                              }
+                            })()}
+
+                            {/* Audio player (inline) */}
+                            {audioUrl && (
+                              <div>
+                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                  Audio
+                                </h4>
+                                <audio
+                                  controls
+                                  src={audioUrl}
+                                  preload="metadata"
+                                  className="w-full h-8"
+                                  style={{ maxWidth: 400 }}
+                                />
+                              </div>
+                            )}
+
+                            {/* Scene images */}
+                            {sceneImages.length > 0 && (
+                              <div>
+                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                  Images ({sceneImages.length})
+                                </h4>
+                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                  {sceneImages.map((src, i) => (
+                                    <img
+                                      key={i}
+                                      src={src}
+                                      alt={`Scene ${scene.order} image ${i + 1}`}
+                                      className="h-24 w-auto rounded-lg object-cover border border-gray-200/40 flex-shrink-0"
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = "none";
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "images" && (
+          <div>
+            {imageAssets.length === 0 ? (
+              <p className="text-center py-16 text-xs text-gray-400">
+                Images will appear here once scraped.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-baseline gap-4">
+                    <h2 className="text-base font-medium text-gray-900">
+                      Blog Images
+                    </h2>
+                    <span className="text-xs text-gray-400">
+                      {imageAssets.filter((a) => !a.excluded).length} active
+                      {imageAssets.some((a) => a.excluded) &&
+                        ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
+                    </span>
+                  </div>
+                  {!isPro && (
+                    <span className="text-[10px] text-gray-300 flex items-center gap-1">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                      </svg>
+                      Pro — exclude images
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {imageAssets.map((asset) => {
+                    const url = resolveAssetUrl(asset, project.id);
+                    const isToggling = togglingAsset === asset.id;
+
+                    return (
+                      <div
+                        key={asset.id}
+                        className={`relative group rounded-xl overflow-hidden border transition-all ${
+                          asset.excluded
+                            ? "border-red-200 opacity-50"
+                            : "border-gray-200/40 hover:border-gray-300"
+                        }`}
+                      >
+                        <img
+                          src={url}
+                          alt={asset.filename}
+                          className="w-full aspect-[4/3] object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect fill='%23f3f4f6' width='200' height='150'/><text x='50%25' y='50%25' fill='%239ca3af' font-size='12' text-anchor='middle' dy='.3em'>No preview</text></svg>";
+                          }}
+                        />
+
+                        {/* Excluded overlay */}
+                        {asset.excluded && (
+                          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                              <svg
+                                className="w-6 h-6 text-red-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Info bar */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
+                          <p className="text-[10px] text-white/80 truncate">
+                            {asset.filename}
+                          </p>
+                        </div>
+
+                        {/* Toggle exclude button (Pro only) */}
+                        {isPro && (
+                          <button
+                            onClick={() => handleToggleExclusion(asset.id)}
+                            disabled={isToggling}
+                            className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                              asset.excluded
+                                ? "bg-green-500 text-white hover:bg-green-600"
+                                : "bg-white/80 text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                            } ${isToggling ? "animate-pulse" : ""}`}
+                            title={
+                              asset.excluded
+                                ? "Include this image"
+                                : "Exclude this image"
+                            }
+                          >
+                            {isToggling ? (
+                              <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                            ) : asset.excluded ? (
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M12 4v16m8-8H4"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -80,6 +80,7 @@ export interface Asset {
   filename: string;
   r2_key: string | null;
   r2_url: string | null;
+  excluded: boolean;
   created_at: string;
 }
 
@@ -207,6 +208,11 @@ export const getProject = (id: number) =>
 
 export const deleteProject = (id: number) =>
   api.delete(`/projects/${id}`);
+
+export const toggleAssetExclusion = (projectId: number, assetId: number) =>
+  api.patch<{ id: number; excluded: boolean }>(
+    `/projects/${projectId}/assets/${assetId}/exclude`
+  );
 
 export const scrapeProject = (id: number) =>
   api.post<Project>(`/projects/${id}/scrape`);
