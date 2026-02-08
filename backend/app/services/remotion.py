@@ -7,6 +7,7 @@ import re
 import threading
 import tempfile
 import zipfile
+import requests
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -171,12 +172,17 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     os.makedirs(public_dir, exist_ok=True)
 
     # Collect and copy non-excluded images to public dir
+    # If local file is missing (e.g. different Cloud Run container), download from R2
     all_image_files = []
     for asset in project.assets:
-        if asset.asset_type.value == "image" and not asset.excluded and os.path.exists(asset.local_path):
+        if asset.asset_type.value == "image" and not asset.excluded:
             dest = os.path.join(public_dir, asset.filename)
-            _copy_file(asset.local_path, dest)
-            all_image_files.append(asset.filename)
+            if os.path.exists(asset.local_path):
+                _copy_file(asset.local_path, dest)
+                all_image_files.append(asset.filename)
+            elif asset.r2_url:
+                if _download_url_to_file(asset.r2_url, dest):
+                    all_image_files.append(asset.filename)
 
     # Identify hero image (first image asset = OG/hero from scraper)
     hero_image_file = all_image_files[0] if all_image_files else None
@@ -191,14 +197,29 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             if img_file not in scene_image_map[scene_idx]:
                 scene_image_map[scene_idx].append(img_file)
 
+    # Build audio asset lookup: scene order -> audio asset (for R2 fallback)
+    audio_assets = {
+        a.filename: a
+        for a in project.assets
+        if a.asset_type.value == "audio"
+    }
+
     # Build scene data
     scene_data = []
     for i, scene in enumerate(scenes):
         voiceover_filename = None
+        audio_dest_name = f"audio_scene_{scene.order}.mp3"
+        dest = os.path.join(public_dir, audio_dest_name)
+
         if scene.voiceover_path and os.path.exists(scene.voiceover_path):
-            voiceover_filename = f"audio_scene_{scene.order}.mp3"
-            dest = os.path.join(public_dir, voiceover_filename)
+            voiceover_filename = audio_dest_name
             _copy_file(scene.voiceover_path, dest)
+        else:
+            # Local file missing — try R2 fallback
+            audio_asset = audio_assets.get(f"scene_{scene.order}.mp3")
+            if audio_asset and audio_asset.r2_url:
+                if _download_url_to_file(audio_asset.r2_url, dest):
+                    voiceover_filename = audio_dest_name
 
         # Parse layout descriptor from remotion_code (JSON)
         layout = "text_narration"
@@ -595,6 +616,27 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
 
 
 # ─── Internal helpers ─────────────────────────────────────────
+
+
+def _download_url_to_file(url: str, dest: str) -> bool:
+    """
+    Download a file from a URL (typically R2 public URL) to a local path.
+    Used when rebuilding workspaces on a different Cloud Run container
+    where local files don't exist but R2 assets are available.
+    Returns True on success, False on failure.
+    """
+    try:
+        resp = requests.get(url, timeout=30, stream=True)
+        resp.raise_for_status()
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"[REMOTION] Downloaded from R2: {os.path.basename(dest)}")
+        return True
+    except Exception as e:
+        print(f"[REMOTION] Failed to download {url}: {e}")
+        return False
 
 
 def _copy_file(src: str, dest: str) -> None:

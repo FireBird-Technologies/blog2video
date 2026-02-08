@@ -21,6 +21,7 @@ from app.services.scraper import scrape_blog
 from app.services.voiceover import generate_all_voiceovers
 from app.services.remotion import (
     write_remotion_data,
+    rebuild_workspace,
     launch_studio,
     create_studio_zip,
     render_video,
@@ -350,6 +351,16 @@ def render_video_endpoint(
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
         return {"detail": "Render already running", "progress": prog.get("progress", 0)}
+
+    # Ensure workspace exists (may be missing on Cloud Run if a different
+    # container handled the pipeline, or if it was cleaned up after a
+    # previous render).
+    workspace = get_workspace_dir(project.id)
+    if not os.path.exists(os.path.join(workspace, "public", "data.json")):
+        scenes = project.scenes
+        if not scenes:
+            raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+        rebuild_workspace(project, scenes, db)
 
     project.status = ProjectStatus.RENDERING
     db.commit()
