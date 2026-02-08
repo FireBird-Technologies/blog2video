@@ -64,7 +64,7 @@ export default function BlogUrlForm({
           required
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://medium.com/your-article..."
+          placeholder="https://yourblog.com/your-article..."
           className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
           autoFocus
         />
@@ -236,7 +236,7 @@ export default function BlogUrlForm({
             Creating...
           </>
         ) : (
-          "Create Project"
+          "Generate Video"
         )}
       </button>
     </form>
