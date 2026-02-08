@@ -175,7 +175,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "1 video — yours to keep",
+                "First video free",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
@@ -384,7 +384,7 @@ export default function Pricing() {
             </h3>
             <p className="text-sm text-gray-500 mb-6">
               {showLoginFor === "free"
-                ? "Sign in with Google to get your first video free."
+                ? "Sign in with Google — your first video is completely free."
                 : showLoginFor === "per_video"
                 ? "Sign in with Google, then purchase from any project."
                 : "Sign in with Google to start your Pro subscription."}
@@ -433,7 +433,7 @@ export default function Pricing() {
             <tbody>
               {[
                 { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo" },
-                { feature: "Videos", free: "1 total", perVideo: "Unlimited", pro: "100/month" },
+                { feature: "Videos", free: "1 free", perVideo: "Unlimited", pro: "100/month" },
                 { feature: "AI script generation", free: true, perVideo: true, pro: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true },

@@ -58,17 +58,22 @@ export default function Landing() {
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const scrollRef = useScrollReveal();
 
-  // Auto-fetch OG images for demos that don't have one
+  // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const updated = await Promise.all(
         INITIAL_DEMOS.map(async (demo) => {
-          if (demo.blogImage || !demo.blogUrl) return demo;
+          // Use YouTube thumbnail as immediate fallback
+          const ytThumb = `https://img.youtube.com/vi/${demo.youtubeId}/hqdefault.jpg`;
+
+          if (demo.blogImage) return demo;
+          if (!demo.blogUrl) return { ...demo, blogImage: demo.blogImage || ytThumb };
+
           const og = await fetchOgData(demo.blogUrl);
           return {
             ...demo,
-            blogImage: og.image || demo.blogImage,
+            blogImage: og.image || ytThumb,
             blogTitle: demo.blogTitle || og.title,
             blogExcerpt: demo.blogExcerpt || og.description,
           };
@@ -547,7 +552,7 @@ export default function Landing() {
             <div className="glass-card px-7 py-6 text-center min-w-[170px]">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
-              <p className="text-xs text-gray-400 mt-1">1 video, forever</p>
+              <p className="text-xs text-gray-400 mt-1">First video free</p>
             </div>
             <div className="glass-card px-7 py-6 text-center min-w-[170px]">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
