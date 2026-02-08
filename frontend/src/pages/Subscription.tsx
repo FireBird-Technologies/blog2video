@@ -6,6 +6,7 @@ import {
   getInvoices,
   getDataSummary,
   createCheckoutSession,
+  createPerVideoCheckout,
   createPortalSession,
   cancelSubscription,
   resumeSubscription,
@@ -426,14 +427,25 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2 text-gray-300"><CrossMark />AI chat editor</li>
-              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Remotion Studio</li>
+              <li className="flex items-start gap-2"><CheckMark />AI chat editor</li>
+              <li className="flex items-start gap-2"><CheckMark />Remotion Studio</li>
             </ul>
             <button
-              onClick={() => navigate("/dashboard")}
-              className="w-full py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              onClick={async () => {
+                setActionLoading("per_video");
+                try {
+                  const res = await createPerVideoCheckout();
+                  if (res.data.checkout_url) window.location.href = res.data.checkout_url;
+                } catch (err) {
+                  console.error("Per-video checkout error:", err);
+                } finally {
+                  setActionLoading(null);
+                }
+              }}
+              disabled={actionLoading === "per_video"}
+              className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
             >
-              Buy from project
+              {actionLoading === "per_video" ? "Redirecting…" : "Buy a video"}
             </button>
           </div>
 

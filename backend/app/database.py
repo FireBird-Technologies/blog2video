@@ -90,6 +90,19 @@ def _migrate(eng):
                     f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}"
                 ))
 
+    # Migrate users table
+    if "users" in insp.get_table_names():
+        user_cols = {c["name"] for c in insp.get_columns("users")}
+        with eng.begin() as conn:
+            user_migrations = {
+                "video_limit_bonus": "INTEGER DEFAULT 0",
+            }
+            for col_name, col_def in user_migrations.items():
+                if col_name not in user_cols:
+                    conn.execute(text(
+                        f"ALTER TABLE users ADD COLUMN {col_name} {col_def}"
+                    ))
+
     # Migrate assets table
     if "assets" in insp.get_table_names():
         asset_cols = {c["name"] for c in insp.get_columns("assets")}

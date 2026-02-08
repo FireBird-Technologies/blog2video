@@ -27,7 +27,7 @@ class CheckoutResponse(BaseModel):
 
 
 class PerVideoCheckoutRequest(BaseModel):
-    project_id: int
+    project_id: int | None = None  # Optional: if None, buys a video credit
 
 
 class PortalResponse(BaseModel):
@@ -140,17 +140,31 @@ def create_per_video_checkout(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a Stripe Checkout session for a single video ($5)."""
-    project = (
-        db.query(Project)
-        .filter(Project.id == body.project_id, Project.user_id == user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    """
+    Create a Stripe Checkout session for a single video ($5).
+    If project_id is provided, unlocks that specific project.
+    If project_id is omitted (e.g. from Pricing page), buys a video credit.
+    """
+    meta = {
+        "user_id": str(user.id),
+        "type": "per_video",
+    }
+    success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true"
+    cancel_url = f"{settings.FRONTEND_URL}/pricing"
 
-    if project.studio_unlocked:
-        raise HTTPException(status_code=400, detail="This video is already unlocked")
+    if body.project_id:
+        project = (
+            db.query(Project)
+            .filter(Project.id == body.project_id, Project.user_id == user.id)
+            .first()
+        )
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if project.studio_unlocked:
+            raise HTTPException(status_code=400, detail="This video is already unlocked")
+        meta["project_id"] = str(project.id)
+        success_url = f"{settings.FRONTEND_URL}/project/{project.id}?purchased=true"
+        cancel_url = f"{settings.FRONTEND_URL}/project/{project.id}"
 
     # Ensure the user has a Stripe customer
     if not user.stripe_customer_id:
@@ -164,20 +178,16 @@ def create_per_video_checkout(
 
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id,
-        mode="payment",  # One-time payment
+        mode="payment",
         line_items=[
             {
                 "price": settings.STRIPE_PER_VIDEO_PRICE_ID,
                 "quantity": 1,
             }
         ],
-        success_url=f"{settings.FRONTEND_URL}/project/{project.id}?purchased=true",
-        cancel_url=f"{settings.FRONTEND_URL}/project/{project.id}",
-        metadata={
-            "user_id": str(user.id),
-            "project_id": str(project.id),
-            "type": "per_video",
-        },
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata=meta,
     )
 
     return CheckoutResponse(checkout_url=session.url)
@@ -455,16 +465,17 @@ def _handle_checkout_completed(session: dict, db: Session):
     session_id = session.get("id")
 
     if checkout_type == "per_video":
-        # One-time per-video payment — unlock studio for the specific project
+        # One-time per-video payment
         project_id = metadata.get("project_id")
         user_id = metadata.get("user_id")
+        plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+
         if project_id:
+            # Unlock studio for the specific project
             project = db.query(Project).filter(Project.id == int(project_id)).first()
             if project:
                 project.studio_unlocked = True
 
-                # Record the subscription/purchase
-                plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
                 if plan and user_id:
                     sub = Subscription(
                         user_id=int(user_id),
@@ -479,6 +490,25 @@ def _handle_checkout_completed(session: dict, db: Session):
 
                 db.commit()
                 print(f"[BILLING] Per-video purchase: unlocked studio for project {project_id}")
+        elif user_id:
+            # No project — this is a video credit purchase (from Pricing page)
+            user = db.query(User).filter(User.id == int(user_id)).first()
+            if user:
+                user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + 1
+
+                if plan:
+                    sub = Subscription(
+                        user_id=int(user_id),
+                        plan_id=plan.id,
+                        status=SubscriptionStatus.COMPLETED,
+                        stripe_checkout_session_id=session_id,
+                        amount_paid_cents=plan.price_cents,
+                        videos_used=0,
+                    )
+                    db.add(sub)
+
+                db.commit()
+                print(f"[BILLING] Per-video credit purchased for user {user_id}")
     else:
         # Pro subscription checkout
         subscription_id = session.get("subscription")
