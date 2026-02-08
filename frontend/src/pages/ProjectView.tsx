@@ -225,6 +225,7 @@ export default function ProjectView() {
 
   // Render state
   const [rendering, setRendering] = useState(false);
+  const [saving, setSaving] = useState(false); // "Saving to cloud" after render completes
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
@@ -412,11 +413,17 @@ export default function ProjectView() {
           }
 
           if (done || stuckAt100Count >= 2) {
-            setRendered(true);
-            setRendering(false);
             setRenderProgress(100);
+            setRendering(false);
+            setSaving(true);
             stopRenderPolling();
+
+            // Wait for backend to validate + upload to R2
+            await new Promise((r) => setTimeout(r, 4000));
             await loadProject();
+
+            setSaving(false);
+            setRendered(true);
             autoDownloadRef.current = true;
           }
         } catch {
@@ -634,56 +641,90 @@ export default function ProjectView() {
     return (
       <div className="space-y-4">
         {/* Render loading overlay with progress */}
-        {rendering && (
+        {(rendering || saving) && (
           <div
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
             <div className="w-full max-w-md text-center px-6 py-12">
-              <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
+              <div className={`w-14 h-14 mx-auto mb-6 rounded-2xl flex items-center justify-center ${saving ? "bg-green-600" : "bg-purple-600"}`}>
+                {saving ? (
+                  <svg
+                    className="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-7 h-7 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                )}
               </div>
 
               <h2 className="text-base font-semibold text-gray-900 mb-1">
-                Rendering your video
+                {saving ? "Saving your video" : "Rendering your video"}
               </h2>
               <p className="text-xs text-gray-400 mb-6">
-                {renderFrames.total > 0
+                {saving
+                  ? "Uploading to cloud storage..."
+                  : renderFrames.total > 0
                   ? `Frame ${renderFrames.rendered.toLocaleString()} of ${renderFrames.total.toLocaleString()}`
                   : "Preparing render..."}
               </p>
 
               <div className="w-full bg-gray-100 rounded-full h-2 mb-3 overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${renderProgress}%` }}
-                />
+                {saving ? (
+                  <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: "100%" }} />
+                ) : (
+                  <div
+                    className="h-full bg-purple-600 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${renderProgress}%` }}
+                  />
+                )}
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-gray-400">
-                <span>{renderProgress}%</span>
-                {renderTimeLeft ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    {renderTimeLeft} remaining
-                  </span>
+                {saving ? (
+                  <>
+                    <span>100%</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin" />
+                      Saving to cloud
+                    </span>
+                  </>
                 ) : (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    Encoding
-                  </span>
+                  <>
+                    <span>{renderProgress}%</span>
+                    {renderTimeLeft ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                        {renderTimeLeft} remaining
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                        Encoding
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
 

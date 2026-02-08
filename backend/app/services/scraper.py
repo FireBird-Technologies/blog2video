@@ -129,31 +129,63 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     # --- Collect images ---
     image_urls: list[str] = []
     seen_images: set[str] = set()
+    seen_image_ids: set[str] = set()  # Medium image IDs for dedup across sizes
+    is_medium = _is_medium_url(url)
+
+    def _add_image(img_url: str, trust_source: bool = False) -> bool:
+        """Add an image URL if not duplicate. Returns True if added.
+        trust_source=True skips _is_blog_image for Exa-curated results.
+        """
+        if not img_url or img_url in seen_images:
+            return False
+
+        # Upgrade Medium URLs to max resolution
+        if is_medium or "miro.medium.com" in img_url or "cdn-images" in img_url:
+            img_url = _upgrade_medium_image_url(img_url)
+
+        # Deduplicate by Medium image ID (same image at different sizes)
+        mid = _extract_medium_image_id(img_url)
+        if mid and mid in seen_image_ids:
+            return False
+
+        # For Exa-curated image_links, only reject obvious non-content
+        if trust_source:
+            if not _is_content_image_light_filter(img_url):
+                return False
+        else:
+            if not _is_blog_image(img_url):
+                return False
+
+        if img_url in seen_images:
+            return False
+
+        image_urls.append(img_url)
+        seen_images.add(img_url)
+        if mid:
+            seen_image_ids.add(mid)
+        return True
 
     # 1. Hero / OG image from Exa
     if hasattr(page, "image") and page.image:
-        image_urls.append(page.image)
-        seen_images.add(page.image)
+        _add_image(page.image, trust_source=True)
 
-    # 2. Inline images from Exa's article HTML (best source — already
-    #    scoped to the article body, so every image here is near the text)
-    if soup_exa:
-        for img_url in _extract_all_image_srcs(soup_exa, url):
-            if img_url not in seen_images and _is_blog_image(img_url):
-                image_urls.append(img_url)
-                seen_images.add(img_url)
-
-    # 3. Exa extras.image_links (may include some the HTML didn't have)
+    # 2. Exa extras.image_links — BEST source for Medium/Substack.
+    #    Exa's headless browser renders JS and extracts content images,
+    #    so these are already curated. Trust them with light filtering.
     if hasattr(page, "extras") and page.extras:
         exa_images = page.extras.get("image_links") or page.extras.get("imageLinks") or []
         for img_url in exa_images:
-            if isinstance(img_url, str) and img_url not in seen_images:
-                if _is_blog_image(img_url):
-                    image_urls.append(img_url)
-                    seen_images.add(img_url)
+            if isinstance(img_url, str):
+                _add_image(img_url, trust_source=True)
 
-    # 4. Fallback: direct HTML fetch — only look inside <article>/<main>
-    if len(image_urls) < 3:
+    # 3. Inline images from Exa's article HTML
+    if soup_exa:
+        for img_url in _extract_all_image_srcs(soup_exa, url):
+            _add_image(img_url, trust_source=True)
+
+    # 4. Fallback: direct HTML fetch — for any images Exa missed
+    #    Always try for Medium since their images require JS rendering
+    if len(image_urls) < 5 or is_medium:
         try:
             resp = requests.get(url, headers=_BROWSER_HEADERS, timeout=15)
             if resp.status_code == 200:
@@ -162,16 +194,18 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
                 # Get hero image if we still don't have one
                 if not image_urls:
                     og_img = _extract_og_image_from_soup(soup, url)
-                    if og_img and og_img not in seen_images:
-                        image_urls.insert(0, og_img)
-                        seen_images.add(og_img)
+                    if og_img:
+                        _add_image(og_img, trust_source=True)
 
-                # Extract images ONLY from the article body container
+                # Extract images from the article body
                 body_images = _extract_article_image_urls(soup, url)
                 for img_url in body_images:
-                    if img_url not in seen_images:
-                        image_urls.append(img_url)
-                        seen_images.add(img_url)
+                    _add_image(img_url)
+
+                # Medium-specific: also try <figure> and <noscript> at page level
+                if is_medium:
+                    for img_url in _extract_medium_figure_images(soup, url):
+                        _add_image(img_url, trust_source=True)
         except Exception as e:
             print(f"[SCRAPER] HTML image fallback failed (non-fatal): {e}")
 
@@ -460,6 +494,133 @@ def _extract_image_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
     return _extract_article_image_urls(soup, base_url)
 
 
+# ─── Medium-specific helpers ──────────────────────────────
+
+# Known content image CDN domains — images from these are almost always blog content
+_CONTENT_CDN_DOMAINS = {
+    "miro.medium.com",
+    "cdn-images-1.medium.com",
+    "cdn-images-2.medium.com",
+    "cdn-images-3.medium.com",
+    "cdn-images-4.medium.com",
+    "substackcdn.com",
+    "substack-post-media",
+    "ghost.io",
+    "hashnode.dev",
+    "hashnode.com",
+    "wp.com",
+    "wordpress.com",
+}
+
+
+def _is_medium_url(url: str) -> bool:
+    """Return True if the URL is a Medium article."""
+    lower = url.lower()
+    return (
+        "medium.com" in lower
+        or "towardsdatascience.com" in lower
+        or "betterprogramming.pub" in lower
+        or "levelup.gitconnected.com" in lower
+        or "blog.devgenius.io" in lower
+        or "javascript.plainenglish.io" in lower
+        or "python.plainenglish.io" in lower
+        or "pub." in lower and "medium" in lower
+    )
+
+
+def _is_from_content_cdn(url: str) -> bool:
+    """Return True if the image URL is from a known content CDN."""
+    lower = url.lower()
+    return any(cdn in lower for cdn in _CONTENT_CDN_DOMAINS)
+
+
+def _upgrade_medium_image_url(url: str) -> str:
+    """
+    Upgrade a Medium image URL to maximum resolution.
+    Medium URLs look like:
+        https://miro.medium.com/v2/resize:fit:700/format:webp/1*abc.jpeg
+        https://miro.medium.com/v2/resize:fit:700/1*abc.jpeg
+    We want: resize:fit:1400 (or even larger) for best quality.
+    """
+    if "miro.medium.com" not in url and "cdn-images" not in url:
+        return url
+
+    # Upgrade resize:fit to max width 1400
+    upgraded = re.sub(r"resize:fit:\d+", "resize:fit:1400", url)
+
+    # Remove format:webp to get original format (better for Remotion)
+    # Actually keep webp — Remotion handles it fine and it's smaller
+    return upgraded
+
+
+def _extract_medium_image_id(url: str) -> str | None:
+    """
+    Extract the unique image identifier from a Medium image URL for deduplication.
+    Medium URLs contain IDs like: 1*abc123def.jpeg or 0*abc123def.png
+    """
+    if "miro.medium.com" not in url and "cdn-images" not in url:
+        return None
+
+    # Match patterns like /1*abc123.jpeg or /0*xyz.png at end of path
+    m = re.search(r"/(\d\*[a-zA-Z0-9_-]+)\.", url)
+    if m:
+        return m.group(1)
+
+    # Also match hash-style IDs: /abc123def456 (no extension)
+    m = re.search(r"/([a-f0-9]{12,})", url)
+    if m:
+        return m.group(1)
+
+    return None
+
+
+def _extract_medium_figure_images(soup: BeautifulSoup, base_url: str) -> list[str]:
+    """
+    Medium-specific: extract images from <figure> tags and <noscript> fallbacks.
+    Medium wraps content images in <figure role="presentation"> and hides
+    the real src behind lazy loading with a <noscript> fallback.
+    """
+    urls = []
+    seen = set()
+
+    # 1. <figure> tags (Medium's standard image wrapper)
+    for fig in soup.find_all("figure"):
+        # Check <img> inside <figure>
+        for img in fig.find_all("img"):
+            for attr in ("src", "data-src", "data-lazy-src"):
+                src = img.get(attr, "")
+                if src and not src.startswith("data:") and "miro.medium.com" in src:
+                    full = urljoin(base_url, src)
+                    if full not in seen:
+                        seen.add(full)
+                        urls.append(full)
+                        break
+
+        # Check <noscript> inside <figure>
+        for noscript in fig.find_all("noscript"):
+            ns_html = noscript.string or noscript.decode_contents()
+            if "<img" in ns_html:
+                ns_soup = BeautifulSoup(ns_html, "lxml")
+                for img in ns_soup.find_all("img"):
+                    src = img.get("src", "")
+                    if src and "miro.medium.com" in src:
+                        full = urljoin(base_url, src)
+                        if full not in seen:
+                            seen.add(full)
+                            urls.append(full)
+
+    # 2. <img> tags with Medium CDN (may be outside <figure>)
+    for img in soup.find_all("img"):
+        src = img.get("src") or img.get("data-src") or ""
+        if src and "miro.medium.com" in src and not src.startswith("data:"):
+            full = urljoin(base_url, src)
+            if full not in seen:
+                seen.add(full)
+                urls.append(full)
+
+    return urls
+
+
 # ─── Image filtering ──────────────────────────────────────
 
 # URL substrings that indicate non-blog images (icons, UI chrome, tracking)
@@ -468,7 +629,7 @@ _SKIP_URL_PATTERNS = [
     "1x1", "badge", "button", "spinner", "loader", "arrow", "caret",
     "chevron", "close", "hamburger", "menu", "nav-", "social",
     "share", "like", "clap", "bookmark", "follow", "subscribe",
-    "profile", "author", "user-image", "thumbnail", "favicon",
+    "profile", "author", "user-image", "favicon",
     "sprite", "widget", "ad-", "ads/", "banner-ad", "doubleclick",
     "googlesyndication", "analytics", "stat", "beacon",
     "placeholder", "spacer", "blank", "transparent",
@@ -478,15 +639,57 @@ _SKIP_URL_PATTERNS = [
 ]
 
 # File extensions that are never blog content images
-_SKIP_EXTENSIONS = {".svg", ".ico", ".gif"}
+_SKIP_EXTENSIONS = {".svg", ".ico"}
+# Note: .gif is allowed — some blogs use animated GIFs as content images
 
 # Minimum URL path length (very short paths are usually generic assets)
 _MIN_PATH_LEN = 10
 
 
+def _is_content_image_light_filter(url: str) -> bool:
+    """
+    Light filter for Exa-curated image_links.
+    Exa already extracts only content images, so we only reject:
+    - data: URIs
+    - Obvious non-content (avatars, icons, tiny resize:fill)
+    - SVG/ICO files
+    """
+    lower = url.lower()
+
+    if lower.startswith("data:"):
+        return False
+
+    # Skip SVG/ICO only
+    parsed = urlparse(lower)
+    ext = os.path.splitext(parsed.path)[1]
+    if ext in {".svg", ".ico"}:
+        return False
+
+    # Medium avatars: resize:fill with small dimensions
+    fill_match = re.search(r"resize:fill:(\d+):(\d+)", lower)
+    if fill_match:
+        w, h = int(fill_match.group(1)), int(fill_match.group(2))
+        if w < 200 or h < 200:
+            return False
+
+    # Only reject the most obvious non-content patterns
+    _LIGHT_SKIP = [
+        "avatar", "gravatar", "favicon", "1x1", "pixel",
+        "tracking", "beacon", "spacer", "transparent",
+    ]
+    if any(p in lower for p in _LIGHT_SKIP):
+        return False
+
+    return True
+
+
 def _is_blog_image(url: str) -> bool:
     """Return True only if the URL looks like an actual blog content image."""
     lower = url.lower()
+
+    # Always allow images from known content CDNs (with minimal filtering)
+    if _is_from_content_cdn(url):
+        return _is_content_image_light_filter(url)
 
     # Skip by extension
     parsed = urlparse(lower)
@@ -521,6 +724,7 @@ def _is_blog_image(url: str) -> bool:
 
 # Minimum file size in bytes to keep a downloaded image (skip tiny icons)
 _MIN_IMAGE_BYTES = 15_000  # 15 KB — real blog images are usually 50 KB+
+_MIN_IMAGE_BYTES_CDN = 5_000  # 5 KB — lower threshold for known content CDNs (webp is very compact)
 
 
 # ─── Image downloading ────────────────────────────────────
@@ -569,7 +773,7 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             if not ext:
                 parsed = urlparse(url)
                 ext = os.path.splitext(parsed.path)[1] or ".jpg"
-                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif"):
+                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
                     ext = ".jpg"
             url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
             filename = f"img_{url_hash}{ext}"
@@ -580,10 +784,12 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
                     f.write(chunk)
 
             # Discard tiny files — they are icons/badges, not blog images
+            # Use lower threshold for known content CDNs (webp is very compact)
             file_size = os.path.getsize(local_path)
-            if file_size < _MIN_IMAGE_BYTES:
+            min_size = _MIN_IMAGE_BYTES_CDN if _is_from_content_cdn(url) else _MIN_IMAGE_BYTES
+            if file_size < min_size:
                 os.remove(local_path)
-                print(f"[SCRAPER] Discarded tiny image ({file_size} bytes): {url[:80]}")
+                print(f"[SCRAPER] Discarded tiny image ({file_size} bytes, min={min_size}): {url[:80]}")
                 continue
 
             # Upload to R2 if configured

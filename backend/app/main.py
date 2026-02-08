@@ -201,10 +201,16 @@ _origins = [
     for o in settings.FRONTEND_URL.split(",")
     if o.strip()
 ]
-# Always allow local dev
-for dev_origin in ["http://localhost:5173", "http://localhost:3000"]:
-    if dev_origin not in _origins:
-        _origins.append(dev_origin)
+# Always allow local dev + production origins
+_always_allowed = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://blog2video.vercel.app",
+    "https://blog2video-522695462929.us-west1.run.app",
+]
+for origin in _always_allowed:
+    if origin not in _origins:
+        _origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
