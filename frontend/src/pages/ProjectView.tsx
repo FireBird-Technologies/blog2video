@@ -370,7 +370,7 @@ export default function ProjectView() {
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
-        const { step, running, error: pipelineError } = res.data;
+        const { step, running, error: pipelineError, status } = res.data;
 
         setPipelineStep(step);
 
@@ -382,7 +382,21 @@ export default function ProjectView() {
           return;
         }
 
+        // Backend says pipeline is done — but verify the project status.
+        // On Cloud Run, the in-memory progress dict can be lost if a new
+        // container handles the poll.  If the project is still mid-generation,
+        // keep the loader visible and keep polling.
         if (!running) {
+          const stillGenerating = ["created", "scraped", "scripted"].includes(
+            status
+          );
+          if (stillGenerating) {
+            // Progress was lost (container restart / cold start).
+            // Keep polling — the pipeline task is still running on the
+            // original instance or will be retried.
+            await loadProject();
+            return;
+          }
           setPipelineRunning(false);
           stopPolling();
           await loadProject();
