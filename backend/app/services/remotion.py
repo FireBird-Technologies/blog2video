@@ -464,27 +464,42 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             rendered = prog.get("rendered_frames", 0)
             if total > 0 and rendered >= total:
                 try:
-                    process.wait(timeout=10)
+                    process.wait(timeout=30)
                 except subprocess.TimeoutExpired:
                     process.terminate()
                 break
             time.sleep(0.5)
 
-        retcode = (
-            process.returncode if process.returncode is not None else process.poll()
-        )
+        # Ensure process has fully exited before touching the output file
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
 
-        if retcode is None or retcode == 0:
+        retcode = process.returncode
+
+        if retcode is not None and retcode == 0:
             _render_progress[project_id]["progress"] = 100
             _render_progress[project_id]["rendered_frames"] = _render_progress[
                 project_id
             ].get("total_frames", 0)
             _render_progress[project_id]["done"] = True
 
+            # Small delay to ensure the file is fully flushed to disk
+            time.sleep(2)
+
             # Upload rendered video to R2
             output_path = _render_progress[project_id].get("output_path", "")
             if output_path and os.path.exists(output_path):
-                upload_rendered_video_to_r2(project_id, output_path)
+                # Verify the file looks like a valid MP4 (starts with ftyp or moov atom)
+                if _is_valid_mp4(output_path):
+                    upload_rendered_video_to_r2(project_id, output_path)
+                else:
+                    print(f"[REMOTION] Skipping R2 upload — file doesn't look like valid MP4: {output_path}")
+        elif retcode is None:
+            # Process never exited cleanly — mark as error
+            _render_progress[project_id]["error"] = "Render process did not exit"
+            _render_progress[project_id]["done"] = True
         else:
             _render_progress[project_id]["error"] = (
                 f"Render failed (exit code {retcode})"
@@ -493,6 +508,21 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True
+
+
+def _is_valid_mp4(path: str) -> bool:
+    """Quick check that a file looks like a valid MP4 (has ftyp box)."""
+    try:
+        with open(path, "rb") as f:
+            header = f.read(12)
+        if len(header) < 8:
+            return False
+        # MP4 files start with a box: [size(4 bytes)][type(4 bytes)]
+        # Common types: ftyp, moov, free, mdat
+        box_type = header[4:8]
+        return box_type in (b"ftyp", b"moov", b"free", b"mdat", b"wide", b"skip")
+    except Exception:
+        return False
 
 
 def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[str]:

@@ -259,17 +259,15 @@ export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
 
 export const downloadVideo = async (id: number, filename?: string) => {
-  const res = await api.get(`/projects/${id}/download`, {
-    responseType: "blob",
-  });
-  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
   const a = document.createElement("a");
-  a.href = url;
+  a.href = urlRes.data.url;
   a.download = filename || "video.mp4";
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  window.URL.revokeObjectURL(url);
 };
 
 export const downloadStudioZip = async (id: number, filename?: string) => {

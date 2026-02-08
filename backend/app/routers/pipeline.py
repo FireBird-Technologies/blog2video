@@ -3,7 +3,7 @@ import json
 import asyncio
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -379,29 +379,19 @@ def render_status_endpoint(
     }
 
 
-@router.get("/download")
-def download_video(
+@router.get("/download-url")
+def get_download_url(
     project_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Download the rendered MP4 video file. Serves from R2 if available, else local."""
+    """Get the download URL for the rendered video (R2 public URL)."""
     project = _get_project(project_id, user.id, db)
 
-    # Try R2 first — redirect to presigned URL for direct download
-    if project.r2_video_key and r2_storage.is_r2_configured():
-        try:
-            presigned = r2_storage.generate_presigned_url(project.r2_video_key, expires_in=3600)
-            return RedirectResponse(url=presigned, status_code=302)
-        except Exception as e:
-            print(f"[PIPELINE] R2 presigned URL failed, falling back to local: {e}")
+    if project.r2_video_url:
+        return {"url": project.r2_video_url}
 
-    # Fallback to local file
-    output_path = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4")
-    if not os.path.exists(output_path):
-        raise HTTPException(status_code=404, detail="Video not rendered yet.")
-    safe_name = project.name.replace(" ", "_")[:50] if project.name else "video"
-    return FileResponse(path=output_path, media_type="video/mp4", filename=f"{safe_name}.mp4")
+    raise HTTPException(status_code=404, detail="Video not rendered yet.")
 
 
 def _get_project(project_id: int, user_id: int, db: Session) -> Project:

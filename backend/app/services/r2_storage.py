@@ -122,9 +122,10 @@ def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -
     client = _get_client()
     extra_args = {"ContentType": content_type}
 
-    # Set cache headers based on file type
+    # Set cache and disposition headers based on file type
     if content_type.startswith("video/"):
         extra_args["CacheControl"] = "public, max-age=86400"  # 1 day
+        extra_args["ContentDisposition"] = "attachment; filename=\"video.mp4\""
     elif content_type.startswith("image/"):
         extra_args["CacheControl"] = "public, max-age=604800"  # 7 days
     elif content_type.startswith("audio/"):
