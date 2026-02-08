@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useScrollReveal } from "../hooks/useScrollReveal";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -33,6 +34,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  const scrollRef = useScrollReveal();
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -49,7 +51,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div ref={scrollRef} className="min-h-screen bg-white">
       {/* ─── Nav ─── */}
       <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
@@ -77,7 +79,7 @@ export default function Landing() {
           <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-violet-500/[0.03] rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-20 text-center">
+        <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-20 text-center hero-animate">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
             <span className="text-xs font-medium text-purple-700">For bloggers, technical writers &amp; educators</span>
@@ -124,20 +126,22 @@ export default function Landing() {
 
       {/* ─── See it in action (right after hero) ─── */}
       <section id="demo" className="py-20 border-t border-gray-100">
-        <div className="max-w-4xl mx-auto px-6">
-          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-            See it in action
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-            Watch a blog turn into a video
-          </h2>
-          <p className="text-sm text-gray-500 text-center mb-8 max-w-lg mx-auto leading-relaxed">
-            Real examples generated from technical blog posts — fully automated, no editing needed.
-          </p>
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              See it in action
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+              From blog post to video — automatically
+            </h2>
+            <p className="text-sm text-gray-500 text-center mb-12 max-w-lg mx-auto leading-relaxed">
+              Paste a URL and Blog2Video handles the rest. Here's a real example.
+            </p>
+          </div>
 
           {/* Video tabs */}
           {DEMO_VIDEOS.length > 1 && (
-            <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="flex items-center justify-center gap-2 mb-8 reveal">
               {DEMO_VIDEOS.map((video, idx) => (
                 <button
                   key={video.id}
@@ -154,106 +158,155 @@ export default function Landing() {
             </div>
           )}
 
-          {/* YouTube embed */}
-          {DEMO_VIDEOS.length > 0 && (
-            <div className="glass-card overflow-hidden">
-              <div className="aspect-video">
-                <iframe
-                  key={DEMO_VIDEOS[activeVideoIdx].youtubeId}
-                  src={`https://www.youtube.com/embed/${DEMO_VIDEOS[activeVideoIdx].youtubeId}?rel=0&modestbranding=1`}
-                  title={DEMO_VIDEOS[activeVideoIdx].title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                  style={{ border: "none" }}
-                />
-              </div>
-              <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-900">
-                  {DEMO_VIDEOS[activeVideoIdx].title}
-                </p>
-                {DEMO_VIDEOS[activeVideoIdx].blogUrl && (
-                  <a
-                    href={DEMO_VIDEOS[activeVideoIdx].blogUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    Read original blog post
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
+          {DEMO_VIDEOS.length > 0 && (() => {
+            const v = DEMO_VIDEOS[activeVideoIdx];
+            return (
+              <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch reveal-scale">
+                {/* ── Blog Card (left) ── */}
+                <a
+                  href={v.blogUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
+                >
+                  {/* Blog image / placeholder */}
+                  <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
+                    {v.blogImage ? (
+                      <img
+                        src={v.blogImage}
+                        alt={v.blogTitle || "Blog"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
+                        <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                        </svg>
+                        <span className="text-xs">Blog post</span>
+                      </div>
+                    )}
+                    {/* "Blog" badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold text-gray-700 rounded-full shadow-sm">
+                        Blog Post
+                      </span>
+                    </div>
+                  </div>
+                  {/* Blog meta */}
+                  <div className="p-5 flex-1 flex flex-col">
+                    {v.blogUrl && (
+                      <p className="text-[10px] text-gray-400 truncate mb-2">
+                        {new URL(v.blogUrl).hostname}
+                      </p>
+                    )}
+                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-2 line-clamp-2 flex-1">
+                      {v.blogTitle || "Original blog post"}
+                    </h3>
+                    {v.blogExcerpt && (
+                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
+                        {v.blogExcerpt}
+                      </p>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 group-hover:gap-2 transition-all mt-auto">
+                      Read article
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                  </div>
+                </a>
 
-          {/* Blog preview card */}
-          {DEMO_VIDEOS.length > 0 && DEMO_VIDEOS[activeVideoIdx].blogUrl && (
-            <a
-              href={DEMO_VIDEOS[activeVideoIdx].blogUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 block glass-card overflow-hidden hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all group"
-            >
-              <div className="flex flex-col sm:flex-row">
-                <div className="sm:w-48 flex-shrink-0 aspect-video sm:aspect-[4/3] bg-gray-100 flex items-center justify-center">
-                  {DEMO_VIDEOS[activeVideoIdx].blogImage ? (
-                    <img
-                      src={DEMO_VIDEOS[activeVideoIdx].blogImage!}
-                      alt={DEMO_VIDEOS[activeVideoIdx].blogTitle || "Blog preview"}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4m-4 6h.01M17 16h.01" />
+                {/* ── Arrow connector (center) ── */}
+                <div className="hidden md:flex flex-col items-center justify-center px-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                     </div>
-                  )}
+                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                      Blog2Video
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 p-5 min-w-0">
-                  <p className="text-[10px] font-medium text-purple-600 uppercase tracking-wider mb-2">
-                    Original blog post
-                  </p>
-                  <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-1.5 line-clamp-2">
-                    {DEMO_VIDEOS[activeVideoIdx].blogTitle || "View blog post"}
-                  </h3>
-                  {DEMO_VIDEOS[activeVideoIdx].blogExcerpt && (
-                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                      {DEMO_VIDEOS[activeVideoIdx].blogExcerpt}
+                {/* Mobile arrow */}
+                <div className="flex md:hidden items-center justify-center py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                      <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </div>
+                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                      Blog2Video
+                    </span>
+                  </div>
+                </div>
+
+                {/* ── Video Card (right) ── */}
+                <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+                  {/* YouTube embed */}
+                  <div className="aspect-[16/9] relative flex-shrink-0 bg-black">
+                    <iframe
+                      key={v.youtubeId}
+                      src={`https://www.youtube.com/embed/${v.youtubeId}?rel=0&modestbranding=1`}
+                      title={v.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                      style={{ border: "none" }}
+                    />
+                    {/* "Video" badge */}
+                    <div className="absolute top-3 left-3 pointer-events-none">
+                      <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
+                        Generated Video
+                      </span>
+                    </div>
+                  </div>
+                  {/* Video meta */}
+                  <div className="p-5 flex-1 flex flex-col">
+                    <p className="text-[10px] text-gray-400 mb-2">
+                      youtube.com
                     </p>
-                  )}
-                  <span className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-purple-600">
-                    Read article
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </span>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
+                      {v.title}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-auto">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Watch the video
+                      </span>
+                      <span className="text-[10px] text-gray-400">AI narration + visuals</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </a>
-          )}
+            );
+          })()}
         </div>
       </section>
 
       {/* ─── Pain points / value props ─── */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
-          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-            The problem
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-            Your writing is great. Video shouldn't be the bottleneck.
-          </h2>
-          <p className="text-sm text-gray-500 text-center max-w-2xl mx-auto mb-16 leading-relaxed">
-            You've spent hours crafting the perfect article. But turning it into video
-            means learning editing software, recording yourself, or hiring someone.
-            What if your blog could become a video — automatically?
-          </p>
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              The problem
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+              Your writing is great. Video shouldn't be the bottleneck.
+            </h2>
+            <p className="text-sm text-gray-500 text-center max-w-2xl mx-auto mb-16 leading-relaxed">
+              You've spent hours crafting the perfect article. But turning it into video
+              means learning editing software, recording yourself, or hiring someone.
+              What if your blog could become a video — automatically?
+            </p>
+          </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-6 reveal-group">
             {[
               {
                 icon: "🎙️",
@@ -271,7 +324,7 @@ export default function Landing() {
                 desc: "Scene-by-scene narration with professional voiceover makes complex topics as easy to follow as your original blog post.",
               },
             ].map((item) => (
-              <div key={item.title} className="glass-card p-8 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all">
+              <div key={item.title} className="glass-card p-8 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="text-3xl mb-5">{item.icon}</div>
                 <h3 className="text-base font-medium text-gray-900 mb-2">{item.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
@@ -284,14 +337,16 @@ export default function Landing() {
       {/* ─── 4-Step Process ─── */}
       <section id="how" className="py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-            4 simple steps
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-            From blog post to video in minutes
-          </h2>
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              4 simple steps
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
+              From blog post to video in minutes
+            </h2>
+          </div>
 
-          <div className="grid md:grid-cols-4 gap-5">
+          <div className="grid md:grid-cols-4 gap-5 reveal-group">
             {[
               {
                 step: "1",
@@ -326,7 +381,7 @@ export default function Landing() {
                 ),
               },
             ].map((item) => (
-              <div key={item.step} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all relative">
+              <div key={item.step} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all relative reveal">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">
                     {item.step}
@@ -346,14 +401,16 @@ export default function Landing() {
       {/* ─── Features ─── */}
       <section id="features" className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
-          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-            Features
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-            Everything you need to go from text to video
-          </h2>
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              Features
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
+              Everything you need to go from text to video
+            </h2>
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6 reveal-group">
             {[
               {
                 title: "Rich visual scenes — not just text",
@@ -386,7 +443,7 @@ export default function Landing() {
                 tag: null,
               },
             ].map((f) => (
-              <div key={f.title} className="glass-card p-8 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all">
+              <div key={f.title} className="glass-card p-8 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="flex items-start justify-between gap-4 mb-2">
                   <h3 className="text-base font-medium text-gray-900">{f.title}</h3>
                   {f.tag && (
@@ -405,21 +462,23 @@ export default function Landing() {
       {/* ─── Who is it for ─── */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-            Built for
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-            Writers, researchers and educators who want to be seen
-          </h2>
+          <div className="reveal">
+            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+              Built for
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
+              Writers, researchers and educators who want to be seen
+            </h2>
+          </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 reveal-group">
             {[
               { icon: "✍️", title: "Technical bloggers", desc: "Turn dev.to and Medium posts into YouTube-ready explainers" },
               { icon: "🔬", title: "Researchers", desc: "Present papers and findings as accessible video summaries" },
               { icon: "👩‍🏫", title: "Teachers & educators", desc: "Convert lesson plans and course material into visual guides" },
               { icon: "📝", title: "Technical writers", desc: "Repurpose documentation and how-tos as video walkthroughs" },
             ].map((p) => (
-              <div key={p.title} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all">
+              <div key={p.title} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="text-2xl mb-3">{p.icon}</div>
                 <h3 className="text-sm font-medium text-gray-900 mb-1">{p.title}</h3>
                 <p className="text-xs text-gray-500 leading-relaxed">{p.desc}</p>
@@ -431,7 +490,7 @@ export default function Landing() {
 
       {/* ─── Pricing preview ─── */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
+        <div className="max-w-4xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
             Start free. Pay per video. Or go Pro.
@@ -474,7 +533,7 @@ export default function Landing() {
 
       {/* ─── CTA ─── */}
       <section className="py-20 border-t border-gray-100">
-        <div className="max-w-3xl mx-auto px-6 text-center">
+        <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
             Your next blog post deserves a video
           </h2>
