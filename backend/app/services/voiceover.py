@@ -106,10 +106,11 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
             r2_url_val = None
             if r2_storage.is_r2_configured():
                 try:
+                    uid = scene.project.user_id
                     r2_url_val = r2_storage.upload_project_audio(
-                        scene.project_id, output_path, filename
+                        uid, scene.project_id, output_path, filename
                     )
-                    r2_key_val = r2_storage.audio_key(scene.project_id, filename)
+                    r2_key_val = r2_storage.audio_key(uid, scene.project_id, filename)
                 except Exception as e:
                     print(f"[VOICEOVER] R2 upload failed for {filename}: {e}")
 

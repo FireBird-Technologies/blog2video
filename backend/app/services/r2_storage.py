@@ -5,9 +5,9 @@ Provides upload, download URL generation, and deletion for project assets
 (images, audio, rendered videos). Uses boto3 with S3-compatible API.
 
 R2 key structure:
-    projects/{project_id}/images/{filename}
-    projects/{project_id}/audio/{filename}
-    projects/{project_id}/output/video.mp4
+    users/{user_id}/projects/{project_id}/images/{filename}
+    users/{user_id}/projects/{project_id}/audio/{filename}
+    users/{user_id}/projects/{project_id}/output/video.mp4
 """
 import os
 import mimetypes
@@ -61,24 +61,29 @@ def is_r2_configured() -> bool:
 # ─── Key helpers ──────────────────────────────────────────────
 
 
-def image_key(project_id: int, filename: str) -> str:
+def image_key(user_id: int, project_id: int, filename: str) -> str:
     """R2 object key for a project image."""
-    return f"projects/{project_id}/images/{filename}"
+    return f"users/{user_id}/projects/{project_id}/images/{filename}"
 
 
-def audio_key(project_id: int, filename: str) -> str:
+def audio_key(user_id: int, project_id: int, filename: str) -> str:
     """R2 object key for a project audio file."""
-    return f"projects/{project_id}/audio/{filename}"
+    return f"users/{user_id}/projects/{project_id}/audio/{filename}"
 
 
-def video_key(project_id: int) -> str:
+def video_key(user_id: int, project_id: int) -> str:
     """R2 object key for a project's rendered video."""
-    return f"projects/{project_id}/output/video.mp4"
+    return f"users/{user_id}/projects/{project_id}/output/video.mp4"
 
 
-def project_prefix(project_id: int) -> str:
+def project_prefix(user_id: int, project_id: int) -> str:
     """R2 key prefix for all objects belonging to a project."""
-    return f"projects/{project_id}/"
+    return f"users/{user_id}/projects/{project_id}/"
+
+
+def user_prefix(user_id: int) -> str:
+    """R2 key prefix for all objects belonging to a user."""
+    return f"users/{user_id}/"
 
 
 # ─── Public URL ───────────────────────────────────────────────
@@ -143,21 +148,21 @@ def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -
     return url
 
 
-def upload_project_image(project_id: int, local_path: str, filename: str) -> str:
+def upload_project_image(user_id: int, project_id: int, local_path: str, filename: str) -> str:
     """Upload a project image to R2. Returns the public URL."""
-    key = image_key(project_id, filename)
+    key = image_key(user_id, project_id, filename)
     return upload_file(local_path, key)
 
 
-def upload_project_audio(project_id: int, local_path: str, filename: str) -> str:
+def upload_project_audio(user_id: int, project_id: int, local_path: str, filename: str) -> str:
     """Upload a project audio file to R2. Returns the public URL."""
-    key = audio_key(project_id, filename)
+    key = audio_key(user_id, project_id, filename)
     return upload_file(local_path, key, content_type="audio/mpeg")
 
 
-def upload_project_video(project_id: int, local_path: str) -> str:
+def upload_project_video(user_id: int, project_id: int, local_path: str) -> str:
     """Upload a rendered video to R2. Returns the public URL."""
-    key = video_key(project_id)
+    key = video_key(user_id, project_id)
     return upload_file(local_path, key, content_type="video/mp4")
 
 
@@ -208,7 +213,7 @@ def delete_object(key: str) -> bool:
         return False
 
 
-def delete_project_files(project_id: int) -> int:
+def delete_project_files(user_id: int, project_id: int) -> int:
     """
     Delete ALL R2 objects for a project (images, audio, video).
     Uses list + batch delete for efficiency.
@@ -220,7 +225,7 @@ def delete_project_files(project_id: int) -> int:
         return 0
 
     client = _get_client()
-    prefix = project_prefix(project_id)
+    prefix = project_prefix(user_id, project_id)
     deleted_count = 0
 
     try:

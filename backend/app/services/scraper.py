@@ -56,7 +56,7 @@ def scrape_blog(project: Project, db: Session) -> Project:
             image_urls.extend(extra_images)
 
     # Download images
-    _download_images(project.id, image_urls, db)
+    _download_images(project.user_id, project.id, image_urls, db)
 
     # Update project
     project.blog_content = text
@@ -813,7 +813,7 @@ _MIN_IMAGE_BYTES_CDN = 5_000  # 5 KB — lower threshold for known content CDNs 
 
 # ─── Image downloading ────────────────────────────────────
 
-def _download_images(project_id: int, image_urls: list[str], db: Session) -> list[str]:
+def _download_images(user_id: int, project_id: int, image_urls: list[str], db: Session) -> list[str]:
     """Download images, discard anything that's too small to be a real blog image."""
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
@@ -881,8 +881,8 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
             r2_url = None
             if r2_storage.is_r2_configured():
                 try:
-                    r2_url = r2_storage.upload_project_image(project_id, local_path, filename)
-                    r2_key = r2_storage.image_key(project_id, filename)
+                    r2_url = r2_storage.upload_project_image(user_id, project_id, local_path, filename)
+                    r2_key = r2_storage.image_key(user_id, project_id, filename)
                 except Exception as e:
                     print(f"[SCRAPER] R2 upload failed for {filename}: {e}")
 

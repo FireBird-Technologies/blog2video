@@ -247,14 +247,33 @@ export default function ProjectView() {
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
 
-  // Auto-download once render finishes
+  // Auto-download once render finishes (with retry in case R2 upload is still in progress)
   useEffect(() => {
-    if (autoDownloadRef.current && rendered && project && !downloading) {
-      autoDownloadRef.current = false;
-      const safeName =
-        project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
-      downloadVideo(projectId, `${safeName}.mp4`).catch(() => {});
-    }
+    if (!autoDownloadRef.current || !rendered || !project || downloading) return;
+    autoDownloadRef.current = false;
+
+    const safeName =
+      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+
+    let attempts = 0;
+    const maxAttempts = 6; // ~12 seconds of retrying
+
+    const tryDownload = async () => {
+      while (attempts < maxAttempts) {
+        try {
+          await downloadVideo(projectId, `${safeName}.mp4`);
+          return; // success
+        } catch {
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 2000));
+            // Refresh project to pick up r2_video_url
+            await loadProject();
+          }
+        }
+      }
+    };
+    tryDownload();
   }, [rendered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProject = useCallback(async () => {
@@ -444,9 +463,26 @@ export default function ProjectView() {
             setSaving(true);
             stopRenderPolling();
 
-            // Wait for backend to validate + upload to R2
-            await new Promise((r) => setTimeout(r, 4000));
-            await loadProject();
+            // Poll until the video URL is available (R2 upload or local file)
+            // With the backend fix, done=true only fires after R2 upload,
+            // so r2_video_url should be available immediately.  Still poll
+            // a couple of times to be safe against network latency.
+            let ready = false;
+            for (let i = 0; i < 5; i++) {
+              await new Promise((r) => setTimeout(r, 2000));
+              const fresh = await loadProject();
+              if (fresh?.r2_video_url) {
+                ready = true;
+                break;
+              }
+              // Fallback for local-only (no R2) — check if video file is servable
+              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 1) {
+                ready = true;
+                break;
+              }
+            }
+            // Even if not "ready", proceed — download will retry
+            if (!ready) await loadProject();
 
             setSaving(false);
             setRendered(true);
@@ -467,15 +503,32 @@ export default function ProjectView() {
   const handleDownload = async () => {
     if (!project) return;
     setDownloading(true);
-    try {
-      const safeName =
-        project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
-      await downloadVideo(projectId, `${safeName}.mp4`);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || "Download failed.");
-    } finally {
-      setDownloading(false);
+    setError(null);
+    const safeName =
+      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+
+    // Retry a few times in case R2 upload is still finishing
+    let attempts = 0;
+    const maxAttempts = 4;
+    while (attempts < maxAttempts) {
+      try {
+        await downloadVideo(projectId, `${safeName}.mp4`);
+        setDownloading(false);
+        return;
+      } catch (err: any) {
+        attempts++;
+        const status = err?.response?.status;
+        // 202 = still processing, 404 = not ready yet — retry
+        if ((status === 202 || status === 404) && attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 2000));
+          await loadProject();
+          continue;
+        }
+        setError(err?.response?.data?.detail || "Download failed.");
+        break;
+      }
     }
+    setDownloading(false);
   };
 
   const handleDownloadStudio = async () => {
@@ -782,7 +835,7 @@ export default function ProjectView() {
                 <div className="mt-6">
                   <p className="text-xs text-red-500 mb-3">{error}</p>
                   <button
-                    onClick={handleRender}
+                    onClick={() => handleRender()}
                     className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
                   >
                     Retry
@@ -793,8 +846,8 @@ export default function ProjectView() {
           </div>
         )}
 
-        {/* Main content (hidden while rendering) */}
-        {!rendering && (
+        {/* Main content (hidden while rendering or saving to cloud) */}
+        {!rendering && !saving && (
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/30">
