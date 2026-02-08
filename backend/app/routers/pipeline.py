@@ -3,7 +3,7 @@ import json
 import asyncio
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -28,6 +28,7 @@ from app.services.remotion import (
     get_render_progress,
     get_workspace_dir,
 )
+from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.scene_gen import SceneCodeGenerator
 
@@ -365,6 +366,7 @@ def render_status_endpoint(
     if prog.get("done") and not prog.get("error") and project.status == ProjectStatus.RENDERING:
         project.status = ProjectStatus.DONE
         db.commit()
+        db.refresh(project)
 
     return {
         "progress": prog.get("progress", 0),
@@ -373,6 +375,7 @@ def render_status_endpoint(
         "done": prog.get("done", False),
         "error": prog.get("error"),
         "time_remaining": prog.get("time_remaining"),
+        "r2_video_url": project.r2_video_url,
     }
 
 
@@ -382,8 +385,18 @@ def download_video(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Download the rendered MP4 video file."""
+    """Download the rendered MP4 video file. Serves from R2 if available, else local."""
     project = _get_project(project_id, user.id, db)
+
+    # Try R2 first — redirect to presigned URL for direct download
+    if project.r2_video_key and r2_storage.is_r2_configured():
+        try:
+            presigned = r2_storage.generate_presigned_url(project.r2_video_key, expires_in=3600)
+            return RedirectResponse(url=presigned, status_code=302)
+        except Exception as e:
+            print(f"[PIPELINE] R2 presigned URL failed, falling back to local: {e}")
+
+    # Fallback to local file
     output_path = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4")
     if not os.path.exists(output_path):
         raise HTTPException(status_code=404, detail="Video not rendered yet.")

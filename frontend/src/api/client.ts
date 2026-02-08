@@ -78,6 +78,8 @@ export interface Asset {
   original_url: string | null;
   local_path: string;
   filename: string;
+  r2_key: string | null;
+  r2_url: string | null;
   created_at: string;
 }
 
@@ -96,6 +98,8 @@ export interface Project {
   studio_unlocked: boolean;
   studio_port: number | null;
   player_port: number | null;
+  r2_video_key: string | null;
+  r2_video_url: string | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -248,6 +252,7 @@ export interface RenderStatus {
   done: boolean;
   error: string | null;
   time_remaining: string | null;
+  r2_video_url: string | null;
 }
 
 export const getRenderStatus = (id: number) =>

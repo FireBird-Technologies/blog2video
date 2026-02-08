@@ -8,6 +8,7 @@ from app.config import settings
 from app.models.scene import Scene
 from app.models.project import Project
 from app.models.asset import Asset, AssetType
+from app.services import r2_storage
 
 MAX_RETRIES = 3
 RETRY_DELAY = 5  # seconds between retries
@@ -100,12 +101,26 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
             scene.voiceover_path = output_path
             db.commit()
 
+            # Upload to R2 if configured
+            r2_key_val = None
+            r2_url_val = None
+            if r2_storage.is_r2_configured():
+                try:
+                    r2_url_val = r2_storage.upload_project_audio(
+                        scene.project_id, output_path, filename
+                    )
+                    r2_key_val = r2_storage.audio_key(scene.project_id, filename)
+                except Exception as e:
+                    print(f"[VOICEOVER] R2 upload failed for {filename}: {e}")
+
             asset = Asset(
                 project_id=scene.project_id,
                 asset_type=AssetType.AUDIO,
                 original_url=None,
                 local_path=output_path,
                 filename=filename,
+                r2_key=r2_key_val,
+                r2_url=r2_url_val,
             )
             db.add(asset)
             db.commit()

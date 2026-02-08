@@ -28,20 +28,48 @@ const PIPELINE_STEPS = [
   { id: 3, label: "Scenes" },
 ] as const;
 
+// ─── URL Helpers ─────────────────────────────────────────────
+
+/**
+ * Resolve the best URL for an asset: R2 URL if available, else local media path.
+ */
+function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset_type: string }, projectId: number): string {
+  if (asset.r2_url) return asset.r2_url;
+  const subdir = asset.asset_type === "image" ? "images" : "audio";
+  return `${BACKEND_URL}/media/projects/${projectId}/${subdir}/${asset.filename}`;
+}
+
+/**
+ * Resolve the video URL: R2 URL if available, else local media path.
+ */
+function resolveVideoUrl(project: Project): string | null {
+  if (project.status !== "done") return null;
+  if (project.r2_video_url) return project.r2_video_url;
+  return `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`;
+}
+
 // ─── Audio Player Row ────────────────────────────────────────
 function AudioRow({
   scene,
   projectId,
+  audioAssets,
 }: {
   scene: Scene;
   projectId: number;
+  audioAssets: import("../api/client").Asset[];
 }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const audioUrl = scene.voiceover_path
+  // Find the matching audio asset for this scene (by filename pattern)
+  const matchingAudioAsset = audioAssets.find(
+    (a) => a.filename === `scene_${scene.order}.mp3`
+  );
+  const audioUrl = matchingAudioAsset
+    ? resolveAssetUrl(matchingAudioAsset, projectId)
+    : scene.voiceover_path
     ? `${BACKEND_URL}/media/projects/${projectId}/audio/scene_${scene.order}.mp3`
     : null;
 
@@ -465,7 +493,7 @@ export default function ProjectView() {
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
   const sceneImageMap: Record<number, string[]> = {};
   if (project.scenes.length > 0 && imageAssets.length > 0) {
-    const heroUrl = `${BACKEND_URL}/media/projects/${project.id}/images/${imageAssets[0].filename}`;
+    const heroUrl = resolveAssetUrl(imageAssets[0], project.id);
     const remaining = imageAssets.slice(1);
 
     project.scenes.forEach((_, idx) => {
@@ -475,11 +503,12 @@ export default function ProjectView() {
 
     remaining.forEach((asset, i) => {
       const sceneIdx = i % project.scenes.length;
-      sceneImageMap[sceneIdx].push(
-        `${BACKEND_URL}/media/projects/${project.id}/images/${asset.filename}`
-      );
+      sceneImageMap[sceneIdx].push(resolveAssetUrl(asset, project.id));
     });
   }
+
+  // Audio assets for R2 URL resolution
+  const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
 
   // Count audio scenes
   const audioScenes = project.scenes.filter((s) => s.voiceover_path);
@@ -600,9 +629,7 @@ export default function ProjectView() {
 
   // ─── Completed view (video preview + actions + chat) ──────
   const renderCompleted = () => {
-    const videoSrc = rendered
-      ? `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`
-      : null;
+    const videoSrc = rendered ? resolveVideoUrl(project) : null;
 
     return (
       <div className="space-y-4">
@@ -995,6 +1022,7 @@ export default function ProjectView() {
                       key={scene.id}
                       scene={scene}
                       projectId={projectId}
+                      audioAssets={audioAssets}
                     />
                   ))}
                 </div>

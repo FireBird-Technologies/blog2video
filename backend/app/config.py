@@ -45,6 +45,13 @@ class Settings(BaseSettings):
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media"
     )
 
+    # Cloudflare R2 Storage
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = "blog2video"
+    R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
+
     class Config:
         env_file = ".env"
 

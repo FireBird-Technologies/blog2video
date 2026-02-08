@@ -39,6 +39,8 @@ class AssetOut(BaseModel):
     original_url: Optional[str] = None
     local_path: str
     filename: str
+    r2_key: Optional[str] = None
+    r2_url: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -71,6 +73,8 @@ class ProjectOut(BaseModel):
     studio_unlocked: bool = False
     studio_port: Optional[int] = None
     player_port: Optional[int] = None
+    r2_video_key: Optional[str] = None
+    r2_video_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []

@@ -19,6 +19,8 @@ class Asset(Base):
     original_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     local_path: Mapped[str] = mapped_column(String(512), nullable=False)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    r2_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    r2_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

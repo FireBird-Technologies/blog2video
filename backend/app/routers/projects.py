@@ -1,11 +1,16 @@
+import os
+import shutil
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
+from app.config import settings
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate
+from app.services import r2_storage
+from app.services.remotion import safe_remove_workspace, get_workspace_dir
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -89,8 +94,22 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a project and all related data."""
+    """Delete a project and all related data (local + R2 storage)."""
     project = _get_user_project(project_id, user.id, db)
+
+    # Delete R2 files
+    if r2_storage.is_r2_configured():
+        try:
+            r2_storage.delete_project_files(project.id)
+        except Exception as e:
+            print(f"[PROJECTS] R2 cleanup failed for project {project.id}: {e}")
+
+    # Delete local files
+    project_media = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
+    if os.path.exists(project_media):
+        safe_remove_workspace(get_workspace_dir(project.id))
+        shutil.rmtree(project_media, ignore_errors=True)
+
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}

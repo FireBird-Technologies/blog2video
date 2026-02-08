@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
+from app.services import r2_storage
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
@@ -479,6 +480,11 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 project_id
             ].get("total_frames", 0)
             _render_progress[project_id]["done"] = True
+
+            # Upload rendered video to R2
+            output_path = _render_progress[project_id].get("output_path", "")
+            if output_path and os.path.exists(output_path):
+                upload_rendered_video_to_r2(project_id, output_path)
         else:
             _render_progress[project_id]["error"] = (
                 f"Render failed (exit code {retcode})"
@@ -487,6 +493,38 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True
+
+
+def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[str]:
+    """
+    Upload the rendered video to R2 and update the project record.
+    Called after a successful render. Returns the R2 URL or None.
+    """
+    if not r2_storage.is_r2_configured():
+        return None
+
+    try:
+        r2_url = r2_storage.upload_project_video(project_id, local_path)
+        r2_key = r2_storage.video_key(project_id)
+
+        # Update project record with R2 info
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            from app.models.project import Project
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project:
+                project.r2_video_key = r2_key
+                project.r2_video_url = r2_url
+                db.commit()
+                print(f"[REMOTION] Video uploaded to R2 for project {project_id}")
+        finally:
+            db.close()
+
+        return r2_url
+    except Exception as e:
+        print(f"[REMOTION] R2 video upload failed for project {project_id}: {e}")
+        return None
 
 
 # ─── Internal helpers ─────────────────────────────────────────
