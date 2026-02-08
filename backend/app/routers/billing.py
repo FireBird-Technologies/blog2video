@@ -77,14 +77,29 @@ def list_plans(db: Session = Depends(get_db)):
 
 # ─── Pro Subscription Checkout ────────────────────────────
 
+class CheckoutRequest(BaseModel):
+    billing_cycle: str = "monthly"  # "monthly" or "annual"
+
+
 @router.post("/checkout", response_model=CheckoutResponse)
 def create_checkout_session(
+    body: CheckoutRequest = CheckoutRequest(),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a Stripe Checkout session for the Pro plan."""
+    """Create a Stripe Checkout session for the Pro plan (monthly or annual)."""
     if user.plan == PlanTier.PRO:
         raise HTTPException(status_code=400, detail="Already on Pro plan")
+
+    # Pick the right price ID based on billing cycle
+    if body.billing_cycle == "annual":
+        price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
+        if not price_id:
+            raise HTTPException(status_code=400, detail="Annual plan not configured yet")
+    else:
+        price_id = settings.STRIPE_PRO_PRICE_ID
+        if not price_id:
+            raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
 
     # Ensure the user has a Stripe customer
     if not user.stripe_customer_id:
@@ -101,13 +116,17 @@ def create_checkout_session(
         mode="subscription",
         line_items=[
             {
-                "price": settings.STRIPE_PRO_PRICE_ID,
+                "price": price_id,
                 "quantity": 1,
             }
         ],
         success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        metadata={"user_id": str(user.id), "type": "pro_subscription"},
+        metadata={
+            "user_id": str(user.id),
+            "type": "pro_subscription",
+            "billing_cycle": body.billing_cycle,
+        },
     )
 
     return CheckoutResponse(checkout_url=session.url)
@@ -177,7 +196,7 @@ def create_portal_session(
 
     session = stripe.billing_portal.Session.create(
         customer=user.stripe_customer_id,
-        return_url=f"{settings.FRONTEND_URL}/dashboard",
+        return_url=f"{settings.FRONTEND_URL}/subscription",
     )
 
     return PortalResponse(portal_url=session.url)
@@ -195,6 +214,189 @@ def get_billing_status(user: User = Depends(get_current_user)):
         can_create_video=user.can_create_video,
         stripe_subscription_id=user.stripe_subscription_id,
         is_active=user.is_active,
+    )
+
+
+# ─── Subscription Detail ──────────────────────────────────
+
+class SubscriptionDetailOut(BaseModel):
+    id: int
+    plan_name: str
+    plan_slug: str
+    status: str
+    stripe_subscription_id: str | None = None
+    current_period_start: str | None = None
+    current_period_end: str | None = None
+    videos_used: int
+    amount_paid_cents: int
+    canceled_at: str | None = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/subscription", response_model=SubscriptionDetailOut | None)
+def get_subscription_detail(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the user's active subscription detail (if any)."""
+    sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user.id,
+            Subscription.status.in_(["active", "past_due", "requires_action"]),
+            Subscription.stripe_subscription_id.isnot(None),
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+    if not sub:
+        return None
+
+    return SubscriptionDetailOut(
+        id=sub.id,
+        plan_name=sub.plan.name if sub.plan else "Pro",
+        plan_slug=sub.plan.slug if sub.plan else "pro_monthly",
+        status=sub.status.value if hasattr(sub.status, "value") else sub.status,
+        stripe_subscription_id=sub.stripe_subscription_id,
+        current_period_start=sub.current_period_start.isoformat() if sub.current_period_start else None,
+        current_period_end=sub.current_period_end.isoformat() if sub.current_period_end else None,
+        videos_used=sub.videos_used,
+        amount_paid_cents=sub.amount_paid_cents,
+        canceled_at=sub.canceled_at.isoformat() if sub.canceled_at else None,
+        created_at=sub.created_at.isoformat(),
+    )
+
+
+# ─── Invoices ─────────────────────────────────────────────
+
+class InvoiceOut(BaseModel):
+    id: str
+    number: str | None = None
+    status: str | None = None
+    amount_due: int
+    amount_paid: int
+    currency: str
+    created: str
+    hosted_invoice_url: str | None = None
+    invoice_pdf: str | None = None
+
+
+@router.get("/invoices", response_model=list[InvoiceOut])
+def list_invoices(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Fetch the user's recent Stripe invoices."""
+    if not user.stripe_customer_id:
+        return []
+
+    try:
+        invoices = stripe.Invoice.list(
+            customer=user.stripe_customer_id,
+            limit=20,
+        )
+        result = []
+        for inv in invoices.data:
+            result.append(InvoiceOut(
+                id=inv.id,
+                number=inv.number,
+                status=inv.status,
+                amount_due=inv.amount_due,
+                amount_paid=inv.amount_paid,
+                currency=inv.currency,
+                created=datetime.utcfromtimestamp(inv.created).isoformat(),
+                hosted_invoice_url=inv.hosted_invoice_url,
+                invoice_pdf=inv.invoice_pdf,
+            ))
+        return result
+    except Exception as e:
+        print(f"[BILLING] Failed to fetch invoices: {e}")
+        return []
+
+
+# ─── Cancel Subscription ──────────────────────────────────
+
+@router.post("/cancel")
+def cancel_subscription(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cancel the user's active subscription at the end of the billing period."""
+    if not user.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="No active subscription to cancel")
+
+    try:
+        # Cancel at period end (user keeps access until then)
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            cancel_at_period_end=True,
+        )
+        return {"status": "ok", "message": "Subscription will cancel at the end of the billing period"}
+    except stripe.error.InvalidRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Resume Subscription (undo cancel) ────────────────────
+
+@router.post("/resume")
+def resume_subscription(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resume a subscription that was set to cancel at period end."""
+    if not user.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="No subscription to resume")
+
+    try:
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            cancel_at_period_end=False,
+        )
+        return {"status": "ok", "message": "Subscription resumed"}
+    except stripe.error.InvalidRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Data Export ───────────────────────────────────────────
+
+class DataSummaryOut(BaseModel):
+    total_projects: int
+    total_videos_rendered: int
+    total_assets: int
+    account_created: str
+    plan: str
+
+
+@router.get("/data-summary", response_model=DataSummaryOut)
+def get_data_summary(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get a summary of the user's data for the subscription page."""
+    from app.models.asset import Asset
+
+    total_projects = db.query(Project).filter(Project.user_id == user.id).count()
+    total_videos_rendered = (
+        db.query(Project)
+        .filter(Project.user_id == user.id, Project.r2_video_url.isnot(None))
+        .count()
+    )
+    total_assets = (
+        db.query(Asset)
+        .join(Project, Asset.project_id == Project.id)
+        .filter(Project.user_id == user.id)
+        .count()
+    )
+
+    return DataSummaryOut(
+        total_projects=total_projects,
+        total_videos_rendered=total_videos_rendered,
+        total_assets=total_assets,
+        account_created=user.created_at.isoformat(),
+        plan=user.plan.value,
     )
 
 
@@ -227,6 +429,18 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         _handle_subscription_deleted(data, db)
     elif event_type == "invoice.paid":
         _handle_invoice_paid(data, db)
+    elif event_type == "invoice.payment_failed":
+        _handle_invoice_payment_failed(data, db)
+    elif event_type == "invoice.payment_action_required":
+        _handle_payment_action_required(data, db)
+    elif event_type == "payment_intent.payment_failed":
+        _handle_payment_intent_failed(data, db)
+    elif event_type == "charge.dispute.created":
+        _handle_dispute_created(data, db)
+    elif event_type == "charge.refunded":
+        _handle_charge_refunded(data, db)
+    else:
+        print(f"[BILLING] Unhandled webhook event: {event_type}")
 
     return {"status": "ok"}
 
@@ -381,3 +595,111 @@ def _handle_invoice_paid(invoice: dict, db: Session):
                     sub.current_period_end = datetime.utcfromtimestamp(period_end)
 
         db.commit()
+
+
+def _handle_invoice_payment_failed(invoice: dict, db: Session):
+    """
+    Handle failed recurring payment (card declined, insufficient funds, etc).
+    Mark the subscription as past_due so the frontend can prompt the user.
+    """
+    customer_id = invoice.get("customer")
+    stripe_sub_id = invoice.get("subscription")
+    print(f"[BILLING] Invoice payment failed for customer={customer_id}, sub={stripe_sub_id}")
+
+    if not stripe_sub_id:
+        return
+
+    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    if not user:
+        return
+
+    sub = db.query(Subscription).filter_by(stripe_subscription_id=stripe_sub_id).first()
+    if sub:
+        sub.status = SubscriptionStatus.PAST_DUE
+        db.commit()
+        print(f"[BILLING] Subscription {stripe_sub_id} marked past_due for user {user.id}")
+
+
+def _handle_payment_action_required(invoice: dict, db: Session):
+    """
+    Handle 3D Secure / SCA authentication required (common for Indian cards).
+    The hosted_invoice_url lets the user complete authentication.
+    We mark the subscription as requires_action so the frontend can show a prompt.
+    """
+    customer_id = invoice.get("customer")
+    stripe_sub_id = invoice.get("subscription")
+    hosted_url = invoice.get("hosted_invoice_url")
+    print(f"[BILLING] Payment action required for customer={customer_id}, url={hosted_url}")
+
+    if not stripe_sub_id:
+        return
+
+    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    if not user:
+        return
+
+    sub = db.query(Subscription).filter_by(stripe_subscription_id=stripe_sub_id).first()
+    if sub:
+        sub.status = SubscriptionStatus.REQUIRES_ACTION
+        db.commit()
+        print(f"[BILLING] Subscription {stripe_sub_id} requires_action for user {user.id}")
+
+
+def _handle_payment_intent_failed(payment_intent: dict, db: Session):
+    """
+    Handle a PaymentIntent failure (one-time or subscription payment failed at intent level).
+    Log it for debugging — the invoice.payment_failed handler covers subscription failures.
+    """
+    pi_id = payment_intent.get("id")
+    customer_id = payment_intent.get("customer")
+    last_error = payment_intent.get("last_payment_error", {})
+    decline_code = last_error.get("decline_code", "unknown")
+    message = last_error.get("message", "No message")
+    print(f"[BILLING] PaymentIntent {pi_id} failed for customer={customer_id}: {decline_code} - {message}")
+
+
+def _handle_dispute_created(dispute: dict, db: Session):
+    """
+    Handle a chargeback / dispute. Immediately downgrade the user to free
+    to prevent abuse while the dispute is being resolved.
+    """
+    charge_id = dispute.get("charge")
+    reason = dispute.get("reason", "unknown")
+    print(f"[BILLING] Dispute created for charge={charge_id}, reason={reason}")
+
+    # Try to find the customer from the charge
+    try:
+        charge = stripe.Charge.retrieve(charge_id)
+        customer_id = charge.get("customer")
+    except Exception as e:
+        print(f"[BILLING] Could not retrieve charge {charge_id}: {e}")
+        return
+
+    if not customer_id:
+        return
+
+    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    if not user:
+        return
+
+    # Downgrade to free plan during dispute
+    free_plan = db.query(SubscriptionPlan).filter_by(name="free").first()
+    if free_plan:
+        user.plan = "free"
+        user.video_limit = free_plan.video_limit
+        db.commit()
+        print(f"[BILLING] User {user.id} downgraded to free due to dispute")
+
+
+def _handle_charge_refunded(charge: dict, db: Session):
+    """
+    Handle a refund. If it's a full refund on a subscription payment,
+    log it. Partial refunds are just logged.
+    """
+    charge_id = charge.get("id")
+    customer_id = charge.get("customer")
+    amount_refunded = charge.get("amount_refunded", 0)
+    amount = charge.get("amount", 0)
+    is_full_refund = amount_refunded >= amount
+
+    print(f"[BILLING] Charge {charge_id} refunded: {amount_refunded}/{amount} ({'full' if is_full_refund else 'partial'}) for customer={customer_id}")

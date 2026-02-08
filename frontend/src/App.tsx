@@ -4,6 +4,7 @@ import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
+import Subscription from "./pages/Subscription";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -41,6 +42,11 @@ function AppNavbar() {
           {/* Pricing link */}
           <a href="/pricing" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
             Pricing
+          </a>
+
+          {/* Billing link */}
+          <a href="/subscription" className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors">
+            Billing
           </a>
 
           {/* Usage */}
@@ -115,6 +121,16 @@ function AppRoutes() {
             <ProtectedRoute>
               <main className="max-w-7xl mx-auto px-6 py-8">
                 <ProjectView />
+              </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedRoute>
+              <main className="max-w-7xl mx-auto px-6 py-8">
+                <Subscription />
               </main>
             </ProtectedRoute>
           }

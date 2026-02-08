@@ -171,7 +171,7 @@ export default function Dashboard() {
         <div>
           {isPro ? (
             <button
-              onClick={handleManageBilling}
+              onClick={() => navigate("/subscription")}
               className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
             >
               Manage billing
