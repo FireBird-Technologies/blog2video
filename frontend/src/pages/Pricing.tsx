@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession } from "../api/client";
+import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Pricing() {
@@ -44,13 +44,24 @@ export default function Pricing() {
     }
   };
 
-  const handlePerVideo = () => {
+  const [perVideoLoading, setPerVideoLoading] = useState(false);
+
+  const handlePerVideo = async () => {
     if (!user) {
       setShowLoginFor("per_video");
       return;
     }
-    // Per-video purchases happen per-project on the dashboard
-    navigate("/dashboard");
+    try {
+      setPerVideoLoading(true);
+      const res = await createPerVideoCheckout();
+      if (res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      }
+    } catch (err) {
+      console.error("Per-video checkout error:", err);
+    } finally {
+      setPerVideoLoading(false);
+    }
   };
 
   const handleGetStarted = () => {
@@ -239,9 +250,10 @@ export default function Pricing() {
             </ul>
             <button
               onClick={handlePerVideo}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors"
+              disabled={perVideoLoading}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
             >
-              Buy a video
+              {perVideoLoading ? "Redirecting…" : "Buy a video"}
             </button>
           </div>
 

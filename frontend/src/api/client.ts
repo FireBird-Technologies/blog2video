@@ -217,9 +217,9 @@ export const createCheckoutSession = (billingCycle: "monthly" | "annual" = "mont
     billing_cycle: billingCycle,
   });
 
-export const createPerVideoCheckout = (projectId: number) =>
+export const createPerVideoCheckout = (projectId?: number) =>
   api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
-    project_id: projectId,
+    project_id: projectId ?? null,
   });
 
 export const createPortalSession = () =>

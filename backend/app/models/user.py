@@ -24,6 +24,7 @@ class User(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
+    video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
     period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -37,9 +38,8 @@ class User(Base):
     @property
     def video_limit(self) -> int:
         """Max videos allowed in the current billing period."""
-        if self.plan == PlanTier.FREE:
-            return 1  # 1st video free
-        return 100  # Pro: 100/month
+        base = 1 if self.plan == PlanTier.FREE else 100  # Free: 1, Pro: 100/month
+        return base + (self.video_limit_bonus or 0)
 
     @property
     def can_create_video(self) -> bool:
