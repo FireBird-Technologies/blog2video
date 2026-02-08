@@ -444,10 +444,9 @@ export default function ProjectView() {
       await renderVideo(projectId, res);
 
       stopRenderPolling();
-      let stuckAt100Count = 0;
       renderPollingRef.current = setInterval(async () => {
         try {
-          const res = await getRenderStatus(projectId);
+          const status = await getRenderStatus(projectId);
           const {
             progress,
             rendered_frames,
@@ -455,7 +454,7 @@ export default function ProjectView() {
             done,
             error: renderErr,
             time_remaining,
-          } = res.data;
+          } = status.data;
 
           // Never go backward — only update if progress moved forward
           if (progress >= renderHighWaterRef.current) {
@@ -474,43 +473,25 @@ export default function ProjectView() {
             return;
           }
 
-          const effectivelyDone =
-            done ||
-            (progress >= 100 &&
-              total_frames > 0 &&
-              rendered_frames >= total_frames);
-
-          if (effectivelyDone) {
-            stuckAt100Count++;
-          }
-
-          if (done || stuckAt100Count >= 2) {
+          if (done) {
             setRenderProgress(100);
-            setRendering(false);
-            setSaving(true);
             stopRenderPolling();
 
-            // Poll until the video URL is available (R2 upload or local file)
-            // With the backend fix, done=true only fires after R2 upload,
-            // so r2_video_url should be available immediately.  Still poll
-            // a couple of times to be safe against network latency.
-            let ready = false;
-            for (let i = 0; i < 5; i++) {
+            // Transition: rendering → saving
+            setRendering(false);
+            setSaving(true);
+
+            // Stay on saving screen until Cloudflare R2 confirms the video URL
+            const maxWait = 120; // max 120 attempts (~240s)
+            for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
               const fresh = await loadProject();
-              if (fresh?.r2_video_url) {
-                ready = true;
-                break;
-              }
-              // Fallback for local-only (no R2) — check if video file is servable
-              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 1) {
-                ready = true;
-                break;
-              }
+              if (fresh?.r2_video_url) break;
+              // Local-only fallback (no R2 configured)
+              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 2) break;
             }
-            // Even if not "ready", proceed — download will retry
-            if (!ready) await loadProject();
 
+            // Transition: saving → done (green download button + auto-download)
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
@@ -518,10 +499,10 @@ export default function ProjectView() {
         } catch {
           // Network hiccup — keep polling
         }
-      }, 10_000); // Poll every 10 seconds
+      }, 5_000); // Poll every 5 seconds
     } catch (err: any) {
       setError(
-        err?.response?.data?.detail || "Render failed. Please try again."
+        err?.response?.data?.detail || "Download failed. Please try again."
       );
       setRendering(false);
     }
