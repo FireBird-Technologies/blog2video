@@ -230,16 +230,44 @@ class SceneCodeGenerator:
         text_color: str = "#000000",
         animation_instructions: str = "",
     ) -> list[dict]:
-        """Generate layout descriptors for all scenes concurrently."""
+        """Generate layout descriptors for all scenes concurrently.
+        
+        If images are available, assigns image_caption layout to some non-hero
+        scenes so blog images are visible throughout the video.
+        """
         total = len(scenes_data)
-        tasks = [
-            self.generate_scene_descriptor(
-                scene_title=s["title"],
-                narration=s["narration"],
-                visual_description=s["visual_description"],
-                scene_index=i,
-                total_scenes=total,
+        num_images = len(available_images) if available_images else 0
+
+        # Decide which non-hero scenes should use image_caption layout.
+        # Spread image scenes evenly across the video.
+        image_scene_indices: set[int] = set()
+        if num_images > 1 and total > 2:
+            # Reserve images for roughly every other scene (skip hero=0)
+            non_hero = list(range(1, total))
+            images_to_assign = min(num_images - 1, len(non_hero) // 2 + 1)
+            step = max(1, len(non_hero) // images_to_assign)
+            for j in range(0, len(non_hero), step):
+                if len(image_scene_indices) >= images_to_assign:
+                    break
+                image_scene_indices.add(non_hero[j])
+
+        tasks = []
+        for i, s in enumerate(scenes_data):
+            tasks.append(
+                self.generate_scene_descriptor(
+                    scene_title=s["title"],
+                    narration=s["narration"],
+                    visual_description=s["visual_description"],
+                    scene_index=i,
+                    total_scenes=total,
+                )
             )
-            for i, s in enumerate(scenes_data)
-        ]
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
+
+        # Override selected scenes to image_caption so blog images are used
+        for idx in image_scene_indices:
+            if idx < len(results) and results[idx].get("layout") not in ("hero_image", "code_block"):
+                results[idx]["layout"] = "image_caption"
+                results[idx]["layoutProps"] = {}
+
+        return results
