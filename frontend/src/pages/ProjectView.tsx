@@ -367,7 +367,26 @@ export default function ProjectView() {
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
 
-  const handleRender = async () => {
+  // Resolution selection
+  const [selectedResolution, setSelectedResolution] = useState<string>("720p");
+  const [showResolutionMenu, setShowResolutionMenu] = useState(false);
+  const resMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close resolution menu on outside click
+  useEffect(() => {
+    if (!showResolutionMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (resMenuRef.current && !resMenuRef.current.contains(e.target as Node)) {
+        setShowResolutionMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showResolutionMenu]);
+
+  const handleRender = async (resolution?: string) => {
+    const res = resolution || selectedResolution;
+    setShowResolutionMenu(false);
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
@@ -376,7 +395,7 @@ export default function ProjectView() {
     renderHighWaterRef.current = 0;
 
     try {
-      await renderVideo(projectId);
+      await renderVideo(projectId, res);
 
       stopRenderPolling();
       let stuckAt100Count = 0;
@@ -837,25 +856,90 @@ export default function ProjectView() {
 
                 {/* Render / Download */}
                 {!rendered ? (
-                  <button
-                    onClick={handleRender}
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                    Render MP4
-                  </button>
+                  <div className="relative" ref={resMenuRef}>
+                    <div className="flex">
+                      {/* Main render button */}
+                      <button
+                        onClick={() => handleRender()}
+                        className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
+                        Render {selectedResolution}
+                      </button>
+
+                      {/* Dropdown trigger */}
+                      <button
+                        onClick={() => setShowResolutionMenu(!showResolutionMenu)}
+                        className="px-1.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-r-lg border-l border-purple-500 transition-colors"
+                      >
+                        <svg
+                          className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Resolution dropdown */}
+                    {showResolutionMenu && (
+                      <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
+                        {([
+                          { value: "480p", label: "480p", desc: "Fast · Lower quality", locked: false },
+                          { value: "720p", label: "720p", desc: "Balanced · HD", locked: false },
+                          { value: "1080p", label: "1080p", desc: "Full HD · Slower", locked: !isPro },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              if (opt.locked) {
+                                setShowResolutionMenu(false);
+                                setShowUpgrade(true);
+                                return;
+                              }
+                              setSelectedResolution(opt.value);
+                              setShowResolutionMenu(false);
+                            }}
+                            className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                              selectedResolution === opt.value ? "bg-purple-50" : ""
+                            }`}
+                          >
+                            <div>
+                              <span className={`text-xs font-medium ${
+                                selectedResolution === opt.value ? "text-purple-600" : "text-gray-900"
+                              }`}>
+                                {opt.label}
+                              </span>
+                              <p className="text-[10px] text-gray-400">{opt.desc}</p>
+                            </div>
+                            {opt.locked ? (
+                              <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                            ) : selectedResolution === opt.value ? (
+                              <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={handleDownload}

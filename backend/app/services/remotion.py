@@ -324,7 +324,31 @@ def get_render_progress(project_id: int) -> dict:
     return _render_progress.get(project_id, {})
 
 
-def render_video(project: Project) -> str:
+# Resolution presets: label -> (width, height, scale)
+# The composition is always 1920x1080; we use --scale to down-render.
+RESOLUTION_PRESETS = {
+    "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
+    "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
+    "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+}
+
+
+def _build_render_cmd(
+    npx: str, output_path: str, resolution: str = "720p"
+) -> list[str]:
+    """Build the Remotion render command with resolution scaling."""
+    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path,
+           "--concurrency", "100%"]
+
+    preset = RESOLUTION_PRESETS.get(resolution, RESOLUTION_PRESETS["720p"])
+    scale = preset["scale"]
+    if scale < 1.0:
+        cmd.extend(["--scale", f"{scale:.4f}"])
+
+    return cmd
+
+
+def render_video(project: Project, resolution: str = "720p") -> str:
     """Render the video synchronously from the project workspace."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
@@ -333,7 +357,7 @@ def render_video(project: Project) -> str:
     output_path = os.path.join(output_dir, "video.mp4")
 
     npx = shutil.which("npx") or "npx"
-    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path]
+    cmd = _build_render_cmd(npx, output_path, resolution)
 
     result = subprocess.run(
         cmd,
@@ -350,7 +374,7 @@ def render_video(project: Project) -> str:
     return output_path
 
 
-def start_render_async(project: Project) -> None:
+def start_render_async(project: Project, resolution: str = "720p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
@@ -359,7 +383,7 @@ def start_render_async(project: Project) -> None:
     output_path = os.path.join(output_dir, "video.mp4")
 
     npx = shutil.which("npx") or "npx"
-    cmd = [npx, "remotion", "render", "ExplainerVideo", output_path]
+    cmd = _build_render_cmd(npx, output_path, resolution)
 
     _render_progress[project.id] = {
         "progress": 0,
