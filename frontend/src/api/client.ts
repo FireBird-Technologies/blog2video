@@ -144,6 +144,55 @@ export interface BillingStatus {
   is_active: boolean;
 }
 
+export interface SubscriptionDetail {
+  id: number;
+  plan_name: string;
+  plan_slug: string;
+  status: string;
+  stripe_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  videos_used: number;
+  amount_paid_cents: number;
+  canceled_at: string | null;
+  created_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  created: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+}
+
+export interface DataSummary {
+  total_projects: number;
+  total_videos_rendered: number;
+  total_assets: number;
+  account_created: string;
+  plan: string;
+}
+
+export interface PlanInfo {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  billing_interval: string;
+  video_limit: number;
+  includes_studio: boolean;
+  includes_chat_editor: boolean;
+  includes_priority_support: boolean;
+  sort_order: number;
+}
+
 export interface PublicConfig {
   google_client_id: string;
   stripe_publishable_key: string;
@@ -163,8 +212,10 @@ export const getPublicConfig = () =>
 
 // ─── Billing API ──────────────────────────────────────────
 
-export const createCheckoutSession = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout");
+export const createCheckoutSession = (billingCycle: "monthly" | "annual" = "monthly") =>
+  api.post<{ checkout_url: string }>("/billing/checkout", {
+    billing_cycle: billingCycle,
+  });
 
 export const createPerVideoCheckout = (projectId: number) =>
   api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
@@ -176,6 +227,24 @@ export const createPortalSession = () =>
 
 export const getBillingStatus = () =>
   api.get<BillingStatus>("/billing/status");
+
+export const getSubscriptionDetail = () =>
+  api.get<SubscriptionDetail | null>("/billing/subscription");
+
+export const getInvoices = () =>
+  api.get<Invoice[]>("/billing/invoices");
+
+export const getDataSummary = () =>
+  api.get<DataSummary>("/billing/data-summary");
+
+export const getPlans = () =>
+  api.get<PlanInfo[]>("/billing/plans");
+
+export const cancelSubscription = () =>
+  api.post("/billing/cancel");
+
+export const resumeSubscription = () =>
+  api.post("/billing/resume");
 
 // ─── Project API ──────────────────────────────────────────
 

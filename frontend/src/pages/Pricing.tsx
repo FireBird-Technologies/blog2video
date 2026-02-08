@@ -32,7 +32,7 @@ export default function Pricing() {
     if (!user) return;
     setCheckoutLoading(true);
     try {
-      const res = await createCheckoutSession();
+      const res = await createCheckoutSession(billingCycle);
       window.location.href = res.data.checkout_url;
     } catch {
       setCheckoutLoading(false);

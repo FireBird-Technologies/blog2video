@@ -78,6 +78,7 @@ class SubscriptionStatus(str, enum.Enum):
     CANCELED = "canceled"
     EXPIRED = "expired"
     COMPLETED = "completed"  # one-time purchases that are fulfilled
+    REQUIRES_ACTION = "requires_action"  # 3D Secure / SCA pending
 
 
 class Subscription(Base):
@@ -203,6 +204,7 @@ def seed_plans(db_session) -> None:
     _stripe_ids = {
         "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
         "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,
+        "pro_annual": settings.STRIPE_PRO_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_PRO_ANNUAL_PRICE_ID", "")) else None,
     }
 
     for seed in SEED_PLANS:
