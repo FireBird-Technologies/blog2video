@@ -25,7 +25,7 @@ def _delete_project_storage(project: Project) -> None:
     # Delete from R2
     if r2_storage.is_r2_configured():
         try:
-            r2_storage.delete_project_files(project.id)
+            r2_storage.delete_project_files(project.user_id, project.id)
         except Exception as e:
             print(f"[CLEANUP] R2 deletion failed for project {project.id}: {e}")
 

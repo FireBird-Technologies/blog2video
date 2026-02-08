@@ -401,11 +401,24 @@ def get_download_url(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get the download URL for the rendered video (R2 public URL)."""
+    """Get the download URL for the rendered video (R2 public URL or local fallback)."""
     project = _get_project(project_id, user.id, db)
 
+    # Prefer R2 URL
     if project.r2_video_url:
         return {"url": project.r2_video_url}
+
+    # Fallback: check if a local rendered file exists (R2 upload may still be in progress)
+    local_path = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
+    )
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        return {"url": f"/media/projects/{project.id}/output/video.mp4"}
+
+    # Check if render is still in progress
+    prog = get_render_progress(project_id)
+    if prog and not prog.get("done", True):
+        raise HTTPException(status_code=202, detail="Video is still rendering.")
 
     raise HTTPException(status_code=404, detail="Video not rendered yet.")
 

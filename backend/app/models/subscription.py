@@ -183,21 +183,35 @@ SEED_PLANS = [
 ]
 
 
+def _is_real_stripe_id(val: str | None) -> bool:
+    """Return True only if the value looks like a real Stripe price ID."""
+    if not val:
+        return False
+    val = val.strip()
+    # Reject obvious placeholders
+    if not val or val.startswith("price_xxxxx") or val in ("price_", "none", "null", ""):
+        return False
+    # Real Stripe price IDs start with "price_" and are 20+ chars
+    return val.startswith("price_") and len(val) > 10
+
+
 def seed_plans(db_session) -> None:
     """Insert or update seed plans. Safe to call on every startup."""
     from app.config import settings
 
-    # Map config price IDs to plan slugs
+    # Map config price IDs to plan slugs (only use real Stripe IDs)
     _stripe_ids = {
-        "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID or None,
-        "pro_monthly": settings.STRIPE_PRO_PRICE_ID or None,
+        "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
+        "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,
     }
 
-    for plan_data in SEED_PLANS:
+    for seed in SEED_PLANS:
+        # Work on a copy so we don't mutate the global SEED_PLANS list
+        plan_data = {**seed}
         slug = plan_data["slug"]
         existing = db_session.query(SubscriptionPlan).filter_by(slug=slug).first()
 
-        # Override stripe_price_id from config if available
+        # Override stripe_price_id from config if a real ID is available
         if slug in _stripe_ids and _stripe_ids[slug]:
             plan_data["stripe_price_id"] = _stripe_ids[slug]
 

@@ -507,7 +507,8 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             _render_progress[project_id]["rendered_frames"] = _render_progress[
                 project_id
             ].get("total_frames", 0)
-            _render_progress[project_id]["done"] = True
+            # NOTE: do NOT set done=True yet — R2 upload must finish first
+            # so the frontend stays in "rendering 100%" until the video URL is ready.
 
             # Small delay to ensure the file is fully flushed to disk
             time.sleep(2)
@@ -520,6 +521,14 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                     upload_rendered_video_to_r2(project_id, output_path)
                 else:
                     print(f"[REMOTION] Skipping R2 upload — file doesn't look like valid MP4: {output_path}")
+
+            # Clean up the workspace to free disk space
+            workspace = get_workspace_dir(project_id)
+            safe_remove_workspace(workspace)
+            print(f"[REMOTION] Cleaned up workspace for project {project_id}")
+
+            # NOW mark as done — R2 upload is complete, video URL is in DB
+            _render_progress[project_id]["done"] = True
         elif retcode is None:
             # Process never exited cleanly — mark as error
             _render_progress[project_id]["error"] = "Render process did not exit"
@@ -558,20 +567,24 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
         return None
 
     try:
-        r2_url = r2_storage.upload_project_video(project_id, local_path)
-        r2_key = r2_storage.video_key(project_id)
-
-        # Update project record with R2 info
+        # Fetch project to get user_id for R2 key namespacing
         from app.database import SessionLocal
         db = SessionLocal()
         try:
             from app.models.project import Project
             project = db.query(Project).filter(Project.id == project_id).first()
-            if project:
-                project.r2_video_key = r2_key
-                project.r2_video_url = r2_url
-                db.commit()
-                print(f"[REMOTION] Video uploaded to R2 for project {project_id}")
+            if not project:
+                print(f"[REMOTION] Project {project_id} not found — skipping R2 upload")
+                return None
+
+            user_id = project.user_id
+            r2_url = r2_storage.upload_project_video(user_id, project_id, local_path)
+            r2_key = r2_storage.video_key(user_id, project_id)
+
+            project.r2_video_key = r2_key
+            project.r2_video_url = r2_url
+            db.commit()
+            print(f"[REMOTION] Video uploaded to R2 for project {project_id}")
         finally:
             db.close()
 
