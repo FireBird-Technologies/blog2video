@@ -10,6 +10,7 @@ from exa_py import Exa
 from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.asset import Asset, AssetType
+from app.services import r2_storage
 
 # Browser headers for image downloads and fallback scraping
 _BROWSER_HEADERS = {
@@ -585,12 +586,24 @@ def _download_images(project_id: int, image_urls: list[str], db: Session) -> lis
                 print(f"[SCRAPER] Discarded tiny image ({file_size} bytes): {url[:80]}")
                 continue
 
+            # Upload to R2 if configured
+            r2_key = None
+            r2_url = None
+            if r2_storage.is_r2_configured():
+                try:
+                    r2_url = r2_storage.upload_project_image(project_id, local_path, filename)
+                    r2_key = r2_storage.image_key(project_id, filename)
+                except Exception as e:
+                    print(f"[SCRAPER] R2 upload failed for {filename}: {e}")
+
             asset = Asset(
                 project_id=project_id,
                 asset_type=AssetType.IMAGE,
                 original_url=url,
                 local_path=local_path,
                 filename=filename,
+                r2_key=r2_key,
+                r2_url=r2_url,
             )
             db.add(asset)
             local_paths.append(local_path)

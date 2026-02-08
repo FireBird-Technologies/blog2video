@@ -81,9 +81,25 @@ def _migrate(eng):
             "text_color": "VARCHAR(20) DEFAULT '#FFFFFF'",
             "animation_instructions": "TEXT",
             "studio_unlocked": "BOOLEAN DEFAULT 0",
+            "r2_video_key": "VARCHAR(512)",
+            "r2_video_url": "VARCHAR(2048)",
         }
         for col_name, col_def in migrations.items():
             if col_name not in cols:
                 conn.execute(text(
                     f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}"
                 ))
+
+    # Migrate assets table
+    if "assets" in insp.get_table_names():
+        asset_cols = {c["name"] for c in insp.get_columns("assets")}
+        with eng.begin() as conn:
+            asset_migrations = {
+                "r2_key": "VARCHAR(512)",
+                "r2_url": "VARCHAR(2048)",
+            }
+            for col_name, col_def in asset_migrations.items():
+                if col_name not in asset_cols:
+                    conn.execute(text(
+                        f"ALTER TABLE assets ADD COLUMN {col_name} {col_def}"
+                    ))

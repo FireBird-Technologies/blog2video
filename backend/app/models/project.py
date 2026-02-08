@@ -35,6 +35,8 @@ class Project(Base):
     studio_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
     studio_port: Mapped[int | None] = mapped_column(nullable=True)
     player_port: Mapped[int | None] = mapped_column(nullable=True)
+    r2_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    r2_video_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

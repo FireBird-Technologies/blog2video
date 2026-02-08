@@ -19,3 +19,5 @@ google-auth>=2.29.0
 stripe>=10.0.0
 # PostgreSQL driver
 psycopg2-binary>=2.9.0
+# Cloudflare R2 (S3-compatible)
+boto3>=1.35.0

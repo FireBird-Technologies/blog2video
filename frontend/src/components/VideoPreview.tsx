@@ -14,17 +14,25 @@ interface VideoPreviewProps {
 
 export default function VideoPreview({ project }: VideoPreviewProps) {
   const scenes: SceneInput[] = useMemo(() => {
+    // Helper: resolve asset URL (R2 if available, else local)
+    const resolveUrl = (asset: { r2_url: string | null; filename: string; asset_type: string }) => {
+      if (asset.r2_url) return asset.r2_url;
+      const subdir = asset.asset_type === "image" ? "images" : "audio";
+      return `${BACKEND_URL}/media/projects/${project.id}/${subdir}/${asset.filename}`;
+    };
+
     // Build image map (same logic as backend — hero to scene 0, rest round-robin)
     const imageAssets = project.assets.filter((a) => a.asset_type === "image");
+    const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
     const sceneImageMap: Record<number, string> = {};
 
     if (imageAssets.length > 0 && project.scenes.length > 0) {
-      sceneImageMap[0] = `${BACKEND_URL}/media/projects/${project.id}/images/${imageAssets[0].filename}`;
+      sceneImageMap[0] = resolveUrl(imageAssets[0]);
       const remaining = imageAssets.slice(1);
       remaining.forEach((asset, i) => {
         const sceneIdx = i % project.scenes.length;
         if (!sceneImageMap[sceneIdx]) {
-          sceneImageMap[sceneIdx] = `${BACKEND_URL}/media/projects/${project.id}/images/${asset.filename}`;
+          sceneImageMap[sceneIdx] = resolveUrl(asset);
         }
       });
     }
@@ -49,6 +57,16 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         layout = "hero_image";
       }
 
+      // Resolve audio URL from matching asset (R2 if available)
+      const matchingAudio = audioAssets.find(
+        (a) => a.filename === `scene_${scene.order}.mp3`
+      );
+      const voiceoverUrl = matchingAudio
+        ? resolveUrl(matchingAudio)
+        : scene.voiceover_path
+        ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
+        : undefined;
+
       return {
         id: scene.id,
         order: scene.order,
@@ -58,9 +76,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         layoutProps,
         durationSeconds: scene.duration_seconds,
         imageUrl: sceneImageMap[idx],
-        voiceoverUrl: scene.voiceover_path
-          ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
-          : undefined,
+        voiceoverUrl,
       };
     });
   }, [project]);
