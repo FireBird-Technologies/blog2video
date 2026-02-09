@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from exa_py import Exa
+from firecrawl import Firecrawl
 
 from app.config import settings
 from app.models.project import Project, ProjectStatus
@@ -26,28 +27,65 @@ _BROWSER_HEADERS = {
 }
 
 
+# Minimum chars to consider a scrape successful
+_MIN_CONTENT_LENGTH = 50
+
+
 # ─── Main entry point ─────────────────────────────────────
 
 def scrape_blog(project: Project, db: Session) -> Project:
     """
     Scrape blog content and images from the project's blog_url.
-    Uses Exa API as primary method (handles Medium, Substack, etc.),
-    falls back to direct requests + BeautifulSoup.
+
+    Scraping chain (first success wins):
+      1. requests + BeautifulSoup  (free, fast, works for static sites)
+      2. Firecrawl                 (handles JS/SPA sites that requests can't)
+      3. Exa with livecrawl        (last resort, headless browser)
     """
     url = project.blog_url
+    text = ""
+    image_urls: list[str] = []
 
-    # Try Exa first, then fallback to requests
-    if settings.EXA_API_KEY:
-        try:
-            text, image_urls = _scrape_with_exa(url)
-        except Exception as e:
-            print(f"[SCRAPER] Exa failed, falling back to requests: {e}")
-            text, image_urls = _scrape_with_requests(url)
-    else:
+    # ── Step 1: requests + BeautifulSoup (fastest, free) ──
+    try:
         text, image_urls = _scrape_with_requests(url)
+        if text and len(text.strip()) >= _MIN_CONTENT_LENGTH:
+            print(f"[SCRAPER] requests succeeded ({len(text)} chars, {len(image_urls)} images)")
+        else:
+            print(f"[SCRAPER] requests returned thin content ({len(text.strip())} chars), trying Firecrawl...")
+            text = ""
+    except Exception as e:
+        print(f"[SCRAPER] requests failed: {e}, trying Firecrawl...")
 
-    if not text or len(text.strip()) < 50:
-        raise ValueError("Could not extract meaningful content from the URL.")
+    # ── Step 2: Firecrawl (handles JS/SPA sites) ──
+    if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.FIRECRAWL_API_KEY:
+        try:
+            fc_text, fc_images = _scrape_with_firecrawl(url)
+            if fc_text and len(fc_text.strip()) >= _MIN_CONTENT_LENGTH:
+                text = fc_text
+                image_urls = fc_images
+                print(f"[SCRAPER] Firecrawl succeeded ({len(text)} chars, {len(image_urls)} images)")
+            else:
+                print(f"[SCRAPER] Firecrawl returned thin content ({len(fc_text.strip())} chars), trying Exa...")
+        except Exception as e:
+            print(f"[SCRAPER] Firecrawl failed: {e}, trying Exa...")
+
+    # ── Step 3: Exa with livecrawl (last resort) ──
+    if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.EXA_API_KEY:
+        try:
+            exa_text, exa_images = _scrape_with_exa(url)
+            if exa_text and len(exa_text.strip()) >= _MIN_CONTENT_LENGTH:
+                text = exa_text
+                image_urls = exa_images
+                print(f"[SCRAPER] Exa succeeded ({len(text)} chars, {len(image_urls)} images)")
+        except Exception as e:
+            print(f"[SCRAPER] Exa failed: {e}")
+
+    if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
+        raise ValueError(
+            "Could not extract meaningful content from the URL. "
+            "The site may require JavaScript rendering or the page may be empty."
+        )
 
     # Download images (only from the original blog page — no external sources)
     _download_images(project.user_id, project.id, image_urls, db)
@@ -299,9 +337,67 @@ def _find_extra_images_via_exa(
 
 # ─── Requests + BeautifulSoup fallback ────────────────────
 
+# ─── Firecrawl scraping ───────────────────────────────────
+
+def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
+    """
+    Use Firecrawl to scrape a page.  Firecrawl renders JavaScript, so it
+    handles SPAs and dynamically-rendered blogs that requests cannot.
+    Returns (text, image_urls).
+    """
+    app = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
+
+    result = app.scrape(url, formats=["markdown", "html"])
+
+    # result is a dict with keys like 'markdown', 'html', 'metadata', etc.
+    markdown_text = (result.get("markdown") or "").strip()
+    html_content = (result.get("html") or "").strip()
+    metadata = result.get("metadata") or {}
+
+    # --- Extract text ---
+    # Prefer markdown (cleaner), fall back to HTML→text
+    if markdown_text and len(markdown_text) >= _MIN_CONTENT_LENGTH:
+        text = markdown_text
+    elif html_content:
+        soup = BeautifulSoup(html_content, "lxml")
+        text = _extract_text(soup)
+    else:
+        text = ""
+
+    # --- Extract images ---
+    image_urls: list[str] = []
+    seen: set[str] = set()
+
+    def _add(img_url: str) -> None:
+        if img_url and img_url not in seen and _is_blog_image(img_url):
+            image_urls.append(img_url)
+            seen.add(img_url)
+
+    # OG image / hero from metadata
+    og = metadata.get("ogImage") or metadata.get("og:image")
+    if og:
+        _add(og if isinstance(og, str) else og.get("url", ""))
+
+    # Images from rendered HTML
+    if html_content:
+        soup = BeautifulSoup(html_content, "lxml")
+        for img_url in _extract_all_image_srcs(soup, url):
+            _add(img_url)
+
+    # Images from markdown ![alt](url)
+    if markdown_text:
+        for m in re.finditer(r"!\[.*?\]\((https?://[^\s)]+)\)", markdown_text):
+            _add(m.group(1))
+
+    print(f"[SCRAPER][Firecrawl] Got {len(text)} chars, {len(image_urls)} images from {url}")
+    return text, image_urls
+
+
+# ─── Requests + BeautifulSoup scraping ────────────────────
+
 def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
     """
-    Fallback scraper using requests + BeautifulSoup.
+    Scraper using requests + BeautifulSoup.
     Hero/OG image is always first in the returned list.
     """
     session = requests.Session()

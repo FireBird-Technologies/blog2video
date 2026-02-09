@@ -6,6 +6,7 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 exa-py>=1.0.0
+firecrawl-py>=4.0.0
 dspy>=2.5.0
 anthropic>=0.40.0
 elevenlabs>=1.0.0
