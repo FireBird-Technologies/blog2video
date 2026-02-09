@@ -335,14 +335,22 @@ export const getRenderStatus = (id: number) =>
 
 export const downloadVideo = async (id: number, filename?: string) => {
   const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
+  const videoUrl = urlRes.data.url;
+
+  // Fetch the video as a blob so the download works even with popup blockers.
+  // Using fetch() directly (not axios) because the URL may be a cross-origin R2 URL.
+  const resp = await fetch(videoUrl);
+  if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
+  const blob = await resp.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+
   const a = document.createElement("a");
-  a.href = urlRes.data.url;
+  a.href = blobUrl;
   a.download = filename || "video.mp4";
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
   document.body.appendChild(a);
   a.click();
   a.remove();
+  window.URL.revokeObjectURL(blobUrl);
 };
 
 export const downloadStudioZip = async (id: number, filename?: string) => {

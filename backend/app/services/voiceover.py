@@ -15,17 +15,18 @@ RETRY_DELAY = 5  # seconds between retries
 SCENE_DELAY = 2  # seconds between scenes to avoid rate limits
 DURATION_PAD = 1.0  # extra seconds added to voiceover duration for scene
 
-# ElevenLabs voices -- documentary narrator style
-# These are deep, authoritative voices ideal for explainer/documentary content
+# ElevenLabs premade voices -- narrator / documentary style
+# Verified against the official premade voice list:
+# https://elevenlabs-sdk.mintlify.app/voices/premade-voices
 VOICE_MAP = {
-    ("female", "american"): "EXAVITQu4vr4xnSDxMaL",  # Bella  -- warm, narrative
-    ("male", "american"): "onwK4e9ZLuTAKqWW03F9",    # Daniel -- deep, documentary
-    ("female", "british"): "XB0fDUnXU5powFXDhCwa",    # Charlotte -- authoritative
-    ("male", "british"): "N2lVS1w4EtoT3dr4eOWO",     # Callum -- calm narrator
+    ("female", "american"): "21m00Tcm4TlvDq8ikWAM",  # Rachel  -- american, calm, narration
+    ("male", "american"): "pqHfZKP75CvOlQylNhV4",    # Bill    -- american, strong, documentary
+    ("female", "british"): "Xb7hH8MSUJpSbSDYk0k2",   # Alice   -- british, confident, news
+    ("male", "british"): "onwK4e9ZLuTAKqWW03F9",     # Daniel  -- british, deep, news presenter
 }
 
-# Fallback: Daniel (deep male documentary voice) if no match
-DEFAULT_VOICE_ID = "onwK4e9ZLuTAKqWW03F9"
+# Fallback: Bill (american male documentary voice) if no match
+DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
 def _get_voice_id(project: Project) -> str:
