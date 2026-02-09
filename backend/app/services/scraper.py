@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import hashlib
 import requests
 from urllib.parse import urljoin, urlparse
@@ -164,6 +165,12 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
         if mid:
             seen_image_ids.add(mid)
         return True
+
+    # 0. Medium JSON API — most reliable source for Medium images (no JS needed)
+    if is_medium:
+        medium_json_images = _extract_medium_images_via_json(url)
+        for img_url in medium_json_images:
+            _add_image(img_url, trust_source=True)
 
     # 1. Hero / OG image from Exa
     if hasattr(page, "image") and page.image:
@@ -603,6 +610,74 @@ def _is_medium_url(url: str) -> bool:
         or "python.plainenglish.io" in lower
         or "pub." in lower and "medium" in lower
     )
+
+
+def _extract_medium_images_via_json(url: str) -> list[str]:
+    """
+    Extract ALL image URLs from a Medium article using Medium's undocumented
+    JSON API (?format=json). This is the most reliable way to get Medium images
+    because it doesn't require JS rendering.
+
+    Medium's JSON response contains paragraphs with type=4 (images), each with
+    a metadata.id field like "1*abc123.png". These map to:
+        https://miro.medium.com/v2/resize:fit:1400/{id}
+    """
+    try:
+        # Append ?format=json (or &format=json if query params already exist)
+        separator = "&" if "?" in url else "?"
+        json_url = f"{url}{separator}format=json"
+
+        resp = requests.get(json_url, headers=_BROWSER_HEADERS, timeout=15)
+        if resp.status_code != 200:
+            return []
+
+        # Strip Medium's XSS protection prefix: ])}while(1);</x>
+        raw = resp.text
+        prefix_end = raw.find("{")
+        if prefix_end == -1:
+            return []
+        data = json.loads(raw[prefix_end:])
+
+        # Navigate to the paragraphs list
+        paragraphs = (
+            data.get("payload", {})
+            .get("value", {})
+            .get("content", {})
+            .get("bodyModel", {})
+            .get("paragraphs", [])
+        )
+
+        image_urls: list[str] = []
+        seen_ids: set[str] = set()
+
+        # Also grab the preview/hero image
+        preview_id = (
+            data.get("payload", {})
+            .get("value", {})
+            .get("virtuals", {})
+            .get("previewImage", {})
+            .get("imageId")
+        )
+        if preview_id and preview_id not in seen_ids:
+            seen_ids.add(preview_id)
+            image_urls.append(f"https://miro.medium.com/v2/resize:fit:1400/{preview_id}")
+
+        # Extract images from paragraphs (type 4 = image)
+        for para in paragraphs:
+            if para.get("type") != 4:
+                continue
+            meta = para.get("metadata", {})
+            image_id = meta.get("id")
+            if not image_id or image_id in seen_ids:
+                continue
+            seen_ids.add(image_id)
+            image_urls.append(f"https://miro.medium.com/v2/resize:fit:1400/{image_id}")
+
+        print(f"[SCRAPER] Medium JSON API found {len(image_urls)} images")
+        return image_urls
+    except Exception as e:
+        print(f"[SCRAPER] Medium JSON API image extraction failed (non-fatal): {e}")
+        return []
 
 
 def _is_from_content_cdn(url: str) -> bool:
