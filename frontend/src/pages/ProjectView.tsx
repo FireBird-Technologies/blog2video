@@ -234,6 +234,8 @@ export default function ProjectView() {
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderTimeLeft, setRenderTimeLeft] = useState<string | null>(null);
   const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const renderRetryCountRef = useRef(0); // how many times we've auto-retried render
+  const MAX_RENDER_RETRIES = 20;
 
   // Auto-download trigger (only when render finishes during this session)
   const autoDownloadRef = useRef(false);
@@ -453,9 +455,21 @@ export default function ProjectView() {
     setRenderTimeLeft(null);
     setError(null);
     renderHighWaterRef.current = 0;
+    renderRetryCountRef.current = 0;
 
-    try {
-      await renderVideo(projectId, res);
+    const startRenderAndPoll = async (res: string) => {
+      try {
+        await renderVideo(projectId, res);
+      } catch (err: any) {
+        // If this is a retry, keep going; otherwise show error
+        if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
+          setError(
+            err?.response?.data?.detail || "Render failed after multiple attempts."
+          );
+          setRendering(false);
+          return;
+        }
+      }
 
       stopRenderPolling();
       renderPollingRef.current = setInterval(async () => {
@@ -481,9 +495,22 @@ export default function ProjectView() {
           if (time_remaining) setRenderTimeLeft(time_remaining);
 
           if (renderErr) {
-            setError(renderErr);
-            setRendering(false);
-            stopRenderPolling();
+            // Auto-retry: re-trigger render instead of stopping
+            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
+              renderRetryCountRef.current++;
+              console.log(
+                `[RENDER] Error "${renderErr}", auto-retrying (${renderRetryCountRef.current}/${MAX_RENDER_RETRIES})...`
+              );
+              stopRenderPolling();
+              // Keep the current progress visible — user shouldn't see a reset
+              // Small delay before retrying
+              await new Promise((r) => setTimeout(r, 3000));
+              startRenderAndPoll(res);
+            } else {
+              setError(`${renderErr} (after ${MAX_RENDER_RETRIES} retries)`);
+              setRendering(false);
+              stopRenderPolling();
+            }
             return;
           }
 
@@ -527,13 +554,10 @@ export default function ProjectView() {
         } catch {
           // Network hiccup — keep polling
         }
-      }, 5_000); // Poll every 5 seconds
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.detail || "Download failed. Please try again."
-      );
-      setRendering(false);
-    }
+      }, 10_000); // Poll every 10 seconds
+    };
+
+    startRenderAndPoll(res);
   };
 
   const handleDownload = async () => {
@@ -965,10 +989,14 @@ export default function ProjectView() {
                 {!rendered ? (
                   <div className="relative" ref={resMenuRef}>
                     <div className="flex">
-                      {/* Main download button */}
+                      {/* Main download button — shows "Retry" after a failed render */}
                       <button
-                        onClick={() => handleRender()}
-                        className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5"
+                        onClick={() => { setError(null); handleRender(); }}
+                        className={`px-4 py-1.5 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5 ${
+                          error
+                            ? "bg-orange-500 hover:bg-orange-600"
+                            : "bg-purple-600 hover:bg-purple-700"
+                        }`}
                       >
                         <svg
                           className="w-3.5 h-3.5"
@@ -980,16 +1008,23 @@ export default function ProjectView() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            d={error
+                              ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            }
                           />
                         </svg>
-                        Download {selectedResolution}
+                        {error ? "Resume Download" : `Download ${selectedResolution}`}
                       </button>
 
                       {/* Dropdown trigger */}
                       <button
                         onClick={() => setShowResolutionMenu(!showResolutionMenu)}
-                        className="px-1.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-r-lg border-l border-purple-500 transition-colors"
+                        className={`px-1.5 py-1.5 text-white rounded-r-lg border-l transition-colors ${
+                          error
+                            ? "bg-orange-500 hover:bg-orange-600 border-orange-400"
+                            : "bg-purple-600 hover:bg-purple-700 border-purple-500"
+                        }`}
                       >
                         <svg
                           className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}

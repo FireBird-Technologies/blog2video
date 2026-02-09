@@ -17,8 +17,10 @@ class BlogToScript(dspy.Signature):
     - Combine only truly related minor points; give major topics their own scene.
 
     FIRST SCENE RULE:
-    - The FIRST scene MUST be a "Hero Opening" that displays the hero/banner image
-      with the blog title overlaid and a SHORT narration (1-2 sentences, ~15-25 words).
+    - The FIRST scene displays the hero/banner image with the blog title overlaid
+      and a SHORT narration (1-2 sentences, ~15-25 words).
+    - The title of this scene MUST be the actual blog/video title (e.g. "Building a Reliable Text-to-SQL Pipeline").
+      Do NOT use generic titles like "Hero Opening" or "Introduction" for scene 1.
     - The narration should be a compelling hook or introduction, e.g. "Ever wondered how X works? Let's break it down."
     - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
@@ -67,7 +69,8 @@ class BlogToScript(dspy.Signature):
         '"narration" (str -- short 1-2 sentence hook for the hero scene), '
         '"visual_description" (str), "suggested_images" (list of str), '
         '"duration_seconds" (int). '
-        'FIRST scene must have a short narration hook (15-25 words) and duration_seconds=6. '
+        'FIRST scene title must be the actual blog title (never "Hero Opening"), '
+        'with a short narration hook (15-25 words) and duration_seconds=6. '
         'Example: [{"title": "How AI is Changing Everything", '
         '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
         '"visual_description": "Hero banner image with title overlay and fade-in", '

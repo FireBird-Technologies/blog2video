@@ -19,7 +19,7 @@ class EditScript(dspy.Signature):
     - Do NOT return unchanged scenes.
     - Preserve the "order" field exactly to match the original scene.
     - Never add or remove scenes -- only modify existing ones.
-    - Do NOT touch Scene 1 (Hero Opening) unless explicitly asked.
+    - Do NOT touch Scene 1 (the title/intro scene) unless explicitly asked.
     """
 
     current_script: str = dspy.InputField(
