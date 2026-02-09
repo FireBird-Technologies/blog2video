@@ -101,21 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [logout]);
 
-  // ── Warn free users when they try to close the tab/browser ──
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      const u = userRef.current;
-      if (u && u.plan === "free") {
-        e.preventDefault();
-        // Modern browsers show a generic message; the string is for legacy support
-        e.returnValue =
-          "You're on the free plan — your project data will be deleted when you leave. Are you sure?";
-        return e.returnValue;
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // Free-tier data is cleaned up after 24 hours by the backend periodic task.
+  // No need for a beforeunload warning — users can close the tab safely.
 
   return (
     <AuthContext.Provider

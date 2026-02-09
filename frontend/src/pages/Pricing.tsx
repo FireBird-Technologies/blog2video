@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
+import { googleLogin, createCheckoutSession } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Pricing() {
@@ -9,7 +9,6 @@ export default function Pricing() {
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [showLoginFor, setShowLoginFor] = useState<string | null>(null); // which plan triggered login
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     "monthly"
   );
@@ -20,7 +19,6 @@ export default function Pricing() {
     try {
       const res = await googleLogin(response.credential);
       login(res.data.access_token, res.data.user);
-      setShowLoginFor(null);
       navigate("/dashboard");
     } catch (err: any) {
       setAuthError(
@@ -31,10 +29,7 @@ export default function Pricing() {
   };
 
   const handleUpgrade = async () => {
-    if (!user) {
-      setShowLoginFor("pro");
-      return;
-    }
+    if (!user) return;
     setCheckoutLoading(true);
     try {
       const res = await createCheckoutSession(billingCycle);
@@ -42,34 +37,6 @@ export default function Pricing() {
     } catch {
       setCheckoutLoading(false);
     }
-  };
-
-  const [perVideoLoading, setPerVideoLoading] = useState(false);
-
-  const handlePerVideo = async () => {
-    if (!user) {
-      setShowLoginFor("per_video");
-      return;
-    }
-    try {
-      setPerVideoLoading(true);
-      const res = await createPerVideoCheckout();
-      if (res.data.checkout_url) {
-        window.location.href = res.data.checkout_url;
-      }
-    } catch (err) {
-      console.error("Per-video checkout error:", err);
-    } finally {
-      setPerVideoLoading(false);
-    }
-  };
-
-  const handleGetStarted = () => {
-    if (!user) {
-      setShowLoginFor("free");
-      return;
-    }
-    navigate("/dashboard");
   };
 
   const isPro = user?.plan === "pro";
@@ -175,7 +142,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "First video free",
+                "1 video — yours to keep",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
@@ -207,12 +174,17 @@ export default function Pricing() {
                 {isPro ? "Downgrade not available" : "Current plan"}
               </button>
             ) : (
-              <button
-                onClick={handleGetStarted}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors"
-              >
-                Get started free
-              </button>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setAuthError("Google sign-in failed")}
+                  size="large"
+                  shape="pill"
+                  text="signup_with"
+                  theme="outline"
+                  width="240"
+                />
+              </div>
             )}
           </div>
 
@@ -235,8 +207,6 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "AI chat editor",
-                "Remotion Studio access",
                 "Buy as many as you need",
               ].map((f) => (
                 <li
@@ -247,14 +217,37 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
+              {["AI chat editor", "Remotion Studio"].map((f) => (
+                <li
+                  key={f}
+                  className="flex items-start gap-2.5 text-sm text-gray-300"
+                >
+                  <XIcon />
+                  {f}
+                </li>
+              ))}
             </ul>
-            <button
-              onClick={handlePerVideo}
-              disabled={perVideoLoading}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
-            >
-              {perVideoLoading ? "Redirecting…" : "Buy a video"}
-            </button>
+            {user ? (
+              <button
+                onClick={handleUpgrade}
+                disabled={checkoutLoading || isPro}
+                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
+              >
+                Buy a video
+              </button>
+            ) : (
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setAuthError("Google sign-in failed")}
+                  size="large"
+                  shape="pill"
+                  text="continue_with"
+                  theme="outline"
+                  width="240"
+                />
+              </div>
+            )}
           </div>
 
           {/* Pro */}
@@ -323,23 +316,37 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
-            {isPro ? (
-              <button
-                disabled
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-50 text-purple-400 cursor-not-allowed"
-              >
-                Current plan
-              </button>
+            {user ? (
+              isPro ? (
+                <button
+                  disabled
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-50 text-purple-400 cursor-not-allowed"
+                >
+                  Current plan
+                </button>
+              ) : (
+                <button
+                  onClick={handleUpgrade}
+                  disabled={checkoutLoading}
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
+                >
+                  {checkoutLoading
+                    ? "Redirecting to checkout..."
+                    : "Upgrade to Pro"}
+                </button>
+              )
             ) : (
-              <button
-                onClick={handleUpgrade}
-                disabled={checkoutLoading}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-60"
-              >
-                {checkoutLoading
-                  ? "Redirecting to checkout..."
-                  : "Upgrade to Pro"}
-              </button>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setAuthError("Google sign-in failed")}
+                  size="large"
+                  shape="pill"
+                  text="continue_with"
+                  theme="outline"
+                  width="240"
+                />
+              </div>
             )}
           </div>
         </div>
@@ -359,53 +366,6 @@ export default function Pricing() {
           </p>
         </div>
       </div>
-
-      {/* Login modal — shown when a logged-out user clicks a plan button */}
-      {showLoginFor && !user && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-8 text-center relative">
-            <button
-              onClick={() => setShowLoginFor(null)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors p-1"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <div className="w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
-              B2V
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {showLoginFor === "free"
-                ? "Create your free account"
-                : showLoginFor === "per_video"
-                ? "Sign in to buy a video"
-                : "Sign in to upgrade"}
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              {showLoginFor === "free"
-                ? "Sign in with Google — your first video is completely free."
-                : showLoginFor === "per_video"
-                ? "Sign in with Google, then purchase from any project."
-                : "Sign in with Google to start your Pro subscription."}
-            </p>
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setAuthError("Google sign-in failed")}
-                size="large"
-                shape="pill"
-                text="continue_with"
-                theme="outline"
-                width="280"
-              />
-            </div>
-            {authError && (
-              <p className="text-red-500 text-sm mt-4">{authError}</p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Feature comparison */}
       <div className="max-w-4xl mx-auto px-6 pb-20">
@@ -433,14 +393,14 @@ export default function Pricing() {
             <tbody>
               {[
                 { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo" },
-                { feature: "Videos", free: "1 free", perVideo: "Unlimited", pro: "100/month" },
+                { feature: "Videos", free: "1 total", perVideo: "Unlimited", pro: "100/month" },
                 { feature: "AI script generation", free: true, perVideo: true, pro: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true },
                 { feature: "Video preview", free: true, perVideo: true, pro: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, pro: true },
-                { feature: "AI chat editor", free: false, perVideo: true, pro: true },
-                { feature: "Remotion Studio access", free: false, perVideo: true, pro: true },
+                { feature: "AI chat editor", free: false, perVideo: false, pro: true },
+                { feature: "Remotion Studio access", free: false, perVideo: false, pro: true },
                 { feature: "Priority support", free: false, perVideo: false, pro: true },
               ].map((row, i) => (
                 <tr
@@ -505,7 +465,7 @@ export default function Pricing() {
             },
             {
               q: "What's the difference between per-video and Pro?",
-              a: "Per-video ($5 each) includes Studio and chat editing for that video. Pro ($50/month) gives you 100 videos with all features plus priority support. If you make 10+ videos/month, Pro is the clear winner.",
+              a: "Per-video is pay-as-you-go at $5 each \u2014 great if you only make a few. Pro at $50/month gives you 100 videos plus AI chat editing and Remotion Studio. If you make 10+ videos/month, Pro is the clear winner.",
             },
             {
               q: "How does annual billing work?",
@@ -513,7 +473,7 @@ export default function Pricing() {
             },
             {
               q: "Can I edit the video after generation?",
-              a: "Per-video and Pro users get access to the AI chat editor (tell the AI to rewrite scenes) and full Remotion Studio for manual editing. Free users can preview and download.",
+              a: "Free and per-video users can preview and download. Pro users get access to the AI chat editor (tell the AI to rewrite scenes) and full Remotion Studio for manual editing.",
             },
             {
               q: "What voices are available?",

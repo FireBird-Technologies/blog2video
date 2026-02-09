@@ -2,8 +2,6 @@
 Google OAuth authentication router.
 Frontend sends the Google ID token, backend verifies it and returns a JWT.
 """
-import os
-import shutil
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -13,9 +11,7 @@ from google.auth.transport import requests as google_requests
 from app.config import settings
 from app.database import get_db
 from app.models.user import User, PlanTier
-from app.models.project import Project
 from app.auth import create_access_token, get_current_user
-from app.services.remotion import safe_remove_workspace, get_workspace_dir
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -139,29 +135,7 @@ def logout_cleanup(
     db: Session = Depends(get_db),
 ):
     """
-    Handle logout. For free-tier users, delete all project data and files
-    so no data is retained after they leave.
+    Handle logout. Data is NOT deleted here — the periodic cleanup task
+    handles deletion after 24 hours for free-tier users.
     """
-    if user.plan == PlanTier.FREE:
-        _cleanup_free_user_data(user, db)
     return {"detail": "Logged out"}
-
-
-def _cleanup_free_user_data(user: User, db: Session) -> None:
-    """Delete all projects and associated media/workspace files for a free user."""
-    projects = db.query(Project).filter(Project.user_id == user.id).all()
-
-    for project in projects:
-        # Remove the entire project media directory (images, audio, output, workspace)
-        project_media = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
-        if os.path.exists(project_media):
-            # Safely handle workspace junction before rmtree
-            workspace = get_workspace_dir(project.id)
-            safe_remove_workspace(workspace)
-            shutil.rmtree(project_media, ignore_errors=True)
-
-        # Delete the project object itself (cascades to scenes, assets, chat messages)
-        # Using db.delete() on the ORM object triggers cascade deletes
-        db.delete(project)
-
-    db.commit()
