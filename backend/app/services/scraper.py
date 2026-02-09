@@ -48,14 +48,7 @@ def scrape_blog(project: Project, db: Session) -> Project:
     if not text or len(text.strip()) < 50:
         raise ValueError("Could not extract meaningful content from the URL.")
 
-    # If we only got 0-1 images, try Exa search for more topic-related images
-    if len(image_urls) <= 1 and settings.EXA_API_KEY:
-        extra_images = _find_extra_images_via_exa(url, text, image_urls)
-        if extra_images:
-            print(f"[SCRAPER] Found {len(extra_images)} extra images via Exa search")
-            image_urls.extend(extra_images)
-
-    # Download images
+    # Download images (only from the original blog page — no external sources)
     _download_images(project.user_id, project.id, image_urls, db)
 
     # Update project
