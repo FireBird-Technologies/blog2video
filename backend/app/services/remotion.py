@@ -401,6 +401,9 @@ def render_video(project: Project, resolution: str = "720p") -> str:
     return output_path
 
 
+MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
+
+
 def start_render_async(project: Project, resolution: str = "720p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
     workspace = get_workspace_dir(project.id)
@@ -420,8 +423,16 @@ def start_render_async(project: Project, resolution: str = "720p") -> None:
         "error": None,
         "output_path": output_path,
         "time_remaining": None,
+        "_cmd": cmd,
+        "_workspace": workspace,
+        "_attempt": 1,
     }
 
+    _launch_render_process(project.id, cmd, workspace)
+
+
+def _launch_render_process(project_id: int, cmd: list[str], workspace: str) -> None:
+    """Spawn the Remotion render subprocess and wire up stream readers + waiter."""
     process = subprocess.Popen(
         cmd,
         cwd=workspace,
@@ -434,13 +445,13 @@ def start_render_async(project: Project, resolution: str = "720p") -> None:
     for stream in (process.stdout, process.stderr):
         t = threading.Thread(
             target=_read_render_stream,
-            args=(project.id, stream),
+            args=(project_id, stream),
             daemon=True,
         )
         t.start()
 
     threading.Thread(
-        target=_wait_render, args=(project.id, process), daemon=True
+        target=_wait_render, args=(project_id, process), daemon=True
     ).start()
 
 
@@ -502,7 +513,7 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
 
 
 def _wait_render(project_id: int, process: subprocess.Popen) -> None:
-    """Wait for the render process to finish and update status."""
+    """Wait for the render process to finish. Auto-retry on failure using cached bundle."""
     import time
 
     try:
@@ -512,13 +523,12 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
         process.wait()  # block until process exits naturally
 
         retcode = process.returncode
-        output_path = _render_progress[project_id].get("output_path", "")
+        prog = _render_progress.get(project_id, {})
+        output_path = prog.get("output_path", "")
 
         if retcode == 0 and output_path and os.path.exists(output_path) and _is_valid_mp4(output_path):
             _render_progress[project_id]["progress"] = 100
-            _render_progress[project_id]["rendered_frames"] = _render_progress[
-                project_id
-            ].get("total_frames", 0)
+            _render_progress[project_id]["rendered_frames"] = prog.get("total_frames", 0)
 
             # Upload rendered video to R2
             upload_rendered_video_to_r2(project_id, output_path)
@@ -535,10 +545,36 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             _render_progress[project_id]["error"] = "Render completed but no valid video file was produced"
             _render_progress[project_id]["done"] = True
         else:
-            _render_progress[project_id]["error"] = (
-                f"Render failed (exit code {retcode})"
-            )
-            _render_progress[project_id]["done"] = True
+            # ── Render failed — auto-retry with cached bundle ──
+            attempt = prog.get("_attempt", 1)
+            cmd = prog.get("_cmd")
+            workspace = prog.get("_workspace")
+
+            if attempt < MAX_RENDER_RETRIES and cmd and workspace:
+                next_attempt = attempt + 1
+                delay = 3 * attempt  # 3s, 6s backoff
+                print(
+                    f"[REMOTION] Render failed (exit {retcode}) for project {project_id}, "
+                    f"retrying {next_attempt}/{MAX_RENDER_RETRIES} in {delay}s (bundle cache reused)..."
+                )
+                time.sleep(delay)
+
+                # Reset progress for the retry but keep internal state
+                _render_progress[project_id].update({
+                    "progress": 0,
+                    "rendered_frames": 0,
+                    "total_frames": 0,
+                    "done": False,
+                    "error": None,
+                    "time_remaining": None,
+                    "_attempt": next_attempt,
+                })
+                _launch_render_process(project_id, cmd, workspace)
+            else:
+                _render_progress[project_id]["error"] = (
+                    f"Render failed (exit code {retcode}) after {attempt} attempt(s)"
+                )
+                _render_progress[project_id]["done"] = True
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True
