@@ -515,6 +515,14 @@ export default function ProjectView() {
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
+
+            // Also open the video URL directly in a new tab as a fallback
+            // in case the blob download is blocked by popup settings
+            const freshProject = await loadProject();
+            const directUrl = freshProject?.r2_video_url;
+            if (directUrl) {
+              window.open(directUrl, "_blank", "noopener,noreferrer");
+            }
           }
         } catch {
           // Network hiccup — keep polling
@@ -885,6 +893,9 @@ export default function ProjectView() {
               <p className="mt-6 text-[11px] text-gray-300">
                 Hang tight — your download will start automatically.
               </p>
+              <p className="mt-2 text-[10px] text-gray-300/70">
+                If your download doesn't start, allow popups for this site.
+              </p>
             </div>
           </div>
         )}
@@ -1037,35 +1048,40 @@ export default function ProjectView() {
                     )}
                   </div>
                 ) : (
-                  <button
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                  >
-                    {downloading ? (
-                      <>
-                        <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                          />
-                        </svg>
-                        Download MP4
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      {downloading ? (
+                        <>
+                          <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                          </svg>
+                          Download MP4
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[9px] text-gray-300">
+                      Not working? Allow popups for this site.
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
