@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession } from "../api/client";
+import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Pricing() {
@@ -28,6 +28,8 @@ export default function Pricing() {
     }
   };
 
+  const [perVideoLoading, setPerVideoLoading] = useState(false);
+
   const handleUpgrade = async () => {
     if (!user) return;
     setCheckoutLoading(true);
@@ -36,6 +38,20 @@ export default function Pricing() {
       window.location.href = res.data.checkout_url;
     } catch {
       setCheckoutLoading(false);
+    }
+  };
+
+  const handlePerVideo = async () => {
+    if (!user) return;
+    setPerVideoLoading(true);
+    try {
+      const res = await createPerVideoCheckout();
+      if (res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      }
+    } catch (err) {
+      console.error("Per-video checkout error:", err);
+      setPerVideoLoading(false);
     }
   };
 
@@ -229,11 +245,11 @@ export default function Pricing() {
             </ul>
             {user ? (
               <button
-                onClick={handleUpgrade}
-                disabled={checkoutLoading || isPro}
+                onClick={handlePerVideo}
+                disabled={perVideoLoading || isPro}
                 className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
               >
-                Buy a video
+                {perVideoLoading ? "Redirecting…" : "Buy a video"}
               </button>
             ) : (
               <div className="flex justify-center">
