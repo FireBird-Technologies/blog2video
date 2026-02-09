@@ -120,6 +120,7 @@ def create_checkout_session(
                 "quantity": 1,
             }
         ],
+        allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
@@ -185,6 +186,7 @@ def create_per_video_checkout(
                 "quantity": 1,
             }
         ],
+        allow_promotion_codes=True,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=meta,
