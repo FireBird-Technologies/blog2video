@@ -383,8 +383,20 @@ def render_video_endpoint(
     project.status = ProjectStatus.RENDERING
     db.commit()
 
-    start_render_async(project, resolution=resolution)
-    return {"detail": "Render started", "progress": 0, "resolution": resolution}
+    try:
+        start_render_async(project, resolution=resolution)
+        return {"detail": "Render started", "progress": 0, "resolution": resolution}
+    except Exception as e:
+        # If render start fails, reset status and return error
+        print(f"[RENDER] Failed to start render for project {project_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        project.status = ProjectStatus.GENERATED
+        db.commit()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start render: {str(e)}. Please try again.",
+        )
 
 
 @router.get("/render-status")
@@ -397,7 +409,26 @@ def render_status_endpoint(
     project = _get_project(project_id, user.id, db)
     prog = get_render_progress(project_id)
 
+    # If no progress dict exists, check project status to determine state
     if not prog:
+        # If project is marked as RENDERING but no progress exists, the render
+        # process likely crashed or was lost (e.g. Cloud Run instance restart).
+        # Reset status to allow retry.
+        if project.status == ProjectStatus.RENDERING:
+            print(f"[RENDER] Project {project_id} is RENDERING but no progress found — render was lost, resetting status")
+            project.status = ProjectStatus.GENERATED  # Back to pre-render state
+            db.commit()
+            return {
+                "progress": 0,
+                "rendered_frames": 0,
+                "total_frames": 0,
+                "done": False,
+                "error": "Render process was lost. Please try rendering again.",
+                "time_remaining": None,
+                "r2_video_url": project.r2_video_url,
+            }
+        
+        # Project is not rendering — return default state
         return {
             "progress": 0,
             "rendered_frames": 0,
@@ -405,6 +436,7 @@ def render_status_endpoint(
             "done": project.status == ProjectStatus.DONE,
             "error": None,
             "time_remaining": None,
+            "r2_video_url": project.r2_video_url,
         }
 
     # If render just finished, update project status
