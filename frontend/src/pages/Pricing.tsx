@@ -29,14 +29,20 @@ export default function Pricing() {
   };
 
   const [perVideoLoading, setPerVideoLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const handleUpgrade = async () => {
     if (!user) return;
     setCheckoutLoading(true);
+    setCheckoutError(null);
     try {
       const res = await createCheckoutSession(billingCycle);
       window.location.href = res.data.checkout_url;
-    } catch {
+    } catch (err: any) {
+      console.error("Pro checkout error:", err);
+      setCheckoutError(
+        err?.response?.data?.detail || "Checkout failed. Please try again."
+      );
       setCheckoutLoading(false);
     }
   };
@@ -44,13 +50,17 @@ export default function Pricing() {
   const handlePerVideo = async () => {
     if (!user) return;
     setPerVideoLoading(true);
+    setCheckoutError(null);
     try {
       const res = await createPerVideoCheckout();
       if (res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Per-video checkout error:", err);
+      setCheckoutError(
+        err?.response?.data?.detail || "Checkout failed. Please try again."
+      );
       setPerVideoLoading(false);
     }
   };
@@ -158,7 +168,7 @@ export default function Pricing() {
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
-                "1 video — yours to keep",
+                "First video free",
                 "AI script generation",
                 "ElevenLabs voiceover",
                 "Remotion video preview",
@@ -223,6 +233,8 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
+                "AI chat editor",
+                "Remotion Studio access",
                 "Buy as many as you need",
               ].map((f) => (
                 <li
@@ -230,15 +242,6 @@ export default function Pricing() {
                   className="flex items-start gap-2.5 text-sm text-gray-600"
                 >
                   <CheckIcon />
-                  {f}
-                </li>
-              ))}
-              {["AI chat editor", "Remotion Studio"].map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-gray-300"
-                >
-                  <XIcon />
                   {f}
                 </li>
               ))}
@@ -367,8 +370,10 @@ export default function Pricing() {
           </div>
         </div>
 
-        {authError && (
-          <p className="text-red-500 text-sm text-center mt-6">{authError}</p>
+        {(authError || checkoutError) && (
+          <p className="text-red-500 text-sm text-center mt-6">
+            {authError || checkoutError}
+          </p>
         )}
 
         {/* Cost breakdown callout */}
@@ -409,14 +414,14 @@ export default function Pricing() {
             <tbody>
               {[
                 { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo" },
-                { feature: "Videos", free: "1 total", perVideo: "Unlimited", pro: "100/month" },
+                { feature: "Videos", free: "First video free", perVideo: "Unlimited", pro: "100/month" },
                 { feature: "AI script generation", free: true, perVideo: true, pro: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true },
                 { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true },
                 { feature: "Video preview", free: true, perVideo: true, pro: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, pro: true },
-                { feature: "AI chat editor", free: false, perVideo: false, pro: true },
-                { feature: "Remotion Studio access", free: false, perVideo: false, pro: true },
+                { feature: "AI chat editor", free: false, perVideo: true, pro: true },
+                { feature: "Remotion Studio access", free: false, perVideo: true, pro: true },
                 { feature: "Priority support", free: false, perVideo: false, pro: true },
               ].map((row, i) => (
                 <tr
