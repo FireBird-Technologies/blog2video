@@ -178,12 +178,32 @@ async def _periodic_paid_tier_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB, start background tasks."""
-    init_db()
-    free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
-    paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
+    try:
+        print("[STARTUP] Initializing database...")
+        init_db()
+        print("[STARTUP] Database initialized successfully")
+    except Exception as e:
+        print(f"[STARTUP] Database initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't raise - let the app start anyway (might be a migration issue)
+    
+    try:
+        free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
+        paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
+        print("[STARTUP] Background tasks started")
+    except Exception as e:
+        print(f"[STARTUP] Failed to start background tasks: {e}")
+        import traceback
+        traceback.print_exc()
+    
     yield
-    free_cleanup.cancel()
-    paid_cleanup.cancel()
+    
+    try:
+        free_cleanup.cancel()
+        paid_cleanup.cancel()
+    except:
+        pass
 
 
 # ─── App ──────────────────────────────────────────────────────
