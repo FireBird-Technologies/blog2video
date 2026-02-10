@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
+import UpgradeModal from "./UpgradeModal";
 
 interface Props {
   onSubmit: (
@@ -50,6 +51,7 @@ export default function BlogUrlForm({
   const [batchCount, setBatchCount] = useState(1);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +85,53 @@ export default function BlogUrlForm({
 
   const form = (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Mode toggle: Single / Multi */}
+      <div className="flex rounded-lg bg-gray-100/80 p-0.5">
+        <button
+          type="button"
+          onClick={() => {
+            setBatchCount(1);
+            setUrls((prev) => [prev[0] || ""]);
+          }}
+          className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${
+            batchCount === 1
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Single Video
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!isPro) { setShowUpgrade(true); return; }
+            setBatchCount(3);
+            setUrls((prev) => {
+              const next = [...prev];
+              while (next.length < 3) next.push("");
+              return next.slice(0, 3);
+            });
+          }}
+          className={`flex-1 py-2 rounded-md text-xs font-medium transition-all relative flex items-center justify-center gap-1.5 ${
+            batchCount > 1
+              ? "bg-white text-gray-900 shadow-sm"
+              : isPro
+              ? "text-gray-400 hover:text-gray-600"
+              : "text-gray-300 cursor-not-allowed"
+          }`}
+        >
+          Multi Video
+          {!isPro && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px] font-semibold">
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Pro
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* URL(s) */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
@@ -107,34 +156,6 @@ export default function BlogUrlForm({
         <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
           If your post is paywalled. Use the paywall-free link for best results.
         </p>
-
-        {/* Batch slider — Pro only */}
-        {isPro && (
-          <div className="mt-3 flex items-center gap-3">
-            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
-              Batch
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              value={batchCount}
-              onChange={(e) => {
-                const count = Number(e.target.value);
-                setBatchCount(count);
-                setUrls((prev) => {
-                  const next = [...prev];
-                  while (next.length < count) next.push("");
-                  return next.slice(0, count);
-                });
-              }}
-              className="flex-1 accent-purple-600 h-1.5"
-            />
-            <span className="text-xs font-medium text-gray-500 w-6 text-center">
-              {batchCount}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Name */}
@@ -153,53 +174,62 @@ export default function BlogUrlForm({
       </div>
 
       {/* Voice preferences row */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Gender / None */}
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             Voice
           </label>
-          <div className="flex gap-1.5">
-            {(["female", "male", "none"] as const).map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setVoiceGender(g)}
-                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                  voiceGender === g
-                    ? g === "none"
-                      ? "bg-gray-600 text-white shadow-sm"
-                      : "bg-purple-600 text-white shadow-sm"
-                    : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-                }`}
-              >
-                {g === "female" ? "Female" : g === "male" ? "Male" : "None"}
-              </button>
-            ))}
-          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={voiceGender === "none"}
+              onChange={(e) => setVoiceGender(e.target.checked ? "none" : "female")}
+              className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="text-[11px] text-gray-400">No voiceover</span>
+          </label>
         </div>
 
-        {/* Accent — hidden when voice is "none" */}
         {voiceGender !== "none" && (
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              English
-            </label>
-            <div className="flex gap-2">
-              {(["american", "british"] as const).map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => setVoiceAccent(a)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                    voiceAccent === a
-                      ? "bg-purple-600 text-white shadow-sm"
-                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-                  }`}
-                >
-                  {a === "american" ? "American" : "British"}
-                </button>
-              ))}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Gender */}
+            <div>
+              <div className="flex gap-2">
+                {(["female", "male"] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setVoiceGender(g)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                      voiceGender === g
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+                    }`}
+                  >
+                    {g === "female" ? "Female" : "Male"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Accent */}
+            <div>
+              <div className="flex gap-2">
+                {(["american", "british"] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setVoiceAccent(a)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                      voiceAccent === a
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+                    }`}
+                  >
+                    {a === "american" ? "American" : "British"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -318,7 +348,7 @@ export default function BlogUrlForm({
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
           Logo{" "}
-          <span className="text-gray-300 font-normal">(optional)</span>
+          <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
         </label>
         <div className="flex items-center gap-3">
           <button
@@ -345,7 +375,15 @@ export default function BlogUrlForm({
             type="file"
             accept="image/png,image/jpeg,image/webp,image/svg+xml"
             className="hidden"
-            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              const f = e.target.files?.[0] || null;
+              if (f && f.size > 2 * 1024 * 1024) {
+                alert("Logo must be under 2 MB.");
+                e.target.value = "";
+                return;
+              }
+              setLogoFile(f);
+            }}
           />
         </div>
         {logoFile && (
@@ -431,6 +469,12 @@ export default function BlogUrlForm({
           "Generate Video"
         )}
       </button>
+
+      <UpgradeModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature="Multi Video"
+      />
     </form>
   );
 

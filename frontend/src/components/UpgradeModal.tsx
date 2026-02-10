@@ -38,7 +38,11 @@ export default function UpgradeModal({
   };
 
   const handleBuyVideo = async () => {
-    if (!user || !projectId) {
+    if (!user) {
+      window.location.href = "/pricing";
+      return;
+    }
+    if (!projectId) {
       window.location.href = "/pricing";
       return;
     }
@@ -111,10 +115,9 @@ export default function UpgradeModal({
           </p>
 
           {/* Two-option layout */}
-          <div className={`grid gap-3 mb-6 ${projectId ? "grid-cols-2" : "grid-cols-1"}`}>
-            {/* Per-video option — only show if projectId is provided */}
-            {projectId && (
-              <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
+          <div className="grid gap-3 mb-6 grid-cols-2">
+            {/* Per-video option */}
+            <div className="glass-card p-4 text-left border border-gray-200 hover:border-purple-200 transition-colors rounded-xl">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Premium access
@@ -163,7 +166,6 @@ export default function UpgradeModal({
                   {loadingVideo ? "Redirecting..." : "Get premium access — $5"}
                 </button>
               </div>
-            )}
 
             {/* Pro subscription option */}
             <div className="glass-card p-4 text-left border-2 border-purple-200 rounded-xl relative">

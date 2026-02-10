@@ -1039,12 +1039,22 @@ export default function ProjectView() {
 
                     {/* Resolution dropdown */}
                     {showResolutionMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
-                        {([
-                          { value: "480p", label: "480p", desc: "Fast · Lower quality", locked: false },
-                          { value: "720p", label: "720p", desc: "Balanced · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "Full HD · Slower", locked: !isPro },
-                        ] as const).map((opt) => (
+                      <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
+                        {/* Format indicator */}
+                        <div className="px-3 py-1.5 border-b border-gray-100">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+                            {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
+                          </span>
+                        </div>
+                        {(project.aspect_ratio === "portrait" ? [
+                          { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
+                          { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
+                          { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
+                        ] : [
+                          { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
+                          { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
+                          { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
+                        ]).map((opt) => (
                           <button
                             key={opt.value}
                             onClick={() => {
@@ -1199,7 +1209,11 @@ export default function ProjectView() {
                     <video
                       key={videoSrc}
                       controls
-                      className="max-w-full max-h-[60vh] rounded-lg shadow-lg"
+                      className={`rounded-lg shadow-lg ${
+                        project.aspect_ratio === "portrait"
+                          ? "max-h-[70vh] max-w-[40vw]"
+                          : "max-w-full max-h-[60vh]"
+                      }`}
                       style={{ background: "#000" }}
                     >
                       <source src={videoSrc} type="video/mp4" />

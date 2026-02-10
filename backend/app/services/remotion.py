@@ -249,14 +249,24 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
 
     # Copy logo to public dir if available
     logo_file = None
-    if project.logo_r2_url:
+    # Try to find the logo locally first, then fall back to R2
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
+    logo_local = None
+    for ext_candidate in ("png", "jpg", "jpeg", "webp", "svg"):
+        candidate = os.path.join(logo_dir, f"logo.{ext_candidate}")
+        if os.path.exists(candidate):
+            logo_local = candidate
+            break
+
+    if logo_local:
+        logo_ext = logo_local.rsplit(".", 1)[-1]
+        logo_dest = os.path.join(public_dir, f"logo.{logo_ext}")
+        _copy_file(logo_local, logo_dest)
+        logo_file = f"logo.{logo_ext}"
+    elif project.logo_r2_url:
         logo_ext = project.logo_r2_url.rsplit(".", 1)[-1] if "." in project.logo_r2_url else "png"
         logo_dest = os.path.join(public_dir, f"logo.{logo_ext}")
-        logo_local = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/logo.{logo_ext}")
-        if os.path.exists(logo_local):
-            _copy_file(logo_local, logo_dest)
-            logo_file = f"logo.{logo_ext}"
-        elif _download_url_to_file(project.logo_r2_url, logo_dest):
+        if _download_url_to_file(project.logo_r2_url, logo_dest):
             logo_file = f"logo.{logo_ext}"
 
     data = {
