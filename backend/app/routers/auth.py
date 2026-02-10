@@ -94,6 +94,14 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
         user.name = name
         user.picture = picture or user.picture
 
+    # Local testing: override plan if DEFAULT_PLAN is set in .env
+    if settings.DEFAULT_PLAN:
+        override = settings.DEFAULT_PLAN.upper()
+        try:
+            user.plan = PlanTier(override.lower())
+        except ValueError:
+            pass  # ignore invalid values
+
     db.commit()
     db.refresh(user)
 

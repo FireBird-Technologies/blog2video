@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -39,6 +39,10 @@ def create_project(
         bg_color=data.bg_color or "#FFFFFF",
         text_color=data.text_color or "#000000",
         animation_instructions=data.animation_instructions or None,
+        logo_position=data.logo_position or "bottom_right",
+        logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
+        custom_voice_id=data.custom_voice_id or None,
+        aspect_ratio=data.aspect_ratio or "landscape",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -48,6 +52,61 @@ def create_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.post("/{project_id}/logo")
+def upload_logo(
+    project_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a logo image for the project. Stored in R2."""
+    project = _get_user_project(project_id, user.id, db)
+
+    # Validate file type
+    allowed_types = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
+
+    # Read file content and enforce size limit (2 MB max)
+    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
+    file_bytes = file.file.read()
+    if len(file_bytes) > MAX_LOGO_SIZE:
+        raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
+
+    # Save locally first
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
+    os.makedirs(logo_dir, exist_ok=True)
+
+    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "png"
+    logo_filename = f"logo.{ext}"
+    local_path = os.path.join(logo_dir, logo_filename)
+
+    with open(local_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Upload to R2
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key = r2_storage.image_key(user.id, project_id, logo_filename)
+            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=file.content_type)
+            project.logo_r2_key = r2_key
+            project.logo_r2_url = r2_url
+        except Exception as e:
+            print(f"[PROJECTS] Logo R2 upload failed: {e}")
+            project.logo_r2_key = None
+            project.logo_r2_url = None
+
+    # Fallback: if R2 isn't configured or upload failed, use local serving URL
+    if not project.logo_r2_url:
+        base = str(request.base_url).rstrip("/")
+        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
+
+    db.commit()
+    db.refresh(project)
+    return {"logo_url": project.logo_r2_url, "logo_position": project.logo_position}
 
 
 @router.get("", response_model=list[ProjectListOut])

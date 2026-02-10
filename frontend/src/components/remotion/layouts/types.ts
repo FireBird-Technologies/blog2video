@@ -17,6 +17,7 @@ export interface SceneLayoutProps {
   accentColor: string;
   bgColor: string;
   textColor: string;
+  aspectRatio?: string;
   // code_block
   codeLines?: string[];
   codeLanguage?: string;

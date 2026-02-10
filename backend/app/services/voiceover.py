@@ -29,8 +29,19 @@ VOICE_MAP = {
 DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
-def _get_voice_id(project: Project) -> str:
-    """Pick an ElevenLabs voice ID based on project preferences."""
+def _get_voice_id(project: Project) -> str | None:
+    """Pick an ElevenLabs voice ID based on project preferences.
+    Returns None if voice_gender is 'none' (no audio mode).
+    """
+    # No-audio mode
+    if getattr(project, "voice_gender", None) == "none":
+        return None
+
+    # Custom voice (Pro users paste their own ElevenLabs voice ID)
+    custom = getattr(project, "custom_voice_id", None)
+    if custom:
+        return custom
+
     key = (
         getattr(project, "voice_gender", "male"),
         getattr(project, "voice_accent", "american"),
@@ -52,17 +63,35 @@ def _get_audio_duration(filepath: str) -> float:
             return 10.0
 
 
+WORDS_PER_SECOND = 2.5  # average speaking pace for duration estimation
+
+
 def generate_voiceover(scene: Scene, db: Session) -> str:
     """
     Generate voiceover audio for a scene using ElevenLabs TTS.
     After generation, updates scene.duration_seconds to audio length + 1s.
+    If voice_gender is "none", skips TTS and estimates duration from word count.
     Retries on connection errors.
 
     Returns:
-        str: Local path to the generated audio file
+        str: Local path to the generated audio file (empty string if no audio)
     """
     # Skip scenes with no narration (e.g. hero opening)
     if not scene.narration_text or not scene.narration_text.strip():
+        return ""
+
+    # Determine voice from project preferences
+    project = db.query(Project).filter(Project.id == scene.project_id).first()
+    voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
+
+    # No-audio mode: estimate duration from word count, skip TTS
+    if voice_id is None:
+        word_count = len(scene.narration_text.split())
+        estimated_duration = max(5.0, word_count / WORDS_PER_SECOND)
+        scene.duration_seconds = round(estimated_duration + DURATION_PAD, 1)
+        scene.voiceover_path = None
+        db.commit()
+        print(f"[VOICEOVER] Scene {scene.order}: no-audio mode, estimated {scene.duration_seconds}s from {word_count} words")
         return ""
 
     client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
@@ -75,10 +104,6 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
     filename = f"scene_{scene.order}.mp3"
     output_path = os.path.join(audio_dir, filename)
 
-    # Determine voice from project preferences
-    project = db.query(Project).filter(Project.id == scene.project_id).first()
-    voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
-
     # Retry loop for connection issues
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
@@ -88,6 +113,12 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
                 voice_id=voice_id,
                 model_id="eleven_multilingual_v2",
                 output_format="mp3_44100_128",
+                voice_settings={
+                    "stability": 0.75,           # Higher = more consistent across generations
+                    "similarity_boost": 0.85,    # Higher = closer to original voice
+                    "style": 0.0,                # 0 = no style exaggeration
+                    "use_speaker_boost": True,
+                },
             )
 
             with open(output_path, "wb") as f:

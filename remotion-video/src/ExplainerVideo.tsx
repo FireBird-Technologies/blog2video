@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./components/layouts";
 import { TransitionWipe } from "./components/Transitions";
+import { LogoOverlay } from "./components/LogoOverlay";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ interface VideoData {
   accentColor: string;
   bgColor: string;
   textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  aspectRatio?: string;
   scenes: SceneData[];
 }
 
@@ -53,11 +58,13 @@ export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
       );
       const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
 
+      const isPortrait = data.aspectRatio === "portrait";
+
       return {
         durationInFrames: Math.max(totalFrames, FPS * 5),
         fps: FPS,
-        width: 1920,
-        height: 1080,
+        width: isPortrait ? 1080 : 1920,
+        height: isPortrait ? 1920 : 1080,
       };
     } catch (e) {
       console.warn("calculateVideoMetadata fallback:", e);
@@ -143,6 +150,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           accentColor: data.accentColor || "#7C3AED",
           bgColor: data.bgColor || "#FFFFFF",
           textColor: data.textColor || "#000000",
+          aspectRatio: data.aspectRatio || "landscape",
           ...scene.layoutProps,
         };
 
@@ -169,6 +177,16 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           </Sequence>
         );
       })}
+
+      {/* Logo overlay — spans entire video */}
+      {data.logo && (
+        <LogoOverlay
+          src={staticFile(data.logo)}
+          position={data.logoPosition || "bottom_right"}
+          maxOpacity={data.logoOpacity ?? 0.9}
+          aspectRatio={data.aspectRatio || "landscape"}
+        />
+      )}
     </AbsoluteFill>
   );
 };

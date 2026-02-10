@@ -8,6 +8,7 @@ import {
   getRenderStatus,
   downloadVideo,
   downloadStudioZip,
+  launchStudio,
   toggleAssetExclusion,
   Project,
   Scene,
@@ -269,6 +270,7 @@ export default function ProjectView() {
 
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
   // Scenes tab: expanded scene detail
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
@@ -309,6 +311,7 @@ export default function ProjectView() {
     try {
       const res = await getProject(projectId);
       setProject(res.data);
+      setError(null); // clear any previous load errors on success
       if (res.data.status === "done") {
         setRendered(true);
       }
@@ -447,6 +450,13 @@ export default function ProjectView() {
   }, [showResolutionMenu]);
 
   const handleRender = async (resolution?: string) => {
+    // If already rendered and available in R2, skip straight to download
+    if (project?.r2_video_url) {
+      setRendered(true);
+      setRendering(false);
+      return;
+    }
+
     const res = resolution || selectedResolution;
     setShowResolutionMenu(false);
     setRendering(true);
@@ -591,6 +601,27 @@ export default function ProjectView() {
     setDownloading(false);
   };
 
+  const handleOpenStudio = async () => {
+    if (!project) return;
+    setDownloadingStudio(true);
+    setError(null);
+    try {
+      const res = await launchStudio(projectId);
+      const url = res.data.studio_url;
+      if (url) {
+        window.open(url, "_blank");
+      }
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        setShowUpgrade(true);
+      } else {
+        setError(err?.response?.data?.detail || "Failed to launch Studio.");
+      }
+    } finally {
+      setDownloadingStudio(false);
+    }
+  };
+
   const handleDownloadStudio = async () => {
     if (!project) return;
     setDownloadingStudio(true);
@@ -650,7 +681,7 @@ export default function ProjectView() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
-    { id: "audio", label: "Audio" },
+    ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "scenes", label: "Scenes" },
   ];
 
@@ -732,7 +763,7 @@ export default function ProjectView() {
                         ? "bg-green-100 text-green-600"
                         : isActive
                         ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
-                        : "bg-gray-50 text-gray-300"
+                        : "bg-gray-100 text-gray-400"
                     }`}
                   >
                     {isDone ? (
@@ -754,12 +785,12 @@ export default function ProjectView() {
                     )}
                   </div>
                   <span
-                    className={`text-[11px] font-medium ${
+                    className={`text-xs font-medium ${
                       isDone
                         ? "text-green-600"
                         : isActive
                         ? "text-purple-600"
-                        : "text-gray-300"
+                        : "text-gray-400"
                     }`}
                   >
                     {label}
@@ -839,7 +870,7 @@ export default function ProjectView() {
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-gray-400">
+              <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>{renderProgress}%</span>
                 {renderTimeLeft ? (
                   <span className="flex items-center gap-1.5">
@@ -854,7 +885,7 @@ export default function ProjectView() {
                 )}
               </div>
 
-              <p className="mt-6 text-[11px] text-gray-300">
+              <p className="mt-6 text-sm text-gray-400">
                 Feel free to browse other tabs — just don't close this one.
               </p>
 
@@ -907,17 +938,17 @@ export default function ProjectView() {
                 <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: "100%" }} />
               </div>
 
-              <div className="flex items-center justify-center text-[11px] text-gray-400">
+              <div className="flex items-center justify-center text-xs text-gray-500">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin" />
                   Almost done
                 </span>
               </div>
 
-              <p className="mt-6 text-[11px] text-gray-300">
+              <p className="mt-6 text-sm text-gray-400">
                 Hang tight — your download will start automatically.
               </p>
-              <p className="mt-2 text-[10px] text-gray-300/70">
+              <p className="mt-2 text-xs text-gray-500">
                 If your download doesn't start, allow popups for this site.
               </p>
             </div>
@@ -939,7 +970,7 @@ export default function ProjectView() {
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
                 {hasStudioAccess ? (
                   <button
-                    onClick={handleDownloadStudio}
+                    onClick={handleOpenStudio}
                     disabled={downloadingStudio}
                     className="px-3 py-1.5 border border-purple-200 text-purple-600 hover:bg-purple-50 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                   >
@@ -1039,12 +1070,22 @@ export default function ProjectView() {
 
                     {/* Resolution dropdown */}
                     {showResolutionMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
-                        {([
-                          { value: "480p", label: "480p", desc: "Fast · Lower quality", locked: false },
-                          { value: "720p", label: "720p", desc: "Balanced · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "Full HD · Slower", locked: !isPro },
-                        ] as const).map((opt) => (
+                      <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
+                        {/* Format indicator */}
+                        <div className="px-3 py-1.5 border-b border-gray-100">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+                            {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
+                          </span>
+                        </div>
+                        {(project.aspect_ratio === "portrait" ? [
+                          { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
+                          { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
+                          { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
+                        ] : [
+                          { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
+                          { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
+                          { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
+                        ]).map((opt) => (
                           <button
                             key={opt.value}
                             onClick={() => {
@@ -1083,7 +1124,7 @@ export default function ProjectView() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-end gap-1">
+                  <>
                     <button
                       onClick={handleDownload}
                       disabled={downloading}
@@ -1096,27 +1137,67 @@ export default function ProjectView() {
                         </>
                       ) : (
                         <>
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                           Download MP4
                         </>
                       )}
                     </button>
-                    <span className="text-[9px] text-gray-300">
-                      Not working? Allow popups for this site.
-                    </span>
-                  </div>
+
+                    {/* Share button — inline next to Download */}
+                    {project.r2_video_url && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowShareMenu((v) => !v)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                          Share
+                        </button>
+
+                        {showShareMenu && (
+                          <>
+                            <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
+                            <div className="absolute right-0 bottom-full mb-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1">
+                              {/* TikTok */}
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
+                                title="Copy link for TikTok"
+                              >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
+                                </svg>
+                              </button>
+                              {/* YouTube */}
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
+                                title="Copy link for YouTube"
+                              >
+                                <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                                </svg>
+                              </button>
+                              {/* Facebook */}
+                              <button
+                                onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
+                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                title="Share on Facebook"
+                              >
+                                <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1138,7 +1219,11 @@ export default function ProjectView() {
                     <video
                       key={videoSrc}
                       controls
-                      className="max-w-full max-h-[60vh] rounded-lg shadow-lg"
+                      className={`rounded-lg shadow-lg ${
+                        project.aspect_ratio === "portrait"
+                          ? "max-h-[70vh] max-w-[40vw]"
+                          : "max-w-full max-h-[60vh]"
+                      }`}
                       style={{ background: "#000" }}
                     >
                       <source src={videoSrc} type="video/mp4" />
@@ -1315,15 +1400,17 @@ export default function ProjectView() {
                               >
                                 Scene
                               </span>
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  scene.voiceover_path
-                                    ? "bg-green-50 text-green-600"
-                                    : "bg-gray-50 text-gray-300"
-                                }`}
-                              >
-                                Audio
-                              </span>
+                              {project.voice_gender !== "none" && (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                    scene.voiceover_path
+                                      ? "bg-green-50 text-green-600"
+                                      : "bg-gray-50 text-gray-300"
+                                  }`}
+                                >
+                                  Audio
+                                </span>
+                              )}
                               <span className="text-[11px] text-gray-300 ml-1">
                                 {scene.duration_seconds}s
                               </span>
@@ -1394,8 +1481,8 @@ export default function ProjectView() {
                               }
                             })()}
 
-                            {/* Audio player (inline) */}
-                            {audioUrl && (
+                            {/* Audio player (inline) — hidden when no voiceover */}
+                            {project.voice_gender !== "none" && audioUrl && (
                               <div>
                                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                   Audio

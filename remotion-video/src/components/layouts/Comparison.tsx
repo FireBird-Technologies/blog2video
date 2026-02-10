@@ -10,15 +10,24 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   rightLabel = "After",
   leftDescription = "",
   rightDescription = "",
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
   const titleOp = interpolate(frame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const leftX = interpolate(frame, [10, 30], [-60, 0], {
+  const leftX = interpolate(frame, [10, 30], [p ? 0 : -60, 0], {
     extrapolateRight: "clamp",
   });
-  const rightX = interpolate(frame, [10, 30], [60, 0], {
+  const leftY = interpolate(frame, [10, 30], [p ? -40 : 0, 0], {
+    extrapolateRight: "clamp",
+  });
+  const rightX = interpolate(frame, [10, 30], [p ? 0 : 60, 0], {
+    extrapolateRight: "clamp",
+  });
+  const rightY = interpolate(frame, [10, 30], [p ? 40 : 0, 0], {
     extrapolateRight: "clamp",
   });
   const op = interpolate(frame, [10, 30], [0, 1], {
@@ -32,7 +41,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
     <AbsoluteFill
       style={{
         backgroundColor: bgColor,
-        padding: "80px 100px",
+        padding: p ? "60px 50px" : "80px 100px",
         display: "flex",
         flexDirection: "column",
       }}
@@ -40,11 +49,11 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: 44,
+          fontSize: p ? 36 : 44,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: 48,
+          marginBottom: p ? 32 : 48,
           textAlign: "center",
         }}
       >
@@ -53,48 +62,51 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
       <div
         style={{
           display: "flex",
+          flexDirection: p ? "column" : "row",
           flex: 1,
           gap: 0,
           position: "relative",
         }}
       >
-        {/* Left side */}
+        {/* Left / Top side */}
         <div
           style={{
             flex: 1,
-            padding: 40,
+            padding: p ? "24px 20px" : 40,
             opacity: op,
-            transform: `translateX(${leftX}px)`,
+            transform: p
+              ? `translateY(${leftY}px)`
+              : `translateX(${leftX}px)`,
           }}
         >
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: p ? 40 : 48,
+              height: p ? 40 : 48,
               borderRadius: 12,
               backgroundColor: "#FEE2E2",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: 24, color: "#DC2626" }}>✕</span>
+            <span style={{ fontSize: p ? 20 : 24, color: "#DC2626" }}>✕</span>
           </div>
           <h3
             style={{
-              fontSize: 28,
+              fontSize: p ? 24 : 28,
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             {leftLabel}
           </h3>
           <p
             style={{
-              fontSize: 22,
+              fontSize: p ? 18 : 22,
               color: textColor,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.7,
@@ -107,52 +119,64 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
 
         {/* Divider */}
         <div
-          style={{
-            width: 2,
-            backgroundColor: `${accentColor}40`,
-            alignSelf: "center",
-            height: `${dividerH}%`,
-            borderRadius: 1,
-          }}
+          style={
+            p
+              ? {
+                  height: 2,
+                  backgroundColor: `${accentColor}40`,
+                  alignSelf: "center",
+                  width: `${dividerH}%`,
+                  borderRadius: 1,
+                }
+              : {
+                  width: 2,
+                  backgroundColor: `${accentColor}40`,
+                  alignSelf: "center",
+                  height: `${dividerH}%`,
+                  borderRadius: 1,
+                }
+          }
         />
 
-        {/* Right side */}
+        {/* Right / Bottom side */}
         <div
           style={{
             flex: 1,
-            padding: 40,
+            padding: p ? "24px 20px" : 40,
             opacity: op,
-            transform: `translateX(${rightX}px)`,
+            transform: p
+              ? `translateY(${rightY}px)`
+              : `translateX(${rightX}px)`,
           }}
         >
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: p ? 40 : 48,
+              height: p ? 40 : 48,
               borderRadius: 12,
               backgroundColor: "#DCFCE7",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: 24, color: "#16A34A" }}>✓</span>
+            <span style={{ fontSize: p ? 20 : 24, color: "#16A34A" }}>✓</span>
           </div>
           <h3
             style={{
-              fontSize: 28,
+              fontSize: p ? 24 : 28,
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             {rightLabel}
           </h3>
           <p
             style={{
-              fontSize: 22,
+              fontSize: p ? 18 : 22,
               color: textColor,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.7,

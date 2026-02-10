@@ -7,8 +7,11 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   bgColor,
   textColor,
   metrics = [],
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
   const titleOp = interpolate(frame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -36,6 +39,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        padding: p ? "60px 50px" : undefined,
       }}
     >
       <div
@@ -43,8 +47,8 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           position: "absolute",
           top: -100,
           left: -100,
-          width: 500,
-          height: 500,
+          width: p ? 350 : 500,
+          height: p ? 350 : 500,
           borderRadius: "50%",
           border: `2px solid ${accentColor}15`,
         }}
@@ -53,13 +57,14 @@ export const Metric: React.FC<SceneLayoutProps> = ({
       <h3
         style={{
           color: textColor,
-          fontSize: 24,
+          fontSize: p ? 20 : 24,
           fontWeight: 500,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp * 0.6,
-          marginBottom: 24,
+          marginBottom: p ? 20 : 24,
           textTransform: "uppercase",
           letterSpacing: 4,
+          textAlign: "center",
         }}
       >
         {title}
@@ -69,7 +74,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         <>
           <div
             style={{
-              fontSize: 140,
+              fontSize: p ? 100 : 140,
               fontWeight: 800,
               fontFamily: "Inter, sans-serif",
               color: textColor,
@@ -84,11 +89,11 @@ export const Metric: React.FC<SceneLayoutProps> = ({
 
           <div
             style={{
-              width: 400,
+              width: p ? 300 : 400,
               height: 8,
               backgroundColor: `${textColor}20`,
               borderRadius: 4,
-              marginTop: 32,
+              marginTop: p ? 24 : 32,
               overflow: "hidden",
             }}
           >
@@ -105,10 +110,11 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: 22,
+              fontSize: p ? 18 : 22,
               fontFamily: "Inter, sans-serif",
-              marginTop: 24,
+              marginTop: p ? 20 : 24,
               opacity: subOp * 0.6,
+              textAlign: "center",
             }}
           >
             {mainMetric.label}
@@ -121,27 +127,29 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         <div
           style={{
             display: "flex",
-            gap: 60,
-            marginTop: 48,
+            flexDirection: p ? "column" : "row",
+            gap: p ? 28 : 60,
+            marginTop: p ? 36 : 48,
             opacity: subOp,
+            alignItems: "center",
           }}
         >
           {metrics.slice(1).map((m, i) => (
             <div key={i} style={{ textAlign: "center" }}>
               <div
                 style={{
-                  fontSize: 48,
+                  fontSize: p ? 36 : 48,
                   fontWeight: 700,
                   color: accentColor,
                   fontFamily: "Inter, sans-serif",
                 }}
               >
                 {m.value}
-                {m.suffix && <span style={{ fontSize: 28 }}>{m.suffix}</span>}
+                {m.suffix && <span style={{ fontSize: p ? 22 : 28 }}>{m.suffix}</span>}
               </div>
               <div
                 style={{
-                  fontSize: 16,
+                  fontSize: p ? 14 : 16,
                   color: textColor,
                   opacity: 0.6,
                   fontFamily: "Inter, sans-serif",

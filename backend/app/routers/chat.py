@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth import get_current_user
 from app.models.user import User, PlanTier
-from app.models.project import Project
+from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.models.chat_message import ChatMessage, MessageRole
 from app.schemas.schemas import ChatRequest, ChatResponse, SceneOut
@@ -87,6 +87,12 @@ async def chat_edit(
         # Apply ONLY the changed scenes -- leave everything else intact
         changed_scenes = result["changed_scenes"]
         _apply_scene_changes(scenes, changed_scenes, db)
+
+        # Invalidate cached render — project was edited, video is stale
+        if project.r2_video_url:
+            project.r2_video_url = None
+            project.r2_video_key = None
+            project.status = ProjectStatus.GENERATED
 
         # Save assistant reply
         reply = f"{result['changes_made']}\n\n{result['explanation']}"

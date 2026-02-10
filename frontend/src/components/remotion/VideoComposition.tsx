@@ -4,6 +4,7 @@ import {
   LayoutType,
   SceneLayoutProps,
 } from "./layouts";
+import { LogoOverlay } from "./LogoOverlay";
 
 export interface SceneInput {
   id: number;
@@ -22,6 +23,10 @@ export interface VideoCompositionProps {
   accentColor: string;
   bgColor: string;
   textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  aspectRatio?: string;
 }
 
 export const VideoComposition: React.FC<VideoCompositionProps> = ({
@@ -29,6 +34,10 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
   accentColor,
   bgColor,
   textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  aspectRatio,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -50,6 +59,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
           accentColor,
           bgColor,
           textColor,
+          aspectRatio,
           ...scene.layoutProps,
         };
 
@@ -65,6 +75,16 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
           </Sequence>
         );
       })}
+
+      {/* Logo overlay — spans entire video */}
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
     </AbsoluteFill>
   );
 };

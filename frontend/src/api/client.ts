@@ -101,6 +101,11 @@ export interface Project {
   player_port: number | null;
   r2_video_key: string | null;
   r2_video_url: string | null;
+  logo_r2_url: string | null;
+  logo_position: string;
+  logo_opacity: number;
+  custom_voice_id: string | null;
+  aspect_ratio: string;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -256,7 +261,11 @@ export const createProject = (
   accent_color?: string,
   bg_color?: string,
   text_color?: string,
-  animation_instructions?: string
+  animation_instructions?: string,
+  logo_position?: string,
+  logo_opacity?: number,
+  custom_voice_id?: string,
+  aspect_ratio?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -267,7 +276,21 @@ export const createProject = (
     bg_color,
     text_color,
     animation_instructions,
+    logo_position,
+    logo_opacity,
+    custom_voice_id,
+    aspect_ratio,
   });
+
+export const uploadLogo = (projectId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<{ logo_url: string; logo_position: string }>(
+    `/projects/${projectId}/logo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
