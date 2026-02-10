@@ -117,3 +117,31 @@ def _migrate(eng):
                     conn.execute(text(
                         f"ALTER TABLE assets ADD COLUMN {col_name} {col_def}"
                     ))
+
+    # Migrate PostgreSQL enum types — add missing values.
+    # ALTER TYPE ... ADD VALUE cannot run inside a transaction, so we use
+    # a raw DBAPI connection with autocommit.
+    if is_pg:
+        try:
+            raw_conn = eng.raw_connection()
+            raw_conn.autocommit = True
+            cur = raw_conn.cursor()
+
+            # Get existing values for the subscriptionstatus enum
+            cur.execute(
+                "SELECT enumlabel FROM pg_enum "
+                "JOIN pg_type ON pg_enum.enumtypid = pg_type.oid "
+                "WHERE pg_type.typname = 'subscriptionstatus'"
+            )
+            existing = {row[0] for row in cur.fetchall()}
+
+            needed = ["requires_action"]
+            for val in needed:
+                if val not in existing:
+                    cur.execute(f"ALTER TYPE subscriptionstatus ADD VALUE '{val}'")
+                    print(f"[MIGRATE] Added '{val}' to subscriptionstatus enum")
+
+            cur.close()
+            raw_conn.close()
+        except Exception as e:
+            print(f"[MIGRATE] Enum migration skipped: {e}")
