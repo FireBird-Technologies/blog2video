@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -56,6 +56,7 @@ def create_project(
 @router.post("/{project_id}/logo")
 def upload_logo(
     project_id: int,
+    request: Request,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -88,15 +89,19 @@ def upload_logo(
     # Upload to R2
     if r2_storage.is_r2_configured():
         try:
-            r2_key = f"users/{user.id}/projects/{project_id}/{logo_filename}"
+            r2_key = r2_storage.image_key(user.id, project_id, logo_filename)
             r2_url = r2_storage.upload_file(local_path, r2_key, content_type=file.content_type)
             project.logo_r2_key = r2_key
             project.logo_r2_url = r2_url
         except Exception as e:
             print(f"[PROJECTS] Logo R2 upload failed: {e}")
-            # Still keep the local file path
-            project.logo_r2_url = None
             project.logo_r2_key = None
+            project.logo_r2_url = None
+
+    # Fallback: if R2 isn't configured or upload failed, use local serving URL
+    if not project.logo_r2_url:
+        base = str(request.base_url).rstrip("/")
+        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
 
     db.commit()
     db.refresh(project)

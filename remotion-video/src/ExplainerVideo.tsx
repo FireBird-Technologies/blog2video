@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
-  Img,
   Sequence,
   staticFile,
   CalculateMetadataFunction,
 } from "remotion";
 import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./components/layouts";
 import { TransitionWipe } from "./components/Transitions";
+import { LogoOverlay } from "./components/LogoOverlay";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -126,25 +126,6 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const FPS = 30;
   let currentFrame = 0;
 
-  // Logo positioning
-  const logoPositionStyle = (() => {
-    const pos = data.logoPosition || "bottom_right";
-    const base: React.CSSProperties = {
-      position: "absolute",
-      zIndex: 100,
-      opacity: 0.85,
-    };
-    const size = data.aspectRatio === "portrait" ? 60 : 80;
-    const margin = data.aspectRatio === "portrait" ? 20 : 30;
-    switch (pos) {
-      case "top_left":     return { ...base, top: margin, left: margin, width: size, height: size };
-      case "top_right":    return { ...base, top: margin, right: margin, width: size, height: size };
-      case "bottom_left":  return { ...base, bottom: margin, left: margin, width: size, height: size };
-      case "bottom_right":
-      default:             return { ...base, bottom: margin, right: margin, width: size, height: size };
-    }
-  })();
-
   return (
     <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
       {data.scenes.map((scene, index) => {
@@ -198,12 +179,11 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
       {/* Logo overlay — spans entire video */}
       {data.logo && (
-        <div style={logoPositionStyle}>
-          <Img
-            src={staticFile(data.logo)}
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
-        </div>
+        <LogoOverlay
+          src={staticFile(data.logo)}
+          position={data.logoPosition || "bottom_right"}
+          aspectRatio={data.aspectRatio || "landscape"}
+        />
       )}
     </AbsoluteFill>
   );

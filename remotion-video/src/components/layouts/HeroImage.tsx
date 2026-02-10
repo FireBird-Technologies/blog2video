@@ -11,20 +11,21 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const isLight = bgColor === "#FFFFFF" || bgColor === "#ffffff";
 
   // Image animations
   const imgOpacity = interpolate(frame, [0, 40], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const imgScale = interpolate(frame, [0, 60], [1.12, 1.0], {
+  const imgScale = interpolate(frame, [0, 60], [1.08, 1.0], {
     extrapolateRight: "clamp",
   });
 
-  // Title animations — fade & slide up after image starts appearing
+  // Title animations
   const titleOpacity = interpolate(frame, [15, 40], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const titleY = interpolate(frame, [15, 40], [50, 0], {
+  const titleY = interpolate(frame, [15, 40], [40, 0], {
     extrapolateRight: "clamp",
   });
 
@@ -33,88 +34,83 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const isLight = bgColor === "#FFFFFF" || bgColor === "#ffffff";
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: bgColor }}>
-      {/* Full-screen hero image — fill the entire frame */}
-      {imageUrl && (
-        <Img
-          src={imageUrl}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: p ? "center top" : "center center",
-            opacity: imgOpacity * (p ? 0.45 : 0.55),
-            transform: `scale(${imgScale})`,
-          }}
-        />
-      )}
-
-      {/* Gradient overlay for text readability */}
-      <div
+  /* ───── PORTRAIT: shrunk image card + big title below ───── */
+  if (p) {
+    return (
+      <AbsoluteFill
         style={{
-          position: "absolute",
-          inset: 0,
-          background: p
-            ? isLight
-              ? "linear-gradient(to top, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 35%, rgba(255,255,255,0.2) 70%, rgba(255,255,255,0.05) 100%)"
-              : "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.2) 70%, rgba(0,0,0,0.05) 100%)"
-            : isLight
-              ? "linear-gradient(to top, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%)"
-              : "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.1) 100%)",
-        }}
-      />
-
-      {/* Title text overlay */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: p ? 320 : 100,
-          left: p ? 50 : 120,
-          right: p ? 50 : 120,
+          backgroundColor: bgColor,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          opacity: titleOpacity,
-          transform: `translateY(${titleY}px)`,
+          padding: "80px 50px",
+          gap: 40,
         }}
       >
-        {/* Accent bar */}
+        {/* Shrunk image card */}
+        {imageUrl && (
+          <div
+            style={{
+              width: "85%",
+              maxHeight: 650,
+              borderRadius: 20,
+              overflow: "hidden",
+              opacity: imgOpacity,
+              transform: `scale(${imgScale})`,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+              border: `2px solid ${accentColor}25`,
+              flexShrink: 0,
+            }}
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </div>
+        )}
+
+        {/* Title area */}
         <div
           style={{
-            width: barWidth,
-            height: p ? 4 : 5,
-            backgroundColor: accentColor,
-            borderRadius: 3,
-            marginBottom: p ? 24 : 20,
-          }}
-        />
-
-        {/* Title */}
-        <h1
-          style={{
-            color: textColor,
-            fontSize: p ? 48 : 64,
-            fontWeight: 800,
-            fontFamily: "Inter, system-ui, sans-serif",
-            lineHeight: p ? 1.25 : 1.15,
-            margin: 0,
-            textAlign: "center",
-            maxWidth: p ? 900 : undefined,
-            textShadow: isLight ? "none" : "0 2px 20px rgba(0,0,0,0.5)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            opacity: titleOpacity,
+            transform: `translateY(${titleY}px)`,
           }}
         >
-          {title}
-        </h1>
+          {/* Accent bar */}
+          <div
+            style={{
+              width: barWidth,
+              height: 4,
+              backgroundColor: accentColor,
+              borderRadius: 3,
+              marginBottom: 24,
+            }}
+          />
 
-        {/* Subtle accent underline below title for portrait */}
-        {p && (
+          <h1
+            style={{
+              color: textColor,
+              fontSize: 46,
+              fontWeight: 800,
+              fontFamily: "Inter, system-ui, sans-serif",
+              lineHeight: 1.25,
+              margin: 0,
+              textAlign: "center",
+              maxWidth: 900,
+            }}
+          >
+            {title}
+          </h1>
+
+          {/* Accent underline */}
           <div
             style={{
               width: 60,
@@ -122,10 +118,76 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
               backgroundColor: accentColor,
               borderRadius: 2,
               marginTop: 28,
-              opacity: titleOpacity,
             }}
           />
-        )}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  /* ───── LANDSCAPE: full-screen hero image background ───── */
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor }}>
+      {imageUrl && (
+        <Img
+          src={imageUrl}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: imgOpacity * 0.55,
+            transform: `scale(${imgScale})`,
+          }}
+        />
+      )}
+
+      {/* Gradient overlay */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: isLight
+            ? "linear-gradient(to top, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%)"
+            : "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.1) 100%)",
+        }}
+      />
+
+      {/* Title overlay — bottom-center */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 100,
+          left: 120,
+          right: 120,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          opacity: titleOpacity,
+          transform: `translateY(${titleY}px)`,
+        }}
+      >
+        <div
+          style={{
+            width: barWidth,
+            height: 5,
+            backgroundColor: accentColor,
+            borderRadius: 3,
+            marginBottom: 20,
+          }}
+        />
+        <h1
+          style={{
+            color: textColor,
+            fontSize: 64,
+            fontWeight: 800,
+            fontFamily: "Inter, system-ui, sans-serif",
+            lineHeight: 1.15,
+            margin: 0,
+            textShadow: isLight ? "none" : "0 2px 20px rgba(0,0,0,0.5)",
+          }}
+        >
+          {title}
+        </h1>
       </div>
     </AbsoluteFill>
   );

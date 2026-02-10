@@ -96,6 +96,9 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     accentColor: project.accent_color || "#7C3AED",
     bgColor: project.bg_color || "#FFFFFF",
     textColor: project.text_color || "#000000",
+    logo: project.logo_r2_url || null,
+    logoPosition: project.logo_position || "bottom_right",
+    aspectRatio: project.aspect_ratio || "landscape",
   };
 
   return (
