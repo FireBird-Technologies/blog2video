@@ -372,7 +372,11 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
     image_urls: list[str] = []
     seen: set[str] = set()
 
+    MAX_IMAGES = 10
+
     def _add(img_url: str) -> None:
+        if len(image_urls) >= MAX_IMAGES:
+            return
         if img_url and img_url not in seen and _is_blog_image(img_url):
             image_urls.append(img_url)
             seen.add(img_url)

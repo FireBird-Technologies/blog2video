@@ -159,8 +159,12 @@ def _set_error(project_id: int, project, db: Session, msg: str):
     _pipeline_progress[project_id]["error"] = msg
     _pipeline_progress[project_id]["running"] = False
     if project:
-        project.status = ProjectStatus.ERROR
-        db.commit()
+        try:
+            db.rollback()  # clear any broken transaction state first
+            project.status = ProjectStatus.ERROR
+            db.commit()
+        except Exception as e:
+            print(f"[PIPELINE] Failed to persist error status for project {project_id}: {e}")
 
 
 async def _generate_script(project: Project, db: Session):
@@ -203,10 +207,22 @@ async def _generate_scenes(project: Project, db: Session):
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
 
     # Step 1: Generate voiceovers FIRST (sync, runs in thread)
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
+    # Skip entirely when user chose "no voiceover"
+    if getattr(project, "voice_gender", None) == "none":
+        print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
+        for scene in scenes:
+            if scene.narration_text:
+                word_count = len(scene.narration_text.split())
+                scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
+            else:
+                scene.duration_seconds = 5.0
+            scene.voiceover_path = None
+        db.commit()
+    else:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
 
-    # Refresh scenes to pick up voiceover_path
+    # Refresh scenes to pick up voiceover_path / duration
     for scene in scenes:
         db.refresh(scene)
 
@@ -311,6 +327,8 @@ def launch_studio_endpoint(
     """Launch Remotion Studio for this project (local dev only)."""
     project = _get_project(project_id, user.id, db)
     try:
+        # Ensure workspace has latest data before launching studio
+        rebuild_workspace(project, project.scenes, db)
         port = launch_studio(project, db)
         return StudioResponse(studio_url=f"http://localhost:{port}", port=port)
     except Exception as e:
@@ -365,6 +383,14 @@ def render_video_endpoint(
             status_code=403,
             detail="1080p rendering requires a Pro plan. Please upgrade or choose 720p / 480p.",
         )
+
+    # Already rendered and available in R2 — skip re-render
+    if project.r2_video_url:
+        return {
+            "detail": "Already rendered",
+            "progress": 100,
+            "r2_video_url": project.r2_video_url,
+        }
 
     # Don't restart if already rendering
     prog = get_render_progress(project_id)

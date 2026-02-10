@@ -5,9 +5,12 @@ Provides upload, download URL generation, and deletion for project assets
 (images, audio, rendered videos). Uses boto3 with S3-compatible API.
 
 R2 key structure:
-    users/{user_id}/projects/{project_id}/images/{filename}
-    users/{user_id}/projects/{project_id}/audio/{filename}
-    users/{user_id}/projects/{project_id}/output/video.mp4
+    {prefix}users/{user_id}/projects/{project_id}/images/{filename}
+    {prefix}users/{user_id}/projects/{project_id}/audio/{filename}
+    {prefix}users/{user_id}/projects/{project_id}/output/video.mp4
+
+    Set R2_KEY_PREFIX in .env (e.g. "dev") to namespace local uploads
+    away from production data. In production leave it empty.
 """
 import os
 import mimetypes
@@ -61,29 +64,36 @@ def is_r2_configured() -> bool:
 # ─── Key helpers ──────────────────────────────────────────────
 
 
+def _prefix() -> str:
+    """Return the R2 key prefix (e.g. 'dev/' for local, '' for production).
+    Set R2_KEY_PREFIX=dev in .env to isolate local uploads from production data."""
+    p = settings.R2_KEY_PREFIX.strip().strip("/")
+    return f"{p}/" if p else ""
+
+
 def image_key(user_id: int, project_id: int, filename: str) -> str:
     """R2 object key for a project image."""
-    return f"users/{user_id}/projects/{project_id}/images/{filename}"
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/images/{filename}"
 
 
 def audio_key(user_id: int, project_id: int, filename: str) -> str:
     """R2 object key for a project audio file."""
-    return f"users/{user_id}/projects/{project_id}/audio/{filename}"
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/audio/{filename}"
 
 
 def video_key(user_id: int, project_id: int) -> str:
     """R2 object key for a project's rendered video."""
-    return f"users/{user_id}/projects/{project_id}/output/video.mp4"
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video.mp4"
 
 
 def project_prefix(user_id: int, project_id: int) -> str:
     """R2 key prefix for all objects belonging to a project."""
-    return f"users/{user_id}/projects/{project_id}/"
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/"
 
 
 def user_prefix(user_id: int) -> str:
     """R2 key prefix for all objects belonging to a user."""
-    return f"users/{user_id}/"
+    return f"{_prefix()}users/{user_id}/"
 
 
 # ─── Public URL ───────────────────────────────────────────────
