@@ -1,6 +1,6 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -39,6 +39,9 @@ def create_project(
         bg_color=data.bg_color or "#FFFFFF",
         text_color=data.text_color or "#000000",
         animation_instructions=data.animation_instructions or None,
+        logo_position=data.logo_position or "bottom_right",
+        custom_voice_id=data.custom_voice_id or None,
+        aspect_ratio=data.aspect_ratio or "landscape",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -48,6 +51,50 @@ def create_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.post("/{project_id}/logo")
+def upload_logo(
+    project_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload a logo image for the project. Stored in R2."""
+    project = _get_user_project(project_id, user.id, db)
+
+    # Validate file type
+    allowed_types = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
+
+    # Save locally first
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
+    os.makedirs(logo_dir, exist_ok=True)
+
+    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "png"
+    logo_filename = f"logo.{ext}"
+    local_path = os.path.join(logo_dir, logo_filename)
+
+    with open(local_path, "wb") as f:
+        f.write(file.file.read())
+
+    # Upload to R2
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key = f"users/{user.id}/projects/{project_id}/{logo_filename}"
+            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=file.content_type)
+            project.logo_r2_key = r2_key
+            project.logo_r2_url = r2_url
+        except Exception as e:
+            print(f"[PROJECTS] Logo R2 upload failed: {e}")
+            # Still keep the local file path
+            project.logo_r2_url = None
+            project.logo_r2_key = None
+
+    db.commit()
+    db.refresh(project)
+    return {"logo_url": project.logo_r2_url, "logo_position": project.logo_position}
 
 
 @router.get("", response_model=list[ProjectListOut])

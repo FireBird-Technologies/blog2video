@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
+  Img,
   Sequence,
   staticFile,
   CalculateMetadataFunction,
@@ -29,6 +30,9 @@ interface VideoData {
   accentColor: string;
   bgColor: string;
   textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  aspectRatio?: string;
   scenes: SceneData[];
 }
 
@@ -53,11 +57,13 @@ export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
       );
       const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
 
+      const isPortrait = data.aspectRatio === "portrait";
+
       return {
         durationInFrames: Math.max(totalFrames, FPS * 5),
         fps: FPS,
-        width: 1920,
-        height: 1080,
+        width: isPortrait ? 1080 : 1920,
+        height: isPortrait ? 1920 : 1080,
       };
     } catch (e) {
       console.warn("calculateVideoMetadata fallback:", e);
@@ -120,6 +126,25 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const FPS = 30;
   let currentFrame = 0;
 
+  // Logo positioning
+  const logoPositionStyle = (() => {
+    const pos = data.logoPosition || "bottom_right";
+    const base: React.CSSProperties = {
+      position: "absolute",
+      zIndex: 100,
+      opacity: 0.85,
+    };
+    const size = data.aspectRatio === "portrait" ? 60 : 80;
+    const margin = data.aspectRatio === "portrait" ? 20 : 30;
+    switch (pos) {
+      case "top_left":     return { ...base, top: margin, left: margin, width: size, height: size };
+      case "top_right":    return { ...base, top: margin, right: margin, width: size, height: size };
+      case "bottom_left":  return { ...base, bottom: margin, left: margin, width: size, height: size };
+      case "bottom_right":
+      default:             return { ...base, bottom: margin, right: margin, width: size, height: size };
+    }
+  })();
+
   return (
     <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
       {data.scenes.map((scene, index) => {
@@ -143,6 +168,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           accentColor: data.accentColor || "#7C3AED",
           bgColor: data.bgColor || "#FFFFFF",
           textColor: data.textColor || "#000000",
+          aspectRatio: data.aspectRatio || "landscape",
           ...scene.layoutProps,
         };
 
@@ -169,6 +195,16 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           </Sequence>
         );
       })}
+
+      {/* Logo overlay — spans entire video */}
+      {data.logo && (
+        <div style={logoPositionStyle}>
+          <Img
+            src={staticFile(data.logo)}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
