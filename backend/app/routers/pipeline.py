@@ -173,6 +173,7 @@ async def _generate_script(project: Project, db: Session):
         blog_content=project.blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
+        aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
     )
 
     project.name = result["title"]

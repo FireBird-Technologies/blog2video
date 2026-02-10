@@ -68,6 +68,12 @@ def upload_logo(
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
 
+    # Read file content and enforce size limit (2 MB max)
+    MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
+    file_bytes = file.file.read()
+    if len(file_bytes) > MAX_LOGO_SIZE:
+        raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
+
     # Save locally first
     logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
     os.makedirs(logo_dir, exist_ok=True)
@@ -77,7 +83,7 @@ def upload_logo(
     local_path = os.path.join(logo_dir, logo_filename)
 
     with open(local_path, "wb") as f:
-        f.write(file.file.read())
+        f.write(file_bytes)
 
     # Upload to R2
     if r2_storage.is_r2_configured():

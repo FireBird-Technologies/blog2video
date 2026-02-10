@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
 
+    # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
+    DEFAULT_PLAN: str = ""
+
     # App
     FRONTEND_URL: str = "http://localhost:5173"
 

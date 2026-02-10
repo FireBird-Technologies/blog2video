@@ -30,6 +30,16 @@ class BlogToScript(dspy.Signature):
       as large bold centered text on gradient background, no image needed."
       Leave suggested_images as an empty list [].
 
+    PORTRAIT MODE RULE:
+    - If aspect_ratio is "portrait", the video will be rendered in 9:16 (1080x1920) vertical format.
+    - For portrait hero scenes: prefer CENTERED title text with shorter lines. Use fewer
+      words per line — keep the title concise (max ~6 words per line).
+    - For portrait image scenes: images should be described as FULL-WIDTH with text below,
+      NOT side-by-side layouts. Avoid "split-screen" or "side-by-side" descriptions.
+    - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
+    - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
+    - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
+
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
 
@@ -67,6 +77,7 @@ class BlogToScript(dspy.Signature):
     )
     blog_images: str = dspy.InputField(desc="JSON array of image URLs/paths available from the blog")
     hero_image: str = dspy.InputField(desc="Path to the main hero/header image of the blog. Use this in the first (hero opening) scene.")
+    aspect_ratio: str = dspy.InputField(desc="Video aspect ratio: 'landscape' (16:9, 1920x1080) or 'portrait' (9:16, 1080x1920). Adjust layouts accordingly.")
 
     title: str = dspy.OutputField(desc="A compelling title for the explainer video")
     scenes_json: str = dspy.OutputField(
@@ -102,6 +113,7 @@ class ScriptGenerator:
         blog_content: str,
         blog_images: list[str],
         hero_image: str = "",
+        aspect_ratio: str = "landscape",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -114,6 +126,7 @@ class ScriptGenerator:
             blog_content=blog_content,
             blog_images=json.dumps(blog_images),
             hero_image=hero_image or "(no hero image available)",
+            aspect_ratio=aspect_ratio or "landscape",
         )
 
         # Parse the scenes JSON
