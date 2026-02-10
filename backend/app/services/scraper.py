@@ -348,12 +348,15 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
     """
     app = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
 
-    result = app.scrape(url, formats=["markdown", "html"])
+    # Firecrawl v4 returns a Document object with attributes, not a dict.
+    doc = app.scrape(url, formats=["markdown", "html"])
 
-    # result is a dict with keys like 'markdown', 'html', 'metadata', etc.
-    markdown_text = (result.get("markdown") or "").strip()
-    html_content = (result.get("html") or "").strip()
-    metadata = result.get("metadata") or {}
+    markdown_text = (getattr(doc, "markdown", None) or "").strip()
+    html_content = (getattr(doc, "html", None) or "").strip()
+    metadata = getattr(doc, "metadata", None) or {}
+    # metadata may be a dict or an object — normalise to dict
+    if not isinstance(metadata, dict):
+        metadata = metadata.__dict__ if hasattr(metadata, "__dict__") else {}
 
     # --- Extract text ---
     # Prefer markdown (cleaner), fall back to HTML→text
@@ -377,7 +380,7 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
     # OG image / hero from metadata
     og = metadata.get("ogImage") or metadata.get("og:image")
     if og:
-        _add(og if isinstance(og, str) else og.get("url", ""))
+        _add(og if isinstance(og, str) else (og.get("url", "") if isinstance(og, dict) else str(og)))
 
     # Images from rendered HTML
     if html_content:
