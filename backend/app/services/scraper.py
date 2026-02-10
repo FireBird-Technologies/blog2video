@@ -38,37 +38,38 @@ def scrape_blog(project: Project, db: Session) -> Project:
     Scrape blog content and images from the project's blog_url.
 
     Scraping chain (first success wins):
-      1. requests + BeautifulSoup  (free, fast, works for static sites)
-      2. Firecrawl                 (handles JS/SPA sites that requests can't)
+      1. Firecrawl                 (default — renders JS, handles SPAs)
+      2. requests + BeautifulSoup  (free fallback for static sites)
       3. Exa with livecrawl        (last resort, headless browser)
     """
     url = project.blog_url
     text = ""
     image_urls: list[str] = []
 
-    # ── Step 1: requests + BeautifulSoup (fastest, free) ──
-    try:
-        text, image_urls = _scrape_with_requests(url)
-        if text and len(text.strip()) >= _MIN_CONTENT_LENGTH:
-            print(f"[SCRAPER] requests succeeded ({len(text)} chars, {len(image_urls)} images)")
-        else:
-            print(f"[SCRAPER] requests returned thin content ({len(text.strip())} chars), trying Firecrawl...")
-            text = ""
-    except Exception as e:
-        print(f"[SCRAPER] requests failed: {e}, trying Firecrawl...")
-
-    # ── Step 2: Firecrawl (handles JS/SPA sites) ──
-    if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.FIRECRAWL_API_KEY:
+    # ── Step 1: Firecrawl (default — handles JS/SPA sites) ──
+    if settings.FIRECRAWL_API_KEY:
         try:
-            fc_text, fc_images = _scrape_with_firecrawl(url)
-            if fc_text and len(fc_text.strip()) >= _MIN_CONTENT_LENGTH:
-                text = fc_text
-                image_urls = fc_images
+            text, image_urls = _scrape_with_firecrawl(url)
+            if text and len(text.strip()) >= _MIN_CONTENT_LENGTH:
                 print(f"[SCRAPER] Firecrawl succeeded ({len(text)} chars, {len(image_urls)} images)")
             else:
-                print(f"[SCRAPER] Firecrawl returned thin content ({len(fc_text.strip())} chars), trying Exa...")
+                print(f"[SCRAPER] Firecrawl returned thin content ({len(text.strip())} chars), trying requests...")
+                text = ""
         except Exception as e:
-            print(f"[SCRAPER] Firecrawl failed: {e}, trying Exa...")
+            print(f"[SCRAPER] Firecrawl failed: {e}, trying requests...")
+
+    # ── Step 2: requests + BeautifulSoup (free fallback) ──
+    if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
+        try:
+            req_text, req_images = _scrape_with_requests(url)
+            if req_text and len(req_text.strip()) >= _MIN_CONTENT_LENGTH:
+                text = req_text
+                image_urls = req_images
+                print(f"[SCRAPER] requests succeeded ({len(text)} chars, {len(image_urls)} images)")
+            else:
+                print(f"[SCRAPER] requests returned thin content ({len(req_text.strip())} chars), trying Exa...")
+        except Exception as e:
+            print(f"[SCRAPER] requests failed: {e}, trying Exa...")
 
     # ── Step 3: Exa with livecrawl (last resort) ──
     if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.EXA_API_KEY:
