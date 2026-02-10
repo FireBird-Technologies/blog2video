@@ -14,6 +14,7 @@ interface Props {
     animationInstructions?: string,
     logoFile?: File,
     logoPosition?: string,
+    logoOpacity?: number,
     customVoiceId?: string,
     aspectRatio?: string
   ) => Promise<void>;
@@ -46,10 +47,9 @@ export default function BlogUrlForm({
   // New fields
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPosition, setLogoPosition] = useState("bottom_right");
+  const [logoOpacity, setLogoOpacity] = useState(0.9);
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
-  const [batchCount, setBatchCount] = useState(1);
-
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
@@ -71,6 +71,7 @@ export default function BlogUrlForm({
         animationInstructions.trim() || undefined,
         logoFile || undefined,
         logoPosition,
+        logoOpacity,
         customVoiceId.trim() || undefined,
         aspectRatio
       );
@@ -85,57 +86,10 @@ export default function BlogUrlForm({
 
   const form = (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Mode toggle: Single / Multi */}
-      <div className="flex rounded-lg bg-gray-100/80 p-0.5">
-        <button
-          type="button"
-          onClick={() => {
-            setBatchCount(1);
-            setUrls((prev) => [prev[0] || ""]);
-          }}
-          className={`flex-1 py-2 rounded-md text-xs font-medium transition-all ${
-            batchCount === 1
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          Single Video
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!isPro) { setShowUpgrade(true); return; }
-            setBatchCount(3);
-            setUrls((prev) => {
-              const next = [...prev];
-              while (next.length < 3) next.push("");
-              return next.slice(0, 3);
-            });
-          }}
-          className={`flex-1 py-2 rounded-md text-xs font-medium transition-all relative flex items-center justify-center gap-1.5 ${
-            batchCount > 1
-              ? "bg-white text-gray-900 shadow-sm"
-              : isPro
-              ? "text-gray-400 hover:text-gray-600"
-              : "text-gray-300 cursor-not-allowed"
-          }`}
-        >
-          Multi Video
-          {!isPro && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 text-[9px] font-semibold">
-              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Pro
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* URL(s) */}
+      {/* URL */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Blog URL{batchCount > 1 ? "s" : ""}
+          Blog URL
         </label>
         {urls.map((url, i) => (
           <input
@@ -414,6 +368,27 @@ export default function BlogUrlForm({
                 </button>
               ))}
             </div>
+
+            {/* Opacity slider */}
+            <div className="mt-2.5">
+              <label className="block text-[10px] text-gray-400 mb-1">
+                Opacity{" "}
+                <span className="text-gray-300">
+                  {Math.round(logoOpacity * 100)}%
+                </span>
+              </label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={Math.round(logoOpacity * 100)}
+                onChange={(e) =>
+                  setLogoOpacity(parseInt(e.target.value, 10) / 100)
+                }
+                className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -463,8 +438,6 @@ export default function BlogUrlForm({
             <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Creating...
           </>
-        ) : batchCount > 1 ? (
-          `Generate ${urls.filter((u) => u.trim()).length} Videos`
         ) : (
           "Generate Video"
         )}
@@ -473,7 +446,7 @@ export default function BlogUrlForm({
       <UpgradeModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
-        feature="Multi Video"
+        feature="Upgrade"
       />
     </form>
   );

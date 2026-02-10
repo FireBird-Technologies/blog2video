@@ -103,6 +103,7 @@ export interface Project {
   r2_video_url: string | null;
   logo_r2_url: string | null;
   logo_position: string;
+  logo_opacity: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
   created_at: string;
@@ -262,6 +263,7 @@ export const createProject = (
   text_color?: string,
   animation_instructions?: string,
   logo_position?: string,
+  logo_opacity?: number,
   custom_voice_id?: string,
   aspect_ratio?: string
 ) =>
@@ -275,6 +277,7 @@ export const createProject = (
     text_color,
     animation_instructions,
     logo_position,
+    logo_opacity,
     custom_voice_id,
     aspect_ratio,
   });

@@ -51,6 +51,7 @@ export default function Dashboard() {
     animationInstructions?: string,
     logoFile?: File,
     logoPosition?: string,
+    logoOpacity?: number,
     customVoiceId?: string,
     aspectRatio?: string
   ) => {
@@ -66,6 +67,7 @@ export default function Dashboard() {
         textColor,
         animationInstructions,
         logoPosition,
+        logoOpacity,
         customVoiceId,
         aspectRatio
       );

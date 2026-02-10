@@ -38,6 +38,7 @@ _TEMPLATE_SRC_FILES = [
     "src/components/TextScene.tsx",
     "src/components/ImageScene.tsx",
     "src/components/Transitions.tsx",
+    "src/components/LogoOverlay.tsx",
     "src/components/layouts/types.ts",
     "src/components/layouts/HeroImage.tsx",
     "src/components/layouts/TextNarration.tsx",
@@ -277,6 +278,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "textColor": project.text_color or "#000000",
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
+        "logoOpacity": getattr(project, "logo_opacity", 0.9) or 0.9,
         "aspectRatio": getattr(project, "aspect_ratio", None) or "landscape",
         "scenes": scene_data,
     }
@@ -538,6 +540,10 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     line = line.strip()
     if not line:
         return
+
+    # Log non-progress lines (errors, warnings) for debugging
+    if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
+        print(f"[REMOTION][project {project_id}] {line}")
 
     m = frame_pat.search(line)
     if m:

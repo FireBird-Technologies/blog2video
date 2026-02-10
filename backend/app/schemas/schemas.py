@@ -15,6 +15,7 @@ class ProjectCreate(BaseModel):
     text_color: Optional[str] = "#000000"    # black default
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"  # top_left, top_right, bottom_left, bottom_right
+    logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
 
@@ -81,6 +82,7 @@ class ProjectOut(BaseModel):
     r2_video_url: Optional[str] = None
     logo_r2_url: Optional[str] = None
     logo_position: str = "bottom_right"
+    logo_opacity: float = 0.9
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
     created_at: datetime
