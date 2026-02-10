@@ -38,6 +38,7 @@ _TEMPLATE_SRC_FILES = [
     "src/components/TextScene.tsx",
     "src/components/ImageScene.tsx",
     "src/components/Transitions.tsx",
+    "src/components/LogoOverlay.tsx",
     "src/components/layouts/types.ts",
     "src/components/layouts/HeroImage.tsx",
     "src/components/layouts/TextNarration.tsx",
@@ -247,12 +248,38 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             }
         )
 
+    # Copy logo to public dir if available
+    logo_file = None
+    # Try to find the logo locally first, then fall back to R2
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
+    logo_local = None
+    for ext_candidate in ("png", "jpg", "jpeg", "webp", "svg"):
+        candidate = os.path.join(logo_dir, f"logo.{ext_candidate}")
+        if os.path.exists(candidate):
+            logo_local = candidate
+            break
+
+    if logo_local:
+        logo_ext = logo_local.rsplit(".", 1)[-1]
+        logo_dest = os.path.join(public_dir, f"logo.{logo_ext}")
+        _copy_file(logo_local, logo_dest)
+        logo_file = f"logo.{logo_ext}"
+    elif project.logo_r2_url:
+        logo_ext = project.logo_r2_url.rsplit(".", 1)[-1] if "." in project.logo_r2_url else "png"
+        logo_dest = os.path.join(public_dir, f"logo.{logo_ext}")
+        if _download_url_to_file(project.logo_r2_url, logo_dest):
+            logo_file = f"logo.{logo_ext}"
+
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
         "accentColor": project.accent_color or "#7C3AED",
         "bgColor": project.bg_color or "#FFFFFF",
         "textColor": project.text_color or "#000000",
+        "logo": logo_file,
+        "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
+        "logoOpacity": getattr(project, "logo_opacity", 0.9) or 0.9,
+        "aspectRatio": getattr(project, "aspect_ratio", None) or "landscape",
         "scenes": scene_data,
     }
     data_path = os.path.join(public_dir, "data.json")
@@ -346,18 +373,28 @@ def get_render_progress(project_id: int) -> dict:
 
 
 # Resolution presets: label -> (width, height, scale)
-# The composition is always 1920x1080; we use --scale to down-render.
+# Landscape: base is 1920x1080; Portrait: base is 1080x1920
 RESOLUTION_PRESETS = {
-    "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
-    "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
-    "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+    "landscape": {
+        "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
+        "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
+        "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+    },
+    "portrait": {
+        "480p":  {"width": 480,  "height": 854,  "scale": 854 / 1920},
+        "720p":  {"width": 720,  "height": 1280, "scale": 1280 / 1920},
+        "1080p": {"width": 1080, "height": 1920, "scale": 1.0},
+    },
 }
 
 
 def _build_render_cmd(
-    npx: str, output_path: str, resolution: str = "720p"
+    npx: str, output_path: str, resolution: str = "720p",
+    aspect_ratio: str = "landscape",
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
+    is_portrait = aspect_ratio == "portrait"
+
     cmd = [
         npx, "remotion", "render", "ExplainerVideo", output_path,
         "--concurrency", "100%",              # use all CPU cores
@@ -367,7 +404,12 @@ def _build_render_cmd(
         "--bundle-cache", "true",             # reuse webpack bundle across renders
     ]
 
-    preset = RESOLUTION_PRESETS.get(resolution, RESOLUTION_PRESETS["720p"])
+    # For portrait, override the composition dimensions via --width / --height
+    if is_portrait:
+        cmd.extend(["--width", "1080", "--height", "1920"])
+
+    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
+    preset = presets.get(resolution, presets["720p"])
     scale = preset["scale"]
     if scale < 1.0:
         cmd.extend(["--scale", f"{scale:.4f}"])
@@ -382,9 +424,10 @@ def render_video(project: Project, resolution: str = "720p") -> str:
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
+    aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
 
     result = subprocess.run(
         cmd,
@@ -411,9 +454,10 @@ def start_render_async(project: Project, resolution: str = "720p") -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
+    aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
 
     _render_progress[project.id] = {
         "progress": 0,
@@ -496,6 +540,10 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     line = line.strip()
     if not line:
         return
+
+    # Log non-progress lines (errors, warnings) for debugging
+    if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
+        print(f"[REMOTION][project {project_id}] {line}")
 
     m = frame_pat.search(line)
     if m:

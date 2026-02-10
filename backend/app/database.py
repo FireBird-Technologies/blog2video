@@ -83,6 +83,11 @@ def _migrate(eng):
             "studio_unlocked": "BOOLEAN DEFAULT 0",
             "r2_video_key": "VARCHAR(512)",
             "r2_video_url": "VARCHAR(2048)",
+            "logo_r2_key": "VARCHAR(512)",
+            "logo_r2_url": "VARCHAR(2048)",
+            "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
+            "custom_voice_id": "VARCHAR(100)",
+            "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
         }
         for col_name, col_def in migrations.items():
             if col_name not in cols:

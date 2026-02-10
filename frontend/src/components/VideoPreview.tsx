@@ -89,11 +89,17 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     return Math.max(Math.ceil((totalSeconds + 2) * 30), 150);
   }, [project.scenes]);
 
+  const isPortrait = project.aspect_ratio === "portrait";
+
   const inputProps: VideoCompositionProps = {
     scenes,
     accentColor: project.accent_color || "#7C3AED",
     bgColor: project.bg_color || "#FFFFFF",
     textColor: project.text_color || "#000000",
+    logo: project.logo_r2_url || null,
+    logoPosition: project.logo_position || "bottom_right",
+    logoOpacity: project.logo_opacity ?? 0.9,
+    aspectRatio: project.aspect_ratio || "landscape",
   };
 
   return (
@@ -101,13 +107,13 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
       component={VideoComposition as any}
       inputProps={inputProps}
       durationInFrames={totalDurationFrames}
-      compositionWidth={1920}
-      compositionHeight={1080}
+      compositionWidth={isPortrait ? 1080 : 1920}
+      compositionHeight={isPortrait ? 1920 : 1080}
       fps={30}
       controls
       style={{
         width: "100%",
-        maxHeight: "60vh",
+        maxHeight: isPortrait ? "70vh" : "60vh",
         borderRadius: 12,
         overflow: "hidden",
       }}

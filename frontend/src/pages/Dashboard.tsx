@@ -6,6 +6,7 @@ import {
   deleteProject,
   createCheckoutSession,
   createPortalSession,
+  uploadLogo,
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -47,7 +48,12 @@ export default function Dashboard() {
     accentColor?: string,
     bgColor?: string,
     textColor?: string,
-    animationInstructions?: string
+    animationInstructions?: string,
+    logoFile?: File,
+    logoPosition?: string,
+    logoOpacity?: number,
+    customVoiceId?: string,
+    aspectRatio?: string
   ) => {
     setCreating(true);
     try {
@@ -59,8 +65,22 @@ export default function Dashboard() {
         accentColor,
         bgColor,
         textColor,
-        animationInstructions
+        animationInstructions,
+        logoPosition,
+        logoOpacity,
+        customVoiceId,
+        aspectRatio
       );
+
+      // Upload logo if provided
+      if (logoFile) {
+        try {
+          await uploadLogo(res.data.id, logoFile);
+        } catch (err) {
+          console.error("Logo upload failed:", err);
+        }
+      }
+
       await refreshUser();
       setShowModal(false);
       navigate(`/project/${res.data.id}`);
