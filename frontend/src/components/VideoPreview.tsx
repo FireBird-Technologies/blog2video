@@ -98,6 +98,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     textColor: project.text_color || "#000000",
     logo: project.logo_r2_url || null,
     logoPosition: project.logo_position || "bottom_right",
+    logoOpacity: project.logo_opacity ?? 0.9,
     aspectRatio: project.aspect_ratio || "landscape",
   };
 

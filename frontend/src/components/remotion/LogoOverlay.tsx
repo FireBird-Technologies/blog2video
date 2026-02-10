@@ -4,6 +4,7 @@ import { Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 interface LogoOverlayProps {
   src: string;
   position?: string; // "top_left" | "top_right" | "bottom_left" | "bottom_right"
+  maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
   aspectRatio?: string; // "landscape" | "portrait"
 }
 
@@ -14,23 +15,24 @@ interface LogoOverlayProps {
 export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   src,
   position = "bottom_right",
+  maxOpacity = 0.9,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait" || height > width;
 
-  const opacity = interpolate(frame, [0, 20], [0, 0.85], {
+  const opacity = interpolate(frame, [0, 20], [0, maxOpacity], {
     extrapolateRight: "clamp",
   });
 
   const size = isPortrait
-    ? Math.round(width * 0.08)
-    : Math.round(width * 0.065);
+    ? Math.round(width * 0.12)
+    : Math.round(width * 0.105);
 
   const margin = isPortrait
-    ? Math.round(width * 0.028)
-    : Math.round(width * 0.02);
+    ? Math.round(width * 0.032)
+    : Math.round(width * 0.022);
 
   const posStyle: React.CSSProperties = {
     position: "absolute",

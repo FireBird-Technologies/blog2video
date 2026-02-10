@@ -4,6 +4,7 @@ import { Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 interface LogoOverlayProps {
   src: string;
   position?: string; // "top_left" | "top_right" | "bottom_left" | "bottom_right"
+  maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
   aspectRatio?: string; // "landscape" | "portrait"
 }
 
@@ -11,36 +12,36 @@ interface LogoOverlayProps {
  * Persistent logo watermark that automatically sizes and positions itself
  * for both landscape (1920×1080) and portrait (1080×1920) videos.
  *
- * - Landscape: 80px logo, 30px margin from edge
- * - Portrait:  56px logo, 24px margin, pushed slightly inward to avoid
- *   mobile safe-area cutouts
+ * - Landscape (1920w): ~200px logo, ~40px margin
+ * - Portrait  (1080w): ~130px logo, ~35px margin
  *
- * Fades in over the first 20 frames and stays at 85% opacity.
+ * Fades in over the first 20 frames and stays at 90% opacity.
  */
 export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   src,
   position = "bottom_right",
+  maxOpacity = 0.9,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait" || height > width;
 
-  // Fade in gently over the first 20 frames
-  const opacity = interpolate(frame, [0, 20], [0, 0.85], {
+  // Fade in gently over the first 20 frames to the user-chosen opacity
+  const opacity = interpolate(frame, [0, 20], [0, maxOpacity], {
     extrapolateRight: "clamp",
   });
 
-  // Responsive sizing based on canvas dimensions
-  // Landscape (1920w): ~6.5% = 125px   |  Portrait (1080w): ~8% = 86px
+  // Responsive sizing — sized to be clearly visible in the final video
+  // Landscape (1920w): ~10.5% = 200px   |  Portrait (1080w): ~12% = 130px
   const size = isPortrait
-    ? Math.round(width * 0.08)    // ~86px on 1080w
-    : Math.round(width * 0.065);  // ~125px on 1920w
+    ? Math.round(width * 0.12)    // ~130px on 1080w
+    : Math.round(width * 0.105);  // ~200px on 1920w
 
-  // Margin from edge — portrait gets extra inset for mobile safe areas
+  // Margin from edge
   const margin = isPortrait
-    ? Math.round(width * 0.028)   // ~30px on 1080w
-    : Math.round(width * 0.02);   // ~38px on 1920w
+    ? Math.round(width * 0.032)   // ~35px on 1080w
+    : Math.round(width * 0.022);  // ~42px on 1920w
 
   // Build position style
   const posStyle: React.CSSProperties = {

@@ -32,6 +32,7 @@ interface VideoData {
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
+  logoOpacity?: number;
   aspectRatio?: string;
   scenes: SceneData[];
 }
@@ -182,6 +183,7 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         <LogoOverlay
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
+          maxOpacity={data.logoOpacity ?? 0.9}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

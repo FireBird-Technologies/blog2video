@@ -25,6 +25,7 @@ export interface VideoCompositionProps {
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
+  logoOpacity?: number;
   aspectRatio?: string;
 }
 
@@ -35,6 +36,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
   textColor,
   logo,
   logoPosition,
+  logoOpacity,
   aspectRatio,
 }) => {
   const FPS = 30;
@@ -79,6 +81,7 @@ export const VideoComposition: React.FC<VideoCompositionProps> = ({
         <LogoOverlay
           src={logo}
           position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
           aspectRatio={aspectRatio || "landscape"}
         />
       )}

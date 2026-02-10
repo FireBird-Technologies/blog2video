@@ -40,6 +40,7 @@ def create_project(
         text_color=data.text_color or "#000000",
         animation_instructions=data.animation_instructions or None,
         logo_position=data.logo_position or "bottom_right",
+        logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
         status=ProjectStatus.CREATED,
