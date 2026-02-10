@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useAuth } from "../hooks/useAuth";
 
 interface Props {
   onSubmit: (
@@ -9,7 +10,11 @@ interface Props {
     accentColor?: string,
     bgColor?: string,
     textColor?: string,
-    animationInstructions?: string
+    animationInstructions?: string,
+    logoFile?: File,
+    logoPosition?: string,
+    customVoiceId?: string,
+    aspectRatio?: string
   ) => Promise<void>;
   loading?: boolean;
   /** Render as a full-screen modal overlay */
@@ -23,54 +28,113 @@ export default function BlogUrlForm({
   asModal,
   onClose,
 }: Props) {
-  const [url, setUrl] = useState("");
+  const { user } = useAuth();
+  const isPro = user?.plan === "pro";
+
+  // Core fields
+  const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
-  const [voiceGender, setVoiceGender] = useState<"female" | "male">("female");
-  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">(
-    "american"
-  );
+  const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
+  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
   const [accentColor, setAccentColor] = useState("#7C3AED");
   const [bgColor, setBgColor] = useState("#FFFFFF");
   const [textColor, setTextColor] = useState("#000000");
   const [animationInstructions, setAnimationInstructions] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // New fields
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPosition, setLogoPosition] = useState("bottom_right");
+  const [customVoiceId, setCustomVoiceId] = useState("");
+  const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
+  const [batchCount, setBatchCount] = useState(1);
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url.trim()) return;
-    await onSubmit(
-      url.trim(),
-      name.trim() || undefined,
-      voiceGender,
-      voiceAccent,
-      accentColor,
-      bgColor,
-      textColor,
-      animationInstructions.trim() || undefined
-    );
-    setUrl("");
+    const validUrls = urls.filter((u) => u.trim());
+    if (validUrls.length === 0) return;
+
+    // Submit each URL as a separate project
+    for (const url of validUrls) {
+      await onSubmit(
+        url.trim(),
+        name.trim() || undefined,
+        voiceGender,
+        voiceAccent,
+        accentColor,
+        bgColor,
+        textColor,
+        animationInstructions.trim() || undefined,
+        logoFile || undefined,
+        logoPosition,
+        customVoiceId.trim() || undefined,
+        aspectRatio
+      );
+    }
+    setUrls([""]);
     setName("");
+  };
+
+  const updateUrl = (index: number, value: string) => {
+    setUrls((prev) => prev.map((u, i) => (i === index ? value : u)));
   };
 
   const form = (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* URL */}
+      {/* URL(s) */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Blog URL
+          Blog URL{batchCount > 1 ? "s" : ""}
         </label>
-        <input
-          type="url"
-          required
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://yourblog.com/your-article..."
-          className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-          autoFocus
-        />
-        <p className="mt-1.5 text-[11px] text-gray-400 leading-relaxed">
-          Paywalled article? Use the paywall-free link for best results.
+        {urls.map((url, i) => (
+          <input
+            key={i}
+            type="url"
+            required={i === 0}
+            value={url}
+            onChange={(e) => updateUrl(i, e.target.value)}
+            placeholder={
+              i === 0
+                ? "https://yourblog.com/your-article..."
+                : `URL ${i + 1} (optional)`
+            }
+            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2"
+            autoFocus={i === 0}
+          />
+        ))}
+        <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
+          If your post is paywalled. Use the paywall-free link for best results.
         </p>
+
+        {/* Batch slider — Pro only */}
+        {isPro && (
+          <div className="mt-3 flex items-center gap-3">
+            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap">
+              Batch
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              value={batchCount}
+              onChange={(e) => {
+                const count = Number(e.target.value);
+                setBatchCount(count);
+                setUrls((prev) => {
+                  const next = [...prev];
+                  while (next.length < count) next.push("");
+                  return next.slice(0, count);
+                });
+              }}
+              className="flex-1 accent-purple-600 h-1.5"
+            />
+            <span className="text-xs font-medium text-gray-500 w-6 text-center">
+              {batchCount}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Name */}
@@ -90,50 +154,107 @@ export default function BlogUrlForm({
 
       {/* Voice preferences row */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Gender */}
+        {/* Gender / None */}
         <div>
           <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
             Voice
           </label>
-          <div className="flex gap-2">
-            {(["female", "male"] as const).map((g) => (
+          <div className="flex gap-1.5">
+            {(["female", "male", "none"] as const).map((g) => (
               <button
                 key={g}
                 type="button"
                 onClick={() => setVoiceGender(g)}
                 className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
                   voiceGender === g
-                    ? "bg-purple-600 text-white shadow-sm"
+                    ? g === "none"
+                      ? "bg-gray-600 text-white shadow-sm"
+                      : "bg-purple-600 text-white shadow-sm"
                     : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
                 }`}
               >
-                {g === "female" ? "Female" : "Male"}
+                {g === "female" ? "Female" : g === "male" ? "Male" : "None"}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Accent */}
+        {/* Accent — hidden when voice is "none" */}
+        {voiceGender !== "none" && (
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              English
+            </label>
+            <div className="flex gap-2">
+              {(["american", "british"] as const).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setVoiceAccent(a)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                    voiceAccent === a
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+                  }`}
+                >
+                  {a === "american" ? "American" : "British"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Custom Voice ID — Pro only, visible when voice is not "none" */}
+      {isPro && voiceGender !== "none" && (
         <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            English
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Custom Voice ID{" "}
+            <span className="text-gray-300 font-normal">(ElevenLabs)</span>
           </label>
-          <div className="flex gap-2">
-            {(["american", "british"] as const).map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setVoiceAccent(a)}
-                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                  voiceAccent === a
-                    ? "bg-purple-600 text-white shadow-sm"
-                    : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+          <input
+            type="text"
+            value={customVoiceId}
+            onChange={(e) => setCustomVoiceId(e.target.value)}
+            placeholder="Paste your ElevenLabs voice ID..."
+            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+          />
+          <p className="mt-1 text-[10px] text-gray-300">
+            Override the default voice with your own from elevenlabs.io
+          </p>
+        </div>
+      )}
+
+      {/* Aspect Ratio */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Format
+        </label>
+        <div className="flex gap-2">
+          {([
+            { value: "landscape", label: "Landscape", sub: "YouTube" },
+            { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setAspectRatio(opt.value)}
+              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                aspectRatio === opt.value
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+              }`}
+            >
+              <span>{opt.label}</span>
+              <span
+                className={`text-[9px] ${
+                  aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"
                 }`}
               >
-                {a === "american" ? "American" : "British"}
-              </button>
-            ))}
-          </div>
+                {opt.sub}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -193,6 +314,72 @@ export default function BlogUrlForm({
         </div>
       </div>
 
+      {/* Logo Upload */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Logo{" "}
+          <span className="text-gray-300 font-normal">(optional)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => logoInputRef.current?.click()}
+            className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all"
+          >
+            {logoFile ? logoFile.name : "Choose file"}
+          </button>
+          {logoFile && (
+            <button
+              type="button"
+              onClick={() => {
+                setLogoFile(null);
+                if (logoInputRef.current) logoInputRef.current.value = "";
+              }}
+              className="text-[10px] text-gray-400 hover:text-red-500"
+            >
+              Remove
+            </button>
+          )}
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+          />
+        </div>
+        {logoFile && (
+          <div className="mt-2">
+            <label className="block text-[10px] text-gray-400 mb-1">
+              Position
+            </label>
+            <div className="flex gap-1.5">
+              {(
+                [
+                  { value: "top_left", label: "Top Left" },
+                  { value: "top_right", label: "Top Right" },
+                  { value: "bottom_left", label: "Bottom Left" },
+                  { value: "bottom_right", label: "Bottom Right" },
+                ] as const
+              ).map((pos) => (
+                <button
+                  key={pos.value}
+                  type="button"
+                  onClick={() => setLogoPosition(pos.value)}
+                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                    logoPosition === pos.value
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                  }`}
+                >
+                  {pos.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Animation Instructions Toggle */}
       <div>
         <button
@@ -230,7 +417,7 @@ export default function BlogUrlForm({
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading || !url.trim()}
+        disabled={loading || !urls[0]?.trim()}
         className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
       >
         {loading ? (
@@ -238,6 +425,8 @@ export default function BlogUrlForm({
             <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             Creating...
           </>
+        ) : batchCount > 1 ? (
+          `Generate ${urls.filter((u) => u.trim()).length} Videos`
         ) : (
           "Generate Video"
         )}
@@ -254,7 +443,7 @@ export default function BlogUrlForm({
         className="absolute inset-0 bg-black/20 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md mx-4 bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7">
+      <div className="relative w-full max-w-md mx-4 bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-base font-semibold text-gray-900">
             New Project

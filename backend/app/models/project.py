@@ -37,6 +37,17 @@ class Project(Base):
     player_port: Mapped[int | None] = mapped_column(nullable=True)
     r2_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     r2_video_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+
+    # Logo overlay
+    logo_r2_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    logo_r2_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    logo_position: Mapped[str] = mapped_column(String(20), default="bottom_right")
+
+    # Voiceover
+    custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Aspect ratio
+    aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

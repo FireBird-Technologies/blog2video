@@ -24,6 +24,11 @@ class BlogToScript(dspy.Signature):
     - The narration should be a compelling hook or introduction, e.g. "Ever wondered how X works? Let's break it down."
     - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
+    - If NO hero image is available (hero_image says "no hero image"), the first scene
+      should use a BOLD TEXT BANNER with the title as large centered text on a colored
+      background. Set visual_description to: "Title text banner: [THE TITLE] displayed
+      as large bold centered text on gradient background, no image needed."
+      Leave suggested_images as an empty list [].
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -71,12 +76,16 @@ class BlogToScript(dspy.Signature):
         '"duration_seconds" (int). '
         'FIRST scene title must be the actual blog title (never "Hero Opening"), '
         'with a short narration hook (15-25 words) and duration_seconds=6. '
-        'Example: [{"title": "How AI is Changing Everything", '
+        'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
+        'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
+        'Example with image: [{"title": "How AI is Changing Everything", '
         '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
         '"visual_description": "Hero banner image with title overlay and fade-in", '
-        '"suggested_images": ["hero.jpg"], "duration_seconds": 6}, '
-        '{"title": "Introduction", "narration": "Welcome to...", '
-        '"visual_description": "...", "suggested_images": [], "duration_seconds": 15}]'
+        '"suggested_images": ["hero.jpg"], "duration_seconds": 6}]. '
+        'Example without image: [{"title": "How AI is Changing Everything", '
+        '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
+        '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
+        '"suggested_images": [], "duration_seconds": 6}]'
     )
 
 
