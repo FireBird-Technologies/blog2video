@@ -1,4 +1,4 @@
-# ── Blog2Video: Python 3.11 + Node.js 20 for Cloud Run ──────
+# ── Blog2Video: Python 3.11 + Node.js 20 for HuggingFace Spaces ──
 FROM python:3.11-slim
 
 # Install Node.js 20 + Chromium deps (needed by Remotion render)
@@ -29,8 +29,12 @@ COPY backend/app/ ./backend/app/
 ENV REMOTION_PROJECT_PATH=/app/remotion-video
 ENV MEDIA_DIR=/tmp/media
 
-# Cloud Run sets PORT env var (default 8080)
-ENV PORT=8080
+# HuggingFace Spaces REQUIRES port 7860
+ENV PORT=7860
+EXPOSE 7860
+
+# HF Spaces runs containers as uid 1000 — ensure /tmp/media is writable
+RUN mkdir -p /tmp/media && chmod -R 777 /tmp/media
 
 WORKDIR /app/backend
 

@@ -226,9 +226,11 @@ _always_allowed = [
     "http://localhost:5173",
     "http://localhost:3000",
     "https://blog2video.vercel.app",
+    "https://blog2video-nu.vercel.app",
     "https://blog2video-522695462929.us-west1.run.app",
     "https://blog2video.app",
     "https://www.blog2video.app",
+    "https://muhammad-mehdi-backend-b2v.hf.space",
 ]
 for origin in _always_allowed:
     if origin not in _origins:
@@ -237,7 +239,7 @@ for origin in _always_allowed:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app)",  # Vercel previews + subdomains
+    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space)",  # Vercel previews + subdomains + HF Spaces
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
