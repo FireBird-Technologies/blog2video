@@ -397,22 +397,18 @@ def _build_render_cmd(
 
     cmd = [
         npx, "remotion", "render", "ExplainerVideo", output_path,
-        "--concurrency", "100%",              # use all CPU cores
+        "--concurrency", "50%",               # conservative for memory-limited environments
         "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
-        "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
+        "--gl", "swangle",                    # software WebGL — works on CPU-only (no GPU needed)
         "--jpeg-quality", "70",               # faster encoding, minimal quality loss
         "--bundle-cache", "true",             # reuse webpack bundle across renders
+        "--log", "verbose",                   # detailed logs for debugging render failures
     ]
 
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
-
+    # Use --width and --height for exact integer dimensions (avoids fractional --scale errors)
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
     preset = presets.get(resolution, presets["720p"])
-    scale = preset["scale"]
-    if scale < 1.0:
-        cmd.extend(["--scale", f"{scale:.4f}"])
+    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
 
@@ -470,6 +466,7 @@ def start_render_async(project: Project, resolution: str = "720p") -> None:
         "_cmd": cmd,
         "_workspace": workspace,
         "_attempt": 1,
+        "_stderr_lines": [],  # capture stderr for error reporting
     }
 
     _launch_render_process(project.id, cmd, workspace)
@@ -540,6 +537,14 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     line = line.strip()
     if not line:
         return
+
+    # Capture all output lines for error reporting (keep last 30 lines)
+    prog = _render_progress.get(project_id)
+    if prog is not None:
+        stderr_lines = prog.setdefault("_stderr_lines", [])
+        stderr_lines.append(line)
+        if len(stderr_lines) > 30:
+            stderr_lines.pop(0)
 
     # Log non-progress lines (errors, warnings) for debugging
     if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
@@ -619,8 +624,11 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 })
                 _launch_render_process(project_id, cmd, workspace)
             else:
+                stderr_lines = prog.get("_stderr_lines", [])
+                # Include last 25 lines of output for debugging
+                tail = "\n".join(stderr_lines[-25:]) if stderr_lines else "(no output captured)"
                 _render_progress[project_id]["error"] = (
-                    f"Render failed (exit code {retcode}) after {attempt} attempt(s)"
+                    f"Render failed (exit code {retcode}) after {attempt} attempt(s):\n{tail}"
                 )
                 _render_progress[project_id]["done"] = True
     except Exception as e:
