@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { sendEnterpriseContact } from "../api/client";
+import { useAuth } from "../hooks/useAuth";
+import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
+
 
 export default function Contact() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -17,11 +21,10 @@ export default function Contact() {
     setError(null);
     try {
       await sendEnterpriseContact({ name, company, message });
-      setSuccess("Thanks! We'll get back to you shortly.");
+      setSuccess("Thank you for the feedback, we'll get back soon.");
       setName("");
       setCompany("");
       setMessage("");
-      setOpen(false);
     } catch (err: any) {
       console.error("Enterprise contact failed", err);
       setError(
@@ -33,8 +36,42 @@ export default function Contact() {
     }
   };
 
+  // After a successful send, briefly show success state then close the modal
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => {
+      setOpen(false);
+      setSuccess(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [success]);
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      {/* Nav — match Pricing page for logged-out visitors */}
+      {!user && (
+        <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
+          <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                B2V
+              </div>
+              <span className="text-xl font-semibold text-gray-900">
+                Blog2Video
+              </span>
+            </a>
+            <div className="flex items-center gap-6">
+              <a
+                href="/"
+                className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+              >
+                Home
+              </a>
+            </div>
+          </div>
+        </nav>
+      )}
+
       <div className="max-w-4xl mx-auto px-6 py-16">
         <header className="mb-10">
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
@@ -47,27 +84,6 @@ export default function Contact() {
         </header>
 
         <section className="glass-card p-6 mb-10">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
-            General contact
-          </h2>
-          <p className="text-sm text-gray-500 mb-4">
-            For support, product questions, or anything else, you can reach us
-            at:
-          </p>
-          <div className="space-y-1 text-sm text-gray-700">
-            <p>
-              Email:{" "}
-              <a
-                href="mailto:founder@blog2video.app"
-                className="text-purple-600 hover:text-purple-700 underline"
-              >
-                founder@blog2video.app
-              </a>
-            </p>
-          </div>
-        </section>
-
-        <section className="glass-card p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
@@ -79,10 +95,12 @@ export default function Contact() {
             </div>
             <button
               onClick={() => setOpen(true)}
-              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
             >
+              <ChatBubbleLeftIcon className="w-5 h-5" />
               Talk to us
             </button>
+
           </div>
           <ul className="mt-4 space-y-2 text-sm text-gray-600 list-disc list-inside">
             <li>API for your custom needs</li>
@@ -92,6 +110,30 @@ export default function Contact() {
             <li>SSO and enterprise security</li>
           </ul>
         </section>
+
+
+        <section className="glass-card p-6 mb-10">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+            General contact
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            For support, product questions, or anything else, you can also reach us on Email
+            at:
+          </p>
+          <div className="space-y-1 text-sm text-gray-700">
+            <p>
+              Email:{" "}
+              <a
+                href="mailto:blog2video@fbt"
+                className="text-purple-600 hover:text-purple-700 underline"
+              >
+                blog2video@firebird-technologies.com
+              </a>
+            </p>
+          </div>
+        </section>
+
+
       </div>
 
       {/* Enterprise contact modal */}
@@ -121,80 +163,104 @@ export default function Contact() {
                 </svg>
               </button>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Tell us a bit about your team and how you&apos;d like to use
-              Blog2Video. We&apos;ll follow up by email.
-            </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Company
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Acme Inc."
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Message
-                </label>
-                <textarea
-                  required
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                  placeholder="Share a bit about your use case, team size, and what you need."
-                />
-              </div>
-
-              {error && (
-                <p className="text-xs text-red-500">
-                  {error}
+            {success ? (
+              <div className="py-6 text-center space-y-3">
+                <div className="w-10 h-10 mx-auto rounded-full bg-green-50 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Thank you for the feedback
+                </h3>
+                <p className="text-xs text-gray-500">
+                  We&apos;ll get back to you soon.
                 </p>
-              )}
-              {success && (
-                <p className="text-xs text-green-600">
-                  {success}
-                </p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-60"
-                >
-                  {loading ? "Sending..." : "Send message"}
-                </button>
               </div>
-            </form>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-4">
+                  Tell us a bit about your team and how you&apos;d like to use
+                  Blog2Video. We&apos;ll follow up by email.
+                </p>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Jane Doe"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Company
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Acme Inc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Message
+                    </label>
+                    <textarea
+                      required
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      placeholder="Share a bit about your use case, team size, and what you need."
+                    />
+                  </div>
+
+                  {error && (
+                    <p className="text-xs text-red-500">
+                      {error}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpen(false)}
+                      className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-60"
+                    >
+                      {loading ? "Sending..." : "Send message"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1161,7 +1161,7 @@ export default function ProjectView() {
                         {showShareMenu && (
                           <>
                             <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 bottom-full mb-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1">
+                            <div className="absolute right-0 top-full mt-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex flex-col gap-2.5">
                               {/* TikTok */}
                               <button
                                 onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
