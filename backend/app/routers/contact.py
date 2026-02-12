@@ -25,16 +25,19 @@ async def enterprise_contact(payload: EnterpriseContact):
             detail="Email service is not configured.",
         )
 
+    print("1")
     # Lazy import so the app can still start if resend isn't installed in some environments
     try:
-        from resend import Emails, Resend
+        import resend
     except Exception:  # pragma: no cover - defensive
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Email provider not available on this server.",
         )
 
-    client = Resend(api_key=api_key)
+    resend.api_key = api_key
+
+    print("key", api_key)
 
     subject = f"[Enterprise] Contact from {payload.name} ({payload.company})"
     text_body = (
@@ -44,20 +47,22 @@ async def enterprise_contact(payload: EnterpriseContact):
         f"Message:\n{payload.message}\n"
     )
 
+    print("2")
     try:
-        await Emails.send(
-            client=client,
-            from_="Blog2Video <25100313@lums.edu.pk>",
-            to=["Mehdichangazi135@gmail.com"],
-            subject=subject,
-            text=text_body,
+        resend.Emails.send(
+            {
+                "from": "onboarding@resend.dev",
+                "to": ["mehdichangazi135@gmail.com"],
+                "subject": subject,
+                "text": text_body,
+            }
         )
-        
-    except Exception:
-        # Don't leak provider errors to the client
+    except Exception as e:
+        print("Error:", e)
+        # Don't leak provider errors to the client; treat as best-effort in dev
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to send your message. Please try again later.",
+            detail="Failed to send your message. Please verify your RESEND_API_KEY and from address.",
         )
 
     return {"ok": True}

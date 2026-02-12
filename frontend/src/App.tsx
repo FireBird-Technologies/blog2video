@@ -39,7 +39,7 @@ function AppRoutes() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <Navbar />
+      {user && <Navbar />}
 
       <Routes>
         {/* Public */}
