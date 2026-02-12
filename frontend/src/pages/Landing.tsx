@@ -116,6 +116,7 @@ export default function Landing() {
             <a href="#how" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">How it works</a>
             <a href="#features" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Features</a>
             <a href="/pricing" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Pricing</a>
+            <a href="/contact" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Contact</a>
           </div>
         </div>
       </nav>
