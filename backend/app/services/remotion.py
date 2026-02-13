@@ -50,6 +50,7 @@ _TEMPLATE_SRC_FILES = [
     "src/components/layouts/QuoteCallout.tsx",
     "src/components/layouts/ImageCaption.tsx",
     "src/components/layouts/Timeline.tsx",
+    "src/components/layouts/AnimatedImage.tsx",
     "src/components/layouts/index.ts",
 ]
 
@@ -374,16 +375,19 @@ def get_render_progress(project_id: int) -> dict:
 
 # Resolution presets: label -> (width, height, scale)
 # Landscape: base is 1920x1080; Portrait: base is 1080x1920
+# Scale values must produce exact integer dimensions to avoid Remotion errors.
+# Instead of computing scale from target/base, we use --width/--height overrides
+# for sub-1080p resolutions, which guarantees integer output.
 RESOLUTION_PRESETS = {
     "landscape": {
-        "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
-        "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
-        "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+        "480p":  {"width": 854,  "height": 480},
+        "720p":  {"width": 1280, "height": 720},
+        "1080p": {"width": 1920, "height": 1080},
     },
     "portrait": {
-        "480p":  {"width": 480,  "height": 854,  "scale": 854 / 1920},
-        "720p":  {"width": 720,  "height": 1280, "scale": 1280 / 1920},
-        "1080p": {"width": 1080, "height": 1920, "scale": 1.0},
+        "480p":  {"width": 480,  "height": 854},
+        "720p":  {"width": 720,  "height": 1280},
+        "1080p": {"width": 1080, "height": 1920},
     },
 }
 
@@ -393,8 +397,6 @@ def _build_render_cmd(
     aspect_ratio: str = "landscape",
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
-    is_portrait = aspect_ratio == "portrait"
-
     cmd = [
         npx, "remotion", "render", "ExplainerVideo", output_path,
         "--concurrency", "100%",              # use all CPU cores
@@ -404,15 +406,10 @@ def _build_render_cmd(
         "--bundle-cache", "true",             # reuse webpack bundle across renders
     ]
 
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
-
+    # Always use explicit --width / --height to guarantee integer dimensions
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
     preset = presets.get(resolution, presets["720p"])
-    scale = preset["scale"]
-    if scale < 1.0:
-        cmd.extend(["--scale", f"{scale:.4f}"])
+    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
 
