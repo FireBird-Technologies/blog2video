@@ -1,5 +1,6 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SceneLayoutProps } from "./types";
+import { AnimatedImage } from "./AnimatedImage";
 
 export const HeroImage: React.FC<SceneLayoutProps> = ({
   title,
@@ -63,7 +64,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
               flexShrink: 0,
             }}
           >
-            <Img
+            <AnimatedImage
               src={imageUrl}
               style={{
                 width: "100%",
@@ -129,7 +130,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor }}>
       {imageUrl && (
-        <Img
+        <AnimatedImage
           src={imageUrl}
           style={{
             width: "100%",
