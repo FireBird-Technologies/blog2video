@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { SceneLayoutProps } from "./types";
 
 export const HeroImage: React.FC<SceneLayoutProps> = ({
@@ -63,7 +63,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
               flexShrink: 0,
             }}
           >
-            <Img
+            <img
               src={imageUrl}
               style={{
                 width: "100%",
@@ -129,7 +129,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor }}>
       {imageUrl && (
-        <Img
+        <img
           src={imageUrl}
           style={{
             width: "100%",
