@@ -1,6 +1,7 @@
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,8 +12,19 @@ from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.services.doc_extractor import extract_from_documents
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+# ─── Constants ────────────────────────────────────────────
+_MAX_UPLOAD_FILES = 5
+_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+_ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   # .docx
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
 
 
 @router.post("", response_model=ProjectOut)
@@ -27,6 +39,9 @@ def create_project(
             status_code=403,
             detail=f"Video limit reached ({user.video_limit}). Upgrade to Pro for 100 videos/month.",
         )
+
+    if not data.blog_url:
+        raise HTTPException(status_code=400, detail="blog_url is required for URL-based project creation.")
 
     name = data.name or _name_from_url(data.blog_url)
     project = Project(
@@ -51,6 +66,89 @@ def create_project(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
+    return project
+
+
+@router.post("/upload", response_model=ProjectOut)
+def create_project_from_upload(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    name: Optional[str] = Form(None),
+    voice_gender: Optional[str] = Form("female"),
+    voice_accent: Optional[str] = Form("american"),
+    accent_color: Optional[str] = Form("#7C3AED"),
+    bg_color: Optional[str] = Form("#FFFFFF"),
+    text_color: Optional[str] = Form("#000000"),
+    animation_instructions: Optional[str] = Form(None),
+    logo_position: Optional[str] = Form("bottom_right"),
+    logo_opacity: Optional[float] = Form(0.9),
+    custom_voice_id: Optional[str] = Form(None),
+    aspect_ratio: Optional[str] = Form("landscape"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new project from uploaded documents (PDF, DOCX, PPTX). Counts against video limit."""
+    if not user.can_create_video:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Video limit reached ({user.video_limit}). Upgrade to Pro for 100 videos/month.",
+        )
+
+    # ── Validate files ────────────────────────────────────
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="At least one file is required.")
+    if len(files) > _MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=400, detail=f"Maximum {_MAX_UPLOAD_FILES} files allowed.")
+
+    for f in files:
+        # Check by extension (MIME types can be unreliable for Office files)
+        file_ext = os.path.splitext(f.filename or "")[1].lower() if f.filename else ""
+        if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+            )
+        # Check file size (read content to measure, then reset)
+        content = f.file.read()
+        if len(content) > _MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' exceeds the 5 MB size limit.",
+            )
+        f.file.seek(0)  # Reset for later reading
+
+    # ── Create project ────────────────────────────────────
+    project_name = name or _name_from_files(files)
+    project = Project(
+        user_id=user.id,
+        name=project_name,
+        blog_url="upload://documents",
+        voice_gender=voice_gender or "female",
+        voice_accent=voice_accent or "american",
+        accent_color=accent_color or "#7C3AED",
+        bg_color=bg_color or "#FFFFFF",
+        text_color=text_color or "#000000",
+        animation_instructions=animation_instructions or None,
+        logo_position=logo_position or "bottom_right",
+        logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
+        custom_voice_id=custom_voice_id or None,
+        aspect_ratio=aspect_ratio or "landscape",
+        status=ProjectStatus.CREATED,
+    )
+    db.add(project)
+    user.videos_used_this_period += 1
+    db.commit()
+    db.refresh(project)
+
+    # ── Extract text + images from documents ────────────────
+    try:
+        project = extract_from_documents(project, files, db)
+    except Exception as e:
+        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        project.status = ProjectStatus.ERROR
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+
     return project
 
 
@@ -255,3 +353,14 @@ def _name_from_url(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.strip("/").split("/")[-1] if parsed.path.strip("/") else parsed.netloc
     return path.replace("-", " ").replace("_", " ").title()[:100] or "Untitled Project"
+
+
+def _name_from_files(files: list[UploadFile]) -> str:
+    """Generate a project name from uploaded file names."""
+    if files and files[0].filename:
+        # Use the first file's name without extension
+        base = os.path.splitext(files[0].filename)[0]
+        name = base.replace("-", " ").replace("_", " ").title()[:100]
+        if name:
+            return name
+    return "Uploaded Document"

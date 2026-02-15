@@ -6,7 +6,7 @@ from typing import Optional
 # ─── Project ───────────────────────────────────────────────
 
 class ProjectCreate(BaseModel):
-    blog_url: str
+    blog_url: Optional[str] = None
     name: Optional[str] = None
     voice_gender: Optional[str] = "female"   # "male", "female", or "none"
     voice_accent: Optional[str] = "american"  # "american" or "british"
@@ -66,7 +66,7 @@ class ChatMessageOut(BaseModel):
 class ProjectOut(BaseModel):
     id: int
     name: str
-    blog_url: str
+    blog_url: Optional[str] = None
     blog_content: Optional[str] = None
     status: str
     voice_gender: str = "female"
@@ -97,7 +97,7 @@ class ProjectOut(BaseModel):
 class ProjectListOut(BaseModel):
     id: int
     name: str
-    blog_url: str
+    blog_url: Optional[str] = None
     status: str
     created_at: datetime
     updated_at: datetime
