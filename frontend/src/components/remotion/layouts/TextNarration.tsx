@@ -7,8 +7,11 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   accentColor,
   bgColor,
   textColor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
   const titleOp = interpolate(frame, [0, 25], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -21,7 +24,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   const circleScale = interpolate(frame, [0, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const barW = interpolate(frame, [5, 25], [0, 120], {
+  const barW = interpolate(frame, [5, 25], [0, p ? 80 : 120], {
     extrapolateRight: "clamp",
   });
 
@@ -29,7 +32,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
     <AbsoluteFill
       style={{
         backgroundColor: bgColor,
-        padding: "80px 120px",
+        padding: p ? "60px 50px" : "80px 120px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -40,8 +43,8 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
           position: "absolute",
           top: -60,
           right: -60,
-          width: 300,
-          height: 300,
+          width: p ? 200 : 300,
+          height: p ? 200 : 300,
           borderRadius: "50%",
           border: `2px solid ${accentColor}20`,
           transform: `scale(${circleScale})`,
@@ -50,19 +53,19 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
       <div
         style={{
           position: "absolute",
-          top: 80,
-          left: 120,
+          top: p ? 60 : 80,
+          left: p ? 50 : 120,
           width: barW,
           height: 4,
           backgroundColor: accentColor,
           borderRadius: 2,
         }}
       />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1100 }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: p ? 900 : 1100 }}>
         <h1
           style={{
             color: textColor,
-            fontSize: 52,
+            fontSize: p ? 40 : 52,
             fontWeight: 700,
             opacity: titleOp,
             marginBottom: 24,
@@ -84,11 +87,11 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: 27,
+            fontSize: p ? 24 : 27,
             lineHeight: 1.8,
             opacity: textOp * 0.8,
             transform: `translateY(${textY}px)`,
-            maxWidth: 950,
+            maxWidth: p ? 850 : 950,
             fontFamily: "Inter, sans-serif",
           }}
         >

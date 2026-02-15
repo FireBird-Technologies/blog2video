@@ -115,8 +115,12 @@ async def _run_pipeline(project_id: int, user_id: int):
         if not project:
             return
 
-        # Step 1: Scrape
+        # Step 1: Scrape (skip for upload-based projects)
         if project.status in (ProjectStatus.CREATED,):
+            if project.blog_url and project.blog_url.startswith("upload://"):
+                # Upload project without pending files — wait for documents
+                _set_error(project_id, project, db, "Documents not yet uploaded. Please upload files first.")
+                return
             _pipeline_progress[project_id]["step"] = 1
             try:
                 scrape_blog(project, db)
