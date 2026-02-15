@@ -1304,14 +1304,22 @@ export default function ProjectView() {
                 </h1>
                 <StatusBadge status={project.status} />
               </div>
-              <a
-                href={project.blog_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-gray-400 hover:text-purple-600 transition-colors"
-              >
-                {project.blog_url}
-              </a>
+              {project.blog_url && !project.blog_url.startsWith("upload://") ? (
+                <a
+                  href={project.blog_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-purple-600 transition-colors"
+                >
+                  {project.blog_url}
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400">
+                  {project.blog_url?.startsWith("upload://")
+                    ? "Created from uploaded documents"
+                    : ""}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

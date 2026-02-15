@@ -21,7 +21,7 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    blog_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    blog_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     blog_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus), default=ProjectStatus.CREATED
