@@ -467,24 +467,10 @@ export default function ProjectView() {
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
 
-  // Resolution selection
-  const [selectedResolution, setSelectedResolution] = useState<string>("720p");
-  const [showResolutionMenu, setShowResolutionMenu] = useState(false);
-  const resMenuRef = useRef<HTMLDivElement>(null);
+  // Resolution is always 1080p
+  const RENDER_RESOLUTION = "1080p";
 
-  // Close resolution menu on outside click
-  useEffect(() => {
-    if (!showResolutionMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (resMenuRef.current && !resMenuRef.current.contains(e.target as Node)) {
-        setShowResolutionMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showResolutionMenu]);
-
-  const handleRender = async (resolution?: string) => {
+  const handleRender = async () => {
     // If already rendered and available in R2, skip straight to download
     if (project?.r2_video_url) {
       setRendered(true);
@@ -492,8 +478,7 @@ export default function ProjectView() {
       return;
     }
 
-    const res = resolution || selectedResolution;
-    setShowResolutionMenu(false);
+    const res = RENDER_RESOLUTION;
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
@@ -1053,111 +1038,32 @@ export default function ProjectView() {
 
                 {/* Download MP4 */}
                 {!rendered ? (
-                  <div className="relative" ref={resMenuRef}>
-                    <div className="flex">
-                      {/* Main download button — shows "Retry" after a failed render */}
-                      <button
-                        onClick={() => { setError(null); handleRender(); }}
-                        className={`px-4 py-1.5 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5 ${
-                          error
-                            ? "bg-orange-500 hover:bg-orange-600"
-                            : "bg-purple-600 hover:bg-purple-700"
-                        }`}
-                      >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d={error
-                              ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            }
-                          />
-                        </svg>
-                        {error ? "Resume Download" : `Download ${selectedResolution}`}
-                      </button>
-
-                      {/* Dropdown trigger */}
-                      <button
-                        onClick={() => setShowResolutionMenu(!showResolutionMenu)}
-                        className={`px-1.5 py-1.5 text-white rounded-r-lg border-l transition-colors ${
-                          error
-                            ? "bg-orange-500 hover:bg-orange-600 border-orange-400"
-                            : "bg-purple-600 hover:bg-purple-700 border-purple-500"
-                        }`}
-                      >
-                        <svg
-                          className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Resolution dropdown */}
-                    {showResolutionMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
-                        {/* Format indicator */}
-                        <div className="px-3 py-1.5 border-b border-gray-100">
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                            {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
-                          </span>
-                        </div>
-                        {(project.aspect_ratio === "portrait" ? [
-                          { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
-                          { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
-                        ] : [
-                          { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
-                          { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
-                        ]).map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              if (opt.locked) {
-                                setShowResolutionMenu(false);
-                                setShowUpgrade(true);
-                                return;
-                              }
-                              setSelectedResolution(opt.value);
-                              setShowResolutionMenu(false);
-                            }}
-                            className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                              selectedResolution === opt.value ? "bg-purple-50" : ""
-                            }`}
-                          >
-                            <div>
-                              <span className={`text-xs font-medium ${
-                                selectedResolution === opt.value ? "text-purple-600" : "text-gray-900"
-                              }`}>
-                                {opt.label}
-                              </span>
-                              <p className="text-[10px] text-gray-400">{opt.desc}</p>
-                            </div>
-                            {opt.locked ? (
-                              <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                            ) : selectedResolution === opt.value ? (
-                              <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : null}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => { setError(null); handleRender(); }}
+                    className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                      error
+                        ? "bg-orange-500 hover:bg-orange-600"
+                        : "bg-purple-600 hover:bg-purple-700"
+                    }`}
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={error
+                          ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        }
+                      />
+                    </svg>
+                    {error ? "Resume Download" : "Download MP4"}
+                  </button>
                 ) : (
                   <>
                     <button

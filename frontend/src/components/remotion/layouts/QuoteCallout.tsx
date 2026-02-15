@@ -33,16 +33,6 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   const displayQuote = quote || narration;
   const displayAuthor = quoteAuthor || title;
 
-  // ─── Dynamic sizing ───────────────────────────────────────
-  const quoteLen = (displayQuote || "").length;
-  const long = quoteLen > 200;
-  const veryLong = quoteLen > 400;
-
-  const quoteSize = p
-    ? veryLong ? 20 : long ? 24 : 28
-    : veryLong ? 24 : long ? 30 : 36;
-  const maxLines = veryLong ? 8 : long ? 10 : 14;
-
   return (
     <AbsoluteFill
       style={{
@@ -76,7 +66,6 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           alignItems: "stretch",
           maxWidth: p ? 900 : 1000,
           position: "relative",
-          overflow: "hidden",
         }}
       >
         {/* Accent bar */}
@@ -95,23 +84,18 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           style={{
             opacity: textOp,
             transform: `translateX(${textX}px)`,
-            overflow: "hidden",
           }}
         >
           <p
             style={{
               color: textColor,
-              fontSize: quoteSize,
+              fontSize: p ? 24 : 30,
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
-              lineHeight: 1.6,
+              lineHeight: 1.55,
               fontStyle: "italic",
-              marginBottom: 24,
               marginTop: 0,
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: maxLines,
-              WebkitBoxOrient: "vertical",
+              marginBottom: 24,
             }}
           >
             &ldquo;{displayQuote}&rdquo;
@@ -119,7 +103,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: p ? 15 : 18,
+              fontSize: p ? 14 : 17,
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
               opacity: labelOp,

@@ -16,24 +16,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  // ─── Dynamic sizing ───────────────────────────────────────
-  const count = steps.length;
-  const dense = count > 4;
-  const veryDense = count > 6;
-
-  const titleSize = p
-    ? veryDense ? 24 : dense ? 30 : 36
-    : veryDense ? 28 : dense ? 36 : 44;
-  const stepSize = p
-    ? veryDense ? 13 : dense ? 15 : 18
-    : veryDense ? 14 : dense ? 18 : 22;
-  const stepPad = p
-    ? veryDense ? "10px 16px" : dense ? "12px 20px" : "16px 24px"
-    : veryDense ? "12px 18px" : dense ? "14px 24px" : "20px 32px";
-  const titleMb = p
-    ? veryDense ? 16 : dense ? 28 : 40
-    : veryDense ? 20 : dense ? 36 : 60;
-
   return (
     <AbsoluteFill
       style={{
@@ -49,18 +31,13 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleSize,
+          fontSize: p ? 30 : 38,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: titleMb,
           marginTop: 0,
+          marginBottom: p ? 36 : 50,
           textAlign: "center",
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          flexShrink: 0,
         }}
       >
         {title}
@@ -73,7 +50,6 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
           gap: p ? 12 : 16,
           flexWrap: p ? "nowrap" : "wrap",
           justifyContent: "center",
-          overflow: "hidden",
           maxWidth: "100%",
         }}
       >
@@ -98,33 +74,26 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                 flexDirection: p ? "column" : "row",
                 alignItems: "center",
                 gap: p ? 12 : 16,
-                flexShrink: 1,
-                minWidth: 0,
               }}
             >
               <div
                 style={{
-                  padding: stepPad,
+                  padding: p ? "14px 22px" : "16px 28px",
                   borderRadius: 14,
                   backgroundColor: isLast ? accentColor : `${accentColor}15`,
                   border: `2px solid ${isLast ? accentColor : accentColor + "40"}`,
                   transform: `scale(${scale})`,
                   opacity: op,
                   textAlign: "center",
-                  maxWidth: p ? "100%" : 240,
-                  overflow: "hidden",
+                  maxWidth: p ? "100%" : 220,
                 }}
               >
                 <span
                   style={{
-                    fontSize: stepSize,
+                    fontSize: p ? 16 : 20,
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
                     fontFamily: "Inter, sans-serif",
-                    overflow: "hidden",
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
                   }}
                 >
                   {step}
