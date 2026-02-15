@@ -152,6 +152,51 @@ def create_project_from_upload(
     return project
 
 
+@router.post("/{project_id}/upload-documents", response_model=ProjectOut)
+def upload_documents_to_project(
+    project_id: int,
+    files: list[UploadFile] = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload documents to an existing project and extract text + images."""
+    project = _get_user_project(project_id, user.id, db)
+
+    if project.status != ProjectStatus.CREATED:
+        raise HTTPException(status_code=400, detail="Project already has content.")
+
+    # Validate files
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="At least one file is required.")
+    if len(files) > _MAX_UPLOAD_FILES:
+        raise HTTPException(status_code=400, detail=f"Maximum {_MAX_UPLOAD_FILES} files allowed.")
+
+    for f in files:
+        file_ext = os.path.splitext(f.filename or "")[1].lower() if f.filename else ""
+        if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+            )
+        content = f.file.read()
+        if len(content) > _MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' exceeds the 5 MB size limit.",
+            )
+        f.file.seek(0)
+
+    try:
+        project = extract_from_documents(project, files, db)
+    except Exception as e:
+        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        project.status = ProjectStatus.ERROR
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+
+    return project
+
+
 @router.post("/{project_id}/logo")
 def upload_logo(
     project_id: int,

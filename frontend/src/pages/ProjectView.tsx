@@ -10,6 +10,7 @@ import {
   downloadStudioZip,
   launchStudio,
   toggleAssetExclusion,
+  uploadProjectDocuments,
   Project,
   Scene,
   BACKEND_URL,
@@ -21,11 +22,18 @@ import ScriptPanel from "../components/ScriptPanel";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
+import { getPendingUpload } from "../stores/pendingUpload";
 
 type Tab = "script" | "scenes" | "images" | "audio";
 
-const PIPELINE_STEPS = [
+const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
+  { id: 2, label: "Script" },
+  { id: 3, label: "Scenes" },
+] as const;
+
+const PIPELINE_STEPS_UPLOAD = [
+  { id: 1, label: "Uploading" },
   { id: 2, label: "Script" },
   { id: 3, label: "Scenes" },
 ] as const;
@@ -219,6 +227,10 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Upload-based project detection
+  const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
+  const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
@@ -338,6 +350,29 @@ export default function ProjectView() {
     const init = async () => {
       const proj = await loadProject();
       if (!proj || generationStarted.current) return;
+
+      // Check for pending document upload (from Dashboard upload flow)
+      const pendingFiles = getPendingUpload(projectId);
+      if (pendingFiles && pendingFiles.length > 0 && proj.status === "created") {
+        generationStarted.current = true;
+        setPipelineRunning(true);
+        setPipelineStep(1); // "Uploading" step
+        setError(null);
+        try {
+          await uploadProjectDocuments(projectId, pendingFiles);
+          // Reload project (status is now SCRAPED)
+          await loadProject();
+          // Now kick off the generation pipeline (starts at script step)
+          await startGeneration(projectId);
+          startPolling();
+        } catch (err: any) {
+          setError(
+            err?.response?.data?.detail || "Failed to upload documents."
+          );
+          setPipelineRunning(false);
+        }
+        return;
+      }
 
       const needsGeneration = ["created", "scraped", "scripted"].includes(
         proj.status
