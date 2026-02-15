@@ -50,6 +50,7 @@ _TEMPLATE_SRC_FILES = [
     "src/components/layouts/QuoteCallout.tsx",
     "src/components/layouts/ImageCaption.tsx",
     "src/components/layouts/Timeline.tsx",
+    "src/components/layouts/AnimatedImage.tsx",
     "src/components/layouts/index.ts",
 ]
 
@@ -374,16 +375,19 @@ def get_render_progress(project_id: int) -> dict:
 
 # Resolution presets: label -> (width, height, scale)
 # Landscape: base is 1920x1080; Portrait: base is 1080x1920
+# Scale values must produce exact integer dimensions to avoid Remotion errors.
+# Instead of computing scale from target/base, we use --width/--height overrides
+# for sub-1080p resolutions, which guarantees integer output.
 RESOLUTION_PRESETS = {
     "landscape": {
-        "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
-        "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
-        "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+        "480p":  {"width": 854,  "height": 480},
+        "720p":  {"width": 1280, "height": 720},
+        "1080p": {"width": 1920, "height": 1080},
     },
     "portrait": {
-        "480p":  {"width": 480,  "height": 854,  "scale": 854 / 1920},
-        "720p":  {"width": 720,  "height": 1280, "scale": 1280 / 1920},
-        "1080p": {"width": 1080, "height": 1920, "scale": 1.0},
+        "480p":  {"width": 480,  "height": 854},
+        "720p":  {"width": 720,  "height": 1280},
+        "1080p": {"width": 1080, "height": 1920},
     },
 }
 
@@ -393,8 +397,6 @@ def _build_render_cmd(
     aspect_ratio: str = "landscape",
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
-    is_portrait = aspect_ratio == "portrait"
-
     cmd = [
         npx, "remotion", "render", "ExplainerVideo", output_path,
         "--concurrency", "100%",              # use all CPU cores
@@ -404,15 +406,10 @@ def _build_render_cmd(
         "--bundle-cache", "true",             # reuse webpack bundle across renders
     ]
 
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
-
+    # Always use explicit --width / --height to guarantee integer dimensions
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
     preset = presets.get(resolution, presets["720p"])
-    scale = preset["scale"]
-    if scale < 1.0:
-        cmd.extend(["--scale", f"{scale:.4f}"])
+    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
 
@@ -578,15 +575,32 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             _render_progress[project_id]["progress"] = 100
             _render_progress[project_id]["rendered_frames"] = prog.get("total_frames", 0)
 
-            # Upload rendered video to R2
-            upload_rendered_video_to_r2(project_id, output_path)
+            # Upload rendered video to R2 (also sets ProjectStatus.DONE in DB)
+            r2_url = upload_rendered_video_to_r2(project_id, output_path)
+
+            # If R2 is not configured, still mark project as DONE in DB
+            if not r2_url:
+                try:
+                    from app.database import SessionLocal
+                    from app.models.project import Project, ProjectStatus
+                    db = SessionLocal()
+                    try:
+                        project = db.query(Project).filter(Project.id == project_id).first()
+                        if project:
+                            project.status = ProjectStatus.DONE
+                            db.commit()
+                            print(f"[REMOTION] Project {project_id} marked DONE (no R2)")
+                    finally:
+                        db.close()
+                except Exception as e:
+                    print(f"[REMOTION] Failed to update project status: {e}")
 
             # Clean up the workspace to free disk space
             workspace = get_workspace_dir(project_id)
             safe_remove_workspace(workspace)
             print(f"[REMOTION] Cleaned up workspace for project {project_id}")
 
-            # NOW mark as done — R2 upload is complete, video URL is in DB
+            # NOW mark as done in progress dict for polling endpoint
             _render_progress[project_id]["done"] = True
         elif retcode == 0:
             # Process exited OK but no valid MP4 found
@@ -668,8 +682,13 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
 
             project.r2_video_key = r2_key
             project.r2_video_url = r2_url
+            # Also mark project as DONE in DB so status persists even if
+            # the polling endpoint never gets called (e.g. user closed tab,
+            # Cloud Run instance restarted, etc.)
+            from app.models.project import ProjectStatus
+            project.status = ProjectStatus.DONE
             db.commit()
-            print(f"[REMOTION] Video uploaded to R2 for project {project_id}")
+            print(f"[REMOTION] Video uploaded to R2 and project {project_id} marked DONE")
         finally:
             db.close()
 
