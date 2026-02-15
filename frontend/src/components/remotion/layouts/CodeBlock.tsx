@@ -38,16 +38,18 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 32 : 42,
+          fontSize: p ? 26 : 36,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 28 : 40,
+          marginTop: 0,
+          marginBottom: p ? 24 : 32,
         }}
       >
         {title}
@@ -57,14 +59,15 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
         style={{
           backgroundColor: termBg,
           borderRadius: 16,
-          padding: p ? "24px 28px" : "32px 40px",
+          padding: p ? "20px 24px" : "28px 36px",
           border: "1px solid #333",
           opacity: codeOp,
           transform: `translateY(${codeY}px)`,
+          overflow: "hidden",
         }}
       >
         {/* Terminal dots */}
-        <div style={{ display: "flex", gap: 8, marginBottom: p ? 16 : 20 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: p ? 14 : 18 }}>
           <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#FF5F57" }} />
           <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#FEBC2E" }} />
           <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#28C840" }} />
@@ -72,7 +75,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
             <span
               style={{
                 marginLeft: 12,
-                fontSize: p ? 11 : 13,
+                fontSize: p ? 10 : 12,
                 color: "#666",
                 fontFamily: "'Fira Code', 'Courier New', monospace",
               }}
@@ -87,14 +90,16 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
             key={i}
             style={{
               fontFamily: "'Fira Code', 'Courier New', monospace",
-              fontSize: p ? 16 : 22,
-              lineHeight: 2,
+              fontSize: p ? 14 : 18,
+              lineHeight: 1.8,
               color: i < Math.floor(lineReveal) ? "#E0E0E0" : "transparent",
               transition: "color 0.3s",
               whiteSpace: "pre",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            <span style={{ color: "#555", marginRight: p ? 10 : 16, fontSize: p ? 12 : 16 }}>
+            <span style={{ color: "#555", marginRight: p ? 10 : 16, fontSize: p ? 11 : 14 }}>
               {String(i + 1).padStart(2, " ")}
             </span>
             {line}
