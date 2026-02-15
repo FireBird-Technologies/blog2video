@@ -28,6 +28,22 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // ─── Dynamic sizing based on content length ───────────────
+  const textLen = (narration || "").length;
+  const titleLen = (title || "").length;
+  const long = textLen > 300 || titleLen > 60;
+  const veryLong = textLen > 500 || titleLen > 100;
+
+  const titleSize = p
+    ? veryLong ? 28 : long ? 34 : 40
+    : veryLong ? 34 : long ? 44 : 52;
+
+  const narrationSize = p
+    ? veryLong ? 18 : long ? 20 : 24
+    : veryLong ? 20 : long ? 23 : 27;
+
+  const narrationLineHeight = veryLong ? 1.5 : long ? 1.6 : 1.8;
+
   return (
     <AbsoluteFill
       style={{
@@ -36,6 +52,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <div
@@ -61,16 +78,32 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
           borderRadius: 2,
         }}
       />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: p ? 900 : 1100 }}>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          maxWidth: p ? 900 : 1100,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "100%",
+        }}
+      >
         <h1
           style={{
             color: textColor,
-            fontSize: p ? 40 : 52,
+            fontSize: titleSize,
             fontWeight: 700,
             opacity: titleOp,
             marginBottom: 24,
+            marginTop: 0,
             fontFamily: "Inter, sans-serif",
             lineHeight: 1.2,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            flexShrink: 0,
           }}
         >
           {title}
@@ -82,17 +115,23 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
             backgroundColor: accentColor,
             borderRadius: 2,
             marginBottom: 24,
+            flexShrink: 0,
           }}
         />
         <p
           style={{
             color: textColor,
-            fontSize: p ? 24 : 27,
-            lineHeight: 1.8,
+            fontSize: narrationSize,
+            lineHeight: narrationLineHeight,
             opacity: textOp * 0.8,
             transform: `translateY(${textY}px)`,
             maxWidth: p ? 850 : 950,
             fontFamily: "Inter, sans-serif",
+            margin: 0,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: veryLong ? 10 : long ? 12 : 14,
+            WebkitBoxOrient: "vertical",
           }}
         >
           {narration}

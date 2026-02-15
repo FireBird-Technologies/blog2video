@@ -33,6 +33,16 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   const displayQuote = quote || narration;
   const displayAuthor = quoteAuthor || title;
 
+  // ─── Dynamic sizing ───────────────────────────────────────
+  const quoteLen = (displayQuote || "").length;
+  const long = quoteLen > 200;
+  const veryLong = quoteLen > 400;
+
+  const quoteSize = p
+    ? veryLong ? 20 : long ? 24 : 28
+    : veryLong ? 24 : long ? 30 : 36;
+  const maxLines = veryLong ? 8 : long ? 10 : 14;
+
   return (
     <AbsoluteFill
       style={{
@@ -41,6 +51,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
         alignItems: "center",
         justifyContent: "center",
         padding: p ? "80px 50px" : "80px 120px",
+        overflow: "hidden",
       }}
     >
       {/* Glow effect */}
@@ -65,6 +76,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           alignItems: "stretch",
           maxWidth: p ? 900 : 1000,
           position: "relative",
+          overflow: "hidden",
         }}
       >
         {/* Accent bar */}
@@ -83,17 +95,23 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           style={{
             opacity: textOp,
             transform: `translateX(${textX}px)`,
+            overflow: "hidden",
           }}
         >
           <p
             style={{
               color: textColor,
-              fontSize: p ? 28 : 36,
+              fontSize: quoteSize,
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.6,
               fontStyle: "italic",
               marginBottom: 24,
+              marginTop: 0,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: maxLines,
+              WebkitBoxOrient: "vertical",
             }}
           >
             &ldquo;{displayQuote}&rdquo;
@@ -107,6 +125,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
               opacity: labelOp,
               textTransform: "uppercase",
               letterSpacing: 3,
+              margin: 0,
             }}
           >
             {displayAuthor}

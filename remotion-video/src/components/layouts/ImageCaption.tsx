@@ -29,6 +29,20 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // ─── Dynamic sizing ───────────────────────────────────────
+  const narrationLen = (narration || "").length;
+  const titleLen = (title || "").length;
+  const long = narrationLen > 200 || titleLen > 60;
+  const veryLong = narrationLen > 400 || titleLen > 100;
+
+  const titleSize = p
+    ? veryLong ? 22 : long ? 26 : 32
+    : veryLong ? 26 : long ? 32 : 38;
+  const narrationSize = p
+    ? veryLong ? 14 : long ? 17 : 20
+    : veryLong ? 16 : long ? 19 : 22;
+  const maxLines = veryLong ? 4 : long ? 6 : 8;
+
   return (
     <AbsoluteFill
       style={{
@@ -38,6 +52,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         alignItems: "center",
         padding: p ? "60px 50px" : "60px 80px",
         gap: p ? 40 : 60,
+        overflow: "hidden",
       }}
     >
       {/* Image area */}
@@ -52,6 +67,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           transform: `scale(${imgScale})`,
           boxShadow: "0 20px 60px rgba(0,0,0,0.1)",
           border: `2px solid ${accentColor}20`,
+          flexShrink: 0,
         }}
       >
         {imageUrl ? (
@@ -101,6 +117,8 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           opacity: textOp,
           transform: `translateY(${textY}px)`,
           textAlign: p ? "center" : "left",
+          overflow: "hidden",
+          minHeight: 0,
         }}
       >
         <div
@@ -118,11 +136,16 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <h2
           style={{
             color: textColor,
-            fontSize: p ? 32 : 38,
+            fontSize: titleSize,
             fontWeight: 700,
             fontFamily: "Inter, sans-serif",
             marginBottom: 16,
+            marginTop: 0,
             lineHeight: 1.3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
           }}
         >
           {title}
@@ -130,10 +153,15 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: p ? 20 : 22,
+            fontSize: narrationSize,
             fontFamily: "Inter, sans-serif",
             lineHeight: 1.7,
             opacity: 0.7,
+            margin: 0,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: maxLines,
+            WebkitBoxOrient: "vertical",
           }}
         >
           {narration}
