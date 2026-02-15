@@ -372,27 +372,11 @@ def get_render_progress(project_id: int) -> dict:
     return _render_progress.get(project_id, {})
 
 
-# Resolution presets: label -> (width, height, scale)
-# Landscape: base is 1920x1080; Portrait: base is 1080x1920
-RESOLUTION_PRESETS = {
-    "landscape": {
-        "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
-        "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
-        "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
-    },
-    "portrait": {
-        "480p":  {"width": 480,  "height": 854,  "scale": 854 / 1920},
-        "720p":  {"width": 720,  "height": 1280, "scale": 1280 / 1920},
-        "1080p": {"width": 1080, "height": 1920, "scale": 1.0},
-    },
-}
-
-
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
 ) -> list[str]:
-    """Build the Remotion render command with resolution scaling and optimizations."""
+    """Build the Remotion render command. Always renders at native 1080p — no --scale."""
     is_portrait = aspect_ratio == "portrait"
 
     cmd = [
@@ -408,12 +392,6 @@ def _build_render_cmd(
     # For portrait, override the composition dimensions via --width / --height
     if is_portrait:
         cmd.extend(["--width", "1080", "--height", "1920"])
-
-    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get(resolution, presets["1080p"])
-    scale = preset["scale"]
-    if scale < 1.0:
-        cmd.extend(["--scale", f"{scale:.4f}"])
 
     return cmd
 
