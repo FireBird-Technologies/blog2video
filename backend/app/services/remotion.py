@@ -50,6 +50,7 @@ _TEMPLATE_SRC_FILES = [
     "src/components/layouts/QuoteCallout.tsx",
     "src/components/layouts/ImageCaption.tsx",
     "src/components/layouts/Timeline.tsx",
+    "src/components/layouts/AnimatedImage.tsx",
     "src/components/layouts/index.ts",
 ]
 
@@ -557,15 +558,32 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             _render_progress[project_id]["progress"] = 100
             _render_progress[project_id]["rendered_frames"] = prog.get("total_frames", 0)
 
-            # Upload rendered video to R2
-            upload_rendered_video_to_r2(project_id, output_path)
+            # Upload rendered video to R2 (also sets ProjectStatus.DONE in DB)
+            r2_url = upload_rendered_video_to_r2(project_id, output_path)
+
+            # If R2 is not configured, still mark project as DONE in DB
+            if not r2_url:
+                try:
+                    from app.database import SessionLocal
+                    from app.models.project import Project, ProjectStatus
+                    db = SessionLocal()
+                    try:
+                        project = db.query(Project).filter(Project.id == project_id).first()
+                        if project:
+                            project.status = ProjectStatus.DONE
+                            db.commit()
+                            print(f"[REMOTION] Project {project_id} marked DONE (no R2)")
+                    finally:
+                        db.close()
+                except Exception as e:
+                    print(f"[REMOTION] Failed to update project status: {e}")
 
             # Clean up the workspace to free disk space
             workspace = get_workspace_dir(project_id)
             safe_remove_workspace(workspace)
             print(f"[REMOTION] Cleaned up workspace for project {project_id}")
 
-            # NOW mark as done — R2 upload is complete, video URL is in DB
+            # NOW mark as done in progress dict for polling endpoint
             _render_progress[project_id]["done"] = True
         elif retcode == 0:
             # Process exited OK but no valid MP4 found
@@ -647,8 +665,13 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
 
             project.r2_video_key = r2_key
             project.r2_video_url = r2_url
+            # Also mark project as DONE in DB so status persists even if
+            # the polling endpoint never gets called (e.g. user closed tab,
+            # Cloud Run instance restarted, etc.)
+            from app.models.project import ProjectStatus
+            project.status = ProjectStatus.DONE
             db.commit()
-            print(f"[REMOTION] Video uploaded to R2 for project {project_id}")
+            print(f"[REMOTION] Video uploaded to R2 and project {project_id} marked DONE")
         finally:
             db.close()
 

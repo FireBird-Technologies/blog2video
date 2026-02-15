@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from exa_py import Exa
 from firecrawl import Firecrawl
+from PIL import Image
 
 from app.config import settings
 from app.models.project import Project, ProjectStatus
@@ -372,7 +373,7 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
     image_urls: list[str] = []
     seen: set[str] = set()
 
-    MAX_IMAGES = 10
+    MAX_IMAGES = 15
 
     def _add(img_url: str) -> None:
         if len(image_urls) >= MAX_IMAGES:
@@ -982,6 +983,11 @@ def _is_blog_image(url: str) -> bool:
 _MIN_IMAGE_BYTES = 15_000  # 15 KB — real blog images are usually 50 KB+
 _MIN_IMAGE_BYTES_CDN = 5_000  # 5 KB — lower threshold for known content CDNs (webp is very compact)
 
+# GIF caps — animated GIFs are decoded frame-by-frame in Remotion, each frame
+# held as raw RGBA in memory.  Large GIFs can easily consume 50-200 MB per scene.
+_MAX_GIF_BYTES = 5 * 1024 * 1024  # 5 MB — GIFs larger than this are converted to static PNG
+_MAX_GIF_DIMENSION = 480          # px — GIFs wider or taller than this are resized
+
 
 # ─── Image downloading ────────────────────────────────────
 
@@ -1047,6 +1053,34 @@ def _download_images(user_id: int, project_id: int, image_urls: list[str], db: S
                 os.remove(local_path)
                 print(f"[SCRAPER] Discarded tiny image ({file_size} bytes, min={min_size}): {url[:80]}")
                 continue
+
+            # Cap GIFs — large/high-res GIFs eat too much memory during Remotion render.
+            # Convert oversized GIFs to a static PNG (first frame).
+            if ext == ".gif":
+                needs_static = file_size > _MAX_GIF_BYTES
+                try:
+                    with Image.open(local_path) as img:
+                        w, h = img.size
+                        if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
+                            needs_static = True
+                        if needs_static:
+                            # Extract first frame, resize if needed
+                            img.seek(0)
+                            frame = img.convert("RGBA")
+                            if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
+                                frame.thumbnail((_MAX_GIF_DIMENSION, _MAX_GIF_DIMENSION), Image.LANCZOS)
+                            # Save as PNG, update filename/path
+                            new_filename = filename.replace(".gif", ".png")
+                            new_path = os.path.join(project_media_dir, new_filename)
+                            frame.save(new_path, "PNG")
+                            os.remove(local_path)
+                            local_path = new_path
+                            filename = new_filename
+                            ext = ".png"
+                            reason = f"size={file_size // 1024}KB" if file_size > _MAX_GIF_BYTES else f"dims={w}x{h}"
+                            print(f"[SCRAPER] GIF capped ({reason}) → static PNG: {filename}")
+                except Exception as e:
+                    print(f"[SCRAPER] GIF cap check failed (keeping as-is): {e}")
 
             # Upload to R2 if configured
             r2_key = None

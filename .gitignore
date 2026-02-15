@@ -10,6 +10,7 @@ venv/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # Media files
 backend/media/

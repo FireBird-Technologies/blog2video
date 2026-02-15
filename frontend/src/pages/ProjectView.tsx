@@ -283,6 +283,7 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareAnchorRef = useRef<HTMLDivElement>(null);
 
   // Scenes tab: expanded scene detail
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
@@ -472,7 +473,8 @@ export default function ProjectView() {
 
   const handleRender = async () => {
     // If already rendered and available in R2, skip straight to download
-    if (project?.r2_video_url) {
+    // (unless explicitly re-rendering)
+    if (!forceRerender && project?.r2_video_url) {
       setRendered(true);
       setRendering(false);
       return;
@@ -1066,6 +1068,87 @@ export default function ProjectView() {
                   </button>
                 ) : (
                   <>
+                    {/* Re-render button with resolution picker */}
+                    <div className="relative" ref={resMenuRef}>
+                      <div className="flex">
+                        <button
+                          onClick={() => { setError(null); handleRender(undefined, true); }}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Render {selectedResolution}
+                        </button>
+                        <button
+                          onClick={() => setShowResolutionMenu(!showResolutionMenu)}
+                          className="px-1.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-r-lg border-l border-purple-500 transition-colors"
+                        >
+                          <svg
+                            className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                      {showResolutionMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
+                          <div className="px-3 py-1.5 border-b border-gray-100">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+                              {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
+                            </span>
+                          </div>
+                          {(project.aspect_ratio === "portrait" ? [
+                            { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
+                            { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
+                            { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
+                          ] : [
+                            { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
+                            { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
+                            { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
+                          ]).map((opt) => (
+                            <button
+                              key={opt.value}
+                              onClick={() => {
+                                if (opt.locked) {
+                                  setShowResolutionMenu(false);
+                                  setShowUpgrade(true);
+                                  return;
+                                }
+                                setSelectedResolution(opt.value);
+                                setShowResolutionMenu(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                                selectedResolution === opt.value ? "bg-purple-50" : ""
+                              }`}
+                            >
+                              <div>
+                                <span className={`text-xs font-medium ${
+                                  selectedResolution === opt.value ? "text-purple-600" : "text-gray-900"
+                                }`}>
+                                  {opt.label}
+                                </span>
+                                <p className="text-[10px] text-gray-400">{opt.desc}</p>
+                              </div>
+                              {opt.locked ? (
+                                <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              ) : selectedResolution === opt.value ? (
+                                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Download MP4 */}
                     <button
                       onClick={handleDownload}
                       disabled={downloading}
@@ -1088,7 +1171,7 @@ export default function ProjectView() {
 
                     {/* Share button — inline next to Download */}
                     {project.r2_video_url && (
-                      <div className="relative">
+                      <div className="relative" ref={shareAnchorRef}>
                         <button
                           onClick={() => setShowShareMenu((v) => !v)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -1098,44 +1181,6 @@ export default function ProjectView() {
                           </svg>
                           Share
                         </button>
-
-                        {showShareMenu && (
-                          <>
-                            <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 bottom-full mb-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1">
-                              {/* TikTok */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                                title="Copy link for TikTok"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                                </svg>
-                              </button>
-                              {/* YouTube */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                                title="Copy link for YouTube"
-                              >
-                                <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                </svg>
-                              </button>
-                              {/* Facebook */}
-                              <button
-                                onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                                title="Share on Facebook"
-                              >
-                                <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -1181,6 +1226,14 @@ export default function ProjectView() {
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
                     </p>
+                    {imageAssets.some((a) => /\.gif(\?.*)?$/i.test(a.filename)) && (
+                      <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        GIF images detected — animation may vary in the final render
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
@@ -1212,6 +1265,52 @@ export default function ProjectView() {
         projectId={projectId}
         onPurchased={() => loadProject()}
       />
+
+      {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
+      {showShareMenu && project?.r2_video_url && (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
+          <div
+            className="fixed z-[9999] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1"
+            style={(() => {
+              const rect = shareAnchorRef.current?.getBoundingClientRect();
+              if (!rect) return {};
+              return { top: rect.top - 48, left: rect.right - 130 };
+            })()}
+          >
+            {/* TikTok */}
+            <button
+              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
+              title="Copy link for TikTok"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
+              </svg>
+            </button>
+            {/* YouTube */}
+            <button
+              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
+              title="Copy link for YouTube"
+            >
+              <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+              </svg>
+            </button>
+            {/* Facebook */}
+            <button
+              onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
+              title="Share on Facebook"
+            >
+              <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Upper area: loader when running, editor when complete */}
       {pipelineRunning ? (
