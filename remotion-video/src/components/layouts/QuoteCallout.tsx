@@ -41,6 +41,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
         alignItems: "center",
         justifyContent: "center",
         padding: p ? "80px 50px" : "80px 120px",
+        overflow: "hidden",
       }}
     >
       {/* Glow effect */}
@@ -88,11 +89,12 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: p ? 28 : 36,
+              fontSize: p ? 24 : 30,
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
-              lineHeight: 1.6,
+              lineHeight: 1.55,
               fontStyle: "italic",
+              marginTop: 0,
               marginBottom: 24,
             }}
           >
@@ -101,12 +103,13 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: p ? 15 : 18,
+              fontSize: p ? 14 : 17,
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
               opacity: labelOp,
               textTransform: "uppercase",
               letterSpacing: 3,
+              margin: 0,
             }}
           >
             {displayAuthor}

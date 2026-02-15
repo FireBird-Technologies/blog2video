@@ -1,6 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
 import { SceneLayoutProps } from "./types";
-import { AnimatedImage } from "./AnimatedImage";
 
 export const HeroImage: React.FC<SceneLayoutProps> = ({
   title,
@@ -47,6 +46,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
           justifyContent: "center",
           padding: "80px 50px",
           gap: 40,
+          overflow: "hidden",
         }}
       >
         {/* Shrunk image card */}
@@ -64,7 +64,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
               flexShrink: 0,
             }}
           >
-            <AnimatedImage
+            <Img
               src={imageUrl}
               style={{
                 width: "100%",
@@ -99,7 +99,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
           <h1
             style={{
               color: textColor,
-              fontSize: 46,
+              fontSize: 40,
               fontWeight: 800,
               fontFamily: "Inter, system-ui, sans-serif",
               lineHeight: 1.25,
@@ -128,9 +128,9 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
 
   /* ───── LANDSCAPE: full-screen hero image background ───── */
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {imageUrl && (
-        <AnimatedImage
+        <Img
           src={imageUrl}
           style={{
             width: "100%",
@@ -179,7 +179,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
         <h1
           style={{
             color: textColor,
-            fontSize: 64,
+            fontSize: 54,
             fontWeight: 800,
             fontFamily: "Inter, system-ui, sans-serif",
             lineHeight: 1.15,

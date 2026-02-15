@@ -373,30 +373,13 @@ def get_render_progress(project_id: int) -> dict:
     return _render_progress.get(project_id, {})
 
 
-# Resolution presets: label -> (width, height, scale)
-# Landscape: base is 1920x1080; Portrait: base is 1080x1920
-# Scale values must produce exact integer dimensions to avoid Remotion errors.
-# Instead of computing scale from target/base, we use --width/--height overrides
-# for sub-1080p resolutions, which guarantees integer output.
-RESOLUTION_PRESETS = {
-    "landscape": {
-        "480p":  {"width": 854,  "height": 480},
-        "720p":  {"width": 1280, "height": 720},
-        "1080p": {"width": 1920, "height": 1080},
-    },
-    "portrait": {
-        "480p":  {"width": 480,  "height": 854},
-        "720p":  {"width": 720,  "height": 1280},
-        "1080p": {"width": 1080, "height": 1920},
-    },
-}
-
-
 def _build_render_cmd(
-    npx: str, output_path: str, resolution: str = "720p",
+    npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
 ) -> list[str]:
-    """Build the Remotion render command with resolution scaling and optimizations."""
+    """Build the Remotion render command. Always renders at native 1080p — no --scale."""
+    is_portrait = aspect_ratio == "portrait"
+
     cmd = [
         npx, "remotion", "render", "ExplainerVideo", output_path,
         "--concurrency", "100%",              # use all CPU cores
@@ -404,17 +387,17 @@ def _build_render_cmd(
         "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
         "--jpeg-quality", "70",               # faster encoding, minimal quality loss
         "--bundle-cache", "true",             # reuse webpack bundle across renders
+        "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
     ]
 
-    # Always use explicit --width / --height to guarantee integer dimensions
-    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get(resolution, presets["720p"])
-    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
+    # For portrait, override the composition dimensions via --width / --height
+    if is_portrait:
+        cmd.extend(["--width", "1080", "--height", "1920"])
 
     return cmd
 
 
-def render_video(project: Project, resolution: str = "720p") -> str:
+def render_video(project: Project, resolution: str = "1080p") -> str:
     """Render the video synchronously from the project workspace."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
@@ -444,7 +427,7 @@ def render_video(project: Project, resolution: str = "720p") -> str:
 MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 
 
-def start_render_async(project: Project, resolution: str = "720p") -> None:
+def start_render_async(project: Project, resolution: str = "1080p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")

@@ -37,7 +37,8 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         flexDirection: p ? "column" : "row",
         alignItems: "center",
         padding: p ? "60px 50px" : "60px 80px",
-        gap: p ? 40 : 60,
+        gap: p ? 36 : 56,
+        overflow: "hidden",
       }}
     >
       {/* Image area */}
@@ -118,9 +119,10 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <h2
           style={{
             color: textColor,
-            fontSize: p ? 32 : 38,
+            fontSize: p ? 26 : 32,
             fontWeight: 700,
             fontFamily: "Inter, sans-serif",
+            marginTop: 0,
             marginBottom: 16,
             lineHeight: 1.3,
           }}
@@ -130,10 +132,11 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: p ? 20 : 22,
+            fontSize: p ? 17 : 20,
             fontFamily: "Inter, sans-serif",
-            lineHeight: 1.7,
+            lineHeight: 1.6,
             opacity: 0.7,
+            margin: 0,
           }}
         >
           {narration}

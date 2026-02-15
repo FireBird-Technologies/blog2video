@@ -366,27 +366,18 @@ def download_studio_endpoint(
 @router.post("/render")
 def render_video_endpoint(
     project_id: int,
-    resolution: str = "720p",
+    resolution: str = "1080p",
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    resolution: "480p", "720p", or "1080p" (1080p requires paid plan).
+    All videos render at 1080p.
     """
     project = _get_project(project_id, user.id, db)
 
-    # Validate resolution
-    allowed = {"480p", "720p", "1080p"}
-    if resolution not in allowed:
-        resolution = "720p"
-
-    # 1080p is paid-only
-    if resolution == "1080p" and user.plan == "free":
-        raise HTTPException(
-            status_code=403,
-            detail="1080p rendering requires a Pro plan. Please upgrade or choose 720p / 480p.",
-        )
+    # Always render at 1080p
+    resolution = "1080p"
 
     # Already rendered and available in R2 — skip re-render
     if project.r2_video_url:
