@@ -91,30 +91,50 @@ export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
 
   // ─── Load fonts before rendering any frames ─────────────────
-  const [fontHandle] = useState(() => delayRender("Loading fonts"));
+  const [fontHandle] = useState(() =>
+    delayRender("Loading fonts", { timeoutInMilliseconds: 15_000 })
+  );
 
   useEffect(() => {
     let cancelled = false;
     const links: HTMLLinkElement[] = [];
 
     const loadFonts = async () => {
-      // Inject <link> tags for each font
-      for (const url of FONT_URLS) {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = url;
-        document.head.appendChild(link);
-        links.push(link);
+      // 1. Inject <link> tags and wait for each stylesheet to actually load
+      const linkPromises = FONT_URLS.map(
+        (url) =>
+          new Promise<void>((resolve) => {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = url;
+            link.onload = () => resolve();
+            link.onerror = () => resolve(); // Don't block render if CDN fails
+            document.head.appendChild(link);
+            links.push(link);
+          })
+      );
+      await Promise.all(linkPromises);
+
+      // 2. CSS is now parsed — explicitly request each font variant so the
+      //    browser actually downloads the woff2 files
+      const fontFaces = [
+        "400 16px Inter",
+        "500 16px Inter",
+        "600 16px Inter",
+        "700 16px Inter",
+        "800 16px Inter",
+        "400 16px 'Fira Code'",
+        "500 16px 'Fira Code'",
+      ];
+      try {
+        await Promise.all(fontFaces.map((f) => document.fonts.load(f)));
+        await document.fonts.ready;
+      } catch {
+        // Proceed even if fonts fail
       }
 
-      // Wait for all font faces to be ready
-      try {
-        await document.fonts.ready;
-        // Extra safety: wait a tick for reflow
-        await new Promise((r) => setTimeout(r, 500));
-      } catch {
-        // Proceed even if fonts fail to load
-      }
+      // 3. Extra safety margin for layout reflow
+      await new Promise((r) => setTimeout(r, 300));
 
       if (!cancelled) {
         continueRender(fontHandle);

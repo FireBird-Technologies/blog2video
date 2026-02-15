@@ -31,6 +31,10 @@ export const Metric: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // ─── Dynamic sizing ───────────────────────────────────────
+  const count = metrics.length;
+  const dense = count > 3;
+
   return (
     <AbsoluteFill
       style={{
@@ -40,6 +44,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         alignItems: "center",
         justifyContent: "center",
         padding: p ? "60px 50px" : undefined,
+        overflow: "hidden",
       }}
     >
       <div
@@ -62,9 +67,14 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           fontFamily: "Inter, sans-serif",
           opacity: titleOp * 0.6,
           marginBottom: p ? 20 : 24,
+          marginTop: 0,
           textTransform: "uppercase",
           letterSpacing: 4,
           textAlign: "center",
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
         }}
       >
         {title}
@@ -113,8 +123,13 @@ export const Metric: React.FC<SceneLayoutProps> = ({
               fontSize: p ? 18 : 22,
               fontFamily: "Inter, sans-serif",
               marginTop: p ? 20 : 24,
+              marginBottom: 0,
               opacity: subOp * 0.6,
               textAlign: "center",
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
             }}
           >
             {mainMetric.label}
@@ -128,17 +143,20 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           style={{
             display: "flex",
             flexDirection: p ? "column" : "row",
-            gap: p ? 28 : 60,
+            gap: p ? (dense ? 16 : 28) : (dense ? 30 : 60),
             marginTop: p ? 36 : 48,
             opacity: subOp,
             alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            overflow: "hidden",
           }}
         >
           {metrics.slice(1).map((m, i) => (
-            <div key={i} style={{ textAlign: "center" }}>
+            <div key={i} style={{ textAlign: "center", overflow: "hidden" }}>
               <div
                 style={{
-                  fontSize: p ? 36 : 48,
+                  fontSize: p ? (dense ? 28 : 36) : (dense ? 36 : 48),
                   fontWeight: 700,
                   color: accentColor,
                   fontFamily: "Inter, sans-serif",
@@ -154,6 +172,10 @@ export const Metric: React.FC<SceneLayoutProps> = ({
                   opacity: 0.6,
                   fontFamily: "Inter, sans-serif",
                   marginTop: 8,
+                  overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
                 }}
               >
                 {m.label}

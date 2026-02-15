@@ -19,6 +19,30 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // ─── Dynamic sizing ───────────────────────────────────────
+  const count = timelineItems.length;
+  const dense = count > 3;
+  const veryDense = count > 5;
+
+  const titleSize = p
+    ? veryDense ? 24 : dense ? 30 : 36
+    : veryDense ? 28 : dense ? 36 : 44;
+  const labelSize = p
+    ? veryDense ? 14 : dense ? 16 : 18
+    : veryDense ? 16 : dense ? 18 : 22;
+  const descSize = p
+    ? veryDense ? 12 : dense ? 13 : 15
+    : veryDense ? 13 : dense ? 15 : 18;
+  const dotSize = p
+    ? veryDense ? 18 : dense ? 22 : 26
+    : veryDense ? 22 : dense ? 26 : 32;
+  const itemMb = p
+    ? veryDense ? 12 : dense ? 18 : 28
+    : veryDense ? 14 : dense ? 22 : 36;
+  const titleMb = p
+    ? veryDense ? 16 : dense ? 24 : 36
+    : veryDense ? 20 : dense ? 32 : 50;
+
   return (
     <AbsoluteFill
       style={{
@@ -27,17 +51,24 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 36 : 44,
+          fontSize: titleSize,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 36 : 50,
+          marginBottom: titleMb,
+          marginTop: 0,
           textAlign: "center",
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          flexShrink: 0,
         }}
       >
         {title}
@@ -50,6 +81,9 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
           gap: 0,
           position: "relative",
           paddingLeft: p ? 30 : 40,
+          overflow: "hidden",
+          flex: 1,
+          minHeight: 0,
         }}
       >
         {/* Vertical line */}
@@ -85,15 +119,17 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                 display: "flex",
                 alignItems: "flex-start",
                 gap: p ? 20 : 28,
-                marginBottom: p ? 28 : 36,
+                marginBottom: itemMb,
                 opacity: op,
                 transform: `translateX(${x}px)`,
+                flexShrink: 1,
+                minHeight: 0,
               }}
             >
               <div
                 style={{
-                  width: p ? 26 : 32,
-                  height: p ? 26 : 32,
+                  width: dotSize,
+                  height: dotSize,
                   borderRadius: "50%",
                   backgroundColor: isLast ? accentColor : `${accentColor}20`,
                   border: `2px solid ${accentColor}`,
@@ -102,37 +138,48 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                   justifyContent: "center",
                   flexShrink: 0,
                   transform: `scale(${dotScale})`,
-                  marginLeft: p ? -13 : -16,
+                  marginLeft: -(dotSize / 2),
                 }}
               >
                 <span
                   style={{
                     color: isLast ? "#FFF" : accentColor,
-                    fontSize: p ? 12 : 14,
+                    fontSize: Math.round(dotSize * 0.45),
                     fontWeight: 700,
                   }}
                 >
                   {i + 1}
                 </span>
               </div>
-              <div>
+              <div style={{ overflow: "hidden", minWidth: 0 }}>
                 <h3
                   style={{
-                    fontSize: p ? 18 : 22,
+                    fontSize: labelSize,
                     fontWeight: 600,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
                     marginBottom: 4,
+                    margin: 0,
+                    overflow: "hidden",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
                   }}
                 >
                   {item.label}
                 </h3>
                 <p
                   style={{
-                    fontSize: p ? 15 : 18,
+                    fontSize: descSize,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
                     opacity: 0.6,
+                    margin: 0,
+                    marginTop: 4,
+                    overflow: "hidden",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
                   }}
                 >
                   {item.description}

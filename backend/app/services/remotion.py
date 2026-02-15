@@ -402,6 +402,7 @@ def _build_render_cmd(
         "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
         "--jpeg-quality", "70",               # faster encoding, minimal quality loss
         "--bundle-cache", "true",             # reuse webpack bundle across renders
+        "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
     ]
 
     # For portrait, override the composition dimensions via --width / --height
