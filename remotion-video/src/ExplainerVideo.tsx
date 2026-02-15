@@ -5,6 +5,8 @@ import {
   Sequence,
   staticFile,
   CalculateMetadataFunction,
+  continueRender,
+  delayRender,
 } from "remotion";
 import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./components/layouts";
 import { TransitionWipe } from "./components/Transitions";
@@ -79,8 +81,51 @@ export const calculateVideoMetadata: CalculateMetadataFunction<VideoProps> =
 
 // ─── Main composition ────────────────────────────────────────
 
+// ─── Font URLs ────────────────────────────────────────────────
+const FONT_URLS = [
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+  "https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap",
+];
+
 export const ExplainerVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+
+  // ─── Load fonts before rendering any frames ─────────────────
+  const [fontHandle] = useState(() => delayRender("Loading fonts"));
+
+  useEffect(() => {
+    let cancelled = false;
+    const links: HTMLLinkElement[] = [];
+
+    const loadFonts = async () => {
+      // Inject <link> tags for each font
+      for (const url of FONT_URLS) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = url;
+        document.head.appendChild(link);
+        links.push(link);
+      }
+
+      // Wait for all font faces to be ready
+      try {
+        await document.fonts.ready;
+        // Extra safety: wait a tick for reflow
+        await new Promise((r) => setTimeout(r, 500));
+      } catch {
+        // Proceed even if fonts fail to load
+      }
+
+      if (!cancelled) {
+        continueRender(fontHandle);
+      }
+    };
+
+    loadFonts();
+    return () => {
+      cancelled = true;
+    };
+  }, [fontHandle]);
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
