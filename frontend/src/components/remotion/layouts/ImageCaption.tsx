@@ -1,6 +1,5 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
 import { SceneLayoutProps } from "./types";
-import { AnimatedImage } from "./AnimatedImage";
 
 export const ImageCaption: React.FC<SceneLayoutProps> = ({
   title,
@@ -56,7 +55,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         }}
       >
         {imageUrl ? (
-          <AnimatedImage
+          <Img
             src={imageUrl}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
