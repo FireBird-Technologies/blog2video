@@ -318,6 +318,14 @@ export const createProjectFromDocs = (
   });
 };
 
+export const uploadProjectDocuments = (projectId: number, files: File[]) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  return api.post<Project>(`/projects/${projectId}/upload-documents`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const uploadLogo = (projectId: number, file: File) => {
   const formData = new FormData();
   formData.append("file", file);

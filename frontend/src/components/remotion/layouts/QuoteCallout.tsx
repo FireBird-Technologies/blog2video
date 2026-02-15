@@ -9,8 +9,11 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   textColor,
   quote,
   quoteAuthor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
   const barH = interpolate(frame, [0, 25], [0, 100], {
     extrapolateRight: "clamp",
   });
@@ -37,7 +40,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "80px 120px",
+        padding: p ? "80px 50px" : "80px 120px",
       }}
     >
       {/* Glow effect */}
@@ -46,8 +49,8 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           position: "absolute",
           top: "20%",
           left: "10%",
-          width: 400,
-          height: 400,
+          width: p ? 280 : 400,
+          height: p ? 280 : 400,
           borderRadius: "50%",
           background: `radial-gradient(circle, ${accentColor}${Math.round(glowOp * 255)
             .toString(16)
@@ -58,9 +61,9 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
       <div
         style={{
           display: "flex",
-          gap: 40,
+          gap: p ? 28 : 40,
           alignItems: "stretch",
-          maxWidth: 1000,
+          maxWidth: p ? 900 : 1000,
           position: "relative",
         }}
       >
@@ -85,7 +88,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: 36,
+              fontSize: p ? 28 : 36,
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.6,
@@ -98,7 +101,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: 18,
+              fontSize: p ? 15 : 18,
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
               opacity: labelOp,
