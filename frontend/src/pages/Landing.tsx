@@ -148,7 +148,7 @@ export default function Landing() {
           </p>
 
           <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
-            Perfect for technical writers who need their content to reach YouTube,
+            Perfect for technical writers who need their content to reach everywhere,
             researchers presenting findings, and teachers turning lessons into visual guides.
           </p>
 
