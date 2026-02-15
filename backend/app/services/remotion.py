@@ -389,7 +389,7 @@ RESOLUTION_PRESETS = {
 
 
 def _build_render_cmd(
-    npx: str, output_path: str, resolution: str = "720p",
+    npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
@@ -410,7 +410,7 @@ def _build_render_cmd(
         cmd.extend(["--width", "1080", "--height", "1920"])
 
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get(resolution, presets["720p"])
+    preset = presets.get(resolution, presets["1080p"])
     scale = preset["scale"]
     if scale < 1.0:
         cmd.extend(["--scale", f"{scale:.4f}"])
@@ -418,7 +418,7 @@ def _build_render_cmd(
     return cmd
 
 
-def render_video(project: Project, resolution: str = "720p") -> str:
+def render_video(project: Project, resolution: str = "1080p") -> str:
     """Render the video synchronously from the project workspace."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
@@ -448,7 +448,7 @@ def render_video(project: Project, resolution: str = "720p") -> str:
 MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 
 
-def start_render_async(project: Project, resolution: str = "720p") -> None:
+def start_render_async(project: Project, resolution: str = "1080p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")

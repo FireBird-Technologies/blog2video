@@ -16,39 +16,6 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  // ─── Dynamic sizing based on content amount ───────────────
-  const count = bullets.length;
-  const avgLen =
-    count > 0
-      ? bullets.reduce((s, b) => s + (b as string).length, 0) / count
-      : 0;
-
-  // Scale down when there are many bullets or long text
-  const dense = count > 3 || avgLen > 80;
-  const veryDense = count > 5 || avgLen > 120;
-
-  const titleSize = p
-    ? veryDense ? 26 : dense ? 30 : 36
-    : veryDense ? 32 : dense ? 40 : 48;
-
-  const bulletSize = p
-    ? veryDense ? 16 : dense ? 18 : 22
-    : veryDense ? 18 : dense ? 22 : 28;
-
-  const gap = p
-    ? veryDense ? 10 : dense ? 14 : 20
-    : veryDense ? 12 : dense ? 16 : 24;
-
-  const badgeSize = p
-    ? veryDense ? 22 : dense ? 26 : 30
-    : veryDense ? 26 : dense ? 30 : 36;
-
-  const titleMb = p
-    ? veryDense ? 16 : dense ? 24 : 36
-    : veryDense ? 20 : dense ? 32 : 48;
-
-  const maxLines = veryDense ? 2 : dense ? 3 : 4;
-
   return (
     <AbsoluteFill
       style={{
@@ -74,31 +41,18 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleSize,
+          fontSize: p ? 30 : 40,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: titleMb,
-          margin: 0,
+          marginTop: 0,
+          marginBottom: p ? 28 : 36,
           lineHeight: 1.2,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
         }}
       >
         {title}
       </h2>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap,
-          overflow: "hidden",
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", gap: p ? 16 : 20 }}>
         {bullets.map((b, i) => {
           const delay = 20 + i * 12;
           const op = interpolate(frame, [delay, delay + 15], [0, 1], {
@@ -116,14 +70,12 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
                 gap: p ? 16 : 20,
                 opacity: op,
                 transform: `translateX(${x}px)`,
-                flexShrink: 1,
-                minHeight: 0,
               }}
             >
               <div
                 style={{
-                  width: badgeSize,
-                  height: badgeSize,
+                  width: p ? 28 : 32,
+                  height: p ? 28 : 32,
                   borderRadius: 10,
                   backgroundColor: `${accentColor}15`,
                   display: "flex",
@@ -137,7 +89,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
                   style={{
                     color: accentColor,
                     fontWeight: 700,
-                    fontSize: Math.round(badgeSize * 0.5),
+                    fontSize: p ? 14 : 16,
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
@@ -147,14 +99,10 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               <span
                 style={{
                   color: textColor,
-                  fontSize: bulletSize,
+                  fontSize: p ? 18 : 22,
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 500,
-                  lineHeight: 1.35,
-                  overflow: "hidden",
-                  display: "-webkit-box",
-                  WebkitLineClamp: maxLines,
-                  WebkitBoxOrient: "vertical",
+                  lineHeight: 1.4,
                 }}
               >
                 {b}

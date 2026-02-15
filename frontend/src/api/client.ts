@@ -384,7 +384,7 @@ export const updateScene = (
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
-export const renderVideo = (id: number, resolution: string = "720p") =>
+export const renderVideo = (id: number, resolution: string = "1080p") =>
   api.post(`/projects/${id}/render?resolution=${resolution}`);
 
 export interface RenderStatus {
