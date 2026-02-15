@@ -485,10 +485,9 @@ export default function ProjectView() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showResolutionMenu]);
 
-  const handleRender = async (resolution?: string, forceRerender = false) => {
+  const handleRender = async (resolution?: string) => {
     // If already rendered and available in R2, skip straight to download
-    // (unless explicitly re-rendering)
-    if (!forceRerender && project?.r2_video_url) {
+    if (project?.r2_video_url) {
       setRendered(true);
       setRendering(false);
       return;
@@ -1162,87 +1161,6 @@ export default function ProjectView() {
                   </div>
                 ) : (
                   <>
-                    {/* Re-render button with resolution picker */}
-                    <div className="relative" ref={resMenuRef}>
-                      <div className="flex">
-                        <button
-                          onClick={() => { setError(null); handleRender(undefined, true); }}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Render {selectedResolution}
-                        </button>
-                        <button
-                          onClick={() => setShowResolutionMenu(!showResolutionMenu)}
-                          className="px-1.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-r-lg border-l border-purple-500 transition-colors"
-                        >
-                          <svg
-                            className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                      </div>
-                      {showResolutionMenu && (
-                        <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
-                          <div className="px-3 py-1.5 border-b border-gray-100">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                              {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
-                            </span>
-                          </div>
-                          {(project.aspect_ratio === "portrait" ? [
-                            { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
-                            { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
-                            { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
-                          ] : [
-                            { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
-                            { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
-                            { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
-                          ]).map((opt) => (
-                            <button
-                              key={opt.value}
-                              onClick={() => {
-                                if (opt.locked) {
-                                  setShowResolutionMenu(false);
-                                  setShowUpgrade(true);
-                                  return;
-                                }
-                                setSelectedResolution(opt.value);
-                                setShowResolutionMenu(false);
-                              }}
-                              className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                                selectedResolution === opt.value ? "bg-purple-50" : ""
-                              }`}
-                            >
-                              <div>
-                                <span className={`text-xs font-medium ${
-                                  selectedResolution === opt.value ? "text-purple-600" : "text-gray-900"
-                                }`}>
-                                  {opt.label}
-                                </span>
-                                <p className="text-[10px] text-gray-400">{opt.desc}</p>
-                              </div>
-                              {opt.locked ? (
-                                <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              ) : selectedResolution === opt.value ? (
-                                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                </svg>
-                              ) : null}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Download MP4 */}
                     <button
                       onClick={handleDownload}
                       disabled={downloading}
