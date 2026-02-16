@@ -52,6 +52,10 @@ class Project(Base):
 
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
+    
+    # AI-assisted editing usage tracking
+    ai_assisted_editing_count: Mapped[int] = mapped_column(Integer, default=0)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

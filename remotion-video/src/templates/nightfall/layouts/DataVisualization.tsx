@@ -90,8 +90,12 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
 
   const hasImage = !!imageUrl;
   const hasChart = !!chartType;
-  const chartWidth = p ? 600 : hasImage ? 700 : 900;
-  const chartHeight = p ? 400 : hasImage ? 450 : 500;
+  // Hide narration and image when charts are present and user wants visualization only
+  // Check if narration is empty or just whitespace to determine if it should be hidden
+  const shouldShowNarration = narration && narration.trim() && (!hasChart || narration.trim().length > 50);
+  const shouldShowImage = hasImage && (!hasChart || !shouldShowNarration);
+  const chartWidth = p ? 600 : shouldShowImage ? 700 : 900;
+  const chartHeight = p ? 400 : shouldShowImage ? 450 : 500;
 
   // Debug: Log chart data (remove in production)
   if (barChartData || lineChartData || pieChartData) {
@@ -153,7 +157,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
               inset 0 1px 0 rgba(255, 255, 255, 0.08)
             `,
             display: "flex",
-            flexDirection: p ? "column" : hasImage && hasChart ? "row" : "column",
+            flexDirection: p ? "column" : shouldShowImage && hasChart ? "row" : "column",
             gap: p ? 24 : 32,
             alignItems: "center",
           }}
@@ -172,7 +176,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
           />
 
           {/* Image Section */}
-          {hasImage && (
+          {shouldShowImage && (
             <div
               style={{
                 flex: p ? "none" : "0 0 35%",
@@ -211,8 +215,8 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
           {hasChart && (
             <div
               style={{
-                flex: hasImage && !p ? 1 : "none",
-                width: p ? "100%" : hasImage ? "65%" : "100%",
+                flex: shouldShowImage && !p ? 1 : "none",
+                width: p ? "100%" : shouldShowImage ? "65%" : "100%",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -257,7 +261,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
           )}
 
           {/* Narration Section */}
-          {narration && (
+          {shouldShowNarration && (
             <div
               style={{
                 width: "100%",

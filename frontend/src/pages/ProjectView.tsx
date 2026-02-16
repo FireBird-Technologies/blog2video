@@ -19,7 +19,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-
+import SceneEditor from "../components/SceneEditor";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
@@ -1370,7 +1370,12 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-baseline gap-4 mb-2">
+                <SceneEditor
+                  project={project}
+                  scenes={project.scenes}
+                  onScenesUpdated={loadProject}
+                />
+                <div className="flex items-baseline gap-4 mb-2 mt-6">
                   <h2 className="text-base font-medium text-gray-900">
                     {project.name}
                   </h2>

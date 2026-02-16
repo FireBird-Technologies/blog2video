@@ -287,6 +287,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             except (json.JSONDecodeError, TypeError):
                 pass
 
+        # Check if image should be hidden for this scene
+        hide_image = layout_props.get("hideImage", False)
+        scene_images = [] if hide_image else scene_image_map.get(i, [])
+
         scene_data.append(
             {
                 "id": scene.id,
@@ -298,7 +302,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 "layoutProps": layout_props,
                 "durationSeconds": scene.duration_seconds,
                 "voiceoverFile": voiceover_filename,
-                "images": scene_image_map.get(i, []),
+                "images": scene_images,
             }
         )
 

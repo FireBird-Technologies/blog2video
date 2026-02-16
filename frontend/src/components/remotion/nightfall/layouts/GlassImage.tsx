@@ -79,6 +79,13 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
+  // Debug: Log imageUrl
+  if (imageUrl) {
+    console.log("[GlassImage] Rendering image:", imageUrl);
+  } else {
+    console.warn("[GlassImage] No imageUrl provided");
+  }
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground drift={false} />
@@ -91,6 +98,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               position: "absolute",
               inset: 0,
               overflow: "hidden",
+              zIndex: 1,
             }}
           >
             <Img
@@ -105,6 +113,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                   scale(${kenBurnsScale}) 
                   translate(${kenBurnsPanX}%, ${kenBurnsPanY}%)
                 `,
+                zIndex: 1,
               }}
             />
           </div>
@@ -117,6 +126,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               inset: 0,
               background: `radial-gradient(ellipse at center, transparent 0%, rgba(10,10,26,${vignetteOpacity}) 100%)`,
               pointerEvents: "none",
+              zIndex: 2,
             }}
           />
           
@@ -136,6 +146,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 )
               `,
               pointerEvents: "none",
+              zIndex: 2,
             }}
           />
 
@@ -148,6 +159,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               mixBlendMode: "overlay",
               opacity: 0.3,
               pointerEvents: "none",
+              zIndex: 2,
             }}
           />
         </>
@@ -185,6 +197,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           padding: p ? 40 : 60,
           transform: `translateY(${(1 - captionY) * 80}px)`,
           opacity: captionOpacity,
+          zIndex: 3,
         }}
       >
         {/* Glass Caption Card */}

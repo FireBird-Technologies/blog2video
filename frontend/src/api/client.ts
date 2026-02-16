@@ -107,6 +107,7 @@ export interface Project {
   logo_opacity: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  ai_assisted_editing_count?: number;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -393,6 +394,45 @@ export const updateScene = (
   sceneId: number,
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
+
+export interface LayoutInfo {
+  layouts: string[];
+  layout_names: Record<string, string>;
+}
+
+export const getValidLayouts = (projectId: number) =>
+  api.get<LayoutInfo>(`/projects/${projectId}/layouts`);
+
+export interface SceneOrderItem {
+  scene_id: number;
+  order: number;
+}
+
+export const reorderScenes = (
+  projectId: number,
+  sceneOrders: SceneOrderItem[]
+) =>
+  api.post<Scene[]>(`/projects/${projectId}/scenes/reorder`, {
+    scene_orders: sceneOrders,
+  });
+
+export const regenerateScene = (
+  projectId: number,
+  sceneId: number,
+  description: string,
+  layout?: string,
+  imageFile?: File
+) => {
+  const formData = new FormData();
+  formData.append("description", description);
+  if (layout) formData.append("layout", layout);
+  if (imageFile) formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/regenerate`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
 
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);

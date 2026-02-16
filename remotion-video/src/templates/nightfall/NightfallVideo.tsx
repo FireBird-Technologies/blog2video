@@ -180,6 +180,16 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           });
         }
 
+        // Debug: Log imageUrl for glass_image scenes
+        if (scene.layout === "glass_image") {
+          console.log("[NightfallVideo] glass_image scene:", {
+            layout: scene.layout,
+            sceneImages: scene.images,
+            imageUrl,
+            layoutProps: layoutProps,
+          });
+        }
+
         return (
           <Sequence
             key={scene.id}

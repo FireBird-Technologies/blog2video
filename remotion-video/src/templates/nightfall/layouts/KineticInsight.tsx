@@ -117,7 +117,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
             display: "flex",
             flexWrap: "wrap",
             justifyContent: "center",
-            gap: p ? "0.25em" : "0.35em",
+            gap: p ? "1em" : "1.25em",
             maxWidth: p ? "100%" : 1300,
             alignItems: "baseline",
           }}
@@ -144,8 +144,8 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
               ? word.toLowerCase().includes(highlightWord.toLowerCase())
               : i === Math.floor(words.length / 2);
 
-            // Scale for highlighted words
-            const highlightScale = isHighlight ? 1.15 : 1;
+            // Scale for highlighted words - increased for more distinction
+            const highlightScale = isHighlight ? 1.35 : 1;
 
             return (
               <span
@@ -160,28 +160,17 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
                   lineHeight: 1.4,
                   letterSpacing: "-0.01em",
                   textShadow: isHighlight
-                    ? `0 0 40px ${accentColor}60, 0 4px 12px rgba(0, 0, 0, 0.4)`
+                    ? `0 0 10px ${accentColor}80, 0 0 20px ${accentColor}60, 0 0 30px ${accentColor}40, 0 2px 8px rgba(0, 0, 0, 0.3)`
                     : "0 2px 8px rgba(0, 0, 0, 0.3)",
                   position: "relative",
                   display: "inline-block",
+                  padding: "0",
+                  margin: isHighlight ? (p ? "0 0.3em" : "0 0.5em") : "0",
+                  borderRadius: isHighlight ? "8px" : "0",
+                  background: "transparent",
                 }}
               >
                 {word}
-                {/* Underline effect for highlight */}
-                {isHighlight && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: p ? -8 : -12,
-                      left: 0,
-                      right: 0,
-                      height: 3,
-                      background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`,
-                      borderRadius: 2,
-                      opacity: wordOpacity * 0.7,
-                    }}
-                  />
-                )}
               </span>
             );
           })}
