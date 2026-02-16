@@ -72,6 +72,7 @@ const NIGHTFALL_LAYOUTS = new Set([
   "split_glass",
   "chapter_break",
   "glass_image",
+  "data_visualization",
 ]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
