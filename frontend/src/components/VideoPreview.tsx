@@ -1,28 +1,41 @@
 import { useMemo } from "react";
 import { Player } from "@remotion/player";
-import {
-  VideoComposition,
-  VideoCompositionProps,
-  SceneInput,
-} from "./remotion/VideoComposition";
 import { BACKEND_URL, Project } from "../api/client";
-import type { LayoutType } from "./remotion/layouts";
+import { getTemplateConfig } from "./remotion/templateConfig";
 
 interface VideoPreviewProps {
   project: Project;
 }
 
+interface SceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: string;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
 export default function VideoPreview({ project }: VideoPreviewProps) {
-  const scenes: SceneInput[] = useMemo(() => {
-    // Helper: resolve asset URL (R2 if available, else local)
-    const resolveUrl = (asset: { r2_url: string | null; filename: string; asset_type: string }) => {
+  const config = getTemplateConfig(project.template);
+
+  const scenes = useMemo((): SceneInput[] => {
+    const resolveUrl = (asset: {
+      r2_url: string | null;
+      filename: string;
+      asset_type: string;
+    }) => {
       if (asset.r2_url) return asset.r2_url;
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       return `${BACKEND_URL}/media/projects/${project.id}/${subdir}/${asset.filename}`;
     };
 
-    // Build image map (same logic as backend — hero to scene 0, rest round-robin)
-    const imageAssets = project.assets.filter((a) => a.asset_type === "image" && !a.excluded);
+    const imageAssets = project.assets.filter(
+      (a) => a.asset_type === "image" && !a.excluded
+    );
     const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
     const sceneImageMap: Record<number, string> = {};
 
@@ -38,34 +51,35 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     }
 
     return project.scenes.map((scene, idx) => {
-      // Parse layout descriptor from remotion_code (JSON)
-      let layout: LayoutType = "text_narration";
-      let layoutProps: Record<string, any> = {};
+      let layout = config.fallbackLayout;
+      let layoutProps: Record<string, unknown> = {};
 
       if (scene.remotion_code) {
         try {
           const descriptor = JSON.parse(scene.remotion_code);
-          layout = descriptor.layout || "text_narration";
+          layout = descriptor.layout || config.fallbackLayout;
           layoutProps = descriptor.layoutProps || {};
         } catch {
-          // Legacy TSX code — fallback to text_narration
+          /* legacy */
         }
       }
 
-      // Scene order 1 with no explicit layout → hero_image
       if (scene.order === 1 && !scene.remotion_code) {
-        layout = "hero_image";
+        layout = config.heroLayout;
       }
 
-      // Resolve audio URL from matching asset (R2 if available)
+      if (!config.validLayouts.has(layout)) {
+        layout = config.fallbackLayout;
+      }
+
       const matchingAudio = audioAssets.find(
         (a) => a.filename === `scene_${scene.order}.mp3`
       );
       const voiceoverUrl = matchingAudio
         ? resolveUrl(matchingAudio)
         : scene.voiceover_path
-        ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
-        : undefined;
+          ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
+          : undefined;
 
       return {
         id: scene.id,
@@ -79,7 +93,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         voiceoverUrl,
       };
     });
-  }, [project]);
+  }, [project, config]);
 
   const totalDurationFrames = useMemo(() => {
     const totalSeconds = project.scenes.reduce(
@@ -91,20 +105,24 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
 
   const isPortrait = project.aspect_ratio === "portrait";
 
-  const inputProps: VideoCompositionProps = {
+  const colors = config.defaultColors;
+
+  const inputProps = {
     scenes,
-    accentColor: project.accent_color || "#7C3AED",
-    bgColor: project.bg_color || "#FFFFFF",
-    textColor: project.text_color || "#000000",
+    accentColor: project.accent_color || colors.accent,
+    bgColor: project.bg_color || colors.bg,
+    textColor: project.text_color || colors.text,
     logo: project.logo_r2_url || null,
     logoPosition: project.logo_position || "bottom_right",
     logoOpacity: project.logo_opacity ?? 0.9,
     aspectRatio: project.aspect_ratio || "landscape",
   };
 
+  const Composition = config.component;
+
   return (
     <Player
-      component={VideoComposition as any}
+      component={Composition}
       inputProps={inputProps}
       durationInFrames={totalDurationFrames}
       compositionWidth={isPortrait ? 1080 : 1920}

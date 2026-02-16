@@ -31,7 +31,8 @@ from app.services.remotion import (
 )
 from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
-from app.dspy_modules.scene_gen import SceneCodeGenerator
+from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+from app.services.template_service import validate_template_id
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 
@@ -222,12 +223,13 @@ async def _generate_scenes(project: Project, db: Session):
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
 
-    # Refresh scenes to pick up voiceover_path / duration
-    for scene in scenes:
-        db.refresh(scene)
+    # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
+    db.expire(project)
+    scenes = project.scenes
 
-    # Step 2: Generate layout descriptors concurrently with async DSPy
-    scene_gen = SceneCodeGenerator()
+    # Step 2: Generate layout descriptors with TemplateSceneGenerator
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
     ]

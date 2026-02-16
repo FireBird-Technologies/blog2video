@@ -90,6 +90,7 @@ export interface Project {
   blog_url: string;
   blog_content: string | null;
   status: string;
+  template?: string;
   voice_gender: string;
   voice_accent: string;
   accent_color: string;
@@ -253,6 +254,16 @@ export const resumeSubscription = () =>
 
 // ─── Project API ──────────────────────────────────────────
 
+export interface TemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  preview_colors?: { accent: string; bg: string; text: string };
+}
+
+export const getTemplates = () =>
+  api.get<TemplateMeta[]>("/templates");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -265,7 +276,8 @@ export const createProject = (
   logo_position?: string,
   logo_opacity?: number,
   custom_voice_id?: string,
-  aspect_ratio?: string
+  aspect_ratio?: string,
+  template?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -280,6 +292,7 @@ export const createProject = (
     logo_opacity,
     custom_voice_id,
     aspect_ratio,
+    template,
   });
 
 export const uploadLogo = (projectId: number, file: File) => {

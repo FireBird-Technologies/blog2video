@@ -8,6 +8,7 @@ from typing import Optional
 class ProjectCreate(BaseModel):
     blog_url: str
     name: Optional[str] = None
+    template: Optional[str] = "default"
     voice_gender: Optional[str] = "female"   # "male", "female", or "none"
     voice_accent: Optional[str] = "american"  # "american" or "british"
     accent_color: Optional[str] = "#7C3AED"  # purple default
@@ -69,6 +70,7 @@ class ProjectOut(BaseModel):
     blog_url: str
     blog_content: Optional[str] = None
     status: str
+    template: str = "default"
     voice_gender: str = "female"
     voice_accent: str = "american"
     accent_color: str = "#7C3AED"

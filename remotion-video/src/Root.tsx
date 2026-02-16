@@ -1,12 +1,19 @@
 import { Composition } from "remotion";
-import { ExplainerVideo, calculateVideoMetadata } from "./ExplainerVideo";
+import {
+  DefaultVideo,
+  calculateDefaultMetadata,
+} from "./templates/default/DefaultVideo";
+import {
+  NightfallVideo,
+  calculateNightfallMetadata,
+} from "./templates/nightfall/NightfallVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
-        id="ExplainerVideo"
-        component={ExplainerVideo}
+        id="DefaultVideo"
+        component={DefaultVideo}
         durationInFrames={30 * 300}
         fps={30}
         width={1920}
@@ -14,7 +21,19 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           dataUrl: "/data.json",
         }}
-        calculateMetadata={calculateVideoMetadata}
+        calculateMetadata={calculateDefaultMetadata}
+      />
+      <Composition
+        id="NightfallVideo"
+        component={NightfallVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateNightfallMetadata}
       />
     </>
   );

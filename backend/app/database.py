@@ -88,6 +88,7 @@ def _migrate(eng):
             "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
             "custom_voice_id": "VARCHAR(100)",
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
+            "template": "VARCHAR(50) DEFAULT 'default'",
         }
         for col_name, col_def in migrations.items():
             if col_name not in cols:

@@ -15,6 +15,12 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.services import r2_storage
+from app.services.template_service import (
+    validate_template_id,
+    get_hero_layout,
+    get_fallback_layout,
+    get_composition_id,
+)
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
@@ -31,26 +37,12 @@ _TEMPLATE_CONFIG_FILES = [
     "remotion.config.ts",
 ]
 
-_TEMPLATE_SRC_FILES = [
+# Shared files copied for every template
+_SHARED_SRC_FILES = [
     "src/Root.tsx",
     "src/index.ts",
-    "src/ExplainerVideo.tsx",
-    "src/components/TextScene.tsx",
-    "src/components/ImageScene.tsx",
-    "src/components/Transitions.tsx",
     "src/components/LogoOverlay.tsx",
-    "src/components/layouts/types.ts",
-    "src/components/layouts/HeroImage.tsx",
-    "src/components/layouts/TextNarration.tsx",
-    "src/components/layouts/CodeBlock.tsx",
-    "src/components/layouts/BulletList.tsx",
-    "src/components/layouts/FlowDiagram.tsx",
-    "src/components/layouts/Comparison.tsx",
-    "src/components/layouts/Metric.tsx",
-    "src/components/layouts/QuoteCallout.tsx",
-    "src/components/layouts/ImageCaption.tsx",
-    "src/components/layouts/Timeline.tsx",
-    "src/components/layouts/index.ts",
+    "src/components/Transitions.tsx",
 ]
 
 
@@ -64,23 +56,58 @@ def get_workspace_dir(project_id: int) -> str:
     )
 
 
-def provision_workspace(project_id: int) -> str:
+def _scan_template_files(template_root: str, template_id: str) -> list[str]:
+    """
+    Dynamically scan and return all .tsx and .ts files for a template.
+    All templates live under src/templates/{template_id}/.
+    Shared components (LogoOverlay, Transitions) are always included.
+
+    Args:
+        template_root: Path to remotion-video directory
+        template_id: Template ID (e.g., "default", "nightfall")
+
+    Returns:
+        List of relative file paths from template_root
+    """
+    files = list(_SHARED_SRC_FILES)
+
+    # Scan src/templates/{template_id}/ recursively for .tsx and .ts files
+    template_dir = os.path.join(template_root, "src", "templates", template_id)
+    if os.path.isdir(template_dir):
+        for root, dirs, filenames in os.walk(template_dir):
+            for filename in filenames:
+                if filename.endswith((".tsx", ".ts")):
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, template_root)
+                    # Normalize path separators for cross-platform compatibility
+                    rel_path = rel_path.replace("\\", "/")
+                    files.append(rel_path)
+
+    return sorted(set(files))
+
+
+def _get_template_src_files(template_id: str) -> list[str]:
+    """
+    Return list of source file paths to copy for the given template.
+    Dynamically scans src/templates/{template_id}/ — no hardcoded file lists.
+    """
+    template_root = settings.REMOTION_PROJECT_PATH
+    return _scan_template_files(template_root, template_id)
+
+
+def provision_workspace(project_id: int, template_id: str | None = None) -> str:
     """
     Create (or ensure) a per-project Remotion workspace.
-    Copies config and template source files from the shared template.
-    Creates a directory junction (Windows) or symlink (Unix) for node_modules.
-    Returns the workspace path.
+    Dynamically scans and copies template source files based on template_id.
+    All templates use the same code path — no template-specific logic.
     """
+    tid = validate_template_id(template_id) if template_id else "default"
     workspace = get_workspace_dir(project_id)
     template = settings.REMOTION_PROJECT_PATH
 
     os.makedirs(workspace, exist_ok=True)
     os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
-    os.makedirs(
-        os.path.join(workspace, "src", "components", "layouts"), exist_ok=True
-    )
 
-    # Link node_modules from template (junction on Windows, symlink on Unix)
     _link_directory(
         os.path.join(template, "node_modules"),
         os.path.join(workspace, "node_modules"),
@@ -93,8 +120,8 @@ def provision_workspace(project_id: int) -> str:
         if os.path.exists(src):
             shutil.copy2(src, dst)
 
-    # Copy static template source files
-    for rel_path in _TEMPLATE_SRC_FILES:
+    # Dynamically scan and copy template source files
+    for rel_path in _get_template_src_files(tid):
         src = os.path.join(template, rel_path)
         dst = os.path.join(workspace, rel_path)
         if os.path.exists(src):
@@ -152,9 +179,10 @@ def safe_remove_workspace(workspace_dir: str) -> None:
 def rebuild_workspace(project: Project, scenes: list[Scene], db: Session) -> str:
     """
     Fully rebuild a project's Remotion workspace from DB data.
-    Only writes data.json + copies assets — layout components are in the template.
+    Copies template-specific layout files, then writes data.json + assets.
     """
-    workspace = provision_workspace(project.id)
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    workspace = provision_workspace(project.id, template_id)
     write_remotion_data(project, scenes, db)
     return workspace
 
@@ -168,7 +196,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     Includes layout descriptors in the scene data for data-driven rendering.
     Returns the path to data.json.
     """
-    workspace = provision_workspace(project.id)
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
@@ -223,15 +252,16 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     voiceover_filename = audio_dest_name
 
         # Parse layout descriptor from remotion_code (JSON)
-        layout = "text_narration"
+        fallback = get_fallback_layout(template_id)
+        layout = fallback
         layout_props = {}
         if scene.remotion_code:
             try:
                 desc = json.loads(scene.remotion_code)
-                layout = desc.get("layout", "text_narration")
+                layout = desc.get("layout", fallback)
                 layout_props = desc.get("layoutProps", {})
             except (json.JSONDecodeError, TypeError):
-                pass  # Legacy TSX code — use text_narration default
+                pass
 
         scene_data.append(
             {
@@ -374,16 +404,19 @@ def get_render_progress(project_id: int) -> dict:
 
 # Resolution presets: label -> (width, height, scale)
 # Landscape: base is 1920x1080; Portrait: base is 1080x1920
+# Scale values must produce exact integer dimensions to avoid Remotion errors.
+# Instead of computing scale from target/base, we use --width/--height overrides
+# for sub-1080p resolutions, which guarantees integer output.
 RESOLUTION_PRESETS = {
     "landscape": {
-        "480p":  {"width": 854,  "height": 480,  "scale": 480 / 1080},
-        "720p":  {"width": 1280, "height": 720,  "scale": 720 / 1080},
-        "1080p": {"width": 1920, "height": 1080, "scale": 1.0},
+        "480p":  {"width": 854,  "height": 480},
+        "720p":  {"width": 1280, "height": 720},
+        "1080p": {"width": 1920, "height": 1080},
     },
     "portrait": {
-        "480p":  {"width": 480,  "height": 854,  "scale": 854 / 1920},
-        "720p":  {"width": 720,  "height": 1280, "scale": 1280 / 1920},
-        "1080p": {"width": 1080, "height": 1920, "scale": 1.0},
+        "480p":  {"width": 480,  "height": 854},
+        "720p":  {"width": 720,  "height": 1280},
+        "1080p": {"width": 1080, "height": 1920},
     },
 }
 
@@ -391,12 +424,11 @@ RESOLUTION_PRESETS = {
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "720p",
     aspect_ratio: str = "landscape",
+    composition_id: str = "DefaultVideo",
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
-    is_portrait = aspect_ratio == "portrait"
-
     cmd = [
-        npx, "remotion", "render", "ExplainerVideo", output_path,
+        npx, "remotion", "render", composition_id, output_path,
         "--concurrency", "100%",              # use all CPU cores
         "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
         "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
@@ -404,15 +436,10 @@ def _build_render_cmd(
         "--bundle-cache", "true",             # reuse webpack bundle across renders
     ]
 
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
-
+    # Always use explicit --width / --height to guarantee integer dimensions
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
     preset = presets.get(resolution, presets["720p"])
-    scale = preset["scale"]
-    if scale < 1.0:
-        cmd.extend(["--scale", f"{scale:.4f}"])
+    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
 
@@ -425,9 +452,11 @@ def render_video(project: Project, resolution: str = "720p") -> str:
 
     output_path = os.path.join(output_dir, "video.mp4")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    composition_id = get_composition_id(template_id)
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
 
     result = subprocess.run(
         cmd,
@@ -455,9 +484,11 @@ def start_render_async(project: Project, resolution: str = "720p") -> None:
 
     output_path = os.path.join(output_dir, "video.mp4")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    composition_id = get_composition_id(template_id)
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
 
     _render_progress[project.id] = {
         "progress": 0,

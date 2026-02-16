@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { getTemplates, type TemplateMeta } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
 
 interface Props {
@@ -16,7 +17,8 @@ interface Props {
     logoPosition?: string,
     logoOpacity?: number,
     customVoiceId?: string,
-    aspectRatio?: string
+    aspectRatio?: string,
+    template?: string
   ) => Promise<void>;
   loading?: boolean;
   /** Render as a full-screen modal overlay */
@@ -52,6 +54,14 @@ export default function BlogUrlForm({
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  const [template, setTemplate] = useState("default");
+
+  useEffect(() => {
+    getTemplates()
+      .then((r) => setTemplates(r.data))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +83,8 @@ export default function BlogUrlForm({
         logoPosition,
         logoOpacity,
         customVoiceId.trim() || undefined,
-        aspectRatio
+        aspectRatio,
+        template !== "default" ? template : undefined
       );
     }
     setUrls([""]);
@@ -206,6 +217,38 @@ export default function BlogUrlForm({
           <p className="mt-1 text-[10px] text-gray-300">
             Override the default voice with your own from elevenlabs.io
           </p>
+        </div>
+      )}
+
+      {/* Template */}
+      {templates.length > 0 && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+            Template
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setTemplate(t.id);
+                  if (t.preview_colors) {
+                    setAccentColor(t.preview_colors.accent);
+                    setBgColor(t.preview_colors.bg);
+                    setTextColor(t.preview_colors.text);
+                  }
+                }}
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  template === t.id
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

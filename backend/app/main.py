@@ -269,3 +269,10 @@ def public_config():
         "google_client_id": settings.GOOGLE_CLIENT_ID,
         "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
+
+
+@app.get("/api/templates")
+def list_templates():
+    """Return available video templates (from TemplateService)."""
+    from app.services.template_service import list_templates as _list_templates
+    return _list_templates()

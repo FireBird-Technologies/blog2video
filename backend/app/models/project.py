@@ -47,6 +47,9 @@ class Project(Base):
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Template (determines layout system + DSPy prompt)
+    template: Mapped[str] = mapped_column(String(50), default="default")
+
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
     created_at: Mapped[datetime] = mapped_column(
