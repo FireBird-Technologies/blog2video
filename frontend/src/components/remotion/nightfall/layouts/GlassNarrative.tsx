@@ -75,6 +75,20 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   // Subtle floating effect
   const floatY = Math.sin(frame / 60) * 3;
 
+  // Image animation
+  const imageOpacity = interpolate(
+    frame,
+    [20, 45],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
+
+  const imageScale = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
+
   // Split narration into paragraphs if it contains line breaks
   const paragraphs = narration.split('\n').filter(p => p.trim());
   const hasImage = !!imageUrl;

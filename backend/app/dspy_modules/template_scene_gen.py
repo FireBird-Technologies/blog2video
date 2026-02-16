@@ -60,12 +60,15 @@ class TemplateSceneToDescriptor(dspy.Signature):
     underused_layouts: str = dspy.InputField(
         desc="Comma-separated list of layouts not yet used (prioritize these for variety)"
     )
+    preferred_layout: str = dspy.InputField(
+        desc="Optional: User's preferred layout type. If provided, use this layout and extract props accordingly. Must be one of the valid layouts from the catalog. Empty string means no preference."
+    )
     
     reasoning: str = dspy.OutputField(
         desc="Your reasoning: (1) Content analysis, (2) Layout choice rationale, (3) Prop extraction details, (4) Variety considerations"
     )
     layout: str = dspy.OutputField(
-        desc="Layout ID from catalog (must be exact match, lowercase with underscores)"
+        desc="Layout ID from catalog (must be exact match, lowercase with underscores). If preferred_layout is provided and valid, use that layout. Otherwise, pick the most VISUALLY ENGAGING option that fits the content."
     )
     layout_props_json: str = dspy.OutputField(
         desc='Valid JSON object with layout-specific props. Use exact prop keys from catalog. Return {} for layouts with no required props. Do NOT wrap in markdown code blocks.'
@@ -237,18 +240,73 @@ class TemplateSceneGenerator:
         scene_index: int,
         total_scenes: int = 10,
         max_retries: int = 2,
+        preferred_layout: str | None = None,
     ) -> dict:
         """
         Generate a layout descriptor for a single scene with retry logic.
+        
+        Args:
+            preferred_layout: Optional layout ID that the user prefers. If provided and valid,
+                            will be used instead of AI selection.
         """
         
-        # Scene 0 always gets hero layout
-        if scene_index == 0:
+        # Scene 0 always gets hero layout (unless preferred_layout is explicitly set)
+        if scene_index == 0 and not preferred_layout:
             self.variety_tracker.record(self._hero_layout)
             return {
                 "layout": self._hero_layout,
                 "layoutProps": {},
             }
+        
+        # Normalize and validate preferred layout if provided
+        normalized_preferred = None
+        if preferred_layout:
+            normalized_preferred = self._normalize_layout(preferred_layout)
+            if normalized_preferred not in self._valid_layouts:
+                if self.debug:
+                    print(f"  Warning: Invalid preferred_layout '{preferred_layout}', ignoring")
+                normalized_preferred = None
+        
+        # If valid preferred layout provided, use it directly (skip AI selection)
+        if normalized_preferred:
+            # Still need to extract props, so call DSPy but force the layout
+            previous_layouts = self.variety_tracker.get_previous_layouts()
+            underused_layouts = self.variety_tracker.get_underused_layouts()
+            
+            try:
+                result = await self.descriptor(
+                    template_prompt=self._prompt,
+                    scene_title=scene_title,
+                    narration=narration,
+                    visual_description=visual_description,
+                    scene_index=scene_index,
+                    total_scenes=total_scenes,
+                    previous_layouts=previous_layouts,
+                    underused_layouts=underused_layouts,
+                    preferred_layout=normalized_preferred,
+                )
+                
+                # Use preferred layout regardless of what DSPy returned
+                layout = normalized_preferred
+                
+                # Parse and validate props
+                props = self._parse_props_json(result.layout_props_json)
+                validated_props = self._validate_props(layout, props)
+                
+                self.variety_tracker.record(layout)
+                return {
+                    "layout": layout,
+                    "layoutProps": validated_props,
+                }
+            except Exception as e:
+                if self.debug:
+                    print(f"⚠️  Error generating props for preferred layout: {e}")
+                # Fallback: use preferred layout with empty props
+                self.variety_tracker.record(normalized_preferred)
+                return {
+                    "layout": normalized_preferred,
+                    "layoutProps": {},
+                }
         
         # Get variety context
         previous_layouts = self.variety_tracker.get_previous_layouts()
@@ -268,6 +326,7 @@ class TemplateSceneGenerator:
                     total_scenes=total_scenes,
                     previous_layouts=previous_layouts,
                     underused_layouts=underused_layouts,
+                    preferred_layout="",  # No preference
                 )
                 
                 # Normalize and validate layout

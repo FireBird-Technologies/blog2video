@@ -87,6 +87,7 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
+    ai_assisted_editing_count: int = 0
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
@@ -117,6 +118,22 @@ class SceneUpdate(BaseModel):
     visual_description: Optional[str] = None
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
+
+
+# ─── Scene Editing ──────────────────────────────────────────
+
+class SceneOrderItem(BaseModel):
+    scene_id: int
+    order: int
+
+
+class ReorderScenesRequest(BaseModel):
+    scene_orders: list[SceneOrderItem]
+
+
+class RegenerateSceneRequest(BaseModel):
+    description: str
+    layout: Optional[str] = None
 
 
 # ─── Chat ──────────────────────────────────────────────────

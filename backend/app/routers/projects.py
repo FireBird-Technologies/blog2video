@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
@@ -9,11 +10,14 @@ from app.auth import get_current_user
 from app.config import settings
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
-from app.schemas.schemas import ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate
+from app.schemas.schemas import (
+    ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate,
+    ReorderScenesRequest, RegenerateSceneRequest
+)
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -380,6 +384,226 @@ def update_scene(
         setattr(scene, key, value)
 
     db.commit()
+    db.refresh(scene)
+    return scene
+
+
+@router.get("/{project_id}/layouts")
+def get_project_layouts(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get valid layouts for a project's template."""
+    project = _get_user_project(project_id, user.id, db)
+    
+    valid_layouts = get_valid_layouts(project.template)
+    
+    # Convert layout IDs to human-readable names
+    layout_names = {}
+    for layout_id in valid_layouts:
+        # Convert snake_case to Title Case
+        name = layout_id.replace("_", " ").title()
+        layout_names[layout_id] = name
+    
+    return {
+        "layouts": sorted(list(valid_layouts)),
+        "layout_names": layout_names,
+    }
+
+
+@router.post("/{project_id}/scenes/reorder", response_model=list[SceneOut])
+def reorder_scenes(
+    project_id: int,
+    data: ReorderScenesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reorder scenes by updating their order values."""
+    from app.models.scene import Scene
+    
+    project = _get_user_project(project_id, user.id, db)
+    
+    # Get all scenes for this project
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+    scene_map = {s.id: s for s in scenes}
+    
+    # Validate all scene_ids belong to project
+    for item in data.scene_orders:
+        if item.scene_id not in scene_map:
+            raise HTTPException(status_code=404, detail=f"Scene {item.scene_id} not found")
+    
+    # Update orders
+    for item in data.scene_orders:
+        scene_map[item.scene_id].order = item.order
+    
+    # Ensure sequential ordering (1, 2, 3...)
+    sorted_scenes = sorted(scenes, key=lambda s: s.order)
+    for i, scene in enumerate(sorted_scenes, 1):
+        scene.order = i
+    
+    db.commit()
+    
+    # Refresh all scenes
+    for scene in sorted_scenes:
+        db.refresh(scene)
+    
+    return sorted_scenes
+
+
+@router.post("/{project_id}/scenes/{scene_id}/regenerate", response_model=SceneOut)
+async def regenerate_scene(
+    project_id: int,
+    scene_id: int,
+    description: str = Form(...),
+    layout: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Regenerate a scene using AI with optional layout selection and image upload."""
+    import json
+    from app.models.scene import Scene
+    from app.models.asset import Asset, AssetType
+    from app.models.user import PlanTier
+    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.services.voiceover import generate_voiceover
+    from app.services.remotion import rebuild_workspace
+    
+    project = _get_user_project(project_id, user.id, db)
+    
+    # Check usage limits
+    if user.plan != PlanTier.PRO:
+        if project.ai_assisted_editing_count >= 3:
+            raise HTTPException(
+                status_code=403,
+                detail="AI editing limit reached (3 uses per project). Upgrade to Pro for unlimited AI edits."
+            )
+    
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    
+    # Validate layout if provided
+    normalized_layout = None
+    if layout:
+        valid_layouts = get_valid_layouts(project.template)
+        normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
+        if normalized_layout not in valid_layouts:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid layout '{layout}'. Valid layouts: {', '.join(sorted(valid_layouts))}"
+            )
+    
+    # Handle image upload if provided
+    image_filename = None
+    if image:
+        # Validate file type
+        allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
+        if image.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Image must be PNG, JPEG, or WebP.")
+        
+        # Read file content
+        MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+        file_bytes = image.file.read()
+        if len(file_bytes) > MAX_IMAGE_SIZE:
+            raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 5 MB.")
+        
+        # Save locally
+        image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
+        os.makedirs(image_dir, exist_ok=True)
+        
+        ext = image.filename.rsplit(".", 1)[-1] if image.filename and "." in image.filename else "png"
+        image_filename = f"scene_{scene_id}_{int(time.time())}.{ext}"
+        local_path = os.path.join(image_dir, image_filename)
+        
+        with open(local_path, "wb") as f:
+            f.write(file_bytes)
+        
+        # Upload to R2 if configured
+        r2_key_val = None
+        r2_url_val = None
+        if r2_storage.is_r2_configured():
+            try:
+                r2_key_val = r2_storage.image_key(user.id, project_id, image_filename)
+                r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=image.content_type)
+            except Exception as e:
+                print(f"[REGENERATE] R2 upload failed for {image_filename}: {e}")
+        
+        # Create Asset record
+        asset = Asset(
+            project_id=project_id,
+            asset_type=AssetType.IMAGE,
+            local_path=local_path,
+            filename=image_filename,
+            r2_key=r2_key_val,
+            r2_url=r2_url_val,
+            excluded=False,
+        )
+        db.add(asset)
+        db.flush()
+    
+    # Parse description for removal instructions
+    description_lower = description.lower()
+    remove_image = any(phrase in description_lower for phrase in [
+        "remove image", "no image", "don't show image", "hide image",
+        "without image", "no picture", "remove picture"
+    ])
+    hide_narration = any(phrase in description_lower for phrase in [
+        "no narration", "don't show narration", "hide narration",
+        "without narration", "remove narration", "no text",
+        "don't display narration", "visualization only"
+    ])
+    
+    # Regenerate scene using DSPy
+    template_gen = TemplateSceneGenerator(project.template)
+    
+    # Generate new narration (for now, use description as visual_description enhancement)
+    # In a full implementation, you might want a separate DSPy signature for narration regeneration
+    new_visual_description = description
+    
+    # If hiding narration, set it to empty string
+    new_narration = "" if hide_narration else scene.narration_text
+    
+    # Generate layout descriptor
+    descriptor = await template_gen.generate_scene_descriptor(
+        scene_title=scene.title,
+        narration=new_narration,
+        visual_description=new_visual_description,
+        scene_index=scene.order - 1,
+        total_scenes=len(project.scenes),
+        preferred_layout=normalized_layout,
+    )
+    
+    # Set hideImage flag in layoutProps if image should be removed
+    if remove_image:
+        if "layoutProps" not in descriptor:
+            descriptor["layoutProps"] = {}
+        descriptor["layoutProps"]["hideImage"] = True
+        descriptor["layoutProps"].pop("imageUrl", None)
+    
+    # Update scene
+    scene.visual_description = new_visual_description
+    scene.narration_text = new_narration
+    scene.remotion_code = json.dumps(descriptor)
+    
+    # Regenerate voiceover
+    generate_voiceover(scene, db)
+    
+    # Increment usage count (only for free users)
+    if user.plan != PlanTier.PRO:
+        project.ai_assisted_editing_count += 1
+    
+    db.commit()
+    
+    # Rebuild Remotion workspace
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+    rebuild_workspace(project, scenes, db)
+    
     db.refresh(scene)
     return scene
 
