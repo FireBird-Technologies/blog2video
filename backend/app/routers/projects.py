@@ -11,6 +11,7 @@ from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.services.template_service import validate_template_id, get_preview_colors
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -29,15 +30,18 @@ def create_project(
         )
 
     name = data.name or _name_from_url(data.blog_url)
+    template_id = validate_template_id(data.template)
+    colors = get_preview_colors(template_id)
     project = Project(
         user_id=user.id,
         name=name,
         blog_url=data.blog_url,
+        template=template_id,
         voice_gender=data.voice_gender or "female",
         voice_accent=data.voice_accent or "american",
-        accent_color=data.accent_color or "#7C3AED",
-        bg_color=data.bg_color or "#FFFFFF",
-        text_color=data.text_color or "#000000",
+        accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
+        bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
+        text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
         animation_instructions=data.animation_instructions or None,
         logo_position=data.logo_position or "bottom_right",
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,

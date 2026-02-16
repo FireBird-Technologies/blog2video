@@ -53,7 +53,8 @@ export default function Dashboard() {
     logoPosition?: string,
     logoOpacity?: number,
     customVoiceId?: string,
-    aspectRatio?: string
+    aspectRatio?: string,
+    template?: string
   ) => {
     setCreating(true);
     try {
@@ -69,7 +70,8 @@ export default function Dashboard() {
         logoPosition,
         logoOpacity,
         customVoiceId,
-        aspectRatio
+        aspectRatio,
+        template
       );
 
       // Upload logo if provided
