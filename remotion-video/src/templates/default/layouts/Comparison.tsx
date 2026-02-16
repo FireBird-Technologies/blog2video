@@ -44,16 +44,18 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
         padding: p ? "60px 50px" : "80px 100px",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 36 : 44,
+          fontSize: p ? 30 : 38,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 32 : 48,
+          marginTop: 0,
+          marginBottom: p ? 28 : 40,
           textAlign: "center",
         }}
       >
@@ -81,8 +83,8 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
         >
           <div
             style={{
-              width: p ? 40 : 48,
-              height: p ? 40 : 48,
+              width: p ? 36 : 44,
+              height: p ? 36 : 44,
               borderRadius: 12,
               backgroundColor: "#FEE2E2",
               display: "flex",
@@ -91,14 +93,15 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: p ? 20 : 24, color: "#DC2626" }}>✕</span>
+            <span style={{ fontSize: p ? 18 : 22, color: "#DC2626" }}>✕</span>
           </div>
           <h3
             style={{
-              fontSize: p ? 24 : 28,
+              fontSize: p ? 20 : 24,
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
+              margin: 0,
               marginBottom: 12,
             }}
           >
@@ -106,11 +109,12 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: p ? 18 : 22,
+              fontSize: p ? 16 : 19,
               color: textColor,
               fontFamily: "Inter, sans-serif",
-              lineHeight: 1.7,
+              lineHeight: 1.6,
               opacity: 0.7,
+              margin: 0,
             }}
           >
             {leftDescription}
@@ -151,8 +155,8 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
         >
           <div
             style={{
-              width: p ? 40 : 48,
-              height: p ? 40 : 48,
+              width: p ? 36 : 44,
+              height: p ? 36 : 44,
               borderRadius: 12,
               backgroundColor: "#DCFCE7",
               display: "flex",
@@ -161,14 +165,15 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: p ? 20 : 24, color: "#16A34A" }}>✓</span>
+            <span style={{ fontSize: p ? 18 : 22, color: "#16A34A" }}>✓</span>
           </div>
           <h3
             style={{
-              fontSize: p ? 24 : 28,
+              fontSize: p ? 20 : 24,
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
+              margin: 0,
               marginBottom: 12,
             }}
           >
@@ -176,11 +181,12 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: p ? 18 : 22,
+              fontSize: p ? 16 : 19,
               color: textColor,
               fontFamily: "Inter, sans-serif",
-              lineHeight: 1.7,
+              lineHeight: 1.6,
               opacity: 0.7,
+              margin: 0,
             }}
           >
             {rightDescription}

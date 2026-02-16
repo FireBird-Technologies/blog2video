@@ -9,8 +9,11 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   accentColor,
   bgColor,
   textColor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
   const imgOp = interpolate(frame, [0, 25], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -32,16 +35,19 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
       style={{
         backgroundColor: bgColor,
         display: "flex",
-        flexDirection: "row",
+        flexDirection: p ? "column" : "row",
         alignItems: "center",
-        padding: "60px 80px",
-        gap: 60,
+        padding: p ? "60px 50px" : "60px 80px",
+        gap: p ? 36 : 56,
+        overflow: "hidden",
       }}
     >
       {/* Image area */}
       <div
         style={{
-          flex: 1,
+          flex: p ? "none" : 1,
+          width: p ? "100%" : undefined,
+          height: p ? "45%" : undefined,
           borderRadius: 16,
           overflow: "hidden",
           opacity: imgOp,
@@ -59,7 +65,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           <div
             style={{
               width: "100%",
-              aspectRatio: "16/10",
+              aspectRatio: p ? "1/1" : "16/10",
               backgroundColor: `${accentColor}10`,
               display: "flex",
               alignItems: "center",
@@ -93,27 +99,32 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
       {/* Text area */}
       <div
         style={{
-          flex: 1,
+          flex: p ? "none" : 1,
           opacity: textOp,
           transform: `translateY(${textY}px)`,
+          textAlign: p ? "center" : "left",
         }}
       >
         <div
           style={{
             width: `${borderW}%`,
+            maxWidth: p ? 80 : undefined,
             height: 4,
             backgroundColor: accentColor,
             borderRadius: 2,
             marginBottom: 20,
+            marginLeft: p ? "auto" : undefined,
+            marginRight: p ? "auto" : undefined,
           }}
         />
         <h2
           style={{
             color: textColor,
-            fontSize: 38,
+            fontSize: p ? 26 : 32,
             fontWeight: 700,
             fontFamily: "Inter, sans-serif",
-            marginBottom: 20,
+            marginTop: 0,
+            marginBottom: 16,
             lineHeight: 1.3,
           }}
         >
@@ -122,10 +133,11 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: 22,
+            fontSize: p ? 17 : 20,
             fontFamily: "Inter, sans-serif",
-            lineHeight: 1.7,
+            lineHeight: 1.6,
             opacity: 0.7,
+            margin: 0,
           }}
         >
           {narration}

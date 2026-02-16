@@ -36,6 +36,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <div
@@ -65,9 +66,10 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         <h1
           style={{
             color: textColor,
-            fontSize: p ? 40 : 52,
+            fontSize: p ? 34 : 44,
             fontWeight: 700,
             opacity: titleOp,
+            marginTop: 0,
             marginBottom: 24,
             fontFamily: "Inter, sans-serif",
             lineHeight: 1.2,
@@ -87,12 +89,13 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: p ? 24 : 27,
-            lineHeight: 1.8,
+            fontSize: p ? 20 : 23,
+            lineHeight: 1.65,
             opacity: textOp * 0.8,
             transform: `translateY(${textY}px)`,
             maxWidth: p ? 850 : 950,
             fontFamily: "Inter, sans-serif",
+            margin: 0,
           }}
         >
           {narration}

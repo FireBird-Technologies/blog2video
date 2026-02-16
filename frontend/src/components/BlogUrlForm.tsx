@@ -18,6 +18,7 @@ interface Props {
     logoOpacity?: number,
     customVoiceId?: string,
     aspectRatio?: string,
+    uploadFiles?: File[],
     template?: string
   ) => Promise<void>;
   loading?: boolean;
@@ -25,6 +26,15 @@ interface Props {
   asModal?: boolean;
   onClose?: () => void;
 }
+
+const MAX_UPLOAD_FILES = 5;
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
 
 export default function BlogUrlForm({
   onSubmit,
@@ -34,6 +44,9 @@ export default function BlogUrlForm({
 }: Props) {
   const { user } = useAuth();
   const isPro = user?.plan === "pro";
+
+  // Input mode
+  const [mode, setMode] = useState<"url" | "upload">("url");
 
   // Core fields
   const [urls, setUrls] = useState<string[]>([""]);
@@ -54,6 +67,11 @@ export default function BlogUrlForm({
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  // Document upload state
+  const [docFiles, setDocFiles] = useState<File[]>([]);
+  const [docError, setDocError] = useState<string | null>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   const [template, setTemplate] = useState("default");
 
@@ -65,13 +83,11 @@ export default function BlogUrlForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validUrls = urls.filter((u) => u.trim());
-    if (validUrls.length === 0) return;
 
-    // Submit each URL as a separate project
-    for (const url of validUrls) {
+    if (mode === "upload") {
+      if (docFiles.length === 0) return;
       await onSubmit(
-        url.trim(),
+        "", // no URL
         name.trim() || undefined,
         voiceGender,
         voiceAccent,
@@ -84,44 +100,267 @@ export default function BlogUrlForm({
         logoOpacity,
         customVoiceId.trim() || undefined,
         aspectRatio,
-        template !== "default" ? template : undefined
+        docFiles
       );
+      setDocFiles([]);
+      setName("");
+    } else {
+      const validUrls = urls.filter((u) => u.trim());
+      if (validUrls.length === 0) return;
+
+      // Submit each URL as a separate project
+      for (const url of validUrls) {
+        await onSubmit(
+          url.trim(),
+          name.trim() || undefined,
+          voiceGender,
+          voiceAccent,
+          accentColor,
+          bgColor,
+          textColor,
+          animationInstructions.trim() || undefined,
+          logoFile || undefined,
+          logoPosition,
+          logoOpacity,
+          customVoiceId.trim() || undefined,
+          aspectRatio,
+          undefined,
+          template !== "default" ? template : undefined
+        );
+      }
+      setUrls([""]);
+      setName("");
     }
-    setUrls([""]);
-    setName("");
   };
 
   const updateUrl = (index: number, value: string) => {
     setUrls((prev) => prev.map((u, i) => (i === index ? value : u)));
   };
 
+  const isAllowedFile = (file: File) => {
+    // Check MIME type first
+    if (ALLOWED_TYPES.includes(file.type)) return true;
+    // Fallback: check extension (MIME can be unreliable)
+    const ext = file.name.toLowerCase().split(".").pop();
+    return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
+  };
+
+  const addDocFiles = (newFiles: FileList | null) => {
+    if (!newFiles) return;
+    setDocError(null);
+
+    const incoming = Array.from(newFiles);
+
+    for (const f of incoming) {
+      if (!isAllowedFile(f)) {
+        setDocError(`"${f.name}" is not a supported format. Use PDF, DOCX, or PPTX.`);
+        return;
+      }
+      if (f.size > MAX_UPLOAD_SIZE) {
+        setDocError(`"${f.name}" exceeds the 5 MB size limit.`);
+        return;
+      }
+    }
+
+    const combined = [...docFiles, ...incoming];
+    if (combined.length > MAX_UPLOAD_FILES) {
+      setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`);
+      return;
+    }
+
+    setDocFiles(combined);
+  };
+
+  const removeDocFile = (index: number) => {
+    setDocFiles((prev) => prev.filter((_, i) => i !== index));
+    setDocError(null);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isSubmitDisabled =
+    loading ||
+    (mode === "url" && !urls[0]?.trim()) ||
+    (mode === "upload" && docFiles.length === 0);
+
   const form = (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* URL */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Blog URL
-        </label>
-        {urls.map((url, i) => (
-          <input
-            key={i}
-            type="url"
-            required={i === 0}
-            value={url}
-            onChange={(e) => updateUrl(i, e.target.value)}
-            placeholder={
-              i === 0
-                ? "https://yourblog.com/your-article..."
-                : `URL ${i + 1} (optional)`
-            }
-            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2"
-            autoFocus={i === 0}
-          />
-        ))}
-        <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
-          If your post is paywalled. Use the paywall-free link for best results.
-        </p>
+      {/* Mode tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setMode("url")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            mode === "url"
+              ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Link
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("upload")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            mode === "upload"
+              ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+              : "text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Upload
+        </button>
       </div>
+
+      {/* URL input (shown when mode === "url") */}
+      {mode === "url" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Blog URL
+          </label>
+          {urls.map((url, i) => (
+            <input
+              key={i}
+              type="url"
+              required={i === 0}
+              value={url}
+              onChange={(e) => updateUrl(i, e.target.value)}
+              placeholder={
+                i === 0
+                  ? "https://yourblog.com/your-article..."
+                  : `URL ${i + 1} (optional)`
+              }
+              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2"
+              autoFocus={i === 0}
+            />
+          ))}
+          <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
+            If your post is paywalled. Use the paywall-free link for best results.
+          </p>
+        </div>
+      )}
+
+      {/* Document upload (shown when mode === "upload") */}
+      {mode === "upload" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Documents{" "}
+            <span className="text-gray-300 font-normal">(max 5 files, 5 MB each)</span>
+          </label>
+
+          {/* Dropzone */}
+          <div
+            className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer"
+            onClick={() => docInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add("border-purple-400/60", "bg-purple-50/30");
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("border-purple-400/60", "bg-purple-50/30");
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove("border-purple-400/60", "bg-purple-50/30");
+              addDocFiles(e.dataTransfer.files);
+            }}
+          >
+            <svg
+              className="w-8 h-8 mx-auto mb-2 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              />
+            </svg>
+            <p className="text-sm text-gray-500">
+              Drop files here or{" "}
+              <span className="text-purple-600 font-medium">browse</span>
+            </p>
+            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint</p>
+            <input
+              ref={docInputRef}
+              type="file"
+              accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                addDocFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          {/* Error message */}
+          {docError && (
+            <p className="mt-2 text-[11px] text-red-500">{docError}</p>
+          )}
+
+          {/* File list */}
+          {docFiles.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {docFiles.map((file, i) => (
+                <div
+                  key={`${file.name}-${i}`}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-lg"
+                >
+                  <svg
+                    className={`w-4 h-4 flex-shrink-0 ${
+                      file.name.endsWith(".pdf")
+                        ? "text-red-400"
+                        : file.name.endsWith(".docx")
+                        ? "text-blue-400"
+                        : "text-orange-400"
+                    }`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="flex-1 text-xs text-gray-700 truncate">
+                    {file.name}
+                  </span>
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">
+                    {formatFileSize(file.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeDocFile(i)}
+                    className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Name */}
       <div>
@@ -133,7 +372,7 @@ export default function BlogUrlForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Auto-generated from URL"
+          placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
           className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
         />
       </div>
@@ -473,13 +712,13 @@ export default function BlogUrlForm({
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading || !urls[0]?.trim()}
+        disabled={isSubmitDisabled}
         className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
       >
         {loading ? (
           <>
             <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Creating...
+            {mode === "upload" ? "Extracting..." : "Creating..."}
           </>
         ) : (
           "Generate Video"

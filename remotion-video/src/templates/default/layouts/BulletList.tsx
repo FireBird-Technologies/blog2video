@@ -24,6 +24,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <div
@@ -40,16 +41,18 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 36 : 48,
+          fontSize: p ? 30 : 40,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 36 : 48,
+          marginTop: 0,
+          marginBottom: p ? 28 : 36,
+          lineHeight: 1.2,
         }}
       >
         {title}
       </h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: p ? 20 : 24 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: p ? 16 : 20 }}>
         {bullets.map((b, i) => {
           const delay = 20 + i * 12;
           const op = interpolate(frame, [delay, delay + 15], [0, 1], {
@@ -63,7 +66,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               key={i}
               style={{
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: p ? 16 : 20,
                 opacity: op,
                 transform: `translateX(${x}px)`,
@@ -71,21 +74,22 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
             >
               <div
                 style={{
-                  width: p ? 30 : 36,
-                  height: p ? 30 : 36,
+                  width: p ? 28 : 32,
+                  height: p ? 28 : 32,
                   borderRadius: 10,
                   backgroundColor: `${accentColor}15`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
+                  marginTop: 2,
                 }}
               >
                 <span
                   style={{
                     color: accentColor,
                     fontWeight: 700,
-                    fontSize: p ? 15 : 18,
+                    fontSize: p ? 14 : 16,
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
@@ -95,9 +99,10 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               <span
                 style={{
                   color: textColor,
-                  fontSize: p ? 22 : 28,
+                  fontSize: p ? 18 : 22,
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 500,
+                  lineHeight: 1.4,
                 }}
               >
                 {b}
