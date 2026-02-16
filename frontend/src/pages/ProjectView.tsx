@@ -7,6 +7,7 @@ import {
   renderVideo,
   getRenderStatus,
   downloadVideo,
+  fetchVideoBlob,
   downloadStudioZip,
   launchStudio,
   toggleAssetExclusion,
@@ -290,6 +291,49 @@ export default function ProjectView() {
 
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
+
+  // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Fetch video as blob when project is done — ensures full load, no CORS
+  useEffect(() => {
+    if (project?.status !== "done" || !projectId) {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+        setVideoBlobUrl(null);
+      }
+      return;
+    }
+    let revoked = false;
+    setVideoLoading(true);
+    fetchVideoBlob(projectId)
+      .then((url) => {
+        if (!revoked) {
+          setVideoBlobUrl(url);
+        } else {
+          window.URL.revokeObjectURL(url);
+        }
+      })
+      .catch(() => {
+        if (!revoked) setVideoBlobUrl(null);
+      })
+      .finally(() => {
+        if (!revoked) setVideoLoading(false);
+      });
+    return () => {
+      revoked = true;
+    };
+  }, [project?.status, projectId]);
+
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+      }
+    };
+  }, [videoBlobUrl]);
 
   // Auto-download once render finishes (with retry in case R2 upload is still in progress)
   useEffect(() => {
@@ -848,7 +892,8 @@ export default function ProjectView() {
 
   // ─── Completed view (video preview + actions + chat) ──────
   const renderCompleted = () => {
-    const videoSrc = rendered ? resolveVideoUrl(project) : null;
+    // Show video whenever project is done (don't rely on rendered state — it can lag)
+    const videoSrc = project.status === "done" ? resolveVideoUrl(project) : null;
 
     return (
       <div className="space-y-4">
@@ -1120,20 +1165,29 @@ export default function ProjectView() {
               {/* Video preview */}
               <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
                 {videoSrc ? (
-                  <div className="flex-1 flex items-center justify-center p-6">
-                    <video
-                      key={videoSrc}
-                      controls
-                      className={`rounded-lg shadow-lg ${
-                        project.aspect_ratio === "portrait"
-                          ? "max-h-[70vh] max-w-[40vw]"
-                          : "max-w-full max-h-[60vh]"
-                      }`}
-                      style={{ background: "#000" }}
-                    >
-                      <source src={videoSrc} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
+                  <div className="flex-1 flex items-center justify-center p-6 min-h-[400px]">
+                    {videoLoading && !videoBlobUrl ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                        <p className="text-sm text-gray-500">Loading video...</p>
+                      </div>
+                    ) : (
+                      <video
+                        key={videoBlobUrl || videoSrc}
+                        controls
+                        playsInline
+                        preload="auto"
+                        className={`rounded-lg shadow-lg ${
+                          project.aspect_ratio === "portrait"
+                            ? "max-h-[70vh] max-w-[40vw]"
+                            : "max-w-full max-h-[60vh]"
+                        }`}
+                        style={{ background: "#000" }}
+                      >
+                        <source src={videoBlobUrl || videoSrc} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    )}
                   </div>
                 ) : project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">

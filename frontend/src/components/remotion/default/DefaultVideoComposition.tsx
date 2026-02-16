@@ -45,7 +45,10 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor }}>
       {scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = Math.max(
+          1,
+          Math.round((Number(scene.durationSeconds) || 5) * FPS)
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
