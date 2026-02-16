@@ -88,7 +88,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         narration: scene.narration_text,
         layout,
         layoutProps,
-        durationSeconds: scene.duration_seconds,
+        durationSeconds: Number(scene.duration_seconds) || 5,
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
@@ -96,11 +96,12 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
   }, [project, config]);
 
   const totalDurationFrames = useMemo(() => {
-    const totalSeconds = project.scenes.reduce(
-      (sum, s) => sum + (s.duration_seconds || 5),
-      0
+    const FPS = 30;
+    const sceneFrames = project.scenes.map((s) =>
+      Math.max(1, Math.round((Number(s.duration_seconds) || 5) * FPS))
     );
-    return Math.max(Math.ceil((totalSeconds + 2) * 30), 150);
+    const sum = sceneFrames.reduce((a, b) => a + b, 0);
+    return Math.max(sum + 60, 150);
   }, [project.scenes]);
 
   const isPortrait = project.aspect_ratio === "portrait";

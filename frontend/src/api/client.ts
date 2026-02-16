@@ -413,17 +413,19 @@ export interface RenderStatus {
 export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
 
+/** Fetch video as blob for playback. Returns object URL; caller must revoke it. */
+export const fetchVideoBlob = async (id: number): Promise<string> => {
+  const res = await api.get(`/projects/${id}/download`, {
+    responseType: "blob",
+  });
+  if (res.status !== 200) throw new Error(`Download failed (${res.status})`);
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty video");
+  return window.URL.createObjectURL(blob);
+};
+
 export const downloadVideo = async (id: number, filename?: string) => {
-  const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
-  const videoUrl = urlRes.data.url;
-
-  // Fetch the video as a blob so the download works even with popup blockers.
-  // Using fetch() directly (not axios) because the URL may be a cross-origin R2 URL.
-  const resp = await fetch(videoUrl);
-  if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
-  const blob = await resp.blob();
-  const blobUrl = window.URL.createObjectURL(blob);
-
+  const blobUrl = await fetchVideoBlob(id);
   const a = document.createElement("a");
   a.href = blobUrl;
   a.download = filename || "video.mp4";

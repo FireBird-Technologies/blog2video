@@ -2,8 +2,9 @@ import os
 import json
 import asyncio
 import traceback
+import requests
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -501,6 +502,58 @@ def get_download_url(
         return {"url": f"/media/projects/{project.id}/output/video.mp4"}
 
     # Check if render is still in progress
+    prog = get_render_progress(project_id)
+    if prog and not prog.get("done", True):
+        raise HTTPException(status_code=202, detail="Video is still rendering.")
+
+    raise HTTPException(status_code=404, detail="Video not rendered yet.")
+
+
+@router.get("/download")
+def download_video_endpoint(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream the rendered video for download. Avoids CORS by proxying through backend."""
+    project = _get_project(project_id, user.id, db)
+
+    # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
+    if project.r2_video_url:
+        try:
+            resp = requests.get(
+                project.r2_video_url,
+                timeout=120,
+                stream=True,
+            )
+            resp.raise_for_status()
+            headers = {"Content-Disposition": 'attachment; filename="video.mp4"'}
+            cl = resp.headers.get("Content-Length")
+            if cl:
+                headers["Content-Length"] = cl
+            return StreamingResponse(
+                resp.iter_content(chunk_size=64 * 1024),
+                media_type="video/mp4",
+                headers=headers,
+            )
+        except requests.RequestException as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to fetch video from storage: {str(e)}",
+            )
+
+    # Fallback: local file
+    local_path = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
+    )
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        safe_name = (project.name or "video").replace(" ", "_")[:50]
+        return FileResponse(
+            path=local_path,
+            media_type="video/mp4",
+            filename=f"{safe_name}.mp4",
+        )
+
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
         raise HTTPException(status_code=202, detail="Video is still rendering.")

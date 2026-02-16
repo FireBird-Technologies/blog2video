@@ -54,11 +54,10 @@ export const calculateDefaultMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0
+      const sceneFrames = data.scenes.map((s) =>
+        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS))
       );
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
+      const totalFrames = sceneFrames.reduce((a, b) => a + b, 0) + 60;
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -195,9 +194,15 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = Math.max(
+          1,
+          Math.round((Number(scene.durationSeconds) || 5) * FPS)
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
+
+        const transitionFrom = Math.max(0, durationFrames - 15);
+        const transitionDuration = Math.min(15, durationFrames);
 
         // Pick layout component from registry
         const LayoutComponent =
@@ -234,8 +239,8 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             )}
 
             {/* Transition overlay */}
-            {index < data.scenes.length - 1 && (
-              <Sequence from={durationFrames - 15} durationInFrames={15}>
+            {index < data.scenes.length - 1 && transitionDuration > 0 && (
+              <Sequence from={transitionFrom} durationInFrames={transitionDuration}>
                 <TransitionWipe />
               </Sequence>
             )}
