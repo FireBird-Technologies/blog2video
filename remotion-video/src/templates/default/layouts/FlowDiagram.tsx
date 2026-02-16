@@ -25,16 +25,18 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
+        overflow: "hidden",
       }}
     >
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 36 : 44,
+          fontSize: p ? 30 : 38,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 40 : 60,
+          marginTop: 0,
+          marginBottom: p ? 36 : 50,
           textAlign: "center",
         }}
       >
@@ -48,6 +50,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
           gap: p ? 12 : 16,
           flexWrap: p ? "nowrap" : "wrap",
           justifyContent: "center",
+          maxWidth: "100%",
         }}
       >
         {steps.map((step, i) => {
@@ -75,18 +78,19 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
             >
               <div
                 style={{
-                  padding: p ? "16px 24px" : "20px 32px",
+                  padding: p ? "14px 22px" : "16px 28px",
                   borderRadius: 14,
                   backgroundColor: isLast ? accentColor : `${accentColor}15`,
                   border: `2px solid ${isLast ? accentColor : accentColor + "40"}`,
                   transform: `scale(${scale})`,
                   opacity: op,
                   textAlign: "center",
+                  maxWidth: p ? "100%" : 220,
                 }}
               >
                 <span
                   style={{
-                    fontSize: p ? 18 : 22,
+                    fontSize: p ? 16 : 20,
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
                     fontFamily: "Inter, sans-serif",
@@ -97,7 +101,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
               </div>
               {!isLast && (
                 p ? (
-                  <svg width="20" height="32" style={{ opacity: arrowOp }}>
+                  <svg width="20" height="32" style={{ opacity: arrowOp, flexShrink: 0 }}>
                     <path
                       d="M10 0 L10 24 M4 18 L10 24 L16 18"
                       stroke={accentColor}
@@ -106,7 +110,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                     />
                   </svg>
                 ) : (
-                  <svg width="32" height="20" style={{ opacity: arrowOp }}>
+                  <svg width="32" height="20" style={{ opacity: arrowOp, flexShrink: 0 }}>
                     <path
                       d="M0 10 L24 10 M18 4 L24 10 L18 16"
                       stroke={accentColor}

@@ -27,16 +27,18 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 36 : 44,
+          fontSize: p ? 30 : 38,
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
-          marginBottom: p ? 36 : 50,
+          marginTop: 0,
+          marginBottom: p ? 30 : 40,
           textAlign: "center",
         }}
       >
@@ -85,15 +87,15 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                 display: "flex",
                 alignItems: "flex-start",
                 gap: p ? 20 : 28,
-                marginBottom: p ? 28 : 36,
+                marginBottom: p ? 22 : 28,
                 opacity: op,
                 transform: `translateX(${x}px)`,
               }}
             >
               <div
                 style={{
-                  width: p ? 26 : 32,
-                  height: p ? 26 : 32,
+                  width: p ? 24 : 28,
+                  height: p ? 24 : 28,
                   borderRadius: "50%",
                   backgroundColor: isLast ? accentColor : `${accentColor}20`,
                   border: `2px solid ${accentColor}`,
@@ -102,13 +104,13 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                   justifyContent: "center",
                   flexShrink: 0,
                   transform: `scale(${dotScale})`,
-                  marginLeft: p ? -13 : -16,
+                  marginLeft: p ? -12 : -14,
                 }}
               >
                 <span
                   style={{
                     color: isLast ? "#FFF" : accentColor,
-                    fontSize: p ? 12 : 14,
+                    fontSize: p ? 11 : 13,
                     fontWeight: 700,
                   }}
                 >
@@ -118,10 +120,11 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
               <div>
                 <h3
                   style={{
-                    fontSize: p ? 18 : 22,
+                    fontSize: p ? 16 : 20,
                     fontWeight: 600,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
+                    margin: 0,
                     marginBottom: 4,
                   }}
                 >
@@ -129,10 +132,11 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                 </h3>
                 <p
                   style={{
-                    fontSize: p ? 15 : 18,
+                    fontSize: p ? 14 : 16,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
                     opacity: 0.6,
+                    margin: 0,
                   }}
                 >
                   {item.description}

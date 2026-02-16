@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import BlogUrlForm from "../components/BlogUrlForm";
 import StatusBadge from "../components/StatusBadge";
+import { setPendingUpload } from "../stores/pendingUpload";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -54,25 +55,50 @@ export default function Dashboard() {
     logoOpacity?: number,
     customVoiceId?: string,
     aspectRatio?: string,
+    uploadFiles?: File[],
     template?: string
   ) => {
     setCreating(true);
     try {
-      const res = await createProject(
-        url,
-        name,
-        voiceGender,
-        voiceAccent,
-        accentColor,
-        bgColor,
-        textColor,
-        animationInstructions,
-        logoPosition,
-        logoOpacity,
-        customVoiceId,
-        aspectRatio,
-        template
-      );
+      let res;
+
+      if (uploadFiles && uploadFiles.length > 0) {
+        // Document upload flow – create project via JSON (fast), then
+        // navigate immediately.  Files are uploaded on the project page.
+        res = await createProject(
+          "upload://documents",
+          name,
+          voiceGender,
+          voiceAccent,
+          accentColor,
+          bgColor,
+          textColor,
+          animationInstructions,
+          logoPosition,
+          logoOpacity,
+          customVoiceId,
+          aspectRatio
+        );
+        // Stash files so ProjectView can upload them during step 1
+        setPendingUpload(res.data.id, uploadFiles);
+      } else {
+        // URL flow
+        res = await createProject(
+          url,
+          name,
+          voiceGender,
+          voiceAccent,
+          accentColor,
+          bgColor,
+          textColor,
+          animationInstructions,
+          logoPosition,
+          logoOpacity,
+          customVoiceId,
+          aspectRatio,
+          template
+        );
+      }
 
       // Upload logo if provided
       if (logoFile) {
@@ -152,7 +178,7 @@ export default function Dashboard() {
               Create your first video
             </h1>
             <p className="text-sm text-gray-400">
-              Paste a blog URL and we'll turn it into a polished video.
+              Paste a blog URL or upload documents to create a video.
             </p>
           </div>
 
@@ -249,7 +275,9 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400">
                   <span className="truncate max-w-[200px]">
-                    {project.blog_url}
+                    {project.blog_url?.startsWith("upload://")
+                      ? "Uploaded documents"
+                      : project.blog_url || "—"}
                   </span>
                   <span>{project.scene_count} scenes</span>
                   <span>{formatDate(project.created_at)}</span>

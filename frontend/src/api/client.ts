@@ -87,7 +87,7 @@ export interface Asset {
 export interface Project {
   id: number;
   name: string;
-  blog_url: string;
+  blog_url: string | null;
   blog_content: string | null;
   status: string;
   template?: string;
@@ -116,7 +116,7 @@ export interface Project {
 export interface ProjectListItem {
   id: number;
   name: string;
-  blog_url: string;
+  blog_url: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -295,6 +295,50 @@ export const createProject = (
     template,
   });
 
+export const createProjectFromDocs = (
+  files: File[],
+  config: {
+    name?: string;
+    voice_gender?: string;
+    voice_accent?: string;
+    accent_color?: string;
+    bg_color?: string;
+    text_color?: string;
+    animation_instructions?: string;
+    logo_position?: string;
+    logo_opacity?: number;
+    custom_voice_id?: string;
+    aspect_ratio?: string;
+  } = {}
+) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  if (config.name) formData.append("name", config.name);
+  if (config.voice_gender) formData.append("voice_gender", config.voice_gender);
+  if (config.voice_accent) formData.append("voice_accent", config.voice_accent);
+  if (config.accent_color) formData.append("accent_color", config.accent_color);
+  if (config.bg_color) formData.append("bg_color", config.bg_color);
+  if (config.text_color) formData.append("text_color", config.text_color);
+  if (config.animation_instructions)
+    formData.append("animation_instructions", config.animation_instructions);
+  if (config.logo_position) formData.append("logo_position", config.logo_position);
+  if (config.logo_opacity !== undefined)
+    formData.append("logo_opacity", String(config.logo_opacity));
+  if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
+  if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  return api.post<Project>("/projects/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const uploadProjectDocuments = (projectId: number, files: File[]) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  return api.post<Project>(`/projects/${projectId}/upload-documents`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const uploadLogo = (projectId: number, file: File) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -353,7 +397,7 @@ export const updateScene = (
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
-export const renderVideo = (id: number, resolution: string = "720p") =>
+export const renderVideo = (id: number, resolution: string = "1080p") =>
   api.post(`/projects/${id}/render?resolution=${resolution}`);
 
 export interface RenderStatus {
