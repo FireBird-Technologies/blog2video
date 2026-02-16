@@ -1,12 +1,20 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
+import { BarChart } from "../components/BarChart";
+import { LineChart } from "../components/LineChart";
+import { PieChart } from "../components/PieChart";
 
 /**
- * DataVisualization — Frontend Preview Component
+ * DataVisualization — Enhanced Professional Version
  * 
- * Simplified version for preview - shows chart type and data info
+ * Features:
+ * - Supports bar charts, line charts, and pie charts
+ * - Shows images alongside charts when available
+ * - Glass card styling with neon glow effects
+ * - Animated chart reveals
+ * - Responsive layout for portrait/landscape
  */
 
 export const DataVisualization: React.FC<NightfallLayoutProps> = ({
@@ -16,16 +24,24 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   accentColor,
   textColor,
   aspectRatio,
-  barChart,
-  lineChart,
-  pieChart,
+  barChart: barChartData,
+  lineChart: lineChartData,
+  pieChart: pieChartData,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const chartType = barChart ? "Bar Chart" : lineChart ? "Line Chart" : pieChart ? "Pie Chart" : "No Chart";
+  // Determine which chart to show (priority: bar > line > pie)
+  const chartType = barChartData
+    ? "bar"
+    : lineChartData
+    ? "line"
+    : pieChartData
+    ? "pie"
+    : null;
 
+  // Card entrance animation
   const cardY = spring({
     frame: frame - 5,
     fps,
@@ -36,14 +52,61 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  // Title reveal
   const titleOpacity = interpolate(frame, [10, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
 
+  const titleY = interpolate(frame, [10, 35], [20, 0], {
+    extrapolateRight: "clamp",
+  });
+
+  // Chart reveal
+  const chartOpacity = interpolate(frame, [30, 60], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  const chartScale = spring({
+    frame: frame - 30,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
+
+  // Image reveal
+  const imageOpacity = interpolate(frame, [20, 45], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  const imageScale = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
+
+  // Narration reveal
+  const narrationOpacity = interpolate(frame, [50, 75], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  const hasImage = !!imageUrl;
+  const hasChart = !!chartType;
+  const chartWidth = p ? 600 : hasImage ? 700 : 900;
+  const chartHeight = p ? 400 : hasImage ? 450 : 500;
+
+  // Debug: Log chart data (remove in production)
+  if (barChartData || lineChartData || pieChartData) {
+    console.log("[DataVisualization] Chart data received:", {
+      barChart: barChartData,
+      lineChart: lineChartData,
+      pieChart: pieChartData,
+      chartType,
+    });
+  }
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground />
-      
+
       <div
         style={{
           position: "absolute",
@@ -55,10 +118,30 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
           padding: p ? 40 : 60,
         }}
       >
+        {/* Title */}
+        {title && (
+          <h2
+            style={{
+              fontSize: p ? 28 : 36,
+              fontWeight: 700,
+              color: textColor,
+              fontFamily: "Inter, system-ui, sans-serif",
+              marginBottom: p ? 24 : 32,
+              textAlign: "center",
+              opacity: titleOpacity,
+              transform: `translateY(${titleY}px)`,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {title}
+          </h2>
+        )}
+
+        {/* Main Content Container */}
         <div
           style={{
             ...glassCardStyle(accentColor, 0.1),
-            width: p ? "95%" : "85%",
+            width: p ? "95%" : hasImage && hasChart ? "95%" : "85%",
             maxWidth: 1400,
             padding: p ? 32 : 48,
             transform: `translateY(${(1 - cardY) * 30}px)`,
@@ -70,11 +153,12 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
               inset 0 1px 0 rgba(255, 255, 255, 0.08)
             `,
             display: "flex",
-            flexDirection: "column",
-            gap: 24,
+            flexDirection: p ? "column" : hasImage && hasChart ? "row" : "column",
+            gap: p ? 24 : 32,
             alignItems: "center",
           }}
         >
+          {/* Top accent line */}
           <div
             style={{
               position: "absolute",
@@ -87,72 +171,118 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
             }}
           />
 
-          {title && (
-            <h2
-              style={{
-                fontSize: p ? 28 : 36,
-                fontWeight: 700,
-                color: textColor,
-                fontFamily: "Inter, system-ui, sans-serif",
-                textAlign: "center",
-                opacity: titleOpacity,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {title}
-            </h2>
-          )}
-
-          <div
-            style={{
-              width: "100%",
-              height: 300,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 100%)`,
-              borderRadius: 12,
-              border: `1px solid ${accentColor}30`,
-            }}
-          >
+          {/* Image Section */}
+          {hasImage && (
             <div
               style={{
-                fontSize: p ? 24 : 32,
-                fontWeight: 600,
-                color: accentColor,
-                textAlign: "center",
+                flex: p ? "none" : "0 0 35%",
+                width: p ? "100%" : "auto",
+                height: p ? 200 : chartHeight,
+                position: "relative",
+                opacity: imageOpacity,
+                transform: `scale(${imageScale})`,
+                borderRadius: 12,
+                overflow: "hidden",
               }}
             >
-              {chartType}
+              <Img
+                src={imageUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  borderRadius: 12,
+                  border: `1px solid ${accentColor}30`,
+                }}
+              />
+              {/* Image glow overlay */}
               <div
                 style={{
-                  fontSize: p ? 14 : 16,
-                  color: textColor,
-                  opacity: 0.7,
-                  marginTop: 12,
+                  position: "absolute",
+                  inset: 0,
+                  background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 50%)`,
+                  pointerEvents: "none",
                 }}
-              >
-                {barChart && `${barChart.labels.length} categories`}
-                {lineChart && `${lineChart.datasets.length} datasets`}
-                {pieChart && `${pieChart.labels.length} segments`}
-              </div>
+              />
             </div>
-          </div>
+          )}
 
-          {narration && (
-            <p
+          {/* Chart Section */}
+          {hasChart && (
+            <div
               style={{
-                fontSize: p ? 18 : 22,
-                color: textColor,
-                opacity: 0.9,
-                fontFamily: "Inter, system-ui, sans-serif",
-                lineHeight: 1.6,
-                textAlign: "center",
-                fontWeight: 400,
+                flex: hasImage && !p ? 1 : "none",
+                width: p ? "100%" : hasImage ? "65%" : "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: chartOpacity,
+                transform: `scale(${chartScale})`,
+                minHeight: chartHeight,
+                position: "relative",
               }}
             >
-              {narration}
-            </p>
+              {chartType === "bar" && barChartData && (
+                <BarChart
+                  data={barChartData}
+                  accentColor={accentColor}
+                  textColor={textColor}
+                  width={chartWidth}
+                  height={chartHeight}
+                  frame={frame}
+                />
+              )}
+              {chartType === "line" && lineChartData && (
+                <LineChart
+                  data={lineChartData}
+                  accentColor={accentColor}
+                  textColor={textColor}
+                  width={chartWidth}
+                  height={chartHeight}
+                  frame={frame}
+                />
+              )}
+              {chartType === "pie" && pieChartData && (
+                <PieChart
+                  data={pieChartData}
+                  accentColor={accentColor}
+                  textColor={textColor}
+                  width={chartWidth}
+                  height={chartHeight}
+                  frame={frame}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Narration Section */}
+          {narration && (
+            <div
+              style={{
+                width: "100%",
+                opacity: narrationOpacity,
+                marginTop: hasChart ? (p ? 20 : 0) : 0,
+                paddingTop: hasChart ? (p ? 20 : 0) : 0,
+                borderTop: hasChart
+                  ? `1px solid rgba(255, 255, 255, 0.1)`
+                  : "none",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: p ? 18 : 22,
+                  color: textColor,
+                  opacity: 0.9,
+                  fontFamily: "Inter, system-ui, sans-serif",
+                  lineHeight: 1.6,
+                  textAlign: "center",
+                  fontWeight: 400,
+                }}
+              >
+                {narration}
+              </p>
+            </div>
           )}
         </div>
       </div>
