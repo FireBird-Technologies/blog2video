@@ -8,6 +8,8 @@ Nightfall is a premium product keynote at midnight. Apple WWDC meets Bloomberg t
 - Staggered reveals for better pacing
 - Professional visual polish (gradients, particles, decorative elements)
 - Improved readability and hierarchy
+- **Universal image support:** All layouts (except cinematic_title and kinetic_insight) display images alongside content when available
+- **Data visualization:** Full chart support (bar, line, pie) with neon glow effects for data/stats blogs
 
 ---
 
@@ -51,12 +53,12 @@ Narration: "Introducing Presscut — The next generation of content automation"
 ---
 
 ## glass_narrative
-**Visual:** Single frosted glass card, centered, 65-70% width. Title (32-40px, weight 700) at top. Body paragraph below (20-26px). Card floats up with spring physics. Ambient glow behind card for depth. Subtle floating animation continues throughout.
+**Visual:** Single frosted glass card, centered, 65-70% width (expands to 90% if image present). Title (32-40px, weight 700) at top. Body paragraph below (20-26px). Card floats up with spring physics. Ambient glow behind card for depth. Subtle floating animation continues throughout. **When image is available:** Image displays alongside text (side-by-side in landscape, stacked in portrait) with smooth reveal animation.
 
 **Best for:** Main explanations, narrative body, general content. Baseline layout — max 2 per video.
 
 **Props:** 
-- (none — uses scene `title` and `narration` directly)
+- (none — uses scene `title`, `narration`, and `imageUrl` from scene data)
 
 **Content Requirements:**
 - `title`: Section heading (3-8 words) — clear, descriptive
@@ -92,13 +94,14 @@ Narration: "Our platform uses advanced AI to automatically generate video conten
 ---
 
 ## glow_metric
-**Visual:** Frosted glass card centered on dark. 1-3 large numbers (72-96px, weight 800) with dual counter-rotating rings behind them. Numbers animate from 0 to target with smooth counting. Pulsing glow effect. Secondary metrics (if any) appear below in smaller format. Ambient card glow. Numbers formatted with commas (10,000 not 10000).
+**Visual:** Frosted glass card centered on dark. 1-3 large numbers (72-96px, weight 800) with dual counter-rotating rings behind them. Numbers animate from 0 to target with smooth counting. Pulsing glow effect. Secondary metrics (if any) appear below in smaller format. Ambient card glow. Numbers formatted with commas (10,000 not 10000). **When image is available:** Image displays alongside metrics (side-by-side in landscape, stacked in portrait) with smooth reveal animation.
 
 **Best for:** Statistics, percentages, KPIs, benchmarks — any scene where 1–3 numbers are the main point.
 
 **Props:** 
 - `metrics`: array of objects with `value`, `label`, and optional `suffix`
 - Maximum 3 items (first is primary with rings, others are secondary)
+- Uses `imageUrl` from scene data when available
 
 **Prop Structure:**
 ```typescript
@@ -467,12 +470,103 @@ Narration: "Our dashboard provides real-time analytics and insights into your vi
 
 ---
 
+## data_visualization
+**Visual:** Frosted glass card with animated charts (bar, line, or pie). Charts feature neon glow effects, smooth animations, and professional data visualization. Bar charts show animated bars with glow effects. Line charts display smooth curves with gradient fills and animated points. Pie charts reveal segments with labels and percentages. **When image is available:** Image displays alongside chart (side-by-side in landscape, stacked in portrait) for enhanced context.
+
+**Best for:** Data-driven content, statistics, trends, comparisons, analytics — any scene where charts/graphs enhance understanding.
+
+**Props:** 
+- `barChart`: Object with `labels` (string[]), `values` (number[]), optional `colors` (string[])
+- `lineChart`: Object with `labels` (string[]) and `datasets` (array of {label: string, values: number[], color?: string})
+- `pieChart`: Object with `labels` (string[]), `values` (number[]), optional `colors` (string[])
+- Only one chart type should be provided (priority: barChart > lineChart > pieChart)
+- Uses `imageUrl` from scene data when available
+
+**Prop Structure:**
+```typescript
+// Bar Chart Example
+{
+  barChart: {
+    labels: ["Q1", "Q2", "Q3", "Q4"],
+    values: [100, 150, 120, 180],
+    colors: ["#818CF8", "#60A5FA", "#34D399", "#FBBF24"] // Optional
+  }
+}
+
+// Line Chart Example
+{
+  lineChart: {
+    labels: ["Jan", "Feb", "Mar", "Apr"],
+    datasets: [
+      { label: "Revenue", values: [1000, 1200, 1100, 1400], color: "#818CF8" },
+      { label: "Users", values: [500, 600, 550, 700], color: "#34D399" }
+    ]
+  }
+}
+
+// Pie Chart Example
+{
+  pieChart: {
+    labels: ["Desktop", "Mobile", "Tablet"],
+    values: [45, 40, 15],
+    colors: ["#818CF8", "#60A5FA", "#34D399"] // Optional
+  }
+}
+```
+
+**Content Requirements:**
+- **barChart**: 2-8 categories with numeric values
+  - Labels should be short (1-3 words)
+  - Values should be positive numbers
+- **lineChart**: 2-8 time points with 1-3 datasets
+  - Useful for showing trends over time
+  - Multiple datasets allow comparison
+- **pieChart**: 2-6 segments with percentages
+  - Values should sum to meaningful total
+  - Labels should be clear category names
+
+**Example Extraction:**
+```
+Narration: "Our revenue grew from $100K in Q1 to $180K in Q4, with Q2 at $150K and Q3 at $120K."
+
+CORRECT:
+  barChart: {
+    labels: ["Q1", "Q2", "Q3", "Q4"],
+    values: [100, 150, 120, 180]
+  }
+
+Narration: "User growth shows mobile at 40%, desktop at 45%, and tablet at 15%."
+
+CORRECT:
+  pieChart: {
+    labels: ["Desktop", "Mobile", "Tablet"],
+    values: [45, 40, 15]
+  }
+```
+
+**When to Use:**
+- Data-heavy blog posts
+- Statistics and analytics content
+- Trend analysis
+- Performance comparisons
+- Market research data
+- Survey results
+- Financial reports
+
+**When NOT to Use:**
+- When data isn't the main focus
+- For single metrics (use glow_metric instead)
+- When narration doesn't contain chart-worthy data
+- For qualitative comparisons (use split_glass instead)
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** ALWAYS `cinematic_title` (non-negotiable)
 - **Opening (scenes 1–2):** `glass_narrative` OR `chapter_break` for setup
 - **Middle (scenes 3–N-1):** Alternate between:
-  - Glass cards: `glass_narrative`, `glow_metric`, `glass_code`, `glass_stack`, `split_glass`, `glass_image`
+  - Glass cards: `glass_narrative`, `glow_metric`, `glass_code`, `glass_stack`, `split_glass`, `glass_image`, `data_visualization`
   - Impact moments: `kinetic_insight` (max 1-2 total)
   - Transitions: `chapter_break` (max 2 total)
 - **Closing (scene N):** `glass_narrative`, `kinetic_insight`, or `glow_metric` for strong finish
@@ -490,6 +584,7 @@ Narration: "Our dashboard provides real-time analytics and insights into your vi
 - Pattern A: `cinematic_title` → `glass_narrative` → `glow_metric` → `glass_stack` → `kinetic_insight` → `split_glass` → `glass_narrative`
 - Pattern B: `cinematic_title` → `chapter_break` → `glass_narrative` → `glass_code` → `glow_metric` → `glass_stack` → `kinetic_insight`
 - Pattern C: `cinematic_title` → `glass_image` → `glass_narrative` → `split_glass` → `glow_metric` → `chapter_break` → `glass_stack` → `kinetic_insight`
+- Pattern D: `cinematic_title` → `glass_narrative` → `data_visualization` → `glow_metric` → `glass_stack` → `split_glass` → `kinetic_insight`
 
 ---
 
@@ -537,6 +632,21 @@ Narration: "Our dashboard provides real-time analytics and insights into your vi
 ### chapter_break
 - `chapterNumber`: Sequential integer (1, 2, 3)
 - `subtitle`: 4-8 word section description
+
+### data_visualization
+- Extract chart data from narration
+- `barChart`: Extract categories and values (2-8 items)
+  - Structure: `{ "barChart": { "labels": ["Q1", "Q2"], "values": [100, 150] } }`
+  - Extract ALL data points mentioned, not just a sample
+- `lineChart`: Extract time points and datasets (2-8 points, 1-3 datasets)
+  - Structure: `{ "lineChart": { "labels": ["Jan", "Feb"], "datasets": [{ "label": "Revenue", "values": [1000, 1200] }] } }`
+  - Multiple datasets allow comparing trends
+- `pieChart`: Extract segments and percentages (2-6 segments)
+  - Structure: `{ "pieChart": { "labels": ["Desktop", "Mobile"], "values": [45, 40] } }`
+  - Values should represent percentages or proportions
+- Only provide ONE chart type per scene (priority: barChart > lineChart > pieChart)
+- Use real data from narration (never fabricate)
+- Use EXACT prop key names: "barChart" (camelCase), not "bar_chart" or "bar-chart"
 
 ---
 
@@ -673,7 +783,8 @@ Before finalizing layout selection, verify:
 - [ ] Usage limits respected (narrative ≤2, insight ≤2, chapter ≤2)
 - [ ] Props use exact field names from layout catalog
 - [ ] Text lengths appropriate (titles short, items concise)
-- [ ] If images available, glass_image considered
+- [ ] If images available, glass_image considered OR layouts support images
+- [ ] For data-heavy content, data_visualization considered
 
 ---
 

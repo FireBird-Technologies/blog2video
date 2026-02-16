@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
@@ -13,11 +13,13 @@ import type { NightfallLayoutProps } from "../types";
  * - Accent color integration for emphasis
  * - Better content hierarchy
  * - Subtle floating animation for life
+ * - Image support: shows image alongside text when available
  */
 
 export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   title,
   narration,
+  imageUrl,
   accentColor,
   textColor,
   aspectRatio,
@@ -73,8 +75,23 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   // Subtle floating effect
   const floatY = Math.sin(frame / 60) * 3;
 
+  // Image animation
+  const imageOpacity = interpolate(
+    frame,
+    [20, 45],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
+
+  const imageScale = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
+
   // Split narration into paragraphs if it contains line breaks
   const paragraphs = narration.split('\n').filter(p => p.trim());
+  const hasImage = !!imageUrl;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -94,8 +111,8 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             position: "absolute",
-            width: p ? "95%" : "68%",
-            maxWidth: 950,
+            width: p ? "95%" : hasImage ? "90%" : "68%",
+            maxWidth: hasImage ? 1200 : 950,
             height: p ? 400 : 500,
             background: `radial-gradient(ellipse at center, ${accentColor}15 0%, transparent 70%)`,
             filter: "blur(60px)",
@@ -107,8 +124,8 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             ...glassCardStyle(accentColor, 0.1),
-            width: p ? "95%" : "68%",
-            maxWidth: 950,
+            width: p ? "95%" : hasImage ? "90%" : "68%",
+            maxWidth: hasImage ? 1200 : 950,
             padding: p ? 44 : 64,
             transform: `translateY(${(1 - cardY) * 50 + floatY}px)`,
             opacity: cardOpacity,
@@ -118,6 +135,9 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
               0 0 0 1px rgba(255, 255, 255, 0.05),
               inset 0 1px 0 rgba(255, 255, 255, 0.08)
             `,
+            display: "flex",
+            flexDirection: hasImage && !p ? "row" : "column",
+            gap: hasImage ? (p ? 24 : 32) : 0,
           }}
         >
           {/* Top accent line */}
@@ -133,63 +153,109 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             }}
           />
 
-          {/* Title */}
-          <h2
-            style={{
-              fontSize: p ? 32 : 40,
-              fontWeight: 700,
-              color: textColor,
-              fontFamily: "Inter, system-ui, sans-serif",
-              marginBottom: 28,
-              lineHeight: 1.25,
-              letterSpacing: "-0.01em",
-              opacity: titleOpacity,
-              transform: `translateY(${titleY}px)`,
-            }}
-          >
-            {title}
-          </h2>
+          {/* Image Section */}
+          {hasImage && (
+            <div
+              style={{
+                flex: p ? "none" : "0 0 40%",
+                width: p ? "100%" : "auto",
+                height: p ? 200 : "auto",
+                position: "relative",
+                opacity: imageOpacity,
+                transform: `scale(${imageScale})`,
+                borderRadius: 12,
+                overflow: "hidden",
+                marginBottom: p ? 20 : 0,
+              }}
+            >
+              <Img
+                src={imageUrl}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  borderRadius: 12,
+                  border: `1px solid ${accentColor}30`,
+                }}
+              />
+              {/* Image glow overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 50%)`,
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
 
-          {/* Narration Content */}
+          {/* Text Content */}
           <div
             style={{
-              opacity: narrationOpacity,
-              transform: `translateY(${narrationY}px)`,
+              flex: hasImage && !p ? 1 : "none",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {paragraphs.length > 1 ? (
-              // Multiple paragraphs
-              paragraphs.map((para, i) => (
+            {/* Title */}
+            <h2
+              style={{
+                fontSize: p ? 32 : 40,
+                fontWeight: 700,
+                color: textColor,
+                fontFamily: "Inter, system-ui, sans-serif",
+                marginBottom: 28,
+                lineHeight: 1.25,
+                letterSpacing: "-0.01em",
+                opacity: titleOpacity,
+                transform: `translateY(${titleY}px)`,
+              }}
+            >
+              {title}
+            </h2>
+
+            {/* Narration Content */}
+            <div
+              style={{
+                opacity: narrationOpacity,
+                transform: `translateY(${narrationY}px)`,
+              }}
+            >
+              {paragraphs.length > 1 ? (
+                // Multiple paragraphs
+                paragraphs.map((para, i) => (
+                  <p
+                    key={i}
+                    style={{
+                      fontSize: p ? 20 : 26,
+                      color: textColor,
+                      opacity: 0.92,
+                      fontFamily: "Inter, system-ui, sans-serif",
+                      lineHeight: 1.7,
+                      marginBottom: i < paragraphs.length - 1 ? 20 : 0,
+                      fontWeight: 400,
+                    }}
+                  >
+                    {para}
+                  </p>
+                ))
+              ) : (
+                // Single paragraph
                 <p
-                  key={i}
                   style={{
                     fontSize: p ? 20 : 26,
                     color: textColor,
                     opacity: 0.92,
                     fontFamily: "Inter, system-ui, sans-serif",
                     lineHeight: 1.7,
-                    marginBottom: i < paragraphs.length - 1 ? 20 : 0,
                     fontWeight: 400,
                   }}
                 >
-                  {para}
+                  {narration}
                 </p>
-              ))
-            ) : (
-              // Single paragraph
-              <p
-                style={{
-                  fontSize: p ? 20 : 26,
-                  color: textColor,
-                  opacity: 0.92,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  lineHeight: 1.7,
-                  fontWeight: 400,
-                }}
-              >
-                {narration}
-              </p>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Decorative corner accent */}

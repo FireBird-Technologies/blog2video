@@ -7,7 +7,30 @@ export type NightfallLayoutType =
   | "glass_stack"
   | "split_glass"
   | "chapter_break"
-  | "glass_image";
+  | "glass_image"
+  | "data_visualization";
+
+// Chart data types
+export interface BarChartData {
+  labels: string[];
+  values: number[];
+  colors?: string[];
+}
+
+export interface LineChartData {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    values: number[];
+    color?: string;
+  }>;
+}
+
+export interface PieChartData {
+  labels: string[];
+  values: number[];
+  colors?: string[];
+}
 
 export interface NightfallLayoutProps {
   title: string;
@@ -29,4 +52,8 @@ export interface NightfallLayoutProps {
   rightDescription?: string;
   chapterNumber?: number;
   subtitle?: string;
+  // data visualization charts
+  barChart?: BarChartData;
+  lineChart?: LineChartData;
+  pieChart?: PieChartData;
 }

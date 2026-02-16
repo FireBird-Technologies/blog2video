@@ -171,6 +171,15 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           ...scene.layoutProps,
         };
 
+        // Debug: Log layoutProps for data_visualization scenes
+        if (scene.layout === "data_visualization") {
+          console.log("[NightfallVideo] data_visualization scene:", {
+            layout: scene.layout,
+            layoutProps: scene.layoutProps,
+            mergedLayoutProps: layoutProps,
+          });
+        }
+
         return (
           <Sequence
             key={scene.id}

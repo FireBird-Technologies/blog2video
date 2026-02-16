@@ -36,7 +36,9 @@ class TemplateSceneToDescriptor(dspy.Signature):
     - Quote directly from narration when possible
     - For arrays: extract ALL mentioned items, not just 1-2 examples
     - For numbers: extract exact values if stated
+    - For charts: extract ALL data points mentioned (categories, values, time points)
     - If a prop is optional and not in narration, omit it (don't guess)
+    - Use EXACT prop key names from the layout catalog (e.g., "barChart" not "bar_chart", "metrics" not "metric")
     
     ═══ OUTPUT FORMAT ═══
     - layout: exact layout ID from catalog (lowercase, underscores)
@@ -184,13 +186,14 @@ class TemplateSceneGenerator:
         """
         Validate and clean props against layout schema.
         Returns only valid props with correct types.
+        If no schema is defined in meta.json, passes through props as-is.
         """
         layout_meta = self._meta.get("layouts", {}).get(layout, {})
         prop_schema = layout_meta.get("props", {})
         
+        # If no schema defined, pass through props as-is (schema validation is optional)
         if not prop_schema:
-            # Layout has no props
-            return {}
+            return props
         
         validated = {}
         

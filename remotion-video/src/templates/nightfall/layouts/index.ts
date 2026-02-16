@@ -7,6 +7,7 @@ import { GlassStack } from "./GlassStack";
 import { SplitGlass } from "./SplitGlass";
 import { ChapterBreak } from "./ChapterBreak";
 import { GlassImage } from "./GlassImage";
+import { DataVisualization } from "./DataVisualization";
 import type { NightfallLayoutType, NightfallLayoutProps } from "../types";
 
 export type { NightfallLayoutType, NightfallLayoutProps };
@@ -24,4 +25,5 @@ export const NIGHTFALL_LAYOUT_REGISTRY: Record<
   split_glass: SplitGlass,
   chapter_break: ChapterBreak,
   glass_image: GlassImage,
+  data_visualization: DataVisualization,
 };
