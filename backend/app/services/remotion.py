@@ -227,7 +227,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
 
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
-    all_image_files = []
+    all_image_files: list[str] = []
     for asset in project.assets:
         if asset.asset_type.value == "image" and not asset.excluded:
             dest = os.path.join(public_dir, asset.filename)
@@ -238,18 +238,185 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 if _download_url_to_file(asset.r2_url, dest):
                     all_image_files.append(asset.filename)
 
-    # Identify hero image (first image asset = OG/hero from scraper)
+    # Hero image (OG/first image) for templates that use it
     hero_image_file = all_image_files[0] if all_image_files else None
 
-    # Distribute images across scenes (hero gets first, rest are round-robin)
+    # Distribute images across scenes - images move with their scenes when reordered.
+    # Strategy:
+    # 1. Check if scene has stored assignedImage in layoutProps (persistent assignment)
+    # 2. Respect layoutProps.hideImage: when true, NEVER auto-assign a generic image
+    # 3. Scene-specific images (scene_<sceneId>_...) always stay with their scene and
+    #    clear any previous hideImage flag
+    # 4. For scenes without assignment and not hideImage, assign generic images ONCE
+    #    and store the assignment
     scene_image_map: dict[int, list[str]] = {i: [] for i in range(len(scenes))}
-    if all_image_files:
-        scene_image_map[0].append(all_image_files[0])
-        remaining = all_image_files[1:]
-        for idx, img_file in enumerate(remaining):
-            scene_idx = idx % len(scenes)
-            if img_file not in scene_image_map[scene_idx]:
-                scene_image_map[scene_idx].append(img_file)
+    scenes_need_update: list[Scene] = []  # Track scenes that need remotion_code update
+    hide_image_flags: list[bool] = [False] * len(scenes)
+
+    if all_image_files and scenes:
+        # Use project.assets for scene-specific detection (all_image_files has only filenames)
+        image_assets = [
+            a for a in project.assets
+            if a.asset_type.value == "image" and not a.excluded
+        ]
+        # Deterministic order (helps keep preview/render consistent)
+        try:
+            image_assets.sort(key=lambda a: (a.created_at, a.id))
+        except Exception:
+            image_assets.sort(key=lambda a: a.id)
+
+        # Track generic filenames already used by a scene (enforce 1 generic -> 1 scene)
+        used_generic_files: set[str] = set()
+
+        scene_specific: list[tuple[int, str]] = []
+        generic_files: list[str] = []
+
+        for asset in image_assets:
+            m = re.match(r"^scene_(\d+)_", asset.filename)
+            if m:
+                scene_specific.append((int(m.group(1)), asset.filename))
+            else:
+                generic_files.append(asset.filename)
+
+        scene_specific_files = {filename for _, filename in scene_specific}
+
+        # First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+        for i, scene in enumerate(scenes):
+            layout_props = {}
+            layout = get_fallback_layout(template_id)
+            desc = None
+            if scene.remotion_code:
+                try:
+                    desc = json.loads(scene.remotion_code)
+                    layout = desc.get("layout", layout)
+                    layout_props = desc.get("layoutProps", {}) or {}
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            hide_image = bool(layout_props.get("hideImage", False))
+            hide_image_flags[i] = hide_image
+
+            assigned_image = layout_props.get("assignedImage")
+            if assigned_image:
+                if hide_image:
+                    # Scene is explicitly marked to have no image; clear any stale assignedImage
+                    layout_props.pop("assignedImage", None)
+                    if desc is not None:
+                        desc["layoutProps"] = layout_props
+                        scene.remotion_code = json.dumps(desc)
+                        scenes_need_update.append(scene)
+                elif assigned_image in all_image_files:
+                    # Validate and enforce uniqueness for generic assigned images.
+                    # Scene-specific filenames must match the scene id in the prefix.
+                    m = re.match(r"^scene_(\d+)_", str(assigned_image))
+                    if m:
+                        assigned_scene_id = int(m.group(1))
+                        if assigned_scene_id != scene.id:
+                            # Invalid: scene-specific image assigned to a different scene
+                            layout_props.pop("assignedImage", None)
+                            if desc is not None:
+                                desc["layoutProps"] = layout_props
+                                scene.remotion_code = json.dumps(desc)
+                                scenes_need_update.append(scene)
+                        else:
+                            # Valid scene-specific assignment
+                            scene_image_map[i] = [assigned_image]
+                    else:
+                        # Generic assignment: enforce 1:1 mapping
+                        if assigned_image in used_generic_files:
+                            # Duplicate generic assignment — clear so it can be re-assigned uniquely
+                            layout_props.pop("assignedImage", None)
+                            if desc is not None:
+                                desc["layoutProps"] = layout_props
+                                scene.remotion_code = json.dumps(desc)
+                                scenes_need_update.append(scene)
+                        else:
+                            used_generic_files.add(str(assigned_image))
+                            scene_image_map[i] = [assigned_image]
+                else:
+                    # Image was deleted - clear stale assignment
+                    layout_props.pop("assignedImage", None)
+                    if desc is not None:
+                        desc["layoutProps"] = layout_props
+                        scene.remotion_code = json.dumps(desc)
+                        scenes_need_update.append(scene)
+        
+        # Second pass: Apply scene-specific images (overwrite stored assignments if scene-specific exists)
+        for scene_id, filename in scene_specific:
+            scene_idx = next((i for i, s in enumerate(scenes) if s.id == scene_id), -1)
+            if scene_idx >= 0:
+                scene_image_map[scene_idx] = [filename]
+                # Update remotion_code to store scene-specific assignment (if not already set)
+                scene = scenes[scene_idx]
+                layout_props = {}
+                layout = get_fallback_layout(template_id)
+                if scene.remotion_code:
+                    try:
+                        desc = json.loads(scene.remotion_code)
+                        layout = desc.get("layout", layout)
+                        layout_props = desc.get("layoutProps", {}) or {}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                # Only update if assignment changed
+                if layout_props.get("assignedImage") != filename or layout_props.get("hideImage"):
+                    layout_props["assignedImage"] = filename
+                    # Uploading a scene-specific image should re-enable images even if hideImage was set
+                    layout_props.pop("hideImage", None)
+                    hide_image_flags[scene_idx] = False
+                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    scenes_need_update.append(scene)
+
+        # Third pass: Assign generic images to scenes without one yet (1 per scene)
+        # IMPORTANT: Do NOT assign generics to scenes that have hideImage=true.
+        generic_idx = 0
+        for scene_idx in range(len(scenes)):
+            if (
+                not scene_image_map[scene_idx]
+                and not hide_image_flags[scene_idx]
+                and generic_idx < len(generic_files)
+            ):
+                # Pick next unused generic filename (enforce 1:1)
+                assigned_filename = None
+                while generic_idx < len(generic_files):
+                    candidate = generic_files[generic_idx]
+                    generic_idx += 1
+                    if candidate in used_generic_files:
+                        continue
+                    if candidate in scene_specific_files:
+                        continue
+                    assigned_filename = candidate
+                    break
+
+                if assigned_filename is None:
+                    continue
+
+                scene_image_map[scene_idx] = [assigned_filename]
+                used_generic_files.add(assigned_filename)
+                # Store assignment in remotion_code (if not already set)
+                scene = scenes[scene_idx]
+                layout_props = {}
+                layout = get_fallback_layout(template_id)
+                if scene.remotion_code:
+                    try:
+                        desc = json.loads(scene.remotion_code)
+                        layout = desc.get("layout", layout)
+                        layout_props = desc.get("layoutProps", {}) or {}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                # Only update if assignment changed
+                if layout_props.get("assignedImage") != assigned_filename:
+                    layout_props["assignedImage"] = assigned_filename
+                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    scenes_need_update.append(scene)
+                generic_idx += 1
+    
+    # Commit scene updates if any
+    if scenes_need_update:
+        try:
+            db.commit()
+        except Exception as e:
+            print(f"[REBUILD_WORKSPACE] Failed to update scene assignments: {e}")
+            db.rollback()
 
     # Build audio asset lookup: scene order -> audio asset (for R2 fallback)
     audio_assets = {
@@ -270,7 +437,26 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             _copy_file(scene.voiceover_path, dest)
         else:
             # Local file missing — try R2 fallback
-            audio_asset = audio_assets.get(f"scene_{scene.order}.mp3")
+            # Extract filename from voiceover_path to handle reordering correctly
+            # After reordering, voiceover_path still points to original filename (e.g., scene_1.mp3)
+            # but scene.order may have changed (e.g., to 2), so we extract the actual filename
+            audio_filename = None
+            if scene.voiceover_path:
+                # Extract filename from path (handles both / and \ separators)
+                # Path format: "C:\...\audio\scene_X.mp3" or ".../audio/scene_X.mp3"
+                match = re.search(r'[\\/]scene_(\d+)\.mp3', scene.voiceover_path, re.IGNORECASE)
+                if match:
+                    audio_filename = f"scene_{match.group(1)}.mp3"
+                else:
+                    # Fallback: extract from last part of path
+                    path_parts = re.split(r'[\\/]', scene.voiceover_path)
+                    last_part = path_parts[-1] if path_parts else ""
+                    if last_part.startswith('scene_') and last_part.endswith('.mp3'):
+                        audio_filename = last_part
+            
+            # Use extracted filename if available, otherwise fall back to scene.order
+            lookup_filename = audio_filename or f"scene_{scene.order}.mp3"
+            audio_asset = audio_assets.get(lookup_filename)
             if audio_asset and audio_asset.r2_url:
                 if _download_url_to_file(audio_asset.r2_url, dest):
                     voiceover_filename = audio_dest_name
@@ -469,13 +655,10 @@ def _build_render_cmd(
     ]
 
     # Always use explicit --width / --height to guarantee integer dimensions
+    # Presets already handle both landscape and portrait correctly
     presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
-    preset = presets.get(resolution, presets["720p"])
+    preset = presets.get(resolution, presets["1080p"])
     cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
-
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
 
     return cmd
 

@@ -79,13 +79,6 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
-  // Debug: Log imageUrl
-  if (imageUrl) {
-    console.log("[GlassImage] Rendering image:", imageUrl);
-  } else {
-    console.warn("[GlassImage] No imageUrl provided");
-  }
-
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground drift={false} />

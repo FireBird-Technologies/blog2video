@@ -399,11 +399,17 @@ def render_video_endpoint(
     # container handled the pipeline, or if it was cleaned up after a
     # previous render).
     workspace = get_workspace_dir(project.id)
-    if not os.path.exists(os.path.join(workspace, "public", "data.json")):
-        scenes = project.scenes
-        if not scenes:
-            raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
-        rebuild_workspace(project, scenes, db)
+    # Always rebuild workspace before rendering so the render reflects the latest DB state
+    # (e.g. scene reordering, edits, regenerated assets). This prevents stale data.json/audio copies.
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+    rebuild_workspace(project, scenes, db)
 
     project.status = ProjectStatus.RENDERING
     db.commit()

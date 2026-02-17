@@ -134,31 +134,25 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           padding: p ? 60 : 120,
         }}
       >
-        {/* Title */}
+
+        {/* Title — bright white text, background unchanged (DarkBackground) */}
         <h1
           style={{
             fontSize: p ? 88 : 140,
             fontWeight: 800,
-            color: textColor,
+            color: "#FFFFFF",
             fontFamily: "Inter, system-ui, sans-serif",
             textAlign: "center",
             lineHeight: 1.1,
             transform: `translateY(${(1 - titleY) * 40}px) scale(${titleScale})`,
             opacity: titleOpacity,
             letterSpacing: "-0.02em",
-            textShadow: `
-              0 4px 20px rgba(0, 0, 0, 0.5),
-              0 0 80px ${accentColor}30
-            `,
             maxWidth: "90%",
-            background: `linear-gradient(180deg, ${textColor} 0%, ${textColor}DD 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
           }}
         >
           {title}
         </h1>
+
 
         {/* Decorative Strip */}
         <div
@@ -195,18 +189,18 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           />
         </div>
 
-        {/* Subtitle/Narration */}
+        {/* Subtitle/Narration — bright white */}
         {narration && (
           <p
             style={{
               fontSize: p ? 24 : 32,
               fontWeight: 400,
-              color: textColor,
+              color: "#FFFFFF",
               fontFamily: "Inter, system-ui, sans-serif",
               textAlign: "center",
               marginTop: p ? 28 : 36,
               maxWidth: p ? "85%" : 900,
-              opacity: subOpacity * 0.85,
+              opacity: subOpacity * 0.95,
               transform: `translateY(${(1 - subY) * 30}px)`,
               lineHeight: 1.5,
               letterSpacing: "0.01em",
