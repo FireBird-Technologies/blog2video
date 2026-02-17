@@ -10,6 +10,7 @@
 
 import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
 import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
+import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -75,6 +76,18 @@ const NIGHTFALL_LAYOUTS = new Set([
   "data_visualization",
 ]);
 
+const GRIDCRAFT_LAYOUTS = new Set([
+  "bento_hero",
+  "bento_features",
+  "bento_highlight",
+  "editorial_body",
+  "kpi_grid",
+  "bento_compare",
+  "bento_code",
+  "pull_quote",
+  "bento_steps",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -96,6 +109,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#818CF8",
       bg: "#0A0A1A",
       text: "#E2E8F0",
+    },
+  },
+  gridcraft: {
+    component: GridcraftVideoComposition as React.ComponentType<any>,
+    heroLayout: "bento_hero",
+    fallbackLayout: "editorial_body",
+    validLayouts: GRIDCRAFT_LAYOUTS,
+    defaultColors: {
+      accent: "#F97316",
+      bg: "#FAFAFA",
+      text: "#171717",
     },
   },
 };
