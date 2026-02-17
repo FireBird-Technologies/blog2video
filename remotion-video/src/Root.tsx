@@ -7,6 +7,10 @@ import {
   NightfallVideo,
   calculateNightfallMetadata,
 } from "./templates/nightfall/NightfallVideo";
+import {
+  GridcraftVideo,
+  calculateGridcraftMetadata,
+} from "./templates/gridcraft/GridcraftVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -34,6 +38,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateNightfallMetadata}
+      />
+      <Composition
+        id="GridcraftVideo"
+        component={GridcraftVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateGridcraftMetadata}
       />
     </>
   );
