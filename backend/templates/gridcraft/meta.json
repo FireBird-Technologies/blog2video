@@ -1,0 +1,25 @@
+{
+  "id": "gridcraft",
+  "name": "Gridcraft",
+  "description": "Bento grid layouts with editorial typography and data clarity. Spatial content arrangement with accent-pop cells. SaaS landing page in motion.",
+  "preview_colors": {
+    "accent": "#F97316",
+    "bg": "#FAFAFA",
+    "text": "#171717"
+  },
+  "composition_id": "GridcraftVideo",
+  "hero_layout": "bento_hero",
+  "fallback_layout": "editorial_body",
+  "image_layout": "bento_highlight",
+  "valid_layouts": [
+    "bento_hero",
+    "bento_features",
+    "bento_highlight",
+    "editorial_body",
+    "kpi_grid",
+    "bento_compare",
+    "bento_code",
+    "pull_quote",
+    "bento_steps"
+  ]
+}
