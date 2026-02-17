@@ -11,6 +11,7 @@
 import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
 import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
+import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -88,6 +89,18 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_steps",
 ]);
 
+const SPOTLIGHT_LAYOUTS = new Set([
+  "impact_title",
+  "statement",
+  "word_punch",
+  "cascade_list",
+  "stat_stage",
+  "versus",
+  "spotlight_image",
+  "rapid_points",
+  "closer",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -120,6 +133,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#F97316",
       bg: "#FAFAFA",
       text: "#171717",
+    },
+  },
+  spotlight: {
+    component: SpotlightVideoComposition as React.ComponentType<any>,
+    heroLayout: "impact_title",
+    fallbackLayout: "statement",
+    validLayouts: SPOTLIGHT_LAYOUTS,
+    defaultColors: {
+      accent: "#EF4444",
+      bg: "#000000",
+      text: "#FFFFFF",
     },
   },
 };
