@@ -675,40 +675,6 @@ export default function BlogUrlForm({
         )}
       </div>
 
-      {/* Animation Instructions Toggle */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-        >
-          <svg
-            className={`w-3 h-3 transition-transform ${showAdvanced ? "rotate-90" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-          Animation Instructions{" "}
-          <span className="text-gray-300 font-normal normal-case">(optional)</span>
-        </button>
-        {showAdvanced && (
-          <textarea
-            value={animationInstructions}
-            onChange={(e) => setAnimationInstructions(e.target.value)}
-            placeholder="e.g. Use flow diagrams for processes, show metrics with animated counters, use comparison layouts for pros/cons, add timelines for phases..."
-            rows={3}
-            className="mt-2 w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all resize-none"
-          />
-        )}
-      </div>
-
       {/* Submit */}
       <button
         type="submit"

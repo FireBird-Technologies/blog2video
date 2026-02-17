@@ -364,6 +364,9 @@ export const toggleAssetExclusion = (projectId: number, assetId: number) =>
     `/projects/${projectId}/assets/${assetId}/exclude`
   );
 
+export const deleteAsset = (projectId: number, assetId: number) =>
+  api.delete(`/projects/${projectId}/assets/${assetId}`);
+
 export const scrapeProject = (id: number) =>
   api.post<Project>(`/projects/${id}/scrape`);
 

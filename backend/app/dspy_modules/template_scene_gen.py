@@ -75,6 +75,60 @@ class TemplateSceneToDescriptor(dspy.Signature):
     )
 
 
+class RegenerateSceneToDescriptor(dspy.Signature):
+    """
+    You are an expert video scene designer. The USER is editing a single scene.
+    
+    ═══ REGENERATION CONTEXT ═══
+    - This is a single-scene edit: the user has requested changes (description) and/or chosen a layout.
+    - If preferred_layout is provided, YOU MUST use that layout and only extract props from the content.
+    - If preferred_layout is empty, choose the best layout that fits the content and avoids repeating
+      layouts already used in other_scenes_layouts (so the full video stays varied).
+    - Respect the user's intent: if visual_description says "no image" or "visualization only", adapt.
+    
+    ═══ PROP EXTRACTION ═══
+    - Extract ONLY factual content from narration and visual_description — NEVER invent.
+    - Use exact prop keys from the layout catalog (case-sensitive).
+    - For arrays: extract ALL mentioned items. For charts: extract ALL data points.
+    - If a prop is optional and not in the content, omit it (don't guess).
+    - Use EXACT prop key names from the catalog (e.g., "barChart", "metrics").
+    
+    ═══ OUTPUT FORMAT ═══
+    - layout: exact layout ID from catalog (lowercase, underscores). If preferred_layout is given, return that.
+    - layout_props_json: valid JSON with exact prop keys from catalog. Return {} when no props needed. Do NOT wrap in markdown code blocks.
+    - reasoning: brief step-by-step reasoning (content, layout choice or use of preferred, prop extraction).
+    """
+
+    template_prompt: str = dspy.InputField(
+        desc="Full template prompt: layout catalog with prop schemas, content extraction rules"
+    )
+    scene_title: str = dspy.InputField(desc="Title of this scene")
+    narration: str = dspy.InputField(desc="Narration text — source of truth for prop extraction")
+    visual_description: str = dspy.InputField(
+        desc="User's edit description or visual hints (e.g. 'make it more dramatic', 'show a chart'). Drive layout and props from this when relevant."
+    )
+    scene_index: int = dspy.InputField(desc="0-based scene index")
+    total_scenes: int = dspy.InputField(desc="Total number of scenes in the video")
+    other_scenes_layouts: str = dspy.InputField(
+        desc="Layouts used in OTHER scenes (e.g. 'scene 0: cinematic_title, scene 2: glass_narrative'). Avoid repeating these when choosing a layout if no preferred_layout is given."
+    )
+    preferred_layout: str = dspy.InputField(
+        desc="User's chosen layout ID. If non-empty and valid, USE THIS LAYOUT and only extract props. If empty, choose the best layout that fits content and varies from other_scenes_layouts."
+    )
+    current_descriptor: str = dspy.InputField(
+        desc="Optional: current scene descriptor as JSON (layout + layoutProps). Use to preserve or adapt existing props when the user is refining rather than replacing. Empty string if no existing descriptor."
+    )
+
+    reasoning: str = dspy.OutputField(
+        desc="Brief reasoning: (1) Content / user intent, (2) Layout choice (or use of preferred_layout), (3) Prop extraction"
+    )
+    layout: str = dspy.OutputField(
+        desc="Layout ID from catalog (exact match, lowercase with underscores). Must equal preferred_layout when preferred_layout is non-empty."
+    )
+    layout_props_json: str = dspy.OutputField(
+        desc='Valid JSON object with layout-specific props. Exact prop keys from catalog. {} when none. Do NOT wrap in markdown code blocks.'
+    )
+
 
 class LayoutVarietyTracker:
     """Tracks layout usage to ensure variety across scenes."""
@@ -143,9 +197,12 @@ class TemplateSceneGenerator:
         self._image_layout = get_image_layout(template_id)
         self._meta = get_meta(template_id)
         
-        # Initialize DSPy
+        # Initialize DSPy (batch generation)
         self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
         self.descriptor = dspy.asyncify(self._descriptor)
+        # Regeneration-specific predictor (single-scene edit with other_scenes context)
+        self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
+        self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
         
         # Variety tracking
         self.variety_tracker = LayoutVarietyTracker(
@@ -372,6 +429,76 @@ class TemplateSceneGenerator:
                 "layout": self._fallback_layout,
                 "layoutProps": {},
             }
+
+    async def generate_regenerate_descriptor(
+        self,
+        scene_title: str,
+        narration: str,
+        visual_description: str,
+        scene_index: int,
+        total_scenes: int,
+        other_scenes_layouts: str,
+        preferred_layout: str | None = None,
+        current_descriptor: dict | None = None,
+    ) -> dict:
+        """
+        Generate a layout descriptor for a single-scene regeneration (user edit).
+        Uses RegenerateSceneToDescriptor with context about other scenes' layouts.
+        """
+        # Scene 0 always gets hero layout unless user chose a different layout
+        if scene_index == 0 and not preferred_layout:
+            return {
+                "layout": self._hero_layout,
+                "layoutProps": {},
+            }
+
+        normalized_preferred = None
+        if preferred_layout:
+            normalized_preferred = self._normalize_layout(preferred_layout)
+            if normalized_preferred not in self._valid_layouts:
+                if self.debug:
+                    print(f"  [Regenerate] Invalid preferred_layout '{preferred_layout}', ignoring")
+                normalized_preferred = None
+
+        current_descriptor_str = ""
+        if current_descriptor:
+            try:
+                current_descriptor_str = json.dumps(current_descriptor)
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            result = await self.regenerate_descriptor(
+                template_prompt=self._prompt,
+                scene_title=scene_title,
+                narration=narration,
+                visual_description=visual_description,
+                scene_index=scene_index,
+                total_scenes=total_scenes,
+                other_scenes_layouts=other_scenes_layouts or "(none yet)",
+                preferred_layout=normalized_preferred or "",
+                current_descriptor=current_descriptor_str,
+            )
+        except Exception as e:
+            if self.debug:
+                print(f"⚠️  [Regenerate] DSPy error: {e}")
+            return {
+                "layout": normalized_preferred or self._fallback_layout,
+                "layoutProps": {},
+            }
+
+        layout = self._normalize_layout(result.layout)
+        if normalized_preferred:
+            layout = normalized_preferred
+        if layout not in self._valid_layouts:
+            layout = normalized_preferred or self._fallback_layout
+
+        props = self._parse_props_json(result.layout_props_json)
+        validated_props = self._validate_props(layout, props)
+        return {
+            "layout": layout,
+            "layoutProps": validated_props,
+        }
     
     def _score_result(self, layout: str, validated_props: dict, raw_props: dict) -> float:
         """

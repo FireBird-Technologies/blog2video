@@ -164,7 +164,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
                     : "0 2px 8px rgba(0, 0, 0, 0.3)",
                   position: "relative",
                   display: "inline-block",
-                  padding: "0",
+                  padding: isHighlight ? (p ? "0 0.35em" : "0 0.5em") : "0",
                   margin: isHighlight ? (p ? "0 0.3em" : "0 0.5em") : "0",
                   borderRadius: isHighlight ? "8px" : "0",
                   background: "transparent",

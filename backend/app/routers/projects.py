@@ -357,6 +357,79 @@ def toggle_asset_exclusion(
     return {"id": asset.id, "excluded": asset.excluded}
 
 
+@router.delete("/{project_id}/assets/{asset_id}")
+def delete_asset(
+    project_id: int,
+    asset_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an asset (image) from the project. Removes from DB and optionally from R2.
+    Also clears assignedImage from any scenes that reference this image."""
+    from app.models.asset import Asset
+    from app.models.scene import Scene
+    import json
+
+    _get_user_project(project_id, user.id, db)
+
+    asset = (
+        db.query(Asset)
+        .filter(Asset.id == asset_id, Asset.project_id == project_id)
+        .first()
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # If this is an image, clear assignedImage from scenes that reference it
+    # and mark those scenes as hideImage=true so they won't get a new generic
+    # image auto-assigned later.
+    if asset.asset_type.value == "image":
+        deleted_filename = asset.filename
+        scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
+        scenes_updated = False
+        
+        for scene in scenes:
+            if not scene.remotion_code:
+                continue
+            
+            try:
+                desc = json.loads(scene.remotion_code)
+                layout_props = desc.get("layoutProps", {}) or {}
+                assigned_image = layout_props.get("assignedImage")
+                
+                # If this scene has the deleted image assigned, clear it and lock it to no image
+                if assigned_image == deleted_filename:
+                    layout_props.pop("assignedImage", None)
+                    layout_props["hideImage"] = True
+                    desc["layoutProps"] = layout_props
+                    scene.remotion_code = json.dumps(desc)
+                    scenes_updated = True
+            except (json.JSONDecodeError, TypeError):
+                continue
+        
+        if scenes_updated:
+            db.commit()
+
+    local_path = asset.local_path
+    r2_key = asset.r2_key
+
+    db.delete(asset)
+    db.commit()
+
+    if local_path and os.path.isfile(local_path):
+        try:
+            os.remove(local_path)
+        except OSError as e:
+            print(f"[PROJECTS] Failed to remove local file {local_path}: {e}")
+    if r2_key:
+        try:
+            r2_storage.delete_file(r2_key)
+        except Exception as e:
+            print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
+
+    return {"detail": "Asset deleted"}
+
+
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneOut)
 def update_scene(
     project_id: int,
@@ -421,6 +494,7 @@ def reorder_scenes(
 ):
     """Reorder scenes by updating their order values."""
     from app.models.scene import Scene
+    from app.services.remotion import rebuild_workspace
     
     project = _get_user_project(project_id, user.id, db)
     
@@ -447,6 +521,14 @@ def reorder_scenes(
     # Refresh all scenes
     for scene in sorted_scenes:
         db.refresh(scene)
+
+    # Ensure the per-project Remotion workspace reflects the new order
+    # (rendering uses the workspace files; without this, renders can use stale data.json/audio copies)
+    try:
+        rebuild_workspace(project, sorted_scenes, db)
+    except Exception as e:
+        # Don't fail the reorder if workspace rebuild fails; UI can still reflect DB order.
+        print(f"[PROJECTS] Warning: Failed to rebuild workspace after reorder for project {project_id}: {e}")
     
     return sorted_scenes
 
@@ -467,6 +549,7 @@ async def regenerate_scene(
     from app.models.asset import Asset, AssetType
     from app.models.user import PlanTier
     from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.dspy_modules.narration_edit import rewrite_narration_if_requested
     from app.services.voiceover import generate_voiceover
     from app.services.remotion import rebuild_workspace
     
@@ -558,25 +641,60 @@ async def regenerate_scene(
         "without narration", "remove narration", "no text",
         "don't display narration", "visualization only"
     ])
+
+    # Decide new narration: hide vs rewrite vs keep
+    if hide_narration:
+        new_narration = ""
+    else:
+        new_narration = await rewrite_narration_if_requested(
+            current_narration=scene.narration_text or "",
+            user_instruction=description,
+            scene_title=scene.title,
+        )
     
-    # Regenerate scene using DSPy
+    # Regenerate scene using regeneration-specific DSPy signature
     template_gen = TemplateSceneGenerator(project.template)
-    
-    # Generate new narration (for now, use description as visual_description enhancement)
-    # In a full implementation, you might want a separate DSPy signature for narration regeneration
+    all_scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+
+    # Build other_scenes_layouts so the model can avoid repeating layouts
+    other_layout_parts = []
+    for s in all_scenes:
+        if s.id == scene.id:
+            continue
+        layout_name = "unknown"
+        if s.remotion_code:
+            try:
+                desc = json.loads(s.remotion_code)
+                layout_name = desc.get("layout", "unknown")
+            except (json.JSONDecodeError, TypeError):
+                pass
+        other_layout_parts.append(f"scene {s.order}: {layout_name}")
+    other_scenes_layouts = ", ".join(other_layout_parts)
+
+    # Current descriptor for optional incremental edit context
+    current_descriptor = None
+    if scene.remotion_code:
+        try:
+            current_descriptor = json.loads(scene.remotion_code)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     new_visual_description = description
-    
-    # If hiding narration, set it to empty string
-    new_narration = "" if hide_narration else scene.narration_text
-    
-    # Generate layout descriptor
-    descriptor = await template_gen.generate_scene_descriptor(
+
+    descriptor = await template_gen.generate_regenerate_descriptor(
         scene_title=scene.title,
         narration=new_narration,
         visual_description=new_visual_description,
         scene_index=scene.order - 1,
-        total_scenes=len(project.scenes),
+        total_scenes=len(all_scenes),
+        other_scenes_layouts=other_scenes_layouts,
         preferred_layout=normalized_layout,
+        current_descriptor=current_descriptor,
     )
     
     # Set hideImage flag in layoutProps if image should be removed

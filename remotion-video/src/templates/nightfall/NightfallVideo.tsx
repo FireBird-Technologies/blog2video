@@ -160,15 +160,16 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: NightfallLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl,
           accentColor: data.accentColor || "#818CF8",
           bgColor: data.bgColor || "#0A0A1A",
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl,
         };
 
         // Debug: Log layoutProps for data_visualization scenes

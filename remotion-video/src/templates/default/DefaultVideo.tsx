@@ -213,15 +213,16 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
         // Build props for the layout component
+        // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: SceneLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl,
           accentColor: data.accentColor || "#7C3AED",
           bgColor: data.bgColor || "#FFFFFF",
           textColor: data.textColor || "#000000",
           aspectRatio: data.aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl,
         };
 
         return (
