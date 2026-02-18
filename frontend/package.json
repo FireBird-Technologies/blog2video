@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@react-oauth/google": "^0.12.0",
+    "@remotion/gif": "^4.0.419",
     "@remotion/player": "^4.0.419",
     "axios": "^1.7.0",
     "react": "^18.3.0",

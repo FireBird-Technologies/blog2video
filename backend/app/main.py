@@ -15,7 +15,7 @@ from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing
+from app.routers import projects, pipeline, chat, auth, billing, contact
 
 
 # ─── Scheduled cleanup for stale data (free + paid tiers) ────
@@ -255,6 +255,7 @@ app.include_router(billing.router)
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(chat.router)
+app.include_router(contact.router)
 
 
 @app.get("/api/health")
@@ -269,3 +270,10 @@ def public_config():
         "google_client_id": settings.GOOGLE_CLIENT_ID,
         "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
     }
+
+
+@app.get("/api/templates")
+def list_templates():
+    """Return available video templates (from TemplateService)."""
+    from app.services.template_service import list_templates as _list_templates
+    return _list_templates()

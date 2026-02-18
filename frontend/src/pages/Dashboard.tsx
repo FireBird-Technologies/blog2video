@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listProjects,
   createProject,
+  createProjectFromDocs,
   deleteProject,
   createCheckoutSession,
   createPortalSession,
@@ -12,6 +13,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import BlogUrlForm from "../components/BlogUrlForm";
 import StatusBadge from "../components/StatusBadge";
+import { setPendingUpload } from "../stores/pendingUpload";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -53,24 +55,48 @@ export default function Dashboard() {
     logoPosition?: string,
     logoOpacity?: number,
     customVoiceId?: string,
-    aspectRatio?: string
+    aspectRatio?: string,
+    uploadFiles?: File[],
+    template?: string
   ) => {
     setCreating(true);
     try {
-      const res = await createProject(
-        url,
-        name,
-        voiceGender,
-        voiceAccent,
-        accentColor,
-        bgColor,
-        textColor,
-        animationInstructions,
-        logoPosition,
-        logoOpacity,
-        customVoiceId,
-        aspectRatio
-      );
+      let res;
+
+      if (uploadFiles && uploadFiles.length > 0) {
+        // Document upload flow – use FormData endpoint to send files + config together
+        res = await createProjectFromDocs(uploadFiles, {
+          name,
+          voice_gender: voiceGender,
+          voice_accent: voiceAccent,
+          accent_color: accentColor,
+          bg_color: bgColor,
+          text_color: textColor,
+          animation_instructions: animationInstructions,
+          logo_position: logoPosition,
+          logo_opacity: logoOpacity,
+          custom_voice_id: customVoiceId,
+          aspect_ratio: aspectRatio,
+          template,
+        });
+      } else {
+        // URL flow
+        res = await createProject(
+          url,
+          name,
+          voiceGender,
+          voiceAccent,
+          accentColor,
+          bgColor,
+          textColor,
+          animationInstructions,
+          logoPosition,
+          logoOpacity,
+          customVoiceId,
+          aspectRatio,
+          template
+        );
+      }
 
       // Upload logo if provided
       if (logoFile) {
@@ -150,7 +176,7 @@ export default function Dashboard() {
               Create your first video
             </h1>
             <p className="text-sm text-gray-400">
-              Paste a blog URL and we'll turn it into a polished video.
+              Paste a blog URL or upload documents to create a video.
             </p>
           </div>
 
@@ -247,7 +273,9 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400">
                   <span className="truncate max-w-[200px]">
-                    {project.blog_url}
+                    {project.blog_url?.startsWith("upload://")
+                      ? "Uploaded documents"
+                      : project.blog_url || "—"}
                   </span>
                   <span>{project.scene_count} scenes</span>
                   <span>{formatDate(project.created_at)}</span>

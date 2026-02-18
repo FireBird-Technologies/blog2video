@@ -21,7 +21,7 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    blog_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    blog_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     blog_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus), default=ProjectStatus.CREATED
@@ -47,8 +47,15 @@ class Project(Base):
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Template (determines layout system + DSPy prompt)
+    template: Mapped[str] = mapped_column(String(50), default="default")
+
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
+    
+    # AI-assisted editing usage tracking
+    ai_assisted_editing_count: Mapped[int] = mapped_column(Integer, default=0)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
