@@ -84,14 +84,15 @@ def create_project_from_upload(
     name: Optional[str] = Form(None),
     voice_gender: Optional[str] = Form("female"),
     voice_accent: Optional[str] = Form("american"),
-    accent_color: Optional[str] = Form("#7C3AED"),
-    bg_color: Optional[str] = Form("#FFFFFF"),
-    text_color: Optional[str] = Form("#000000"),
+    accent_color: Optional[str] = Form(None),
+    bg_color: Optional[str] = Form(None),
+    text_color: Optional[str] = Form(None),
     animation_instructions: Optional[str] = Form(None),
     logo_position: Optional[str] = Form("bottom_right"),
     logo_opacity: Optional[float] = Form(0.9),
     custom_voice_id: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form("landscape"),
+    template: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -127,15 +128,19 @@ def create_project_from_upload(
 
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
+    template_id = validate_template_id(template)
+    colors = get_preview_colors(template_id)
+    print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
     project = Project(
         user_id=user.id,
         name=project_name,
         blog_url="upload://documents",
+        template=template_id,
         voice_gender=voice_gender or "female",
         voice_accent=voice_accent or "american",
-        accent_color=accent_color or "#7C3AED",
-        bg_color=bg_color or "#FFFFFF",
-        text_color=text_color or "#000000",
+        accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
+        bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
+        text_color=text_color or (colors.get("text") if colors else None) or "#000000",
         animation_instructions=animation_instructions or None,
         logo_position=logo_position or "bottom_right",
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
@@ -147,6 +152,7 @@ def create_project_from_upload(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
+    print(f"[PROJECTS] Project {project.id} created with template='{project.template}'")
 
     # ── Extract text + images from documents ────────────────
     try:

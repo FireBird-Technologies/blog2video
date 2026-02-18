@@ -316,6 +316,7 @@ export const createProjectFromDocs = (
     logo_opacity?: number;
     custom_voice_id?: string;
     aspect_ratio?: string;
+    template?: string;
   } = {}
 ) => {
   const formData = new FormData();
@@ -333,6 +334,7 @@ export const createProjectFromDocs = (
     formData.append("logo_opacity", String(config.logo_opacity));
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.template) formData.append("template", config.template);
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });

@@ -150,7 +150,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
               {title && (
                 <span
                   style={{
-                    fontSize: p ? 12 : 13,
+                    fontSize: p ? 18 : 22,
                     color: textColor,
                     opacity: 0.6,
                     fontFamily: "'Fira Code', monospace",
@@ -184,7 +184,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
               style={{
                 fontSize: p ? 11 : 12,
                 color: `${textColor}50`,
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               }}
             >
               ⌘C
@@ -194,10 +194,10 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
           {/* Code Content */}
           <div
             style={{
-              padding: p ? "20px 16px" : "28px 28px",
-              fontFamily: "'Fira Code', 'Courier New', monospace",
-              fontSize: p ? 14 : 18,
-              lineHeight: 1.8,
+              padding: p ? "20px 16px" : "24px 28px",
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              fontSize: 22,
+              lineHeight: 1.85,
               backgroundColor: "rgba(0, 0, 0, 0.2)",
               minHeight: p ? 200 : 300,
             }}

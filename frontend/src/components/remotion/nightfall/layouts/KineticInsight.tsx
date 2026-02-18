@@ -151,21 +151,21 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
               <span
                 key={i}
                 style={{
-                  fontSize: p ? 52 : 72,
-                  fontWeight: isHighlight ? 800 : 600,
+                  fontSize: p ? 60 : 72,
+                  fontWeight: 700,
                   color: isHighlight ? accentColor : textColor,
                   opacity: wordOpacity,
                   transform: `translateY(${(1 - wordY) * 30}px) scale(${highlightScale})`,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  lineHeight: 1.4,
-                  letterSpacing: "-0.01em",
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.02em",
                   textShadow: isHighlight
-                    ? `0 0 10px ${accentColor}80, 0 0 20px ${accentColor}60, 0 0 30px ${accentColor}40, 0 2px 8px rgba(0, 0, 0, 0.3)`
-                    : "0 2px 8px rgba(0, 0, 0, 0.3)",
+                    ? `0 0 40px ${accentColor}35`
+                    : undefined,
                   position: "relative",
                   display: "inline-block",
                   padding: isHighlight ? (p ? "0 0.35em" : "0 0.5em") : "0",
-                  margin: isHighlight ? (p ? "0 0.3em" : "0 0.5em") : "0",
+                  margin: isHighlight ? (p ? "0 0.3em" : "0 0.5em") : "0 0.28em",
                   borderRadius: isHighlight ? "8px" : "0",
                   background: "transparent",
                 }}

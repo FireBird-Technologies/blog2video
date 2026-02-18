@@ -145,11 +145,11 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Chapter label */}
         <div
           style={{
-            fontSize: p ? 12 : 14,
+            fontSize: p ? 18 : 24,
             fontWeight: 600,
             color: textColor,
             opacity: titleOpacity * 0.6,
-            fontFamily: "Inter, system-ui, sans-serif",
+            fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
             letterSpacing: 4,
             textTransform: "uppercase",
             marginBottom: p ? 16 : 24,
@@ -161,25 +161,26 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Giant chapter number */}
         <div
           style={{
-            fontSize: p ? 160 : 240,
+            fontSize: p ? 160 : 200,
             fontWeight: 200,
-            color: textColor,
+            color: "rgba(226,232,240,0.9)",
             opacity: numOpacity,
-            fontFamily: "Inter, system-ui, sans-serif",
-            lineHeight: 1,
+            fontFamily: "'Playfair Display', Georgia, serif",
+            lineHeight: 0.9,
             transform: `scale(${numScale})`,
             position: "relative",
-            textShadow: `0 0 60px ${accentColor}30`,
+            letterSpacing: "-0.05em",
+            textShadow: `0 0 40px ${accentColor}30`,
           }}
         >
-          {chapterNumber}
+          {String(chapterNumber).padStart(2, "0")}
           
           {/* Gradient overlay on number */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: `linear-gradient(180deg, transparent 0%, ${accentColor}15 100%)`,
+              background: `linear-gradient(180deg, transparent 0%, ${accentColor}40 100%)`,
               WebkitBackgroundClip: "text",
               backgroundClip: "text",
             }}
@@ -229,11 +230,11 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Title/Subtitle */}
         <h2
           style={{
-            fontSize: p ? 32 : 48,
-            fontWeight: 600,
+            fontSize: p ? 36 : 46,
+            fontWeight: 500,
             color: textColor,
-            fontFamily: "Inter, system-ui, sans-serif",
-            marginTop: p ? 20 : 28,
+            fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+            marginTop: p ? -16 : -16,
             textAlign: "center",
             opacity: titleOpacity,
             transform: `translateY(${(1 - titleY) * 25}px)`,

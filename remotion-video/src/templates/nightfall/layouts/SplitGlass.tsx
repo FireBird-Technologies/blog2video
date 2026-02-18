@@ -88,18 +88,18 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          padding: p ? 50 : 80,
+          padding: p ? "20px 35px" : "30px 60px",
         }}
       >
         {/* Title */}
         {title && (
           <h2
             style={{
-              fontSize: p ? 32 : 44,
+              fontSize: p ? 34 : 46,
               fontWeight: 700,
               color: textColor,
-              fontFamily: "Inter, system-ui, sans-serif",
-              marginBottom: p ? 32 : 48,
+              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+              marginBottom: p ? 20 : 28,
               textAlign: "center",
               opacity: titleOpacity,
               transform: `translateY(${(1 - titleY) * 30}px)`,
@@ -117,77 +117,64 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
             display: "flex",
             flexDirection: p ? "column" : "row",
             gap: 0,
-            alignItems: "stretch",
+            alignItems: "center",
+            justifyContent: "center",
             position: "relative",
           }}
         >
           {/* Left Panel */}
           <div
             style={{
-              flex: 1,
               opacity: panelOpacity,
               transform: `translateX(${(1 - leftX) * -100}px)`,
-              paddingRight: p ? 0 : 20,
-              paddingBottom: p ? 20 : 0,
+              paddingRight: p ? 0 : 12,
+              paddingBottom: p ? 12 : 0,
             }}
           >
             <div
               style={{
                 ...glassCardStyle(accentColor, 0.08),
-                height: "100%",
-                padding: p ? 32 : 48,
+                padding: p ? 48 : 64,
+                paddingTop: p ? 56 : 72,
                 position: "relative",
                 border: `1px solid ${accentColor}20`,
                 boxShadow: `
                   0 8px 32px rgba(0, 0, 0, 0.3),
                   inset 0 1px 0 rgba(255, 255, 255, 0.08)
                 `,
+                maxWidth: p ? "100%" : 720,
+                minHeight: p ? 400 : 500,
               }}
             >
-              {/* Left indicator */}
+              {/* Label - positioned at top left */}
               <div
                 style={{
                   position: "absolute",
                   top: p ? 20 : 24,
-                  left: p ? 20 : 24,
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  backgroundColor: `${accentColor}80`,
-                  boxShadow: `0 0 12px ${accentColor}60`,
-                }}
-              />
-
-              {/* Label */}
-              <span
-                style={{
-                  fontSize: p ? 13 : 14,
-                  color: textColor,
-                  opacity: 0.6,
-                  fontFamily: "Inter, system-ui, sans-serif",
+                  left: p ? 24 : 28,
+                  fontSize: p ? 20 : 24,
+                  color: "rgba(226,232,240,0.45)",
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  letterSpacing: 3,
                   fontWeight: 600,
-                  display: "block",
-                  marginBottom: p ? 16 : 20,
                 }}
               >
                 {leftLabel}
-              </span>
+              </div>
 
               {/* Content */}
-              <p
+              <div
                 style={{
-                  fontSize: p ? 18 : 24,
-                  color: textColor,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  lineHeight: 1.7,
-                  opacity: 0.9,
-                  fontWeight: 400,
+                  fontSize: p ? 28 : 32,
+                  lineHeight: 1.75,
+                  color: "rgba(226,232,240,0.85)",
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  marginTop: p ? 8 : 12,
                 }}
               >
                 {leftDesc}
-              </p>
+              </div>
             </div>
           </div>
 
@@ -199,7 +186,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               alignSelf: "center",
               position: "relative",
               flexShrink: 0,
-              margin: p ? "16px 0" : "0 16px",
+              margin: p ? "12px 0" : "0 12px",
             }}
           >
             {/* Animated divider line */}
@@ -246,18 +233,17 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
           {/* Right Panel */}
           <div
             style={{
-              flex: 1,
               opacity: panelOpacity,
               transform: `translateX(${(1 - rightX) * 100}px)`,
-              paddingLeft: p ? 0 : 20,
-              paddingTop: p ? 20 : 0,
+              paddingLeft: p ? 0 : 12,
+              paddingTop: p ? 12 : 0,
             }}
           >
             <div
               style={{
                 ...glassCardStyle(accentColor, 0.1),
-                height: "100%",
-                padding: p ? 32 : 48,
+                padding: p ? 48 : 64,
+                paddingTop: p ? 56 : 72,
                 position: "relative",
                 border: `1px solid ${accentColor}30`,
                 boxShadow: `
@@ -265,52 +251,39 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   0 0 0 1px rgba(255, 255, 255, 0.05),
                   inset 0 1px 0 rgba(255, 255, 255, 0.1)
                 `,
+                maxWidth: p ? "100%" : 720,
+                minHeight: p ? 400 : 500,
               }}
             >
-              {/* Right indicator */}
+              {/* Label - positioned at top left */}
               <div
                 style={{
                   position: "absolute",
                   top: p ? 20 : 24,
-                  right: p ? 20 : 24,
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  backgroundColor: accentColor,
-                  boxShadow: `0 0 12px ${accentColor}`,
-                }}
-              />
-
-              {/* Label */}
-              <span
-                style={{
-                  fontSize: p ? 13 : 14,
-                  color: textColor,
-                  opacity: 0.6,
-                  fontFamily: "Inter, system-ui, sans-serif",
+                  left: p ? 24 : 28,
+                  fontSize: p ? 20 : 24,
+                  color: accentColor,
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  letterSpacing: 3,
                   fontWeight: 600,
-                  display: "block",
-                  marginBottom: p ? 16 : 20,
                 }}
               >
                 {rightLabel}
-              </span>
+              </div>
 
               {/* Content */}
-              <p
+              <div
                 style={{
-                  fontSize: p ? 18 : 24,
-                  color: textColor,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  lineHeight: 1.7,
-                  opacity: 0.9,
-                  fontWeight: 400,
+                  fontSize: p ? 28 : 32,
+                  lineHeight: 1.75,
+                  color: "rgba(226,232,240,0.85)",
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  marginTop: p ? 8 : 12,
                 }}
               >
                 {rightDesc}
-              </p>
+              </div>
             </div>
           </div>
         </div>

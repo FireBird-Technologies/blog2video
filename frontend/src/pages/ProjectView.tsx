@@ -810,7 +810,60 @@ export default function ProjectView() {
       sceneImageAssetsMap[idx] = [];
     });
 
-    // 1) Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
+    // Build filename -> asset lookup
+    const filenameToAsset = new Map<string, typeof activeImageAssets[0]>();
+    activeImageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
+
+    const usedGenericFiles = new Set<string>();
+
+    // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+    // This ensures images move with their scenes when reordered, and scenes explicitly
+    // marked hideImage=true never get an auto-assigned generic image.
+    project.scenes.forEach((scene, idx) => {
+      let layoutProps: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          const descriptor = JSON.parse(scene.remotion_code);
+          layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+        } catch {
+          /* legacy */
+        }
+      }
+
+      const hideImage = Boolean((layoutProps as any).hideImage);
+      if (hideImage) {
+        // Skip auto-assignment for scenes with hideImage=true
+        return;
+      }
+
+      const assignedImage = layoutProps.assignedImage as string | undefined;
+      if (assignedImage && filenameToAsset.has(assignedImage)) {
+        const m = assignedImage.match(/^scene_(\d+)_/);
+        if (m) {
+          // Scene-specific assignment must match current scene id
+          const assignedSceneId = parseInt(m[1], 10);
+          if (assignedSceneId === scene.id) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx].push(url);
+            sceneImageAssetsMap[idx].push({ url, asset });
+            usedGenericFiles.add(assignedImage);
+          }
+        } else {
+          // Generic assignment: enforce 1 generic -> 1 scene
+          if (!usedGenericFiles.has(assignedImage)) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx].push(url);
+            sceneImageAssetsMap[idx].push({ url, asset });
+            usedGenericFiles.add(assignedImage);
+          }
+        }
+      }
+    });
+
+    // 2) Second pass: Scene-specific images (overwrite stored assignments)
+    // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
     const sceneSpecific: { sceneId: number; url: string; asset: (typeof activeImageAssets)[0] }[] = [];
     const genericAssets: typeof activeImageAssets = [];
     for (const asset of activeImageAssets) {
@@ -826,22 +879,30 @@ export default function ProjectView() {
         genericAssets.push(asset);
       }
     }
+    // Apply scene-specific images (later uploads overwrite by same scene_id)
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
       if (sceneIdx >= 0) {
-        sceneImageMap[sceneIdx].push(url);
-        sceneImageAssetsMap[sceneIdx].push({ url, asset });
+        // Overwrite any existing assignment
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
       }
     }
 
-    // 2) Generic images: assign in order to scenes that don't have one yet
+    // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
     let genericIdx = 0;
     for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
       if (sceneImageMap[sceneIdx].length === 0) {
-        const asset = genericAssets[genericIdx];
-        const url = resolveAssetUrl(asset, project.id);
+        const candidate = genericAssets[genericIdx];
+        // Skip if already used in first pass
+        if (usedGenericFiles.has(candidate.filename)) {
+          genericIdx++;
+          continue;
+        }
+        const url = resolveAssetUrl(candidate, project.id);
         sceneImageMap[sceneIdx].push(url);
-        sceneImageAssetsMap[sceneIdx].push({ url, asset });
+        sceneImageAssetsMap[sceneIdx].push({ url, asset: candidate });
+        usedGenericFiles.add(candidate.filename);
         genericIdx++;
       }
     }

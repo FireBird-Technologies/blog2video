@@ -196,6 +196,7 @@ class TemplateSceneGenerator:
         self._fallback_layout = get_fallback_layout(template_id)
         self._image_layout = get_image_layout(template_id)
         self._meta = get_meta(template_id)
+    
         
         # Initialize DSPy (batch generation)
         self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)

@@ -126,10 +126,10 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
         {title && (
           <h2
             style={{
-              fontSize: p ? 28 : 36,
-              fontWeight: 700,
+              fontSize: p ? 34 : 46,
+              fontWeight: 600,
               color: textColor,
-              fontFamily: "Inter, system-ui, sans-serif",
+              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               marginBottom: p ? 24 : 32,
               textAlign: "center",
               opacity: titleOpacity,
@@ -275,11 +275,11 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
             >
               <p
                 style={{
-                  fontSize: p ? 18 : 22,
-                  color: textColor,
+                  fontSize: 25,
+                  color: "rgba(226,232,240,0.8)",
                   opacity: 0.9,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  lineHeight: 1.6,
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  lineHeight: 1.7,
                   textAlign: "center",
                   fontWeight: 400,
                 }}

@@ -141,13 +141,14 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
             fontSize: p ? 88 : 140,
             fontWeight: 800,
             color: "#FFFFFF",
-            fontFamily: "Inter, system-ui, sans-serif",
+            fontFamily: "'Playfair Display', Georgia, serif",
             textAlign: "center",
             lineHeight: 1.1,
             transform: `translateY(${(1 - titleY) * 40}px) scale(${titleScale})`,
             opacity: titleOpacity,
-            letterSpacing: "-0.02em",
+            letterSpacing: "-0.01em",
             maxWidth: "90%",
+            textShadow: `0 0 60px ${accentColor}35`,
           }}
         >
           {title}
@@ -193,13 +194,13 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: p ? 24 : 32,
+              fontSize: p ? 26 : 36,
               fontWeight: 400,
-              color: "#FFFFFF",
-              fontFamily: "Inter, system-ui, sans-serif",
+              color: "rgba(226,232,240,0.45)",
+              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               textAlign: "center",
               marginTop: p ? 28 : 36,
-              maxWidth: p ? "85%" : 900,
+              maxWidth: p ? "85%" : 950,
               opacity: subOpacity * 0.95,
               transform: `translateY(${(1 - subY) * 30}px)`,
               lineHeight: 1.5,

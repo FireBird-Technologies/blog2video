@@ -151,9 +151,9 @@ export const PieChart: React.FC<PieChartProps> = ({
               >
                 <text
                   x={segment.labelX}
-                  y={segment.labelY - 8}
+                  y={segment.labelY - 10}
                   fill={textColor}
-                  fontSize={12}
+                  fontSize={18}
                   fontWeight={600}
                   textAnchor={
                     Math.cos(segment.labelAngle) > 0 ? "start" : "end"
@@ -163,9 +163,9 @@ export const PieChart: React.FC<PieChartProps> = ({
                 </text>
                 <text
                   x={segment.labelX}
-                  y={segment.labelY + 10}
+                  y={segment.labelY + 14}
                   fill={segment.color}
-                  fontSize={14}
+                  fontSize={22}
                   fontWeight={700}
                   textAnchor={
                     Math.cos(segment.labelAngle) > 0 ? "start" : "end"

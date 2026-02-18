@@ -223,13 +223,12 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {/* Title */}
           <h2
             style={{
-              fontSize: p ? 28 : 36,
+              fontSize: 38,
               fontWeight: 700,
               color: textColor,
-              fontFamily: "Inter, system-ui, sans-serif",
-              marginBottom: narration ? 12 : 0,
+              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+              marginBottom: narration ? 15 : 0,
               lineHeight: 1.3,
-              textShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
             }}
           >
             {title}
@@ -239,12 +238,10 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {narration && (
             <p
               style={{
-                fontSize: p ? 18 : 22,
-                color: textColor,
-                opacity: 0.9,
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: 28,
+                color: "rgba(226,232,240,0.45)",
+                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                 lineHeight: 1.6,
-                textShadow: "0 1px 4px rgba(0, 0, 0, 0.2)",
               }}
             >
               {narration}
