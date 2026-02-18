@@ -271,6 +271,18 @@ export interface TemplateMeta {
 export const getTemplates = () =>
   api.get<TemplateMeta[]>("/templates");
 
+export interface VoicePreview {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  description: string;
+  gender: string;
+  accent: string;
+}
+
+export const getVoicePreviews = () =>
+  api.get<Record<string, VoicePreview>>("/voices/previews");
+
 export const createProject = (
   blog_url: string,
   name?: string,
