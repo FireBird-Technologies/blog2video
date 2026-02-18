@@ -1,0 +1,93 @@
+import { AbsoluteFill, Audio, Sequence } from "remotion";
+import {
+  LAYOUT_REGISTRY,
+  LayoutType,
+  SceneLayoutProps,
+} from "./layouts";
+import { LogoOverlay } from "../LogoOverlay";
+
+export interface DefaultSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: LayoutType;
+  layoutProps: Record<string, any>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface DefaultVideoCompositionProps {
+  scenes: DefaultSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  aspectRatio?: string;
+}
+
+export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  aspectRatio,
+}) => {
+  const FPS = 30;
+  let currentFrame = 0;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor }}>
+      {scenes.map((scene) => {
+        const durationFrames = Math.max(
+          1,
+          Math.round((Number(scene.durationSeconds) || 5) * FPS)
+        );
+        const startFrame = currentFrame;
+        currentFrame += durationFrames;
+
+        const LayoutComponent =
+          LAYOUT_REGISTRY[scene.layout] || LAYOUT_REGISTRY.text_narration;
+
+        const layoutProps: SceneLayoutProps = {
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl: scene.imageUrl,
+          accentColor,
+          bgColor,
+          textColor,
+          aspectRatio,
+          ...scene.layoutProps,
+        };
+
+        return (
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <LayoutComponent {...layoutProps} />
+            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {/* Logo overlay — spans entire video */}
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};

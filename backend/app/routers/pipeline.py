@@ -2,8 +2,9 @@ import os
 import json
 import asyncio
 import traceback
+import requests
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -31,7 +32,8 @@ from app.services.remotion import (
 )
 from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
-from app.dspy_modules.scene_gen import SceneCodeGenerator
+from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+from app.services.template_service import validate_template_id
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 
@@ -115,8 +117,12 @@ async def _run_pipeline(project_id: int, user_id: int):
         if not project:
             return
 
-        # Step 1: Scrape
+        # Step 1: Scrape (skip for upload-based projects)
         if project.status in (ProjectStatus.CREATED,):
+            if project.blog_url and project.blog_url.startswith("upload://"):
+                # Upload project without pending files — wait for documents
+                _set_error(project_id, project, db, "Documents not yet uploaded. Please upload files first.")
+                return
             _pipeline_progress[project_id]["step"] = 1
             try:
                 scrape_blog(project, db)
@@ -219,15 +225,18 @@ async def _generate_scenes(project: Project, db: Session):
             scene.voiceover_path = None
         db.commit()
     else:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
+        await generate_all_voiceovers(scenes, db)
 
-    # Refresh scenes to pick up voiceover_path / duration
-    for scene in scenes:
-        db.refresh(scene)
+    # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
+    db.expire(project)
+    scenes = project.scenes
 
-    # Step 2: Generate layout descriptors concurrently with async DSPy
-    scene_gen = SceneCodeGenerator()
+    # Step 2: Generate layout descriptors with TemplateSceneGenerator
+    # Ensure template is read from database (refresh if needed)
+    db.refresh(project)
+    template_id = validate_template_id(project.template if project.template else "default")
+    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
+    scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
     ]
@@ -362,27 +371,18 @@ def download_studio_endpoint(
 @router.post("/render")
 def render_video_endpoint(
     project_id: int,
-    resolution: str = "720p",
+    resolution: str = "1080p",
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    resolution: "480p", "720p", or "1080p" (1080p requires paid plan).
+    All videos render at 1080p.
     """
     project = _get_project(project_id, user.id, db)
 
-    # Validate resolution
-    allowed = {"480p", "720p", "1080p"}
-    if resolution not in allowed:
-        resolution = "720p"
-
-    # 1080p is paid-only
-    if resolution == "1080p" and user.plan == "free":
-        raise HTTPException(
-            status_code=403,
-            detail="1080p rendering requires a Pro plan. Please upgrade or choose 720p / 480p.",
-        )
+    # Always render at 1080p
+    resolution = "1080p"
 
     # Already rendered and available in R2 — skip re-render
     if project.r2_video_url:
@@ -401,11 +401,17 @@ def render_video_endpoint(
     # container handled the pipeline, or if it was cleaned up after a
     # previous render).
     workspace = get_workspace_dir(project.id)
-    if not os.path.exists(os.path.join(workspace, "public", "data.json")):
-        scenes = project.scenes
-        if not scenes:
-            raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
-        rebuild_workspace(project, scenes, db)
+    # Always rebuild workspace before rendering so the render reflects the latest DB state
+    # (e.g. scene reordering, edits, regenerated assets). This prevents stale data.json/audio copies.
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+    rebuild_workspace(project, scenes, db)
 
     project.status = ProjectStatus.RENDERING
     db.commit()
@@ -504,6 +510,58 @@ def get_download_url(
         return {"url": f"/media/projects/{project.id}/output/video.mp4"}
 
     # Check if render is still in progress
+    prog = get_render_progress(project_id)
+    if prog and not prog.get("done", True):
+        raise HTTPException(status_code=202, detail="Video is still rendering.")
+
+    raise HTTPException(status_code=404, detail="Video not rendered yet.")
+
+
+@router.get("/download")
+def download_video_endpoint(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream the rendered video for download. Avoids CORS by proxying through backend."""
+    project = _get_project(project_id, user.id, db)
+
+    # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
+    if project.r2_video_url:
+        try:
+            resp = requests.get(
+                project.r2_video_url,
+                timeout=120,
+                stream=True,
+            )
+            resp.raise_for_status()
+            headers = {"Content-Disposition": 'attachment; filename="video.mp4"'}
+            cl = resp.headers.get("Content-Length")
+            if cl:
+                headers["Content-Length"] = cl
+            return StreamingResponse(
+                resp.iter_content(chunk_size=64 * 1024),
+                media_type="video/mp4",
+                headers=headers,
+            )
+        except requests.RequestException as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to fetch video from storage: {str(e)}",
+            )
+
+    # Fallback: local file
+    local_path = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
+    )
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        safe_name = (project.name or "video").replace(" ", "_")[:50]
+        return FileResponse(
+            path=local_path,
+            media_type="video/mp4",
+            filename=f"{safe_name}.mp4",
+        )
+
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
         raise HTTPException(status_code=202, detail="Video is still rendering.")

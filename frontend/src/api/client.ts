@@ -1,3 +1,9 @@
+export * from "./types";
+export * from "./auth";
+export * from "./billing";
+export * from "./projects";
+export * from "./enterprise";
+
 import axios from "axios";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
@@ -87,9 +93,10 @@ export interface Asset {
 export interface Project {
   id: number;
   name: string;
-  blog_url: string;
+  blog_url: string | null;
   blog_content: string | null;
   status: string;
+  template?: string;
   voice_gender: string;
   voice_accent: string;
   accent_color: string;
@@ -106,6 +113,7 @@ export interface Project {
   logo_opacity: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  ai_assisted_editing_count?: number;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -115,7 +123,7 @@ export interface Project {
 export interface ProjectListItem {
   id: number;
   name: string;
-  blog_url: string;
+  blog_url: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -253,6 +261,16 @@ export const resumeSubscription = () =>
 
 // ─── Project API ──────────────────────────────────────────
 
+export interface TemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  preview_colors?: { accent: string; bg: string; text: string };
+}
+
+export const getTemplates = () =>
+  api.get<TemplateMeta[]>("/templates");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -265,7 +283,8 @@ export const createProject = (
   logo_position?: string,
   logo_opacity?: number,
   custom_voice_id?: string,
-  aspect_ratio?: string
+  aspect_ratio?: string,
+  template?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -280,7 +299,54 @@ export const createProject = (
     logo_opacity,
     custom_voice_id,
     aspect_ratio,
+    template,
   });
+
+export const createProjectFromDocs = (
+  files: File[],
+  config: {
+    name?: string;
+    voice_gender?: string;
+    voice_accent?: string;
+    accent_color?: string;
+    bg_color?: string;
+    text_color?: string;
+    animation_instructions?: string;
+    logo_position?: string;
+    logo_opacity?: number;
+    custom_voice_id?: string;
+    aspect_ratio?: string;
+    template?: string;
+  } = {}
+) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  if (config.name) formData.append("name", config.name);
+  if (config.voice_gender) formData.append("voice_gender", config.voice_gender);
+  if (config.voice_accent) formData.append("voice_accent", config.voice_accent);
+  if (config.accent_color) formData.append("accent_color", config.accent_color);
+  if (config.bg_color) formData.append("bg_color", config.bg_color);
+  if (config.text_color) formData.append("text_color", config.text_color);
+  if (config.animation_instructions)
+    formData.append("animation_instructions", config.animation_instructions);
+  if (config.logo_position) formData.append("logo_position", config.logo_position);
+  if (config.logo_opacity !== undefined)
+    formData.append("logo_opacity", String(config.logo_opacity));
+  if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
+  if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.template) formData.append("template", config.template);
+  return api.post<Project>("/projects/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const uploadProjectDocuments = (projectId: number, files: File[]) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  return api.post<Project>(`/projects/${projectId}/upload-documents`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const uploadLogo = (projectId: number, file: File) => {
   const formData = new FormData();
@@ -305,6 +371,9 @@ export const toggleAssetExclusion = (projectId: number, assetId: number) =>
   api.patch<{ id: number; excluded: boolean }>(
     `/projects/${projectId}/assets/${assetId}/exclude`
   );
+
+export const deleteAsset = (projectId: number, assetId: number) =>
+  api.delete(`/projects/${projectId}/assets/${assetId}`);
 
 export const scrapeProject = (id: number) =>
   api.post<Project>(`/projects/${id}/scrape`);
@@ -337,10 +406,56 @@ export const updateScene = (
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
 
+export interface LayoutInfo {
+  layouts: string[];
+  layout_names: Record<string, string>;
+}
+
+export const getValidLayouts = (projectId: number) =>
+  api.get<LayoutInfo>(`/projects/${projectId}/layouts`);
+
+export interface SceneOrderItem {
+  scene_id: number;
+  order: number;
+}
+
+export const reorderScenes = (
+  projectId: number,
+  sceneOrders: SceneOrderItem[]
+) =>
+  api.post<Scene[]>(`/projects/${projectId}/scenes/reorder`, {
+    scene_orders: sceneOrders,
+  });
+
+export const regenerateScene = (
+  projectId: number,
+  sceneId: number,
+  description: string,
+  narrationText: string,
+  regenerateVoiceover: boolean,
+  layout?: string,
+  imageFile?: File
+) => {
+  const formData = new FormData();
+  // Only append description if it has a value
+  if (description && description.trim()) {
+    formData.append("description", description);
+  }
+  formData.append("narration_text", narrationText);
+  formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  if (layout) formData.append("layout", layout);
+  if (imageFile) formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/regenerate`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
-export const renderVideo = (id: number, resolution: string = "720p") =>
+export const renderVideo = (id: number, resolution: string = "1080p") =>
   api.post(`/projects/${id}/render?resolution=${resolution}`);
 
 export interface RenderStatus {
@@ -356,17 +471,19 @@ export interface RenderStatus {
 export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
 
+/** Fetch video as blob for playback. Returns object URL; caller must revoke it. */
+export const fetchVideoBlob = async (id: number): Promise<string> => {
+  const res = await api.get(`/projects/${id}/download`, {
+    responseType: "blob",
+  });
+  if (res.status !== 200) throw new Error(`Download failed (${res.status})`);
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty video");
+  return window.URL.createObjectURL(blob);
+};
+
 export const downloadVideo = async (id: number, filename?: string) => {
-  const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
-  const videoUrl = urlRes.data.url;
-
-  // Fetch the video as a blob so the download works even with popup blockers.
-  // Using fetch() directly (not axios) because the URL may be a cross-origin R2 URL.
-  const resp = await fetch(videoUrl);
-  if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
-  const blob = await resp.blob();
-  const blobUrl = window.URL.createObjectURL(blob);
-
+  const blobUrl = await fetchVideoBlob(id);
   const a = document.createElement("a");
   a.href = blobUrl;
   a.download = filename || "video.mp4";

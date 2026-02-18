@@ -148,7 +148,7 @@ export default function Landing() {
           </p>
 
           <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
-            Perfect for technical writers who need their content to reach YouTube,
+            Perfect for technical writers who need their content to reach everywhere,
             researchers presenting findings, and teachers turning lessons into visual guides.
           </p>
 
@@ -625,8 +625,8 @@ export default function Landing() {
             Start free. Pay per video. Or go Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, or $50/month
-            for 100 videos with AI editing and Studio access.
+            Your first video is free. Then $5/video pay-as-you-go, $50/month
+            for 100 videos with AI editing and Studio access, or custom plans for enterprise teams.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -647,6 +647,11 @@ export default function Landing() {
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
+            </div>
+            <div className="glass-card px-7 py-6 text-center min-w-[170px] border-2 border-purple-300">
+              <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
+              <p className="text-3xl font-bold text-gray-900">Custom</p>
+              <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
             </div>
           </div>
 

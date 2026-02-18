@@ -10,6 +10,7 @@ venv/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # Media files
 backend/media/
@@ -18,6 +19,9 @@ backend/media/
 remotion-video/out/
 # remotion-video/public/data.json is tracked for default preview
 remotion-video/src/components/generated/
+
+# Build cache
+*.tsbuildinfo
 
 # IDE
 .vscode/

@@ -7,9 +7,12 @@ import {
   renderVideo,
   getRenderStatus,
   downloadVideo,
+  fetchVideoBlob,
   downloadStudioZip,
   launchStudio,
   toggleAssetExclusion,
+  uploadProjectDocuments,
+  reorderScenes,
   Project,
   Scene,
   BACKEND_URL,
@@ -17,15 +20,22 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-
+import SceneEditModal, { SceneImageItem } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
+import { getPendingUpload } from "../stores/pendingUpload";
 
 type Tab = "script" | "scenes" | "images" | "audio";
 
-const PIPELINE_STEPS = [
+const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
+  { id: 2, label: "Script" },
+  { id: 3, label: "Scenes" },
+] as const;
+
+const PIPELINE_STEPS_UPLOAD = [
+  { id: 1, label: "Uploading" },
   { id: 2, label: "Script" },
   { id: 3, label: "Scenes" },
 ] as const;
@@ -36,9 +46,16 @@ const PIPELINE_STEPS = [
  * Resolve the best URL for an asset: R2 URL if available, else local media path.
  */
 function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset_type: string }, projectId: number): string {
-  if (asset.r2_url) return asset.r2_url;
+  // In local dev, prefer local media files over R2 URLs
+  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes('localhost') || BACKEND_URL.includes('127.0.0.1');
+  
+  if (!isLocalDev && asset.r2_url) return asset.r2_url;
+  
   const subdir = asset.asset_type === "image" ? "images" : "audio";
-  return `${BACKEND_URL}/media/projects/${projectId}/${subdir}/${asset.filename}`;
+  const localPath = `/media/projects/${projectId}/${subdir}/${asset.filename}`;
+  
+  // Use relative URL in local dev (goes through Vite proxy), absolute in production
+  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
 }
 
 /**
@@ -48,6 +65,43 @@ function resolveVideoUrl(project: Project): string | null {
   if (project.status !== "done") return null;
   if (project.r2_video_url) return project.r2_video_url;
   return `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`;
+}
+
+/**
+ * Extract audio filename from voiceover_path to handle reordering correctly.
+ * Returns filename like "scene_1.mp3" or null if not found.
+ * Handles Windows paths with mixed separators like "C:\...\projects/6/audio\scene_3.mp3"
+ */
+function extractAudioFilename(voiceoverPath: string | null): string | null {
+  if (!voiceoverPath) return null;
+  
+  // Split by both forward and backward slashes, find the part that matches scene_X.mp3
+  const pathParts = voiceoverPath.split(/[/\\]/);
+  const filename = pathParts.find(part => part.startsWith('scene_') && part.endsWith('.mp3'));
+  
+  return filename || null;
+}
+
+/**
+ * Resolve voiceover URL for a scene. When a scene is regenerated, a new audio Asset is created
+ * (same filename); we pick the latest by id and append ?v=assetId so the browser loads the new
+ * voiceover instead of serving cached old audio.
+ */
+function resolveVoiceoverUrl(
+  projectId: number,
+  audioFilename: string,
+  audioAssets: import("../api/client").Asset[]
+): string | null {
+  const matching = audioAssets.filter((a) => a.filename === audioFilename);
+  const latest = matching.length > 0 ? matching.sort((a, b) => b.id - a.id)[0] : null;
+  if (latest) {
+    const base = resolveAssetUrl(latest, projectId);
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}v=${latest.id}`;
+  }
+  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1");
+  const localPath = `/media/projects/${projectId}/audio/${audioFilename}`;
+  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
 }
 
 // ─── Audio Player Row ────────────────────────────────────────
@@ -65,14 +119,10 @@ function AudioRow({
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Find the matching audio asset for this scene (by filename pattern)
-  const matchingAudioAsset = audioAssets.find(
-    (a) => a.filename === `scene_${scene.order}.mp3`
-  );
-  const audioUrl = matchingAudioAsset
-    ? resolveAssetUrl(matchingAudioAsset, projectId)
-    : scene.voiceover_path
-    ? `${BACKEND_URL}/media/projects/${projectId}/audio/scene_${scene.order}.mp3`
+  // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL
+  const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
+  const audioUrl = scene.voiceover_path
+    ? resolveVoiceoverUrl(projectId, audioFilename, audioAssets)
     : null;
 
   useEffect(() => {
@@ -219,6 +269,10 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Upload-based project detection
+  const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
+  const PIPELINE_STEPS = isUploadProject ? PIPELINE_STEPS_UPLOAD : PIPELINE_STEPS_URL;
+
   // Pipeline state
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineStep, setPipelineStep] = useState(0);
@@ -271,12 +325,60 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const shareAnchorRef = useRef<HTMLDivElement>(null);
 
-  // Scenes tab: expanded scene detail
+  // Scenes tab: expanded scene detail, edit modal, drag reorder
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
+  const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
+  const [reorderSaving, setReorderSaving] = useState(false);
 
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
+
+  // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Fetch video as blob when project is done — ensures full load, no CORS
+  useEffect(() => {
+    if (project?.status !== "done" || !projectId) {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+        setVideoBlobUrl(null);
+      }
+      return;
+    }
+    let revoked = false;
+    setVideoLoading(true);
+    fetchVideoBlob(projectId)
+      .then((url) => {
+        if (!revoked) {
+          setVideoBlobUrl(url);
+        } else {
+          window.URL.revokeObjectURL(url);
+        }
+      })
+      .catch(() => {
+        if (!revoked) setVideoBlobUrl(null);
+      })
+      .finally(() => {
+        if (!revoked) setVideoLoading(false);
+      });
+    return () => {
+      revoked = true;
+    };
+  }, [project?.status, projectId]);
+
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+      }
+    };
+  }, [videoBlobUrl]);
 
   // Auto-download once render finishes (with retry in case R2 upload is still in progress)
   useEffect(() => {
@@ -338,6 +440,29 @@ export default function ProjectView() {
     const init = async () => {
       const proj = await loadProject();
       if (!proj || generationStarted.current) return;
+
+      // Check for pending document upload (from Dashboard upload flow)
+      const pendingFiles = getPendingUpload(projectId);
+      if (pendingFiles && pendingFiles.length > 0 && proj.status === "created") {
+        generationStarted.current = true;
+        setPipelineRunning(true);
+        setPipelineStep(1); // "Uploading" step
+        setError(null);
+        try {
+          await uploadProjectDocuments(projectId, pendingFiles);
+          // Reload project (status is now SCRAPED)
+          await loadProject();
+          // Now kick off the generation pipeline (starts at script step)
+          await startGeneration(projectId);
+          startPolling();
+        } catch (err: any) {
+          setError(
+            err?.response?.data?.detail || "Failed to upload documents."
+          );
+          setPipelineRunning(false);
+        }
+        return;
+      }
 
       const needsGeneration = ["created", "scraped", "scripted"].includes(
         proj.status
@@ -432,24 +557,10 @@ export default function ProjectView() {
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
 
-  // Resolution selection
-  const [selectedResolution, setSelectedResolution] = useState<string>("720p");
-  const [showResolutionMenu, setShowResolutionMenu] = useState(false);
-  const resMenuRef = useRef<HTMLDivElement>(null);
+  // Resolution is always 1080p
+  const RENDER_RESOLUTION = "1080p";
 
-  // Close resolution menu on outside click
-  useEffect(() => {
-    if (!showResolutionMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (resMenuRef.current && !resMenuRef.current.contains(e.target as Node)) {
-        setShowResolutionMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showResolutionMenu]);
-
-  const handleRender = async (resolution?: string) => {
+  const handleRender = async () => {
     // If already rendered and available in R2, skip straight to download
     if (project?.r2_video_url) {
       setRendered(true);
@@ -457,8 +568,7 @@ export default function ProjectView() {
       return;
     }
 
-    const res = resolution || selectedResolution;
-    setShowResolutionMenu(false);
+    const res = RENDER_RESOLUTION;
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
@@ -689,23 +799,113 @@ export default function ProjectView() {
     project.status
   );
 
-  // ─── Distribute blog images across scenes ────────────────
+  // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
   const activeImageAssets = imageAssets.filter((a) => !a.excluded);
   const sceneImageMap: Record<number, string[]> = {};
+  const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   if (project.scenes.length > 0 && activeImageAssets.length > 0) {
-    const heroUrl = resolveAssetUrl(activeImageAssets[0], project.id);
-    const remaining = activeImageAssets.slice(1);
-
     project.scenes.forEach((_, idx) => {
       sceneImageMap[idx] = [];
+      sceneImageAssetsMap[idx] = [];
     });
-    sceneImageMap[0].push(heroUrl);
 
-    remaining.forEach((asset, i) => {
-      const sceneIdx = i % project.scenes.length;
-      sceneImageMap[sceneIdx].push(resolveAssetUrl(asset, project.id));
+    // Build filename -> asset lookup
+    const filenameToAsset = new Map<string, typeof activeImageAssets[0]>();
+    activeImageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
+
+    const usedGenericFiles = new Set<string>();
+
+    // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+    // This ensures images move with their scenes when reordered, and scenes explicitly
+    // marked hideImage=true never get an auto-assigned generic image.
+    project.scenes.forEach((scene, idx) => {
+      let layoutProps: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          const descriptor = JSON.parse(scene.remotion_code);
+          layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+        } catch {
+          /* legacy */
+        }
+      }
+
+      const hideImage = Boolean((layoutProps as any).hideImage);
+      if (hideImage) {
+        // Skip auto-assignment for scenes with hideImage=true
+        return;
+      }
+
+      const assignedImage = layoutProps.assignedImage as string | undefined;
+      if (assignedImage && filenameToAsset.has(assignedImage)) {
+        const m = assignedImage.match(/^scene_(\d+)_/);
+        if (m) {
+          // Scene-specific assignment must match current scene id
+          const assignedSceneId = parseInt(m[1], 10);
+          if (assignedSceneId === scene.id) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx].push(url);
+            sceneImageAssetsMap[idx].push({ url, asset });
+            usedGenericFiles.add(assignedImage);
+          }
+        } else {
+          // Generic assignment: enforce 1 generic -> 1 scene
+          if (!usedGenericFiles.has(assignedImage)) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx].push(url);
+            sceneImageAssetsMap[idx].push({ url, asset });
+            usedGenericFiles.add(assignedImage);
+          }
+        }
+      }
     });
+
+    // 2) Second pass: Scene-specific images (overwrite stored assignments)
+    // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
+    const sceneSpecific: { sceneId: number; url: string; asset: (typeof activeImageAssets)[0] }[] = [];
+    const genericAssets: typeof activeImageAssets = [];
+    for (const asset of activeImageAssets) {
+      const match = asset.filename.match(/^scene_(\d+)_/);
+      if (match) {
+        const sceneId = parseInt(match[1], 10);
+        sceneSpecific.push({
+          sceneId,
+          url: resolveAssetUrl(asset, project.id),
+          asset,
+        });
+      } else {
+        genericAssets.push(asset);
+      }
+    }
+    // Apply scene-specific images (later uploads overwrite by same scene_id)
+    for (const { sceneId, url, asset } of sceneSpecific) {
+      const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
+      if (sceneIdx >= 0) {
+        // Overwrite any existing assignment
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+      }
+    }
+
+    // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
+    let genericIdx = 0;
+    for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
+      if (sceneImageMap[sceneIdx].length === 0) {
+        const candidate = genericAssets[genericIdx];
+        // Skip if already used in first pass
+        if (usedGenericFiles.has(candidate.filename)) {
+          genericIdx++;
+          continue;
+        }
+        const url = resolveAssetUrl(candidate, project.id);
+        sceneImageMap[sceneIdx].push(url);
+        sceneImageAssetsMap[sceneIdx].push({ url, asset: candidate });
+        usedGenericFiles.add(candidate.filename);
+        genericIdx++;
+      }
+    }
   }
 
   // Audio assets for R2 URL resolution
@@ -827,8 +1027,6 @@ export default function ProjectView() {
 
   // ─── Completed view (video preview + actions + chat) ──────
   const renderCompleted = () => {
-    const videoSrc = rendered ? resolveVideoUrl(project) : null;
-
     return (
       <div className="space-y-4">
         {/* ── Phase 1: Rendering progress ── */}
@@ -1018,113 +1216,35 @@ export default function ProjectView() {
 
                 {/* Download MP4 */}
                 {!rendered ? (
-                  <div className="relative" ref={resMenuRef}>
-                    <div className="flex">
-                      {/* Main download button — shows "Retry" after a failed render */}
-                      <button
-                        onClick={() => { setError(null); handleRender(); }}
-                        className={`px-4 py-1.5 text-white text-xs font-medium rounded-l-lg transition-colors flex items-center gap-1.5 ${
-                          error
-                            ? "bg-orange-500 hover:bg-orange-600"
-                            : "bg-purple-600 hover:bg-purple-700"
-                        }`}
-                      >
-                        <svg
-                          className="w-3.5 h-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d={error
-                              ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            }
-                          />
-                        </svg>
-                        {error ? "Resume Download" : `Download ${selectedResolution}`}
-                      </button>
-
-                      {/* Dropdown trigger */}
-                      <button
-                        onClick={() => setShowResolutionMenu(!showResolutionMenu)}
-                        className={`px-1.5 py-1.5 text-white rounded-r-lg border-l transition-colors ${
-                          error
-                            ? "bg-orange-500 hover:bg-orange-600 border-orange-400"
-                            : "bg-purple-600 hover:bg-purple-700 border-purple-500"
-                        }`}
-                      >
-                        <svg
-                          className={`w-3 h-3 transition-transform ${showResolutionMenu ? "rotate-180" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
-
-                    {/* Resolution dropdown */}
-                    {showResolutionMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200/60 py-1 z-50">
-                        {/* Format indicator */}
-                        <div className="px-3 py-1.5 border-b border-gray-100">
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                            {project.aspect_ratio === "portrait" ? "Portrait 9:16" : "Landscape 16:9"}
-                          </span>
-                        </div>
-                        {(project.aspect_ratio === "portrait" ? [
-                          { value: "480p", label: "480p", desc: "480×854 · Fast", locked: false },
-                          { value: "720p", label: "720p", desc: "720×1280 · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "1080×1920 · Full HD", locked: !isPro },
-                        ] : [
-                          { value: "480p", label: "480p", desc: "854×480 · Fast", locked: false },
-                          { value: "720p", label: "720p", desc: "1280×720 · HD", locked: false },
-                          { value: "1080p", label: "1080p", desc: "1920×1080 · Full HD", locked: !isPro },
-                        ]).map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              if (opt.locked) {
-                                setShowResolutionMenu(false);
-                                setShowUpgrade(true);
-                                return;
-                              }
-                              setSelectedResolution(opt.value);
-                              setShowResolutionMenu(false);
-                            }}
-                            className={`w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
-                              selectedResolution === opt.value ? "bg-purple-50" : ""
-                            }`}
-                          >
-                            <div>
-                              <span className={`text-xs font-medium ${
-                                selectedResolution === opt.value ? "text-purple-600" : "text-gray-900"
-                              }`}>
-                                {opt.label}
-                              </span>
-                              <p className="text-[10px] text-gray-400">{opt.desc}</p>
-                            </div>
-                            {opt.locked ? (
-                              <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                            ) : selectedResolution === opt.value ? (
-                              <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : null}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => { setError(null); handleRender(); }}
+                    className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                      error
+                        ? "bg-orange-500 hover:bg-orange-600"
+                        : "bg-purple-600 hover:bg-purple-700"
+                    }`}
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={error
+                          ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        }
+                      />
+                    </svg>
+                    {error ? "Resume Download" : "Download MP4"}
+                  </button>
                 ) : (
                   <>
+                    {/* Download MP4 */}
                     <button
                       onClick={handleDownload}
                       disabled={downloading}
@@ -1147,7 +1267,7 @@ export default function ProjectView() {
 
                     {/* Share button — inline next to Download */}
                     {project.r2_video_url && (
-                      <div className="relative">
+                      <div className="relative" ref={shareAnchorRef}>
                         <button
                           onClick={() => setShowShareMenu((v) => !v)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -1161,7 +1281,7 @@ export default function ProjectView() {
                         {showShareMenu && (
                           <>
                             <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 bottom-full mb-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1">
+                            <div className="absolute right-0 top-full mt-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex flex-col gap-2.5">
                               {/* TikTok */}
                               <button
                                 onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
@@ -1204,33 +1324,9 @@ export default function ProjectView() {
 
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
-              {/* Chat sidebar */}
-              <div className="w-[380px] flex-shrink-0 border-r border-gray-200/30">
-                <ChatPanel
-                  projectId={projectId}
-                  onScenesUpdated={loadProject}
-                />
-              </div>
-
-              {/* Video preview */}
+              {/* Video preview — always shows live preview when scenes exist */}
               <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
-                {videoSrc ? (
-                  <div className="flex-1 flex items-center justify-center p-6">
-                    <video
-                      key={videoSrc}
-                      controls
-                      className={`rounded-lg shadow-lg ${
-                        project.aspect_ratio === "portrait"
-                          ? "max-h-[70vh] max-w-[40vw]"
-                          : "max-w-full max-h-[60vh]"
-                      }`}
-                      style={{ background: "#000" }}
-                    >
-                      <source src={videoSrc} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>
-                ) : project.scenes.length > 0 ? (
+                {project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
                     <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
                       <VideoPreview project={project} />
@@ -1240,6 +1336,14 @@ export default function ProjectView() {
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
                     </p>
+                    {imageAssets.some((a) => /\.gif(\?.*)?$/i.test(a.filename)) && (
+                      <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        GIF images detected — animation may vary in the final render
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
@@ -1272,6 +1376,52 @@ export default function ProjectView() {
         onPurchased={() => loadProject()}
       />
 
+      {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
+      {showShareMenu && project?.r2_video_url && (
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
+          <div
+            className="fixed z-[9999] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1"
+            style={(() => {
+              const rect = shareAnchorRef.current?.getBoundingClientRect();
+              if (!rect) return {};
+              return { top: rect.top - 48, left: rect.right - 130 };
+            })()}
+          >
+            {/* TikTok */}
+            <button
+              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
+              title="Copy link for TikTok"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
+              </svg>
+            </button>
+            {/* YouTube */}
+            <button
+              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
+              title="Copy link for YouTube"
+            >
+              <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+              </svg>
+            </button>
+            {/* Facebook */}
+            <button
+              onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
+              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
+              title="Share on Facebook"
+            >
+              <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Upper area: loader when running, editor when complete */}
       {pipelineRunning ? (
         renderGenerationLoader()
@@ -1287,14 +1437,22 @@ export default function ProjectView() {
                 </h1>
                 <StatusBadge status={project.status} />
               </div>
-              <a
-                href={project.blog_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-gray-400 hover:text-purple-600 transition-colors"
-              >
-                {project.blog_url}
-              </a>
+              {project.blog_url && !project.blog_url.startsWith("upload://") ? (
+                <a
+                  href={project.blog_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-purple-600 transition-colors"
+                >
+                  {project.blog_url}
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400">
+                  {project.blog_url?.startsWith("upload://")
+                    ? "Created from uploaded documents"
+                    : ""}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -1354,177 +1512,275 @@ export default function ProjectView() {
                     {project.name}
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes --{" "}
-                    {imageAssets.length} images
+                    {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="relative">
+                  {reorderSaving && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-white/80 backdrop-blur-sm">
+                      <div className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
                   {project.scenes.map((scene, idx) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
-                    const matchingAudio = audioAssets.find(
-                      (a) => a.filename === `scene_${scene.order}.mp3`
-                    );
-                    const audioUrl = matchingAudio
-                      ? resolveAssetUrl(matchingAudio, project.id)
-                      : scene.voiceover_path
-                      ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
+                    // Use latest audio asset by id (regenerated scene = new asset) and cache-bust so new voiceover loads
+                    const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
+                    const audioUrl = scene.voiceover_path
+                      ? resolveVoiceoverUrl(project.id, audioFilename, audioAssets)
                       : null;
+                    const isDragging = draggedSceneId === scene.id;
+                    const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
-                      <div key={scene.id}>
-                        {/* Clickable scene header */}
-                        <button
-                          onClick={() =>
-                            setExpandedScene(isExpanded ? null : scene.id)
+                      <div
+                        key={scene.id}
+                        data-scene-row
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.dataTransfer.dropEffect = "move";
+                          setDragOverSceneId(scene.id);
+                        }}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setDragOverSceneId(null);
                           }
-                          className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                              {scene.order}
-                            </span>
-                            <h3 className="text-sm font-medium text-gray-900 flex-1">
-                              {scene.title}
-                            </h3>
-
-                            {/* Status pills */}
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  scene.remotion_code
-                                    ? "bg-green-50 text-green-600"
-                                    : "bg-gray-50 text-gray-300"
-                                }`}
-                              >
-                                Scene
-                              </span>
-                              {project.voice_gender !== "none" && (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                    scene.voiceover_path
-                                      ? "bg-green-50 text-green-600"
-                                      : "bg-gray-50 text-gray-300"
-                                  }`}
-                                >
-                                  Audio
-                                </span>
-                              )}
-                              <span className="text-[11px] text-gray-300 ml-1">
-                                {scene.duration_seconds}s
-                              </span>
-
-                              {/* Expand chevron */}
-                              <svg
-                                className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
-                                  isExpanded ? "rotate-180" : ""
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </button>
-
-                        {/* Expanded scene detail */}
-                        {isExpanded && (
-                          <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4">
-                            {/* Narration */}
-                            <div>
-                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                Narration
-                              </h4>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {scene.narration_text || (
-                                  <span className="italic text-gray-300">
-                                    No narration
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-
-                            {/* Visual Description */}
-                            <div>
-                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                Visual Description
-                              </h4>
-                              <p className="text-xs text-gray-500 italic leading-relaxed">
-                                {scene.visual_description || "—"}
-                              </p>
-                            </div>
-
-                            {/* Layout (from remotion_code JSON) */}
-                            {scene.remotion_code && (() => {
-                              try {
-                                const desc = JSON.parse(scene.remotion_code);
-                                return (
-                                  <div>
-                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                      Layout
-                                    </h4>
-                                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                      {desc.layout?.replace(/_/g, " ") || "text narration"}
-                                    </span>
-                                  </div>
-                                );
-                              } catch {
-                                return null;
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverSceneId(null);
+                          const sourceId = Number(e.dataTransfer.getData("text/plain"));
+                          if (!sourceId || sourceId === scene.id) return;
+                          const fromIdx = project.scenes.findIndex((s) => s.id === sourceId);
+                          const toIdx = project.scenes.findIndex((s) => s.id === scene.id);
+                          if (fromIdx < 0 || toIdx < 0) return;
+                          const reordered = [...project.scenes];
+                          const [removed] = reordered.splice(fromIdx, 1);
+                          reordered.splice(toIdx, 0, removed);
+                          setReorderSaving(true);
+                          reorderScenes(
+                            project.id,
+                            reordered.map((s, i) => ({ scene_id: s.id, order: i + 1 }))
+                          )
+                            .then(() => loadProject())
+                            .finally(() => setReorderSaving(false));
+                        }}
+                        className={`transition-all duration-150 ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${isDropTarget ? "ring-2 ring-purple-400 ring-inset rounded-lg" : ""}`}
+                      >
+                        <div className="flex items-stretch gap-0">
+                          {/* Drag handle — only this area starts the drag */}
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedSceneId(scene.id);
+                              e.dataTransfer.setData("text/plain", String(scene.id));
+                              e.dataTransfer.effectAllowed = "move";
+                              const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
+                              if (row) {
+                                const rect = row.getBoundingClientRect();
+                                e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
                               }
-                            })()}
+                            }}
+                            onDragEnd={() => {
+                              setDraggedSceneId(null);
+                              setDragOverSceneId(null);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
+                            title="Drag to reorder"
+                          >
+                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
+                            </svg>
+                          </div>
 
-                            {/* Audio player (inline) — hidden when no voiceover */}
-                            {project.voice_gender !== "none" && audioUrl && (
-                              <div>
-                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                  Audio
-                                </h4>
-                                <audio
-                                  controls
-                                  src={audioUrl}
-                                  preload="metadata"
-                                  className="w-full h-8"
-                                  style={{ maxWidth: 400 }}
-                                />
-                              </div>
-                            )}
+                          <div className="flex-1 min-w-0">
+                            {/* Clickable scene header */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedScene(isExpanded ? null : scene.id)
+                              }
+                              className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-r-lg border"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  {scene.order}
+                                </span>
+                                <h3 className="text-sm font-medium text-gray-900 flex-1 truncate">
+                                  {scene.title}
+                                </h3>
 
-                            {/* Scene images */}
-                            {sceneImages.length > 0 && (
-                              <div>
-                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                  Images ({sceneImages.length})
-                                </h4>
-                                <div className="flex gap-2 overflow-x-auto pb-1">
-                                  {sceneImages.map((src, i) => (
-                                    <img
-                                      key={i}
-                                      src={src}
-                                      alt={`Scene ${scene.order} image ${i + 1}`}
-                                      className="h-24 w-auto rounded-lg object-cover border border-gray-200/40 flex-shrink-0"
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = "none";
-                                      }}
+                                {/* Edit icon — opens modal */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSceneEditModal(scene);
+                                  }}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                  title="Edit scene"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+
+                                {/* Status pills */}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                      scene.remotion_code
+                                        ? "bg-green-50 text-green-600"
+                                        : "bg-gray-50 text-gray-300"
+                                    }`}
+                                  >
+                                    Scene
+                                  </span>
+                                  {project.voice_gender !== "none" && (
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                        scene.voiceover_path
+                                          ? "bg-green-50 text-green-600"
+                                          : "bg-gray-50 text-gray-300"
+                                      }`}
+                                    >
+                                      Audio
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] text-gray-300 ml-1">
+                                    {scene.duration_seconds}s
+                                  </span>
+
+                                  {/* Expand chevron */}
+                                  <svg
+                                    className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
+                                      isExpanded ? "rotate-180" : ""
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
                                     />
-                                  ))}
+                                  </svg>
                                 </div>
                               </div>
+                            </button>
+
+                            {/* Expanded scene detail */}
+                            {isExpanded && (
+                              <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
+                                {/* Narration */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Display text
+                                  </h4>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {scene.narration_text || (
+                                      <span className="italic text-gray-300">
+                                        No narration
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+
+                                {/* Visual Description */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Visual Description
+                                  </h4>
+                                  <p className="text-xs text-gray-500 italic leading-relaxed">
+                                    {scene.visual_description || "—"}
+                                  </p>
+                                </div>
+
+                                {/* Layout (from remotion_code JSON) */}
+                                {scene.remotion_code && (() => {
+                                  try {
+                                    const desc = JSON.parse(scene.remotion_code);
+                                    return (
+                                      <div>
+                                        <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                          Layout
+                                        </h4>
+                                        <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                                          {desc.layout?.replace(/_/g, " ") || "text narration"}
+                                        </span>
+                                      </div>
+                                    );
+                                  } catch {
+                                    return null;
+                                  }
+                                })()}
+
+                                {/* Audio player (inline) — hidden when no voiceover */}
+                                {project.voice_gender !== "none" && audioUrl && (
+                                  <div>
+                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                      Audio
+                                    </h4>
+                                    <audio
+                                      controls
+                                      src={audioUrl}
+                                      preload="metadata"
+                                      className="w-full h-8"
+                                      style={{ maxWidth: 400 }}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Scene images */}
+                                {sceneImages.length > 0 && (
+                                  <div>
+                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                      Images ({sceneImages.length})
+                                    </h4>
+                                    <div className="flex gap-2 overflow-x-auto pb-1">
+                                      {sceneImages.map((src, i) => (
+                                        <img
+                                          key={i}
+                                          src={src}
+                                          alt={`Scene ${scene.order} image ${i + 1}`}
+                                          className="h-24 w-auto rounded-lg object-cover border border-gray-200/40 flex-shrink-0"
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = "none";
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+                </div>
+
+                {/* Scene edit modal */}
+                {sceneEditModal && (
+                  <SceneEditModal
+                    open={!!sceneEditModal}
+                    onClose={() => setSceneEditModal(null)}
+                    scene={sceneEditModal}
+                    project={project}
+                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+                    onSaved={loadProject}
+                  />
+                )}
               </div>
             )}
           </div>
