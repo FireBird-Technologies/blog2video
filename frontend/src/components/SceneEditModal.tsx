@@ -222,86 +222,80 @@ export default function SceneEditModal({
           </div>
 
           {/* Description — AI only */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Description of editing
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={manualOnly}
-              placeholder="Describe how you want this scene to be..."
-              rows={3}
-              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none ${
-                manualOnly
-                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                  : "border-gray-300"
-              }`}
-            />
-          </div>
+          {editMode === "ai" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Description of editing
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe how you want this scene to be..."
+                rows={3}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+            </div>
+          )}
 
           {/* Layout — AI only */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Layout
-            </label>
-            <select
-              value={selectedLayout}
-              onChange={(e) => setSelectedLayout(e.target.value)}
-              disabled={manualOnly}
-              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                manualOnly
-                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                  : "border-gray-300"
-              }`}
-            >
-              <option value="">Auto (Let AI choose)</option>
-              {layouts?.layouts.map((layoutId) => (
-                <option key={layoutId} value={layoutId}>
-                  {layouts.layout_names[layoutId] || layoutId}
-                </option>
-              ))}
-            </select>
-          </div>
+          {editMode === "ai" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Layout
+              </label>
+              <select
+                value={selectedLayout}
+                onChange={(e) => setSelectedLayout(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">Auto (Let AI choose)</option>
+                {layouts?.layouts.map((layoutId) => (
+                  <option key={layoutId} value={layoutId}>
+                    {layouts.layout_names[layoutId] || layoutId}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Images — AI only; each with remove (X), plus add new */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Images
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {imageItems.map(({ url, asset }) => (
-                <div
-                  key={asset.id}
-                  className="relative group rounded-lg overflow-hidden border border-gray-200 flex-shrink-0"
-                >
-                  <img
-                    src={url}
-                    alt=""
-                    className="h-20 w-auto object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(asset.id)}
-                    disabled={manualOnly || removingAssetId === asset.id}
-                    className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+          {editMode === "ai" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Images
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {imageItems.map(({ url, asset }) => (
+                  <div
+                    key={asset.id}
+                    className="relative group rounded-lg overflow-hidden border border-gray-200 flex-shrink-0"
                   >
-                    {removingAssetId === asset.id ? (
-                      <span className="text-[10px]">…</span>
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
-            {!manualOnly && (
+                    <img
+                      src={url}
+                      alt=""
+                      className="h-20 w-auto object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(asset.id)}
+                      disabled={removingAssetId === asset.id}
+                      className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                    >
+                      {removingAssetId === asset.id ? (
+                        <span className="text-[10px]">…</span>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
               <div className="mt-2">
                 <label className="block text-[11px] text-gray-500 mb-1">Add image (optional)</label>
                 <input
@@ -314,8 +308,8 @@ export default function SceneEditModal({
                   <p className="mt-1 text-xs text-gray-500">New: {selectedImageFile.name}</p>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">

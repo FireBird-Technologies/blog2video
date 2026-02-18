@@ -15,7 +15,7 @@ from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing
+from app.routers import projects, pipeline, chat, auth, billing, contact
 
 
 # ─── Scheduled cleanup for stale data (free + paid tiers) ────
@@ -255,6 +255,7 @@ app.include_router(billing.router)
 app.include_router(projects.router)
 app.include_router(pipeline.router)
 app.include_router(chat.router)
+app.include_router(contact.router)
 
 
 @app.get("/api/health")
