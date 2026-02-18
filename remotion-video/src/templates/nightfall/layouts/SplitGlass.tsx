@@ -88,7 +88,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          padding: p ? "20px 35px" : "30px 60px",
+          padding: p ? "30px 50px" : "40px 80px",
         }}
       >
         {/* Title */}
