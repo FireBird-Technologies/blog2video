@@ -1,8 +1,11 @@
 import os
 import json
 import asyncio
+import logging
 import traceback
 import requests
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
@@ -34,6 +37,7 @@ from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.services.template_service import validate_template_id
+from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 
@@ -268,6 +272,22 @@ async def _generate_scenes(project: Project, db: Session):
     project.status = ProjectStatus.GENERATED
     db.commit()
     db.refresh(project)
+
+    # Notify the user that their video is ready to preview
+    try:
+        user = db.query(User).filter(User.id == project.user_id).first()
+        if user:
+            project_url = f"{settings.FRONTEND_URL}/projects/{project.id}"
+            email_service.send_preview_ready_email(
+                user_email=user.email,
+                user_name=user.name,
+                project_name=project.name,
+                project_url=project_url,
+            )
+    except EmailServiceError as e:
+        logger.error(f"[PIPELINE] Preview-ready email failed for project {project.id}: {e}")
+    except Exception as e:
+        logger.error(f"[PIPELINE] Unexpected error sending preview email for project {project.id}: {e}", exc_info=True)
 
 
 # ─── Legacy individual endpoints (kept for compatibility) ────
