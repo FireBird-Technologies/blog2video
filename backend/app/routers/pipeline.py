@@ -225,8 +225,7 @@ async def _generate_scenes(project: Project, db: Session):
             scene.voiceover_path = None
         db.commit()
     else:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
+        await generate_all_voiceovers(scenes, db)
 
     # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
     db.expire(project)

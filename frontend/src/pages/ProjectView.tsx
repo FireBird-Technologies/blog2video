@@ -1529,10 +1529,10 @@ export default function ProjectView() {
                               setDragOverSceneId(null);
                             }}
                             onMouseDown={(e) => e.stopPropagation()}
-                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 cursor-grab active:cursor-grabbing hover:bg-gray-100 select-none touch-none"
+                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
                             title="Drag to reorder"
                           >
-                            <svg className="w-5 h-5 text-gray-500 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
                             </svg>
                           </div>
@@ -1621,7 +1621,7 @@ export default function ProjectView() {
                                 {/* Narration */}
                                 <div>
                                   <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                    Narration
+                                    Display text
                                   </h4>
                                   <p className="text-sm text-gray-700 leading-relaxed">
                                     {scene.narration_text || (
