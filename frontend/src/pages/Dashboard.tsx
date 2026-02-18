@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listProjects,
   createProject,
+  createProjectFromDocs,
   deleteProject,
   createCheckoutSession,
   createPortalSession,
@@ -63,24 +64,21 @@ export default function Dashboard() {
       let res;
 
       if (uploadFiles && uploadFiles.length > 0) {
-        // Document upload flow – create project via JSON (fast), then
-        // navigate immediately.  Files are uploaded on the project page.
-        res = await createProject(
-          "upload://documents",
+        // Document upload flow – use FormData endpoint to send files + config together
+        res = await createProjectFromDocs(uploadFiles, {
           name,
-          voiceGender,
-          voiceAccent,
-          accentColor,
-          bgColor,
-          textColor,
-          animationInstructions,
-          logoPosition,
-          logoOpacity,
-          customVoiceId,
-          aspectRatio
-        );
-        // Stash files so ProjectView can upload them during step 1
-        setPendingUpload(res.data.id, uploadFiles);
+          voice_gender: voiceGender,
+          voice_accent: voiceAccent,
+          accent_color: accentColor,
+          bg_color: bgColor,
+          text_color: textColor,
+          animation_instructions: animationInstructions,
+          logo_position: logoPosition,
+          logo_opacity: logoOpacity,
+          custom_voice_id: customVoiceId,
+          aspect_ratio: aspectRatio,
+          template,
+        });
       } else {
         // URL flow
         res = await createProject(

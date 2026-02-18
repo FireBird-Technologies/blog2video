@@ -100,7 +100,8 @@ export default function BlogUrlForm({
         logoOpacity,
         customVoiceId.trim() || undefined,
         aspectRatio,
-        docFiles
+        docFiles,
+        template !== "default" ? template : undefined
       );
       setDocFiles([]);
       setName("");

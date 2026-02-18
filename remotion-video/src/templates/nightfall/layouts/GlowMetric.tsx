@@ -186,12 +186,12 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
             {title && (
               <h3
                 style={{
-                  fontSize: p ? 20 : 24,
+                  fontSize: p ? 28 : 36,
                   fontWeight: 600,
                   color: textColor,
                   opacity: 0.8,
-                  fontFamily: "Inter, system-ui, sans-serif",
-                  marginBottom: 32,
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  marginBottom: p ? 48 : 56,
                   textAlign: "center",
                   letterSpacing: "0.02em",
                 }}
@@ -249,23 +249,24 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
               {/* Number */}
               <div
                 style={{
-                  fontSize: p ? 72 : 96,
+                  fontSize: p ? 40 : 50,
                   fontWeight: 800,
                   color: textColor,
-                  fontFamily: "Inter, system-ui, sans-serif",
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                   textAlign: "center",
                   lineHeight: 1,
                   transform: `scale(${primaryScale})`,
-                  textShadow: `0 0 30px ${accentColor}40`,
+                  textShadow: `0 0 20px ${accentColor}35`,
                   position: "relative",
                   zIndex: 1,
+                  letterSpacing: "-0.02em",
                 }}
               >
                 {formatNumber(animatedNum)}
                 <span
                   style={{
                     color: accentColor,
-                    fontSize: p ? 48 : 60,
+                    fontSize: p ? 36 : 45,
                     marginLeft: 4,
                   }}
                 >
@@ -277,14 +278,13 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
               {metrics[0].label && (
                 <p
                   style={{
-                    fontSize: p ? 16 : 18,
-                    color: textColor,
-                    opacity: 0.7,
-                    fontFamily: "Inter, system-ui, sans-serif",
-                    marginTop: 20,
+                    fontSize: p ? 18 : 20,
+                    color: "rgba(226,232,240,0.45)",
+                    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                    marginTop: 18,
                     textAlign: "center",
-                    fontWeight: 500,
-                    letterSpacing: "0.03em",
+                    fontWeight: 400,
+                    letterSpacing: "0.08em",
                     textTransform: "uppercase",
                   }}
                 >
@@ -331,42 +331,42 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                       transform: `translateY(${(1 - secondaryY) * 20}px)`,
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: p ? 36 : 44,
-                        fontWeight: 700,
-                        color: accentColor,
-                        fontFamily: "Inter, system-ui, sans-serif",
-                        lineHeight: 1,
-                      }}
-                    >
-                      {m.value}
-                      {m.suffix && (
-                        <span
-                          style={{
-                            fontSize: p ? 20 : 24,
-                            opacity: 0.8,
-                            marginLeft: 2,
-                          }}
-                        >
-                          {m.suffix}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: p ? 13 : 14,
-                        color: textColor,
-                        opacity: 0.6,
-                        fontFamily: "Inter, system-ui, sans-serif",
-                        marginTop: 8,
-                        fontWeight: 500,
-                        letterSpacing: "0.02em",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {m.label}
-                    </div>
+                      <div
+                        style={{
+                          fontSize: p ? 36 : 44,
+                          fontWeight: 700,
+                          color: accentColor,
+                          fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {m.value}
+                        {m.suffix && (
+                          <span
+                            style={{
+                              fontSize: p ? 20 : 24,
+                              opacity: 0.8,
+                              marginLeft: 2,
+                            }}
+                          >
+                            {m.suffix}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: p ? 13 : 14,
+                          color: textColor,
+                          opacity: 0.6,
+                          fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                          marginTop: 8,
+                          fontWeight: 500,
+                          letterSpacing: "0.02em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {m.label}
+                      </div>
                   </div>
                 );
               })}

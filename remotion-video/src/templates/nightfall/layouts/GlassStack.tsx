@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
@@ -19,6 +19,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
   title,
   items = [],
   narration,
+  imageUrl,
   accentColor,
   textColor,
   aspectRatio,
@@ -45,6 +46,22 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
+  // Image animation
+  const imageOpacity = interpolate(
+    frame,
+    [20, 45],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
+
+  const imageScale = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
+
+  const hasImage = !!imageUrl;
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground />
@@ -54,44 +71,55 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: "column",
+          flexDirection: p ? "column" : hasImage ? "row" : "column",
           alignItems: "center",
           justifyContent: "center",
           padding: p ? 50 : 100,
-          gap: p ? 20 : 28,
+          gap: p ? 20 : hasImage ? 40 : 28,
         }}
       >
-        {/* Title */}
-        {title && (
-          <h2
-            style={{
-              fontSize: p ? 32 : 42,
-              fontWeight: 700,
-              color: textColor,
-              fontFamily: "Inter, system-ui, sans-serif",
-              marginBottom: p ? 20 : 28,
-              opacity: titleOpacity,
-              transform: `translateY(${(1 - titleY) * 30}px)`,
-              textAlign: "center",
-              letterSpacing: "-0.01em",
-              textShadow: `0 2px 12px ${accentColor}30`,
-            }}
-          >
-            {title}
-          </h2>
-        )}
-
-        {/* Stacked Cards */}
+        {/* Left Side - Title and Stacked Cards */}
         <div
           style={{
-            position: "relative",
-            width: "100%",
+            flex: hasImage && !p ? "0 0 55%" : "none",
+            width: hasImage && !p ? "auto" : "100%",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: p ? 16 : 20,
+            justifyContent: "center",
           }}
         >
+          {/* Title */}
+          {title && (
+            <h2
+              style={{
+                fontSize: p ? 34 : 42,
+                fontWeight: 600,
+                color: textColor,
+                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                marginBottom: p ? 20 : 28,
+                opacity: titleOpacity,
+                transform: `translateY(${(1 - titleY) * 30}px)`,
+                textAlign: "center",
+                letterSpacing: "-0.01em",
+                textShadow: `0 2px 12px ${accentColor}30`,
+              }}
+            >
+              {title}
+            </h2>
+          )}
+
+          {/* Stacked Cards */}
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 0,
+            }}
+          >
           {displayItems.map((item, i) => {
             const delay = 20 + i * 12;
             
@@ -109,40 +137,29 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
               { extrapolateRight: "clamp" }
             );
 
-            // Parallax offset — deeper cards move slower
-            const parallaxOffset = (displayItems.length - i - 1) * (p ? 12 : 18);
+            // Parallax offset — cards move to the right as they go down
+            const parallaxOffset = i * (p ? 12 : 18);
             
             // Depth shadow — deeper cards have more shadow
             const shadowIntensity = 0.2 + (displayItems.length - i) * 0.1;
+
+            // Overlap amount - each card overlaps the one below by this amount (reduced)
+            const overlapAmount = p ? -5 : -6;
 
             return (
               <div
                 key={i}
                 style={{
-                  width: p ? "92%" : "60%",
-                  maxWidth: 750,
+                  width: p ? "98%" : "80%",
+                  maxWidth: 1000,
                   position: "relative",
                   marginLeft: parallaxOffset,
+                  marginTop: i > 0 ? overlapAmount : 0,
                   opacity: cardOpacity,
                   transform: `translateY(${(1 - cardY) * 60}px)`,
-                  zIndex: displayItems.length - i,
+                  zIndex: i + 1, // Reverse z-index: bottom cards on top
                 }}
               >
-                {/* Connecting line to previous card */}
-                {i > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: p ? -12 : -14,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 2,
-                      height: p ? 16 : 20,
-                      background: `linear-gradient(180deg, ${accentColor}40, ${accentColor}10)`,
-                      opacity: cardOpacity,
-                    }}
-                  />
-                )}
 
                 {/* Card */}
                 <div
@@ -174,7 +191,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
                       fontSize: p ? 16 : 18,
                       fontWeight: 700,
                       color: accentColor,
-                      fontFamily: "Inter, system-ui, sans-serif",
+                      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                       boxShadow: `0 0 20px ${accentColor}30`,
                     }}
                   >
@@ -184,11 +201,11 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
                   {/* Content */}
                   <p
                     style={{
-                      fontSize: p ? 20 : 26,
-                      fontWeight: 600,
-                      color: textColor,
-                      fontFamily: "Inter, system-ui, sans-serif",
-                      lineHeight: 1.55,
+                      fontSize: p ? 26 : 30,
+                      fontWeight: 400,
+                      color: "rgba(226,232,240,0.85)",
+                      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                      lineHeight: 1.5,
                       paddingLeft: p ? 48 : 60,
                       opacity: 0.95,
                     }}
@@ -212,7 +229,45 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
+
+        {/* Right Side - Image */}
+        {hasImage && (
+          <div
+            style={{
+              flex: p ? "none" : "0 0 40%",
+              width: p ? "100%" : "auto",
+              height: p ? 200 : 400,
+              position: "relative",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              borderRadius: 12,
+              overflow: "hidden",
+              marginTop: p ? 20 : 0,
+            }}
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                borderRadius: 12,
+                border: `1px solid ${accentColor}30`,
+              }}
+            />
+            {/* Image glow overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 50%)`,
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        )}
       </div>
     </AbsoluteFill>
   );

@@ -232,7 +232,10 @@ async def _generate_scenes(project: Project, db: Session):
     scenes = project.scenes
 
     # Step 2: Generate layout descriptors with TemplateSceneGenerator
-    template_id = validate_template_id(getattr(project, "template", "default"))
+    # Ensure template is read from database (refresh if needed)
+    db.refresh(project)
+    template_id = validate_template_id(project.template if project.template else "default")
+    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
     scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"

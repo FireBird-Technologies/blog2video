@@ -167,10 +167,10 @@ export const LineChart: React.FC<LineChartProps> = ({
                   {pointOpacity > 0.5 && (
                     <text
                       x={point.x}
-                      y={point.y - 12}
+                      y={point.y - 14}
                       fill={textColor}
-                      fontSize={11}
-                      fontWeight={600}
+                      fontSize={18}
+                      fontWeight={700}
                       textAnchor="middle"
                       opacity={pointOpacity}
                     >
@@ -185,9 +185,9 @@ export const LineChart: React.FC<LineChartProps> = ({
             {dataset.label && (
               <text
                 x={width - padding - 10}
-                y={padding + datasetIdx * 20 + 15}
+                y={padding + datasetIdx * 24 + 15}
                 fill={color}
-                fontSize={12}
+                fontSize={18}
                 fontWeight={600}
                 textAnchor="end"
                 opacity={interpolate(
@@ -211,9 +211,10 @@ export const LineChart: React.FC<LineChartProps> = ({
           <text
             key={i}
             x={x}
-            y={padding + chartHeight + 20}
+            y={padding + chartHeight + 24}
             fill={textColor}
-            fontSize={11}
+            fontSize={18}
+            fontWeight={500}
             textAnchor="middle"
             opacity={interpolate(
               frame,

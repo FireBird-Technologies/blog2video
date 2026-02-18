@@ -115,10 +115,10 @@ export const BarChart: React.FC<BarChartProps> = ({
             {animatedHeight > 30 && (
               <text
                 x={x + barW / 2}
-                y={padding + chartHeight - animatedHeight - 8}
+                y={padding + chartHeight - animatedHeight - 10}
                 fill={textColor}
-                fontSize={14}
-                fontWeight={600}
+                fontSize={20}
+                fontWeight={700}
                 textAnchor="middle"
                 opacity={interpolate(
                   frame,
@@ -133,9 +133,10 @@ export const BarChart: React.FC<BarChartProps> = ({
             {/* X-axis label */}
             <text
               x={x + barW / 2}
-              y={padding + chartHeight + 20}
+              y={padding + chartHeight + 24}
               fill={textColor}
-              fontSize={12}
+              fontSize={18}
+              fontWeight={500}
               textAnchor="middle"
               opacity={interpolate(
                 frame,

@@ -111,7 +111,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             position: "absolute",
-            width: p ? "95%" : hasImage ? "90%" : "68%",
+            width: p ? "95%" : hasImage ? "95%" : "75%",
             maxWidth: hasImage ? 1200 : 950,
             height: p ? 400 : 500,
             background: `radial-gradient(ellipse at center, ${accentColor}15 0%, transparent 70%)`,
@@ -124,7 +124,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             ...glassCardStyle(accentColor, 0.1),
-            width: p ? "95%" : hasImage ? "90%" : "68%",
+            width: p ? "95%" : hasImage ? "95%" : "75%",
             maxWidth: hasImage ? 1200 : 950,
             padding: p ? 44 : 64,
             transform: `translateY(${(1 - cardY) * 50 + floatY}px)`,
@@ -201,10 +201,10 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             {/* Title */}
             <h2
               style={{
-                fontSize: p ? 32 : 40,
+                fontSize: p ? 36 : 46,
                 fontWeight: 700,
                 color: textColor,
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                 marginBottom: 28,
                 lineHeight: 1.25,
                 letterSpacing: "-0.01em",
@@ -220,40 +220,73 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
               style={{
                 opacity: narrationOpacity,
                 transform: `translateY(${narrationY}px)`,
+                fontSize: 25,
+                lineHeight: 1.8,
+                color: "rgba(226,232,240,0.8)",
+                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               }}
             >
               {paragraphs.length > 1 ? (
-                // Multiple paragraphs
-                paragraphs.map((para, i) => (
-                  <p
-                    key={i}
-                    style={{
-                      fontSize: p ? 20 : 26,
-                      color: textColor,
-                      opacity: 0.92,
-                      fontFamily: "Inter, system-ui, sans-serif",
-                      lineHeight: 1.7,
-                      marginBottom: i < paragraphs.length - 1 ? 20 : 0,
-                      fontWeight: 400,
-                    }}
-                  >
-                    {para}
-                  </p>
-                ))
+                // Multiple paragraphs with drop cap on first paragraph
+                paragraphs.map((para, i) => {
+                  const firstLetter = i === 0 ? para[0] : null;
+                  const rest = i === 0 ? para.slice(1) : para;
+                  return (
+                    <p
+                      key={i}
+                      style={{
+                        marginBottom: i < paragraphs.length - 1 ? 20 : 0,
+                      }}
+                    >
+                      {firstLetter && (
+                        <span
+                          style={{
+                            float: "left",
+                            fontSize: p ? 120 : 140,
+                            lineHeight: 0.85,
+                            fontFamily: "'Playfair Display', Georgia, serif",
+                            color: accentColor,
+                            fontWeight: 700,
+                            marginRight: 12,
+                            marginTop: p ? 4 : 8,
+                            textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                            filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                          }}
+                        >
+                          {firstLetter}
+                        </span>
+                      )}
+                      {rest}
+                    </p>
+                  );
+                })
               ) : (
-                // Single paragraph
-                <p
-                  style={{
-                    fontSize: p ? 20 : 26,
-                    color: textColor,
-                    opacity: 0.92,
-                    fontFamily: "Inter, system-ui, sans-serif",
-                    lineHeight: 1.7,
-                    fontWeight: 400,
-                  }}
-                >
-                  {narration}
-                </p>
+                // Single paragraph with drop cap
+                (() => {
+                  const firstLetter = narration[0];
+                  const rest = narration.slice(1);
+                  return (
+                    <p>
+                      <span
+                        style={{
+                          float: "left",
+                          fontSize: p ? 120 : 140,
+                          lineHeight: 0.85,
+                          fontFamily: "'Playfair Display', Georgia, serif",
+                          color: accentColor,
+                          fontWeight: 700,
+                          marginRight: 12,
+                          marginBottom: 4,
+                          textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                          filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                        }}
+                      >
+                        {firstLetter}
+                      </span>
+                      {rest}
+                    </p>
+                  );
+                })()
               )}
             </div>
           </div>
