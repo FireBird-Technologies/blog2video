@@ -10,36 +10,61 @@ export type GridcraftLayoutType =
   | "pull_quote"
   | "bento_steps";
 
+export interface DataPoint {
+  label: string;
+  value?: string;
+  trend?: "up" | "down" | "neutral" | string;
+  icon?: string;
+  title?: string; // For features/compare
+  description?: string; // For features/compare
+  [key: string]: any;
+}
+
 export interface GridcraftLayoutProps {
   title: string;
+  subtitle?: string;
   narration: string;
   imageUrl?: string;
   accentColor: string;
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
-  // bento_features
+
+  // Shared data points (used by KPI, Steps)
+  dataPoints?: DataPoint[];
+
+  // Bento Features
   features?: { icon: string; label: string; description: string }[];
   highlightIndex?: number;
-  // bento_highlight
-  mainPoint?: string;
-  supportingFacts?: string[];
-  // kpi_grid
-  dataPoints?: { label: string; value: string; trend?: string }[];
-  // bento_compare
+
+  // Bento Code
+  codeSnippet?: string;
+  codeLines?: string[];
+  codeLanguage?: string;
+
+  // Bento Compare
   leftLabel?: string;
   rightLabel?: string;
   leftDescription?: string;
   rightDescription?: string;
   verdict?: string;
-  // bento_code
-  codeLines?: string[];
-  codeLanguage?: string;
-  description?: string;
-  // pull_quote
+
+  // Bento Highlight
+  mainPoint?: string;
+  supportingFacts?: string[];
+
+  // Pull Quote
   quote?: string;
   attribution?: string;
   highlightPhrase?: string;
-  // bento_steps
+
+  // Bento Steps
   steps?: { label: string; description?: string }[];
+
+  // General
+  version?: string;
+
+  // Bento Hero - category/icon for small cells
+  category?: string; // e.g. "Featured", "Census"
+  icon?: string; // emoji or short text for icon cell
 }

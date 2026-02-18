@@ -6,9 +6,11 @@ import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
   subtitle,
+  narration,
   accentColor,
   textColor,
-  version,
+  category,
+  icon,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -29,6 +31,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
 
   const scale3 = interpolate(spr(10), [0, 1], [0.9, 1]);
   const opacity3 = interpolate(spr(10), [0, 1], [0, 1]);
+
+  // Dynamic content: category tag from layoutProps, or first word of title, or "Featured"
+  const categoryTag = (category ?? (title ? title.split(/\s+/)[0]?.slice(0, 14) : "Featured")) || "Featured";
+  const iconContent = icon ?? categoryTag;
+  const tagline = subtitle || narration || "";
 
   return (
     <div
@@ -67,7 +74,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
             fontWeight: 500,
           }}
         >
-          Template System
+          {categoryTag}
         </div>
         <div
           style={{
@@ -80,28 +87,26 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         >
           {title || "Gridcraft"}
         </div>
-         {subtitle && (
-            <div style={{ fontSize: 20, opacity: 0.9, fontWeight: 400 }}>
-             {subtitle}
-            </div>
-         )}
       </div>
 
-      {/* Icon/Graphic Cell */}
+      {/* Icon/Category Cell - dynamic text (no hardcoded emoji) */}
       <div
         style={{
           ...glass(false),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          padding: 24,
           transform: `scale(${scale2})`,
           opacity: opacity2,
         }}
       >
-        <div style={{ fontSize: 80 }}>🎨</div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
+          {iconContent}
+        </div>
       </div>
 
-      {/* Version/Meta Cell */}
+      {/* Tagline/Subtitle Cell - narration or subtitle, no static "Version 1.0" */}
       <div
         style={{
           ...glass(false),
@@ -113,8 +118,14 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           opacity: opacity3,
         }}
       >
-        <div style={{ fontSize: 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em" }}>Version</div>
-        <div style={{ fontSize: 32, fontWeight: 700, color: textColor || COLORS.DARK }}>{version || "1.0"}</div>
+        {tagline ? (
+          <>
+            <div style={{ fontSize: 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Tagline</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
+          </>
+        ) : (
+          <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.MUTED, fontStyle: "italic" }}>Add a tagline</div>
+        )}
       </div>
     </div>
   );
