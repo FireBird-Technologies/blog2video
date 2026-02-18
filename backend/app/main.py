@@ -277,3 +277,36 @@ def list_templates():
     """Return available video templates (from TemplateService)."""
     from app.services.template_service import list_templates as _list_templates
     return _list_templates()
+
+
+@app.get("/api/voices/previews")
+async def get_voice_previews():
+    """Return preview audio URLs for each supported voice option."""
+    from app.services.voiceover import VOICE_MAP
+    from elevenlabs import ElevenLabs
+
+    if not settings.ELEVENLABS_API_KEY:
+        return {}
+
+    try:
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        voices_response = client.voices.get_all()
+        voice_lookup = {v.voice_id: v for v in voices_response.voices}
+
+        result = {}
+        for (gender, accent), voice_id in VOICE_MAP.items():
+            key = f"{gender}_{accent}"
+            voice = voice_lookup.get(voice_id)
+            labels = (voice.labels or {}) if voice else {}
+            result[key] = {
+                "voice_id": voice_id,
+                "name": voice.name if voice else f"{gender.title()} {accent.title()}",
+                "preview_url": voice.preview_url if voice else None,
+                "description": labels.get("description", ""),
+                "gender": gender,
+                "accent": accent,
+            }
+        return result
+    except Exception as e:
+        print(f"[VOICES] Failed to fetch previews: {e}")
+        return {}
