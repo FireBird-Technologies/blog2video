@@ -58,7 +58,9 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Email (Resend)
     RESEND_API_KEY: str = ""
+
     class Config:
         env_file = ".env"
 

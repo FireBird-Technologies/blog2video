@@ -24,10 +24,11 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
 
   const scenes = useMemo((): SceneInput[] => {
     const resolveUrl = (asset: {
+      id?: number;
       r2_url: string | null;
       filename: string;
       asset_type: string;
-    }) => {
+    }, cacheBuster?: string) => {
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
@@ -37,14 +38,15 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
+      let base: string;
       if (isLocalDev) {
-        // Use relative URL - Vite proxy will forward to backend
-        return localPath;
+        base = localPath;
+      } else {
+        base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
-      
-      // Production: prefer R2 URL if available, fallback to backend URL
-      if (asset.r2_url) return asset.r2_url;
-      return `${BACKEND_URL}${localPath}`;
+      // Cache-bust so regenerated voiceovers (new asset id) load fresh instead of browser cache
+      const suffix = cacheBuster ? (base.includes("?") ? `&v=${cacheBuster}` : `?v=${cacheBuster}`) : "";
+      return base + suffix;
     };
 
     const imageAssets = project.assets
@@ -176,19 +178,21 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
       if (scene.voiceover_path) {
         // Extract filename from voiceover_path (handles Windows paths with mixed separators)
         // Path format: "C:\...\audio\scene_X.mp3" or ".../audio/scene_X.mp3"
-        // Split by both forward and backward slashes, get the last part
         const pathParts = scene.voiceover_path.split(/[/\\]/);
         const filename = pathParts.find(part => part.startsWith('scene_') && part.endsWith('.mp3'));
         
         if (filename) {
-          // Try to find matching audio asset for R2 URL if available
-          const matchingAudio = audioAssets.find((a) => a.filename === filename);
+          // When a scene is regenerated, a new audio Asset is created (same filename). Pick the
+          // latest by id so we use the new voiceover; cache-bust with ?v=assetId so the browser
+          // doesn't serve cached old audio.
+          const matchingAudios = audioAssets.filter((a) => a.filename === filename);
+          const latestAudio = matchingAudios.length > 0
+            ? matchingAudios.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0]
+            : null;
           
-          if (matchingAudio) {
-            // Use asset's R2 URL or local URL via resolveUrl
-            voiceoverUrl = resolveUrl(matchingAudio);
+          if (latestAudio) {
+            voiceoverUrl = resolveUrl(latestAudio, String(latestAudio.id));
           } else {
-            // Fallback: construct URL from filename (for local dev or if asset not found)
             const isLocalDev = !BACKEND_URL || 
                                BACKEND_URL.includes('localhost') || 
                                BACKEND_URL.includes('127.0.0.1');
@@ -200,11 +204,10 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
       
       // If no voiceover_path, try matching by current order (backwards compatibility)
       if (!voiceoverUrl) {
-        const matchingAudio = audioAssets.find(
-          (a) => a.filename === `scene_${scene.order}.mp3`
-        );
-        if (matchingAudio) {
-          voiceoverUrl = resolveUrl(matchingAudio);
+        const byOrder = audioAssets.filter((a) => a.filename === `scene_${scene.order}.mp3`);
+        const latest = byOrder.length > 0 ? byOrder.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0] : null;
+        if (latest) {
+          voiceoverUrl = resolveUrl(latest, String(latest.id));
         }
       }
 
