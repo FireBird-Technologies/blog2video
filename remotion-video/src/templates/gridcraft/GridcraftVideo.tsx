@@ -11,6 +11,8 @@ import {
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { Blobs } from "./components/Blobs";
+import { COLORS } from "./utils/styles";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -39,12 +41,12 @@ interface VideoData {
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
 // Clean white transition for gridcraft (matches light bg)
-const GridcraftTransition: React.FC = () => {
+const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
   const progress = interpolate(frame, [0, 15], [0, 1], {
     extrapolateLeft: "clamp",
@@ -53,8 +55,9 @@ const GridcraftTransition: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#FAFAFA",
+        backgroundColor: bgColor || COLORS.BG,
         opacity: progress,
+        zIndex: 10,
       }}
     />
   );
@@ -107,19 +110,145 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       .then(setData)
       .catch(() => {
         setData({
-          projectName: "Blog2Video Preview",
-          accentColor: "#F97316",
-          bgColor: "#FAFAFA",
-          textColor: "#171717",
+          projectName: "Gridcraft Showcase",
+          accentColor: COLORS.ACCENT,
+          bgColor: COLORS.BG,
+          textColor: COLORS.DARK,
           scenes: [
             {
               id: 1,
               order: 1,
-              title: "Welcome",
-              narration: "This is a preview of your Gridcraft video.",
+              title: "Welcome to Gridcraft",
+              narration: "A dynamic, glassmorphism-styled video template.",
+              layout: "bento_hero",
+              layoutProps: {
+                version: "2.0",
+                subtitle: "Template Showcase"
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 2,
+              order: 2,
+              title: "Smart Features",
+              narration: "Layouts adapt automatically to your content.",
+              layout: "bento_features",
+              layoutProps: {
+                features: [
+                  { icon: "⚡️", label: "Fast", description: "Renders in seconds" },
+                  { icon: "🎨", label: "Stylish", description: "Glassmorphism aesthetics" },
+                  { icon: "📱", label: "Responsive", description: "Fits any aspect ratio" },
+                ]
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 3,
+              order: 3,
+              title: "Highlight Key Points",
+              narration: "Focus on what matters most with the Highlight layout.",
+              layout: "bento_highlight",
+              layoutProps: {
+                mainPoint: "95% Faster",
+                supportingFacts: ["Zero Latency", "Global Edge", "Instant Cache"]
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 4,
+              order: 4,
+              title: "Editorial Layout",
+              narration: "Perfect for long-form text and storytelling.",
               layout: "editorial_body",
               layoutProps: {},
-              durationSeconds: 5,
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 5,
+              order: 5,
+              title: "Data Visualization",
+              narration: "Showcase your metrics with the KPI Grid.",
+              layout: "kpi_grid",
+              layoutProps: {
+                 dataPoints: [
+                    { label: "Active Users", value: "10k+", trend: "up" },
+                    { label: "Retention", value: "95%", trend: "up" },
+                    { label: "Churn", value: "<1%", trend: "down" }
+                 ]
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 6,
+              order: 6,
+              title: "Comparison",
+              narration: "Compare before and after scenarios effectively.",
+              layout: "bento_compare",
+              layoutProps: {
+                leftLabel: "Before",
+                rightLabel: "After",
+                dataPoints: [
+                    { label: "Old", title: "Slow & Static", description: "Manual updates required." },
+                    { label: "New", title: "Dynamic & Fast", description: "Automated generation." }
+                ],
+                verdict: "10x Productivity Boost"
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 7,
+              order: 7,
+              title: "Code Snippets",
+              narration: "Display syntax-highlighted code blocks.",
+              layout: "bento_code",
+              layoutProps: {
+                 codeSnippet: `const grid = new Grid();\ngrid.render();\n// It's that simple!`,
+                 codeLanguage: "TypeScript"
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 8,
+              order: 8,
+              title: "Pull Quotes",
+              narration: "Emphasize powerful statements.",
+              layout: "pull_quote",
+              layoutProps: {
+                  title: "Design is not just what it looks like and feels like. Design is how it works.",
+                  subtitle: "Steve Jobs"
+              },
+              durationSeconds: 4,
+              voiceoverFile: null,
+              images: [],
+            },
+            {
+              id: 9,
+              order: 9,
+              title: "Process Steps",
+              narration: "Walk through complex workflows step-by-step.",
+              layout: "bento_steps",
+              layoutProps: {
+                  dataPoints: [
+                      { label: "Plan", description: "Define goals" },
+                      { label: "Build", description: "Develop features" },
+                      { label: "Launch", description: "Go live" }
+                  ]
+              },
+              durationSeconds: 4,
               voiceoverFile: null,
               images: [],
             },
@@ -132,13 +261,13 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: "#FAFAFA",
+          backgroundColor: COLORS.BG,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <p style={{ color: "#171717", fontSize: 36 }}>Loading...</p>
+        <p style={{ color: COLORS.DARK, fontSize: 36, fontFamily: "sans-serif" }}>Loading...</p>
       </AbsoluteFill>
     );
   }
@@ -147,7 +276,9 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FAFAFA" }}>
+    <AbsoluteFill style={{ backgroundColor: data.bgColor || COLORS.BG }}>
+      <Blobs />
+      
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
@@ -164,9 +295,9 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           title: scene.title,
           narration: scene.narration,
           imageUrl,
-          accentColor: data.accentColor || "#F97316",
-          bgColor: data.bgColor || "#FAFAFA",
-          textColor: data.textColor || "#171717",
+          accentColor: data.accentColor || COLORS.ACCENT,
+          bgColor: data.bgColor || COLORS.BG,
+          textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           ...scene.layoutProps,
         };
@@ -178,7 +309,10 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            {/* Layout Container with Z-Index to sit above Blobs */}
+            <AbsoluteFill style={{ zIndex: 1 }}>
+                <LayoutComponent {...layoutProps} />
+            </AbsoluteFill>
 
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} />
@@ -186,7 +320,7 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
             {index < data.scenes.length - 1 && (
               <Sequence from={durationFrames - 15} durationInFrames={15}>
-                <GridcraftTransition />
+                <GridcraftTransition bgColor={data.bgColor || COLORS.BG} />
               </Sequence>
             )}
           </Sequence>
@@ -194,12 +328,14 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       })}
 
       {data.logo && (
-        <LogoOverlay
-          src={staticFile(data.logo)}
-          position={data.logoPosition || "bottom_right"}
-          maxOpacity={data.logoOpacity ?? 0.9}
-          aspectRatio={data.aspectRatio || "landscape"}
-        />
+        <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
+            <LogoOverlay
+            src={staticFile(data.logo)}
+            position={data.logoPosition || "bottom_right"}
+            maxOpacity={data.logoOpacity ?? 0.9}
+            aspectRatio={data.aspectRatio || "landscape"}
+            />
+        </AbsoluteFill>
       )}
     </AbsoluteFill>
   );

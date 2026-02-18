@@ -1,94 +1,98 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
-const CELL_STYLE: React.CSSProperties = {
-  backgroundColor: "#FFFFFF",
-  borderRadius: 20,
-  padding: "20px 24px",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-};
+// Default features if none provided
+const DEFAULT_FEATURES = [
+  { icon: "⚡", title: "Fast", description: "Renders in milliseconds" },
+  { icon: "🔒", title: "Secure", description: "Transactions are encrypted" },
+  { icon: "📈", title: "Scalable", description: "Auto-scales with demand" },
+];
 
 export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
-  title,
-  narration,
   features,
+  dataPoints, 
   highlightIndex = 0,
-  accentColor,
-  bgColor,
   textColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const items = features && features.length > 0
-    ? features
-    : narration.split(/[.;]/).filter(s => s.trim()).slice(0, 6).map((s, i) => ({
-        icon: ["⚡", "🔒", "📊", "🔌", "🚀", "✨"][i % 6],
-        label: s.trim().split(" ").slice(0, 3).join(" "),
-        description: s.trim(),
-      }));
-
-  const cols = items.length <= 4 ? 2 : 3;
+  // Normalize items from either features or dataPoints
+  const items = (features || dataPoints || DEFAULT_FEATURES).map(f => {
+      // Need to handle both Feature interface and DataPoint interface
+      // Feature: { icon, label, description }
+      // DataPoint: { label, value, trend, icon, title, description }
+      const anyF = f as any;
+      return {
+          icon: anyF.icon || anyF.trend, // fallback
+          label: anyF.label || anyF.title,
+          description: anyF.description
+      };
+  });
+  
+  // Dynamic Grid: 1-3 items = 3 cols. 4 = 2x2. >4 = 3 cols wrapping.
+  const gridColumns = items.length === 4 ? "1fr 1fr" : "1fr 1fr 1fr";
+  const rows = items.length === 4 ? "1fr 1fr" : "1fr 1fr";
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAFA", padding: "5%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{
+    <div
+      style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 12,
-        width: "85%",
-        maxHeight: "80%",
-      }}>
-        {items.map((item, i) => {
-          const delay = i * 4;
-          const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14, stiffness: 120 } });
-          const opacity = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          const isAccent = i === highlightIndex;
+        gridTemplateColumns: gridColumns,
+        gridTemplateRows: rows,
+        gap: 20,
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        fontFamily: FONT_FAMILY.SANS,
+      }}
+    >
+      {items.slice(0, 6).map((item, i) => {
+        const delay = i * 4;
+        const s = spring({
+            frame: Math.max(0, frame - delay),
+            fps,
+            config: { damping: 15, stiffness: 120 },
+        });
+        
+        const scale = interpolate(s, [0, 1], [0.85, 1]);
+        const op = interpolate(s, [0, 1], [0, 1]);
 
-          return (
-            <div
-              key={i}
-              style={{
-                ...CELL_STYLE,
-                backgroundColor: isAccent ? (accentColor || "#F97316") : "#FFFFFF",
-                transform: `scale(${0.92 + 0.08 * s})`,
-                opacity,
-                padding: "28px 24px",
-              }}
-            >
-              <span style={{ fontSize: 28, marginBottom: 8 }}>{item.icon}</span>
-              <span style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: isAccent ? "#FFFFFF" : (textColor || "#171717"),
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                marginBottom: 6,
-              }}>
+        // Highlight the item based on index
+        const isAccent = i === highlightIndex;
+
+        return (
+          <div
+            key={i}
+            style={{
+              ...glass(isAccent),
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              padding: 24,
+              transform: `scale(${scale})`,
+              opacity: op,
+            }}
+          >
+            {item.icon && <div style={{ fontSize: 36, marginBottom: 16 }}>{item.icon}</div>}
+            <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : textColor }}>
                 {item.label}
-              </span>
-              <span style={{
-                fontSize: 13,
-                fontWeight: 400,
-                color: isAccent ? "rgba(255,255,255,0.85)" : "rgba(23,23,23,0.6)",
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                lineHeight: 1.4,
-              }}>
-                {item.description}
-              </span>
             </div>
-          );
-        })}
-      </div>
-    </AbsoluteFill>
+            {item.description && (
+                <div style={{ 
+                    fontSize: 14, 
+                    lineHeight: 1.4,
+                    opacity: isAccent ? 0.9 : 0.7, 
+                    color: isAccent ? COLORS.WHITE : COLORS.MUTED 
+                }}>
+                    {item.description}
+                </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 };
