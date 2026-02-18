@@ -263,18 +263,22 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   const rest = narration.slice(1);
                   return (
                     <p>
-                      <span style={{
-                        float: "left",
-                        fontSize: p ? 120 : 140,
-                        lineHeight: 0.85,
-                        fontFamily: "'Playfair Display', Georgia, serif",
-                        color: accentColor,
-                        fontWeight: 700,
-                        marginRight: 12,
-                        marginTop: p ? 4 : 8,
-                        textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
-                        filter: `drop-shadow(0 0 8px ${accentColor}40)`,
-                      }}>{firstLetter}</span>
+                      <span
+                        style={{
+                          float: "left",
+                          fontSize: p ? 120 : 140,
+                          lineHeight: 0.85,
+                          fontFamily: "'Playfair Display', Georgia, serif",
+                          color: accentColor,
+                          fontWeight: 700,
+                          marginRight: 12,
+                          marginBottom: 4,
+                          textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                          filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                        }}
+                      >
+                        {firstLetter}
+                      </span>
                       {rest}
                     </p>
                   );
