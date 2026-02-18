@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Scene,
   Project,
@@ -10,6 +10,39 @@ import {
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+
+// Auto-growing textarea component
+function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  className?: string;
+  placeholder?: string;
+  minRows?: number;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      const lineHeight = 20; // Approximate line height in pixels
+      const minHeight = minRows * lineHeight + 16; // padding
+      const scrollHeight = textarea.scrollHeight;
+      textarea.style.height = `${Math.max(minHeight, scrollHeight)}px`;
+    }
+  }, [value, minRows]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className={className}
+      rows={minRows}
+    />
+  );
+}
 
 export interface SceneImageItem {
   url: string;
@@ -38,13 +71,27 @@ export default function SceneEditModal({
   const [editMode, setEditMode] = useState<EditMode>("manual");
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
+  const [displayText, setDisplayText] = useState("");
+  const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const { user } = useAuth();
+
+  // Cleanup image preview URL
+  useEffect(() => {
+    if (selectedImageFile) {
+      const url = URL.createObjectURL(selectedImageFile);
+      setImagePreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [selectedImageFile]);
 
   const isPro = user?.plan === "pro";
   const aiUsageCount = project.ai_assisted_editing_count || 0;
@@ -54,8 +101,10 @@ export default function SceneEditModal({
     if (!open) return;
     setTitle(scene.title);
     setDescription("");
+    setDisplayText(scene.narration_text || "");
     setSelectedLayout("");
     setSelectedImageFile(null);
+    setImagePreviewUrl(null);
     setError(null);
   }, [open, scene.id, scene.title]);
 
@@ -72,14 +121,17 @@ export default function SceneEditModal({
     if (editMode === "manual") {
       setLoading(true);
       try {
-        await updateScene(project.id, scene.id, { title });
+        await updateScene(project.id, scene.id, { 
+          title,
+          narration_text: displayText 
+        });
         onSaved();
         onClose();
       } catch (err: unknown) {
         const msg =
           err && typeof err === "object" && "response" in err
             ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-            : "Failed to update title";
+            : "Failed to update scene";
         setError(String(msg));
       } finally {
         setLoading(false);
@@ -88,18 +140,23 @@ export default function SceneEditModal({
     }
 
     if (editMode === "ai") {
-      if (!description.trim()) {
-        setError("Please provide a description for AI editing.");
+      if (!displayText.trim()) {
+        setError("Please provide display text.");
         return;
       }
       setLoading(true);
       try {
-        // Update title first, then run AI regeneration
-        await updateScene(project.id, scene.id, { title });
+        // Update title and display text first
+        await updateScene(project.id, scene.id, { 
+          title,
+          narration_text: displayText 
+        });
         await regenerateScene(
           project.id,
           scene.id,
           description,
+          displayText,
+          regenerateVoiceover,
           selectedLayout || undefined,
           selectedImageFile || undefined
         );
@@ -162,7 +219,7 @@ export default function SceneEditModal({
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+        <div className="p-6 overflow-y-auto flex-1">
           {/* Manual vs AI toggle */}
           <div>
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
@@ -202,8 +259,8 @@ export default function SceneEditModal({
             )}
           </div>
 
-          {/* Title — editable in both modes; in AI mode it is saved first, then regeneration runs */}
-          <div>
+          {/* Title — editable in both modes */}
+          <div className="mt-6">
             <label className="block text-xs font-medium text-gray-700 mb-1.5">
               Title
             </label>
@@ -213,40 +270,82 @@ export default function SceneEditModal({
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
+          </div>
+
+          {/* Display Text — editable in both modes */}
+          <div className="mt-6">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Display Text (shown on screen)
+            </label>
+            <AutoGrowTextarea
+              value={displayText}
+              onChange={(e) => setDisplayText(e.target.value)}
+              placeholder="Enter the text that will be displayed on screen..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+              minRows={2}
+            />
             {manualOnly && (
-              <p className="mt-1 text-xs text-gray-500">In manual mode only the title can be changed.</p>
+              <p className="mt-1 text-xs text-gray-500">This text appears on screen. Changes are saved immediately.</p>
             )}
             {editMode === "ai" && (
-              <p className="mt-1 text-xs text-gray-500">Title is saved first, then AI applies your description and options.</p>
+              <p className="mt-1 text-xs text-gray-500">This text appears on screen. Use the toggle below to regenerate voiceover.</p>
             )}
           </div>
 
           {/* Description — AI only */}
           {editMode === "ai" && (
-            <div>
+            <div className="mt-6">
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Description of editing
+                Description (for visual changes) <span className="text-gray-400">(Optional)</span>
               </label>
-              <textarea
+              <AutoGrowTextarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe how you want this scene to be..."
-                rows={3}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                placeholder="Describe how you want the visuals/layout to change..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                minRows={3}
               />
+              <p className="mt-1 text-xs text-gray-500">Leave empty to keep the current visual description. This will regenerate the visual description and layout if provided.</p>
+            </div>
+          )}
+
+          {/* Voiceover regeneration toggle — AI only */}
+          {editMode === "ai" && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-gray-700 rounded-full"></span>
+                <label className="text-sm font-medium text-gray-700">
+                  Regenerate voiceover based on display text
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRegenerateVoiceover(!regenerateVoiceover)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                }`}
+                role="switch"
+                aria-checked={regenerateVoiceover}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    regenerateVoiceover ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
           )}
 
           {/* Layout — AI only */}
           {editMode === "ai" && (
-            <div>
+            <div className="mt-6">
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Layout
               </label>
               <select
                 value={selectedLayout}
                 onChange={(e) => setSelectedLayout(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-3 py-2 text-sm border border-purple-200 bg-purple-50 text-purple-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">Auto (Let AI choose)</option>
                 {layouts?.layouts.map((layoutId) => (
@@ -260,7 +359,7 @@ export default function SceneEditModal({
 
           {/* Images — AI only; each with remove (X), plus add new */}
           {editMode === "ai" && (
-            <div>
+            <div className="mt-6">
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Images
               </label>
@@ -295,18 +394,38 @@ export default function SceneEditModal({
                     </button>
                   </div>
                 ))}
-              </div>
-              <div className="mt-2">
-                <label className="block text-[11px] text-gray-500 mb-1">Add image (optional)</label>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/jpg"
-                  onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-                />
-                {selectedImageFile && (
-                  <p className="mt-1 text-xs text-gray-500">New: {selectedImageFile.name}</p>
+                {selectedImageFile && imagePreviewUrl && (
+                  <div className="relative group rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Preview"
+                      className="h-20 w-auto object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedImageFile(null);
+                        setImagePreviewUrl(null);
+                      }}
+                      className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
+                <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 hover:bg-purple-100/50 cursor-pointer transition-colors">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/jpg"
+                    onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </label>
               </div>
             </div>
           )}
@@ -329,7 +448,7 @@ export default function SceneEditModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={loading || (editMode === "ai" && !description.trim())}
+            disabled={loading || (editMode === "ai" && !displayText.trim())}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : editMode === "manual" ? "Save title" : "Apply AI edit"}

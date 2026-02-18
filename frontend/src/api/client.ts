@@ -429,11 +429,18 @@ export const regenerateScene = (
   projectId: number,
   sceneId: number,
   description: string,
+  narrationText: string,
+  regenerateVoiceover: boolean,
   layout?: string,
   imageFile?: File
 ) => {
   const formData = new FormData();
-  formData.append("description", description);
+  // Only append description if it has a value
+  if (description && description.trim()) {
+    formData.append("description", description);
+  }
+  formData.append("narration_text", narrationText);
+  formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
   return api.post<Scene>(

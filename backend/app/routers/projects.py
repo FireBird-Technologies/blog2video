@@ -537,7 +537,9 @@ def reorder_scenes(
 async def regenerate_scene(
     project_id: int,
     scene_id: int,
-    description: str = Form(...),
+    description: Optional[str] = Form(None),
+    narration_text: str = Form(...),
+    regenerate_voiceover: str = Form("false"),
     layout: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
@@ -630,8 +632,8 @@ async def regenerate_scene(
         db.add(asset)
         db.flush()
     
-    # Parse description for removal instructions
-    description_lower = description.lower()
+    # Parse description for removal instructions (only if description is provided)
+    description_lower = (description or "").lower()
     remove_image = any(phrase in description_lower for phrase in [
         "remove image", "no image", "don't show image", "hide image",
         "without image", "no picture", "remove picture"
@@ -642,15 +644,26 @@ async def regenerate_scene(
         "don't display narration", "visualization only"
     ])
 
-    # Decide new narration: hide vs rewrite vs keep
+    # Use the provided narration_text (display text) or keep existing if not provided
     if hide_narration:
         new_narration = ""
+    elif narration_text and narration_text.strip():
+        new_narration = narration_text.strip()
     else:
-        new_narration = await rewrite_narration_if_requested(
-            current_narration=scene.narration_text or "",
+        new_narration = scene.narration_text or ""
+    
+    # Regenerate visual_description only if description is provided
+    if description and description.strip():
+        from app.dspy_modules.visual_description import regenerate_visual_description
+        new_visual_description = await regenerate_visual_description(
+            current_visual_description=scene.visual_description or "",
             user_instruction=description,
             scene_title=scene.title,
+            display_text=new_narration,
         )
+    else:
+        # Keep existing visual_description if description is empty or None
+        new_visual_description = scene.visual_description or ""
     
     # Regenerate scene using regeneration-specific DSPy signature
     template_gen = TemplateSceneGenerator(project.template)
@@ -684,8 +697,6 @@ async def regenerate_scene(
         except (json.JSONDecodeError, TypeError):
             pass
 
-    new_visual_description = description
-
     descriptor = await template_gen.generate_regenerate_descriptor(
         scene_title=scene.title,
         narration=new_narration,
@@ -708,9 +719,26 @@ async def regenerate_scene(
     scene.visual_description = new_visual_description
     scene.narration_text = new_narration
     scene.remotion_code = json.dumps(descriptor)
+    db.commit()
     
-    # Regenerate voiceover
-    generate_voiceover(scene, db)
+    # Regenerate voiceover only if requested
+    should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
+    if should_regenerate_voiceover and new_narration.strip():
+        # Expand narration_text to detailed voiceover and regenerate voiceover
+        from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+        expanded_voiceover = await expand_narration_to_voiceover(new_narration, scene.title)
+        
+        # Temporarily store expanded voiceover in narration_text for voiceover generation
+        original_narration = scene.narration_text
+        scene.narration_text = expanded_voiceover
+        db.commit()
+        
+        # Generate voiceover with expanded text
+        generate_voiceover(scene, db, use_expanded=False)
+        
+        # Restore original narration_text (display text)
+        scene.narration_text = original_narration
+        db.commit()
     
     # Increment usage count (only for free users)
     if user.plan != PlanTier.PRO:
