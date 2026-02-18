@@ -1,141 +1,101 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
-  title,
+  dataPoints,
+  // Backend props
   leftLabel,
   rightLabel,
   leftDescription,
   rightDescription,
   verdict,
+  title, // Fallback for verdict
   accentColor,
-  bgColor,
-  textColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const leftX = interpolate(frame, [0, 18], [-60, 0], { extrapolateRight: "clamp" });
-  const leftOpacity = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
+  const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
 
-  const rightX = interpolate(frame, [4, 22], [60, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const rightOpacity = interpolate(frame, [4, 22], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Construct points from specific props or fallback to dataPoints
+  const points = (leftLabel && rightLabel) ? [
+      { label: leftLabel, title: leftLabel, description: leftDescription },
+      { label: rightLabel, title: rightLabel, description: rightDescription }
+  ] : (dataPoints || [
+      { label: "Old Way", title: "Slow & Static", description: "Hard coded pages." },
+      { label: "New Way", title: "Dynamic & Fast", description: "Generated on the fly." }
+  ]);
 
-  const verdictScale = spring({ frame: Math.max(0, frame - 16), fps, config: { damping: 14, stiffness: 120 } });
-  const verdictOpacity = interpolate(frame, [16, 26], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const finalVerdict = verdict || title;
 
   return (
-    <AbsoluteFill style={{
-      backgroundColor: bgColor || "#FAFAFA",
-      padding: "5%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      <div style={{
+    <div
+      style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         gridTemplateRows: "1fr auto",
-        gap: 12,
-        width: "85%",
-        maxHeight: "80%",
+        gap: 20,
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        fontFamily: FONT_FAMILY.SANS,
+      }}
+    >
+      {/* Left Item */}
+      <div style={{
+          ...glass(false),
+          padding: 32,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          transform: `translateX(${interpolate(spr(0), [0, 1], [-50, 0])}px)`,
+          opacity: interpolate(spr(0), [0, 1], [0, 1]),
       }}>
-        {/* Left side */}
-        <div style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 20,
-          padding: "36px 32px",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-          transform: `translateX(${leftX}px)`,
-          opacity: leftOpacity,
-        }}>
-          <h3 style={{
-            fontSize: 22,
-            fontWeight: 700,
-            color: textColor || "#171717",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            margin: "0 0 16px 0",
-          }}>
-            {leftLabel || "Option A"}
-          </h3>
-          <p style={{
-            fontSize: 16,
-            fontWeight: 400,
-            color: "rgba(23,23,23,0.7)",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            lineHeight: 1.6,
-            margin: 0,
-          }}>
-            {leftDescription || "Description for option A."}
-          </p>
-        </div>
-
-        {/* Right side */}
-        <div style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 20,
-          padding: "36px 32px",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-          transform: `translateX(${rightX}px)`,
-          opacity: rightOpacity,
-        }}>
-          <h3 style={{
-            fontSize: 22,
-            fontWeight: 700,
-            color: textColor || "#171717",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            margin: "0 0 16px 0",
-          }}>
-            {rightLabel || "Option B"}
-          </h3>
-          <p style={{
-            fontSize: 16,
-            fontWeight: 400,
-            color: "rgba(23,23,23,0.7)",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            lineHeight: 1.6,
-            margin: 0,
-          }}>
-            {rightDescription || "Description for option B."}
-          </p>
-        </div>
-
-        {/* Verdict cell */}
-        <div style={{
-          gridColumn: "1 / -1",
-          backgroundColor: accentColor || "#F97316",
-          borderRadius: 20,
-          padding: "28px 36px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 4px 16px rgba(249,115,22,0.2)",
-          transform: `scale(${0.92 + 0.08 * verdictScale})`,
-          opacity: verdictOpacity,
-        }}>
-          <p style={{
-            fontSize: 22,
-            fontWeight: 600,
-            color: "#FFFFFF",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            margin: 0,
-            textAlign: "center",
-          }}>
-            {verdict || title}
-          </p>
-        </div>
+         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+             {points[0]?.label || "Before"}
+         </div>
+         <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+             {points[0]?.title}
+         </div>
+         <div style={{ fontSize: 16, lineHeight: 1.5, color: COLORS.MUTED }}>
+             {points[0]?.description}
+         </div>
       </div>
-    </AbsoluteFill>
+
+       {/* Right Item */}
+       <div style={{
+          ...glass(false),
+          padding: 32,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          transform: `translateX(${interpolate(spr(5), [0, 1], [50, 0])}px)`,
+          opacity: interpolate(spr(5), [0, 1], [0, 1]),
+      }}>
+         <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
+             {points[1]?.label || "After"}
+         </div>
+         <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+             {points[1]?.title}
+         </div>
+         <div style={{ fontSize: 16, lineHeight: 1.5, color: COLORS.MUTED }}>
+             {points[1]?.description}
+         </div>
+      </div>
+
+      {/* Verdict / Bottom Bar */}
+      {finalVerdict && (
+          <div style={{
+              gridColumn: "1 / 3",
+              ...glass(true),
+              backgroundColor: accentColor || COLORS.ACCENT,
+              padding: "20px",
+              textAlign: "center",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transform: `translateY(${interpolate(spr(15), [0, 1], [20, 0])}px)`,
+              opacity: interpolate(spr(15), [0, 1], [0, 1]),
+          }}>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>{finalVerdict}</div>
+          </div>
+      )}
+    </div>
   );
 };
