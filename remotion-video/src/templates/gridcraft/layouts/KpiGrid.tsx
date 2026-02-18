@@ -1,126 +1,90 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
-
-const TrendArrow: React.FC<{ trend?: string; isAccent: boolean }> = ({ trend, isAccent }) => {
-  if (!trend || trend === "neutral") {
-    return <span style={{ fontSize: 14, color: isAccent ? "rgba(255,255,255,0.6)" : "#9CA3AF" }}>●</span>;
-  }
-  if (trend === "up") {
-    return <span style={{ fontSize: 16, color: isAccent ? "#FFFFFF" : "#22C55E" }}>▲</span>;
-  }
-  return <span style={{ fontSize: 16, color: isAccent ? "rgba(255,255,255,0.9)" : "#EF4444" }}>▼</span>;
-};
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
-  title,
-  narration,
   dataPoints,
   highlightIndex = 0,
   accentColor,
-  bgColor,
   textColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const items = dataPoints && dataPoints.length > 0
-    ? dataPoints
-    : [
-        { label: "Metric 1", value: "0", trend: "neutral" as const },
-        { label: "Metric 2", value: "0", trend: "neutral" as const },
-        { label: "Metric 3", value: "0", trend: "neutral" as const },
-      ];
+  const items = dataPoints && dataPoints.length > 0 ? dataPoints : [
+      { label: "Growth", value: "10x", trend: "up" },
+      { label: "Users", value: "1M+", trend: "up" },
+      { label: "Latency", value: "15ms", trend: "down" }
+  ];
 
   return (
-    <AbsoluteFill style={{
-      backgroundColor: bgColor || "#FAFAFA",
-      padding: "5%",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      {/* Title */}
-      <h2 style={{
-        fontSize: 28,
-        fontWeight: 600,
-        color: textColor || "#171717",
-        fontFamily: "'Inter', 'Segoe UI', sans-serif",
-        marginBottom: 32,
-        opacity: interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" }),
-      }}>
-        {title}
-      </h2>
-
-      <div style={{
+    <div
+      style={{
         display: "grid",
         gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`,
-        gap: 12,
-        width: "85%",
-      }}>
-        {items.slice(0, 3).map((item, i) => {
-          const delay = 6 + i * 6;
-          const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14, stiffness: 120 } });
-          const opacity = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        gap: 20,
+        width: "90%",
+        height: "80%", // Reduced height to center in canvas
+        margin: "auto",
+        alignItems: "center",
+        fontFamily: FONT_FAMILY.SANS,
+      }}
+    >
+      {items.slice(0, 3).map((item, i) => {
+          const delay = i * 5;
+          const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14 } });
+          const scale = interpolate(s, [0, 1], [0.8, 1]);
+          const opacity = interpolate(s, [0, 1], [0, 1]);
+          
           const isAccent = i === highlightIndex;
 
-          // Counter roll-up animation
-          const numericValue = parseFloat(item.value.replace(/[^0-9.-]/g, "")) || 0;
-          const suffix = item.value.replace(/[0-9.-]/g, "");
-          const counterProgress = interpolate(frame, [delay + 5, delay + 35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-          const displayValue = Math.round(numericValue * counterProgress);
-          const displayStr = numericValue === 0 ? item.value : `${displayValue}${suffix}`;
+          const trendIcon = item.trend === "up" ? "▲" : item.trend === "down" ? "▼" : "●";
+          const trendColor = item.trend === "up" ? "#22C55E" : item.trend === "down" ? "#EF4444" : COLORS.MUTED;
 
           return (
-            <div
-              key={i}
-              style={{
-                backgroundColor: isAccent ? (accentColor || "#F97316") : "#FFFFFF",
-                borderRadius: 20,
-                padding: "40px 32px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                transform: `scale(${0.92 + 0.08 * s})`,
-                opacity,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                aspectRatio: "1",
-              }}
-            >
-              <span style={{
-                fontSize: 52,
-                fontWeight: 700,
-                color: isAccent ? "#FFFFFF" : (textColor || "#171717"),
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                fontVariantNumeric: "tabular-nums",
-                marginBottom: 8,
-              }}>
-                {displayStr}
-              </span>
-              <TrendArrow trend={item.trend} isAccent={isAccent} />
-              <span style={{
-                fontSize: 14,
-                fontWeight: 400,
-                color: isAccent ? "rgba(255,255,255,0.8)" : "rgba(23,23,23,0.5)",
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                marginTop: 8,
-                textTransform: "uppercase",
-                letterSpacing: 1,
-              }}>
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </AbsoluteFill>
+              <div
+                key={i}
+                style={{
+                  ...glass(isAccent),
+                  backgroundColor: isAccent ? (accentColor || COLORS.ACCENT) : undefined,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 40,
+                  transform: `scale(${scale})`,
+                  opacity,
+                  aspectRatio: "1/1",
+                }}
+              >
+                  <div style={{ 
+                      fontSize: 64, 
+                      fontWeight: 700, 
+                      lineHeight: 1, 
+                      color: isAccent ? COLORS.WHITE : textColor,
+                      marginBottom: 12
+                    }}>
+                      {item.value || "0"}
+                  </div>
+                  
+                  <div style={{ fontSize: 24, color: isAccent ? "rgba(255,255,255,0.8)" : trendColor }}>
+                      {trendIcon}
+                  </div>
+
+                  <div style={{ 
+                      marginTop: 12, 
+                      fontSize: 14, 
+                      textTransform: "uppercase", 
+                      letterSpacing: "0.1em",
+                      opacity: isAccent ? 0.9 : 0.6,
+                      color: isAccent ? COLORS.WHITE : COLORS.MUTED
+                   }}>
+                      {item.label}
+                  </div>
+              </div>
+          )
+      })}
+    </div>
   );
 };
