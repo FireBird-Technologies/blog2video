@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { getTemplates, type TemplateMeta } from "../api/client";
+import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
+import DefaultPreview from "./templatePreviews/DefaultPreview";
+import NightfallPreview from "./templatePreviews/NightfallPreview";
+import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 
 interface Props {
   onSubmit: (
@@ -22,13 +25,12 @@ interface Props {
     template?: string
   ) => Promise<void>;
   loading?: boolean;
-  /** Render as a full-screen modal overlay */
   asModal?: boolean;
   onClose?: () => void;
 }
 
 const MAX_UPLOAD_FILES = 5;
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -36,112 +38,245 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-export default function BlogUrlForm({
-  onSubmit,
-  loading,
-  asModal,
-  onClose,
-}: Props) {
+// Template preview component mapping (keyed by template ID from backend)
+const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
+  default: DefaultPreview,
+  nightfall: NightfallPreview,
+  gridcraft: GridcraftPreview,
+};
+
+const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
+  default: { title: "Geometric Explainer", subtitle: "Clean purple & white, geometric tech style" },
+  nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
+  gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
+};
+
+const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
+
+// Step indicator — order: 1 Content, 2 Template, 3 Voice
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  const stepLabels = ["Project", "Template", "Voice"];
+  return (
+    <div className="flex flex-col items-center gap-2 mb-6">
+      <div className="flex items-center gap-2">
+        {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
+          <div key={n} className="flex items-center gap-2">
+            <div
+              className={`w-6 h-6 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all ${
+                n === current
+                  ? "bg-purple-600 text-white"
+                  : n < current
+                  ? "bg-purple-100 text-purple-600"
+                  : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {n < current ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                n
+              )}
+            </div>
+            {n < total && (
+              <div
+                className={`h-px w-8 transition-all ${
+                  n < current ? "bg-purple-300" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <span className="text-[11px] text-gray-400 font-medium">
+        Step {current} — {stepLabels[current - 1]}
+      </span>
+    </div>
+  );
+}
+
+// ─── Template video player lightbox
+interface VideoLightboxProps {
+  templateId: string;
+  onClose: () => void;
+  onSelect: () => void;
+  isSelected: boolean;
+}
+function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: VideoLightboxProps) {
+  const PreviewComp = TEMPLATE_PREVIEWS[templateId];
+  const desc = TEMPLATE_DESCRIPTIONS[templateId];
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Player container */}
+      <div className="relative w-full max-w-2xl">
+        {/* Screen bezel */}
+        <div className="rounded-2xl overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_32px_80px_rgba(0,0,0,0.7)] bg-[#0f0f0f]">
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#1a1a1a] border-b border-white/[0.06]">
+            <div className="flex items-center gap-2.5">
+              {/* macOS-style dots */}
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
+            </div>
+            <span className="text-[11px] text-white/40 font-medium tracking-wide">
+              {desc?.title ?? templateId} — Preview
+            </span>
+            <button onClick={onClose} className="text-white/30 hover:text-white/70 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Video content */}
+          <div className="bg-black">
+            {PreviewComp ? (
+              <PreviewComp />
+            ) : (
+              <div className="w-full aspect-video bg-gray-900 flex items-center justify-center text-gray-500 text-sm">
+                No preview available
+              </div>
+            )}
+          </div>
+
+          {/* Bottom controls bar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-[#1a1a1a] border-t border-white/[0.06]">
+            <div className="text-[11px] text-white/40">
+              {desc?.subtitle}
+            </div>
+            <button
+              onClick={() => { onSelect(); onClose(); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                isSelected
+                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                  : "bg-purple-600 text-white hover:bg-purple-700"
+              }`}
+            >
+              {isSelected ? "✓ Selected" : "Use this template"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
   const isPro = user?.plan === "pro";
 
-  // Input mode
-  const [mode, setMode] = useState<"url" | "upload">("url");
+  // Wizard step
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Core fields
+  // Step 1 — input
+  const [mode, setMode] = useState<"url" | "upload">("url");
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
-  const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
-  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
-  const [accentColor, setAccentColor] = useState("#7C3AED");
-  const [bgColor, setBgColor] = useState("#FFFFFF");
-  const [textColor, setTextColor] = useState("#000000");
-  const [animationInstructions, setAnimationInstructions] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // New fields
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPosition, setLogoPosition] = useState("bottom_right");
-  const [logoOpacity, setLogoOpacity] = useState(0.9);
-  const [customVoiceId, setCustomVoiceId] = useState("");
-  const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-
-  // Document upload state
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-  const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const [template, setTemplate] = useState("default");
 
+  // Step 2 — voice
+  const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
+  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
+  const [customVoiceId, setCustomVoiceId] = useState("");
+  const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
+  const [playingKey, setPlayingKey] = useState<string | null>(null);
+
+  // Step 3 — template & style
+  const [template, setTemplate] = useState("nightfall");
+  const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
+  const [accentColor, setAccentColor] = useState("#7C3AED");
+  const [bgColor, setBgColor] = useState("#FFFFFF");
+  const [textColor, setTextColor] = useState("#000000");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPosition, setLogoPosition] = useState("bottom_right");
+  const [logoOpacity, setLogoOpacity] = useState(0.9);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [videoPreviewId, setVideoPreviewId] = useState<string | null>(null);
+
+  // Load templates & voice previews once
   useEffect(() => {
     getTemplates()
       .then((r) => setTemplates(r.data))
       .catch(() => {});
+    getVoicePreviews()
+      .then((r) => setVoicePreviews(r.data))
+      .catch(() => {});
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (mode === "upload") {
-      if (docFiles.length === 0) return;
-      await onSubmit(
-        "", // no URL
-        name.trim() || undefined,
-        voiceGender,
-        voiceAccent,
-        accentColor,
-        bgColor,
-        textColor,
-        animationInstructions.trim() || undefined,
-        logoFile || undefined,
-        logoPosition,
-        logoOpacity,
-        customVoiceId.trim() || undefined,
-        aspectRatio,
-        docFiles,
-        template !== "default" ? template : undefined
-      );
-      setDocFiles([]);
-      setName("");
-    } else {
-      const validUrls = urls.filter((u) => u.trim());
-      if (validUrls.length === 0) return;
-
-      // Submit each URL as a separate project
-      for (const url of validUrls) {
-        await onSubmit(
-          url.trim(),
-          name.trim() || undefined,
-          voiceGender,
-          voiceAccent,
-          accentColor,
-          bgColor,
-          textColor,
-          animationInstructions.trim() || undefined,
-          logoFile || undefined,
-          logoPosition,
-          logoOpacity,
-          customVoiceId.trim() || undefined,
-          aspectRatio,
-          undefined,
-          template !== "default" ? template : undefined
-        );
-      }
-      setUrls([""]);
-      setName("");
+  // Preload voice preview audio on mount so it's ready by step 3
+  useEffect(() => {
+    const base = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
+    for (const key of VOICE_PREVIEW_KEYS) {
+      if (preloadedAudioRef.current[key]) continue;
+      const url = `${base}/voices/preview-audio?key=${encodeURIComponent(key)}`;
+      const a = new Audio();
+      a.preload = "auto";
+      a.src = url;
+      preloadedAudioRef.current[key] = a;
     }
+  }, []);
+
+  // Cleanup audio only on unmount; do not clear preloadedAudioRef so step 3 can use it
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      for (const key of VOICE_PREVIEW_KEYS) {
+        const a = preloadedAudioRef.current[key];
+        if (a) {
+          a.pause();
+          a.removeAttribute("src");
+          a.load();
+        }
+      }
+      preloadedAudioRef.current = {};
+    };
+  }, []);
+
+  // ─── Audio preview ───────────────────────────────────────────
+  const playVoice = (key: string, url: string | null) => {
+    if (!url) return;
+    if (playingKey === key) {
+      audioRef.current?.pause();
+      setPlayingKey(null);
+      return;
+    }
+    audioRef.current?.pause();
+    // Always use preloaded instance when present so we don't refetch at step 3
+    let audio = preloadedAudioRef.current[key];
+    if (!audio) {
+      audio = new Audio(url);
+      audio.preload = "auto";
+      preloadedAudioRef.current[key] = audio;
+    }
+    audio.currentTime = 0;
+    audio.onended = () => setPlayingKey(null);
+    audio.onerror = () => setPlayingKey(null);
+    audio.play().catch(() => setPlayingKey(null));
+    audioRef.current = audio;
+    setPlayingKey(key);
   };
 
-  const updateUrl = (index: number, value: string) => {
-    setUrls((prev) => prev.map((u, i) => (i === index ? value : u)));
-  };
-
+  // ─── File helpers ────────────────────────────────────────────
   const isAllowedFile = (file: File) => {
-    // Check MIME type first
     if (ALLOWED_TYPES.includes(file.type)) return true;
-    // Fallback: check extension (MIME can be unreliable)
     const ext = file.name.toLowerCase().split(".").pop();
     return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
   };
@@ -149,12 +284,10 @@ export default function BlogUrlForm({
   const addDocFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
     setDocError(null);
-
     const incoming = Array.from(newFiles);
-
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
-        setDocError(`"${f.name}" is not a supported format. Use PDF, DOCX, or PPTX.`);
+        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, or PPTX.`);
         return;
       }
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -162,13 +295,11 @@ export default function BlogUrlForm({
         return;
       }
     }
-
     const combined = [...docFiles, ...incoming];
     if (combined.length > MAX_UPLOAD_FILES) {
       setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`);
       return;
     }
-
     setDocFiles(combined);
   };
 
@@ -183,40 +314,108 @@ export default function BlogUrlForm({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const isSubmitDisabled =
-    loading ||
-    (mode === "url" && !urls[0]?.trim()) ||
-    (mode === "upload" && docFiles.length === 0);
+  // ─── Navigation ──────────────────────────────────────────────
+  // Step order: 1 = Project (URL/Upload), 2 = Template, 3 = Voice
+  const canGoNext1 =
+    mode === "url" ? !!urls[0]?.trim() : docFiles.length > 0;
 
-  const form = (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Mode tabs */}
+  const goNext = () => {
+    if (step === 1 && canGoNext1) setStep(2);
+    else if (step === 2) setStep(3);
+  };
+
+  const goBack = () => {
+    if (step === 2) setStep(1);
+    else if (step === 3) setStep(2);
+  };
+
+  // ─── Submit ──────────────────────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    audioRef.current?.pause();
+
+    if (mode === "upload") {
+      if (docFiles.length === 0) return;
+      await onSubmit(
+        "",
+        name.trim() || undefined,
+        voiceGender,
+        voiceAccent,
+        accentColor,
+        bgColor,
+        textColor,
+        undefined,
+        logoFile || undefined,
+        logoPosition,
+        logoOpacity,
+        customVoiceId.trim() || undefined,
+        aspectRatio,
+        docFiles,
+        template !== "default" ? template : undefined
+      );
+      setDocFiles([]);
+      setName("");
+    } else {
+      const validUrls = urls.filter((u) => u.trim());
+      if (validUrls.length === 0) return;
+      for (const url of validUrls) {
+        await onSubmit(
+          url.trim(),
+          name.trim() || undefined,
+          voiceGender,
+          voiceAccent,
+          accentColor,
+          bgColor,
+          textColor,
+          undefined,
+          logoFile || undefined,
+          logoPosition,
+          logoOpacity,
+          customVoiceId.trim() || undefined,
+          aspectRatio,
+          undefined,
+          template !== "default" ? template : undefined
+        );
+      }
+      setUrls([""]);
+      setName("");
+    }
+  };
+
+  // ─── Template apply colors ───────────────────────────────────
+  const applyTemplate = (id: string) => {
+    setTemplate(id);
+    const meta = templates.find((t) => t.id === id);
+    if (meta?.preview_colors) {
+      setAccentColor(meta.preview_colors.accent);
+      setBgColor(meta.preview_colors.bg);
+      setTextColor(meta.preview_colors.text);
+    }
+  };
+
+  // ─── Step 1: Project (URL or Upload) ─────────────────────────
+  const step1 = (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 flex flex-col space-y-5 min-h-0">
+      {/* Mode tabs — selected tab purple */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        <button
-          type="button"
-          onClick={() => setMode("url")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            mode === "url"
-              ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-              : "text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          Link
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("upload")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            mode === "upload"
-              ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-              : "text-gray-400 hover:text-gray-600"
-          }`}
-        >
-          Upload
-        </button>
+        {(["url", "upload"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              mode === m
+                ? "bg-purple-600 text-white shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            {m === "url" ? "Link" : "Upload"}
+          </button>
+        ))}
       </div>
 
-      {/* URL input (shown when mode === "url") */}
+      {/* URL input */}
       {mode === "url" && (
         <div>
           <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
@@ -228,7 +427,9 @@ export default function BlogUrlForm({
               type="url"
               required={i === 0}
               value={url}
-              onChange={(e) => updateUrl(i, e.target.value)}
+              onChange={(e) =>
+                setUrls((prev) => prev.map((u, idx) => (idx === i ? e.target.value : u)))
+              }
               placeholder={
                 i === 0
                   ? "https://yourblog.com/your-article..."
@@ -239,20 +440,18 @@ export default function BlogUrlForm({
             />
           ))}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
-            If your post is paywalled. Use the paywall-free link for best results.
+            Use a paywall-free link for best results.
           </p>
         </div>
       )}
 
-      {/* Document upload (shown when mode === "upload") */}
+      {/* Document upload */}
       {mode === "upload" && (
         <div>
           <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
             Documents{" "}
             <span className="text-gray-300 font-normal">(max 5 files, 5 MB each)</span>
           </label>
-
-          {/* Dropzone */}
           <div
             className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer"
             onClick={() => docInputRef.current?.click()}
@@ -270,22 +469,11 @@ export default function BlogUrlForm({
               addDocFiles(e.dataTransfer.files);
             }}
           >
-            <svg
-              className="w-8 h-8 mx-auto mb-2 text-gray-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
+            <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-sm text-gray-500">
-              Drop files here or{" "}
-              <span className="text-purple-600 font-medium">browse</span>
+              Drop files here or <span className="text-purple-600 font-medium">browse</span>
             </p>
             <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint</p>
             <input
@@ -294,67 +482,29 @@ export default function BlogUrlForm({
               accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               multiple
               className="hidden"
-              onChange={(e) => {
-                addDocFiles(e.target.files);
-                e.target.value = "";
-              }}
+              onChange={(e) => { addDocFiles(e.target.files); e.target.value = ""; }}
             />
           </div>
-
-          {/* Error message */}
-          {docError && (
-            <p className="mt-2 text-[11px] text-red-500">{docError}</p>
-          )}
-
-          {/* File list */}
+          {docError && <p className="mt-2 text-[11px] text-red-500">{docError}</p>}
           {docFiles.length > 0 && (
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-3 space-y-2">
               {docFiles.map((file, i) => (
-                <div
-                  key={`${file.name}-${i}`}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 rounded-lg"
-                >
+                <div key={`${file.name}-${i}`} className="flex items-center gap-3 px-4 py-3 bg-gray-50/80 rounded-xl border border-gray-200/60">
                   <svg
-                    className={`w-4 h-4 flex-shrink-0 ${
-                      file.name.endsWith(".pdf")
-                        ? "text-red-400"
-                        : file.name.endsWith(".docx")
-                        ? "text-blue-400"
-                        : "text-orange-400"
-                    }`}
+                    className={`w-6 h-6 flex-shrink-0 ${file.name.endsWith(".pdf") ? "text-red-400" : file.name.endsWith(".docx") ? "text-blue-400" : "text-orange-400"}`}
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
-                      clipRule="evenodd"
-                    />
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                   </svg>
-                  <span className="flex-1 text-xs text-gray-700 truncate">
-                    {file.name}
-                  </span>
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">
-                    {formatFileSize(file.size)}
-                  </span>
+                  <span className="flex-1 text-sm text-gray-700 truncate font-medium">{file.name}</span>
+                  <span className="text-xs text-gray-400 flex-shrink-0">{formatFileSize(file.size)}</span>
                   <button
                     type="button"
-                    onClick={() => removeDocFile(i)}
-                    className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                    onClick={(e) => { e.stopPropagation(); removeDocFile(i); }}
+                    className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/60 transition-colors"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                    Remove
                   </button>
                 </div>
               ))}
@@ -363,11 +513,10 @@ export default function BlogUrlForm({
         </div>
       )}
 
-      {/* Name */}
+      {/* Project name */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Project Name{" "}
-          <span className="text-gray-300 font-normal">(optional)</span>
+          Project Name <span className="text-gray-300 font-normal">(optional)</span>
         </label>
         <input
           type="text"
@@ -378,121 +527,236 @@ export default function BlogUrlForm({
         />
       </div>
 
-      {/* Voice preferences row */}
+      {/* Logo */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Voice
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={voiceGender === "none"}
-              onChange={(e) => setVoiceGender(e.target.checked ? "none" : "female")}
-              className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
-            />
-            <span className="text-[11px] text-gray-400">No voiceover</span>
-          </label>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          <div className="relative mb-4 inline-block">
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
+            >
+              {logoFile ? logoFile.name : "Choose file"}
+            </button>
+            {logoFile && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLogoFile(null);
+                  if (logoInputRef.current) logoInputRef.current.value = "";
+                }}
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
+                title="Remove logo"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0] || null;
+              if (f && f.size > 2 * 1024 * 1024) {
+                alert("Logo must be under 2 MB.");
+                e.target.value = "";
+                return;
+              }
+              setLogoFile(f);
+            }}
+          />
         </div>
-
-        {voiceGender !== "none" && (
-          <div className="grid grid-cols-2 gap-4">
-            {/* Gender */}
-            <div>
-              <div className="flex gap-2">
-                {(["female", "male"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setVoiceGender(g)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                      voiceGender === g
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-                    }`}
-                  >
-                    {g === "female" ? "Female" : "Male"}
-                  </button>
-                ))}
-              </div>
+        {logoFile && (
+          <div className="mt-2">
+            <label className="block text-[10px] text-gray-400 mb-1">Position</label>
+            <div className="flex gap-1.5">
+              {([
+                { value: "top_left", label: "Top Left" },
+                { value: "top_right", label: "Top Right" },
+                { value: "bottom_left", label: "Bottom Left" },
+                { value: "bottom_right", label: "Bottom Right" },
+              ] as const).map((pos) => (
+                <button
+                  key={pos.value}
+                  type="button"
+                  onClick={() => setLogoPosition(pos.value)}
+                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                    logoPosition === pos.value
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                  }`}
+                >
+                  {pos.label}
+                </button>
+              ))}
             </div>
-
-            {/* Accent */}
-            <div>
-              <div className="flex gap-2">
-                {(["american", "british"] as const).map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => setVoiceAccent(a)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                      voiceAccent === a
-                        ? "bg-purple-600 text-white shadow-sm"
-                        : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-                    }`}
-                  >
-                    {a === "american" ? "American" : "British"}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-2.5 mb-3.5">
+              <label className="block text-[10px] text-gray-500 mb-1">
+                Opacity <span className="text-gray-500">{Math.round(logoOpacity * 100)}%</span>
+              </label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={Math.round(logoOpacity * 100)}
+                onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
+                className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+              />
             </div>
           </div>
         )}
       </div>
+      </div>
 
-      {/* Custom Voice ID — Pro only, visible when voice is not "none" */}
-      {isPro && voiceGender !== "none" && (
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-            Custom Voice ID{" "}
-            <span className="text-gray-300 font-normal">(ElevenLabs)</span>
-          </label>
-          <input
-            type="text"
-            value={customVoiceId}
-            onChange={(e) => setCustomVoiceId(e.target.value)}
-            placeholder="Paste your ElevenLabs voice ID..."
-            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-          />
-          <p className="mt-1 text-[10px] text-gray-300">
-            Override the default voice with your own from elevenlabs.io
-          </p>
-        </div>
-      )}
+      {/* Next — always at bottom for consistent UI in Link and Upload */}
+      <button
+        type="button"
+        onClick={goNext}
+        disabled={!canGoNext1}
+        className="w-full mb-3 py-3 mt-auto bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 flex-shrink-0"
+      >
+        Go to step 2
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  );
 
-      {/* Template */}
-      {templates.length > 0 && (
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-            Template
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  setTemplate(t.id);
-                  if (t.preview_colors) {
-                    setAccentColor(t.preview_colors.accent);
-                    setBgColor(t.preview_colors.bg);
-                    setTextColor(t.preview_colors.text);
-                  }
-                }}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  template === t.id
-                    ? "bg-purple-600 text-white shadow-sm"
-                    : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
+  // ─── Step 2: Template (moved up; was step 3) ───────────────────
+  const availableTemplates = templates.length > 0
+    ? templates
+    : [
+        { id: "default", name: "Spotlight" },
+        { id: "nightfall", name: "Nightfall" },
+        { id: "gridcraft", name: "Gridcraft" },
+      ];
+
+  const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
+  const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
+
+  const step2Template = (
+    <div className="space-y-5">
+      {/* Selected template — full-width preview */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Selected Template
+        </label>
+        <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+          <div className="relative">
+            {SelectedPreviewComp ? (
+              <SelectedPreviewComp key={`selected-${template}-${step}`} />
+            ) : (
+              <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+                {selectedDesc?.title ?? template}
+              </div>
+            )}
+          </div>
+          <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? template}</div>
+              {selectedDesc?.subtitle && (
+                <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
+              )}
+            </div>
+            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Aspect Ratio */}
+      {/* All templates — scrollable box, 3 per row */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          All Templates
+        </label>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          <div className="grid grid-cols-3 gap-2">
+            {availableTemplates.map((t) => {
+              const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+              const desc = TEMPLATE_DESCRIPTIONS[t.id];
+              const isSelected = template === t.id;
+
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => applyTemplate(t.id)}
+                  className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                    isSelected
+                      ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                      : "border-gray-200/60 hover:border-purple-300/60"
+                  }`}
+                >
+                  <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                    {PreviewComp ? (
+                      <PreviewComp key={`${t.id}-${step}`} />
+                    ) : (
+                      <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                        {t.name}
+                      </div>
+                    )}
+                    {isSelected && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                    <div className="text-[10px] font-semibold text-gray-800 truncate">
+                      {desc?.title ?? t.name}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Video colors */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Video Colors
+        </label>
+        <div className="flex items-center gap-5">
+          {[
+            { label: "Accent", value: accentColor, setter: setAccentColor },
+            { label: "Background", value: bgColor, setter: setBgColor },
+            { label: "Text", value: textColor, setter: setTextColor },
+          ].map(({ label, value, setter }) => (
+            <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+              <span
+                className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+                style={{ backgroundColor: value }}
+              >
+                <input
+                  type="color"
+                  value={value}
+                  onChange={(e) => setter(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Format */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
           Format
@@ -513,11 +777,7 @@ export default function BlogUrlForm({
               }`}
             >
               <span>{opt.label}</span>
-              <span
-                className={`text-[9px] ${
-                  aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"
-                }`}
-              >
+              <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
                 {opt.sub}
               </span>
             </button>
@@ -525,173 +785,195 @@ export default function BlogUrlForm({
         </div>
       </div>
 
-      {/* Video Colors — three dots */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Video Colors
-        </label>
-        <div className="flex items-center gap-4">
-          {/* Accent */}
-          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
-            <span
-              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
-              style={{ backgroundColor: accentColor }}
-            >
-              <input
-                type="color"
-                value={accentColor}
-                onChange={(e) => setAccentColor(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-            </span>
-            <span className="text-[10px] text-gray-400 font-medium">Accent</span>
-          </label>
-
-          {/* Background */}
-          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
-            <span
-              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
-              style={{ backgroundColor: bgColor }}
-            >
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-            </span>
-            <span className="text-[10px] text-gray-400 font-medium">Background</span>
-          </label>
-
-          {/* Text */}
-          <label className="flex flex-col items-center gap-1.5 cursor-pointer group">
-            <span
-              className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
-              style={{ backgroundColor: textColor }}
-            >
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-            </span>
-            <span className="text-[10px] text-gray-400 font-medium">Text</span>
-          </label>
-        </div>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={goBack}
+          className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={goNext}
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          Go to step 3
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
+    </div>
+  );
 
-      {/* Logo Upload */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Logo{" "}
-          <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
-        </label>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => logoInputRef.current?.click()}
-            className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all"
-          >
-            {logoFile ? logoFile.name : "Choose file"}
-          </button>
-          {logoFile && (
-            <button
-              type="button"
-              onClick={() => {
-                setLogoFile(null);
-                if (logoInputRef.current) logoInputRef.current.value = "";
-              }}
-              className="text-[10px] text-gray-400 hover:text-red-500"
-            >
-              Remove
-            </button>
-          )}
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] || null;
-              if (f && f.size > 2 * 1024 * 1024) {
-                alert("Logo must be under 2 MB.");
-                e.target.value = "";
-                return;
-              }
-              setLogoFile(f);
-            }}
-          />
+  // ─── Step 3: Voice (last step) — audio playlist style ─────────
+  const voiceOptions = [
+    { gender: "female" as const, accent: "american" as const, key: "female_american", flag: "🇺🇸" },
+    { gender: "female" as const, accent: "british" as const, key: "female_british", flag: "🇬🇧" },
+    { gender: "male" as const, accent: "american" as const, key: "male_american", flag: "🇺🇸" },
+    { gender: "male" as const, accent: "british" as const, key: "male_british", flag: "🇬🇧" },
+  ];
+
+  const getPlaybackUrl = (key: string): string | null => {
+    if (!VOICE_PREVIEW_KEYS.includes(key)) return null;
+    const base = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
+    return `${base}/voices/preview-audio?key=${encodeURIComponent(key)}`;
+  };
+
+  const step3Voice = (
+    <div className="space-y-5">
+      <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+        <input
+          type="checkbox"
+          checked={voiceGender === "none"}
+          onChange={(e) => setVoiceGender(e.target.checked ? "none" : "female")}
+          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+        />
+        <div>
+          <span className="text-sm font-medium text-gray-700">No voiceover</span>
+          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
         </div>
-        {logoFile && (
-          <div className="mt-2">
-            <label className="block text-[10px] text-gray-400 mb-1">
-              Position
-            </label>
-            <div className="flex gap-1.5">
-              {(
-                [
-                  { value: "top_left", label: "Top Left" },
-                  { value: "top_right", label: "Top Right" },
-                  { value: "bottom_left", label: "Bottom Left" },
-                  { value: "bottom_right", label: "Bottom Right" },
-                ] as const
-              ).map((pos) => (
+      </label>
+
+      <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+        <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
+          Voice — select and play to preview
+        </label>
+        <div className="space-y-2">
+          {voiceOptions.map(({ gender, accent, key, flag }) => {
+            const preview = voicePreviews[key];
+            const playbackUrl = getPlaybackUrl(key);
+            const isDisabled = voiceGender === "none";
+            const isSelected = voiceGender === gender && voiceAccent === accent;
+            const isPlaying = playingKey === key;
+            const FALLBACK_NAMES: Record<string, string> = {
+              female_american: "Rachel",
+              female_british: "Alice",
+              male_american: "Bill",
+              male_british: "Daniel",
+            };
+            const FALLBACK_DESCS: Record<string, string> = {
+              female_american: "Warm & confident, clear narration",
+              female_british: "Soft & polished, refined tone",
+              male_american: "Friendly & articulate, conversational",
+              male_british: "Calm & authoritative, smooth delivery",
+            };
+            const name = FALLBACK_NAMES[key] || preview?.name || `${gender} ${accent}`;
+            const desc = [gender === "female" ? "Female" : "Male", accent === "american" ? "American" : "British"].join(" • ") + ` — ${preview?.description || FALLBACK_DESCS[key] || ""}`;
+
+            return (
+              <div
+                key={key}
+                onClick={() => { if (!isDisabled) { setVoiceGender(gender); setVoiceAccent(accent); } }}
+                className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
+                  isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                } ${
+                  isSelected
+                    ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
+                    : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20"
+                } ${isDisabled ? "hover:border-gray-200/60 hover:bg-white/60" : ""}`}
+              >
                 <button
-                  key={pos.value}
                   type="button"
-                  onClick={() => setLogoPosition(pos.value)}
-                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                    logoPosition === pos.value
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isDisabled) playVoice(key, playbackUrl);
+                  }}
+                  disabled={!playbackUrl || isDisabled}
+                  className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                    isDisabled || !playbackUrl
+                      ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                      : isPlaying
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700"
                   }`}
                 >
-                  {pos.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Opacity slider */}
-            <div className="mt-2.5">
-              <label className="block text-[10px] text-gray-400 mb-1">
-                Opacity{" "}
-                <span className="text-gray-300">
-                  {Math.round(logoOpacity * 100)}%
-                </span>
-              </label>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={Math.round(logoOpacity * 100)}
-                onChange={(e) =>
-                  setLogoOpacity(parseInt(e.target.value, 10) / 100)
-                }
-                className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
-              />
-            </div>
-          </div>
-        )}
+                    {isPlaying ? (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800">{flag} {name}</div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+                  </div>
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </div>
       </div>
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={isSubmitDisabled}
-        className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          <>
-            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            {mode === "upload" ? "Extracting..." : "Creating..."}
-          </>
-        ) : (
-          "Generate Video"
-        )}
-      </button>
+      {isPro && voiceGender !== "none" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Custom Voice ID <span className="text-gray-300 font-normal">(ElevenLabs)</span>
+          </label>
+          <input
+            type="text"
+            value={customVoiceId}
+            onChange={(e) => setCustomVoiceId(e.target.value)}
+            placeholder="Paste your ElevenLabs voice ID to override..."
+            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+          />
+        </div>
+      )}
 
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={goBack}
+          className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+        >
+          Back
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          {loading ? (
+            <>
+              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {mode === "upload" ? "Extracting..." : "Creating..."}
+            </>
+          ) : (
+            "Generate Video"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ─── Render ──────────────────────────────────────────────────
+  // Step order: 1 Project, 2 Template, 3 Voice
+  const stepContent = step === 1 ? step1 : step === 2 ? step2Template : step3Voice;
+
+  const modalWidth = "max-w-xl";
+
+  // Constant form size: min-height so layout doesn’t jump between steps
+  const stepContentWrapper = (
+    <div className="min-h-[420px] flex flex-col">
+      {stepContent}
+    </div>
+  );
+
+  const formContent = (
+    <form onSubmit={handleSubmit}>
+      <StepIndicator current={step} total={3} />
+      {stepContentWrapper}
       <UpgradeModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
@@ -700,41 +982,55 @@ export default function BlogUrlForm({
     </form>
   );
 
-  if (!asModal) return form;
+  if (!asModal) {
+    return (
+      <div>
+        <StepIndicator current={step} total={3} />
+        <form onSubmit={handleSubmit}>
+          <div className="min-h-[420px] flex flex-col">{stepContent}</div>
+        </form>
+        <UpgradeModal
+          open={showUpgrade}
+          onClose={() => setShowUpgrade(false)}
+          feature="Upgrade"
+        />
+        {videoPreviewId && (
+          <TemplateVideoLightbox
+            templateId={videoPreviewId}
+            onClose={() => setVideoPreviewId(null)}
+            onSelect={() => applyTemplate(videoPreviewId)}
+            isSelected={template === videoPreviewId}
+          />
+        )}
+      </div>
+    );
+  }
 
-  // Modal overlay
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-md mx-4 bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[90vh] overflow-y-auto">
+        className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[90vh] overflow-y-auto transition-all duration-300`}
+      >
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-base font-semibold text-gray-900">
-            New Project
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-300 hover:text-gray-500 transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+          <h2 className="text-base font-semibold text-gray-900">New Project</h2>
+          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        {form}
+        {formContent}
       </div>
+      {videoPreviewId && (
+        <TemplateVideoLightbox
+          templateId={videoPreviewId}
+          onClose={() => setVideoPreviewId(null)}
+          onSelect={() => applyTemplate(videoPreviewId)}
+          isSelected={template === videoPreviewId}
+        />
+      )}
     </div>
   );
 }

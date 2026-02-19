@@ -271,6 +271,18 @@ export interface TemplateMeta {
 export const getTemplates = () =>
   api.get<TemplateMeta[]>("/templates");
 
+export interface VoicePreview {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  description: string;
+  gender: string;
+  accent: string;
+}
+
+export const getVoicePreviews = () =>
+  api.get<Record<string, VoicePreview>>("/voices/previews");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -405,6 +417,20 @@ export const updateScene = (
   sceneId: number,
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
+
+export const updateSceneImage = (
+  projectId: number,
+  sceneId: number,
+  imageFile: File
+) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/image`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
 
 export interface LayoutInfo {
   layouts: string[];

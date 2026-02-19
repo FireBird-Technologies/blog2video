@@ -1,149 +1,92 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const BentoCode: React.FC<GridcraftLayoutProps> = ({
-  title,
-  narration,
-  codeLines,
-  codeLanguage,
-  description,
+  title, // Language
+  narration, // Description
+  codeSnippet, // Legacy string
+  codeLines, // Backend array
   accentColor,
-  bgColor,
-  textColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const lines = codeLines && codeLines.length > 0 ? codeLines : ["// No code provided"];
+  const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
 
-  const codeScale = spring({ frame, fps, config: { damping: 14, stiffness: 120 } });
-  const codeOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-
-  const badgeScale = spring({ frame: Math.max(0, frame - 6), fps, config: { damping: 14, stiffness: 120 } });
-  const badgeOpacity = interpolate(frame, [6, 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-  const descScale = spring({ frame: Math.max(0, frame - 10), fps, config: { damping: 14, stiffness: 120 } });
-  const descOpacity = interpolate(frame, [10, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-  // Typewriter effect for code
-  const totalChars = lines.join("\n").length;
-  const visibleChars = Math.round(interpolate(frame, [8, 8 + totalChars * 0.8], [0, totalChars], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  }));
-
-  let charCount = 0;
-  const visibleLines = lines.map((line) => {
-    const lineStart = charCount;
-    charCount += line.length + 1;
-    if (lineStart >= visibleChars) return "";
-    if (charCount <= visibleChars) return line;
-    return line.substring(0, visibleChars - lineStart);
-  });
+  const lines = codeLines && codeLines.length > 0 
+    ? codeLines 
+    : (codeSnippet || "").split("\n");
 
   return (
-    <AbsoluteFill style={{
-      backgroundColor: bgColor || "#FAFAFA",
-      padding: "5%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      <div style={{
+    <div
+      style={{
         display: "grid",
         gridTemplateColumns: "2fr 1fr",
         gridTemplateRows: "1fr 1fr",
-        gap: 12,
-        width: "85%",
-        height: "70%",
-      }}>
-        {/* Code cell — dark bg, spans 2 rows */}
-        <div style={{
-          gridRow: "1 / 3",
-          backgroundColor: "#1E1E2E",
-          borderRadius: 20,
-          padding: "32px 28px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          transform: `scale(${0.92 + 0.08 * codeScale})`,
-          opacity: codeOpacity,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
-          overflow: "hidden",
-        }}>
-          {/* Window dots */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-            <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#FF5F56" }} />
-            <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#FFBD2E" }} />
-            <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: "#27C93F" }} />
-          </div>
-          <pre style={{
-            margin: 0,
-            fontSize: 15,
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', monospace",
-            color: "#E2E8F0",
-            lineHeight: 1.7,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}>
-            {visibleLines.join("\n")}
-          </pre>
-        </div>
-
-        {/* Badge cell */}
-        <div style={{
-          backgroundColor: accentColor || "#F97316",
-          borderRadius: 20,
-          padding: "24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transform: `scale(${0.92 + 0.08 * badgeScale})`,
-          opacity: badgeOpacity,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}>
-          <span style={{
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#FFFFFF",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            textTransform: "uppercase",
-            letterSpacing: 2,
-          }}>
-            {codeLanguage || "code"}
-          </span>
-        </div>
-
-        {/* Description cell */}
-        <div style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: 20,
-          padding: "24px",
-          display: "flex",
-          alignItems: "center",
-          transform: `scale(${0.92 + 0.08 * descScale})`,
-          opacity: descOpacity,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}>
-          <p style={{
-            fontSize: 15,
-            fontWeight: 400,
-            color: textColor || "#171717",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            lineHeight: 1.5,
-            margin: 0,
-          }}>
-            {description || narration}
-          </p>
-        </div>
+        gap: 20,
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        fontFamily: FONT_FAMILY.SANS,
+      }}
+    >
+      {/* Code Window */}
+      <div
+        style={{
+           gridRow: "1 / 3",
+           backgroundColor: "rgba(15, 23, 42, 0.85)", // Dark slate
+           backdropFilter: "blur(20px)",
+           borderRadius: 24,
+           border: "1px solid rgba(255,255,255,0.1)",
+           padding: 32,
+           fontFamily: FONT_FAMILY.MONO,
+           fontSize: 14,
+           lineHeight: 1.8,
+           color: "#E2E8F0",
+           overflow: "hidden",
+           transform: `scale(${interpolate(spr(0), [0, 1], [0.95, 1])})`,
+           opacity: interpolate(spr(0), [0, 1], [0, 1]),
+           boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+        }}
+      >
+        {lines.map((line, i) => (
+            <div key={i} style={{ 
+                opacity: interpolate(frame, [i*2, i*2+10], [0, 1], { extrapolateRight: "clamp" }),
+                transform: `translateX(${interpolate(frame, [i*2, i*2+10], [-10, 0], { extrapolateRight: "clamp" })}px)`
+            }}>
+                {line || " "}
+            </div>
+        ))}
       </div>
-    </AbsoluteFill>
+
+      {/* Language Badge */}
+      <div
+        style={{
+            ...glass(true),
+            backgroundColor: accentColor || COLORS.ACCENT,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transform: `scale(${interpolate(spr(10), [0, 1], [0.8, 1])})`,
+            opacity: interpolate(spr(10), [0, 1], [0, 1]),
+        }}
+      >
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{title || "Code"}</div>
+      </div>
+
+      {/* Description */}
+      <div
+        style={{
+            ...glass(false),
+            padding: 24,
+            display: "flex", flexDirection: "column", justifyContent: "center",
+             transform: `scale(${interpolate(spr(15), [0, 1], [0.9, 1])})`,
+            opacity: interpolate(spr(15), [0, 1], [0, 1]),
+        }}
+      >
+          <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", marginBottom: 8 }}>Details</div>
+          <div style={{ fontSize: 16, lineHeight: 1.4, fontWeight: 500 }}>{narration}</div>
+      </div>
+    </div>
   );
 };

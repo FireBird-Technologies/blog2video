@@ -1,110 +1,114 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  spring,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
-  title,
-  narration,
+  // Backend props
   mainPoint,
   supportingFacts,
-  accentColor,
-  bgColor,
+  // Fallbacks
+  title,
+  dataPoints,
+  
+  subtitle,
   textColor,
+  accentColor,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const mainText = mainPoint || narration;
-  const facts = supportingFacts && supportingFacts.length >= 2
-    ? supportingFacts
-    : [narration.split(".")[0]?.trim() || "Detail 1", narration.split(".")[1]?.trim() || "Detail 2"];
+  const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 14, stiffness: 110 } });
 
-  const mainScale = spring({ frame, fps, config: { damping: 14, stiffness: 120 } });
-  const mainOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
+  const scale1 = interpolate(spr(0), [0, 1], [0.95, 1]);
+  const op1 = interpolate(spr(0), [0, 1], [0, 1]);
+
+  // Resolve content
+  const primaryText = mainPoint || title || "Highlight Key Feature Here";
+  const facts = (supportingFacts && supportingFacts.length > 0) 
+    ? supportingFacts 
+    : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAFA", padding: "5%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{
+    <div
+      style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        gridTemplateRows: "auto auto",
-        gap: 12,
-        width: "85%",
-      }}>
-        {/* Large top cell */}
-        <div style={{
-          gridColumn: "1 / -1",
-          backgroundColor: "#FFFFFF",
-          borderRadius: 20,
-          padding: "40px 44px",
-          transform: `scale(${0.92 + 0.08 * mainScale})`,
-          opacity: mainOpacity,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-          borderLeft: `4px solid ${accentColor || "#F97316"}`,
+        gridTemplateRows: "1.8fr 1fr",
+        gap: 20,
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        fontFamily: FONT_FAMILY.SANS,
+      }}
+    >
+      {/* Main Highlight Box */}
+      <div
+        style={{
+          gridColumn: "1 / 3",
+          ...glass(false),
+          // Special styling for highlight
+          backgroundColor: "rgba(255,255,255,0.4)",
+          border: `1px solid ${(accentColor || COLORS.ACCENT)}40`, // slight accent border
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: 42,
+          transform: `scale(${scale1})`,
+          opacity: op1,
+        }}
+      >
+        <div style={{ 
+            fontSize: 14, 
+            textTransform: "uppercase", 
+            letterSpacing: "0.15em", 
+            color: accentColor || COLORS.ACCENT, 
+            fontWeight: 700, 
+            marginBottom: 16 
         }}>
-          <h2 style={{
-            fontSize: 20,
-            fontWeight: 600,
-            color: accentColor || "#F97316",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            margin: "0 0 12px 0",
-            textTransform: "uppercase",
-            letterSpacing: 1,
-          }}>
-            {title}
-          </h2>
-          <p style={{
-            fontSize: 28,
-            fontWeight: 500,
-            color: textColor || "#171717",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            lineHeight: 1.4,
-            margin: 0,
-          }}>
-            {mainText}
-          </p>
+            Main Point
         </div>
-
-        {/* Supporting fact cells */}
-        {facts.slice(0, 2).map((fact, i) => {
-          const delay = 8 + i * 6;
-          const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14, stiffness: 120 } });
-          const opacity = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-
-          return (
-            <div
-              key={i}
-              style={{
-                backgroundColor: i === 0 ? (accentColor || "#F97316") : "#FFFFFF",
-                borderRadius: 20,
-                padding: "28px 32px",
-                display: "flex",
-                alignItems: "center",
-                transform: `scale(${0.92 + 0.08 * s})`,
-                opacity,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              }}
-            >
-              <p style={{
-                fontSize: 18,
-                fontWeight: 500,
-                color: i === 0 ? "#FFFFFF" : (textColor || "#171717"),
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                lineHeight: 1.5,
-                margin: 0,
-              }}>
-                {fact}
-              </p>
-            </div>
-          );
-        })}
+        <div style={{ 
+            fontSize: 32, 
+            fontWeight: 700, 
+            lineHeight: 1.3, 
+            color: textColor || COLORS.DARK,
+            maxWidth: "90%"
+        }}>
+          {primaryText}
+        </div>
+         {subtitle && (
+            <div style={{ fontSize: 18, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
+         )}
       </div>
-    </AbsoluteFill>
+
+      {/* Supporting Facts - Render up to 2 dynamically */}
+      {facts.slice(0, 2).map((fact, i) => {
+         const delay = 6 + i * 4;
+         const s = interpolate(spr(delay), [0, 1], [0.9, 1]);
+         const o = interpolate(spr(delay), [0, 1], [0, 1]);
+         const isAccent = i === 1;
+
+         return (
+             <div key={i} style={{ 
+                 ...glass(isAccent), 
+                 backgroundColor: isAccent ? (accentColor || COLORS.ACCENT) : undefined,
+                 padding: 24,
+                 display: "flex",
+                 flexDirection: "column",
+                 justifyContent: "center",
+                 transform: `scale(${s})`,
+                 opacity: o,
+             }}>
+                 <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase" }}>
+                     Fact {i + 1}
+                 </div>
+                 <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4 }}>
+                     {fact}
+                 </div>
+             </div>
+         )
+      })}
+    </div>
   );
 };

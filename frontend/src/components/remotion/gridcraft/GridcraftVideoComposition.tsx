@@ -1,7 +1,27 @@
-import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { Blobs } from "./components/Blobs";
+import { COLORS } from "./utils/styles";
+
+// Clean white transition for gridcraft (matches light bg)
+const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
+  const frame = useCurrentFrame();
+  const progress = interpolate(frame, [0, 15], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor || COLORS.BG,
+        opacity: progress,
+        zIndex: 10,
+      }}
+    />
+  );
+};
 
 export interface GridcraftSceneInput {
   id: number;
@@ -42,8 +62,10 @@ export const GridcraftVideoComposition: React.FC<
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAFA" }}>
-      {scenes.map((scene) => {
+    <AbsoluteFill style={{ backgroundColor: bgColor || COLORS.BG }}>
+      <Blobs />
+
+      {scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -56,9 +78,9 @@ export const GridcraftVideoComposition: React.FC<
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
-          accentColor: accentColor || "#F97316",
-          bgColor: bgColor || "#FAFAFA",
-          textColor: textColor || "#171717",
+          accentColor: accentColor || COLORS.ACCENT,
+          bgColor: bgColor || COLORS.BG,
+          textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           ...scene.layoutProps,
         };
@@ -70,19 +92,29 @@ export const GridcraftVideoComposition: React.FC<
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
+            {/* Layout Container with Z-Index to sit above Blobs */}
+            <AbsoluteFill style={{ zIndex: 1 }}>
+              <LayoutComponent {...layoutProps} />
+            </AbsoluteFill>
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {index < scenes.length - 1 && (
+              <Sequence from={durationFrames - 15} durationInFrames={15}>
+                <GridcraftTransition bgColor={bgColor || COLORS.BG} />
+              </Sequence>
+            )}
           </Sequence>
         );
       })}
 
       {logo && (
-        <LogoOverlay
-          src={logo}
-          position={logoPosition || "bottom_right"}
-          maxOpacity={logoOpacity ?? 0.9}
-          aspectRatio={aspectRatio || "landscape"}
-        />
+        <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
+          <LogoOverlay
+            src={logo}
+            position={logoPosition || "bottom_right"}
+            maxOpacity={logoOpacity ?? 0.9}
+            aspectRatio={aspectRatio || "landscape"}
+          />
+        </AbsoluteFill>
       )}
     </AbsoluteFill>
   );
