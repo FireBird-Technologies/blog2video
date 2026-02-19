@@ -111,9 +111,9 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             position: "absolute",
-            width: p ? "95%" : hasImage ? "90%" : "68%",
-            maxWidth: hasImage ? 1200 : 950,
-            height: p ? 400 : 500,
+            width: p ? "95%" : hasImage ? "92%" : "68%",
+            maxWidth: hasImage ? 1400 : 950,
+            height: p ? 400 : hasImage ? 600 : 500,
             background: `radial-gradient(ellipse at center, ${accentColor}15 0%, transparent 70%)`,
             filter: "blur(60px)",
             opacity: cardOpacity * 0.6,
@@ -124,9 +124,9 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
         <div
           style={{
             ...glassCardStyle(accentColor, 0.1),
-            width: p ? "95%" : hasImage ? "90%" : "68%",
-            maxWidth: hasImage ? 1200 : 950,
-            padding: p ? 44 : 64,
+            width: p ? "95%" : hasImage ? "92%" : "68%",
+            maxWidth: hasImage ? 1400 : 950,
+            padding: p ? 44 : hasImage ? 72 : 64,
             transform: `translateY(${(1 - cardY) * 50 + floatY}px)`,
             opacity: cardOpacity,
             position: "relative",
@@ -136,7 +136,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
               inset 0 1px 0 rgba(255, 255, 255, 0.08)
             `,
             display: "flex",
-            flexDirection: hasImage && !p ? "row" : "column",
+            flexDirection: "column",
             gap: hasImage ? (p ? 24 : 32) : 0,
           }}
         >
@@ -153,137 +153,169 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             }}
           />
 
-          {/* Image Section */}
+          {/* Title - shown at top when image exists */}
           {hasImage && (
-            <div
-              style={{
-                flex: p ? "none" : "0 0 40%",
-                width: p ? "100%" : "auto",
-                height: p ? 200 : "auto",
-                position: "relative",
-                opacity: imageOpacity,
-                transform: `scale(${imageScale})`,
-                borderRadius: 12,
-                overflow: "hidden",
-                marginBottom: p ? 20 : 0,
-              }}
-            >
-              <Img
-                src={imageUrl}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  borderRadius: 12,
-                  border: `1px solid ${accentColor}30`,
-                }}
-              />
-              {/* Image glow overlay */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 50%)`,
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
-          )}
-
-          {/* Text Content */}
-          <div
-            style={{
-              flex: hasImage && !p ? 1 : "none",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {/* Title */}
             <h2
               style={{
-                fontSize: p ? 36 : 46,
+                fontSize: p ? 40 : 52,
                 fontWeight: 700,
                 color: textColor,
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-                marginBottom: 28,
+                marginBottom: p ? 20 : 32,
                 lineHeight: 1.25,
                 letterSpacing: "-0.01em",
                 opacity: titleOpacity,
                 transform: `translateY(${titleY}px)`,
+                width: "100%",
               }}
             >
               {title}
             </h2>
+          )}
 
-            {/* Narration Content */}
+          {/* Content Row: Image + Text */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: hasImage && !p ? "row" : "column",
+              gap: hasImage ? (p ? 24 : 40) : 0,
+              alignItems: hasImage && !p ? "flex-start" : "stretch",
+            }}
+          >
+            {/* Image Section */}
+            {hasImage && (
+              <div
+                style={{
+                  flex: p ? "none" : "0 0 42%",
+                  width: p ? "100%" : "auto",
+                  height: p ? 220 : 380,
+                  position: "relative",
+                  opacity: imageOpacity,
+                  transform: `scale(${imageScale})`,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: p ? 20 : 0,
+                }}
+              >
+                <Img
+                  src={imageUrl}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: 12,
+                    border: `1px solid ${accentColor}30`,
+                  }}
+                />
+                {/* Image glow overlay */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: `linear-gradient(135deg, ${accentColor}10 0%, transparent 50%)`,
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Text Content */}
             <div
               style={{
-                opacity: narrationOpacity,
-                transform: `translateY(${narrationY}px)`,
-                fontSize: 25,
-                lineHeight: 1.8,
-                color: "rgba(226,232,240,0.8)",
-                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                flex: hasImage && !p ? 1 : "none",
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              {paragraphs.length > 1 ? (
-                // Multiple paragraphs with drop cap
-                paragraphs.map((para, i) => {
-                  const firstLetter = i === 0 ? para[0] : null;
-                  const rest = i === 0 ? para.slice(1) : para;
-                  return (
-                    <p
-                      key={i}
-                      style={{
-                        marginBottom: i < paragraphs.length - 1 ? 20 : 0,
-                      }}
-                    >
-                      {firstLetter && (
-                        <span style={{
-                          float: "left",
-                          fontSize: p ? 120 : 140,
-                          lineHeight: 0.85,
-                          fontFamily: "'Playfair Display', Georgia, serif",
-                          color: accentColor,
-                          fontWeight: 700,
-                          marginRight: 12,
-                          marginTop: p ? 4 : 8,
-                          textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
-                          filter: `drop-shadow(0 0 8px ${accentColor}40)`,
-                        }}>{firstLetter}</span>
-                      )}
-                      {rest}
-                    </p>
-                  );
-                })
-              ) : (
-                // Single paragraph with drop cap
-                (() => {
-                  const firstLetter = narration[0];
-                  const rest = narration.slice(1);
-                  return (
-                    <p>
-                      <span
+              {/* Title - shown here when no image */}
+              {!hasImage && (
+                <h2
+                  style={{
+                    fontSize: p ? 36 : 46,
+                    fontWeight: 700,
+                    color: textColor,
+                    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                    marginBottom: 28,
+                    lineHeight: 1.25,
+                    letterSpacing: "-0.01em",
+                    opacity: titleOpacity,
+                    transform: `translateY(${titleY}px)`,
+                  }}
+                >
+                  {title}
+                </h2>
+              )}
+
+              {/* Narration Content */}
+              <div
+                style={{
+                  opacity: narrationOpacity,
+                  transform: `translateY(${narrationY}px)`,
+                  fontSize: hasImage ? 26 : 25,
+                  lineHeight: 1.8,
+                  color: "rgba(226,232,240,0.8)",
+                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                }}
+              >
+                {paragraphs.length > 1 ? (
+                  // Multiple paragraphs with drop cap
+                  paragraphs.map((para, i) => {
+                    const firstLetter = i === 0 ? para[0] : null;
+                    const rest = i === 0 ? para.slice(1) : para;
+                    return (
+                      <p
+                        key={i}
                         style={{
-                          float: "left",
-                          fontSize: p ? 120 : 140,
-                          lineHeight: 0.85,
-                          fontFamily: "'Playfair Display', Georgia, serif",
-                          color: accentColor,
-                          fontWeight: 700,
-                          marginRight: 12,
-                          marginBottom: 4,
-                          textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
-                          filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                          marginBottom: i < paragraphs.length - 1 ? 20 : 0,
                         }}
                       >
-                        {firstLetter}
-                      </span>
-                      {rest}
-                    </p>
-                  );
-                })()
-              )}
+                        {firstLetter && (
+                          <span style={{
+                            float: "left",
+                            fontSize: p ? 120 : 140,
+                            lineHeight: 0.85,
+                            fontFamily: "'Playfair Display', Georgia, serif",
+                            color: accentColor,
+                            fontWeight: 700,
+                            marginRight: 12,
+                            marginTop: p ? 4 : 8,
+                            textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                            filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                          }}>{firstLetter}</span>
+                        )}
+                        {rest}
+                      </p>
+                    );
+                  })
+                ) : (
+                  // Single paragraph with drop cap
+                  (() => {
+                    const firstLetter = narration[0];
+                    const rest = narration.slice(1);
+                    return (
+                      <p>
+                        <span
+                          style={{
+                            float: "left",
+                            fontSize: p ? 120 : 140,
+                            lineHeight: 0.85,
+                            fontFamily: "'Playfair Display', Georgia, serif",
+                            color: accentColor,
+                            fontWeight: 700,
+                            marginRight: 12,
+                            marginBottom: 4,
+                            textShadow: `0 0 30px ${accentColor}50, 0 0 60px ${accentColor}30`,
+                            filter: `drop-shadow(0 0 8px ${accentColor}40)`,
+                          }}
+                        >
+                          {firstLetter}
+                        </span>
+                        {rest}
+                      </p>
+                    );
+                  })()
+                )}
+              </div>
             </div>
           </div>
 
