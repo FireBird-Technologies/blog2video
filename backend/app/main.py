@@ -239,7 +239,7 @@ for origin in _always_allowed:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space)",  # Vercel previews + subdomains + HF Spaces
+    allow_origin_regex=r"https://(blog2video.*\.vercel\.app|.*\.blog2video\.app|.*\.hf\.space|.*\.blog2video\.pages\.dev)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
