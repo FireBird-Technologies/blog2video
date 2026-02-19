@@ -277,3 +277,114 @@ def list_templates():
     """Return available video templates (from TemplateService)."""
     from app.services.template_service import list_templates as _list_templates
     return _list_templates()
+
+
+def _get_voice_preview_url_by_key(key: str) -> str | None:
+    """Resolve voice key (e.g. female_american) to ElevenLabs preview URL, or None.
+    Uses get(voice_id) so we get full voice details including preview_url (get_all may omit it for some voices).
+    """
+    from app.services.voiceover import VOICE_MAP
+    from elevenlabs import ElevenLabs
+
+    if not settings.ELEVENLABS_API_KEY:
+        return None
+    parts = key.split("_")
+    if len(parts) != 2:
+        return None
+    gender, accent = parts[0], parts[1]
+    voice_id = VOICE_MAP.get((gender, accent))
+    if not voice_id:
+        return None
+    try:
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        # Prefer get(voice_id) so we get full details (e.g. preview_url) for each voice
+        voice = None
+        if hasattr(client.voices, "get"):
+            try:
+                voice = client.voices.get(voice_id)
+            except Exception:
+                pass
+        if voice is None:
+            voices_response = client.voices.get_all()
+            voice = next((v for v in voices_response.voices if v.voice_id == voice_id), None)
+        return getattr(voice, "preview_url", None) if voice else None
+    except Exception as e:
+        print(f"[VOICES] preview-audio lookup failed for {key}: {e}")
+        return None
+
+
+import time as _time
+
+_voice_previews_cache: dict = {}
+_voice_previews_cache_ts: float = 0
+_VOICE_CACHE_TTL = 3600  # 1 hour
+
+@app.get("/api/voices/previews")
+async def get_voice_previews():
+    """Return preview audio URLs for each supported voice option (cached 1h)."""
+    global _voice_previews_cache, _voice_previews_cache_ts
+
+    if _voice_previews_cache and (_time.time() - _voice_previews_cache_ts) < _VOICE_CACHE_TTL:
+        return _voice_previews_cache
+
+    from app.services.voiceover import VOICE_MAP
+    from elevenlabs import ElevenLabs
+
+    if not settings.ELEVENLABS_API_KEY:
+        return {}
+
+    try:
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        voices_response = client.voices.get_all()
+        voice_lookup = {v.voice_id: v for v in voices_response.voices}
+
+        result = {}
+        for (gender, accent), voice_id in VOICE_MAP.items():
+            key = f"{gender}_{accent}"
+            voice = voice_lookup.get(voice_id)
+            labels = (voice.labels or {}) if voice else {}
+            result[key] = {
+                "voice_id": voice_id,
+                "name": voice.name if voice else f"{gender.title()} {accent.title()}",
+                "preview_url": voice.preview_url if voice else None,
+                "description": labels.get("description", ""),
+                "gender": gender,
+                "accent": accent,
+            }
+        _voice_previews_cache = result
+        _voice_previews_cache_ts = _time.time()
+        return result
+    except Exception as e:
+        print(f"[VOICES] Failed to fetch previews: {e}")
+        return {}
+
+
+@app.get("/api/voices/preview-audio")
+async def get_voice_preview_audio(key: str):
+    """Stream voice preview audio so playback can start as soon as first bytes arrive."""
+    import requests
+    from fastapi.responses import StreamingResponse
+
+    preview_url = _get_voice_preview_url_by_key(key)
+    if not preview_url:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Voice preview not found")
+
+    try:
+        resp = requests.get(preview_url, timeout=10, stream=True)
+        resp.raise_for_status()
+        media_type = resp.headers.get("Content-Type", "audio/mpeg")
+
+        def chunk_iter():
+            for chunk in resp.iter_content(chunk_size=16 * 1024):
+                if chunk:
+                    yield chunk
+
+        return StreamingResponse(
+            chunk_iter(),
+            media_type=media_type,
+        )
+    except Exception as e:
+        print(f"[VOICES] preview-audio proxy failed for {key}: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=502, detail="Failed to fetch preview audio")

@@ -62,5 +62,9 @@ export interface GridcraftLayoutProps {
   steps?: { label: string; description?: string }[];
 
   // General
-  version?: string; // Added for BentoHero
+  version?: string;
+
+  // Bento Hero - category/icon for small cells
+  category?: string;
+  icon?: string;
 }

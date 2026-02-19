@@ -1,110 +1,83 @@
 import React from "react";
-import {
-  AbsoluteFill,
-  interpolate,
-  useCurrentFrame,
-} from "remotion";
-import type { GridcraftLayoutProps } from "../types";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { GridcraftLayoutProps } from "../types";
+import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const PullQuote: React.FC<GridcraftLayoutProps> = ({
+  // Backend props
   quote,
   attribution,
   highlightPhrase,
+  // Fallbacks
+  title,
+  subtitle,
   narration,
   accentColor,
-  bgColor,
-  textColor,
 }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
 
-  const quoteText = quote || narration;
-  const words = quoteText.split(" ");
-
-  const quoteMarkOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  const quoteMarkScale = interpolate(frame, [0, 12], [0.8, 1], { extrapolateRight: "clamp" });
-
-  const attribOpacity = interpolate(frame, [20, 35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const text = quote || title || "Quote goes here";
+  const source = attribution || subtitle || narration || "Author";
+  const words = text.split(" ");
+  
+  // Highlight logic
+  const highlightWords = (highlightPhrase || "").split(" ").map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
 
   return (
-    <AbsoluteFill style={{
-      backgroundColor: bgColor || "#FAFAFA",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      <div style={{
-        width: "70%",
-        maxWidth: 900,
+    <div
+      style={{
+        ...glass(false),
+        width: "90%",
+        height: "80%",
+        margin: "auto",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "5%",
+        fontFamily: FONT_FAMILY.SERIF,
         position: "relative",
-        paddingTop: 60,
-      }}>
-        {/* Decorative quotation marks */}
-        <span style={{
-          position: "absolute",
-          top: -20,
-          left: -10,
-          fontSize: 120,
-          fontWeight: 700,
-          color: accentColor || "#F97316",
-          opacity: quoteMarkOpacity * 0.3,
-          transform: `scale(${quoteMarkScale})`,
-          fontFamily: "Georgia, serif",
-          lineHeight: 1,
-          userSelect: "none",
-        }}>
-          &ldquo;
-        </span>
-
-        {/* Quote text — word by word fade in */}
-        <p style={{
-          fontSize: 32,
-          fontWeight: 600,
-          color: textColor || "#171717",
-          fontFamily: "'Inter', 'Segoe UI', sans-serif",
-          lineHeight: 1.5,
-          textAlign: "center",
-          margin: 0,
-        }}>
-          {words.map((word, i) => {
-            const wordDelay = 5 + i * 2;
-            const wordOpacity = interpolate(frame, [wordDelay, wordDelay + 6], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            });
-
-            const isHighlighted = highlightPhrase && word.toLowerCase().replace(/[^a-z]/g, "")
-              === highlightPhrase.toLowerCase().replace(/[^a-z]/g, "");
-
-            return (
-              <span
-                key={i}
-                style={{
-                  opacity: wordOpacity,
-                  color: isHighlighted ? (accentColor || "#F97316") : undefined,
-                  fontWeight: isHighlighted ? 700 : undefined,
-                }}
-              >
-                {word}{" "}
-              </span>
-            );
-          })}
-        </p>
-
-        {/* Attribution */}
-        {attribution && (
-          <p style={{
-            fontSize: 16,
-            fontWeight: 400,
-            color: "rgba(23,23,23,0.5)",
-            fontFamily: "'Inter', 'Segoe UI', sans-serif",
-            textAlign: "center",
-            marginTop: 24,
-            opacity: attribOpacity,
-          }}>
-            — {attribution}
-          </p>
-        )}
+      }}
+    >
+      <div style={{ position: "absolute", top: 40, left: 40, fontSize: 120, color: accentColor || COLORS.ACCENT, opacity: 0.2, lineHeight: 0.5 }}>
+          "
       </div>
-    </AbsoluteFill>
+      
+      <div style={{ fontSize: 42, lineHeight: 1.3, textAlign: "center", color: COLORS.DARK, fontWeight: 600, zIndex: 1, maxWidth: "90%" }}>
+          {words.map((w, i) => {
+              const delay = i * 2;
+              const op = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateRight: "clamp" });
+              const y = interpolate(frame, [delay, delay + 10], [10, 0], { extrapolateRight: "clamp" });
+              
+              const cleanWord = w.toLowerCase().replace(/[.,!?;:]/g, "");
+              const isHighlight = highlightWords.includes(cleanWord) && highlightPhrase;
+              
+              return (
+                  <span key={i} style={{ 
+                      display: "inline-block", 
+                      opacity: op, 
+                      transform: `translateY(${y}px)`, 
+                      marginRight: "0.25em",
+                      color: isHighlight ? (accentColor || COLORS.ACCENT) : "inherit"
+                  }}>
+                      {w}
+                  </span>
+              )
+          })}
+      </div>
+
+      <div style={{ 
+          marginTop: 40, 
+          fontFamily: FONT_FAMILY.SANS, 
+          fontSize: 16, 
+          color: COLORS.MUTED, 
+          textTransform: "uppercase", 
+          letterSpacing: "0.1em",
+          opacity: interpolate(frame, [words.length * 2 + 10, words.length * 2 + 30], [0, 1])
+      }}>
+          — {source}
+      </div>
+    </div>
   );
 };

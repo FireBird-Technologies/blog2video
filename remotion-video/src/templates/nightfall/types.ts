@@ -1,4 +1,3 @@
-/** Nightfall template layout types. */
 export type NightfallLayoutType =
   | "cinematic_title"
   | "glass_narrative"
@@ -41,22 +40,16 @@ export interface NightfallLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
-  // glow_metric
   metrics?: { value: string; label: string; suffix?: string }[];
-  // glass_code
   codeLines?: string[];
   codeLanguage?: string;
-  // kinetic_insight
   quote?: string;
   highlightWord?: string;
-  // glass_stack
   items?: string[];
-  // split_glass
   leftLabel?: string;
   rightLabel?: string;
   leftDescription?: string;
   rightDescription?: string;
-  // chapter_break
   chapterNumber?: number;
   subtitle?: string;
   // data visualization charts
