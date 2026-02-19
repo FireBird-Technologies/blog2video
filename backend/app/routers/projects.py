@@ -467,6 +467,101 @@ def update_scene(
     return scene
 
 
+@router.post("/{project_id}/scenes/{scene_id}/image", response_model=SceneOut)
+async def update_scene_image(
+    project_id: int,
+    scene_id: int,
+    image: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload/replace scene image without regenerating the scene layout."""
+    import json
+    from app.models.scene import Scene
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
+    if image.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Image must be PNG, JPEG, or WebP.")
+
+    MAX_IMAGE_SIZE = 5 * 1024 * 1024
+    file_bytes = image.file.read()
+    if len(file_bytes) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 5 MB.")
+
+    image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
+    os.makedirs(image_dir, exist_ok=True)
+
+    ext = image.filename.rsplit(".", 1)[-1] if image.filename and "." in image.filename else "png"
+    image_filename = f"scene_{scene_id}_{int(time.time())}.{ext}"
+    local_path = os.path.join(image_dir, image_filename)
+
+    with open(local_path, "wb") as f:
+        f.write(file_bytes)
+
+    r2_key_val = None
+    r2_url_val = None
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key_val = r2_storage.image_key(user.id, project_id, image_filename)
+            r2_url_val = r2_storage.upload_file(local_path, r2_key_val, content_type=image.content_type)
+        except Exception as e:
+            print(f"[IMAGE_UPDATE] R2 upload failed for {image_filename}: {e}")
+
+    asset = Asset(
+        project_id=project_id,
+        asset_type=AssetType.IMAGE,
+        local_path=local_path,
+        filename=image_filename,
+        r2_key=r2_key_val,
+        r2_url=r2_url_val,
+        excluded=False,
+    )
+    db.add(asset)
+    db.flush()
+
+    # Update the scene's layoutProps.assignedImage without changing anything else
+    descriptor = {}
+    if scene.remotion_code:
+        try:
+            descriptor = json.loads(scene.remotion_code)
+        except (json.JSONDecodeError, TypeError):
+            descriptor = {}
+
+    if "layoutProps" not in descriptor:
+        descriptor["layoutProps"] = {}
+    descriptor["layoutProps"]["assignedImage"] = image_filename
+    descriptor["layoutProps"].pop("hideImage", None)
+    scene.remotion_code = json.dumps(descriptor)
+
+    # Invalidate cached render
+    if project.r2_video_url:
+        project.r2_video_url = None
+        project.r2_video_key = None
+        project.status = ProjectStatus.GENERATED
+
+    db.commit()
+    db.refresh(scene)
+
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        print(f"[IMAGE_UPDATE] Warning: Failed to rebuild workspace: {e}")
+
+    return scene
+
+
 @router.get("/{project_id}/layouts")
 def get_project_layouts(
     project_id: int,
@@ -579,9 +674,10 @@ async def regenerate_scene(
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
     
-    # Validate layout if provided
+    # Determine layout mode: __keep__ = preserve current, None/empty = let AI choose, else = specific layout
+    keep_layout = layout == "__keep__"
     normalized_layout = None
-    if layout:
+    if layout and not keep_layout:
         valid_layouts = get_valid_layouts(project.template)
         normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
         if normalized_layout not in valid_layouts:
@@ -658,8 +754,19 @@ async def regenerate_scene(
     else:
         new_narration = scene.narration_text or ""
     
+    # Parse current descriptor
+    current_descriptor = None
+    if scene.remotion_code:
+        try:
+            current_descriptor = json.loads(scene.remotion_code)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    has_description = bool(description and description.strip())
+    needs_layout_regen = not keep_layout or has_description
+
     # Regenerate visual_description only if description is provided
-    if description and description.strip():
+    if has_description:
         from app.dspy_modules.visual_description import regenerate_visual_description
         new_visual_description = await regenerate_visual_description(
             current_visual_description=scene.visual_description or "",
@@ -668,88 +775,94 @@ async def regenerate_scene(
             display_text=new_narration,
         )
     else:
-        # Keep existing visual_description if description is empty or None
         new_visual_description = scene.visual_description or ""
-    
-    # Regenerate scene using regeneration-specific DSPy signature
-    template_gen = TemplateSceneGenerator(project.template)
-    all_scenes = (
-        db.query(Scene)
-        .filter(Scene.project_id == project_id)
-        .order_by(Scene.order)
-        .all()
-    )
 
-    # Build other_scenes_layouts so the model can avoid repeating layouts
-    other_layout_parts = []
-    for s in all_scenes:
-        if s.id == scene.id:
-            continue
-        layout_name = "unknown"
-        if s.remotion_code:
-            try:
-                desc = json.loads(s.remotion_code)
-                layout_name = desc.get("layout", "unknown")
-            except (json.JSONDecodeError, TypeError):
-                pass
-        other_layout_parts.append(f"scene {s.order}: {layout_name}")
-    other_scenes_layouts = ", ".join(other_layout_parts)
+    if needs_layout_regen:
+        # Regenerate scene layout using AI
+        template_gen = TemplateSceneGenerator(project.template)
+        all_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
 
-    # Current descriptor for optional incremental edit context
-    current_descriptor = None
-    if scene.remotion_code:
-        try:
-            current_descriptor = json.loads(scene.remotion_code)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        other_layout_parts = []
+        for s in all_scenes:
+            if s.id == scene.id:
+                continue
+            layout_name = "unknown"
+            if s.remotion_code:
+                try:
+                    desc = json.loads(s.remotion_code)
+                    layout_name = desc.get("layout", "unknown")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            other_layout_parts.append(f"scene {s.order}: {layout_name}")
+        other_scenes_layouts = ", ".join(other_layout_parts)
 
-    descriptor = await template_gen.generate_regenerate_descriptor(
-        scene_title=scene.title,
-        narration=new_narration,
-        visual_description=new_visual_description,
-        scene_index=scene.order - 1,
-        total_scenes=len(all_scenes),
-        other_scenes_layouts=other_scenes_layouts,
-        preferred_layout=normalized_layout,
-        current_descriptor=current_descriptor,
-    )
-    
-    # Set hideImage flag in layoutProps if image should be removed
-    if remove_image:
-        if "layoutProps" not in descriptor:
-            descriptor["layoutProps"] = {}
-        descriptor["layoutProps"]["hideImage"] = True
-        descriptor["layoutProps"].pop("imageUrl", None)
-    
-    # Update scene
-    scene.visual_description = new_visual_description
-    scene.narration_text = new_narration
-    scene.remotion_code = json.dumps(descriptor)
-    db.commit()
-    
+        # If keep_layout + description: force the current layout as preferred
+        effective_layout = normalized_layout
+        if keep_layout and has_description and current_descriptor:
+            effective_layout = current_descriptor.get("layout")
+
+        descriptor = await template_gen.generate_regenerate_descriptor(
+            scene_title=scene.title,
+            narration=new_narration,
+            visual_description=new_visual_description,
+            scene_index=scene.order - 1,
+            total_scenes=len(all_scenes),
+            other_scenes_layouts=other_scenes_layouts,
+            preferred_layout=effective_layout,
+            current_descriptor=current_descriptor,
+        )
+
+        # Set hideImage flag in layoutProps if image should be removed
+        if remove_image:
+            if "layoutProps" not in descriptor:
+                descriptor["layoutProps"] = {}
+            descriptor["layoutProps"]["hideImage"] = True
+            descriptor["layoutProps"].pop("imageUrl", None)
+            descriptor["layoutProps"].pop("assignedImage", None)
+        elif not image:
+            old_assigned = None
+            if current_descriptor:
+                old_assigned = (current_descriptor.get("layoutProps") or {}).get("assignedImage")
+            if old_assigned:
+                if "layoutProps" not in descriptor:
+                    descriptor["layoutProps"] = {}
+                descriptor["layoutProps"]["assignedImage"] = old_assigned
+
+        scene.visual_description = new_visual_description
+        scene.narration_text = new_narration
+        scene.remotion_code = json.dumps(descriptor)
+        db.commit()
+    else:
+        # Keep layout: no AI layout call — just preserve existing descriptor
+        scene.visual_description = new_visual_description
+        scene.narration_text = new_narration
+        db.commit()
+
     # Regenerate voiceover only if requested
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
     if should_regenerate_voiceover and new_narration.strip():
-        # Expand narration_text to detailed voiceover and regenerate voiceover
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
         expanded_voiceover = await expand_narration_to_voiceover(new_narration, scene.title)
-        
-        # Temporarily store expanded voiceover in narration_text for voiceover generation
+
         original_narration = scene.narration_text
         scene.narration_text = expanded_voiceover
         db.commit()
-        
-        # Generate voiceover with expanded text
+
         generate_voiceover(scene, db, use_expanded=False)
-        
-        # Restore original narration_text (display text)
+
         scene.narration_text = original_narration
         db.commit()
-    
-    # Increment usage count (only for free users)
-    if user.plan != PlanTier.PRO:
+
+    # Increment usage count only when AI was actually used
+    used_ai = needs_layout_regen or should_regenerate_voiceover
+    if used_ai and user.plan != PlanTier.PRO:
         project.ai_assisted_editing_count += 1
-    
+
     db.commit()
     
     # Rebuild Remotion workspace
