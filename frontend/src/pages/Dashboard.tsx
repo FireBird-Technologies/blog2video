@@ -12,6 +12,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import BlogUrlForm from "../components/BlogUrlForm";
+import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const { user, refreshUser } = useAuth();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
@@ -124,15 +126,16 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
+  const handleDeleteClick = (id: number, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this project?")) return;
-    try {
-      await deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      console.error("Failed to delete project:", err);
-    }
+    setDeleteTarget({ id, name });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    await deleteProject(deleteTarget.id);
+    setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    setDeleteTarget(null);
   };
 
   const handleUpgrade = async () => {
@@ -255,6 +258,14 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Delete project confirmation */}
+      <DeleteProjectModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        projectName={deleteTarget?.name}
+        onConfirm={handleDeleteConfirm}
+      />
+
       {/* Project list */}
       <div className="grid gap-3">
         {projects.map((project) => (
@@ -282,7 +293,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <button
-                onClick={(e) => handleDelete(project.id, e)}
+                onClick={(e) => handleDeleteClick(project.id, project.name, e)}
                 className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
                 title="Delete"
               >
