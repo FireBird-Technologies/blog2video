@@ -5,6 +5,7 @@ import UpgradeModal from "./UpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
+import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 
 interface Props {
   onSubmit: (
@@ -43,12 +44,14 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   default: DefaultPreview,
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
+  spotlight: SpotlightPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
   default: { title: "Geometric Explainer", subtitle: "Clean purple & white, geometric tech style" },
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
+  spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -639,6 +642,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         { id: "default", name: "Spotlight" },
         { id: "nightfall", name: "Nightfall" },
         { id: "gridcraft", name: "Gridcraft" },
+        { id: "spotlight", name: "Spotlight" },
       ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
