@@ -1,6 +1,5 @@
-import React from "react";
+import type React from "react";
 
-/** Frosted glass card styling for nightfall. */
 export const glassCardStyle = (
   accentColor: string,
   opacity = 0.08

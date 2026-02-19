@@ -4,6 +4,7 @@ import {
   Project,
   Asset,
   updateScene,
+  updateSceneImage,
   regenerateScene,
   getValidLayouts,
   deleteAsset,
@@ -80,6 +81,8 @@ export default function SceneEditModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const layoutRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
 
   // Cleanup image preview URL
@@ -97,12 +100,30 @@ export default function SceneEditModal({
   const aiUsageCount = project.ai_assisted_editing_count || 0;
   const canUseAI = isPro || aiUsageCount < 3;
 
+  const currentLayoutId = (() => {
+    try {
+      if (scene.remotion_code) {
+        const desc = JSON.parse(scene.remotion_code);
+        return desc.layout || null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  })();
+  const currentLayoutLabel = currentLayoutId
+    ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/_/g, " "))
+    : "Current layout";
+
+  const aiHasChanges =
+    description.trim().length > 0 ||
+    regenerateVoiceover ||
+    selectedLayout !== "__keep__";
+
   useEffect(() => {
     if (!open) return;
     setTitle(scene.title);
     setDescription("");
     setDisplayText(scene.narration_text || "");
-    setSelectedLayout("");
+    setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
     setError(null);
@@ -116,6 +137,17 @@ export default function SceneEditModal({
     }
   }, [open, editMode, project.id, layouts]);
 
+  useEffect(() => {
+    if (!layoutOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (layoutRef.current && !layoutRef.current.contains(e.target as Node)) {
+        setLayoutOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [layoutOpen]);
+
   const handleSave = async () => {
     setError(null);
     if (editMode === "manual") {
@@ -125,6 +157,9 @@ export default function SceneEditModal({
           title,
           narration_text: displayText 
         });
+        if (selectedImageFile) {
+          await updateSceneImage(project.id, scene.id, selectedImageFile);
+        }
         onSaved();
         onClose();
       } catch (err: unknown) {
@@ -140,25 +175,17 @@ export default function SceneEditModal({
     }
 
     if (editMode === "ai") {
-      if (!displayText.trim()) {
-        setError("Please provide display text.");
-        return;
-      }
+      const keepLayout = selectedLayout === "__keep__";
       setLoading(true);
       try {
-        // Update title and display text first
-        await updateScene(project.id, scene.id, { 
-          title,
-          narration_text: displayText 
-        });
         await regenerateScene(
           project.id,
           scene.id,
           description,
-          displayText,
+          scene.narration_text || "",
           regenerateVoiceover,
-          selectedLayout || undefined,
-          selectedImageFile || undefined
+          keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
+          undefined
         );
         onSaved();
         onClose();
@@ -222,9 +249,9 @@ export default function SceneEditModal({
         <div className="p-6 overflow-y-auto flex-1">
           {/* Manual vs AI toggle */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+            <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
               Editing mode
-            </label>
+            </h4>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -259,173 +286,206 @@ export default function SceneEditModal({
             )}
           </div>
 
-          {/* Title — editable in both modes */}
-          <div className="mt-6">
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Display Text — editable in both modes */}
-          <div className="mt-6">
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Display Text (shown on screen)
-            </label>
-            <AutoGrowTextarea
-              value={displayText}
-              onChange={(e) => setDisplayText(e.target.value)}
-              placeholder="Enter the text that will be displayed on screen..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-              minRows={2}
-            />
-            {manualOnly && (
-              <p className="mt-1 text-xs text-gray-500">This text appears on screen. Changes are saved immediately.</p>
-            )}
-            {editMode === "ai" && (
-              <p className="mt-1 text-xs text-gray-500">This text appears on screen. Use the toggle below to regenerate voiceover.</p>
-            )}
-          </div>
-
-          {/* Description — AI only */}
-          {editMode === "ai" && (
-            <div className="mt-6">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Description (for visual changes) <span className="text-gray-400">(Optional)</span>
-              </label>
-              <AutoGrowTextarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe how you want the visuals/layout to change..."
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
-                minRows={3}
-              />
-              <p className="mt-1 text-xs text-gray-500">Leave empty to keep the current visual description. This will regenerate the visual description and layout if provided.</p>
-            </div>
-          )}
-
-          {/* Voiceover regeneration toggle — AI only */}
-          {editMode === "ai" && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-gray-700 rounded-full"></span>
-                <label className="text-sm font-medium text-gray-700">
-                  Regenerate voiceover based on display text
-                </label>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRegenerateVoiceover(!regenerateVoiceover)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                  regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
-                }`}
-                role="switch"
-                aria-checked={regenerateVoiceover}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    regenerateVoiceover ? "translate-x-5" : "translate-x-0"
-                  }`}
+          {/* ── Manual mode fields ── */}
+          {editMode === "manual" && (
+            <div className="mt-5 space-y-4">
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Title
+                </h4>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-              </button>
-            </div>
-          )}
+              </div>
 
-          {/* Layout — AI only */}
-          {editMode === "ai" && (
-            <div className="mt-6">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Layout
-              </label>
-              <select
-                value={selectedLayout}
-                onChange={(e) => setSelectedLayout(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-purple-200 bg-purple-50 text-purple-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">Auto (Let AI choose)</option>
-                {layouts?.layouts.map((layoutId) => (
-                  <option key={layoutId} value={layoutId}>
-                    {layouts.layout_names[layoutId] || layoutId}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Display text
+                </h4>
+                <AutoGrowTextarea
+                  value={displayText}
+                  onChange={(e) => setDisplayText(e.target.value)}
+                  placeholder="Enter the text that will be displayed on screen..."
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                  minRows={2}
+                />
+              </div>
 
-          {/* Images — AI only; each with remove (X), plus add new */}
-          {editMode === "ai" && (
-            <div className="mt-6">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Images
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {imageItems.map(({ url, asset }) => (
-                  <div
-                    key={asset.id}
-                    className="relative group rounded-lg overflow-hidden border border-gray-200 flex-shrink-0"
-                  >
-                    <img
-                      src={url}
-                      alt=""
-                      className="h-20 w-auto object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(asset.id)}
-                      disabled={removingAssetId === asset.id}
-                      className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Scene image
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {imageItems.map(({ url, asset }) => (
+                    <div
+                      key={asset.id}
+                      className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                     >
-                      {removingAssetId === asset.id ? (
-                        <span className="text-[10px]">…</span>
-                      ) : (
+                      <img
+                        src={url}
+                        alt=""
+                        className="h-20 w-auto object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(asset.id)}
+                        disabled={removingAssetId === asset.id}
+                        className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                      >
+                        {removingAssetId === asset.id ? (
+                          <span className="text-[10px]">…</span>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                  {selectedImageFile && imagePreviewUrl && (
+                    <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
+                      <img
+                        src={imagePreviewUrl}
+                        alt="New image"
+                        className="h-20 w-auto object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedImageFile(null);
+                          setImagePreviewUrl(null);
+                        }}
+                        className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
+                      >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                      )}
-                    </button>
-                  </div>
-                ))}
-                {selectedImageFile && imagePreviewUrl && (
-                  <div className="relative group rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Preview"
-                      className="h-20 w-auto object-cover"
+                      </button>
+                    </div>
+                  )}
+                  <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/jpg"
+                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                      className="hidden"
                     />
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── AI-Assisted mode fields ── */}
+          {editMode === "ai" && (
+            <div className="mt-5 space-y-4">
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+                </h4>
+                <AutoGrowTextarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe how you want the visuals to change..."
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                  minRows={2}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                  Regenerate voiceover
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setRegenerateVoiceover(!regenerateVoiceover)}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    regenerateVoiceover ? "bg-purple-600" : "bg-gray-200"
+                  }`}
+                  role="switch"
+                  aria-checked={regenerateVoiceover}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      regenerateVoiceover ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div ref={layoutRef} className="relative">
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Layout
+                </h4>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                    {selectedLayout === "__keep__"
+                      ? (currentLayoutLabel)
+                      : selectedLayout === "__auto__"
+                        ? "Auto (Let AI choose)"
+                        : (layouts?.layout_names[selectedLayout] || selectedLayout.replace(/_/g, " "))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLayoutOpen(!layoutOpen)}
+                    className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                  >
+                    <svg
+                      className={`w-4 h-4 transition-transform ${layoutOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                {layoutOpen && (
+                  <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-48 overflow-y-auto">
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedImageFile(null);
-                        setImagePreviewUrl(null);
-                      }}
-                      className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
+                      onClick={() => { setSelectedLayout("__keep__"); setLayoutOpen(false); }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
+                        selectedLayout === "__keep__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                      }`}
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      {currentLayoutLabel}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
+                        selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                      }`}
+                    >
+                      Auto (Let AI choose)
+                    </button>
+                    {layouts?.layouts
+                      .filter((id) => id !== currentLayoutId)
+                      .map((layoutId) => (
+                        <button
+                          key={layoutId}
+                          type="button"
+                          onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
+                            selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                          }`}
+                        >
+                          {layouts.layout_names[layoutId] || layoutId.replace(/_/g, " ")}
+                        </button>
+                      ))}
                   </div>
                 )}
-                <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 hover:bg-purple-100/50 cursor-pointer transition-colors">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/jpg"
-                    onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </label>
               </div>
             </div>
           )}
@@ -448,10 +508,10 @@ export default function SceneEditModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={loading || (editMode === "ai" && !displayText.trim())}
+            disabled={loading || (editMode === "ai" && !aiHasChanges)}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Saving..." : editMode === "manual" ? "Save title" : "Apply AI edit"}
+            {loading ? "Saving..." : editMode === "manual" ? "Save changes" : "Apply AI edit"}
           </button>
         </div>
       </div>
