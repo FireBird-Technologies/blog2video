@@ -642,6 +642,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         { id: "default", name: "Spotlight" },
         { id: "nightfall", name: "Nightfall" },
         { id: "gridcraft", name: "Gridcraft" },
+        { id: "spotlight", name: "Spotlight" },
       ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
