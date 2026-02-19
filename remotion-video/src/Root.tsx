@@ -11,6 +11,10 @@ import {
   GridcraftVideo,
   calculateGridcraftMetadata,
 } from "./templates/gridcraft/GridcraftVideo";
+import {
+  SpotlightVideo,
+  calculateSpotlightMetadata,
+} from "./templates/spotlight/SpotlightVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -50,6 +54,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateGridcraftMetadata}
+      />
+      <Composition
+        id="SpotlightVideo"
+        component={SpotlightVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateSpotlightMetadata}
       />
     </>
   );
