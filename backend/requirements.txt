@@ -29,4 +29,5 @@ PyMuPDF>=1.24.0
 pymupdf4llm>=0.0.17
 python-docx>=1.1.0
 python-pptx>=0.6.23
-resend>=0.6.0
+# Email notifications (Resend SDK)
+resend>=2.0.0

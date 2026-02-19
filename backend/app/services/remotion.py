@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import shutil
@@ -15,12 +16,15 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.services import r2_storage
+from app.services.email import email_service, EmailServiceError
 from app.services.template_service import (
     validate_template_id,
     get_hero_layout,
     get_fallback_layout,
     get_composition_id,
 )
+
+logger = logging.getLogger(__name__)
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
@@ -849,6 +853,23 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                             project.status = ProjectStatus.DONE
                             db.commit()
                             print(f"[REMOTION] Project {project_id} marked DONE (no R2)")
+
+                            # Send download-ready email (link to dashboard since no CDN URL)
+                            try:
+                                from app.models.user import User
+                                user = db.query(User).filter(User.id == project.user_id).first()
+                                if user:
+                                    dashboard_url = f"{settings.FRONTEND_URL}/projects/{project_id}"
+                                    email_service.send_download_ready_email(
+                                        user_email=user.email,
+                                        user_name=user.name,
+                                        project_name=project.name,
+                                        video_url=dashboard_url,
+                                    )
+                            except EmailServiceError as email_err:
+                                logger.error(f"[REMOTION] Download email failed for project {project_id}: {email_err}")
+                            except Exception as email_err:
+                                logger.error(f"[REMOTION] Unexpected error sending download email for project {project_id}: {email_err}", exc_info=True)
                     finally:
                         db.close()
                 except Exception as e:
@@ -948,6 +969,22 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             project.status = ProjectStatus.DONE
             db.commit()
             print(f"[REMOTION] Video uploaded to R2 and project {project_id} marked DONE")
+
+            # Send download-ready email notification to the user
+            try:
+                from app.models.user import User
+                user = db.query(User).filter(User.id == project.user_id).first()
+                if user:
+                    email_service.send_download_ready_email(
+                        user_email=user.email,
+                        user_name=user.name,
+                        project_name=project.name,
+                        video_url=r2_url,
+                    )
+            except EmailServiceError as email_err:
+                logger.error(f"[REMOTION] Download email failed for project {project_id}: {email_err}")
+            except Exception as email_err:
+                logger.error(f"[REMOTION] Unexpected error sending download email for project {project_id}: {email_err}", exc_info=True)
         finally:
             db.close()
 
