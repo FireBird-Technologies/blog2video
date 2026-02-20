@@ -663,7 +663,7 @@ def _build_render_cmd(
     is_portrait = aspect_ratio == "portrait"
 
     cmd = [
-        npx, "remotion", "render", "ExplainerVideo", output_path,
+        npx, "remotion", "render", composition_id, output_path,
         "--concurrency", "50%",               # conservative for memory-limited environments
         "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
         "--gl", "swangle",                    # software WebGL — works on CPU-only (no GPU needed)
