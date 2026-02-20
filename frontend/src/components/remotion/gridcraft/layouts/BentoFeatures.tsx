@@ -17,6 +17,8 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   imageUrl,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -114,12 +116,12 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
             }}
           >
             {item.icon && <div style={{ fontSize: 36, marginBottom: 16 }}>{item.icon}</div>}
-            <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK) }}>
+            <div style={{ fontSize: titleFontSize ?? 24, fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK) }}>
                 {item.label}
             </div>
             {item.description && (
                 <div style={{ 
-                    fontSize: 14, 
+                    fontSize: descriptionFontSize ?? 14, 
                     lineHeight: 1.4,
                     opacity: isAccent ? 0.9 : 0.7, 
                     color: isAccent ? COLORS.WHITE : COLORS.MUTED 

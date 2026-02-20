@@ -56,4 +56,7 @@ export interface NightfallLayoutProps {
   barChart?: BarChartData;
   lineChart?: LineChartData;
   pieChart?: PieChartData;
+  // typography overrides
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }

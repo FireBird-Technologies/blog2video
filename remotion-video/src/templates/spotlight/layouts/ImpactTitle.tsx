@@ -16,6 +16,8 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   accentColor,
   bgColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -81,7 +83,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <h1
           style={{
-            fontSize: p ? 64 : 100,
+            fontSize: titleFontSize ?? (p ? 64 : 100),
             fontWeight: 900,
             color: "#FFFFFF",
             fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
@@ -100,7 +102,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: p ? 18 : 22,
+              fontSize: descriptionFontSize ?? (p ? 18 : 22),
               fontWeight: 300,
               color: "#666666",
               fontFamily: "Arial, sans-serif",

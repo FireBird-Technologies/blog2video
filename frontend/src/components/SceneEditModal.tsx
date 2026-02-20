@@ -12,6 +12,72 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
+/** Layout default font sizes: [portrait, landscape] or single number for both. */
+const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
+  default: {
+    text_narration: { title: [34, 44], desc: [20, 23] },
+    hero_image: { title: [40, 54] },
+    image_caption: { title: [26, 32], desc: [17, 20] },
+    bullet_list: { title: [30, 40], desc: [18, 22] },
+    flow_diagram: { title: [30, 38], desc: [16, 20] },
+    comparison: { title: [30, 38], desc: [16, 20] },
+    metric: { title: [18, 22], desc: [16, 20] },
+    code_block: { title: [26, 36] },
+    timeline: { title: [30, 38], desc: [14, 16] },
+    quote_callout: { title: [30, 38], desc: [16, 20] },
+  },
+  nightfall: {
+    cinematic_title: { title: [88, 140], desc: [26, 36] },
+    glass_narrative: { title: [40, 52], desc: 25 },
+    glass_image: { title: [48, 64], desc: 28 },
+    glass_code: { title: [18, 22], desc: 22 },
+    split_glass: { title: [34, 46], desc: [20, 24] },
+    chapter_break: { title: [36, 46], desc: [18, 24] },
+    data_visualization: { title: [34, 46], desc: 25 },
+    glow_metric: { title: [28, 36], desc: [18, 20] },
+    glass_stack: { title: [34, 42], desc: [16, 18] },
+    kinetic_insight: { title: [80, 120], desc: [60, 72] },
+  },
+  spotlight: {
+    impact_title: { title: [64, 100], desc: [18, 22] },
+    word_punch: { title: [96, 140] },
+    stat_stage: { title: [80, 120], desc: [11, 14] },
+    cascade_list: { title: [18, 28], desc: [20, 30] },
+    rapid_points: { title: [32, 52] },
+    spotlight_image: { title: [52, 72], desc: [18, 24] },
+    versus: { title: [28, 40], desc: [12, 16] },
+    closer: { title: [28, 42], desc: [12, 16] },
+  },
+  gridcraft: {
+    editorial: { title: 36, desc: 18 },
+    bento_hero: { title: 72, desc: 18 },
+    bento_features: { title: 24, desc: 14 },
+    bento_compare: { title: 24, desc: 16 },
+    bento_highlight: { title: 32, desc: 18 },
+    bento_code: { title: 24, desc: 16 },
+    bento_steps: { title: 18, desc: 13 },
+    pull_quote: { title: 42, desc: 16 },
+  },
+};
+
+function getDefaultFontSizes(
+  template: string,
+  layoutId: string | null,
+  aspectRatio: string
+): { title: number; desc: number } {
+  const p = aspectRatio === "portrait";
+  const t = (template || "default").toLowerCase();
+  const layout = layoutId || "text_narration";
+  const defs = LAYOUT_FONT_DEFAULTS[t]?.[layout] ?? LAYOUT_FONT_DEFAULTS.default?.text_narration ?? { title: [34, 44], desc: [20, 23] };
+  const titleVal = defs.title;
+  const descVal = defs.desc;
+  const title = Array.isArray(titleVal) ? (p ? titleVal[0] : titleVal[1]) : (titleVal as number);
+  const desc = descVal !== undefined
+    ? (Array.isArray(descVal) ? (p ? descVal[0] : descVal[1]) : descVal)
+    : 20;
+  return { title, desc };
+}
+
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
   value: string;
@@ -73,6 +139,8 @@ export default function SceneEditModal({
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
+  const [titleFontSize, setTitleFontSize] = useState<string>("");
+  const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -113,6 +181,12 @@ export default function SceneEditModal({
     ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/_/g, " "))
     : "Current layout";
 
+  const defaultFontSizes = getDefaultFontSizes(
+    project.template || "default",
+    currentLayoutId,
+    project.aspect_ratio || "landscape"
+  );
+
   const aiHasChanges =
     description.trim().length > 0 ||
     regenerateVoiceover ||
@@ -127,7 +201,29 @@ export default function SceneEditModal({
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
     setError(null);
-  }, [open, scene.id, scene.title]);
+    // Load font sizes: use layoutProps if set, otherwise use layout default as starting point
+    let layoutId: string | null = null;
+    let ts = "";
+    let ds = "";
+    if (scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        layoutId = desc.layout || null;
+        const lp = desc.layoutProps || {};
+        if (typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
+        if (typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
+      } catch { /* ignore */ }
+    }
+    const defaults = getDefaultFontSizes(
+      project.template || "default",
+      layoutId,
+      project.aspect_ratio || "landscape"
+    );
+    if (!ts) ts = String(defaults.title);
+    if (!ds) ds = String(defaults.desc);
+    setTitleFontSize(ts);
+    setDescriptionFontSize(ds);
+  }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio]);
 
   useEffect(() => {
     if (open && editMode === "ai" && !layouts) {
@@ -153,9 +249,35 @@ export default function SceneEditModal({
     if (editMode === "manual") {
       setLoading(true);
       try {
-        await updateScene(project.id, scene.id, { 
+        // Build remotion_code with font size overrides in layoutProps
+        let remotionCode: string | undefined;
+        const parseNum = (s: string, min: number, max: number): number | null => {
+          const n = parseInt(s.trim(), 10);
+          return !isNaN(n) ? Math.min(max, Math.max(min, n)) : null;
+        };
+        const tsNum = parseNum(titleFontSize, 20, 200);
+        const dsNum = parseNum(descriptionFontSize, 12, 80);
+        const defTitle = defaultFontSizes.title;
+        const defDesc = defaultFontSizes.desc;
+        if (tsNum !== null || dsNum !== null || scene.remotion_code) {
+          let desc: { layout?: string; layoutProps?: Record<string, unknown> } = {};
+          if (scene.remotion_code) {
+            try {
+              desc = JSON.parse(scene.remotion_code);
+            } catch { /* ignore */ }
+          }
+          const lp = { ...(desc.layoutProps || {}) };
+          if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
+          else delete lp.titleFontSize;
+          if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
+          else delete lp.descriptionFontSize;
+          desc.layoutProps = lp;
+          remotionCode = JSON.stringify(desc);
+        }
+        await updateScene(project.id, scene.id, {
           title,
-          narration_text: displayText 
+          narration_text: displayText,
+          ...(remotionCode !== undefined && { remotion_code: remotionCode }),
         });
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
@@ -312,6 +434,43 @@ export default function SceneEditModal({
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={2}
                 />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+                </h4>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Title font size</label>
+                    <input
+                      type="number"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={titleFontSize}
+                      onChange={(e) => setTitleFontSize(e.target.value)}
+                      placeholder={defaultFontSizes.title.toString()}
+                      className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Description font size</label>
+                    <input
+                      type="number"
+                      min={12}
+                      max={80}
+                      step={1}
+                      value={descriptionFontSize}
+                      onChange={(e) => setDescriptionFontSize(e.target.value)}
+                      placeholder={defaultFontSizes.desc.toString()}
+                      className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Values start at layout default. Use arrow keys or type to adjust up or down.
+                </p>
               </div>
 
               <div>

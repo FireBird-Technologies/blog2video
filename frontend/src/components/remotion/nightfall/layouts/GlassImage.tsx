@@ -22,6 +22,8 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   accentColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -170,7 +172,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
         >
           <div
             style={{
-              fontSize: p ? 48 : 64,
+              fontSize: titleFontSize ?? (p ? 48 : 64),
               opacity: 0.2,
               color: textColor,
             }}
@@ -223,7 +225,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {/* Title */}
           <h2
             style={{
-              fontSize: 38,
+              fontSize: titleFontSize ?? 38,
               fontWeight: 700,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -238,7 +240,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {narration && (
             <p
               style={{
-                fontSize: 28,
+                fontSize: descriptionFontSize ?? 28,
                 color: "rgba(226,232,240,0.45)",
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                 lineHeight: 1.6,

@@ -8,6 +8,8 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
   textColor,
   timelineItems = [],
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -33,7 +35,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 30 : 38,
+          fontSize: titleFontSize ?? (p ? 30 : 38),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -120,7 +122,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
               <div>
                 <h3
                   style={{
-                    fontSize: p ? 16 : 20,
+                    fontSize: descriptionFontSize ?? (p ? 16 : 20),
                     fontWeight: 600,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
@@ -132,7 +134,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                 </h3>
                 <p
                   style={{
-                    fontSize: p ? 14 : 16,
+                    fontSize: descriptionFontSize ?? (p ? 14 : 16),
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
                     opacity: 0.6,
