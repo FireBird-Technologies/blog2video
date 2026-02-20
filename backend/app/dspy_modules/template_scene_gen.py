@@ -153,8 +153,11 @@ class LayoutVarietyTracker:
     
     def get_underused_layouts(self) -> str:
         """Get layouts that haven't been used yet or are underused."""
+        # Guard: avoid division by zero when valid_layouts is empty (e.g. misconfigured template)
+        if not self.valid_layouts:
+            return ",".join(list(self.valid_layouts)[:5])  # empty string
         avg_usage = sum(self.usage_count.values()) / len(self.valid_layouts) if self.usage_count else 0
-        
+
         underused = []
         for layout in self.valid_layouts:
             if layout == self.hero_layout:
@@ -553,11 +556,13 @@ class TemplateSceneGenerator:
         if image_layout and num_images > 1 and total > 2:
             non_hero = list(range(1, total))
             images_to_assign = min(num_images - 1, len(non_hero) // 2 + 1)
-            step = max(1, len(non_hero) // images_to_assign)
-            for j in range(0, len(non_hero), step):
-                if len(image_scene_indices) >= images_to_assign:
-                    break
-                image_scene_indices.add(non_hero[j])
+            # Guard: avoid division by zero when images_to_assign is 0
+            if images_to_assign > 0:
+                step = max(1, len(non_hero) // images_to_assign)
+                for j in range(0, len(non_hero), step):
+                    if len(image_scene_indices) >= images_to_assign:
+                        break
+                    image_scene_indices.add(non_hero[j])
         
         # Generate scenes sequentially to maintain variety context
         # (Not parallel to allow variety tracker to work properly)
