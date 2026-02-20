@@ -60,7 +60,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
   },
 };
 
-function getDefaultFontSizes(
+export function getDefaultFontSizes(
   template: string,
   layoutId: string | null,
   aspectRatio: string
@@ -437,40 +437,41 @@ export default function SceneEditModal({
               </div>
 
               <div>
-                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
                   Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
                 </h4>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Title font size</label>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between items-baseline">
+                      <label className="text-xs text-gray-400">Title font size</label>
+                      <span className="text-xs font-medium text-purple-600 tabular-nums">{titleFontSize}</span>
+                    </div>
                     <input
-                      type="number"
+                      type="range"
                       min={20}
                       max={200}
                       step={1}
-                      value={titleFontSize}
+                      value={Math.min(200, Math.max(20, parseInt(titleFontSize, 10) || defaultFontSizes.title))}
                       onChange={(e) => setTitleFontSize(e.target.value)}
-                      placeholder={defaultFontSizes.title.toString()}
-                      className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Description font size</label>
+                  <div>
+                    <div className="flex justify-between items-baseline ">
+                      <label className="text-xs text-gray-400">Description font size</label>
+                      <span className="text-xs font-medium text-purple-600 tabular-nums">{descriptionFontSize}</span>
+                    </div>
                     <input
-                      type="number"
+                      type="range"
                       min={12}
                       max={80}
                       step={1}
-                      value={descriptionFontSize}
+                      value={Math.min(80, Math.max(12, parseInt(descriptionFontSize, 10) || defaultFontSizes.desc))}
                       onChange={(e) => setDescriptionFontSize(e.target.value)}
-                      placeholder={defaultFontSizes.desc.toString()}
-                      className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
                     />
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">
-                  Values start at layout default. Use arrow keys or type to adjust up or down.
-                </p>
               </div>
 
               <div>
