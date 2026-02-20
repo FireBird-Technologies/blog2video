@@ -12,6 +12,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   textColor,
   category,
   icon,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -74,7 +76,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           {categoryTag}
         </div>
         <div style={{
-            fontSize: title && title.length > 20 ? 56 : 72,
+            fontSize: titleFontSize ?? (title && title.length > 20 ? 56 : 72),
             fontWeight: 700,
             lineHeight: 1.1,
             fontFamily: FONT_FAMILY.SERIF,
@@ -120,7 +122,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         {tagline ? (
           <>
             <div style={{ fontSize: 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Tagline</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
+            <div style={{ fontSize: descriptionFontSize ?? 18, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
           </>
         ) : (
           <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.MUTED, fontStyle: "italic" }}>Add a tagline</div>

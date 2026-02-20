@@ -8,6 +8,8 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -66,7 +68,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         <h1
           style={{
             color: textColor,
-            fontSize: p ? 34 : 44,
+            fontSize: titleFontSize ?? (p ? 34 : 44),
             fontWeight: 700,
             opacity: titleOp,
             marginTop: 0,
@@ -89,7 +91,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: p ? 20 : 23,
+            fontSize: descriptionFontSize ?? (p ? 20 : 23),
             lineHeight: 1.65,
             opacity: textOp * 0.8,
             transform: `translateY(${textY}px)`,

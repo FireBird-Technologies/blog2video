@@ -9,6 +9,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
   codeLines = [],
   codeLanguage = "",
   aspectRatio,
+  titleFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -44,7 +45,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 26 : 36,
+          fontSize: titleFontSize ?? (p ? 26 : 36),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,

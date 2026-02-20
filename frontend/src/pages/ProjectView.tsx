@@ -13,6 +13,7 @@ import {
   toggleAssetExclusion,
   uploadProjectDocuments,
   reorderScenes,
+  updateScene,
   updateSceneImage,
   deleteAsset,
   Project,
@@ -22,7 +23,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneEditModal, { SceneImageItem } from "../components/SceneEditModal";
+import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
@@ -266,6 +267,10 @@ export default function ProjectView() {
   const isPro = user?.plan === "pro";
 
   const [project, setProject] = useState<Project | null>(null);
+  const projectRef = useRef<Project | null>(null);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
@@ -337,6 +342,10 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
+  const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
+  const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const fontPendingRef = useRef<Record<number, { title: number; desc: number }>>({});
 
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
@@ -1744,6 +1753,123 @@ export default function ProjectView() {
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
                                           {desc.layout?.replace(/_/g, " ") || "text narration"}
                                         </span>
+                                      </div>
+                                    );
+                                  } catch {
+                                    return null;
+                                  }
+                                })()}
+
+                                {/* Typography — font size sliders with live preview and debounced save */}
+                                {scene.remotion_code && project && (() => {
+                                  try {
+                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
+                                    const layoutId = desc.layout ?? "text_narration";
+                                    const template = project.template ?? "default";
+                                    const aspectRatio = project.aspect_ratio ?? "16:9";
+                                    const defaults = getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const override = sceneFontOverrides[scene.id];
+                                    const titleFontSize = override?.title ?? desc.layoutProps?.titleFontSize ?? defaults.title;
+                                    const descFontSize = override?.desc ?? desc.layoutProps?.descriptionFontSize ?? defaults.desc;
+                                    const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
+                                    const descClamped = Math.min(80, Math.max(12, Number(descFontSize) || defaults.desc));
+
+                                    const scheduleFontSave = () => {
+                                      const sceneId = scene.id;
+                                      const tid = fontSaveTimeoutRef.current[sceneId];
+                                      if (tid) clearTimeout(tid);
+                                      fontSaveTimeoutRef.current[sceneId] = setTimeout(() => {
+                                        const proj = projectRef.current;
+                                        const pending = fontPendingRef.current[sceneId];
+                                        if (!proj || !pending) return;
+                                        const sc = proj.scenes?.find((s) => s.id === sceneId);
+                                        if (!sc?.remotion_code) return;
+                                        setSavingFontSizes(sceneId);
+                                        try {
+                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown> };
+                                          const next = { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                          updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
+                                            loadProject();
+                                            setSceneFontOverrides((prev) => {
+                                              const u = { ...prev };
+                                              delete u[sceneId];
+                                              return u;
+                                            });
+                                            setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                          }).catch(() => {
+                                            setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                          });
+                                        } catch {
+                                          setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                        }
+                                        delete fontSaveTimeoutRef.current[sceneId];
+                                        delete fontPendingRef.current[sceneId];
+                                      }, 400);
+                                    };
+
+                                    return (
+                                      <div>
+                                        <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
+                                          Typography
+                                        </h4>
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="text-xs text-gray-400 mb-1 block">Title font size</label>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="range"
+                                                min={20}
+                                                max={200}
+                                                step={1}
+                                                value={titleClamped}
+                                                onChange={(e) => {
+                                                  const v = Number(e.target.value);
+                                                  fontPendingRef.current[scene.id] = { title: v, desc: descClamped };
+                                                  setSceneFontOverrides((prev) => ({ ...prev, [scene.id]: { ...(prev[scene.id] ?? { title: titleClamped, desc: descClamped }), title: v } }));
+                                                  scheduleFontSave();
+                                                }}
+                                                className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                                              />
+                                              <div className="flex items-center gap-1.5">
+                                                {savingFontSizes === scene.id ? (
+                                                  <svg className="animate-spin h-3 w-3 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                  </svg>
+                                                ) : null}
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{titleClamped}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-gray-400 mb-1 block">Display text font size</label>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="range"
+                                                min={12}
+                                                max={80}
+                                                step={1}
+                                                value={descClamped}
+                                                onChange={(e) => {
+                                                  const v = Number(e.target.value);
+                                                  fontPendingRef.current[scene.id] = { title: titleClamped, desc: v };
+                                                  setSceneFontOverrides((prev) => ({ ...prev, [scene.id]: { ...(prev[scene.id] ?? { title: titleClamped, desc: descClamped }), desc: v } }));
+                                                  scheduleFontSave();
+                                                }}
+                                                className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                                              />
+                                              <div className="flex items-center gap-1.5">
+                                                {savingFontSizes === scene.id ? (
+                                                  <svg className="animate-spin h-3 w-3 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                  </svg>
+                                                ) : null}
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{descClamped}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
                                     );
                                   } catch {

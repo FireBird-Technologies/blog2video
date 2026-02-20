@@ -11,6 +11,8 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   leftDescription = "",
   rightDescription = "",
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -50,7 +52,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 30 : 38,
+          fontSize: titleFontSize ?? (p ? 30 : 38),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -97,7 +99,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </div>
           <h3
             style={{
-              fontSize: p ? 20 : 24,
+              fontSize: descriptionFontSize ?? (p ? 20 : 24),
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
@@ -109,7 +111,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: p ? 16 : 19,
+              fontSize: descriptionFontSize ?? (p ? 16 : 19),
               color: textColor,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.6,
@@ -169,7 +171,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </div>
           <h3
             style={{
-              fontSize: p ? 20 : 24,
+              fontSize: descriptionFontSize ?? (p ? 20 : 24),
               fontWeight: 600,
               color: textColor,
               fontFamily: "Inter, sans-serif",
@@ -181,7 +183,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: p ? 16 : 19,
+              fontSize: descriptionFontSize ?? (p ? 16 : 19),
               color: textColor,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.6,

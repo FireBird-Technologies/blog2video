@@ -17,6 +17,8 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -82,7 +84,7 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
             <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div
               style={{
-                fontSize: p ? 32 : 52,
+                fontSize: titleFontSize ?? (p ? 32 : 52),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 letterSpacing: "-0.025em",
