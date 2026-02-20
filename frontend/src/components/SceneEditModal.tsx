@@ -78,6 +78,120 @@ export function getDefaultFontSizes(
   return { title, desc };
 }
 
+// ─── Layout text field definitions ──────────────────────────
+type FieldType = "string" | "text" | "string_array" | "object_array";
+
+interface FieldDef {
+  key: string;
+  label: string;
+  type: FieldType;
+  subFields?: { key: string; label: string; placeholder?: string }[];
+  placeholder?: string;
+  maxItems?: number;
+}
+
+const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
+  // Default template
+  bullet_list: [{ key: "bullets", label: "Bullet points", type: "string_array", maxItems: 6 }],
+  flow_diagram: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 5 }],
+  comparison: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+  ],
+  timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 4 }],
+  metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
+  quote_callout: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "quoteAuthor", label: "Author", type: "string" },
+  ],
+  code_block: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  // Spotlight template
+  cascade_list: [{ key: "items", label: "Items", type: "string_array" }],
+  rapid_points: [{ key: "phrases", label: "Phrases", type: "string_array" }],
+  versus: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+  ],
+  closer: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+  ],
+  stat_stage: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  // Nightfall template
+  glass_stack: [{ key: "items", label: "Items", type: "string_array" }],
+  glass_code: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  split_glass: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+  ],
+  chapter_break: [
+    { key: "subtitle", label: "Subtitle", type: "string" },
+    { key: "chapterNumber", label: "Chapter number", type: "string" },
+  ],
+  kinetic_insight: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "highlightWord", label: "Highlight word", type: "string" },
+  ],
+  glow_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  data_visualization: [
+    { key: "barChartRows", label: "Bar chart data", type: "object_array",
+      subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
+    { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
+    { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
+      subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 5 },
+    { key: "pieChartRows", label: "Pie chart data", type: "object_array",
+      subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
+  ],
+  // Gridcraft template
+  bento_compare: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+    { key: "verdict", label: "Verdict", type: "string" },
+  ],
+  bento_features: [{ key: "features", label: "Features", type: "object_array",
+    subFields: [{ key: "icon", label: "Icon", placeholder: "emoji" }, { key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+  bento_steps: [{ key: "steps", label: "Steps", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+  bento_highlight: [
+    { key: "subtitle", label: "Subtitle", type: "string" },
+    { key: "mainPoint", label: "Main point", type: "text" },
+    { key: "supportingFacts", label: "Supporting facts", type: "string_array" },
+  ],
+  bento_hero: [
+    { key: "tagline", label: "Tagline", type: "string" },
+    { key: "category", label: "Category", type: "string" },
+  ],
+  pull_quote: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "attribution", label: "Attribution", type: "string" },
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+  ],
+  bento_code: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  kpi_grid: [{ key: "dataPoints", label: "Data points", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value" }] }],
+};
+
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
   value: string;
@@ -141,6 +255,7 @@ export default function SceneEditModal({
   const [displayText, setDisplayText] = useState("");
   const [titleFontSize, setTitleFontSize] = useState<string>("");
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
+  const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -201,10 +316,10 @@ export default function SceneEditModal({
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
     setError(null);
-    // Load font sizes: use layoutProps if set, otherwise use layout default as starting point
     let layoutId: string | null = null;
     let ts = "";
     let ds = "";
+    let lpCopy: Record<string, unknown> = {};
     if (scene.remotion_code) {
       try {
         const desc = JSON.parse(scene.remotion_code);
@@ -212,8 +327,41 @@ export default function SceneEditModal({
         const lp = desc.layoutProps || {};
         if (typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
         if (typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
+        lpCopy = { ...lp };
+        // data_visualization charts: convert stored shapes to editable form
+        if (layoutId === "data_visualization") {
+          const lpAny = lp as Record<string, unknown>;
+          // Bar: { labels, values } -> barChartRows
+          if (lpAny.barChart && typeof lpAny.barChart === "object") {
+            const bc = lpAny.barChart as { labels?: string[]; values?: number[] };
+            const labels = Array.isArray(bc.labels) ? bc.labels : [];
+            const values = Array.isArray(bc.values) ? bc.values : [];
+            lpCopy.barChartRows = labels.map((label, i) => ({ label, value: String(values[i] ?? "") }));
+            delete (lpCopy as Record<string, unknown>).barChart;
+          }
+          // Pie: { labels, values } -> pieChartRows
+          if (lpAny.pieChart && typeof lpAny.pieChart === "object") {
+            const pc = lpAny.pieChart as { labels?: string[]; values?: number[] };
+            const plabels = Array.isArray(pc.labels) ? pc.labels : [];
+            const pvalues = Array.isArray(pc.values) ? pc.values : [];
+            lpCopy.pieChartRows = plabels.map((label, i) => ({ label, value: String(pvalues[i] ?? "") }));
+            delete (lpCopy as Record<string, unknown>).pieChart;
+          }
+          // Line: { labels, datasets: [{ label, values }] } -> lineChartLabels + lineChartDatasets
+          if (lpAny.lineChart && typeof lpAny.lineChart === "object") {
+            const lc = lpAny.lineChart as { labels?: string[]; datasets?: Array<{ label?: string; values?: number[] }> };
+            lpCopy.lineChartLabels = Array.isArray(lc.labels) ? [...lc.labels] : [];
+            const datasets = Array.isArray(lc.datasets) ? lc.datasets : [];
+            lpCopy.lineChartDatasets = datasets.map((d) => ({
+              label: d.label ?? "",
+              valuesStr: (Array.isArray(d.values) ? d.values : []).join(", "),
+            }));
+            delete (lpCopy as Record<string, unknown>).lineChart;
+          }
+        }
       } catch { /* ignore */ }
     }
+    setEditableLayoutProps(lpCopy);
     const defaults = getDefaultFontSizes(
       project.template || "default",
       layoutId,
@@ -266,7 +414,39 @@ export default function SceneEditModal({
               desc = JSON.parse(scene.remotion_code);
             } catch { /* ignore */ }
           }
-          const lp = { ...(desc.layoutProps || {}) };
+          const lp = { ...(desc.layoutProps || {}), ...editableLayoutProps };
+          // data_visualization: convert editable chart form back to stored shapes
+          const layoutId = desc.layout || "";
+          if (layoutId === "data_visualization") {
+            if (Array.isArray(lp.barChartRows)) {
+              const rows = lp.barChartRows as { label?: string; value?: string }[];
+              lp.barChart = {
+                labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+              };
+              delete lp.barChartRows;
+            }
+            if (Array.isArray(lp.pieChartRows)) {
+              const rows = lp.pieChartRows as { label?: string; value?: string }[];
+              lp.pieChart = {
+                labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+              };
+              delete lp.pieChartRows;
+            }
+            if (Array.isArray(lp.lineChartLabels) && Array.isArray(lp.lineChartDatasets)) {
+              const labels = (lp.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+              const datasets = (lp.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
+                label: (d && d.label != null ? String(d.label) : "") as string,
+                values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+                  .split(",")
+                  .map((s) => Number(s.trim()) || 0),
+              }));
+              lp.lineChart = { labels, datasets };
+              delete lp.lineChartLabels;
+              delete lp.lineChartDatasets;
+            }
+          }
           if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
           else delete lp.titleFontSize;
           if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
@@ -437,6 +617,160 @@ export default function SceneEditModal({
                   minRows={2}
                 />
               </div>
+
+              {/* ── Layout content fields (dynamic per layout type) ── */}
+              {currentLayoutId && LAYOUT_TEXT_FIELDS[currentLayoutId] && (
+                <div>
+                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                    Layout content
+                  </h4>
+                  <div className="space-y-4">
+                    {LAYOUT_TEXT_FIELDS[currentLayoutId].map((field) => {
+                      const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+                      const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                      if (field.type === "string") {
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <input
+                              type="text"
+                              value={String(editableLayoutProps[field.key] ?? "")}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                              placeholder={field.placeholder}
+                              className={inputClass}
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "text") {
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <AutoGrowTextarea
+                              value={String(editableLayoutProps[field.key] ?? "")}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                              placeholder={field.placeholder}
+                              className={textareaClass}
+                              minRows={2}
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "string_array") {
+                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <div className="space-y-2">
+                              {items.map((item, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                  <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 tabular-nums">{i + 1}.</span>
+                                  <input
+                                    type="text"
+                                    value={item}
+                                    onChange={(e) => {
+                                      const updated = [...items];
+                                      updated[i] = e.target.value;
+                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                    }}
+                                    className={`flex-1 ${inputClass}`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = items.filter((_, j) => j !== i);
+                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                              {(!field.maxItems || items.length < field.maxItems) && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, ""] }))}
+                                  className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  Add {field.label.toLowerCase().replace(/s$/, "")}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "object_array" && field.subFields) {
+                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as Record<string, string>[];
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <div className="space-y-3">
+                              {items.map((item, i) => (
+                                <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                  <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                  <div className="flex-1 space-y-2">
+                                    {field.subFields!.map((sf) => (
+                                      <div key={sf.key}>
+                                        <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                        <input
+                                          type="text"
+                                          value={item[sf.key] ?? ""}
+                                          placeholder={sf.placeholder || sf.label}
+                                          onChange={(e) => {
+                                            const updated = [...items];
+                                            updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                            setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                          }}
+                                          className={inputClass}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = items.filter((_, j) => j !== i);
+                                      setEditableLayoutProps((prev) => ({ ...prev, [field.key]: updated }));
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                              {(!field.maxItems || items.length < field.maxItems) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const empty: Record<string, string> = {};
+                                    field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                    setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
+                                  }}
+                                  className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                  Add {field.label.toLowerCase().replace(/s$/, "")}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
