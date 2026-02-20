@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -10,7 +10,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Fallbacks
   title,
   dataPoints,
-  
+
+  imageUrl,
   subtitle,
   textColor,
   accentColor,
@@ -29,6 +30,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     ? supportingFacts 
     : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
+  const hasImage = !!imageUrl;
+
   return (
     <div
       style={{
@@ -42,44 +45,63 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
-      {/* Main Highlight Box */}
+      {/* Main Highlight Box - with optional image */}
       <div
         style={{
           gridColumn: "1 / 3",
           ...glass(false),
-          // Special styling for highlight
           backgroundColor: "rgba(255,255,255,0.4)",
-          border: `1px solid ${accentColor}40`, // slight accent border
+          border: `1px solid ${accentColor}40`,
           display: "flex",
-          flexDirection: "column",
+          flexDirection: hasImage ? "row" : "column",
           justifyContent: "center",
-          padding: 42,
+          padding: hasImage ? 0 : 42,
+          overflow: "hidden",
           transform: `scale(${scale1})`,
           opacity: op1,
         }}
       >
-        <div style={{ 
-            fontSize: 14, 
-            textTransform: "uppercase", 
-            letterSpacing: "0.15em", 
-            color: accentColor || COLORS.ACCENT, 
-            fontWeight: 700, 
-            marginBottom: 16 
-        }}>
+        {hasImage && (
+          <div style={{ flex: 1, position: "relative", overflow: "hidden", minWidth: 0 }}>
+            <Img
+              src={imageUrl}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%)", mixBlendMode: "overlay" }} />
+          </div>
+        )}
+        <div
+          style={{
+            flex: hasImage ? 1 : "none",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            padding: 42,
+          }}
+        >
+          <div style={{
+            fontSize: 14,
+            textTransform: "uppercase",
+            letterSpacing: "0.15em",
+            color: accentColor || COLORS.ACCENT,
+            fontWeight: 700,
+            marginBottom: 16,
+          }}>
             Main Point
-        </div>
-        <div style={{ 
-            fontSize: 32, 
-            fontWeight: 700, 
-            lineHeight: 1.3, 
+          </div>
+          <div style={{
+            fontSize: 32,
+            fontWeight: 700,
+            lineHeight: 1.3,
             color: textColor || COLORS.DARK,
-            maxWidth: "90%"
-        }}>
-          {primaryText}
-        </div>
-         {subtitle && (
+            maxWidth: "90%",
+          }}>
+            {primaryText}
+          </div>
+          {subtitle && (
             <div style={{ fontSize: 18, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
-         )}
+          )}
+        </div>
       </div>
 
       {/* Supporting Facts - Render up to 2 dynamically */}

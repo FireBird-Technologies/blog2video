@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -7,11 +7,12 @@ import type { SpotlightLayoutProps } from "../types";
  *
  * Title text springs from 200% scale, overshoots to ~105%, settles to 100%.
  * Optional subtitle fades in below with delay.
- * Pure black stage, no decorations.
+ * Optional image alongside title when available.
  */
 export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
+  imageUrl,
   accentColor,
   bgColor,
   aspectRatio,
@@ -41,6 +42,10 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   });
 
   const scale = 0.6 + titleScale * 0.4 + Math.sin(titleScale * Math.PI) * 0.05;
+  const hasImage = !!imageUrl;
+
+  const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -51,15 +56,32 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: "column",
+          flexDirection: hasImage && !p ? "row" : "column",
           alignItems: "center",
           justifyContent: "center",
           padding: p ? 40 : 80,
+          gap: hasImage ? (p ? 24 : 48) : 0,
         }}
       >
+        {hasImage && (
+          <div
+            style={{
+              flex: p ? "none" : "0 0 38%",
+              width: p ? "70%" : "auto",
+              height: p ? 220 : 360,
+              borderRadius: 4,
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+            }}
+          >
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        )}
+        <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <h1
           style={{
-            fontSize: p ? 80 : 140,
+            fontSize: p ? 64 : 100,
             fontWeight: 900,
             color: "#FFFFFF",
             fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
@@ -78,7 +100,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: p ? 20 : 28,
+              fontSize: p ? 18 : 22,
               fontWeight: 300,
               color: "#666666",
               fontFamily: "Arial, sans-serif",
@@ -94,6 +116,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
             {narration}
           </p>
         )}
+        </div>
       </div>
     </AbsoluteFill>
   );

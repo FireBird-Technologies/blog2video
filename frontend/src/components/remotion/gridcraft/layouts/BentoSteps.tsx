@@ -1,12 +1,14 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   steps,
   dataPoints,
+  imageUrl,
   accentColor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -18,19 +20,52 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
       { label: "Step 4", description: "Deploy" }
   ];
 
+  const hasImage = !!imageUrl;
+  const p = aspectRatio === "portrait";
+
+  const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
+
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr 1fr",
-        gridTemplateRows: "1fr 1fr",
-        gap: 16,
+        display: "flex",
+        flexDirection: hasImage && !p ? "row" : "column",
+        alignItems: "center",
+        justifyContent: "center",
         width: "90%",
         height: "80%",
         margin: "auto",
+        gap: hasImage ? (p ? 24 : 32) : 0,
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
+      {hasImage && (
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "80%" : "auto",
+            height: p ? 220 : 320,
+            borderRadius: 12,
+            overflow: "hidden",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      )}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr 1fr",
+          gridTemplateRows: "1fr 1fr",
+          gap: 16,
+          flex: hasImage && !p ? 1 : "none",
+          width: hasImage && !p ? "auto" : "100%",
+        }}
+      >
       {items.map((item, i) => {
           const delay = i * 5;
           const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14 } });
@@ -75,6 +110,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
               </div>
           )
       })}
+      </div>
     </div>
   );
 };

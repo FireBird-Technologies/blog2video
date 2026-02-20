@@ -64,6 +64,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           />
         </div>
       ) : (
+        /* No image: show title + narration as main content */
         <div
           style={{
             position: "absolute",
@@ -71,42 +72,44 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
             background:
               "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
             transform: `scale(${imageScale})`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: p ? "12%" : "15%",
+            textAlign: "center",
           }}
         >
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              style={{
-                position: "absolute",
-                left: `${(i + 1) * 20}%`,
-                top: 0,
-                bottom: 0,
-                width: 1,
-                background: "rgba(255,255,255,0.04)",
-              }}
-            />
-          ))}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+          <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: p ? 60 : 120,
-                opacity: 0.15,
-                color: "#FFFFFF",
-                fontWeight: 900,
+                fontSize: p ? 52 : 72,
+                fontWeight: 800,
+                color: textColor || "#FFFFFF",
                 fontFamily: "'Arial Black', sans-serif",
-                letterSpacing: "-0.05em",
+                letterSpacing: "-0.02em",
+                lineHeight: 1.15,
+                opacity: captionOpacity,
+                transform: `translateY(${(1 - captionSpring) * 8}px)`,
               }}
             >
-              VISUAL
+              {title}
             </div>
+            {narration && (
+              <div
+                style={{
+                  fontSize: p ? 18 : 24,
+                  fontWeight: 400,
+                  color: "rgba(255,255,255,0.75)",
+                  fontFamily: "Arial, sans-serif",
+                  marginTop: p ? 16 : 24,
+                  lineHeight: 1.4,
+                  opacity: captionOpacity,
+                  transform: `translateY(${(1 - captionSpring) * 8}px)`,
+                }}
+              >
+                {narration}
+              </div>
+            )}
           </div>
         </div>
       )}
