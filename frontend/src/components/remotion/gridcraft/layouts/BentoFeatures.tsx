@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -14,7 +14,9 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   features,
   dataPoints, 
   highlightIndex = 0,
+  imageUrl,
   textColor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -32,23 +34,58 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
       };
   });
   
-  // Dynamic Grid: 1-3 items = 3 cols. 4 = 2x2. >4 = 3 cols wrapping.
   const gridColumns = items.length === 4 ? "1fr 1fr" : "1fr 1fr 1fr";
   const rows = items.length === 4 ? "1fr 1fr" : "1fr 1fr";
+
+  const hasImage = !!imageUrl;
+  const p = aspectRatio === "portrait";
+
+  const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
 
   return (
     <div
       style={{
-        display: "grid",
-        gridTemplateColumns: gridColumns,
-        gridTemplateRows: rows,
-        gap: 20,
+        display: "flex",
+        flexDirection: hasImage && !p ? "row" : "column",
+        alignItems: "center",
+        justifyContent: "center",
         width: "90%",
         height: "80%",
         margin: "auto",
+        gap: hasImage ? (p ? 24 : 32) : 0,
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
+      {hasImage && (
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "80%" : "auto",
+            height: p ? 220 : 320,
+            borderRadius: 12,
+            overflow: "hidden",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          <Img
+            src={imageUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </div>
+      )}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: gridColumns,
+          gridTemplateRows: rows,
+          gap: 20,
+          flex: hasImage && !p ? 1 : "none",
+          width: hasImage && !p ? "auto" : "100%",
+        }}
+      >
       {items.slice(0, 6).map((item, i) => {
         const delay = i * 4;
         const s = spring({
@@ -93,6 +130,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
           </div>
         );
       })}
+      </div>
     </div>
   );
 };
