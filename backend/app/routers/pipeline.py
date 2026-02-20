@@ -269,8 +269,23 @@ async def _generate_scenes(project: Project, db: Session):
         animation_instructions=project.animation_instructions or "",
     )
 
-    # Store descriptors as JSON in remotion_code
+    # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for scene, descriptor in zip(scenes, descriptors):
+        if scene.remotion_code:
+            try:
+                old_desc = json.loads(scene.remotion_code)
+                old_lp = old_desc.get("layoutProps") or {}
+                old_assigned = old_lp.get("assignedImage")
+                old_hide = old_lp.get("hideImage")
+                if old_assigned or old_hide:
+                    if "layoutProps" not in descriptor:
+                        descriptor["layoutProps"] = {}
+                    if old_assigned:
+                        descriptor["layoutProps"]["assignedImage"] = old_assigned
+                    if old_hide:
+                        descriptor["layoutProps"]["hideImage"] = True
+            except (json.JSONDecodeError, TypeError):
+                pass
         scene.remotion_code = json.dumps(descriptor)
     db.commit()
 
