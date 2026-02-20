@@ -389,21 +389,23 @@ export default function SceneEditModal({
               <button
                 type="button"
                 onClick={() => setEditMode("ai")}
-                disabled={!canUseAI}
                 className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
                   editMode === "ai"
                     ? "border-purple-500 bg-purple-50 text-purple-700"
-                    : canUseAI
-                    ? "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                    : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
+                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
                 AI-Assisted editing
               </button>
             </div>
-            {editMode === "ai" && (
+            {editMode === "ai" && canUseAI && (
               <p className="mt-1 text-xs text-gray-600 font-medium">
                 AI-Assisted-Editing limit: {isPro ? "Unlimited" : `${Math.max(0, 3 - aiUsageCount)} of 3 remaining this period`}
+              </p>
+            )}
+            {editMode === "ai" && !canUseAI && (
+              <p className="mt-1 text-xs font-medium text-red-600">
+                The limit for AI-Assisted Editing has been reached.
               </p>
             )}
           </div>
@@ -548,7 +550,7 @@ export default function SceneEditModal({
 
           {/* ── AI-Assisted mode fields ── */}
           {editMode === "ai" && (
-            <div className="mt-5 space-y-4">
+            <div className={`mt-5 space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                   Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
@@ -668,7 +670,7 @@ export default function SceneEditModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={loading || (editMode === "ai" && !aiHasChanges)}
+            disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : editMode === "manual" ? "Save changes" : "Apply AI edit"}

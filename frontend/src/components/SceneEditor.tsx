@@ -239,21 +239,23 @@ export default function SceneEditor({
               setEditMode("ai");
               setReorderMode(false);
             }}
-            disabled={!canUseAI}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
               editMode === "ai"
                 ? "bg-purple-100 text-purple-700"
-                : canUseAI
-                ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                : "bg-gray-50 text-gray-400 cursor-not-allowed"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             AI Edit
           </button>
         </div>
-        {editMode === "ai" && (
+        {editMode === "ai" && canUseAI && (
           <div className="text-xs text-gray-500">
             AI edits: {remainingAI}
+          </div>
+        )}
+        {editMode === "ai" && !canUseAI && (
+          <div className="text-xs font-medium text-red-600">
+            The limit for AI-Assisted Editing has been reached.
           </div>
         )}
       </div>
@@ -419,10 +421,15 @@ export default function SceneEditor({
 
       {/* AI Edit Mode */}
       {editMode === "ai" && (
-        <div className="space-y-4">
+        <div className={`space-y-4 ${!canUseAI ? "pointer-events-none opacity-60" : ""}`}>
           <h3 className="text-sm font-medium text-gray-900">
             AI-Assisted Scene Editing
           </h3>
+          {!canUseAI && (
+            <p className="text-sm font-medium text-red-600">
+              The limit for AI-Assisted Editing has been reached.
+            </p>
+          )}
           {scenes.map((scene) => (
             <div
               key={scene.id}
