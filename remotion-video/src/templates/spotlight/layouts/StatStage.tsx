@@ -100,7 +100,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              fontSize: p ? 100 : 160,
+              fontSize: p ? 80 : 120,
               fontWeight: 900,
               color: textColor || "#FFFFFF",
               letterSpacing: "-0.05em",

@@ -1,12 +1,11 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
  * Versus — Contrast Split
  *
  * Screen splits vertically: left = white bg / black text, right = black bg / white text.
- * Thin accent neon divider down the middle. Both sides slide in from opposite edges.
- * Color inversion creates instant visual tension.
+ * Optional image alongside when available.
  */
 export const Versus: React.FC<SpotlightLayoutProps> = ({
   title,
@@ -15,6 +14,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   rightLabel,
   leftDescription,
   rightDescription,
+  imageUrl,
   accentColor,
   aspectRatio,
 }) => {
@@ -44,15 +44,46 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   const displayRightLabel = rightLabel || "After";
   const displayLeftDesc = leftDescription || narration || "";
   const displayRightDesc = rightDescription || "";
+  const hasImage = !!imageUrl;
+
+  const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: frame - 5, fps, config: { damping: 20, stiffness: 80 } });
 
   return (
     <AbsoluteFill
       style={{
         display: "flex",
-        flexDirection: p ? "column" : "row",
+        flexDirection: hasImage && !p ? "row" : (p ? "column" : "row"),
         overflow: "hidden",
       }}
     >
+      {hasImage && (
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "100%" : "auto",
+            height: p ? 280 : "100%",
+            padding: p ? "8% 8% 0" : "8% 0 0 8%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+          }}
+        >
+          <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        </div>
+      )}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: p ? "column" : "row",
+          minWidth: 0,
+        }}
+      >
       {/* Left — White background */}
       <div
         style={{
@@ -84,7 +115,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: p ? 32 : 48,
+            fontSize: p ? 28 : 40,
             fontWeight: 900,
             color: "#000000",
             textAlign: "center",
@@ -155,7 +186,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: p ? 32 : 48,
+            fontSize: p ? 28 : 40,
             fontWeight: 900,
             color: "#FFFFFF",
             textAlign: "center",
@@ -180,6 +211,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
             {displayRightDesc}
           </div>
         )}
+      </div>
       </div>
     </AbsoluteFill>
   );

@@ -53,14 +53,14 @@ export const SpotlightVideoComposition: React.FC<
           SPOTLIGHT_LAYOUT_REGISTRY.statement;
 
         const layoutProps: SpotlightLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl: scene.imageUrl,
           accentColor: accentColor || "#EF4444",
           bgColor: bgColor || "#000000",
           textColor: textColor || "#FFFFFF",
           aspectRatio: aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl: scene.imageUrl,
         };
 
         return (
