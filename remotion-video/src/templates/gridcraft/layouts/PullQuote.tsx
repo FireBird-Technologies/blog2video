@@ -13,6 +13,8 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   imageUrl,
   accentColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -73,7 +75,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
           "
       </div>
 
-      <div style={{ fontSize: 42, lineHeight: 1.3, textAlign: "center", color: COLORS.DARK, fontWeight: 600, zIndex: 1, maxWidth: "90%" }}>
+      <div style={{ fontSize: titleFontSize ?? 42, lineHeight: 1.3, textAlign: "center", color: COLORS.DARK, fontWeight: 600, zIndex: 1, maxWidth: "90%" }}>
           {words.map((w, i) => {
               const delay = i * 2;
               const op = interpolate(frame, [delay, delay + 10], [0, 1], { extrapolateRight: "clamp" });
@@ -99,7 +101,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
       <div style={{
           marginTop: 40,
           fontFamily: FONT_FAMILY.SANS,
-          fontSize: 16,
+          fontSize: descriptionFontSize ?? 16,
           color: COLORS.MUTED,
           textTransform: "uppercase",
           letterSpacing: "0.1em",

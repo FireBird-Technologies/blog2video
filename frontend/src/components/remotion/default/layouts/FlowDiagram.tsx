@@ -8,6 +8,8 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   textColor,
   steps = [],
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -31,7 +33,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 30 : 38,
+          fontSize: titleFontSize ?? (p ? 30 : 38),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -90,7 +92,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
               >
                 <span
                   style={{
-                    fontSize: p ? 16 : 20,
+                    fontSize: descriptionFontSize ?? (p ? 16 : 20),
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
                     fontFamily: "Inter, sans-serif",

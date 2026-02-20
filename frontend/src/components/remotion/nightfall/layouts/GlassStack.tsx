@@ -23,6 +23,8 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
   accentColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -93,7 +95,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
           {title && (
             <h2
               style={{
-                fontSize: p ? 34 : 42,
+                fontSize: titleFontSize ?? (p ? 34 : 42),
                 fontWeight: 600,
                 color: textColor,
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -188,7 +190,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: p ? 16 : 18,
+                      fontSize: descriptionFontSize ?? (p ? 16 : 18),
                       fontWeight: 700,
                       color: accentColor,
                       fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -201,7 +203,7 @@ export const GlassStack: React.FC<NightfallLayoutProps> = ({
                   {/* Content */}
                   <p
                     style={{
-                      fontSize: p ? 26 : 30,
+                      fontSize: descriptionFontSize ?? (p ? 26 : 30),
                       fontWeight: 400,
                       color: "rgba(226,232,240,0.85)",
                       fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

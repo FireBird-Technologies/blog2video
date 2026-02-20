@@ -10,6 +10,8 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   quote,
   quoteAuthor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -89,7 +91,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: p ? 24 : 30,
+              fontSize: titleFontSize ?? (p ? 30 : 38),
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.55,
@@ -103,7 +105,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: p ? 14 : 17,
+              fontSize: descriptionFontSize ?? (p ? 16 : 20),
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
               opacity: labelOp,

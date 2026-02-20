@@ -17,6 +17,8 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   imageUrl,
   accentColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -115,7 +117,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: p ? 28 : 40,
+            fontSize: titleFontSize ?? (p ? 28 : 40),
             fontWeight: 900,
             color: "#000000",
             textAlign: "center",
@@ -129,7 +131,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         {displayLeftDesc && (
           <div
             style={{
-              fontSize: p ? 12 : 16,
+              fontSize: descriptionFontSize ?? (p ? 12 : 16),
               color: "#888888",
               marginTop: 12,
               textAlign: "center",
@@ -186,7 +188,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: p ? 28 : 40,
+            fontSize: titleFontSize ?? (p ? 28 : 40),
             fontWeight: 900,
             color: "#FFFFFF",
             textAlign: "center",
@@ -200,7 +202,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         {displayRightDesc && (
           <div
             style={{
-              fontSize: p ? 12 : 16,
+              fontSize: descriptionFontSize ?? (p ? 12 : 16),
               color: "#666666",
               marginTop: 12,
               textAlign: "center",

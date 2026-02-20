@@ -23,6 +23,8 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
   textColor,
   metrics = [],
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -186,7 +188,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
             {title && (
               <h3
                 style={{
-                  fontSize: p ? 28 : 36,
+                  fontSize: titleFontSize ?? (p ? 28 : 36),
                   fontWeight: 600,
                   color: textColor,
                   opacity: 0.8,
@@ -278,7 +280,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
               {metrics[0].label && (
                 <p
                   style={{
-                    fontSize: p ? 18 : 20,
+                      fontSize: descriptionFontSize ?? (p ? 18 : 20),
                     color: "rgba(226,232,240,0.45)",
                     fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                     marginTop: 18,
@@ -333,7 +335,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                   >
                       <div
                         style={{
-                          fontSize: p ? 36 : 44,
+                          fontSize: titleFontSize ?? (p ? 36 : 44),
                           fontWeight: 700,
                           color: accentColor,
                           fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -344,7 +346,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                         {m.suffix && (
                           <span
                             style={{
-                              fontSize: p ? 20 : 24,
+                              fontSize: descriptionFontSize ?? (p ? 20 : 24),
                               opacity: 0.8,
                               marginLeft: 2,
                             }}

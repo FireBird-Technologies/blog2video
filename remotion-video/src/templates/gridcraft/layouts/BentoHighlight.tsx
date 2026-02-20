@@ -15,6 +15,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   subtitle,
   textColor,
   accentColor,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -90,7 +92,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             Main Point
           </div>
           <div style={{
-            fontSize: 32,
+            fontSize: titleFontSize ?? 32,
             fontWeight: 700,
             lineHeight: 1.3,
             color: textColor || COLORS.DARK,
@@ -99,7 +101,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             {primaryText}
           </div>
           {subtitle && (
-            <div style={{ fontSize: 18, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
+            <div style={{ fontSize: descriptionFontSize ?? 18, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
           )}
         </div>
       </div>

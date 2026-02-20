@@ -23,6 +23,8 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
   codeLines = [],
   codeLanguage = "",
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -272,7 +274,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
               {title && (
                 <span
                   style={{
-                    fontSize: p ? 18 : 22,
+                    fontSize: titleFontSize ?? (p ? 18 : 22),
                     color: textColor,
                     opacity: 0.6,
                     fontFamily: "'Fira Code', monospace",
@@ -318,7 +320,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
             style={{
               padding: p ? "20px 16px" : "24px 28px",
               fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-              fontSize: 22,
+              fontSize: descriptionFontSize ?? 22,
               lineHeight: 1.85,
               backgroundColor: "rgba(0, 0, 0, 0.2)",
               minHeight: p ? 200 : 300,
@@ -375,7 +377,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                         marginLeft: 4,
                         color: accentColor,
                         fontWeight: 700,
-                        fontSize: p ? 16 : 20,
+                        fontSize: descriptionFontSize ?? (p ? 16 : 20),
                       }}
                     >
                       |
