@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -7,6 +7,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
   subtitle,
   narration,
+  imageUrl,
   accentColor,
   textColor,
   category,
@@ -15,7 +16,10 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Animations
+  const categoryTag = (category ?? (title ? title.split(/\s+/)[0]?.slice(0, 14) : "Featured")) || "Featured";
+  const iconContent = icon ?? categoryTag;
+  const tagline = subtitle || narration || "";
+
   const spr = (delay: number) =>
     spring({
       frame: Math.max(0, frame - delay),
@@ -32,11 +36,6 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const scale3 = interpolate(spr(10), [0, 1], [0.9, 1]);
   const opacity3 = interpolate(spr(10), [0, 1], [0, 1]);
 
-  // Dynamic content: category tag from layoutProps, or first word of title, or "Featured"
-  const categoryTag = (category ?? (title ? title.split(/\s+/)[0]?.slice(0, 14) : "Featured")) || "Featured";
-  const iconContent = icon ?? categoryTag;
-  const tagline = subtitle || narration || "";
-
   return (
     <div
       style={{
@@ -50,11 +49,10 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
-      {/* Main Title Cell */}
       <div
         style={{
           gridRow: "1 / 3",
-          ...glass(true), // Accent
+          ...glass(true),
           backgroundColor: accentColor || COLORS.ACCENT,
           display: "flex",
           flexDirection: "column",
@@ -64,8 +62,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           opacity: opacity1,
         }}
       >
-        <div
-          style={{
+        <div style={{
             fontSize: 16,
             textTransform: "uppercase",
             letterSpacing: "0.15em",
@@ -76,9 +73,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         >
           {categoryTag}
         </div>
-        <div
-          style={{
-            fontSize: title && title.length > 20 ? 56 : 72, // Dynamic font size
+        <div style={{
+            fontSize: title && title.length > 20 ? 56 : 72,
             fontWeight: 700,
             lineHeight: 1.1,
             fontFamily: FONT_FAMILY.SERIF,
@@ -89,24 +85,27 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         </div>
       </div>
 
-      {/* Icon/Category Cell - dynamic text (no hardcoded emoji) */}
       <div
         style={{
           ...glass(false),
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 24,
           transform: `scale(${scale2})`,
           opacity: opacity2,
+          padding: imageUrl ? 0 : 24,
+          overflow: "hidden",
         }}
       >
-        <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
-          {iconContent}
-        </div>
+        {imageUrl ? (
+          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
+            {iconContent}
+          </div>
+        )}
       </div>
 
-      {/* Tagline/Subtitle Cell - narration or subtitle, no static "Version 1.0" */}
       <div
         style={{
           ...glass(false),

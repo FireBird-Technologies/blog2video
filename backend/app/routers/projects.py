@@ -817,21 +817,24 @@ async def regenerate_scene(
             current_descriptor=current_descriptor,
         )
 
-        # Set hideImage flag in layoutProps if image should be removed
+        # Preserve image assignment from old descriptor into the new one
         if remove_image:
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
             descriptor["layoutProps"]["hideImage"] = True
             descriptor["layoutProps"].pop("imageUrl", None)
             descriptor["layoutProps"].pop("assignedImage", None)
-        elif not image:
-            old_assigned = None
-            if current_descriptor:
-                old_assigned = (current_descriptor.get("layoutProps") or {}).get("assignedImage")
+        elif not image and current_descriptor:
+            old_lp = current_descriptor.get("layoutProps") or {}
+            if "layoutProps" not in descriptor:
+                descriptor["layoutProps"] = {}
+            # Preserve assignedImage so the generic stays locked to this scene
+            old_assigned = old_lp.get("assignedImage")
             if old_assigned:
-                if "layoutProps" not in descriptor:
-                    descriptor["layoutProps"] = {}
                 descriptor["layoutProps"]["assignedImage"] = old_assigned
+            # Preserve hideImage if it was explicitly set (user removed image earlier)
+            if old_lp.get("hideImage"):
+                descriptor["layoutProps"]["hideImage"] = True
 
         scene.visual_description = new_visual_description
         scene.narration_text = new_narration
