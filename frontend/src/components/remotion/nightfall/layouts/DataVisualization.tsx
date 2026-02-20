@@ -27,6 +27,8 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   barChart: barChartData,
   lineChart: lineChartData,
   pieChart: pieChartData,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -126,7 +128,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
         {title && (
           <h2
             style={{
-              fontSize: p ? 34 : 46,
+              fontSize: titleFontSize ?? (p ? 34 : 46),
               fontWeight: 600,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -275,7 +277,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
             >
               <p
                 style={{
-                  fontSize: 25,
+                  fontSize: descriptionFontSize ?? 25,
                   color: "rgba(226,232,240,0.8)",
                   opacity: 0.9,
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

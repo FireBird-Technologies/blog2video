@@ -20,6 +20,8 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   textColor,
   accentColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -138,7 +140,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         {/* Title — bright white text, background unchanged (DarkBackground) */}
         <h1
           style={{
-            fontSize: p ? 88 : 140,
+            fontSize: titleFontSize ?? (p ? 88 : 140),
             fontWeight: 800,
             color: "#FFFFFF",
             fontFamily: "'Playfair Display', Georgia, serif",
@@ -194,7 +196,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: p ? 26 : 36,
+              fontSize: descriptionFontSize ?? (p ? 26 : 36),
               fontWeight: 400,
               color: "rgba(226,232,240,0.45)",
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

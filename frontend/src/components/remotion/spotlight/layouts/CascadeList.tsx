@@ -17,6 +17,8 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -112,7 +114,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
               >
                 <span
                   style={{
-                    fontSize: p ? 18 : 28,
+                    fontSize: titleFontSize ?? (p ? 18 : 28),
                     fontWeight: 900,
                     color: accentColor,
                     minWidth: p ? 28 : 44,
@@ -123,7 +125,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                 </span>
                 <span
                   style={{
-                    fontSize: p ? 20 : 30,
+                    fontSize: descriptionFontSize ?? (p ? 20 : 30),
                     fontWeight: 700,
                     color: textColor || "#FFFFFF",
                     fontFamily: "Arial, sans-serif",
