@@ -291,15 +291,16 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: GridcraftLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl,
           accentColor: data.accentColor || COLORS.ACCENT,
           bgColor: data.bgColor || COLORS.BG,
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl,
         };
 
         return (

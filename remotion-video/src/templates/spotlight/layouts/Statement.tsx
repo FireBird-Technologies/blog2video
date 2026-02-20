@@ -115,11 +115,11 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                       style={{
                         fontSize: isHighlight
                           ? p
-                            ? 52
-                            : 72
-                          : p
                             ? 44
-                            : 60,
+                            : 56
+                          : p
+                            ? 36
+                            : 48,
                         fontWeight: 800,
                         color: isHighlight ? accentColor : textColor || "#FFFFFF",
                         fontFamily: "'Arial Black', sans-serif",

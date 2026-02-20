@@ -808,6 +808,7 @@ export default function ProjectView() {
   const activeImageAssets = imageAssets.filter((a) => !a.excluded);
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
+  const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
   if (project.scenes.length > 0 && activeImageAssets.length > 0) {
     project.scenes.forEach((_, idx) => {
       sceneImageMap[idx] = [];
@@ -835,6 +836,7 @@ export default function ProjectView() {
       }
 
       const hideImage = Boolean((layoutProps as any).hideImage);
+      hideImageFlags[idx] = hideImage;
       if (hideImage) {
         // Skip auto-assignment for scenes with hideImage=true
         return;
@@ -887,16 +889,18 @@ export default function ProjectView() {
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
       if (sceneIdx >= 0) {
-        // Overwrite any existing assignment
+        // Overwrite any existing assignment; scene-specific re-enables images
         sceneImageMap[sceneIdx] = [url];
         sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+        hideImageFlags[sceneIdx] = false;
       }
     }
 
     // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
+    // IMPORTANT: Skip scenes with hideImage=true (user explicitly removed image)
     let genericIdx = 0;
     for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
-      if (sceneImageMap[sceneIdx].length === 0) {
+      if (sceneImageMap[sceneIdx].length === 0 && !hideImageFlags[sceneIdx]) {
         const candidate = genericAssets[genericIdx];
         // Skip if already used in first pass
         if (usedGenericFiles.has(candidate.filename)) {
