@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import type { SpotlightLayoutProps } from "../types";
 
@@ -6,14 +6,14 @@ import type { SpotlightLayoutProps } from "../types";
  * Closer — Final Takeaway
  *
  * Text fades in from gaussian blur, sharpens over ~20 frames.
- * A thin accent underline draws beneath key phrase from left to right.
- * Small CTA text fades in below with delay.
+ * Optional image alongside when available.
  */
 export const Closer: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
   highlightPhrase,
   cta,
+  imageUrl,
   accentColor,
   bgColor,
   textColor,
@@ -52,6 +52,10 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
 
   const displayText = narration || title;
   const displayCta = cta || "Read the full article →";
+  const hasImage = !!imageUrl;
+
+  const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
 
   const renderTextWithHighlight = () => {
     if (!highlightPhrase) {
@@ -113,16 +117,33 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: "column",
+          flexDirection: hasImage && !p ? "row" : "column",
           alignItems: "center",
           justifyContent: "center",
           padding: p ? "0 8%" : "0 12%",
           textAlign: "center",
+          gap: hasImage ? (p ? 24 : 48) : 0,
         }}
       >
+        {hasImage && (
+          <div
+            style={{
+              flex: p ? "none" : "0 0 38%",
+              width: p ? "70%" : "auto",
+              height: p ? 220 : 320,
+              borderRadius: 4,
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+            }}
+          >
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        )}
+        <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div
           style={{
-            fontSize: p ? 34 : 52,
+            fontSize: p ? 28 : 42,
             fontWeight: 700,
             color: textColor || "#FFFFFF",
             letterSpacing: "-0.02em",
@@ -150,6 +171,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
           }}
         >
           {displayCta}
+        </div>
         </div>
       </div>
     </AbsoluteFill>
