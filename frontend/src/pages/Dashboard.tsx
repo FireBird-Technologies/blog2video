@@ -268,7 +268,31 @@ export default function Dashboard() {
 
       {/* Project list */}
       <div className="grid gap-3">
-        {projects.map((project) => (
+        {!loaded ? (
+          // Skeleton loading
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="glass-card px-5 py-4 animate-pulse"
+              aria-hidden
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 max-w-[300px]" />
+                    <div className="h-4 w-16 bg-gray-200 rounded" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 bg-gray-100 rounded w-32" />
+                    <div className="h-3 bg-gray-100 rounded w-16" />
+                    <div className="h-3 bg-gray-100 rounded w-12" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          projects.map((project) => (
           <div
             key={project.id}
             onClick={() => navigate(`/project/${project.id}`)}
@@ -313,7 +337,8 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
