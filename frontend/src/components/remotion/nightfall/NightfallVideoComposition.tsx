@@ -53,14 +53,14 @@ export const NightfallVideoComposition: React.FC<
           NIGHTFALL_LAYOUT_REGISTRY.glass_narrative;
 
         const layoutProps: NightfallLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl: scene.imageUrl,
           accentColor: accentColor || "#818CF8",
           bgColor: bgColor || "#0A0A1A",
           textColor: textColor || "#E2E8F0",
           aspectRatio: aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl: scene.imageUrl,
         };
 
         return (
