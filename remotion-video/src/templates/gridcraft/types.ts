@@ -67,4 +67,7 @@ export interface GridcraftLayoutProps {
   // Bento Hero - category/icon for small cells
   category?: string;
   icon?: string;
+  // typography overrides
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }

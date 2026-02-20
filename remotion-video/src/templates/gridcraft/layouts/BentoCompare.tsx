@@ -14,6 +14,8 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   imageUrl,
   accentColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -85,10 +87,10 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
          <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
              {points[0]?.label || "Before"}
          </div>
-         <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+         <div style={{ fontSize: titleFontSize ?? 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
              {points[0]?.title}
          </div>
-         <div style={{ fontSize: 16, lineHeight: 1.5, color: COLORS.MUTED }}>
+         <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.5, color: COLORS.MUTED }}>
              {points[0]?.description}
          </div>
       </div>
@@ -103,10 +105,10 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
          <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
              {points[1]?.label || "After"}
          </div>
-         <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+         <div style={{ fontSize: titleFontSize ?? 24, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
              {points[1]?.title}
          </div>
-         <div style={{ fontSize: 16, lineHeight: 1.5, color: COLORS.MUTED }}>
+         <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.5, color: COLORS.MUTED }}>
              {points[1]?.description}
          </div>
       </div>

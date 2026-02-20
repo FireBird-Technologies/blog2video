@@ -22,6 +22,8 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
   textColor,
   accentColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -145,7 +147,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Chapter label */}
         <div
           style={{
-            fontSize: p ? 18 : 24,
+            fontSize: descriptionFontSize ?? (p ? 18 : 24),
             fontWeight: 600,
             color: textColor,
             opacity: titleOpacity * 0.6,
@@ -230,7 +232,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Title/Subtitle */}
         <h2
           style={{
-            fontSize: p ? 36 : 46,
+            fontSize: titleFontSize ?? (p ? 36 : 46),
             fontWeight: 500,
             color: textColor,
             fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

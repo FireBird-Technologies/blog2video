@@ -37,4 +37,7 @@ export interface SceneLayoutProps {
   rightDescription?: string;
   // timeline
   timelineItems?: { label: string; description: string }[];
+  // typography overrides
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }

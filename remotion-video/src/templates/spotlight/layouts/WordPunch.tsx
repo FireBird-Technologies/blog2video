@@ -16,6 +16,8 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   accentColor,
   bgColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -72,7 +74,7 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
         )}
         <div
           style={{
-            fontSize: p ? 96 : 140,
+            fontSize: titleFontSize ?? (p ? 96 : 140),
             fontWeight: 900,
             color: accentColor,
             textTransform: "uppercase",

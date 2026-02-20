@@ -9,6 +9,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -100,7 +101,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
           <h1
             style={{
               color: textColor,
-              fontSize: 40,
+              fontSize: titleFontSize ?? 40,
               fontWeight: 800,
               fontFamily: "Inter, system-ui, sans-serif",
               lineHeight: 1.25,
@@ -180,7 +181,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
         <h1
           style={{
             color: textColor,
-            fontSize: 54,
+            fontSize: titleFontSize ?? 54,
             fontWeight: 800,
             fontFamily: "Inter, system-ui, sans-serif",
             lineHeight: 1.15,

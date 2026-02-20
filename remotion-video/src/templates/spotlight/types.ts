@@ -36,4 +36,7 @@ export interface SpotlightLayoutProps {
   // closer
   highlightPhrase?: string;
   cta?: string;
+  // typography overrides
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }

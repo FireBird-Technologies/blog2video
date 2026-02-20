@@ -8,6 +8,8 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
   textColor,
   bullets = [],
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -41,7 +43,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: p ? 30 : 40,
+          fontSize: titleFontSize ?? (p ? 30 : 40),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -99,7 +101,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               <span
                 style={{
                   color: textColor,
-                  fontSize: p ? 18 : 22,
+                  fontSize: descriptionFontSize ?? (p ? 18 : 22),
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 500,
                   lineHeight: 1.4,

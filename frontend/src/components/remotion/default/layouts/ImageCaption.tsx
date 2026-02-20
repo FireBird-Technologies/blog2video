@@ -10,6 +10,8 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -120,7 +122,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <h2
           style={{
             color: textColor,
-            fontSize: p ? 26 : 32,
+            fontSize: titleFontSize ?? (p ? 26 : 32),
             fontWeight: 700,
             fontFamily: "Inter, sans-serif",
             marginTop: 0,
@@ -133,7 +135,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: p ? 17 : 20,
+            fontSize: descriptionFontSize ?? (p ? 17 : 20),
             fontFamily: "Inter, sans-serif",
             lineHeight: 1.6,
             opacity: 0.7,

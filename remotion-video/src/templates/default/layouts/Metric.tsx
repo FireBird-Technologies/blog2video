@@ -8,6 +8,8 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   textColor,
   metrics = [],
   aspectRatio,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -58,7 +60,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
       <h3
         style={{
           color: textColor,
-          fontSize: p ? 18 : 22,
+          fontSize: titleFontSize ?? (p ? 18 : 22),
           fontWeight: 500,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp * 0.6,
@@ -112,7 +114,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: p ? 16 : 20,
+              fontSize: descriptionFontSize ?? (p ? 16 : 20),
               fontFamily: "Inter, sans-serif",
               marginTop: p ? 20 : 24,
               marginBottom: 0,

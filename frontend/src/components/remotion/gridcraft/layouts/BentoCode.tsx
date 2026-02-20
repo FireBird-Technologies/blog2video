@@ -9,6 +9,8 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   codeSnippet, // Legacy string
   codeLines, // Backend array
   accentColor,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -71,7 +73,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
             opacity: interpolate(spr(10), [0, 1], [0, 1]),
         }}
       >
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{title || "Code"}</div>
+          <div style={{ fontSize: titleFontSize ?? 24, fontWeight: 700 }}>{title || "Code"}</div>
       </div>
 
       {/* Description */}
@@ -85,7 +87,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
         }}
       >
           <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", marginBottom: 8 }}>Details</div>
-          <div style={{ fontSize: 16, lineHeight: 1.4, fontWeight: 500 }}>{narration}</div>
+          <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.4, fontWeight: 500 }}>{narration}</div>
       </div>
     </div>
   );
