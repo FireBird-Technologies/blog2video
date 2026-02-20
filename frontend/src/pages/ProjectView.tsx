@@ -13,6 +13,8 @@ import {
   toggleAssetExclusion,
   uploadProjectDocuments,
   reorderScenes,
+  updateSceneImage,
+  deleteAsset,
   Project,
   Scene,
   BACKEND_URL,
@@ -333,6 +335,8 @@ export default function ProjectView() {
   const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
+  const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
+  const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
 
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
@@ -907,6 +911,26 @@ export default function ProjectView() {
       }
     }
   }
+
+  const handleRemoveSceneImage = async (assetId: number) => {
+    setRemovingAssetId(assetId);
+    try {
+      await deleteAsset(project.id, assetId);
+      await loadProject();
+    } finally {
+      setRemovingAssetId(null);
+    }
+  };
+
+  const handleAddSceneImage = async (sceneId: number, file: File) => {
+    setUploadingSceneId(sceneId);
+    try {
+      await updateSceneImage(project.id, sceneId, file);
+      await loadProject();
+    } finally {
+      setUploadingSceneId(null);
+    }
+  };
 
   // Audio assets for R2 URL resolution
   const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
@@ -1615,19 +1639,20 @@ export default function ProjectView() {
                                   {scene.title}
                                 </h3>
 
-                                {/* Edit icon — opens modal */}
+                                {/* Edit — icon + label, opens modal */}
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSceneEditModal(scene);
                                   }}
-                                  className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
                                   title="Edit scene"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                   </svg>
+                                  <span className="text-xs font-medium">Edit</span>
                                 </button>
 
                                 {/* Status pills */}
@@ -1738,28 +1763,72 @@ export default function ProjectView() {
                                   </div>
                                 )}
 
-                                {/* Scene images */}
-                                {sceneImages.length > 0 && (
-                                  <div>
-                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                      Images ({sceneImages.length})
-                                    </h4>
-                                    <div className="flex gap-2 overflow-x-auto pb-1">
-                                      {sceneImages.map((src, i) => (
+                                {/* Scene images — same add/remove as manual edit in modal */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Images ({(sceneImageAssetsMap[idx] || []).length})
+                                  </h4>
+                                  <div className="flex flex-wrap gap-2 items-start">
+                                    {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
+                                      <div
+                                        key={asset.id}
+                                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                      >
                                         <img
-                                          key={i}
-                                          src={src}
-                                          alt={`Scene ${scene.order} image ${i + 1}`}
-                                          className="h-24 w-auto rounded-lg object-cover border border-gray-200/40 flex-shrink-0"
+                                          src={url}
+                                          alt=""
+                                          className="h-24 w-auto object-cover"
                                           loading="lazy"
                                           onError={(e) => {
                                             (e.target as HTMLImageElement).style.display = "none";
                                           }}
                                         />
-                                      ))}
-                                    </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSceneImage(asset.id)}
+                                          disabled={removingAssetId === asset.id}
+                                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                        >
+                                          {removingAssetId === asset.id ? (
+                                            <span className="text-[10px]">…</span>
+                                          ) : (
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                          )}
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label
+                                      className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
+                                        uploadingSceneId === scene.id
+                                          ? "border-purple-300 bg-purple-50/50 cursor-wait"
+                                          : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                      }`}
+                                    >
+                                      <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                                        className="hidden"
+                                        disabled={uploadingSceneId === scene.id}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) {
+                                            handleAddSceneImage(scene.id, file);
+                                            e.target.value = "";
+                                          }
+                                        }}
+                                      />
+                                      {uploadingSceneId === scene.id ? (
+                                        <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                      )}
+                                    </label>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             )}
                           </div>
