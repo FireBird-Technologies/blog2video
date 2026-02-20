@@ -75,14 +75,14 @@ export const GridcraftVideoComposition: React.FC<
           GRIDCRAFT_LAYOUT_REGISTRY.editorial_body;
 
         const layoutProps: GridcraftLayoutProps = {
+          ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          imageUrl: scene.imageUrl,
           accentColor: accentColor || COLORS.ACCENT,
           bgColor: bgColor || COLORS.BG,
           textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
-          ...scene.layoutProps,
+          imageUrl: scene.imageUrl,
         };
 
         return (

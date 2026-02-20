@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -7,6 +7,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
   subtitle,
   narration,
+  imageUrl,
   accentColor,
   textColor,
   category,
@@ -91,7 +92,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         </div>
       </div>
 
-      {/* Icon/Category Cell - dynamic text (no hardcoded emoji) */}
+      {/* Icon/Category Cell - or image when imageUrl provided */}
       <div
         style={{
           ...glass(false),
@@ -100,12 +101,17 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           justifyContent: "center",
           transform: `scale(${scale2})`,
           opacity: opacity2,
-          padding: 24,
+          padding: imageUrl ? 0 : 24,
+          overflow: "hidden",
         }}
       >
-        <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
-          {iconContent}
-        </div>
+        {imageUrl ? (
+          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
+            {iconContent}
+          </div>
+        )}
       </div>
 
       {/* Tagline/Subtitle Cell - narration or subtitle, no static "Version 1.0" */}
