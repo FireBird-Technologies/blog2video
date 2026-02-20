@@ -70,8 +70,10 @@ async def generate_video(
     # Initialize progress
     _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None}
 
-    # Launch background task
-    asyncio.create_task(_run_pipeline(project_id, user.id))
+    # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
+    # Other API requests remain responsive while generation runs.
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
 
     return {"detail": "Pipeline started", "step": 0}
 
@@ -111,6 +113,12 @@ def get_pipeline_status(
         "error": progress.get("error"),
         "studio_port": project.studio_port,
     }
+
+
+def _run_pipeline_sync(project_id: int, user_id: int) -> None:
+    """Run the async pipeline in a dedicated event loop (called from thread pool).
+    Keeps the main server event loop free so other API requests are served."""
+    asyncio.run(_run_pipeline(project_id, user_id))
 
 
 async def _run_pipeline(project_id: int, user_id: int):
@@ -388,8 +396,28 @@ def download_studio_endpoint(
     )
 
 
+def _rebuild_workspace_sync(project_id: int) -> None:
+    """Rebuild workspace in a thread (uses its own DB session). Avoids blocking the event loop."""
+    db = SessionLocal()
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        if not scenes:
+            raise ValueError("No scenes found")
+        rebuild_workspace(project, scenes, db)
+    finally:
+        db.close()
+
+
 @router.post("/render")
-def render_video_endpoint(
+async def render_video_endpoint(
     project_id: int,
     resolution: str = "1080p",
     user: User = Depends(get_current_user),
@@ -397,7 +425,7 @@ def render_video_endpoint(
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    All videos render at 1080p.
+    All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
     """
     project = _get_project(project_id, user.id, db)
 
@@ -417,12 +445,6 @@ def render_video_endpoint(
     if prog and not prog.get("done", True):
         return {"detail": "Render already running", "progress": prog.get("progress", 0)}
 
-    # Ensure workspace exists (may be missing on Cloud Run if a different
-    # container handled the pipeline, or if it was cleaned up after a
-    # previous render).
-    workspace = get_workspace_dir(project.id)
-    # Always rebuild workspace before rendering so the render reflects the latest DB state
-    # (e.g. scene reordering, edits, regenerated assets). This prevents stale data.json/audio copies.
     scenes = (
         db.query(Scene)
         .filter(Scene.project_id == project_id)
@@ -431,7 +453,16 @@ def render_video_endpoint(
     )
     if not scenes:
         raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
-    rebuild_workspace(project, scenes, db)
+
+    # Rebuild workspace in thread pool so the event loop is not blocked (file I/O, copy, etc.).
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(None, _rebuild_workspace_sync, project_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to prepare workspace: {str(e)}. Please try again.",
+        )
 
     project.status = ProjectStatus.RENDERING
     db.commit()
@@ -440,7 +471,6 @@ def render_video_endpoint(
         start_render_async(project, resolution=resolution)
         return {"detail": "Render started", "progress": 0, "resolution": resolution}
     except Exception as e:
-        # If render start fails, reset status and return error
         print(f"[RENDER] Failed to start render for project {project_id}: {e}")
         import traceback
         traceback.print_exc()
