@@ -213,6 +213,9 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [videoPreviewId, setVideoPreviewId] = useState<string | null>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  /** When we navigated to step 3 (ms). Used to ignore submit from replayed click after "Go to step 3". */
+  const step3EnteredAtRef = useRef<number | null>(null);
 
   // Load templates & voice previews once
   useEffect(() => {
@@ -223,6 +226,17 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
       .then((r) => setVoicePreviews(r.data))
       .catch(() => {});
   }, []);
+
+  // Sync colors to the selected template when templates load (so default "nightfall" shows nightfall colors on step 2)
+  useEffect(() => {
+    if (templates.length === 0) return;
+    const meta = templates.find((t) => t.id === template);
+    if (meta?.preview_colors) {
+      setAccentColor(meta.preview_colors.accent);
+      setBgColor(meta.preview_colors.bg);
+      setTextColor(meta.preview_colors.text);
+    }
+  }, [templates, template]);
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
@@ -324,7 +338,10 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
 
   const goNext = () => {
     if (step === 1 && canGoNext1) setStep(2);
-    else if (step === 2) setStep(3);
+    else if (step === 2) {
+      step3EnteredAtRef.current = Date.now();
+      setStep(3);
+    }
   };
 
   const goBack = () => {
@@ -335,6 +352,11 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   // ─── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (step !== 3) return;
+    // Ignore submit if it fires right after "Go to step 3" (browser replays click onto the new submit button)
+    const enteredAt = step3EnteredAtRef.current;
+    if (enteredAt != null && Date.now() - enteredAt < 400) return;
+    step3EnteredAtRef.current = null;
     audioRef.current?.pause();
 
     if (mode === "upload") {
@@ -528,6 +550,35 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
           className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
         />
+      </div>
+
+      {/* Format — moved from step 2 */}
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+         Video Format
+        </label>
+        <div className="flex gap-2">
+          {([
+            { value: "landscape", label: "Landscape", sub: "YouTube" },
+            { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setAspectRatio(opt.value)}
+              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                aspectRatio === opt.value
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
+              }`}
+            >
+              <span>{opt.label}</span>
+              <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
+                {opt.sub}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Logo */}
@@ -760,35 +811,6 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </div>
       </div>
 
-      {/* Format */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Format
-        </label>
-        <div className="flex gap-2">
-          {([
-            { value: "landscape", label: "Landscape", sub: "YouTube" },
-            { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
-          ] as const).map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setAspectRatio(opt.value)}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
-                aspectRatio === opt.value
-                  ? "bg-purple-600 text-white shadow-sm"
-                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-              }`}
-            >
-              <span>{opt.label}</span>
-              <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
-                {opt.sub}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="flex gap-2 pt-1">
         <button
           type="button"
@@ -944,6 +966,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           Back
         </button>
         <button
+          ref={submitButtonRef}
           type="submit"
           disabled={loading}
           className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
@@ -975,7 +998,15 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   );
 
   const formContent = (
-    <form onSubmit={handleSubmit}>
+    <form
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+        // Prevent Enter from submitting unless the submit button is focused (avoids auto-submit when landing on step 3)
+        if (e.key === "Enter" && document.activeElement !== submitButtonRef.current) {
+          e.preventDefault();
+        }
+      }}
+    >
       <StepIndicator current={step} total={3} />
       {stepContentWrapper}
       <UpgradeModal
@@ -990,7 +1021,14 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     return (
       <div>
         <StepIndicator current={step} total={3} />
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && document.activeElement !== submitButtonRef.current) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="min-h-[420px] flex flex-col">{stepContent}</div>
         </form>
         <UpgradeModal
