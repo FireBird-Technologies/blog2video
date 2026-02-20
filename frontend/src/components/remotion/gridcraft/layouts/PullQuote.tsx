@@ -1,18 +1,18 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
 export const PullQuote: React.FC<GridcraftLayoutProps> = ({
-  // Backend props
   quote,
   attribution,
   highlightPhrase,
-  // Fallbacks
   title,
   subtitle,
   narration,
+  imageUrl,
   accentColor,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -20,9 +20,13 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   const text = quote || title || "Quote goes here";
   const source = attribution || subtitle || narration || "Author";
   const words = text.split(" ");
-  
-  // Highlight logic
+  const hasImage = !!imageUrl;
+  const p = aspectRatio === "portrait";
+
   const highlightWords = (highlightPhrase || "").split(" ").map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
+
+  const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
 
   return (
     <div
@@ -32,14 +36,39 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         display: "flex",
-        flexDirection: "column",
+        flexDirection: hasImage && !p ? "row" : "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "5%",
+        gap: hasImage ? (p ? 24 : 32) : 0,
         fontFamily: FONT_FAMILY.SERIF,
         position: "relative",
       }}
     >
+      {hasImage && (
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "70%" : "auto",
+            height: p ? 200 : 280,
+            borderRadius: 12,
+            overflow: "hidden",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+          }}
+        >
+          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          flex: hasImage && !p ? 1 : "none",
+        }}
+      >
       <div style={{ position: "absolute", top: 40, left: 40, fontSize: 120, color: accentColor || COLORS.ACCENT, opacity: 0.2, lineHeight: 0.5 }}>
           "
       </div>
@@ -77,6 +106,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
           opacity: interpolate(frame, [words.length * 2 + 10, words.length * 2 + 30], [0, 1])
       }}>
           — {source}
+      </div>
       </div>
     </div>
   );
