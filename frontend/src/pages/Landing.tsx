@@ -50,12 +50,20 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
   }
 }
 
+const NAV_LINKS = [
+  { href: "#demo", label: "Demo" },
+  { href: "#how", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "/pricing", label: "Pricing" },
+];
+
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
+  const [navOpen, setNavOpen] = useState(false);
   const scrollRef = useScrollReveal();
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
@@ -111,11 +119,49 @@ export default function Landing() {
               Blog2Video
             </span>
           </div>
-          <div className="flex items-center gap-6">
-            <a href="#demo" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Demo</a>
-            <a href="#how" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">How it works</a>
-            <a href="#features" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Features</a>
-            <a href="/pricing" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Pricing</a>
+          {/* Desktop: horizontal links */}
+          <div className="hidden md:flex items-center gap-6">
+            {NAV_LINKS.map(({ href, label }) => (
+              <a key={href} href={href} className="text-sm text-gray-400 hover:text-gray-900 transition-colors">
+                {label}
+              </a>
+            ))}
+          </div>
+          {/* Mobile: dropdown trigger */}
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setNavOpen((o) => !o)}
+              className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 rounded-lg transition-colors"
+              aria-expanded={navOpen}
+              aria-haspopup="true"
+              aria-label="Open menu"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            {navOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  aria-hidden="true"
+                  onClick={() => setNavOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
+                  {NAV_LINKS.map(({ href, label }) => (
+                    <a
+                      key={href}
+                      href={href}
+                      onClick={() => setNavOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </nav>

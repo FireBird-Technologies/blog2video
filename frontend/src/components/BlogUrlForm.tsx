@@ -431,7 +431,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
             onClick={() => setMode(m)}
             className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
               mode === m
-                ? "bg-purple-600 text-white shadow-sm"
+                ? "bg-white text-purple-600 shadow-sm"
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
