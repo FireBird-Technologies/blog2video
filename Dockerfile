@@ -1,10 +1,10 @@
-# Blog2Video: Python 3.11 + Node.js 20 (HuggingFace Spaces)
+# ── Blog2Video: Python 3.11 + Node.js 20 for HuggingFace Spaces ──
 FROM python:3.11-slim
 
 # Install Node.js 20 + shared libs required by Chrome Headless Shell
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl gnupg ca-certificates \
+  apt-get install -y --no-install-recommends \
+  curl gnupg ca-certificates \
   fonts-liberation fonts-noto-color-emoji \
   libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
   libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
