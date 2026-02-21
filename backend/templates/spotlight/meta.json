@@ -10,7 +10,6 @@
   "composition_id": "SpotlightVideo",
   "hero_layout": "impact_title",
   "fallback_layout": "statement",
-  "image_layout": "spotlight_image",
   "valid_layouts": [
     "impact_title",
     "statement",

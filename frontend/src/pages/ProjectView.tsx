@@ -1362,10 +1362,10 @@ export default function ProjectView() {
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
-              <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
+              <div className="flex-1 flex flex-col min-w-0">
                 {project.scenes.length > 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-                    <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
+                  <div className="flex-1 flex flex-col items-center justify-center p-4 gap-3">
+                    <div className="overflow-hidden">
                       <VideoPreview project={project} />
                     </div>
                     <p className="text-[11px] text-gray-400">

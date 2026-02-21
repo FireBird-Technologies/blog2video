@@ -277,10 +277,10 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
       fps={30}
       controls
       style={{
-        width: "100%",
-        maxHeight: isPortrait ? "70vh" : "60vh",
-        borderRadius: 12,
+        height: isPortrait ? "75vh" : "88vh",
+        width: isPortrait ? "calc(75vh * 9 / 16)" : "calc(88vh * 16 / 9)",
         overflow: "hidden",
+        display: "block",
       }}
     />
   );

@@ -100,14 +100,6 @@ def get_composition_id(template_id: str) -> str:
     return meta.get("composition_id", "DefaultVideo")
 
 
-def get_image_layout(template_id: str) -> str | None:
-    """Get the layout ID for image-heavy scenes (blog images). None = no override."""
-    meta = _load_meta(template_id)
-    if not meta:
-        return None
-    return meta.get("image_layout")
-
-
 def get_preview_colors(template_id: str) -> dict[str, str] | None:
     """Get preview_colors (accent, bg, text) for template. None = use request defaults."""
     meta = _load_meta(template_id)

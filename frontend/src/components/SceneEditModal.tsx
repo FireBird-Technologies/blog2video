@@ -447,6 +447,19 @@ export default function SceneEditModal({
               delete lp.lineChartDatasets;
             }
           }
+          // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
+          const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
+          if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length || bar.values.every((v) => v === 0))) {
+            delete lp.barChart;
+          }
+          const pie = lp.pieChart as { labels?: unknown[]; values?: number[] } | undefined;
+          if (pie && (!Array.isArray(pie.labels) || !pie.labels.length || !Array.isArray(pie.values) || !pie.values.length || pie.values.every((v) => v === 0))) {
+            delete lp.pieChart;
+          }
+          const line = lp.lineChart as { labels?: unknown[]; datasets?: { values?: number[] }[] } | undefined;
+          if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
+            delete lp.lineChart;
+          }
           if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
           else delete lp.titleFontSize;
           if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
