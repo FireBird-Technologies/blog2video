@@ -12,6 +12,8 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   bgColor,
   textColor,
+  titleFontSize,
+  descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
 
@@ -36,7 +38,7 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
         textAlign: "center",
       }}>
         <h2 style={{
-          fontSize: 36,
+          fontSize: titleFontSize ?? 42,
           fontWeight: 600,
           color: textColor || "#171717",
           fontFamily: "'Inter', 'Segoe UI', sans-serif",
@@ -56,7 +58,7 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
         }} />
 
         <p style={{
-          fontSize: 20,
+          fontSize: descriptionFontSize ?? 24,
           fontWeight: 400,
           color: textColor || "#171717",
           fontFamily: "'Inter', 'Segoe UI', sans-serif",

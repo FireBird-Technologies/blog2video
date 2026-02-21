@@ -13,7 +13,6 @@ import type { NightfallLayoutProps } from "../types";
  * - Improved visual hierarchy
  * - Better number formatting
  * - Particle effect hints
- * - Image support: shows image alongside metrics when available
  */
 
 export const GlowMetric: React.FC<NightfallLayoutProps> = ({
@@ -172,17 +171,17 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
               width: "100%",
             }}
           >
-          {/* Ambient glow behind card */}
-          <div
-            style={{
-              position: "absolute",
-              inset: -40,
-              background: `radial-gradient(circle at center, ${accentColor}${Math.floor(glowIntensity * 40).toString(16).padStart(2, '0')} 0%, transparent 70%)`,
-              filter: "blur(40px)",
-              zIndex: -1,
-              pointerEvents: "none",
-            }}
-          />
+            {/* Ambient glow behind card */}
+            <div
+              style={{
+                position: "absolute",
+                inset: -40,
+                background: `radial-gradient(circle at center, ${accentColor}${Math.floor(glowIntensity * 40).toString(16).padStart(2, '0')} 0%, transparent 70%)`,
+                filter: "blur(40px)",
+                zIndex: -1,
+                pointerEvents: "none",
+              }}
+            />
 
             {/* Title */}
             {title && (
@@ -202,7 +201,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
               </h3>
             )}
 
-              {/* Primary Metric with Multi-Ring Glow */}
+            {/* Primary Metric with Multi-Ring Glow */}
             {metrics[0] && (
               <div
                 style={{
@@ -213,88 +212,88 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                   marginBottom: metrics.length > 1 ? 48 : 0,
                 }}
               >
-              {/* Outer ring */}
-              <div
-                style={{
-                  width: p ? 140 : 180,
-                  height: p ? 140 : 180,
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: `translate(-50%, -50%) rotate(${ring1Rotation}deg)`,
-                  borderRadius: "50%",
-                  border: "2px solid transparent",
-                  borderTopColor: accentColor,
-                  borderRightColor: `${accentColor}60`,
-                  boxShadow: `0 0 40px ${accentColor}${Math.floor(glowIntensity * 80).toString(16).padStart(2, '0')}`,
-                  opacity: ringOpacity,
-                }}
-              />
-
-              {/* Inner ring (counter-rotation) */}
-              <div
-                style={{
-                  width: p ? 120 : 150,
-                  height: p ? 120 : 150,
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: `translate(-50%, -50%) rotate(${ring2Rotation}deg)`,
-                  borderRadius: "50%",
-                  border: "2px solid transparent",
-                  borderBottomColor: `${accentColor}40`,
-                  borderLeftColor: `${accentColor}20`,
-                  opacity: ringOpacity * 0.7,
-                }}
-              />
-
-              {/* Number */}
-              <div
-                style={{
-                  fontSize: p ? 40 : 50,
-                  fontWeight: 800,
-                  color: textColor,
-                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-                  textAlign: "center",
-                  lineHeight: 1,
-                  transform: `scale(${primaryScale})`,
-                  textShadow: `0 0 20px ${accentColor}35`,
-                  position: "relative",
-                  zIndex: 1,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {formatNumber(animatedNum)}
-                <span
+                {/* Outer ring */}
+                <div
                   style={{
-                    color: accentColor,
-                    fontSize: p ? 36 : 45,
-                    marginLeft: 4,
+                    width: p ? 140 : 180,
+                    height: p ? 140 : 180,
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: `translate(-50%, -50%) rotate(${ring1Rotation}deg)`,
+                    borderRadius: "50%",
+                    border: "2px solid transparent",
+                    borderTopColor: accentColor,
+                    borderRightColor: `${accentColor}60`,
+                    boxShadow: `0 0 40px ${accentColor}${Math.floor(glowIntensity * 80).toString(16).padStart(2, '0')}`,
+                    opacity: ringOpacity,
                   }}
-                >
-                  {metrics[0].suffix || "%"}
-                </span>
-              </div>
+                />
 
-              {/* Label */}
-              {metrics[0].label && (
-                <p
+                {/* Inner ring (counter-rotation) */}
+                <div
                   style={{
-                      fontSize: descriptionFontSize ?? (p ? 18 : 20),
-                    color: "rgba(226,232,240,0.45)",
+                    width: p ? 120 : 150,
+                    height: p ? 120 : 150,
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: `translate(-50%, -50%) rotate(${ring2Rotation}deg)`,
+                    borderRadius: "50%",
+                    border: "2px solid transparent",
+                    borderBottomColor: `${accentColor}40`,
+                    borderLeftColor: `${accentColor}20`,
+                    opacity: ringOpacity * 0.7,
+                  }}
+                />
+
+                {/* Number */}
+                <div
+                  style={{
+                    fontSize: p ? 40 : 50,
+                    fontWeight: 800,
+                    color: textColor,
                     fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-                    marginTop: 18,
                     textAlign: "center",
-                    fontWeight: 400,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
+                    lineHeight: 1,
+                    transform: `scale(${primaryScale})`,
+                    textShadow: `0 0 20px ${accentColor}35`,
+                    position: "relative",
+                    zIndex: 1,
+                    letterSpacing: "-0.02em",
                   }}
                 >
-                  {metrics[0].label}
-                </p>
-              )}
-            </div>
-          )}
+                  {formatNumber(animatedNum)}
+                  <span
+                    style={{
+                      color: accentColor,
+                      fontSize: p ? 36 : 45,
+                      marginLeft: 4,
+                    }}
+                  >
+                    {metrics[0].suffix || "%"}
+                  </span>
+                </div>
+
+                {/* Label */}
+                {metrics[0].label && (
+                  <p
+                    style={{
+                      fontSize: descriptionFontSize ?? (p ? 18 : 20),
+                      color: "rgba(226,232,240,0.45)",
+                      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                      marginTop: 18,
+                      textAlign: "center",
+                      fontWeight: 400,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {metrics[0].label}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Secondary Metrics — Staggered Reveal */}
             {metrics.length > 1 && (
@@ -309,30 +308,30 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                   borderTop: `1px solid rgba(255, 255, 255, 0.1)`,
                 }}
               >
-              {metrics.slice(1, 4).map((m, i) => {
-                const delay = 40 + i * 10;
-                const secondaryY = spring({
-                  frame: frame - delay,
-                  fps,
-                  config: { damping: 20, stiffness: 90 },
-                });
-                const secondaryOp = interpolate(
-                  frame,
-                  [delay, delay + 20],
-                  [0, 1],
-                  { extrapolateRight: "clamp" }
-                );
+                {metrics.slice(1, 4).map((m, i) => {
+                  const delay = 40 + i * 10;
+                  const secondaryY = spring({
+                    frame: frame - delay,
+                    fps,
+                    config: { damping: 20, stiffness: 90 },
+                  });
+                  const secondaryOp = interpolate(
+                    frame,
+                    [delay, delay + 20],
+                    [0, 1],
+                    { extrapolateRight: "clamp" }
+                  );
 
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      textAlign: "center",
-                      minWidth: p ? 90 : 110,
-                      opacity: secondaryOp,
-                      transform: `translateY(${(1 - secondaryY) * 20}px)`,
-                    }}
-                  >
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        textAlign: "center",
+                        minWidth: p ? 90 : 110,
+                        opacity: secondaryOp,
+                        transform: `translateY(${(1 - secondaryY) * 20}px)`,
+                      }}
+                    >
                       <div
                         style={{
                           fontSize: titleFontSize ?? (p ? 36 : 44),
@@ -369,9 +368,9 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                       >
                         {m.label}
                       </div>
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

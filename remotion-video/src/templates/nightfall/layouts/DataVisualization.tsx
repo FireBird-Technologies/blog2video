@@ -34,14 +34,14 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   const fps = 30;
   const p = aspectRatio === "portrait";
 
-  // Determine which chart to show (priority: bar > line > pie)
-  const chartType = barChartData
-    ? "bar"
-    : lineChartData
-    ? "line"
-    : pieChartData
-    ? "pie"
-    : null;
+  // Collect all available charts (show multiple in columns)
+  const charts: { type: "bar" | "line" | "pie"; data: unknown }[] = [];
+  if (barChartData) charts.push({ type: "bar", data: barChartData });
+  if (lineChartData) charts.push({ type: "line", data: lineChartData });
+  if (pieChartData) charts.push({ type: "pie", data: pieChartData });
+  const chartCount = charts.length;
+  const hasChart = chartCount > 0;
+  const multiChart = chartCount > 1;
 
   // Card entrance animation
   const cardY = spring({
@@ -91,23 +91,12 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   });
 
   const hasImage = !!imageUrl;
-  const hasChart = !!chartType;
-  // Hide narration and image when charts are present and user wants visualization only
-  // Check if narration is empty or just whitespace to determine if it should be hidden
   const shouldShowNarration = narration && narration.trim() && (!hasChart || narration.trim().length > 50);
   const shouldShowImage = hasImage && (!hasChart || !shouldShowNarration);
-  const chartWidth = p ? 600 : shouldShowImage ? 700 : 900;
-  const chartHeight = p ? 400 : shouldShowImage ? 450 : 500;
-
-  // Debug: Log chart data (remove in production)
-  if (barChartData || lineChartData || pieChartData) {
-    console.log("[DataVisualization] Chart data received:", {
-      barChart: barChartData,
-      lineChart: lineChartData,
-      pieChart: pieChartData,
-      chartType,
-    });
-  }
+  const baseW = p ? 600 : shouldShowImage ? 700 : 900;
+  const baseH = p ? 400 : shouldShowImage ? 450 : 500;
+  const chartWidth = multiChart ? (p ? 280 : Math.min(420, (1400 - 48 * 2 - 32 * (chartCount - 1)) / chartCount)) : baseW;
+  const chartHeight = multiChart ? (p ? 260 : Math.min(380, baseH * 0.75)) : baseH;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -213,52 +202,68 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
             </div>
           )}
 
-          {/* Chart Section */}
+          {/* Chart Section — single column or multi-column row */}
           {hasChart && (
             <div
               style={{
                 flex: shouldShowImage && !p ? 1 : "none",
                 width: p ? "100%" : shouldShowImage ? "65%" : "100%",
                 display: "flex",
-                flexDirection: "column",
+                flexDirection: multiChart ? "row" : "column",
+                flexWrap: p && multiChart ? "wrap" : "nowrap",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: multiChart ? "space-evenly" : "center",
+                gap: multiChart ? (p ? 16 : 24) : 0,
                 opacity: chartOpacity,
                 transform: `scale(${chartScale})`,
-                minHeight: chartHeight,
+                minHeight: multiChart ? chartHeight : chartHeight,
                 position: "relative",
               }}
             >
-              {chartType === "bar" && barChartData && (
-                <BarChart
-                  data={barChartData}
-                  accentColor={accentColor}
-                  textColor={textColor}
-                  width={chartWidth}
-                  height={chartHeight}
-                  frame={frame}
-                />
-              )}
-              {chartType === "line" && lineChartData && (
-                <LineChart
-                  data={lineChartData}
-                  accentColor={accentColor}
-                  textColor={textColor}
-                  width={chartWidth}
-                  height={chartHeight}
-                  frame={frame}
-                />
-              )}
-              {chartType === "pie" && pieChartData && (
-                <PieChart
-                  data={pieChartData}
-                  accentColor={accentColor}
-                  textColor={textColor}
-                  width={chartWidth}
-                  height={chartHeight}
-                  frame={frame}
-                />
-              )}
+              {charts.map(({ type, data }) => (
+                <div
+                  key={type}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flex: multiChart ? 1 : "none",
+                    minWidth: multiChart ? 0 : undefined,
+                  }}
+                >
+                  {type === "bar" && (
+                    <BarChart
+                      data={data as Parameters<typeof BarChart>[0]["data"]}
+                      accentColor={accentColor}
+                      textColor={textColor}
+                      width={chartWidth}
+                      height={chartHeight}
+                      frame={frame}
+                    />
+                  )}
+                  {type === "line" && (
+                    <LineChart
+                      data={data as Parameters<typeof LineChart>[0]["data"]}
+                      accentColor={accentColor}
+                      textColor={textColor}
+                      width={chartWidth}
+                      height={chartHeight}
+                      frame={frame}
+                    />
+                  )}
+                  {type === "pie" && (
+                    <PieChart
+                      data={data as Parameters<typeof PieChart>[0]["data"]}
+                      accentColor={accentColor}
+                      textColor={textColor}
+                      width={chartWidth}
+                      height={chartHeight}
+                      frame={frame}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

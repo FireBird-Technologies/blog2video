@@ -435,6 +435,7 @@ export const updateSceneImage = (
 export interface LayoutInfo {
   layouts: string[];
   layout_names: Record<string, string>;
+  layouts_without_image?: string[];
 }
 
 export const getValidLayouts = (projectId: number) =>

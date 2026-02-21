@@ -10,7 +10,6 @@
   "composition_id": "DefaultVideo",
   "hero_layout": "hero_image",
   "fallback_layout": "text_narration",
-  "image_layout": "image_caption",
   "valid_layouts": [
     "hero_image",
     "text_narration",
@@ -21,6 +20,16 @@
     "metric",
     "quote_callout",
     "image_caption",
+    "timeline"
+  ],
+  "layouts_without_image": [
+    "text_narration",
+    "code_block",
+    "bullet_list",
+    "flow_diagram",
+    "comparison",
+    "metric",
+    "quote_callout",
     "timeline"
   ]
 }

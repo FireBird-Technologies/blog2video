@@ -122,7 +122,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <h2
           style={{
             color: textColor,
-            fontSize: titleFontSize ?? (p ? 26 : 32),
+            fontSize: titleFontSize ?? (p ? 32 : 38),
             fontWeight: 700,
             fontFamily: "Inter, sans-serif",
             marginTop: 0,
@@ -135,7 +135,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         <p
           style={{
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 17 : 20),
+            fontSize: descriptionFontSize ?? (p ? 20 : 24),
             fontFamily: "Inter, sans-serif",
             lineHeight: 1.6,
             opacity: 0.7,

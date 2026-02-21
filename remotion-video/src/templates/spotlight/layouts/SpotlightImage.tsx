@@ -84,7 +84,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 52 : 72),
+                fontSize: titleFontSize ?? (p ? 62 : 84),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 fontFamily: "'Arial Black', sans-serif",
@@ -99,7 +99,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 18 : 24),
+                  fontSize: descriptionFontSize ?? (p ? 22 : 28),
                   fontWeight: 400,
                   color: "rgba(255,255,255,0.75)",
                   fontFamily: "Arial, sans-serif",
@@ -125,7 +125,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
         }}
       />
 
-      {/* Caption bar */}
+      {/* Caption bar — larger text area */}
       <div
         style={{
           position: "absolute",
@@ -136,29 +136,30 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           borderTop: "1px solid rgba(255,255,255,0.1)",
-          padding: p ? "12px 24px" : "18px 36px",
+          padding: p ? "28px 32px" : "40px 56px",
           display: "flex",
           alignItems: "center",
-          gap: p ? 12 : 20,
+          gap: p ? 20 : 28,
           opacity: captionOpacity,
           transform: `translateY(${(1 - captionSpring) * 12}px)`,
         }}
       >
         <div
           style={{
-            width: 3,
-            height: p ? 28 : 38,
+            width: 5,
+            height: p ? 48 : 60,
             backgroundColor: accentColor,
             flexShrink: 0,
           }}
         />
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 16 : 22),
+              fontSize: titleFontSize ?? (p ? 28 : 36),
               fontWeight: 700,
               color: textColor || "#FFFFFF",
               fontFamily: "'Arial Black', sans-serif",
+              lineHeight: 1.2,
             }}
           >
             {title}
@@ -166,10 +167,11 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontSize: p ? 11 : 14,
-                color: "#666666",
+                fontSize: p ? 16 : 20,
+                color: "rgba(255,255,255,0.85)",
                 fontFamily: "Arial, sans-serif",
-                marginTop: 2,
+                marginTop: 8,
+                lineHeight: 1.4,
               }}
             >
               {narration}
