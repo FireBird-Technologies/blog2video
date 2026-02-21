@@ -1951,7 +1951,7 @@ export default function ProjectView() {
                                         </div>
                                       ) : (
                                         <p className="text-xs text-gray-400 italic">
-                                          This layout does not support images.
+                                          This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
                                         </p>
                                       )}
                                     </div>

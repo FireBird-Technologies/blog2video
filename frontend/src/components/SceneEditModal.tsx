@@ -898,7 +898,7 @@ export default function SceneEditModal({
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400 italic">
-                    This layout does not support images.
+                    This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
                   </p>
                 )}
               </div>
@@ -979,6 +979,11 @@ export default function SceneEditModal({
                       }`}
                     >
                       {currentLayoutLabel}
+                      {currentLayoutId && (
+                        <span className={`ml-1 ${supportsImage ? "text-gray-500" : "text-gray-400 italic"}`}>
+                          ({supportsImage ? "Supports images" : "Does not support images"})
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -991,18 +996,24 @@ export default function SceneEditModal({
                     </button>
                     {layouts?.layouts
                       .filter((id) => id !== currentLayoutId)
-                      .map((layoutId) => (
-                        <button
-                          key={layoutId}
-                          type="button"
-                          onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
-                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
-                            selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                          }`}
-                        >
-                          {layouts.layout_names[layoutId] || layoutId.replace(/_/g, " ")}
-                        </button>
-                      ))}
+                      .map((layoutId) => {
+                        const supportsImageForLayout = !layoutsWithoutImage.has(layoutId);
+                        return (
+                          <button
+                            key={layoutId}
+                            type="button"
+                            onClick={() => { setSelectedLayout(layoutId); setLayoutOpen(false); }}
+                            className={`w-full text-left px-3 py-2.5 text-xs hover:bg-purple-50 transition-colors ${
+                              selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                            }`}
+                          >
+                            {layouts.layout_names[layoutId] || layoutId.replace(/_/g, " ")}
+                            <span className={`ml-1 ${supportsImageForLayout ? "text-gray-500" : "text-gray-400 italic"}`}>
+                              ({supportsImageForLayout ? "Supports images" : "Does not support images"})
+                            </span>
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
               </div>
