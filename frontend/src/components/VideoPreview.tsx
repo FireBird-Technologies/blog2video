@@ -266,22 +266,47 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
 
   const Composition = config.component;
 
+  // Responsive wrapper: up to 90% of viewport, centered, aspect ratio preserved
   return (
-    <Player
-      key={`preview-${project.id}-${project.updated_at ?? ""}`}
-      component={Composition}
-      inputProps={inputProps}
-      durationInFrames={totalDurationFrames}
-      compositionWidth={isPortrait ? 1080 : 1920}
-      compositionHeight={isPortrait ? 1920 : 1080}
-      fps={30}
-      controls
+    <div
       style={{
-        height: isPortrait ? "75vh" : "88vh",
-        width: isPortrait ? "calc(75vh * 9 / 16)" : "calc(88vh * 16 / 9)",
-        overflow: "hidden",
-        display: "block",
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        minHeight: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-    />
+    >
+      <div
+        style={{
+          maxWidth: "min(100%, 90vw)",
+          maxHeight: "min(100%, 90vh)",
+          width: isPortrait ? "auto" : "100%",
+          height: isPortrait ? "100%" : "auto",
+          aspectRatio: isPortrait ? "9/16" : "16/9",
+          minWidth: 0,
+          minHeight: 0,
+        }}
+      >
+        <Player
+          key={`preview-${project.id}-${project.updated_at ?? ""}`}
+          component={Composition}
+          inputProps={inputProps}
+          durationInFrames={totalDurationFrames}
+          compositionWidth={isPortrait ? 1080 : 1920}
+          compositionHeight={isPortrait ? 1920 : 1080}
+          fps={30}
+          controls
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            overflow: "hidden",
+          }}
+        />
+      </div>
+    </div>
   );
 }
