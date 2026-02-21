@@ -18,6 +18,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
   bgColor,
   textColor,
   aspectRatio,
+  titleFontSize,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -114,12 +115,8 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                       key={wi}
                       style={{
                         fontSize: isHighlight
-                          ? p
-                            ? 44
-                            : 56
-                          : p
-                            ? 36
-                            : 48,
+                          ? titleFontSize ? Math.round(titleFontSize * 1.2) : (p ? 50 : 66)
+                          : titleFontSize ?? (p ? 42 : 56),
                         fontWeight: 800,
                         color: isHighlight ? accentColor : textColor || "#FFFFFF",
                         fontFamily: "'Arial Black', sans-serif",

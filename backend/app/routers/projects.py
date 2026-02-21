@@ -446,9 +446,10 @@ def update_scene(
 ):
     """Manually update a scene."""
     from app.models.scene import Scene
+    from app.services.remotion import write_remotion_data
 
     # Verify ownership
-    _get_user_project(project_id, user.id, db)
+    project = _get_user_project(project_id, user.id, db)
 
     scene = (
         db.query(Scene)
@@ -464,6 +465,19 @@ def update_scene(
 
     db.commit()
     db.refresh(scene)
+
+    # Keep remotion-workspace in sync so preview/render use latest props
+    try:
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        write_remotion_data(project, scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
+
     return scene
 
 

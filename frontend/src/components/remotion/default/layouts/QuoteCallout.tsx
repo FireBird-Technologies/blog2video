@@ -91,7 +91,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: titleFontSize ?? (p ? 30 : 38),
+              fontSize: titleFontSize ?? (p ? 36 : 46),
               fontWeight: 600,
               fontFamily: "Inter, sans-serif",
               lineHeight: 1.55,
@@ -105,7 +105,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: descriptionFontSize ?? (p ? 16 : 20),
+              fontSize: descriptionFontSize ?? (p ? 20 : 24),
               fontWeight: 500,
               fontFamily: "Inter, sans-serif",
               opacity: labelOp,
