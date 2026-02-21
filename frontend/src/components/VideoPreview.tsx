@@ -284,7 +284,9 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
           maxWidth: "min(100%, 90vw)",
           maxHeight: "min(100%, 90vh)",
           width: isPortrait ? "auto" : "100%",
-          height: isPortrait ? "100%" : "auto",
+          // Portrait: use max(100%, 80vh) so we have an intrinsic height when parent
+          // has no explicit height (flex chain), avoiding 0-height collapse
+          height: isPortrait ? "max(100%, 80vh)" : "auto",
           aspectRatio: isPortrait ? "9/16" : "16/9",
           minWidth: 0,
           minHeight: 0,
