@@ -21,5 +21,15 @@
     "quote_callout",
     "image_caption",
     "timeline"
+  ],
+  "layouts_without_image": [
+    "text_narration",
+    "code_block",
+    "bullet_list",
+    "flow_diagram",
+    "comparison",
+    "metric",
+    "quote_callout",
+    "timeline"
   ]
 }
