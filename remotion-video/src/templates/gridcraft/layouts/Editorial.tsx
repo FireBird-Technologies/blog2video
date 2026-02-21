@@ -68,7 +68,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
             margin: hasImage ? 0 : "auto",
         }}>
            <div style={{ 
-               fontSize: titleFontSize ?? 36, 
+               fontSize: titleFontSize ?? 42, 
                fontWeight: 700, 
                lineHeight: 1.2, 
                color: COLORS.DARK, 
@@ -81,7 +81,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
            <div style={{ width: hasImage ? "40%" : "20%", height: 3, backgroundColor: accentColor || COLORS.ACCENT, marginBottom: 24, alignSelf: hasImage ? "flex-start" : "center" }} />
 
            <div style={{ 
-               fontSize: descriptionFontSize ?? 18, 
+               fontSize: descriptionFontSize ?? 22, 
                lineHeight: 1.6, 
                color: COLORS.DARK, 
                opacity: 0.85 

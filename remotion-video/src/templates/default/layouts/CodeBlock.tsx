@@ -45,7 +45,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 26 : 36),
+          fontSize: titleFontSize ?? (p ? 32 : 44),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,

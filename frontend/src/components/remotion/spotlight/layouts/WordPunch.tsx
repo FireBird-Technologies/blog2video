@@ -74,7 +74,7 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
         )}
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 96 : 140),
+            fontSize: titleFontSize ?? (p ? 112 : 164),
             fontWeight: 900,
             color: accentColor,
             textTransform: "uppercase",

@@ -52,7 +52,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
             overflow: "hidden",
             opacity: imageOpacity,
             transform: `scale(${imageScale})`,
-            ...glass(false),
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -71,10 +71,11 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
       {items.map((item, i) => {
           const delay = i * 5;
           const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14 } });
-
+          
           const scale = interpolate(s, [0, 1], [0.8, 1]);
           const opacity = interpolate(s, [0, 1], [0, 1]);
-
+          
+          // Zig-zag layout
           const positions = [
              { gridColumn: "1", gridRow: "1" },
              { gridColumn: "2", gridRow: "2" },
@@ -102,10 +103,10 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
                   <div style={{ fontSize: 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
                       {String(i + 1).padStart(2, "0")}
                   </div>
-                  <div style={{ fontSize: titleFontSize ?? 18, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
+                  <div style={{ fontSize: titleFontSize ?? 22, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
                       {item.label}
                   </div>
-                  <div style={{ fontSize: descriptionFontSize ?? 13, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
+                  <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
                       {item.description}
                   </div>
               </div>

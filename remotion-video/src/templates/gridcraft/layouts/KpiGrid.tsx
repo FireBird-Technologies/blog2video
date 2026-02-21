@@ -50,7 +50,7 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
             overflow: "hidden",
             opacity: imageOpacity,
             transform: `scale(${imageScale})`,
-            ...glass(false),
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -71,7 +71,7 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
           const s = spring({ frame: Math.max(0, frame - delay), fps, config: { damping: 14 } });
           const scale = interpolate(s, [0, 1], [0.8, 1]);
           const opacity = interpolate(s, [0, 1], [0, 1]);
-
+          
           const isAccent = i === highlightIndex;
 
           const trendIcon = item.trend === "up" ? "▲" : item.trend === "down" ? "▼" : "●";
@@ -93,24 +93,24 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
                   aspectRatio: "1/1",
                 }}
               >
-                  <div style={{
-                      fontSize: 64,
-                      fontWeight: 700,
-                      lineHeight: 1,
-                      color: isAccent ? COLORS.WHITE : textColor,
+                  <div style={{ 
+                      fontSize: 64, 
+                      fontWeight: 700, 
+                      lineHeight: 1, 
+                      color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK),
                       marginBottom: 12
                     }}>
                       {item.value || "0"}
                   </div>
-
+                  
                   <div style={{ fontSize: 24, color: isAccent ? "rgba(255,255,255,0.8)" : trendColor }}>
                       {trendIcon}
                   </div>
 
-                  <div style={{
-                      marginTop: 12,
-                      fontSize: 14,
-                      textTransform: "uppercase",
+                  <div style={{ 
+                      marginTop: 12, 
+                      fontSize: 14, 
+                      textTransform: "uppercase", 
                       letterSpacing: "0.1em",
                       opacity: isAccent ? 0.9 : 0.6,
                       color: isAccent ? COLORS.WHITE : COLORS.MUTED

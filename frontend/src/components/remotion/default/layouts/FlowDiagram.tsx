@@ -33,7 +33,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 30 : 38),
+          fontSize: titleFontSize ?? (p ? 36 : 46),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -92,7 +92,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
               >
                 <span
                   style={{
-                    fontSize: descriptionFontSize ?? (p ? 16 : 20),
+                    fontSize: descriptionFontSize ?? (p ? 20 : 24),
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
                     fontFamily: "Inter, sans-serif",

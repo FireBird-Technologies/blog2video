@@ -1,14 +1,18 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import type { NightfallLayoutProps } from "../types";
 
 /**
  * CinematicTitle — Enhanced Professional Version
  *
+ * Improvements:
  * - Layered title reveal with mask animation
  * - Particle-like accent elements
- * - Optional background image: slow zoom-in (Ken Burns), dark overlay, very lightly visible
- * - Professional kerning and typography, cinematic build-up timing
+ * - Dynamic subtitle tracking
+ * - Professional kerning and typography
+ * - Cinematic build-up timing
+ * - Optional company/brand lockup area
+ * - Optional background image with slow zoom + heavy dark overlay
  */
 
 export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
@@ -25,15 +29,24 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   const fps = 30;
   const p = aspectRatio === "portrait";
 
-  // Background image: slow zoom-in over ~5s, then hold (covers full screen by end)
+  // Duration assumption for zoom: image zooms over 150 frames (5s at 30fps)
   const ZOOM_DURATION = 150;
+
+  // Slow zoom-in until image covers full screen (Ken Burns)
   const imageScale = interpolate(
     frame,
     [0, ZOOM_DURATION],
     [1.08, 1],
     { extrapolateRight: "clamp" }
   );
-  const imageOpacity = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: "clamp" });
+
+  // Image fades in gently at the start
+  const imageOpacity = interpolate(
+    frame,
+    [0, 20],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
 
   // Title animations with spring
   const titleY = spring({
@@ -95,8 +108,11 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
+
+      {/* ── Background: either image with overlay, or solid dark ── */}
       {imageUrl ? (
         <>
+          {/* Zooming image layer */}
           <div
             style={{
               position: "absolute",
@@ -104,9 +120,10 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               opacity: imageOpacity,
               transform: `scale(${imageScale})`,
               transformOrigin: "center center",
+              willChange: "transform",
             }}
           >
-            <Img
+            <img
               src={imageUrl}
               style={{
                 width: "100%",
@@ -116,6 +133,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               }}
             />
           </div>
+
           {/* Dark purple overlay (Nightfall base #0A0A1A) — image very lightly visible */}
           <div
             style={{
@@ -186,7 +204,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         }}
       >
 
-        {/* Title — bright white text, background unchanged (DarkBackground) */}
+        {/* Title — bright white text */}
         <h1
           style={{
             fontSize: titleFontSize ?? (p ? 88 : 140),
@@ -204,7 +222,6 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         >
           {title}
         </h1>
-
 
         {/* Decorative Strip */}
         <div
@@ -241,7 +258,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           />
         </div>
 
-        {/* Subtitle/Narration — bright white */}
+        {/* Subtitle/Narration */}
         {narration && (
           <p
             style={{
@@ -263,7 +280,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         )}
       </div>
 
-      {/* Bottom accent line (optional brand lockup area) */}
+      {/* Bottom accent line */}
       <div
         style={{
           position: "absolute",

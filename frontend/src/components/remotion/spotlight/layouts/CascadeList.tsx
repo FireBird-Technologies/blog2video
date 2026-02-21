@@ -114,7 +114,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
               >
                 <span
                   style={{
-                    fontSize: titleFontSize ?? (p ? 18 : 28),
+                    fontSize: titleFontSize ?? (p ? 22 : 34),
                     fontWeight: 900,
                     color: accentColor,
                     minWidth: p ? 28 : 44,
@@ -125,7 +125,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                 </span>
                 <span
                   style={{
-                    fontSize: descriptionFontSize ?? (p ? 20 : 30),
+                    fontSize: descriptionFontSize ?? (p ? 24 : 36),
                     fontWeight: 700,
                     color: textColor || "#FFFFFF",
                     fontFamily: "Arial, sans-serif",

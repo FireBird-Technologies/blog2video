@@ -91,10 +91,8 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   });
 
   const hasImage = !!imageUrl;
-  // Hide narration and image when charts are present and user wants visualization only
   const shouldShowNarration = narration && narration.trim() && (!hasChart || narration.trim().length > 50);
   const shouldShowImage = hasImage && (!hasChart || !shouldShowNarration);
-  // When multiple charts: smaller size per column; when single: larger
   const baseW = p ? 600 : shouldShowImage ? 700 : 900;
   const baseH = p ? 400 : shouldShowImage ? 450 : 500;
   const chartWidth = multiChart ? (p ? 280 : Math.min(420, (1400 - 48 * 2 - 32 * (chartCount - 1)) / chartCount)) : baseW;

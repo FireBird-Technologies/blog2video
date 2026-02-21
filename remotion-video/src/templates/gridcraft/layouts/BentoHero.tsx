@@ -18,10 +18,14 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  // Dynamic content: category tag from layoutProps, or first word of title, or "Featured"
   const categoryTag = (category ?? (title ? title.split(/\s+/)[0]?.slice(0, 14) : "Featured")) || "Featured";
+  // Icon cell: layoutProps.icon (emoji/text), or category tag as dynamic text (no hardcoded emoji)
   const iconContent = icon ?? categoryTag;
+  // Subtitle/tagline: layoutProps.subtitle, else scene narration (for bottom-right cell)
   const tagline = subtitle || narration || "";
 
+  // Animations
   const spr = (delay: number) =>
     spring({
       frame: Math.max(0, frame - delay),
@@ -51,10 +55,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
+      {/* Main Title Cell */}
       <div
         style={{
           gridRow: "1 / 3",
-          ...glass(true),
+          ...glass(true), // Accent
           backgroundColor: accentColor || COLORS.ACCENT,
           display: "flex",
           flexDirection: "column",
@@ -64,7 +69,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
           opacity: opacity1,
         }}
       >
-        <div style={{
+        <div
+          style={{
             fontSize: 16,
             textTransform: "uppercase",
             letterSpacing: "0.15em",
@@ -75,8 +81,9 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         >
           {categoryTag}
         </div>
-        <div style={{
-            fontSize: titleFontSize ?? (title && title.length > 20 ? 56 : 72),
+        <div
+          style={{
+            fontSize: titleFontSize ?? (title && title.length > 20 ? 66 : 84),
             fontWeight: 700,
             lineHeight: 1.1,
             fontFamily: FONT_FAMILY.SERIF,
@@ -87,6 +94,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         </div>
       </div>
 
+      {/* Icon/Category Cell - or image when imageUrl provided */}
       <div
         style={{
           ...glass(false),
@@ -108,6 +116,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         )}
       </div>
 
+      {/* Tagline/Subtitle Cell - narration or subtitle, no static "Version 1.0" */}
       <div
         style={{
           ...glass(false),
@@ -122,7 +131,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         {tagline ? (
           <>
             <div style={{ fontSize: 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Tagline</div>
-            <div style={{ fontSize: descriptionFontSize ?? 18, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
+            <div style={{ fontSize: descriptionFontSize ?? 22, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
           </>
         ) : (
           <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.MUTED, fontStyle: "italic" }}>Add a tagline</div>
