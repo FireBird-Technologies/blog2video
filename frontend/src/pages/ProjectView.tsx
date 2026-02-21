@@ -1321,43 +1321,6 @@ export default function ProjectView() {
                           Share
                         </button>
 
-                        {showShareMenu && (
-                          <>
-                            <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 top-full mt-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex flex-col gap-2.5">
-                              {/* TikTok */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                                title="Copy link for TikTok"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                                </svg>
-                              </button>
-                              {/* YouTube */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                                title="Copy link for YouTube"
-                              >
-                                <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                </svg>
-                              </button>
-                              {/* Facebook */}
-                              <button
-                                onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                                title="Share on Facebook"
-                              >
-                                <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -1371,7 +1334,14 @@ export default function ProjectView() {
               <div className="flex-1 flex flex-col min-w-0 min-h-0">
                 {project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
-                    <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+                    <div
+                      className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
+                      style={
+                        project.aspect_ratio === "portrait"
+                          ? { minHeight: "70vh" }
+                          : undefined
+                      }
+                    >
                       <VideoPreview project={project} />
                     </div>
                     <p className="text-[11px] text-gray-400 flex-shrink-0">
