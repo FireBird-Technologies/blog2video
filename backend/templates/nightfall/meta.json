@@ -10,7 +10,6 @@
   "composition_id": "NightfallVideo",
   "hero_layout": "cinematic_title",
   "fallback_layout": "glass_narrative",
-  "image_layout": "glass_image",
   "valid_layouts": [
     "cinematic_title",
     "glass_narrative",

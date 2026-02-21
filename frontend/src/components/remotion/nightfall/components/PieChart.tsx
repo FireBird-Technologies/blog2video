@@ -18,12 +18,22 @@ export const PieChart: React.FC<PieChartProps> = ({
   height,
   frame,
 }) => {
-  const { labels, values, colors } = data;
-  const total = values.reduce((sum, val) => sum + val, 0);
+  const { labels = [], values = [], colors } = data;
+  const total = values.reduce((sum, val) => sum + Number(val) || 0, 0);
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = Math.min(width, height) / 2 - 60;
-  const padding = 30;
+
+  // No data or zero total — don't render (avoids division by zero and empty chart)
+  if (!labels.length || !values.length || total <= 0) {
+    return (
+      <svg width={width} height={height}>
+        <text x={width / 2} y={height / 2} fill={textColor} textAnchor="middle" fontSize={18} opacity={0.6}>
+          No data
+        </text>
+      </svg>
+    );
+  }
 
   // Generate colors if not provided
   const defaultColors = [
@@ -39,8 +49,8 @@ export const PieChart: React.FC<PieChartProps> = ({
   // Calculate angles
   let currentAngle = -Math.PI / 2; // Start from top
   const segments = labels.map((label, i) => {
-    const value = values[i] || 0;
-    const percentage = value / total;
+    const value = Number(values[i]) || 0;
+    const percentage = total > 0 ? value / total : 0;
     const angle = percentage * 2 * Math.PI;
     const startAngle = currentAngle;
     const endAngle = currentAngle + angle;
@@ -91,10 +101,11 @@ export const PieChart: React.FC<PieChartProps> = ({
           { extrapolateRight: "clamp" }
         );
 
-        // Animate the arc by scaling from center
+        // Animate the arc by scaling from center (SVG scale() uses origin 0,0 so use translate-scale-translate)
         const scaleX = segmentProgress;
         const scaleY = segmentProgress;
-        const transformOrigin = `${centerX} ${centerY}`;
+        const scaleFromCenter = `translate(${centerX},${centerY}) scale(${scaleX},${scaleY}) translate(${-centerX},${-centerY})`;
+        const scaleFromCenterGlow = `translate(${centerX},${centerY}) scale(${scaleX * 1.05},${scaleY * 1.05}) translate(${-centerX},${-centerY})`;
 
         return (
           <g key={i}>
@@ -103,8 +114,7 @@ export const PieChart: React.FC<PieChartProps> = ({
               d={segment.pathD}
               fill={segment.color}
               opacity={segmentProgress}
-              transform={`scale(${scaleX}, ${scaleY})`}
-              transformOrigin={transformOrigin}
+              transform={scaleFromCenter}
               style={{
                 filter: `drop-shadow(0 0 8px ${segment.color}60)`,
               }}
@@ -115,8 +125,7 @@ export const PieChart: React.FC<PieChartProps> = ({
               d={segment.pathD}
               fill={segment.color}
               opacity={0.3 * segmentProgress}
-              transform={`scale(${scaleX * 1.05}, ${scaleY * 1.05})`}
-              transformOrigin={transformOrigin}
+              transform={scaleFromCenterGlow}
               filter="blur(6px)"
             />
 

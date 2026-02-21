@@ -1,17 +1,14 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import type { NightfallLayoutProps } from "../types";
 
 /**
  * CinematicTitle — Enhanced Professional Version
- * 
- * Improvements:
+ *
  * - Layered title reveal with mask animation
  * - Particle-like accent elements
- * - Dynamic subtitle tracking
- * - Professional kerning and typography
- * - Cinematic build-up timing
- * - Optional company/brand lockup area
+ * - Optional background image: slow zoom-in (Ken Burns), dark overlay, very lightly visible
+ * - Professional kerning and typography, cinematic build-up timing
  */
 
 export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
@@ -22,10 +19,21 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+
+  // Background image: slow zoom-in over ~5s, then hold (covers full screen by end)
+  const ZOOM_DURATION = 150;
+  const imageScale = interpolate(
+    frame,
+    [0, ZOOM_DURATION],
+    [1.08, 1],
+    { extrapolateRight: "clamp" }
+  );
+  const imageOpacity = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: "clamp" });
 
   // Title animations with spring
   const titleY = spring({
@@ -87,7 +95,48 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground />
+      {imageUrl ? (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              transformOrigin: "center center",
+            }}
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+          {/* Dark purple overlay (Nightfall base #0A0A1A) — image very lightly visible */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: "#0A0A1A",
+              opacity: 0,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at center, rgba(10,10,26,0.82) 0%, rgba(10,10,26,0.96) 100%)",
+            }}
+          />
+        </>
+      ) : (
+        <DarkBackground />
+      )}
 
       {/* Accent Particles */}
       {particles.map((particle, i) => {

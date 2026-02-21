@@ -10,7 +10,6 @@
   "composition_id": "DefaultVideo",
   "hero_layout": "hero_image",
   "fallback_layout": "text_narration",
-  "image_layout": "image_caption",
   "valid_layouts": [
     "hero_image",
     "text_narration",
