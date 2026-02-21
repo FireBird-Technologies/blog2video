@@ -296,6 +296,9 @@ export default function SceneEditModal({
     ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/_/g, " "))
     : "Current layout";
 
+  const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
+  const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+
   const defaultFontSizes = getDefaultFontSizes(
     project.template || "default",
     currentLayoutId,
@@ -373,13 +376,14 @@ export default function SceneEditModal({
     setDescriptionFontSize(ds);
   }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio]);
 
+  // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
-    if (open && editMode === "ai" && !layouts) {
+    if (open && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
         .catch(() => setError("Failed to load layouts"));
     }
-  }, [open, editMode, project.id, layouts]);
+  }, [open, project.id, layouts]);
 
   useEffect(() => {
     if (!layoutOpen) return;
@@ -827,70 +831,76 @@ export default function SceneEditModal({
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                   Scene image
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {imageItems.map(({ url, asset }) => (
-                    <div
-                      key={asset.id}
-                      className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
-                    >
-                      <img
-                        src={url}
-                        alt=""
-                        className="h-20 w-auto object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(asset.id)}
-                        disabled={removingAssetId === asset.id}
-                        className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                {supportsImage ? (
+                  <div className="flex flex-wrap gap-2">
+                    {imageItems.map(({ url, asset }) => (
+                      <div
+                        key={asset.id}
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                       >
-                        {removingAssetId === asset.id ? (
-                          <span className="text-[10px]">…</span>
-                        ) : (
+                        <img
+                          src={url}
+                          alt=""
+                          className="h-20 w-auto object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(asset.id)}
+                          disabled={removingAssetId === asset.id}
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                        >
+                          {removingAssetId === asset.id ? (
+                            <span className="text-[10px]">…</span>
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                    {selectedImageFile && imagePreviewUrl && (
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
+                        <img
+                          src={imagePreviewUrl}
+                          alt="New image"
+                          className="h-20 w-auto object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedImageFile(null);
+                            setImagePreviewUrl(null);
+                          }}
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
+                        >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                  {selectedImageFile && imagePreviewUrl && (
-                    <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
-                      <img
-                        src={imagePreviewUrl}
-                        alt="New image"
-                        className="h-20 w-auto object-cover"
+                        </button>
+                      </div>
+                    )}
+                    <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                        className="hidden"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedImageFile(null);
-                          setImagePreviewUrl(null);
-                        }}
-                        className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                  <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/jpg"
-                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </label>
-                </div>
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </label>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">
+                    This layout does not support images.
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -17,7 +17,7 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -618,6 +618,7 @@ def get_project_layouts(
     project = _get_user_project(project_id, user.id, db)
     
     valid_layouts = get_valid_layouts(project.template)
+    no_image_layouts = get_layouts_without_image(project.template)
     
     # Convert layout IDs to human-readable names
     layout_names = {}
@@ -629,6 +630,7 @@ def get_project_layouts(
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
+        "layouts_without_image": sorted(list(no_image_layouts)),
     }
 
 

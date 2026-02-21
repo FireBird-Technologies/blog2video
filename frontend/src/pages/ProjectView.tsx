@@ -16,6 +16,7 @@ import {
   updateScene,
   updateSceneImage,
   deleteAsset,
+  getValidLayouts,
   Project,
   Scene,
   BACKEND_URL,
@@ -342,6 +343,7 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -430,6 +432,10 @@ export default function ProjectView() {
       if (res.data.status === "done") {
         setRendered(true);
       }
+      // Fetch layout image-support info (non-blocking)
+      getValidLayouts(projectId).then((lr) => {
+        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+      }).catch(() => {/* ignore */});
       return res.data;
     } catch {
       setError("Failed to load project");
@@ -1870,71 +1876,87 @@ export default function ProjectView() {
                                 )}
 
                                 {/* Scene images — same add/remove as manual edit in modal */}
-                                <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                    Images ({(sceneImageAssetsMap[idx] || []).length})
-                                  </h4>
-                                  <div className="flex flex-wrap gap-2 items-start">
-                                    {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
-                                      <div
-                                        key={asset.id}
-                                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
-                                      >
-                                        <img
-                                          src={url}
-                                          alt=""
-                                          className="h-24 w-auto object-cover"
-                                          loading="lazy"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = "none";
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveSceneImage(asset.id)}
-                                          disabled={removingAssetId === asset.id}
-                                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
-                                        >
-                                          {removingAssetId === asset.id ? (
-                                            <span className="text-[10px]">…</span>
-                                          ) : (
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <label
-                                      className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                        uploadingSceneId === scene.id
-                                          ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                          : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
-                                      }`}
-                                    >
-                                      <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                                        className="hidden"
-                                        disabled={uploadingSceneId === scene.id}
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) {
-                                            handleAddSceneImage(scene.id, file);
-                                            e.target.value = "";
-                                          }
-                                        }}
-                                      />
-                                      {uploadingSceneId === scene.id ? (
-                                        <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                {(() => {
+                                  const sceneLayout = (() => {
+                                    try {
+                                      return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
+                                    } catch { return null; }
+                                  })();
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  return (
+                                    <div>
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
+                                      </h4>
+                                      {sceneSupportsImage ? (
+                                        <div className="flex flex-wrap gap-2 items-start">
+                                          {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
+                                            <div
+                                              key={asset.id}
+                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                            >
+                                              <img
+                                                src={url}
+                                                alt=""
+                                                className="h-24 w-auto object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.display = "none";
+                                                }}
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                disabled={removingAssetId === asset.id}
+                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                              >
+                                                {removingAssetId === asset.id ? (
+                                                  <span className="text-[10px]">…</span>
+                                                ) : (
+                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            </div>
+                                          ))}
+                                          <label
+                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
+                                              uploadingSceneId === scene.id
+                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
+                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                            }`}
+                                          >
+                                            <input
+                                              type="file"
+                                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                                              className="hidden"
+                                              disabled={uploadingSceneId === scene.id}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleAddSceneImage(scene.id, file);
+                                                  e.target.value = "";
+                                                }
+                                              }}
+                                            />
+                                            {uploadingSceneId === scene.id ? (
+                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                              </svg>
+                                            )}
+                                          </label>
+                                        </div>
                                       ) : (
-                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
+                                        <p className="text-xs text-gray-400 italic">
+                                          This layout does not support images.
+                                        </p>
                                       )}
-                                    </label>
-                                  </div>
-                                </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

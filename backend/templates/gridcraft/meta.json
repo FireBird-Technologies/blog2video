@@ -20,5 +20,9 @@
     "bento_code",
     "pull_quote",
     "bento_steps"
+  ],
+  "layouts_without_image": [
+    "bento_code",
+    "editorial_body"
   ]
 }

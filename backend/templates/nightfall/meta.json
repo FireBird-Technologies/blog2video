@@ -22,6 +22,13 @@
     "glass_image",
     "data_visualization"
   ],
+  "layouts_without_image": [
+    "split_glass",
+    "glass_code",
+    "kinetic_insight",
+    "chapter_break",
+    "data_visualization"
+  ],
   "features": [
     "Image support in all layouts",
     "Animated bar charts, line charts, and pie charts",
