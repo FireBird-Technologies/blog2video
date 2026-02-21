@@ -4,7 +4,7 @@ import type { NightfallLayoutProps } from "../types";
 
 /**
  * CinematicTitle — Enhanced Professional Version
- * 
+ *
  * Improvements:
  * - Layered title reveal with mask animation
  * - Particle-like accent elements
@@ -12,6 +12,7 @@ import type { NightfallLayoutProps } from "../types";
  * - Professional kerning and typography
  * - Cinematic build-up timing
  * - Optional company/brand lockup area
+ * - Optional background image with slow zoom + heavy dark overlay
  */
 
 export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
@@ -22,10 +23,30 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+
+  // Duration assumption for zoom: image zooms over 150 frames (5s at 30fps)
+  const ZOOM_DURATION = 150;
+
+  // Slow zoom-in until image covers full screen (Ken Burns)
+  const imageScale = interpolate(
+    frame,
+    [0, ZOOM_DURATION],
+    [1.08, 1],
+    { extrapolateRight: "clamp" }
+  );
+
+  // Image fades in gently at the start
+  const imageOpacity = interpolate(
+    frame,
+    [0, 20],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
 
   // Title animations with spring
   const titleY = spring({
@@ -87,7 +108,53 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground />
+
+      {/* ── Background: either image with overlay, or solid dark ── */}
+      {imageUrl ? (
+        <>
+          {/* Zooming image layer */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              transformOrigin: "center center",
+              willChange: "transform",
+            }}
+          >
+            <img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+
+          {/* Dark purple overlay (Nightfall base #0A0A1A) — image very lightly visible */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: "#0A0A1A",
+              opacity: 0,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at center, rgba(10,10,26,0.82) 0%, rgba(10,10,26,0.96) 100%)",
+            }}
+          />
+        </>
+      ) : (
+        <DarkBackground />
+      )}
 
       {/* Accent Particles */}
       {particles.map((particle, i) => {
@@ -137,7 +204,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         }}
       >
 
-        {/* Title — bright white text, background unchanged (DarkBackground) */}
+        {/* Title — bright white text */}
         <h1
           style={{
             fontSize: titleFontSize ?? (p ? 88 : 140),
@@ -155,7 +222,6 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         >
           {title}
         </h1>
-
 
         {/* Decorative Strip */}
         <div
@@ -192,7 +258,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           />
         </div>
 
-        {/* Subtitle/Narration — bright white */}
+        {/* Subtitle/Narration */}
         {narration && (
           <p
             style={{
@@ -214,7 +280,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         )}
       </div>
 
-      {/* Bottom accent line (optional brand lockup area) */}
+      {/* Bottom accent line */}
       <div
         style={{
           position: "absolute",

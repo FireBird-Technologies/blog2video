@@ -10,7 +10,6 @@
   "composition_id": "GridcraftVideo",
   "hero_layout": "bento_hero",
   "fallback_layout": "editorial_body",
-  "image_layout": "bento_highlight",
   "valid_layouts": [
     "bento_hero",
     "bento_features",
@@ -21,5 +20,9 @@
     "bento_code",
     "pull_quote",
     "bento_steps"
+  ],
+  "layouts_without_image": [
+    "bento_code",
+    "editorial_body"
   ]
 }

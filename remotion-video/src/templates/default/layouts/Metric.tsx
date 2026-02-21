@@ -60,7 +60,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
       <h3
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 18 : 22),
+          fontSize: titleFontSize ?? (p ? 22 : 26),
           fontWeight: 500,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp * 0.6,
@@ -114,7 +114,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 16 : 20),
+              fontSize: descriptionFontSize ?? (p ? 20 : 24),
               fontFamily: "Inter, sans-serif",
               marginTop: p ? 20 : 24,
               marginBottom: 0,

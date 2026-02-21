@@ -83,7 +83,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <h1
           style={{
-            fontSize: titleFontSize ?? (p ? 64 : 100),
+            fontSize: titleFontSize ?? (p ? 76 : 118),
             fontWeight: 900,
             color: "#FFFFFF",
             fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
@@ -102,7 +102,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: descriptionFontSize ?? (p ? 18 : 22),
+              fontSize: descriptionFontSize ?? (p ? 22 : 26),
               fontWeight: 300,
               color: "#666666",
               fontFamily: "Arial, sans-serif",

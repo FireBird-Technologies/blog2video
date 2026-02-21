@@ -43,7 +43,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 30 : 40),
+          fontSize: titleFontSize ?? (p ? 36 : 48),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -101,7 +101,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               <span
                 style={{
                   color: textColor,
-                  fontSize: descriptionFontSize ?? (p ? 18 : 22),
+                  fontSize: descriptionFontSize ?? (p ? 22 : 26),
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 500,
                   lineHeight: 1.4,

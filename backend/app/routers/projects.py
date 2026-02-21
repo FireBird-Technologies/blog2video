@@ -17,7 +17,7 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -446,9 +446,10 @@ def update_scene(
 ):
     """Manually update a scene."""
     from app.models.scene import Scene
+    from app.services.remotion import write_remotion_data
 
     # Verify ownership
-    _get_user_project(project_id, user.id, db)
+    project = _get_user_project(project_id, user.id, db)
 
     scene = (
         db.query(Scene)
@@ -464,6 +465,19 @@ def update_scene(
 
     db.commit()
     db.refresh(scene)
+
+    # Keep remotion-workspace in sync so preview/render use latest props
+    try:
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        write_remotion_data(project, scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
+
     return scene
 
 
@@ -475,7 +489,9 @@ async def update_scene_image(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upload/replace scene image without regenerating the scene layout."""
+    """Upload/replace scene image without regenerating the scene layout.
+    If the scene already had an image assigned (generic or scene-specific), that asset
+    is deleted so it does not remain in the project."""
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
@@ -490,6 +506,36 @@ async def update_scene_image(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
+
+    # If scene already has an image assigned, delete that asset (generic or scene-specific)
+    old_assigned = None
+    if scene.remotion_code:
+        try:
+            desc = json.loads(scene.remotion_code)
+            old_assigned = (desc.get("layoutProps") or {}).get("assignedImage")
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if old_assigned and isinstance(old_assigned, str):
+        old_asset = (
+            db.query(Asset)
+            .filter(Asset.project_id == project_id, Asset.filename == old_assigned)
+            .first()
+        )
+        if old_asset:
+            local_path = old_asset.local_path
+            r2_key = old_asset.r2_key
+            db.delete(old_asset)
+            db.flush()
+            if local_path and os.path.isfile(local_path):
+                try:
+                    os.remove(local_path)
+                except OSError as e:
+                    print(f"[IMAGE_UPDATE] Failed to remove old file {local_path}: {e}")
+            if r2_key:
+                try:
+                    r2_storage.delete_file(r2_key)
+                except Exception as e:
+                    print(f"[IMAGE_UPDATE] R2 delete failed for {r2_key}: {e}")
 
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
     if image.content_type not in allowed_types:
@@ -572,6 +618,7 @@ def get_project_layouts(
     project = _get_user_project(project_id, user.id, db)
     
     valid_layouts = get_valid_layouts(project.template)
+    no_image_layouts = get_layouts_without_image(project.template)
     
     # Convert layout IDs to human-readable names
     layout_names = {}
@@ -583,6 +630,7 @@ def get_project_layouts(
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
+        "layouts_without_image": sorted(list(no_image_layouts)),
     }
 
 
