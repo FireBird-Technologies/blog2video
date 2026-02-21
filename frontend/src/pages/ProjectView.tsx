@@ -1368,13 +1368,13 @@ export default function ProjectView() {
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
-              <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex-1 flex flex-col min-w-0 min-h-0">
                 {project.scenes.length > 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-4 gap-3">
-                    <div className="overflow-hidden">
+                  <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
                       <VideoPreview project={project} />
                     </div>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-400 flex-shrink-0">
                       Live preview · {project.scenes.length} scenes
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
