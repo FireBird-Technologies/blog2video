@@ -8,6 +8,7 @@ from typing import Optional
 class ProjectCreate(BaseModel):
     blog_url: Optional[str] = None
     name: Optional[str] = None
+    template: Optional[str] = "default"
     voice_gender: Optional[str] = "female"   # "male", "female", or "none"
     voice_accent: Optional[str] = "american"  # "american" or "british"
     accent_color: Optional[str] = "#7C3AED"  # purple default
@@ -69,6 +70,7 @@ class ProjectOut(BaseModel):
     blog_url: Optional[str] = None
     blog_content: Optional[str] = None
     status: str
+    template: str = "default"
     voice_gender: str = "female"
     voice_accent: str = "american"
     accent_color: str = "#7C3AED"
@@ -85,6 +87,7 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
+    ai_assisted_editing_count: int = 0
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
@@ -115,6 +118,22 @@ class SceneUpdate(BaseModel):
     visual_description: Optional[str] = None
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
+
+
+# ─── Scene Editing ──────────────────────────────────────────
+
+class SceneOrderItem(BaseModel):
+    scene_id: int
+    order: int
+
+
+class ReorderScenesRequest(BaseModel):
+    scene_orders: list[SceneOrderItem]
+
+
+class RegenerateSceneRequest(BaseModel):
+    description: str
+    layout: Optional[str] = None
 
 
 # ─── Chat ──────────────────────────────────────────────────

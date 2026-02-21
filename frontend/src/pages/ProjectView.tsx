@@ -7,10 +7,16 @@ import {
   renderVideo,
   getRenderStatus,
   downloadVideo,
+  fetchVideoBlob,
   downloadStudioZip,
   launchStudio,
   toggleAssetExclusion,
   uploadProjectDocuments,
+  reorderScenes,
+  updateScene,
+  updateSceneImage,
+  deleteAsset,
+  getValidLayouts,
   Project,
   Scene,
   BACKEND_URL,
@@ -18,7 +24,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-
+import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
@@ -44,9 +50,16 @@ const PIPELINE_STEPS_UPLOAD = [
  * Resolve the best URL for an asset: R2 URL if available, else local media path.
  */
 function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset_type: string }, projectId: number): string {
-  if (asset.r2_url) return asset.r2_url;
+  // In local dev, prefer local media files over R2 URLs
+  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes('localhost') || BACKEND_URL.includes('127.0.0.1');
+  
+  if (!isLocalDev && asset.r2_url) return asset.r2_url;
+  
   const subdir = asset.asset_type === "image" ? "images" : "audio";
-  return `${BACKEND_URL}/media/projects/${projectId}/${subdir}/${asset.filename}`;
+  const localPath = `/media/projects/${projectId}/${subdir}/${asset.filename}`;
+  
+  // Use relative URL in local dev (goes through Vite proxy), absolute in production
+  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
 }
 
 /**
@@ -56,6 +69,43 @@ function resolveVideoUrl(project: Project): string | null {
   if (project.status !== "done") return null;
   if (project.r2_video_url) return project.r2_video_url;
   return `${BACKEND_URL}/media/projects/${project.id}/output/video.mp4`;
+}
+
+/**
+ * Extract audio filename from voiceover_path to handle reordering correctly.
+ * Returns filename like "scene_1.mp3" or null if not found.
+ * Handles Windows paths with mixed separators like "C:\...\projects/6/audio\scene_3.mp3"
+ */
+function extractAudioFilename(voiceoverPath: string | null): string | null {
+  if (!voiceoverPath) return null;
+  
+  // Split by both forward and backward slashes, find the part that matches scene_X.mp3
+  const pathParts = voiceoverPath.split(/[/\\]/);
+  const filename = pathParts.find(part => part.startsWith('scene_') && part.endsWith('.mp3'));
+  
+  return filename || null;
+}
+
+/**
+ * Resolve voiceover URL for a scene. When a scene is regenerated, a new audio Asset is created
+ * (same filename); we pick the latest by id and append ?v=assetId so the browser loads the new
+ * voiceover instead of serving cached old audio.
+ */
+function resolveVoiceoverUrl(
+  projectId: number,
+  audioFilename: string,
+  audioAssets: import("../api/client").Asset[]
+): string | null {
+  const matching = audioAssets.filter((a) => a.filename === audioFilename);
+  const latest = matching.length > 0 ? matching.sort((a, b) => b.id - a.id)[0] : null;
+  if (latest) {
+    const base = resolveAssetUrl(latest, projectId);
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}v=${latest.id}`;
+  }
+  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1");
+  const localPath = `/media/projects/${projectId}/audio/${audioFilename}`;
+  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
 }
 
 // ─── Audio Player Row ────────────────────────────────────────
@@ -73,14 +123,10 @@ function AudioRow({
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Find the matching audio asset for this scene (by filename pattern)
-  const matchingAudioAsset = audioAssets.find(
-    (a) => a.filename === `scene_${scene.order}.mp3`
-  );
-  const audioUrl = matchingAudioAsset
-    ? resolveAssetUrl(matchingAudioAsset, projectId)
-    : scene.voiceover_path
-    ? `${BACKEND_URL}/media/projects/${projectId}/audio/scene_${scene.order}.mp3`
+  // Extract audio filename; use latest asset by id (regenerated scene = new asset) and cache-bust URL
+  const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
+  const audioUrl = scene.voiceover_path
+    ? resolveVoiceoverUrl(projectId, audioFilename, audioAssets)
     : null;
 
   useEffect(() => {
@@ -222,6 +268,10 @@ export default function ProjectView() {
   const isPro = user?.plan === "pro";
 
   const [project, setProject] = useState<Project | null>(null);
+  const projectRef = useRef<Project | null>(null);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
@@ -285,11 +335,65 @@ export default function ProjectView() {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
-  // Scenes tab: expanded scene detail
+  // Scenes tab: expanded scene detail, edit modal, drag reorder
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
+  const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
+  const [reorderSaving, setReorderSaving] = useState(false);
+  const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
+  const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
+  const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
+  const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
+  const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const fontPendingRef = useRef<Record<number, { title: number; desc: number }>>({});
 
   // Images tab: toggling exclusion
   const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
+
+  // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
+  const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Fetch video as blob when project is done — ensures full load, no CORS
+  useEffect(() => {
+    if (project?.status !== "done" || !projectId) {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+        setVideoBlobUrl(null);
+      }
+      return;
+    }
+    let revoked = false;
+    setVideoLoading(true);
+    fetchVideoBlob(projectId)
+      .then((url) => {
+        if (!revoked) {
+          setVideoBlobUrl(url);
+        } else {
+          window.URL.revokeObjectURL(url);
+        }
+      })
+      .catch(() => {
+        if (!revoked) setVideoBlobUrl(null);
+      })
+      .finally(() => {
+        if (!revoked) setVideoLoading(false);
+      });
+    return () => {
+      revoked = true;
+    };
+  }, [project?.status, projectId]);
+
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+      }
+    };
+  }, [videoBlobUrl]);
 
   // Auto-download once render finishes (with retry in case R2 upload is still in progress)
   useEffect(() => {
@@ -328,6 +432,10 @@ export default function ProjectView() {
       if (res.data.status === "done") {
         setRendered(true);
       }
+      // Fetch layout image-support info (non-blocking)
+      getValidLayouts(projectId).then((lr) => {
+        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+      }).catch(() => {/* ignore */});
       return res.data;
     } catch {
       setError("Failed to load project");
@@ -710,24 +818,144 @@ export default function ProjectView() {
     project.status
   );
 
-  // ─── Distribute blog images across scenes ────────────────
+  // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
-  const activeImageAssets = imageAssets.filter((a) => !a.excluded);
+  const activeImageAssets = imageAssets
+    .filter((a) => !a.excluded)
+    .slice()
+    .sort((a, b) => {
+      const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (ad !== bd) return ad - bd;
+      return (a.id ?? 0) - (b.id ?? 0);
+    });
   const sceneImageMap: Record<number, string[]> = {};
+  const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
+  const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
   if (project.scenes.length > 0 && activeImageAssets.length > 0) {
-    const heroUrl = resolveAssetUrl(activeImageAssets[0], project.id);
-    const remaining = activeImageAssets.slice(1);
-
     project.scenes.forEach((_, idx) => {
       sceneImageMap[idx] = [];
+      sceneImageAssetsMap[idx] = [];
     });
-    sceneImageMap[0].push(heroUrl);
 
-    remaining.forEach((asset, i) => {
-      const sceneIdx = i % project.scenes.length;
-      sceneImageMap[sceneIdx].push(resolveAssetUrl(asset, project.id));
+    // Build filename -> asset lookup
+    const filenameToAsset = new Map<string, typeof activeImageAssets[0]>();
+    activeImageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
+
+    const usedGenericFiles = new Set<string>();
+
+    // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+    // This ensures images move with their scenes when reordered, and scenes explicitly
+    // marked hideImage=true never get an auto-assigned generic image.
+    project.scenes.forEach((scene, idx) => {
+      let layoutProps: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          const descriptor = JSON.parse(scene.remotion_code);
+          layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+        } catch {
+          /* legacy */
+        }
+      }
+
+      const hideImage = Boolean((layoutProps as any).hideImage);
+      hideImageFlags[idx] = hideImage;
+      if (hideImage) {
+        // Skip auto-assignment for scenes with hideImage=true
+        return;
+      }
+
+      const assignedImage = layoutProps.assignedImage as string | undefined;
+      if (assignedImage && filenameToAsset.has(assignedImage)) {
+        const m = assignedImage.match(/^scene_(\d+)_/);
+        if (m) {
+          // Scene-specific assignment must match current scene id (one image per scene)
+          const assignedSceneId = parseInt(m[1], 10);
+          if (assignedSceneId === scene.id) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
+            usedGenericFiles.add(assignedImage);
+          }
+        } else {
+          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
+          if (!usedGenericFiles.has(assignedImage)) {
+            const asset = filenameToAsset.get(assignedImage)!;
+            const url = resolveAssetUrl(asset, project.id);
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
+            usedGenericFiles.add(assignedImage);
+          }
+        }
+      }
     });
+
+    // 2) Second pass: Scene-specific images (overwrite stored assignments)
+    // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
+    const sceneSpecific: { sceneId: number; url: string; asset: (typeof activeImageAssets)[0] }[] = [];
+    const genericAssets: typeof activeImageAssets = [];
+    for (const asset of activeImageAssets) {
+      const match = asset.filename.match(/^scene_(\d+)_/);
+      if (match) {
+        const sceneId = parseInt(match[1], 10);
+        sceneSpecific.push({
+          sceneId,
+          url: resolveAssetUrl(asset, project.id),
+          asset,
+        });
+      } else {
+        genericAssets.push(asset);
+      }
+    }
+    // Apply scene-specific images (later uploads overwrite by same scene_id)
+    for (const { sceneId, url, asset } of sceneSpecific) {
+      const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
+      if (sceneIdx >= 0) {
+        // Overwrite any existing assignment; scene-specific re-enables images
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+        hideImageFlags[sceneIdx] = false;
+      }
+    }
+
+    // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
+    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
+    let genericIdx = 0;
+    for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+      if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
+      while (genericIdx < genericAssets.length) {
+        const candidate = genericAssets[genericIdx];
+        genericIdx++;
+        if (usedGenericFiles.has(candidate.filename)) continue;
+        const url = resolveAssetUrl(candidate, project.id);
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset: candidate }];
+        usedGenericFiles.add(candidate.filename);
+        break;
+      }
+    }
   }
+
+  const handleRemoveSceneImage = async (assetId: number) => {
+    setRemovingAssetId(assetId);
+    try {
+      await deleteAsset(project.id, assetId);
+      await loadProject();
+    } finally {
+      setRemovingAssetId(null);
+    }
+  };
+
+  const handleAddSceneImage = async (sceneId: number, file: File) => {
+    setUploadingSceneId(sceneId);
+    try {
+      await updateSceneImage(project.id, sceneId, file);
+      await loadProject();
+    } finally {
+      setUploadingSceneId(null);
+    }
+  };
 
   // Audio assets for R2 URL resolution
   const audioAssets = project.assets.filter((a) => a.asset_type === "audio");
@@ -848,8 +1076,6 @@ export default function ProjectView() {
 
   // ─── Completed view (video preview + actions + chat) ──────
   const renderCompleted = () => {
-    const videoSrc = rendered ? resolveVideoUrl(project) : null;
-
     return (
       <div className="space-y-4">
         {/* ── Phase 1: Rendering progress ── */}
@@ -1100,6 +1326,7 @@ export default function ProjectView() {
                           </svg>
                           Share
                         </button>
+
                       </div>
                     )}
                   </>
@@ -1109,38 +1336,21 @@ export default function ProjectView() {
 
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
-              {/* Chat sidebar */}
-              <div className="w-[380px] flex-shrink-0 border-r border-gray-200/30">
-                <ChatPanel
-                  projectId={projectId}
-                  onScenesUpdated={loadProject}
-                />
-              </div>
-
-              {/* Video preview */}
-              <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
-                {videoSrc ? (
-                  <div className="flex-1 flex items-center justify-center p-6">
-                    <video
-                      key={videoSrc}
-                      controls
-                      className={`rounded-lg shadow-lg ${
+              {/* Video preview — always shows live preview when scenes exist */}
+              <div className="flex-1 flex flex-col min-w-0 min-h-0">
+                {project.scenes.length > 0 ? (
+                  <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    <div
+                      className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
+                      style={
                         project.aspect_ratio === "portrait"
-                          ? "max-h-[70vh] max-w-[40vw]"
-                          : "max-w-full max-h-[60vh]"
-                      }`}
-                      style={{ background: "#000" }}
+                          ? { minHeight: "70vh" }
+                          : undefined
+                      }
                     >
-                      <source src={videoSrc} type="video/mp4" />
-                      Your browser does not support the video tag.
-                    </video>
-                  </div>
-                ) : project.scenes.length > 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-                    <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
                       <VideoPreview project={project} />
                     </div>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-400 flex-shrink-0">
                       Live preview · {project.scenes.length} scenes
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
@@ -1321,177 +1531,453 @@ export default function ProjectView() {
                     {project.name}
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes --{" "}
-                    {imageAssets.length} images
+                    {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="relative">
+                  {reorderSaving && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-white/80 backdrop-blur-sm">
+                      <div className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                      <p className="mt-3 text-sm font-medium text-gray-700">Saving order…</p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
                   {project.scenes.map((scene, idx) => {
                     const isExpanded = expandedScene === scene.id;
                     const sceneImages = sceneImageMap[idx] || [];
-                    const matchingAudio = audioAssets.find(
-                      (a) => a.filename === `scene_${scene.order}.mp3`
-                    );
-                    const audioUrl = matchingAudio
-                      ? resolveAssetUrl(matchingAudio, project.id)
-                      : scene.voiceover_path
-                      ? `${BACKEND_URL}/media/projects/${project.id}/audio/scene_${scene.order}.mp3`
+                    // Use latest audio asset by id (regenerated scene = new asset) and cache-bust so new voiceover loads
+                    const audioFilename = extractAudioFilename(scene.voiceover_path) || `scene_${scene.order}.mp3`;
+                    const audioUrl = scene.voiceover_path
+                      ? resolveVoiceoverUrl(project.id, audioFilename, audioAssets)
                       : null;
+                    const isDragging = draggedSceneId === scene.id;
+                    const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
-                      <div key={scene.id}>
-                        {/* Clickable scene header */}
-                        <button
-                          onClick={() =>
-                            setExpandedScene(isExpanded ? null : scene.id)
+                      <div
+                        key={scene.id}
+                        data-scene-row
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.dataTransfer.dropEffect = "move";
+                          setDragOverSceneId(scene.id);
+                        }}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setDragOverSceneId(null);
                           }
-                          className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                              {scene.order}
-                            </span>
-                            <h3 className="text-sm font-medium text-gray-900 flex-1">
-                              {scene.title}
-                            </h3>
-
-                            {/* Status pills */}
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  scene.remotion_code
-                                    ? "bg-green-50 text-green-600"
-                                    : "bg-gray-50 text-gray-300"
-                                }`}
-                              >
-                                Scene
-                              </span>
-                              {project.voice_gender !== "none" && (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                    scene.voiceover_path
-                                      ? "bg-green-50 text-green-600"
-                                      : "bg-gray-50 text-gray-300"
-                                  }`}
-                                >
-                                  Audio
-                                </span>
-                              )}
-                              <span className="text-[11px] text-gray-300 ml-1">
-                                {scene.duration_seconds}s
-                              </span>
-
-                              {/* Expand chevron */}
-                              <svg
-                                className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
-                                  isExpanded ? "rotate-180" : ""
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        </button>
-
-                        {/* Expanded scene detail */}
-                        {isExpanded && (
-                          <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4">
-                            {/* Narration */}
-                            <div>
-                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                Narration
-                              </h4>
-                              <p className="text-sm text-gray-700 leading-relaxed">
-                                {scene.narration_text || (
-                                  <span className="italic text-gray-300">
-                                    No narration
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-
-                            {/* Visual Description */}
-                            <div>
-                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                Visual Description
-                              </h4>
-                              <p className="text-xs text-gray-500 italic leading-relaxed">
-                                {scene.visual_description || "—"}
-                              </p>
-                            </div>
-
-                            {/* Layout (from remotion_code JSON) */}
-                            {scene.remotion_code && (() => {
-                              try {
-                                const desc = JSON.parse(scene.remotion_code);
-                                return (
-                                  <div>
-                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                      Layout
-                                    </h4>
-                                    <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                      {desc.layout?.replace(/_/g, " ") || "text narration"}
-                                    </span>
-                                  </div>
-                                );
-                              } catch {
-                                return null;
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverSceneId(null);
+                          const sourceId = Number(e.dataTransfer.getData("text/plain"));
+                          if (!sourceId || sourceId === scene.id) return;
+                          const fromIdx = project.scenes.findIndex((s) => s.id === sourceId);
+                          const toIdx = project.scenes.findIndex((s) => s.id === scene.id);
+                          if (fromIdx < 0 || toIdx < 0) return;
+                          const reordered = [...project.scenes];
+                          const [removed] = reordered.splice(fromIdx, 1);
+                          reordered.splice(toIdx, 0, removed);
+                          setReorderSaving(true);
+                          reorderScenes(
+                            project.id,
+                            reordered.map((s, i) => ({ scene_id: s.id, order: i + 1 }))
+                          )
+                            .then(() => loadProject())
+                            .finally(() => setReorderSaving(false));
+                        }}
+                        className={`transition-all duration-150 ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${isDropTarget ? "ring-2 ring-purple-400 ring-inset rounded-lg" : ""}`}
+                      >
+                        <div className="flex items-stretch gap-0">
+                          {/* Drag handle — only this area starts the drag */}
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedSceneId(scene.id);
+                              e.dataTransfer.setData("text/plain", String(scene.id));
+                              e.dataTransfer.effectAllowed = "move";
+                              const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
+                              if (row) {
+                                const rect = row.getBoundingClientRect();
+                                e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
                               }
-                            })()}
+                            }}
+                            onDragEnd={() => {
+                              setDraggedSceneId(null);
+                              setDragOverSceneId(null);
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
+                            title="Drag to reorder"
+                          >
+                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
+                            </svg>
+                          </div>
 
-                            {/* Audio player (inline) — hidden when no voiceover */}
-                            {project.voice_gender !== "none" && audioUrl && (
-                              <div>
-                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                  Audio
-                                </h4>
-                                <audio
-                                  controls
-                                  src={audioUrl}
-                                  preload="metadata"
-                                  className="w-full h-8"
-                                  style={{ maxWidth: 400 }}
-                                />
-                              </div>
-                            )}
+                          <div className="flex-1 min-w-0">
+                            {/* Clickable scene header */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedScene(isExpanded ? null : scene.id)
+                              }
+                              className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-r-lg border"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  {scene.order}
+                                </span>
+                                <h3 className="text-sm font-medium text-gray-900 flex-1 truncate">
+                                  {scene.title}
+                                </h3>
 
-                            {/* Scene images */}
-                            {sceneImages.length > 0 && (
-                              <div>
-                                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                  Images ({sceneImages.length})
-                                </h4>
-                                <div className="flex gap-2 overflow-x-auto pb-1">
-                                  {sceneImages.map((src, i) => (
-                                    <img
-                                      key={i}
-                                      src={src}
-                                      alt={`Scene ${scene.order} image ${i + 1}`}
-                                      className="h-24 w-auto rounded-lg object-cover border border-gray-200/40 flex-shrink-0"
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = "none";
-                                      }}
+                                {/* Edit — icon + label, opens modal */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSceneEditModal(scene);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                  title="Edit scene"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  <span className="text-xs font-medium">Edit</span>
+                                </button>
+
+                                {/* Status pills */}
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                      scene.remotion_code
+                                        ? "bg-green-50 text-green-600"
+                                        : "bg-gray-50 text-gray-300"
+                                    }`}
+                                  >
+                                    Scene
+                                  </span>
+                                  {project.voice_gender !== "none" && (
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                        scene.voiceover_path
+                                          ? "bg-green-50 text-green-600"
+                                          : "bg-gray-50 text-gray-300"
+                                      }`}
+                                    >
+                                      Audio
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] text-gray-300 ml-1">
+                                    {scene.duration_seconds}s
+                                  </span>
+
+                                  {/* Expand chevron */}
+                                  <svg
+                                    className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
+                                      isExpanded ? "rotate-180" : ""
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
                                     />
-                                  ))}
+                                  </svg>
                                 </div>
                               </div>
+                            </button>
+
+                            {/* Expanded scene detail */}
+                            {isExpanded && (
+                              <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
+                                {/* Narration */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Display text
+                                  </h4>
+                                  <p className="text-sm text-gray-700 leading-relaxed">
+                                    {scene.narration_text || (
+                                      <span className="italic text-gray-300">
+                                        No narration
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+
+                                {/* Visual Description */}
+                                <div>
+                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                    Visual Description
+                                  </h4>
+                                  <p className="text-xs text-gray-500 italic leading-relaxed">
+                                    {scene.visual_description || "—"}
+                                  </p>
+                                </div>
+
+                                {/* Layout (from remotion_code JSON) */}
+                                {scene.remotion_code && (() => {
+                                  try {
+                                    const desc = JSON.parse(scene.remotion_code);
+                                    return (
+                                      <div>
+                                        <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                          Layout
+                                        </h4>
+                                        <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                                          {desc.layout?.replace(/_/g, " ") || "text narration"}
+                                        </span>
+                                      </div>
+                                    );
+                                  } catch {
+                                    return null;
+                                  }
+                                })()}
+
+                                {/* Typography — font size sliders with live preview and debounced save */}
+                                {scene.remotion_code && project && (() => {
+                                  try {
+                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
+                                    const layoutId = desc.layout ?? "text_narration";
+                                    const template = project.template ?? "default";
+                                    const aspectRatio = project.aspect_ratio ?? "16:9";
+                                    const defaults = getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const override = sceneFontOverrides[scene.id];
+                                    const titleFontSize = override?.title ?? desc.layoutProps?.titleFontSize ?? defaults.title;
+                                    const descFontSize = override?.desc ?? desc.layoutProps?.descriptionFontSize ?? defaults.desc;
+                                    const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
+                                    const descClamped = Math.min(80, Math.max(12, Number(descFontSize) || defaults.desc));
+
+                                    const scheduleFontSave = () => {
+                                      const sceneId = scene.id;
+                                      const tid = fontSaveTimeoutRef.current[sceneId];
+                                      if (tid) clearTimeout(tid);
+                                      fontSaveTimeoutRef.current[sceneId] = setTimeout(() => {
+                                        const proj = projectRef.current;
+                                        const pending = fontPendingRef.current[sceneId];
+                                        if (!proj || !pending) return;
+                                        const sc = proj.scenes?.find((s) => s.id === sceneId);
+                                        if (!sc?.remotion_code) return;
+                                        setSavingFontSizes(sceneId);
+                                        try {
+                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown> };
+                                          const next = { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                          updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
+                                            loadProject();
+                                            setSceneFontOverrides((prev) => {
+                                              const u = { ...prev };
+                                              delete u[sceneId];
+                                              return u;
+                                            });
+                                            setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                          }).catch(() => {
+                                            setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                          });
+                                        } catch {
+                                          setSavingFontSizes((prev) => prev === sceneId ? null : prev);
+                                        }
+                                        delete fontSaveTimeoutRef.current[sceneId];
+                                        delete fontPendingRef.current[sceneId];
+                                      }, 400);
+                                    };
+
+                                    return (
+                                      <div>
+                                        <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
+                                          Typography
+                                        </h4>
+                                        <div className="space-y-3">
+                                          <div>
+                                            <label className="text-xs text-gray-400 mb-1 block">Title font size</label>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="range"
+                                                min={20}
+                                                max={200}
+                                                step={1}
+                                                value={titleClamped}
+                                                onChange={(e) => {
+                                                  const v = Number(e.target.value);
+                                                  fontPendingRef.current[scene.id] = { title: v, desc: descClamped };
+                                                  setSceneFontOverrides((prev) => ({ ...prev, [scene.id]: { ...(prev[scene.id] ?? { title: titleClamped, desc: descClamped }), title: v } }));
+                                                  scheduleFontSave();
+                                                }}
+                                                className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                                              />
+                                              <div className="flex items-center gap-1.5">
+                                                {savingFontSizes === scene.id ? (
+                                                  <svg className="animate-spin h-3 w-3 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                  </svg>
+                                                ) : null}
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{titleClamped}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-gray-400 mb-1 block">Display text font size</label>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="range"
+                                                min={12}
+                                                max={80}
+                                                step={1}
+                                                value={descClamped}
+                                                onChange={(e) => {
+                                                  const v = Number(e.target.value);
+                                                  fontPendingRef.current[scene.id] = { title: titleClamped, desc: v };
+                                                  setSceneFontOverrides((prev) => ({ ...prev, [scene.id]: { ...(prev[scene.id] ?? { title: titleClamped, desc: descClamped }), desc: v } }));
+                                                  scheduleFontSave();
+                                                }}
+                                                className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                                              />
+                                              <div className="flex items-center gap-1.5">
+                                                {savingFontSizes === scene.id ? (
+                                                  <svg className="animate-spin h-3 w-3 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                  </svg>
+                                                ) : null}
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{descClamped}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  } catch {
+                                    return null;
+                                  }
+                                })()}
+
+                                {/* Audio player (inline) — hidden when no voiceover */}
+                                {project.voice_gender !== "none" && audioUrl && (
+                                  <div>
+                                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                      Audio
+                                    </h4>
+                                    <audio
+                                      controls
+                                      src={audioUrl}
+                                      preload="metadata"
+                                      className="w-full h-8"
+                                      style={{ maxWidth: 400 }}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Scene images — same add/remove as manual edit in modal */}
+                                {(() => {
+                                  const sceneLayout = (() => {
+                                    try {
+                                      return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
+                                    } catch { return null; }
+                                  })();
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  return (
+                                    <div>
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
+                                      </h4>
+                                      {sceneSupportsImage ? (
+                                        <div className="flex flex-wrap gap-2 items-start">
+                                          {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
+                                            <div
+                                              key={asset.id}
+                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                            >
+                                              <img
+                                                src={url}
+                                                alt=""
+                                                className="h-24 w-auto object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.display = "none";
+                                                }}
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                disabled={removingAssetId === asset.id}
+                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                              >
+                                                {removingAssetId === asset.id ? (
+                                                  <span className="text-[10px]">…</span>
+                                                ) : (
+                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            </div>
+                                          ))}
+                                          <label
+                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
+                                              uploadingSceneId === scene.id
+                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
+                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                            }`}
+                                          >
+                                            <input
+                                              type="file"
+                                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                                              className="hidden"
+                                              disabled={uploadingSceneId === scene.id}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleAddSceneImage(scene.id, file);
+                                                  e.target.value = "";
+                                                }
+                                              }}
+                                            />
+                                            {uploadingSceneId === scene.id ? (
+                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                              </svg>
+                                            )}
+                                          </label>
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-gray-400 italic">
+                                          This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+                </div>
+
+                {/* Scene edit modal */}
+                {sceneEditModal && (
+                  <SceneEditModal
+                    open={!!sceneEditModal}
+                    onClose={() => setSceneEditModal(null)}
+                    scene={sceneEditModal}
+                    project={project}
+                    imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+                    onSaved={loadProject}
+                  />
+                )}
               </div>
             )}
           </div>

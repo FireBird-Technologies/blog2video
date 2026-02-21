@@ -1,3 +1,13 @@
+---
+title: Blog2Video
+emoji: 🎬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+short_description: Convert blog posts to AI explainer videos (DSPy, Remotion)
+---
+
 # Blog2Video
 
 Convert blog posts into explainer videos using AI. Powered by DSPy (Anthropic Claude), ElevenLabs TTS, and Remotion.
@@ -182,3 +192,22 @@ Copy the webhook signing secret to `STRIPE_WEBHOOK_SECRET` in `.env`.
 - **Google OAuth 2.0** -- Authentication
 - **Stripe** -- Subscription billing
 - **PyJWT** -- JWT token handling
+
+## HuggingFace Spaces
+
+This Space runs as a **Docker** container on port **7860**. Add these secrets in your Space **Settings → Repository secrets**:
+
+| Secret | Required | Description |
+|--------|----------|--------------|
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude |
+| `ELEVENLABS_API_KEY` | Yes | ElevenLabs API key for TTS |
+| `ELEVENLABS_VOICE_ID` | No | ElevenLabs voice ID (default: Rachel) |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key |
+| `STRIPE_PUBLISHABLE_KEY` | Yes | Stripe publishable key |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret |
+| `STRIPE_PRO_PRICE_ID` | Yes | Stripe Price ID for Pro plan |
+| `JWT_SECRET` | Yes | Secret for JWT signing |
+
+Set `FRONTEND_URL` in **Variables** to your frontend URL (e.g. `https://your-frontend.pages.dev`) for CORS and redirects.
