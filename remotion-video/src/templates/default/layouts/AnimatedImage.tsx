@@ -2,8 +2,12 @@ import React from "react";
 import { Img } from "remotion";
 
 /**
- * Simple image component — uses <Img> for all images (including GIFs).
- * GIFs render as static first frame. Matches frontend preview behavior.
+ * In the frontend Player preview, we always use <Img> for all images
+ * (including GIFs — they show as a static first frame).
+ *
+ * Animated GIF playback only works in the server-side Remotion render
+ * (remotion-video/), where @remotion/gif runs in headless Chrome
+ * without the Player's error boundary interfering.
  */
 export const AnimatedImage: React.FC<{
   src: string;

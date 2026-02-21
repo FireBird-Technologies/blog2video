@@ -266,22 +266,49 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
 
   const Composition = config.component;
 
+  // Responsive wrapper: up to 90% of viewport, centered, aspect ratio preserved
   return (
-    <Player
-      key={`preview-${project.id}-${project.updated_at ?? ""}`}
-      component={Composition}
-      inputProps={inputProps}
-      durationInFrames={totalDurationFrames}
-      compositionWidth={isPortrait ? 1080 : 1920}
-      compositionHeight={isPortrait ? 1920 : 1080}
-      fps={30}
-      controls
+    <div
       style={{
         width: "100%",
-        maxHeight: isPortrait ? "70vh" : "60vh",
-        borderRadius: 12,
-        overflow: "hidden",
+        height: "100%",
+        minWidth: 0,
+        minHeight: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-    />
+    >
+      <div
+        style={{
+          maxWidth: "min(100%, 90vw)",
+          maxHeight: "min(100%, 90vh)",
+          width: isPortrait ? "auto" : "100%",
+          // Portrait: use max(100%, 80vh) so we have an intrinsic height when parent
+          // has no explicit height (flex chain), avoiding 0-height collapse
+          height: isPortrait ? "max(100%, 80vh)" : "auto",
+          aspectRatio: isPortrait ? "9/16" : "16/9",
+          minWidth: 0,
+          minHeight: 0,
+        }}
+      >
+        <Player
+          key={`preview-${project.id}-${project.updated_at ?? ""}`}
+          component={Composition}
+          inputProps={inputProps}
+          durationInFrames={totalDurationFrames}
+          compositionWidth={isPortrait ? 1080 : 1920}
+          compositionHeight={isPortrait ? 1920 : 1080}
+          fps={30}
+          controls
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            overflow: "hidden",
+          }}
+        />
+      </div>
+    </div>
   );
 }

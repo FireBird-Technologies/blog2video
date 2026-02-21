@@ -76,6 +76,15 @@ def get_valid_layouts(template_id: str) -> set[str]:
     return set(layouts) if isinstance(layouts, list) else set()
 
 
+def get_layouts_without_image(template_id: str) -> set[str]:
+    """Get the set of layout IDs that do not support/display images for a template."""
+    meta = _load_meta(template_id)
+    if not meta:
+        return set()
+    layouts = meta.get("layouts_without_image", [])
+    return set(layouts) if isinstance(layouts, list) else set()
+
+
 def get_hero_layout(template_id: str) -> str:
     """Get the hero layout ID (scene 0). Default: hero_image."""
     meta = _load_meta(template_id)
@@ -98,14 +107,6 @@ def get_composition_id(template_id: str) -> str:
     if not meta:
         return "DefaultVideo"
     return meta.get("composition_id", "DefaultVideo")
-
-
-def get_image_layout(template_id: str) -> str | None:
-    """Get the layout ID for image-heavy scenes (blog images). None = no override."""
-    meta = _load_meta(template_id)
-    if not meta:
-        return None
-    return meta.get("image_layout")
 
 
 def get_preview_colors(template_id: str) -> dict[str, str] | None:

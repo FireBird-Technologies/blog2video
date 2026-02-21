@@ -10,7 +10,6 @@
   "composition_id": "NightfallVideo",
   "hero_layout": "cinematic_title",
   "fallback_layout": "glass_narrative",
-  "image_layout": "glass_image",
   "valid_layouts": [
     "cinematic_title",
     "glass_narrative",
@@ -21,6 +20,13 @@
     "split_glass",
     "chapter_break",
     "glass_image",
+    "data_visualization"
+  ],
+  "layouts_without_image": [
+    "split_glass",
+    "glass_code",
+    "kinetic_insight",
+    "chapter_break",
     "data_visualization"
   ],
   "features": [

@@ -101,7 +101,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
           <h1
             style={{
               color: textColor,
-              fontSize: titleFontSize ?? 40,
+              fontSize: titleFontSize ?? 48,
               fontWeight: 800,
               fontFamily: "Inter, system-ui, sans-serif",
               lineHeight: 1.25,
@@ -181,7 +181,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
         <h1
           style={{
             color: textColor,
-            fontSize: titleFontSize ?? 54,
+            fontSize: titleFontSize ?? 64,
             fontWeight: 800,
             fontFamily: "Inter, system-ui, sans-serif",
             lineHeight: 1.15,

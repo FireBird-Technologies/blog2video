@@ -103,10 +103,10 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
                   <div style={{ fontSize: 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
                       {String(i + 1).padStart(2, "0")}
                   </div>
-                  <div style={{ fontSize: titleFontSize ?? 18, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
+                  <div style={{ fontSize: titleFontSize ?? 22, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
                       {item.label}
                   </div>
-                  <div style={{ fontSize: descriptionFontSize ?? 13, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
+                  <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
                       {item.description}
                   </div>
               </div>

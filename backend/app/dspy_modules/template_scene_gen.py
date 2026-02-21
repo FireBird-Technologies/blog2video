@@ -11,7 +11,6 @@ from app.services.template_service import (
     get_valid_layouts,
     get_hero_layout,
     get_fallback_layout,
-    get_image_layout,
 )
 
 
@@ -197,7 +196,6 @@ class TemplateSceneGenerator:
         self._valid_layouts = get_valid_layouts(template_id)
         self._hero_layout = get_hero_layout(template_id)
         self._fallback_layout = get_fallback_layout(template_id)
-        self._image_layout = get_image_layout(template_id)
         self._meta = get_meta(template_id)
     
         
@@ -541,28 +539,12 @@ class TemplateSceneGenerator:
         """
         
         total = len(scenes_data)
-        num_images = len(available_images) if available_images else 0
         
         # Reset variety tracker for new video
         self.variety_tracker = LayoutVarietyTracker(
             self._valid_layouts,
             self._hero_layout
         )
-        
-        # Determine which scenes should get image layouts
-        image_layout = self._image_layout
-        image_scene_indices: set[int] = set()
-        
-        if image_layout and num_images > 1 and total > 2:
-            non_hero = list(range(1, total))
-            images_to_assign = min(num_images - 1, len(non_hero) // 2 + 1)
-            # Guard: avoid division by zero when images_to_assign is 0
-            if images_to_assign > 0:
-                step = max(1, len(non_hero) // images_to_assign)
-                for j in range(0, len(non_hero), step):
-                    if len(image_scene_indices) >= images_to_assign:
-                        break
-                    image_scene_indices.add(non_hero[j])
         
         # Generate scenes sequentially to maintain variety context
         # (Not parallel to allow variety tracker to work properly)
@@ -580,16 +562,6 @@ class TemplateSceneGenerator:
             
             if self.debug:
                 print(f"Scene {i}: {result['layout']} | Variety: {self.variety_tracker.get_previous_layouts()}")
-        
-        # Apply image layout overrides
-        if image_layout:
-            for idx in image_scene_indices:
-                if idx < len(results):
-                    current = results[idx].get("layout")
-                    # Don't override hero or code layouts
-                    if current not in (self._hero_layout, "code_block", "glass_code"):
-                        results[idx]["layout"] = image_layout
-                        results[idx]["layoutProps"] = {}
         
         # Print variety stats
         if self.debug:

@@ -16,6 +16,7 @@ import {
   updateScene,
   updateSceneImage,
   deleteAsset,
+  getValidLayouts,
   Project,
   Scene,
   BACKEND_URL,
@@ -342,6 +343,7 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -430,6 +432,10 @@ export default function ProjectView() {
       if (res.data.status === "done") {
         setRendered(true);
       }
+      // Fetch layout image-support info (non-blocking)
+      getValidLayouts(projectId).then((lr) => {
+        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+      }).catch(() => {/* ignore */});
       return res.data;
     } catch {
       setError("Failed to load project");
@@ -814,7 +820,15 @@ export default function ProjectView() {
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
-  const activeImageAssets = imageAssets.filter((a) => !a.excluded);
+  const activeImageAssets = imageAssets
+    .filter((a) => !a.excluded)
+    .slice()
+    .sort((a, b) => {
+      const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (ad !== bd) return ad - bd;
+      return (a.id ?? 0) - (b.id ?? 0);
+    });
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -855,22 +869,22 @@ export default function ProjectView() {
       if (assignedImage && filenameToAsset.has(assignedImage)) {
         const m = assignedImage.match(/^scene_(\d+)_/);
         if (m) {
-          // Scene-specific assignment must match current scene id
+          // Scene-specific assignment must match current scene id (one image per scene)
           const assignedSceneId = parseInt(m[1], 10);
           if (assignedSceneId === scene.id) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         } else {
-          // Generic assignment: enforce 1 generic -> 1 scene
+          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
           if (!usedGenericFiles.has(assignedImage)) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         }
@@ -906,21 +920,19 @@ export default function ProjectView() {
     }
 
     // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
-    // IMPORTANT: Skip scenes with hideImage=true (user explicitly removed image)
+    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
     let genericIdx = 0;
-    for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
-      if (sceneImageMap[sceneIdx].length === 0 && !hideImageFlags[sceneIdx]) {
+    for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+      if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
+      while (genericIdx < genericAssets.length) {
         const candidate = genericAssets[genericIdx];
-        // Skip if already used in first pass
-        if (usedGenericFiles.has(candidate.filename)) {
-          genericIdx++;
-          continue;
-        }
-        const url = resolveAssetUrl(candidate, project.id);
-        sceneImageMap[sceneIdx].push(url);
-        sceneImageAssetsMap[sceneIdx].push({ url, asset: candidate });
-        usedGenericFiles.add(candidate.filename);
         genericIdx++;
+        if (usedGenericFiles.has(candidate.filename)) continue;
+        const url = resolveAssetUrl(candidate, project.id);
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset: candidate }];
+        usedGenericFiles.add(candidate.filename);
+        break;
       }
     }
   }
@@ -1315,43 +1327,6 @@ export default function ProjectView() {
                           Share
                         </button>
 
-                        {showShareMenu && (
-                          <>
-                            <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 top-full mt-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex flex-col gap-2.5">
-                              {/* TikTok */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                                title="Copy link for TikTok"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                                </svg>
-                              </button>
-                              {/* YouTube */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                                title="Copy link for YouTube"
-                              >
-                                <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                </svg>
-                              </button>
-                              {/* Facebook */}
-                              <button
-                                onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                                title="Share on Facebook"
-                              >
-                                <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -1362,13 +1337,20 @@ export default function ProjectView() {
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
-              <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
+              <div className="flex-1 flex flex-col min-w-0 min-h-0">
                 {project.scenes.length > 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-                    <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
+                  <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    <div
+                      className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
+                      style={
+                        project.aspect_ratio === "portrait"
+                          ? { minHeight: "70vh" }
+                          : undefined
+                      }
+                    >
                       <VideoPreview project={project} />
                     </div>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-400 flex-shrink-0">
                       Live preview · {project.scenes.length} scenes
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
@@ -1894,71 +1876,87 @@ export default function ProjectView() {
                                 )}
 
                                 {/* Scene images — same add/remove as manual edit in modal */}
-                                <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                    Images ({(sceneImageAssetsMap[idx] || []).length})
-                                  </h4>
-                                  <div className="flex flex-wrap gap-2 items-start">
-                                    {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
-                                      <div
-                                        key={asset.id}
-                                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
-                                      >
-                                        <img
-                                          src={url}
-                                          alt=""
-                                          className="h-24 w-auto object-cover"
-                                          loading="lazy"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = "none";
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveSceneImage(asset.id)}
-                                          disabled={removingAssetId === asset.id}
-                                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
-                                        >
-                                          {removingAssetId === asset.id ? (
-                                            <span className="text-[10px]">…</span>
-                                          ) : (
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <label
-                                      className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                        uploadingSceneId === scene.id
-                                          ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                          : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
-                                      }`}
-                                    >
-                                      <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                                        className="hidden"
-                                        disabled={uploadingSceneId === scene.id}
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) {
-                                            handleAddSceneImage(scene.id, file);
-                                            e.target.value = "";
-                                          }
-                                        }}
-                                      />
-                                      {uploadingSceneId === scene.id ? (
-                                        <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                {(() => {
+                                  const sceneLayout = (() => {
+                                    try {
+                                      return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
+                                    } catch { return null; }
+                                  })();
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  return (
+                                    <div>
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
+                                      </h4>
+                                      {sceneSupportsImage ? (
+                                        <div className="flex flex-wrap gap-2 items-start">
+                                          {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
+                                            <div
+                                              key={asset.id}
+                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                            >
+                                              <img
+                                                src={url}
+                                                alt=""
+                                                className="h-24 w-auto object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.display = "none";
+                                                }}
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                disabled={removingAssetId === asset.id}
+                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                              >
+                                                {removingAssetId === asset.id ? (
+                                                  <span className="text-[10px]">…</span>
+                                                ) : (
+                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            </div>
+                                          ))}
+                                          <label
+                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
+                                              uploadingSceneId === scene.id
+                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
+                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                            }`}
+                                          >
+                                            <input
+                                              type="file"
+                                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                                              className="hidden"
+                                              disabled={uploadingSceneId === scene.id}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleAddSceneImage(scene.id, file);
+                                                  e.target.value = "";
+                                                }
+                                              }}
+                                            />
+                                            {uploadingSceneId === scene.id ? (
+                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                              </svg>
+                                            )}
+                                          </label>
+                                        </div>
                                       ) : (
-                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
+                                        <p className="text-xs text-gray-400 italic">
+                                          This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
+                                        </p>
                                       )}
-                                    </label>
-                                  </div>
-                                </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

@@ -22,6 +22,7 @@ from app.services.template_service import (
     get_hero_layout,
     get_fallback_layout,
     get_composition_id,
+    get_layouts_without_image,
 )
 
 logger = logging.getLogger(__name__)
@@ -249,13 +250,17 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     # Strategy:
     # 1. Check if scene has stored assignedImage in layoutProps (persistent assignment)
     # 2. Respect layoutProps.hideImage: when true, NEVER auto-assign a generic image
-    # 3. Scene-specific images (scene_<sceneId>_...) always stay with their scene and
-    #    clear any previous hideImage flag
-    # 4. For scenes without assignment and not hideImage, assign generic images ONCE
+    # 3. Layouts in layouts_without_image: always treated as hideImage, clear any assignment
+    # 4. Scene-specific images (scene_<sceneId>_...) always stay with their scene and
+    #    clear any previous hideImage flag (unless layout doesn't support images)
+    # 5. For scenes without assignment and not hideImage, assign generic images ONCE
     #    and store the assignment
     scene_image_map: dict[int, list[str]] = {i: [] for i in range(len(scenes))}
     scenes_need_update: list[Scene] = []  # Track scenes that need remotion_code update
     hide_image_flags: list[bool] = [False] * len(scenes)
+
+    # Layouts that never display images for this template
+    no_image_layouts: set[str] = get_layouts_without_image(template_id)
 
     if all_image_files and scenes:
         # Use project.assets for scene-specific detection (all_image_files has only filenames)
@@ -296,6 +301,24 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     layout_props = desc.get("layoutProps", {}) or {}
                 except (json.JSONDecodeError, TypeError):
                     pass
+
+            # Layouts that don't support images are always treated as hideImage
+            layout_no_image = layout in no_image_layouts
+            if layout_no_image:
+                hide_image_flags[i] = True
+                # Clear any stale assignedImage and set hideImage in remotion_code
+                changed = False
+                if layout_props.get("assignedImage"):
+                    layout_props.pop("assignedImage", None)
+                    changed = True
+                if not layout_props.get("hideImage"):
+                    layout_props["hideImage"] = True
+                    changed = True
+                if changed and desc is not None:
+                    desc["layoutProps"] = layout_props
+                    scene.remotion_code = json.dumps(desc)
+                    scenes_need_update.append(scene)
+                continue  # No further assignment logic for this scene
 
             hide_image = bool(layout_props.get("hideImage", False))
             hide_image_flags[i] = hide_image
@@ -346,11 +369,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                         scenes_need_update.append(scene)
         
         # Second pass: Apply scene-specific images (overwrite stored assignments if scene-specific exists)
+        # Skip scenes whose layout does not support images.
         for scene_id, filename in scene_specific:
             scene_idx = next((i for i, s in enumerate(scenes) if s.id == scene_id), -1)
             if scene_idx >= 0:
-                scene_image_map[scene_idx] = [filename]
-                # Update remotion_code to store scene-specific assignment (if not already set)
                 scene = scenes[scene_idx]
                 layout_props = {}
                 layout = get_fallback_layout(template_id)
@@ -361,6 +383,13 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                         layout_props = desc.get("layoutProps", {}) or {}
                     except (json.JSONDecodeError, TypeError):
                         pass
+
+                # Do not assign images to layouts that don't support them
+                if layout in no_image_layouts:
+                    continue
+
+                scene_image_map[scene_idx] = [filename]
+                # Update remotion_code to store scene-specific assignment (if not already set)
                 # Only update if assignment changed
                 if layout_props.get("assignedImage") != filename or layout_props.get("hideImage"):
                     layout_props["assignedImage"] = filename
@@ -371,12 +400,23 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     scenes_need_update.append(scene)
 
         # Third pass: Assign generic images to scenes without one yet (1 per scene)
-        # IMPORTANT: Do NOT assign generics to scenes that have hideImage=true.
+        # IMPORTANT: Do NOT assign generics to scenes that have hideImage=true or
+        # whose layout does not support images.
         generic_idx = 0
         for scene_idx in range(len(scenes)):
+            # Resolve this scene's layout to check no_image_layouts
+            scene = scenes[scene_idx]
+            scene_layout = get_fallback_layout(template_id)
+            if scene.remotion_code:
+                try:
+                    scene_layout = json.loads(scene.remotion_code).get("layout", scene_layout)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             if (
                 not scene_image_map[scene_idx]
                 and not hide_image_flags[scene_idx]
+                and scene_layout not in no_image_layouts
                 and generic_idx < len(generic_files)
             ):
                 # Pick next unused generic filename (enforce 1:1)
@@ -397,7 +437,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 scene_image_map[scene_idx] = [assigned_filename]
                 used_generic_files.add(assigned_filename)
                 # Store assignment in remotion_code (if not already set)
-                scene = scenes[scene_idx]
                 layout_props = {}
                 layout = get_fallback_layout(template_id)
                 if scene.remotion_code:
@@ -412,8 +451,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     layout_props["assignedImage"] = assigned_filename
                     scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
                     scenes_need_update.append(scene)
-                generic_idx += 1
-    
+
     # Commit scene updates if any
     if scenes_need_update:
         try:
@@ -477,9 +515,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        # Check if image should be hidden for this scene
+        # Check if image should be hidden for this scene (at most one image per scene)
         hide_image = layout_props.get("hideImage", False)
-        scene_images = [] if hide_image else scene_image_map.get(i, [])
+        raw_images = [] if hide_image else scene_image_map.get(i, [])
+        scene_images = raw_images[:1]
 
         scene_data.append(
             {

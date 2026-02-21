@@ -35,7 +35,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 30 : 38),
+          fontSize: titleFontSize ?? (p ? 36 : 46),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -122,7 +122,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
               <div>
                 <h3
                   style={{
-                    fontSize: descriptionFontSize ?? (p ? 16 : 20),
+                    fontSize: descriptionFontSize ?? (p ? 20 : 24),
                     fontWeight: 600,
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
@@ -134,7 +134,7 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
                 </h3>
                 <p
                   style={{
-                    fontSize: descriptionFontSize ?? (p ? 14 : 16),
+                    fontSize: descriptionFontSize ?? (p ? 22 : 24),
                     color: textColor,
                     fontFamily: "Inter, sans-serif",
                     opacity: 0.6,
