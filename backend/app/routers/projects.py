@@ -475,7 +475,9 @@ async def update_scene_image(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Upload/replace scene image without regenerating the scene layout."""
+    """Upload/replace scene image without regenerating the scene layout.
+    If the scene already had an image assigned (generic or scene-specific), that asset
+    is deleted so it does not remain in the project."""
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
@@ -490,6 +492,36 @@ async def update_scene_image(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
+
+    # If scene already has an image assigned, delete that asset (generic or scene-specific)
+    old_assigned = None
+    if scene.remotion_code:
+        try:
+            desc = json.loads(scene.remotion_code)
+            old_assigned = (desc.get("layoutProps") or {}).get("assignedImage")
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if old_assigned and isinstance(old_assigned, str):
+        old_asset = (
+            db.query(Asset)
+            .filter(Asset.project_id == project_id, Asset.filename == old_assigned)
+            .first()
+        )
+        if old_asset:
+            local_path = old_asset.local_path
+            r2_key = old_asset.r2_key
+            db.delete(old_asset)
+            db.flush()
+            if local_path and os.path.isfile(local_path):
+                try:
+                    os.remove(local_path)
+                except OSError as e:
+                    print(f"[IMAGE_UPDATE] Failed to remove old file {local_path}: {e}")
+            if r2_key:
+                try:
+                    r2_storage.delete_file(r2_key)
+                except Exception as e:
+                    print(f"[IMAGE_UPDATE] R2 delete failed for {r2_key}: {e}")
 
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
     if image.content_type not in allowed_types:

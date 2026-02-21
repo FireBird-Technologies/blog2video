@@ -814,7 +814,15 @@ export default function ProjectView() {
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
-  const activeImageAssets = imageAssets.filter((a) => !a.excluded);
+  const activeImageAssets = imageAssets
+    .filter((a) => !a.excluded)
+    .slice()
+    .sort((a, b) => {
+      const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (ad !== bd) return ad - bd;
+      return (a.id ?? 0) - (b.id ?? 0);
+    });
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -855,22 +863,22 @@ export default function ProjectView() {
       if (assignedImage && filenameToAsset.has(assignedImage)) {
         const m = assignedImage.match(/^scene_(\d+)_/);
         if (m) {
-          // Scene-specific assignment must match current scene id
+          // Scene-specific assignment must match current scene id (one image per scene)
           const assignedSceneId = parseInt(m[1], 10);
           if (assignedSceneId === scene.id) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         } else {
-          // Generic assignment: enforce 1 generic -> 1 scene
+          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
           if (!usedGenericFiles.has(assignedImage)) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         }
@@ -906,21 +914,19 @@ export default function ProjectView() {
     }
 
     // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
-    // IMPORTANT: Skip scenes with hideImage=true (user explicitly removed image)
+    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
     let genericIdx = 0;
-    for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
-      if (sceneImageMap[sceneIdx].length === 0 && !hideImageFlags[sceneIdx]) {
+    for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+      if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
+      while (genericIdx < genericAssets.length) {
         const candidate = genericAssets[genericIdx];
-        // Skip if already used in first pass
-        if (usedGenericFiles.has(candidate.filename)) {
-          genericIdx++;
-          continue;
-        }
-        const url = resolveAssetUrl(candidate, project.id);
-        sceneImageMap[sceneIdx].push(url);
-        sceneImageAssetsMap[sceneIdx].push({ url, asset: candidate });
-        usedGenericFiles.add(candidate.filename);
         genericIdx++;
+        if (usedGenericFiles.has(candidate.filename)) continue;
+        const url = resolveAssetUrl(candidate, project.id);
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset: candidate }];
+        usedGenericFiles.add(candidate.filename);
+        break;
       }
     }
   }
