@@ -412,8 +412,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     layout_props["assignedImage"] = assigned_filename
                     scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
                     scenes_need_update.append(scene)
-                generic_idx += 1
-    
+
     # Commit scene updates if any
     if scenes_need_update:
         try:
@@ -477,9 +476,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        # Check if image should be hidden for this scene
+        # Check if image should be hidden for this scene (at most one image per scene)
         hide_image = layout_props.get("hideImage", False)
-        scene_images = [] if hide_image else scene_image_map.get(i, [])
+        raw_images = [] if hide_image else scene_image_map.get(i, [])
+        scene_images = raw_images[:1]
 
         scene_data.append(
             {
