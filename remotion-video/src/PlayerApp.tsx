@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Player } from "@remotion/player";
-import { ExplainerVideo, calculateVideoMetadata } from "./ExplainerVideo";
+import { DefaultVideo, calculateDefaultMetadata } from "./templates/default/DefaultVideo";
 
 const FPS = 30;
 
@@ -41,7 +41,7 @@ const PlayerApp: React.FC = () => {
       }}
     >
       <Player
-        component={ExplainerVideo}
+        component={DefaultVideo}
         inputProps={{ dataUrl: "/data.json" }}
         durationInFrames={duration}
         compositionWidth={1920}

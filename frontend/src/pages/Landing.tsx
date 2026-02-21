@@ -50,12 +50,20 @@ async function fetchOgData(url: string): Promise<{ image?: string; title?: strin
   }
 }
 
+const NAV_LINKS = [
+  { href: "#demo", label: "Demo" },
+  { href: "#how", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "/pricing", label: "Pricing" },
+];
+
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
+  const [navOpen, setNavOpen] = useState(false);
   const scrollRef = useScrollReveal();
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
@@ -111,11 +119,49 @@ export default function Landing() {
               Blog2Video
             </span>
           </div>
-          <div className="flex items-center gap-6">
-            <a href="#demo" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Demo</a>
-            <a href="#how" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">How it works</a>
-            <a href="#features" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Features</a>
-            <a href="/pricing" className="text-sm text-gray-400 hover:text-gray-900 transition-colors">Pricing</a>
+          {/* Desktop: horizontal links */}
+          <div className="hidden md:flex items-center gap-6">
+            {NAV_LINKS.map(({ href, label }) => (
+              <a key={href} href={href} className="text-sm text-gray-400 hover:text-gray-900 transition-colors">
+                {label}
+              </a>
+            ))}
+          </div>
+          {/* Mobile: dropdown trigger */}
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setNavOpen((o) => !o)}
+              className="flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 rounded-lg transition-colors"
+              aria-expanded={navOpen}
+              aria-haspopup="true"
+              aria-label="Open menu"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            {navOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  aria-hidden="true"
+                  onClick={() => setNavOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
+                  {NAV_LINKS.map(({ href, label }) => (
+                    <a
+                      key={href}
+                      href={href}
+                      onClick={() => setNavOpen(false)}
+                      className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    >
+                      {label}
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -625,8 +671,8 @@ export default function Landing() {
             Start free. Pay per video. Or go Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, or $50/month
-            for 100 videos with AI editing and Studio access.
+            Your first video is free. Then $5/video pay-as-you-go, $50/month
+            for 100 videos with AI editing and Studio access, or custom plans for enterprise teams.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -647,6 +693,11 @@ export default function Landing() {
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
+            </div>
+            <div className="glass-card px-7 py-6 text-center min-w-[170px] border-2 border-purple-300">
+              <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
+              <p className="text-3xl font-bold text-gray-900">Custom</p>
+              <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
             </div>
           </div>
 

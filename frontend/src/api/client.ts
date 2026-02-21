@@ -1,3 +1,9 @@
+export * from "./types";
+export * from "./auth";
+export * from "./billing";
+export * from "./projects";
+export * from "./enterprise";
+
 import axios from "axios";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
@@ -90,6 +96,7 @@ export interface Project {
   blog_url: string | null;
   blog_content: string | null;
   status: string;
+  template?: string;
   voice_gender: string;
   voice_accent: string;
   accent_color: string;
@@ -106,6 +113,7 @@ export interface Project {
   logo_opacity: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  ai_assisted_editing_count?: number;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -253,6 +261,28 @@ export const resumeSubscription = () =>
 
 // ─── Project API ──────────────────────────────────────────
 
+export interface TemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  preview_colors?: { accent: string; bg: string; text: string };
+}
+
+export const getTemplates = () =>
+  api.get<TemplateMeta[]>("/templates");
+
+export interface VoicePreview {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  description: string;
+  gender: string;
+  accent: string;
+}
+
+export const getVoicePreviews = () =>
+  api.get<Record<string, VoicePreview>>("/voices/previews");
+
 export const createProject = (
   blog_url: string,
   name?: string,
@@ -265,7 +295,8 @@ export const createProject = (
   logo_position?: string,
   logo_opacity?: number,
   custom_voice_id?: string,
-  aspect_ratio?: string
+  aspect_ratio?: string,
+  template?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -280,6 +311,7 @@ export const createProject = (
     logo_opacity,
     custom_voice_id,
     aspect_ratio,
+    template,
   });
 
 export const createProjectFromDocs = (
@@ -296,6 +328,7 @@ export const createProjectFromDocs = (
     logo_opacity?: number;
     custom_voice_id?: string;
     aspect_ratio?: string;
+    template?: string;
   } = {}
 ) => {
   const formData = new FormData();
@@ -313,6 +346,7 @@ export const createProjectFromDocs = (
     formData.append("logo_opacity", String(config.logo_opacity));
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.template) formData.append("template", config.template);
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -350,6 +384,9 @@ export const toggleAssetExclusion = (projectId: number, assetId: number) =>
     `/projects/${projectId}/assets/${assetId}/exclude`
   );
 
+export const deleteAsset = (projectId: number, assetId: number) =>
+  api.delete(`/projects/${projectId}/assets/${assetId}`);
+
 export const scrapeProject = (id: number) =>
   api.post<Project>(`/projects/${id}/scrape`);
 
@@ -381,6 +418,67 @@ export const updateScene = (
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
 
+export const updateSceneImage = (
+  projectId: number,
+  sceneId: number,
+  imageFile: File
+) => {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/image`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+export interface LayoutInfo {
+  layouts: string[];
+  layout_names: Record<string, string>;
+  layouts_without_image?: string[];
+}
+
+export const getValidLayouts = (projectId: number) =>
+  api.get<LayoutInfo>(`/projects/${projectId}/layouts`);
+
+export interface SceneOrderItem {
+  scene_id: number;
+  order: number;
+}
+
+export const reorderScenes = (
+  projectId: number,
+  sceneOrders: SceneOrderItem[]
+) =>
+  api.post<Scene[]>(`/projects/${projectId}/scenes/reorder`, {
+    scene_orders: sceneOrders,
+  });
+
+export const regenerateScene = (
+  projectId: number,
+  sceneId: number,
+  description: string,
+  narrationText: string,
+  regenerateVoiceover: boolean,
+  layout?: string,
+  imageFile?: File
+) => {
+  const formData = new FormData();
+  // Only append description if it has a value
+  if (description && description.trim()) {
+    formData.append("description", description);
+  }
+  formData.append("narration_text", narrationText);
+  formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
+  if (layout) formData.append("layout", layout);
+  if (imageFile) formData.append("image", imageFile);
+  return api.post<Scene>(
+    `/projects/${projectId}/scenes/${sceneId}/regenerate`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
@@ -400,17 +498,19 @@ export interface RenderStatus {
 export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
 
+/** Fetch video as blob for playback. Returns object URL; caller must revoke it. */
+export const fetchVideoBlob = async (id: number): Promise<string> => {
+  const res = await api.get(`/projects/${id}/download`, {
+    responseType: "blob",
+  });
+  if (res.status !== 200) throw new Error(`Download failed (${res.status})`);
+  const blob = res.data as Blob;
+  if (!blob || blob.size === 0) throw new Error("Empty video");
+  return window.URL.createObjectURL(blob);
+};
+
 export const downloadVideo = async (id: number, filename?: string) => {
-  const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
-  const videoUrl = urlRes.data.url;
-
-  // Fetch the video as a blob so the download works even with popup blockers.
-  // Using fetch() directly (not axios) because the URL may be a cross-origin R2 URL.
-  const resp = await fetch(videoUrl);
-  if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
-  const blob = await resp.blob();
-  const blobUrl = window.URL.createObjectURL(blob);
-
+  const blobUrl = await fetchVideoBlob(id);
   const a = document.createElement("a");
   a.href = blobUrl;
   a.download = filename || "video.mp4";

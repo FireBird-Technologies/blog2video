@@ -1,9 +1,13 @@
 import os
 import json
 import asyncio
+import logging
 import traceback
+import requests
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -31,7 +35,9 @@ from app.services.remotion import (
 )
 from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
-from app.dspy_modules.scene_gen import SceneCodeGenerator
+from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+from app.services.template_service import validate_template_id
+from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 
@@ -64,8 +70,10 @@ async def generate_video(
     # Initialize progress
     _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None}
 
-    # Launch background task
-    asyncio.create_task(_run_pipeline(project_id, user.id))
+    # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
+    # Other API requests remain responsive while generation runs.
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_pipeline_sync, project_id, user.id)
 
     return {"detail": "Pipeline started", "step": 0}
 
@@ -105,6 +113,12 @@ def get_pipeline_status(
         "error": progress.get("error"),
         "studio_port": project.studio_port,
     }
+
+
+def _run_pipeline_sync(project_id: int, user_id: int) -> None:
+    """Run the async pipeline in a dedicated event loop (called from thread pool).
+    Keeps the main server event loop free so other API requests are served."""
+    asyncio.run(_run_pipeline(project_id, user_id))
 
 
 async def _run_pipeline(project_id: int, user_id: int):
@@ -223,15 +237,18 @@ async def _generate_scenes(project: Project, db: Session):
             scene.voiceover_path = None
         db.commit()
     else:
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, generate_all_voiceovers, scenes, db)
+        await generate_all_voiceovers(scenes, db)
 
-    # Refresh scenes to pick up voiceover_path / duration
-    for scene in scenes:
-        db.refresh(scene)
+    # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
+    db.expire(project)
+    scenes = project.scenes
 
-    # Step 2: Generate layout descriptors concurrently with async DSPy
-    scene_gen = SceneCodeGenerator()
+    # Step 2: Generate layout descriptors with TemplateSceneGenerator
+    # Ensure template is read from database (refresh if needed)
+    db.refresh(project)
+    template_id = validate_template_id(project.template if project.template else "default")
+    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
+    scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
     ]
@@ -252,8 +269,23 @@ async def _generate_scenes(project: Project, db: Session):
         animation_instructions=project.animation_instructions or "",
     )
 
-    # Store descriptors as JSON in remotion_code
+    # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for scene, descriptor in zip(scenes, descriptors):
+        if scene.remotion_code:
+            try:
+                old_desc = json.loads(scene.remotion_code)
+                old_lp = old_desc.get("layoutProps") or {}
+                old_assigned = old_lp.get("assignedImage")
+                old_hide = old_lp.get("hideImage")
+                if old_assigned or old_hide:
+                    if "layoutProps" not in descriptor:
+                        descriptor["layoutProps"] = {}
+                    if old_assigned:
+                        descriptor["layoutProps"]["assignedImage"] = old_assigned
+                    if old_hide:
+                        descriptor["layoutProps"]["hideImage"] = True
+            except (json.JSONDecodeError, TypeError):
+                pass
         scene.remotion_code = json.dumps(descriptor)
     db.commit()
 
@@ -263,6 +295,22 @@ async def _generate_scenes(project: Project, db: Session):
     project.status = ProjectStatus.GENERATED
     db.commit()
     db.refresh(project)
+
+    # Notify the user that their video is ready to preview
+    try:
+        user = db.query(User).filter(User.id == project.user_id).first()
+        if user:
+            project_url = f"{settings.FRONTEND_URL}/projects/{project.id}"
+            email_service.send_preview_ready_email(
+                user_email=user.email,
+                user_name=user.name,
+                project_name=project.name,
+                project_url=project_url,
+            )
+    except EmailServiceError as e:
+        logger.error(f"[PIPELINE] Preview-ready email failed for project {project.id}: {e}")
+    except Exception as e:
+        logger.error(f"[PIPELINE] Unexpected error sending preview email for project {project.id}: {e}", exc_info=True)
 
 
 # ─── Legacy individual endpoints (kept for compatibility) ────
@@ -363,8 +411,28 @@ def download_studio_endpoint(
     )
 
 
+def _rebuild_workspace_sync(project_id: int) -> None:
+    """Rebuild workspace in a thread (uses its own DB session). Avoids blocking the event loop."""
+    db = SessionLocal()
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return
+        scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        if not scenes:
+            raise ValueError("No scenes found")
+        rebuild_workspace(project, scenes, db)
+    finally:
+        db.close()
+
+
 @router.post("/render")
-def render_video_endpoint(
+async def render_video_endpoint(
     project_id: int,
     resolution: str = "1080p",
     user: User = Depends(get_current_user),
@@ -372,7 +440,7 @@ def render_video_endpoint(
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    All videos render at 1080p.
+    All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
     """
     project = _get_project(project_id, user.id, db)
 
@@ -392,15 +460,24 @@ def render_video_endpoint(
     if prog and not prog.get("done", True):
         return {"detail": "Render already running", "progress": prog.get("progress", 0)}
 
-    # Ensure workspace exists (may be missing on Cloud Run if a different
-    # container handled the pipeline, or if it was cleaned up after a
-    # previous render).
-    workspace = get_workspace_dir(project.id)
-    if not os.path.exists(os.path.join(workspace, "public", "data.json")):
-        scenes = project.scenes
-        if not scenes:
-            raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
-        rebuild_workspace(project, scenes, db)
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    if not scenes:
+        raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
+
+    # Rebuild workspace in thread pool so the event loop is not blocked (file I/O, copy, etc.).
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(None, _rebuild_workspace_sync, project_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to prepare workspace: {str(e)}. Please try again.",
+        )
 
     project.status = ProjectStatus.RENDERING
     db.commit()
@@ -409,7 +486,6 @@ def render_video_endpoint(
         start_render_async(project, resolution=resolution)
         return {"detail": "Render started", "progress": 0, "resolution": resolution}
     except Exception as e:
-        # If render start fails, reset status and return error
         print(f"[RENDER] Failed to start render for project {project_id}: {e}")
         import traceback
         traceback.print_exc()
@@ -499,6 +575,58 @@ def get_download_url(
         return {"url": f"/media/projects/{project.id}/output/video.mp4"}
 
     # Check if render is still in progress
+    prog = get_render_progress(project_id)
+    if prog and not prog.get("done", True):
+        raise HTTPException(status_code=202, detail="Video is still rendering.")
+
+    raise HTTPException(status_code=404, detail="Video not rendered yet.")
+
+
+@router.get("/download")
+def download_video_endpoint(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream the rendered video for download. Avoids CORS by proxying through backend."""
+    project = _get_project(project_id, user.id, db)
+
+    # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
+    if project.r2_video_url:
+        try:
+            resp = requests.get(
+                project.r2_video_url,
+                timeout=120,
+                stream=True,
+            )
+            resp.raise_for_status()
+            headers = {"Content-Disposition": 'attachment; filename="video.mp4"'}
+            cl = resp.headers.get("Content-Length")
+            if cl:
+                headers["Content-Length"] = cl
+            return StreamingResponse(
+                resp.iter_content(chunk_size=64 * 1024),
+                media_type="video/mp4",
+                headers=headers,
+            )
+        except requests.RequestException as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to fetch video from storage: {str(e)}",
+            )
+
+    # Fallback: local file
+    local_path = os.path.join(
+        settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
+    )
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        safe_name = (project.name or "video").replace(" ", "_")[:50]
+        return FileResponse(
+            path=local_path,
+            media_type="video/mp4",
+            filename=f"{safe_name}.mp4",
+        )
+
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
         raise HTTPException(status_code=202, detail="Video is still rendering.")

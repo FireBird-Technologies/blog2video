@@ -66,12 +66,14 @@ def _get_audio_duration(filepath: str) -> float:
 WORDS_PER_SECOND = 2.5  # average speaking pace for duration estimation
 
 
-def generate_voiceover(scene: Scene, db: Session) -> str:
+def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) -> str:
     """
     Generate voiceover audio for a scene using ElevenLabs TTS.
     After generation, updates scene.duration_seconds to audio length + 1s.
     If voice_gender is "none", skips TTS and estimates duration from word count.
     Retries on connection errors.
+    
+    If use_expanded is True, expands narration_text into detailed voiceover before generating audio.
 
     Returns:
         str: Local path to the generated audio file (empty string if no audio)
@@ -84,9 +86,14 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
     project = db.query(Project).filter(Project.id == scene.project_id).first()
     voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
 
+    # Use narration_text directly (it should already be expanded if needed)
+    voiceover_text = scene.narration_text
+    if not voiceover_text or not voiceover_text.strip():
+        return ""
+
     # No-audio mode: estimate duration from word count, skip TTS
     if voice_id is None:
-        word_count = len(scene.narration_text.split())
+        word_count = len(voiceover_text.split())
         estimated_duration = max(5.0, word_count / WORDS_PER_SECOND)
         scene.duration_seconds = round(estimated_duration + DURATION_PAD, 1)
         scene.voiceover_path = None
@@ -109,7 +116,7 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             audio_generator = client.text_to_speech.convert(
-                text=scene.narration_text,
+                text=voiceover_text,
                 voice_id=voice_id,
                 model_id="eleven_multilingual_v2",
                 output_format="mp3_44100_128",
@@ -170,12 +177,31 @@ def generate_voiceover(scene: Scene, db: Session) -> str:
     raise last_error  # type: ignore
 
 
-def generate_all_voiceovers(scenes: list[Scene], db: Session) -> list[str]:
-    """Generate voiceover audio for all scenes with delays between each."""
+async def generate_all_voiceovers(scenes: list[Scene], db: Session) -> list[str]:
+    """Generate voiceover audio for all scenes with delays between each.
+    Expands narration_text to detailed voiceover before generating audio."""
+    from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+    
     paths = []
     for i, scene in enumerate(scenes):
         try:
-            path = generate_voiceover(scene, db)
+            # Expand narration_text to detailed voiceover
+            if scene.narration_text and scene.narration_text.strip():
+                expanded = await expand_narration_to_voiceover(scene.narration_text, scene.title)
+                # Temporarily store expanded text
+                original_narration = scene.narration_text
+                scene.narration_text = expanded
+                db.commit()
+                
+                # Generate voiceover
+                path = generate_voiceover(scene, db, use_expanded=False)
+                
+                # Restore original narration_text
+                scene.narration_text = original_narration
+                db.commit()
+            else:
+                path = generate_voiceover(scene, db, use_expanded=False)
+            
             paths.append(path)
             # Wait between scenes to avoid rate limits
             if i < len(scenes) - 1 and path:

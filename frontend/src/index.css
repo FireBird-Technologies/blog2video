@@ -58,3 +58,32 @@
 .hero-animate > *:nth-child(4) { animation-delay: 300ms; }
 .hero-animate > *:nth-child(5) { animation-delay: 400ms; }
 .hero-animate > *:nth-child(6) { animation-delay: 500ms; }
+
+/* ─── Thin scrollbar, no end arrows ─────────────────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #b6bac0 transparent;
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #a8adb3;
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #b1b7c0;
+}

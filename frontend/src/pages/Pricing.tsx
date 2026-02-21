@@ -104,7 +104,7 @@ export default function Pricing() {
           <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-purple-500/[0.03] rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-6 pt-20 pb-6 text-center">
+        <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-6 text-center">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">
             Pricing
           </p>
@@ -153,8 +153,8 @@ export default function Pricing() {
       </div>
 
       {/* Plans */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {/* Free */}
           <div className="glass-card p-7 flex flex-col">
             <div className="mb-6">
@@ -208,7 +208,7 @@ export default function Pricing() {
                   shape="pill"
                   text="signup_with"
                   theme="outline"
-                  width="240"
+                  width="190"
                 />
               </div>
             )}
@@ -263,7 +263,7 @@ export default function Pricing() {
                   shape="pill"
                   text="continue_with"
                   theme="outline"
-                  width="240"
+                  width="190"
                 />
               </div>
             )}
@@ -363,10 +363,52 @@ export default function Pricing() {
                   shape="pill"
                   text="continue_with"
                   theme="outline"
-                  width="240"
+                  width="190"
                 />
               </div>
             )}
+          </div>
+
+          {/* Customized Subscription */}
+          <div className="glass-card p-7 flex flex-col border-2 border-purple-300">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Customized
+              </h3>
+              <p className="text-sm text-gray-400">Enterprise & teams</p>
+            </div>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-gray-900">Custom</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-1">
+              {[
+                "Custom video limits",
+                "AI script generation",
+                "ElevenLabs voiceover",
+                "Remotion video preview",
+                "Render & download MP4",
+                "AI chat editor",
+                "Full Remotion Studio access",
+                "Custom integrations",
+                "Dedicated support",
+                "SSO & enterprise security",
+                "Custom pricing",
+              ].map((f) => (
+                <li
+                  key={f}
+                  className="flex items-start gap-2.5 text-sm text-gray-600"
+                >
+                  <CheckIcon />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => navigate("/contact")}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+            >
+              Contact Sales
+            </button>
           </div>
         </div>
 
@@ -389,7 +431,7 @@ export default function Pricing() {
       </div>
 
       {/* Feature comparison */}
-      <div className="max-w-4xl mx-auto px-6 pb-20">
+      <div className="max-w-6xl mx-auto px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Compare plans
         </h3>
@@ -409,20 +451,23 @@ export default function Pricing() {
                 <th className="py-4 px-6 font-medium text-purple-600 text-center">
                   Pro
                 </th>
+                <th className="py-4 px-6 font-medium text-purple-600 text-center">
+                  Customized
+                </th>
               </tr>
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo" },
-                { feature: "Videos", free: "First video free", perVideo: "Unlimited", pro: "100/month" },
-                { feature: "AI script generation", free: true, perVideo: true, pro: true },
-                { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true },
-                { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true },
-                { feature: "Video preview", free: true, perVideo: true, pro: true },
-                { feature: "Render & download MP4", free: true, perVideo: true, pro: true },
-                { feature: "AI chat editor", free: false, perVideo: true, pro: true },
-                { feature: "Remotion Studio access", free: false, perVideo: true, pro: true },
-                { feature: "Priority support", free: false, perVideo: false, pro: true },
+                { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
+                { feature: "Videos", free: "First video free", perVideo: "Unlimited", pro: "100/month", customized: "Custom" },
+                { feature: "AI script generation", free: true, perVideo: true, pro: true, customized: true },
+                { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true, customized: true },
+                { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true, customized: true },
+                { feature: "Video preview", free: true, perVideo: true, pro: true, customized: true },
+                { feature: "Render & download MP4", free: true, perVideo: true, pro: true, customized: true },
+                { feature: "AI chat editor", free: false, perVideo: true, pro: true, customized: true },
+                { feature: "Remotion Studio access", free: false, perVideo: true, pro: true, customized: true },
+                { feature: "Priority support", free: false, perVideo: false, pro: true, customized: true },
               ].map((row, i) => (
                 <tr
                   key={row.feature}
@@ -466,6 +511,19 @@ export default function Pricing() {
                       </span>
                     )}
                   </td>
+                  <td className="py-3.5 px-6 text-center">
+                    {typeof row.customized === "boolean" ? (
+                      row.customized ? (
+                        <GreenCheck />
+                      ) : (
+                        <GrayX />
+                      )
+                    ) : (
+                      <span className="font-medium text-purple-600">
+                        {row.customized}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -474,7 +532,7 @@ export default function Pricing() {
       </div>
 
       {/* FAQ */}
-      <div className="max-w-2xl mx-auto px-6 pb-20">
+      <div className="max-w-4xl mx-auto px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Frequently asked questions
         </h3>

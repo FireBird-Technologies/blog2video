@@ -127,7 +127,7 @@ export default function Subscription() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
       <div>
         <button
@@ -385,7 +385,7 @@ export default function Subscription() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Free */}
           <div className={`glass-card p-5 flex flex-col ${!isPro && billing?.plan === "free" ? "ring-2 ring-purple-200" : ""}`}>
             <div className="mb-4">
@@ -507,6 +507,34 @@ export default function Subscription() {
                 {actionLoading === "upgrade" ? "Redirecting..." : "Upgrade to Pro"}
               </button>
             )}
+          </div>
+
+          {/* Customized Subscription */}
+          <div className="glass-card p-5 flex flex-col border-2 border-purple-300">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Customized</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Enterprise & teams</p>
+            </div>
+            <div className="mb-4">
+              <span className="text-2xl font-bold text-gray-900">Custom</span>
+            </div>
+            <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
+              <li className="flex items-start gap-2"><CheckMark />Custom video limits</li>
+              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
+              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
+              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+              <li className="flex items-start gap-2"><CheckMark />AI chat editor</li>
+              <li className="flex items-start gap-2"><CheckMark />Remotion Studio</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom integrations</li>
+              <li className="flex items-start gap-2"><CheckMark />Dedicated support</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom pricing</li>
+            </ul>
+            <button
+              onClick={() => navigate("/contact")}
+              className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              Contact Sales
+            </button>
           </div>
         </div>
 

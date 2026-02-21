@@ -18,10 +18,10 @@ class BlogToScript(dspy.Signature):
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
-      and a SHORT narration (1-2 sentences, ~15-25 words).
+      and a SHORT narration (1 sentence, ~10-15 words maximum).
     - The title of this scene MUST be the actual blog/video title (e.g. "Building a Reliable Text-to-SQL Pipeline").
       Do NOT use generic titles like "Hero Opening" or "Introduction" for scene 1.
-    - The narration should be a compelling hook or introduction, e.g. "Ever wondered how X works? Let's break it down."
+    - The narration should be a brief, compelling hook, e.g. "Let's explore how X works." Keep it concise.
     - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
     - If NO hero image is available (hero_image says "no hero image"), the first scene
@@ -39,9 +39,11 @@ class BlogToScript(dspy.Signature):
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
     - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
+    - ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) as these are display texts shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
+    Note: Narrations are display texts (short), voiceover will be generated separately and will be longer.
 
     ═══ VISUAL DESCRIPTION RULES (CRITICAL) ═══
     The visual_description field drives which visual components get used. Be SPECIFIC:
@@ -82,19 +84,20 @@ class BlogToScript(dspy.Signature):
     title: str = dspy.OutputField(desc="A compelling title for the explainer video")
     scenes_json: str = dspy.OutputField(
         desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str -- short 1-2 sentence hook for the hero scene), '
+        '"narration" (str -- concise display text, 1 sentence, 10-15 words max), '
         '"visual_description" (str), "suggested_images" (list of str), '
         '"duration_seconds" (int). '
         'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-        'with a short narration hook (15-25 words) and duration_seconds=6. '
+        'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
+        'ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) - these are display texts shown on screen. '
         'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
         'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
         'Example with image: [{"title": "How AI is Changing Everything", '
-        '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
+        '"narration": "Let\'s explore how AI transforms software development.", '
         '"visual_description": "Hero banner image with title overlay and fade-in", '
         '"suggested_images": ["hero.jpg"], "duration_seconds": 6}]. '
         'Example without image: [{"title": "How AI is Changing Everything", '
-        '"narration": "Artificial intelligence is transforming how we build software. Let\'s explore what\'s new.", '
+        '"narration": "Let\'s explore how AI transforms software development.", '
         '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
         '"suggested_images": [], "duration_seconds": 6}]'
     )

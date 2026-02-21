@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listProjects,
   createProject,
+  createProjectFromDocs,
   deleteProject,
   createCheckoutSession,
   createPortalSession,
@@ -11,6 +12,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import BlogUrlForm from "../components/BlogUrlForm";
+import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const { user, refreshUser } = useAuth();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
@@ -55,31 +58,29 @@ export default function Dashboard() {
     logoOpacity?: number,
     customVoiceId?: string,
     aspectRatio?: string,
-    uploadFiles?: File[]
+    uploadFiles?: File[],
+    template?: string
   ) => {
     setCreating(true);
     try {
       let res;
 
       if (uploadFiles && uploadFiles.length > 0) {
-        // Document upload flow – create project via JSON (fast), then
-        // navigate immediately.  Files are uploaded on the project page.
-        res = await createProject(
-          "upload://documents",
+        // Document upload flow – use FormData endpoint to send files + config together
+        res = await createProjectFromDocs(uploadFiles, {
           name,
-          voiceGender,
-          voiceAccent,
-          accentColor,
-          bgColor,
-          textColor,
-          animationInstructions,
-          logoPosition,
-          logoOpacity,
-          customVoiceId,
-          aspectRatio
-        );
-        // Stash files so ProjectView can upload them during step 1
-        setPendingUpload(res.data.id, uploadFiles);
+          voice_gender: voiceGender,
+          voice_accent: voiceAccent,
+          accent_color: accentColor,
+          bg_color: bgColor,
+          text_color: textColor,
+          animation_instructions: animationInstructions,
+          logo_position: logoPosition,
+          logo_opacity: logoOpacity,
+          custom_voice_id: customVoiceId,
+          aspect_ratio: aspectRatio,
+          template,
+        });
       } else {
         // URL flow
         res = await createProject(
@@ -94,7 +95,8 @@ export default function Dashboard() {
           logoPosition,
           logoOpacity,
           customVoiceId,
-          aspectRatio
+          aspectRatio,
+          template
         );
       }
 
@@ -124,15 +126,16 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
+  const handleDeleteClick = (id: number, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this project?")) return;
-    try {
-      await deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      console.error("Failed to delete project:", err);
-    }
+    setDeleteTarget({ id, name });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    await deleteProject(deleteTarget.id);
+    setProjects((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    setDeleteTarget(null);
   };
 
   const handleUpgrade = async () => {
@@ -255,9 +258,41 @@ export default function Dashboard() {
         />
       )}
 
+      {/* Delete project confirmation */}
+      <DeleteProjectModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        projectName={deleteTarget?.name}
+        onConfirm={handleDeleteConfirm}
+      />
+
       {/* Project list */}
       <div className="grid gap-3">
-        {projects.map((project) => (
+        {!loaded ? (
+          // Skeleton loading
+          Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="glass-card px-5 py-4 animate-pulse"
+              aria-hidden
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 max-w-[300px]" />
+                    <div className="h-4 w-16 bg-gray-200 rounded" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 bg-gray-100 rounded w-32" />
+                    <div className="h-3 bg-gray-100 rounded w-16" />
+                    <div className="h-3 bg-gray-100 rounded w-12" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          projects.map((project) => (
           <div
             key={project.id}
             onClick={() => navigate(`/project/${project.id}`)}
@@ -282,7 +317,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <button
-                onClick={(e) => handleDelete(project.id, e)}
+                onClick={(e) => handleDeleteClick(project.id, project.name, e)}
                 className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
                 title="Delete"
               >
@@ -302,7 +337,8 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );

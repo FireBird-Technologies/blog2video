@@ -1,0 +1,39 @@
+{
+  "id": "nightfall",
+  "name": "Nightfall",
+  "description": "Dark cinematic glass — frosted panels over gradient mesh, neon-glow data visualizations, animated charts, and dramatic kinetic title reveals. Premium tech keynote feel with full support for data/stats blogs. All layouts support images alongside content.",
+  "preview_colors": {
+    "accent": "#818CF8",
+    "bg": "#0A0A1A",
+    "text": "#E2E8F0"
+  },
+  "composition_id": "NightfallVideo",
+  "hero_layout": "cinematic_title",
+  "fallback_layout": "glass_narrative",
+  "valid_layouts": [
+    "cinematic_title",
+    "glass_narrative",
+    "glow_metric",
+    "glass_code",
+    "kinetic_insight",
+    "glass_stack",
+    "split_glass",
+    "chapter_break",
+    "glass_image",
+    "data_visualization"
+  ],
+  "layouts_without_image": [
+    "split_glass",
+    "glass_code",
+    "kinetic_insight",
+    "chapter_break",
+    "data_visualization"
+  ],
+  "features": [
+    "Image support in all layouts",
+    "Animated bar charts, line charts, and pie charts",
+    "Data visualization layout for stats-heavy content",
+    "Neon glow effects on charts and metrics",
+    "Responsive layouts (portrait/landscape)"
+  ]
+}

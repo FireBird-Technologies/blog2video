@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import shutil
@@ -15,6 +16,16 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.services import r2_storage
+from app.services.email import email_service, EmailServiceError
+from app.services.template_service import (
+    validate_template_id,
+    get_hero_layout,
+    get_fallback_layout,
+    get_composition_id,
+    get_layouts_without_image,
+)
+
+logger = logging.getLogger(__name__)
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
@@ -31,27 +42,13 @@ _TEMPLATE_CONFIG_FILES = [
     "remotion.config.ts",
 ]
 
-_TEMPLATE_SRC_FILES = [
+# Shared files copied for every template
+_SHARED_SRC_FILES = [
     "src/Root.tsx",
     "src/index.ts",
-    "src/ExplainerVideo.tsx",
-    "src/components/TextScene.tsx",
-    "src/components/ImageScene.tsx",
-    "src/components/Transitions.tsx",
     "src/components/LogoOverlay.tsx",
-    "src/components/layouts/types.ts",
-    "src/components/layouts/HeroImage.tsx",
-    "src/components/layouts/TextNarration.tsx",
-    "src/components/layouts/CodeBlock.tsx",
-    "src/components/layouts/BulletList.tsx",
-    "src/components/layouts/FlowDiagram.tsx",
-    "src/components/layouts/Comparison.tsx",
-    "src/components/layouts/Metric.tsx",
-    "src/components/layouts/QuoteCallout.tsx",
-    "src/components/layouts/ImageCaption.tsx",
-    "src/components/layouts/Timeline.tsx",
-    "src/components/layouts/AnimatedImage.tsx",
-    "src/components/layouts/index.ts",
+    "src/components/Transitions.tsx",
+    "src/components/LogoOverlay.tsx"
 ]
 
 
@@ -65,23 +62,81 @@ def get_workspace_dir(project_id: int) -> str:
     )
 
 
-def provision_workspace(project_id: int) -> str:
+def _scan_template_files(template_root: str, template_id: str) -> list[str]:
+    """
+    Dynamically scan and return all .tsx and .ts files for a template.
+    All templates live under src/templates/{template_id}/.
+    Shared components (LogoOverlay, Transitions) are always included.
+
+    Args:
+        template_root: Path to remotion-video directory
+        template_id: Template ID (e.g., "default", "nightfall")
+
+    Returns:
+        List of relative file paths from template_root
+    """
+    files = list(_SHARED_SRC_FILES)
+
+    # Scan src/templates/{template_id}/ recursively for .tsx and .ts files
+    template_dir = os.path.join(template_root, "src", "templates", template_id)
+    if os.path.isdir(template_dir):
+        for root, dirs, filenames in os.walk(template_dir):
+            for filename in filenames:
+                if filename.endswith((".tsx", ".ts")):
+                    full_path = os.path.join(root, filename)
+                    rel_path = os.path.relpath(full_path, template_root)
+                    # Normalize path separators for cross-platform compatibility
+                    rel_path = rel_path.replace("\\", "/")
+                    files.append(rel_path)
+
+    return sorted(set(files))
+
+
+def _get_template_src_files(template_id: str) -> list[str]:
+    """
+    Return list of source file paths to copy for the given template.
+    Dynamically scans src/templates/{template_id}/ — no hardcoded file lists.
+    """
+    template_root = settings.REMOTION_PROJECT_PATH
+    return _scan_template_files(template_root, template_id)
+
+
+def _get_all_template_src_files() -> list[str]:
+    """
+    Return all source files from ALL templates under src/templates/.
+    Root.tsx imports every template (default, nightfall, etc.), so the
+    workspace must contain the full src/templates/ tree regardless of
+    which template the project uses.
+    """
+    template_root = settings.REMOTION_PROJECT_PATH
+    files = list(_SHARED_SRC_FILES)
+    templates_dir = os.path.join(template_root, "src", "templates")
+    if os.path.isdir(templates_dir):
+        for tid in os.listdir(templates_dir):
+            tid_dir = os.path.join(templates_dir, tid)
+            if os.path.isdir(tid_dir):
+                for root, _dirs, filenames in os.walk(tid_dir):
+                    for filename in filenames:
+                        if filename.endswith((".tsx", ".ts")):
+                            full_path = os.path.join(root, filename)
+                            rel_path = os.path.relpath(full_path, template_root)
+                            rel_path = rel_path.replace("\\", "/")
+                            files.append(rel_path)
+    return sorted(set(files))
+
+
+def provision_workspace(project_id: int, template_id: str | None = None) -> str:
     """
     Create (or ensure) a per-project Remotion workspace.
-    Copies config and template source files from the shared template.
-    Creates a directory junction (Windows) or symlink (Unix) for node_modules.
-    Returns the workspace path.
+    Copies ALL templates (not just the project's) because Root.tsx
+    imports from every template directory.
     """
     workspace = get_workspace_dir(project_id)
     template = settings.REMOTION_PROJECT_PATH
 
     os.makedirs(workspace, exist_ok=True)
     os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
-    os.makedirs(
-        os.path.join(workspace, "src", "components", "layouts"), exist_ok=True
-    )
 
-    # Link node_modules from template (junction on Windows, symlink on Unix)
     _link_directory(
         os.path.join(template, "node_modules"),
         os.path.join(workspace, "node_modules"),
@@ -94,8 +149,8 @@ def provision_workspace(project_id: int) -> str:
         if os.path.exists(src):
             shutil.copy2(src, dst)
 
-    # Copy static template source files
-    for rel_path in _TEMPLATE_SRC_FILES:
+    # Copy ALL template source files (Root.tsx imports every template)
+    for rel_path in _get_all_template_src_files():
         src = os.path.join(template, rel_path)
         dst = os.path.join(workspace, rel_path)
         if os.path.exists(src):
@@ -153,9 +208,10 @@ def safe_remove_workspace(workspace_dir: str) -> None:
 def rebuild_workspace(project: Project, scenes: list[Scene], db: Session) -> str:
     """
     Fully rebuild a project's Remotion workspace from DB data.
-    Only writes data.json + copies assets — layout components are in the template.
+    Copies template-specific layout files, then writes data.json + assets.
     """
-    workspace = provision_workspace(project.id)
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    workspace = provision_workspace(project.id, template_id)
     write_remotion_data(project, scenes, db)
     return workspace
 
@@ -169,13 +225,14 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     Includes layout descriptors in the scene data for data-driven rendering.
     Returns the path to data.json.
     """
-    workspace = provision_workspace(project.id)
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
-    all_image_files = []
+    all_image_files: list[str] = []
     for asset in project.assets:
         if asset.asset_type.value == "image" and not asset.excluded:
             dest = os.path.join(public_dir, asset.filename)
@@ -186,18 +243,222 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 if _download_url_to_file(asset.r2_url, dest):
                     all_image_files.append(asset.filename)
 
-    # Identify hero image (first image asset = OG/hero from scraper)
+    # Hero image (OG/first image) for templates that use it
     hero_image_file = all_image_files[0] if all_image_files else None
 
-    # Distribute images across scenes (hero gets first, rest are round-robin)
+    # Distribute images across scenes - images move with their scenes when reordered.
+    # Strategy:
+    # 1. Check if scene has stored assignedImage in layoutProps (persistent assignment)
+    # 2. Respect layoutProps.hideImage: when true, NEVER auto-assign a generic image
+    # 3. Layouts in layouts_without_image: always treated as hideImage, clear any assignment
+    # 4. Scene-specific images (scene_<sceneId>_...) always stay with their scene and
+    #    clear any previous hideImage flag (unless layout doesn't support images)
+    # 5. For scenes without assignment and not hideImage, assign generic images ONCE
+    #    and store the assignment
     scene_image_map: dict[int, list[str]] = {i: [] for i in range(len(scenes))}
-    if all_image_files:
-        scene_image_map[0].append(all_image_files[0])
-        remaining = all_image_files[1:]
-        for idx, img_file in enumerate(remaining):
-            scene_idx = idx % len(scenes)
-            if img_file not in scene_image_map[scene_idx]:
-                scene_image_map[scene_idx].append(img_file)
+    scenes_need_update: list[Scene] = []  # Track scenes that need remotion_code update
+    hide_image_flags: list[bool] = [False] * len(scenes)
+
+    # Layouts that never display images for this template
+    no_image_layouts: set[str] = get_layouts_without_image(template_id)
+
+    if all_image_files and scenes:
+        # Use project.assets for scene-specific detection (all_image_files has only filenames)
+        image_assets = [
+            a for a in project.assets
+            if a.asset_type.value == "image" and not a.excluded
+        ]
+        # Deterministic order (helps keep preview/render consistent)
+        try:
+            image_assets.sort(key=lambda a: (a.created_at, a.id))
+        except Exception:
+            image_assets.sort(key=lambda a: a.id)
+
+        # Track generic filenames already used by a scene (enforce 1 generic -> 1 scene)
+        used_generic_files: set[str] = set()
+
+        scene_specific: list[tuple[int, str]] = []
+        generic_files: list[str] = []
+
+        for asset in image_assets:
+            m = re.match(r"^scene_(\d+)_", asset.filename)
+            if m:
+                scene_specific.append((int(m.group(1)), asset.filename))
+            else:
+                generic_files.append(asset.filename)
+
+        scene_specific_files = {filename for _, filename in scene_specific}
+
+        # First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+        for i, scene in enumerate(scenes):
+            layout_props = {}
+            layout = get_fallback_layout(template_id)
+            desc = None
+            if scene.remotion_code:
+                try:
+                    desc = json.loads(scene.remotion_code)
+                    layout = desc.get("layout", layout)
+                    layout_props = desc.get("layoutProps", {}) or {}
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Layouts that don't support images are always treated as hideImage
+            layout_no_image = layout in no_image_layouts
+            if layout_no_image:
+                hide_image_flags[i] = True
+                # Clear any stale assignedImage and set hideImage in remotion_code
+                changed = False
+                if layout_props.get("assignedImage"):
+                    layout_props.pop("assignedImage", None)
+                    changed = True
+                if not layout_props.get("hideImage"):
+                    layout_props["hideImage"] = True
+                    changed = True
+                if changed and desc is not None:
+                    desc["layoutProps"] = layout_props
+                    scene.remotion_code = json.dumps(desc)
+                    scenes_need_update.append(scene)
+                continue  # No further assignment logic for this scene
+
+            hide_image = bool(layout_props.get("hideImage", False))
+            hide_image_flags[i] = hide_image
+
+            assigned_image = layout_props.get("assignedImage")
+            if assigned_image:
+                if hide_image:
+                    # Scene is explicitly marked to have no image; clear any stale assignedImage
+                    layout_props.pop("assignedImage", None)
+                    if desc is not None:
+                        desc["layoutProps"] = layout_props
+                        scene.remotion_code = json.dumps(desc)
+                        scenes_need_update.append(scene)
+                elif assigned_image in all_image_files:
+                    # Validate and enforce uniqueness for generic assigned images.
+                    # Scene-specific filenames must match the scene id in the prefix.
+                    m = re.match(r"^scene_(\d+)_", str(assigned_image))
+                    if m:
+                        assigned_scene_id = int(m.group(1))
+                        if assigned_scene_id != scene.id:
+                            # Invalid: scene-specific image assigned to a different scene
+                            layout_props.pop("assignedImage", None)
+                            if desc is not None:
+                                desc["layoutProps"] = layout_props
+                                scene.remotion_code = json.dumps(desc)
+                                scenes_need_update.append(scene)
+                        else:
+                            # Valid scene-specific assignment
+                            scene_image_map[i] = [assigned_image]
+                    else:
+                        # Generic assignment: enforce 1:1 mapping
+                        if assigned_image in used_generic_files:
+                            # Duplicate generic assignment — clear so it can be re-assigned uniquely
+                            layout_props.pop("assignedImage", None)
+                            if desc is not None:
+                                desc["layoutProps"] = layout_props
+                                scene.remotion_code = json.dumps(desc)
+                                scenes_need_update.append(scene)
+                        else:
+                            used_generic_files.add(str(assigned_image))
+                            scene_image_map[i] = [assigned_image]
+                else:
+                    # Image was deleted - clear stale assignment
+                    layout_props.pop("assignedImage", None)
+                    if desc is not None:
+                        desc["layoutProps"] = layout_props
+                        scene.remotion_code = json.dumps(desc)
+                        scenes_need_update.append(scene)
+        
+        # Second pass: Apply scene-specific images (overwrite stored assignments if scene-specific exists)
+        # Skip scenes whose layout does not support images.
+        for scene_id, filename in scene_specific:
+            scene_idx = next((i for i, s in enumerate(scenes) if s.id == scene_id), -1)
+            if scene_idx >= 0:
+                scene = scenes[scene_idx]
+                layout_props = {}
+                layout = get_fallback_layout(template_id)
+                if scene.remotion_code:
+                    try:
+                        desc = json.loads(scene.remotion_code)
+                        layout = desc.get("layout", layout)
+                        layout_props = desc.get("layoutProps", {}) or {}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # Do not assign images to layouts that don't support them
+                if layout in no_image_layouts:
+                    continue
+
+                scene_image_map[scene_idx] = [filename]
+                # Update remotion_code to store scene-specific assignment (if not already set)
+                # Only update if assignment changed
+                if layout_props.get("assignedImage") != filename or layout_props.get("hideImage"):
+                    layout_props["assignedImage"] = filename
+                    # Uploading a scene-specific image should re-enable images even if hideImage was set
+                    layout_props.pop("hideImage", None)
+                    hide_image_flags[scene_idx] = False
+                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    scenes_need_update.append(scene)
+
+        # Third pass: Assign generic images to scenes without one yet (1 per scene)
+        # IMPORTANT: Do NOT assign generics to scenes that have hideImage=true or
+        # whose layout does not support images.
+        generic_idx = 0
+        for scene_idx in range(len(scenes)):
+            # Resolve this scene's layout to check no_image_layouts
+            scene = scenes[scene_idx]
+            scene_layout = get_fallback_layout(template_id)
+            if scene.remotion_code:
+                try:
+                    scene_layout = json.loads(scene.remotion_code).get("layout", scene_layout)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            if (
+                not scene_image_map[scene_idx]
+                and not hide_image_flags[scene_idx]
+                and scene_layout not in no_image_layouts
+                and generic_idx < len(generic_files)
+            ):
+                # Pick next unused generic filename (enforce 1:1)
+                assigned_filename = None
+                while generic_idx < len(generic_files):
+                    candidate = generic_files[generic_idx]
+                    generic_idx += 1
+                    if candidate in used_generic_files:
+                        continue
+                    if candidate in scene_specific_files:
+                        continue
+                    assigned_filename = candidate
+                    break
+
+                if assigned_filename is None:
+                    continue
+
+                scene_image_map[scene_idx] = [assigned_filename]
+                used_generic_files.add(assigned_filename)
+                # Store assignment in remotion_code (if not already set)
+                layout_props = {}
+                layout = get_fallback_layout(template_id)
+                if scene.remotion_code:
+                    try:
+                        desc = json.loads(scene.remotion_code)
+                        layout = desc.get("layout", layout)
+                        layout_props = desc.get("layoutProps", {}) or {}
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                # Only update if assignment changed
+                if layout_props.get("assignedImage") != assigned_filename:
+                    layout_props["assignedImage"] = assigned_filename
+                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    scenes_need_update.append(scene)
+
+    # Commit scene updates if any
+    if scenes_need_update:
+        try:
+            db.commit()
+        except Exception as e:
+            print(f"[REBUILD_WORKSPACE] Failed to update scene assignments: {e}")
+            db.rollback()
 
     # Build audio asset lookup: scene order -> audio asset (for R2 fallback)
     audio_assets = {
@@ -218,21 +479,46 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             _copy_file(scene.voiceover_path, dest)
         else:
             # Local file missing — try R2 fallback
-            audio_asset = audio_assets.get(f"scene_{scene.order}.mp3")
+            # Extract filename from voiceover_path to handle reordering correctly
+            # After reordering, voiceover_path still points to original filename (e.g., scene_1.mp3)
+            # but scene.order may have changed (e.g., to 2), so we extract the actual filename
+            audio_filename = None
+            if scene.voiceover_path:
+                # Extract filename from path (handles both / and \ separators)
+                # Path format: "C:\...\audio\scene_X.mp3" or ".../audio/scene_X.mp3"
+                match = re.search(r'[\\/]scene_(\d+)\.mp3', scene.voiceover_path, re.IGNORECASE)
+                if match:
+                    audio_filename = f"scene_{match.group(1)}.mp3"
+                else:
+                    # Fallback: extract from last part of path
+                    path_parts = re.split(r'[\\/]', scene.voiceover_path)
+                    last_part = path_parts[-1] if path_parts else ""
+                    if last_part.startswith('scene_') and last_part.endswith('.mp3'):
+                        audio_filename = last_part
+            
+            # Use extracted filename if available, otherwise fall back to scene.order
+            lookup_filename = audio_filename or f"scene_{scene.order}.mp3"
+            audio_asset = audio_assets.get(lookup_filename)
             if audio_asset and audio_asset.r2_url:
                 if _download_url_to_file(audio_asset.r2_url, dest):
                     voiceover_filename = audio_dest_name
 
         # Parse layout descriptor from remotion_code (JSON)
-        layout = "text_narration"
+        fallback = get_fallback_layout(template_id)
+        layout = fallback
         layout_props = {}
         if scene.remotion_code:
             try:
                 desc = json.loads(scene.remotion_code)
-                layout = desc.get("layout", "text_narration")
+                layout = desc.get("layout", fallback)
                 layout_props = desc.get("layoutProps", {})
             except (json.JSONDecodeError, TypeError):
-                pass  # Legacy TSX code — use text_narration default
+                pass
+
+        # Check if image should be hidden for this scene (at most one image per scene)
+        hide_image = layout_props.get("hideImage", False)
+        raw_images = [] if hide_image else scene_image_map.get(i, [])
+        scene_images = raw_images[:1]
 
         scene_data.append(
             {
@@ -245,7 +531,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 "layoutProps": layout_props,
                 "durationSeconds": scene.duration_seconds,
                 "voiceoverFile": voiceover_filename,
-                "images": scene_image_map.get(i, []),
+                "images": scene_images,
             }
         )
 
@@ -373,15 +659,36 @@ def get_render_progress(project_id: int) -> dict:
     return _render_progress.get(project_id, {})
 
 
+# Resolution presets: label -> (width, height, scale)
+# Landscape: base is 1920x1080; Portrait: base is 1080x1920
+# Scale values must produce exact integer dimensions to avoid Remotion errors.
+# Instead of computing scale from target/base, we use --width/--height overrides
+# for sub-1080p resolutions, which guarantees integer output.
+RESOLUTION_PRESETS = {
+    "landscape": {
+        "480p":  {"width": 854,  "height": 480},
+        "720p":  {"width": 1280, "height": 720},
+        "1080p": {"width": 1920, "height": 1080},
+    },
+    "portrait": {
+        "480p":  {"width": 480,  "height": 854},
+        "720p":  {"width": 720,  "height": 1280},
+        "1080p": {"width": 1080, "height": 1920},
+    },
+}
+
+
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "1080p",
     aspect_ratio: str = "landscape",
+    composition_id: str = "DefaultVideo",
 ) -> list[str]:
+    """Build the Remotion render command with resolution scaling and optimizations."""
     """Build the Remotion render command. Always renders at native 1080p — no --scale."""
     is_portrait = aspect_ratio == "portrait"
 
     cmd = [
-        npx, "remotion", "render", "ExplainerVideo", output_path,
+        npx, "remotion", "render", composition_id, output_path,
         "--concurrency", "100%",              # use all CPU cores
         "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
         "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
@@ -390,24 +697,31 @@ def _build_render_cmd(
         "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
     ]
 
-    # For portrait, override the composition dimensions via --width / --height
-    if is_portrait:
-        cmd.extend(["--width", "1080", "--height", "1920"])
+    # Always use explicit --width / --height to guarantee integer dimensions
+    # Presets already handle both landscape and portrait correctly
+    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
+    preset = presets.get(resolution, presets["1080p"])
+    cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
 
 
 def render_video(project: Project, resolution: str = "1080p") -> str:
     """Render the video synchronously from the project workspace."""
+    # Ensure workspace has ALL templates before rendering
+    template_id_sync = validate_template_id(getattr(project, "template", "default"))
+    provision_workspace(project.id, template_id_sync)
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    composition_id = get_composition_id(template_id)
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
 
     result = subprocess.run(
         cmd,
@@ -429,15 +743,20 @@ MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 
 def start_render_async(project: Project, resolution: str = "1080p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
+    # Ensure workspace has ALL templates before rendering (Root.tsx imports them all)
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    provision_workspace(project.id, template_id)
     workspace = get_workspace_dir(project.id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = os.path.join(output_dir, "video.mp4")
     aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    composition_id = get_composition_id(template_id)
 
     npx = shutil.which("npx") or "npx"
-    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio)
+    cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
 
     _render_progress[project.id] = {
         "progress": 0,
@@ -573,6 +892,23 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                             project.status = ProjectStatus.DONE
                             db.commit()
                             print(f"[REMOTION] Project {project_id} marked DONE (no R2)")
+
+                            # Send download-ready email (link to dashboard since no CDN URL)
+                            try:
+                                from app.models.user import User
+                                user = db.query(User).filter(User.id == project.user_id).first()
+                                if user:
+                                    dashboard_url = f"{settings.FRONTEND_URL}/projects/{project_id}"
+                                    email_service.send_download_ready_email(
+                                        user_email=user.email,
+                                        user_name=user.name,
+                                        project_name=project.name,
+                                        video_url=dashboard_url,
+                                    )
+                            except EmailServiceError as email_err:
+                                logger.error(f"[REMOTION] Download email failed for project {project_id}: {email_err}")
+                            except Exception as email_err:
+                                logger.error(f"[REMOTION] Unexpected error sending download email for project {project_id}: {email_err}", exc_info=True)
                     finally:
                         db.close()
                 except Exception as e:
@@ -672,6 +1008,22 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             project.status = ProjectStatus.DONE
             db.commit()
             print(f"[REMOTION] Video uploaded to R2 and project {project_id} marked DONE")
+
+            # Send download-ready email notification to the user
+            try:
+                from app.models.user import User
+                user = db.query(User).filter(User.id == project.user_id).first()
+                if user:
+                    email_service.send_download_ready_email(
+                        user_email=user.email,
+                        user_name=user.name,
+                        project_name=project.name,
+                        video_url=r2_url,
+                    )
+            except EmailServiceError as email_err:
+                logger.error(f"[REMOTION] Download email failed for project {project_id}: {email_err}")
+            except Exception as email_err:
+                logger.error(f"[REMOTION] Unexpected error sending download email for project {project_id}: {email_err}", exc_info=True)
         finally:
             db.close()
 
