@@ -19,6 +19,7 @@ class ProjectCreate(BaseModel):
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
+    video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
 
 
 class SceneOut(BaseModel):
@@ -87,6 +88,7 @@ class ProjectOut(BaseModel):
     logo_opacity: float = 0.9
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
+    video_style: str = "explainer"
     ai_assisted_editing_count: int = 0
     created_at: datetime
     updated_at: datetime

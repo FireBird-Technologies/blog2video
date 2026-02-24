@@ -50,6 +50,9 @@ class Project(Base):
     # Template (determines layout system + DSPy prompt)
     template: Mapped[str] = mapped_column(String(50), default="default")
 
+    # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
+    video_style: Mapped[str] = mapped_column(String(30), default="explainer")
+
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
     

@@ -113,6 +113,7 @@ export interface Project {
   logo_opacity: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  video_style?: string;
   ai_assisted_editing_count?: number;
   created_at: string;
   updated_at: string;
@@ -265,11 +266,12 @@ export interface TemplateMeta {
   id: string;
   name: string;
   description: string;
+  styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
   preview_colors?: { accent: string; bg: string; text: string };
 }
 
-export const getTemplates = () =>
-  api.get<TemplateMeta[]>("/templates");
+export const getTemplates = (style?: string) =>
+  api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
 
 export interface VoicePreview {
   voice_id: string;
@@ -296,7 +298,8 @@ export const createProject = (
   logo_opacity?: number,
   custom_voice_id?: string,
   aspect_ratio?: string,
-  template?: string
+  template?: string,
+  video_style?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -312,6 +315,7 @@ export const createProject = (
     custom_voice_id,
     aspect_ratio,
     template,
+    video_style,
   });
 
 export const createProjectFromDocs = (
@@ -329,6 +333,7 @@ export const createProjectFromDocs = (
     custom_voice_id?: string;
     aspect_ratio?: string;
     template?: string;
+    video_style?: string;
   } = {}
 ) => {
   const formData = new FormData();
@@ -347,6 +352,7 @@ export const createProjectFromDocs = (
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
   if (config.template) formData.append("template", config.template);
+  if (config.video_style) formData.append("video_style", config.video_style);
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });

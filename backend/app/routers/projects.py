@@ -66,6 +66,7 @@ def create_project(
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
+        video_style=(data.video_style or "explainer").strip().lower() or "explainer",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -93,6 +94,7 @@ def create_project_from_upload(
     custom_voice_id: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
+    video_style: Optional[str] = Form("explainer"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -146,13 +148,14 @@ def create_project_from_upload(
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
+        video_style=(video_style or "explainer").strip().lower() or "explainer",
         status=ProjectStatus.CREATED,
     )
     db.add(project)
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    print(f"[PROJECTS] Project {project.id} created with template='{project.template}'")
+    print(f"[PROJECTS] Project {project.id} created with template='{project.template}', video_style='{project.video_style}'")
 
     # ── Extract text + images from documents ────────────────
     try:
@@ -898,7 +901,10 @@ async def regenerate_scene(
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
     if should_regenerate_voiceover and new_narration.strip():
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
-        expanded_voiceover = await expand_narration_to_voiceover(new_narration, scene.title)
+        video_style = getattr(project, "video_style", None) or "explainer"
+        expanded_voiceover = await expand_narration_to_voiceover(
+            new_narration, scene.title, video_style=video_style
+        )
 
         original_narration = scene.narration_text
         scene.narration_text = expanded_voiceover
