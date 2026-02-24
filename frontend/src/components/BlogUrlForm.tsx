@@ -7,6 +7,12 @@ import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 
+export const VIDEO_STYLES = [
+  { id: "explainer", label: "Explainer", subtitle: "Educational, clear, step-by-step" },
+  { id: "promotional", label: "Promotional", subtitle: "Persuasive, benefit-focused, CTA" },
+  { id: "storytelling", label: "Storytelling", subtitle: "Narrative arc, emotional, story-driven" },
+] as const;
+
 interface Props {
   onSubmit: (
     url: string,
@@ -23,7 +29,8 @@ interface Props {
     customVoiceId?: string,
     aspectRatio?: string,
     uploadFiles?: File[],
-    template?: string
+    template?: string,
+    videoStyle?: string
   ) => Promise<void>;
   loading?: boolean;
   asModal?: boolean;
@@ -200,9 +207,30 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
   const [playingKey, setPlayingKey] = useState<string | null>(null);
 
-  // Step 3 — template & style
+  // Step 2 — video style & template
+  const [videoStyle, setVideoStyle] = useState<string>("explainer");
+  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
+  const [templateListTab, setTemplateListTab] = useState<"forStyle" | "others">("forStyle");
   const [template, setTemplate] = useState("nightfall");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  const styleDropdownRef = useRef<HTMLDivElement>(null);
+
+  // When style changes, show "For this style" templates first
+  useEffect(() => {
+    setTemplateListTab("forStyle");
+  }, [videoStyle]);
+
+  // Close style dropdown on click outside
+  useEffect(() => {
+    if (!styleDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (styleDropdownRef.current && !styleDropdownRef.current.contains(e.target as Node)) {
+        setStyleDropdownOpen(false);
+      }
+    };
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [styleDropdownOpen]);
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
   const [bgColor, setBgColor] = useState("#FFFFFF");
@@ -217,7 +245,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   /** When we navigated to step 3 (ms). Used to ignore submit from replayed click after "Go to step 3". */
   const step3EnteredAtRef = useRef<number | null>(null);
 
-  // Load templates & voice previews once
+  // Load all templates once (filtering by style is done in UI)
   useEffect(() => {
     getTemplates()
       .then((r) => setTemplates(r.data))
@@ -376,7 +404,8 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         customVoiceId.trim() || undefined,
         aspectRatio,
         docFiles,
-        template !== "default" ? template : undefined
+        template !== "default" ? template : undefined,
+        videoStyle
       );
       setDocFiles([]);
       setName("");
@@ -399,7 +428,8 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           customVoiceId.trim() || undefined,
           aspectRatio,
           undefined,
-          template !== "default" ? template : undefined
+          template !== "default" ? template : undefined,
+          videoStyle
         );
       }
       setUrls([""]);
@@ -686,21 +716,84 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
-  // ─── Step 2: Template (moved up; was step 3) ───────────────────
-  const availableTemplates = templates.length > 0
-    ? templates
-    : [
-        { id: "default", name: "Spotlight" },
-        { id: "nightfall", name: "Nightfall" },
-        { id: "gridcraft", name: "Gridcraft" },
-        { id: "spotlight", name: "Spotlight" },
-      ];
+  // ─── Step 2: Video style + Template ──────────────────────────
+  const FALLBACK_TEMPLATES: TemplateMeta[] = [
+    { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "promotional", "storytelling"] },
+    { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional", "storytelling"] },
+    { id: "gridcraft", name: "Gridcraft", description: "", styles: ["explainer", "promotional", "storytelling"] },
+    { id: "spotlight", name: "Spotlight", description: "", styles: ["explainer", "promotional", "storytelling"] },
+  ];
+  const styleLower = (videoStyle || "explainer").toLowerCase();
+  const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
+  const suggestedTemplates = sourceList.filter(
+    (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
+  );
+  const otherTemplates = sourceList.filter(
+    (t) => !t.styles?.some((s) => s.toLowerCase() === styleLower)
+  );
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
 
   const step2Template = (
     <div className="space-y-5">
+      {/* Video style — prominent dropdown; drives script & voiceover tone */}
+      <div className="relative" ref={styleDropdownRef}>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Video Style
+        </label>
+        <p className="text-[11px] text-gray-500 mb-2">
+          Script and voiceover will match this style. Templates below filter by style; you can pick others in the &quot;Others&quot; tab.
+        </p>
+        <button
+          type="button"
+          onClick={() => setStyleDropdownOpen((o) => !o)}
+          className="w-full text-left px-4 py-3.5 rounded-xl border-2 border-purple-500 bg-purple-50/80 shadow-[0_0_0_3px_rgba(124,58,237,0.1)] flex items-center justify-between gap-3 transition-all hover:bg-purple-50"
+        >
+          <div>
+            <div className="text-sm font-semibold text-gray-800">
+              {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? "Explainer"}
+            </div>
+            <div className="text-[11px] text-purple-600 mt-0.5">
+              {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.subtitle ?? "Educational, clear, step-by-step"}
+            </div>
+          </div>
+          <svg
+            className={`w-5 h-5 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {styleDropdownOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-xl border-2 border-purple-200 bg-white shadow-lg overflow-hidden">
+            {VIDEO_STYLES.map((s) => {
+              const isSelected = (videoStyle || "explainer").toLowerCase() === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setVideoStyle(s.id);
+                    setStyleDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
+                    isSelected ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-800"
+                  }`}
+                >
+                  <div className="text-sm font-semibold">{s.label}</div>
+                  <div className={`text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
+                    {s.subtitle}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Selected template — full-width preview */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -732,53 +825,133 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </div>
       </div>
 
-      {/* All templates — scrollable box, 3 per row */}
+      {/* Templates — tab: "For [Style]" (only for this style) | "Others" (rest) */}
       <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          All Templates
-        </label>
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          <div className="grid grid-cols-3 gap-2">
-            {availableTemplates.map((t) => {
-              const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-              const desc = TEMPLATE_DESCRIPTIONS[t.id];
-              const isSelected = template === t.id;
-
-              return (
-                <div
-                  key={t.id}
-                  onClick={() => applyTemplate(t.id)}
-                  className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                    isSelected
-                      ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                      : "border-gray-200/60 hover:border-purple-300/60"
-                  }`}
-                >
-                  <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                    {PreviewComp ? (
-                      <PreviewComp key={`${t.id}-${step}`} />
-                    ) : (
-                      <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                        {t.name}
-                      </div>
-                    )}
-                    {isSelected && (
-                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                    <div className="text-[10px] font-semibold text-gray-800 truncate">
-                      {desc?.title ?? t.name}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Templates
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setTemplateListTab("forStyle")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                templateListTab === "forStyle"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? videoStyle}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplateListTab("others")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                templateListTab === "others"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Others
+            </button>
           </div>
+        </div>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          {templateListTab === "forStyle" ? (
+            suggestedTemplates.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {suggestedTemplates.map((t) => {
+                  const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                  const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                  const isSelected = template === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => applyTemplate(t.id)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        {PreviewComp ? (
+                          <PreviewComp key={`${t.id}-${step}`} />
+                        ) : (
+                          <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                            {t.name}
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {desc?.title ?? t.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                No templates for this style. Use the &quot;Others&quot; tab to pick any template.
+              </p>
+            )
+          ) : (
+            otherTemplates.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {otherTemplates.map((t) => {
+                  const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                  const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                  const isSelected = template === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => applyTemplate(t.id)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        {PreviewComp ? (
+                          <PreviewComp key={`${t.id}-${step}`} />
+                        ) : (
+                          <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                            {t.name}
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {desc?.title ?? t.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? videoStyle}&quot; tab.
+              </p>
+            )
+          )}
         </div>
       </div>
 
