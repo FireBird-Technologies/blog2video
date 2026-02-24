@@ -55,6 +55,7 @@ const NAV_LINKS = [
   { href: "#how", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/blogs", label: "Blogs" },
 ];
 
 export default function Landing() {
@@ -736,15 +737,48 @@ export default function Landing() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="py-10 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">B2V</div>
-            Blog2Video
+    <footer className="py-4 border-t border-gray-100">
+      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between">
+        
+        {/* Left Side - Logo */}
+        <div className="flex items-center gap-2 text-gray-400 text-xs">
+          <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">
+            B2V
           </div>
-          <p>Powered by DSPy, Remotion, and ElevenLabs</p>
+          <span>Blog2Video</span>
         </div>
-      </footer>
+
+        {/* Right Side - Company Credit + Powered By */}
+        <div className="flex flex-col items-end gap-1">
+          
+          {/* Made By */}
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span>Made by</span>
+
+            <a
+              href="https://firebird-technologies.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-gray-500 font-medium hover:text-purple-600 transition duration-200"
+            >
+              <img
+                src="/Logo-Firebird.webp"
+                alt="Firebird Technologies Logo"
+                className="h-5 object-contain"
+              />
+              FireBirdTech
+            </a>
+          </div>
+
+          {/* Powered By - Smaller */}
+          <p className="text-[10px] text-gray-400">
+            Powered by DSPy, Remotion, and ElevenLabs
+          </p>
+
+        </div>
+
+      </div>
+    </footer>
     </div>
   );
 }

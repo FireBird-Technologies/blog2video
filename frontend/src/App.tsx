@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
+import Blog from "./pages/Blog";
 import Navbar from "./components/layout/navbar";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -49,6 +50,7 @@ function AppRoutes() {
         />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/blogs" element={<Blog />} />
 
         {/* Protected */}
         <Route
