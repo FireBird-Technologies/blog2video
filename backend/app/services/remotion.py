@@ -7,6 +7,7 @@ import signal
 import re
 import threading
 import tempfile
+import time
 import zipfile
 import requests
 from typing import Optional
@@ -1013,8 +1014,15 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
                 return None
 
             user_id = project.user_id
-            r2_url = r2_storage.upload_project_video(user_id, project_id, local_path)
-            r2_key = r2_storage.video_key(user_id, project_id)
+            # Use a versioned key so each render (including re-render) gets a new URL.
+            # That way the project's URL updates and caches don't serve the old video.
+            version = str(int(time.time()))
+            if project.r2_video_key:
+                r2_storage.delete_object(project.r2_video_key)
+            r2_url = r2_storage.upload_project_video_versioned(
+                user_id, project_id, local_path, version
+            )
+            r2_key = r2_storage.video_key_versioned(user_id, project_id, version)
 
             project.r2_video_key = r2_key
             project.r2_video_url = r2_url
