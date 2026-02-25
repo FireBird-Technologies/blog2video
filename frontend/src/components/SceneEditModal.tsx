@@ -60,6 +60,22 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     bento_steps: { title: 18, desc: 13 },
     pull_quote: { title: 42, desc: 16 },
   },
+  whiteboard: {
+    drawn_title: { title: [82, 118], desc: [30, 36] },
+    marker_story: { title: [68, 92], desc: [30, 40] },
+    stick_figure_scene: { title: [66, 84], desc: [30, 38] },
+    stats_figures: { title: [58, 72], desc: [26, 30] },
+    stats_chart: { title: [52, 64], desc: [24, 28] },
+    comparison: { title: [52, 64], desc: [24, 28] },
+  },
+  newspaper: {
+    news_headline: { title: [48, 64], desc: [19, 23] },
+    article_lead: { title: [14, 16], desc: [20, 24] },
+    pull_quote: { title: [30, 38], desc: [16, 19] },
+    data_snapshot: { title: [38, 50], desc: [14, 16] },
+    fact_check: { title: [36, 48], desc: [22, 24] },
+    news_timeline: { title: [36, 48], desc: [15, 18] },
+  },
 };
 
 export function getDefaultFontSizes(
@@ -192,7 +208,53 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   kpi_grid: [{ key: "dataPoints", label: "Data points", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value" }] }],
+  // Whiteboard template
+  stats_figures: [{ key: "stats", label: "Key figures", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
+  stats_chart: [{ key: "stats", label: "Bar chart rows", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number 0–100" }], maxItems: 5 }],
+  // Newspaper template
+  news_headline: [
+    { key: "category", label: "Section / category", type: "string", placeholder: "e.g. Politics, Technology" },
+    { key: "leftThought", label: "Words to highlight (comma-separated)", type: "string", placeholder: "e.g. government,funding" },
+    { key: "stats", label: "Byline", type: "object_array", subFields: [{ key: "value", label: "Author (row 1) / Date (row 2)" }], maxItems: 2 },
+  ],
+  article_lead: [
+    { key: "stats", label: "Pull stat", type: "object_array", subFields: [{ key: "value", label: "Number" }, { key: "label", label: "Caption" }], maxItems: 1 },
+  ],
+  data_snapshot: [
+    { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }], maxItems: 4 },
+  ],
+  fact_check: [
+    { key: "leftThought", label: "Claimed", type: "text", placeholder: "The claim to check" },
+    { key: "rightThought", label: "The facts", type: "text", placeholder: "The factual correction" },
+    { key: "stats", label: "Column labels", type: "object_array", subFields: [{ key: "label", label: "Left (row 1) / Right (row 2) label" }], maxItems: 2 },
+  ],
+  news_timeline: [
+    { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
+  ],
 };
+
+/** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
+const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
+  whiteboard: {
+    comparison: [
+      { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
+      { key: "rightThought", label: "Right thought", type: "text", placeholder: "e.g. Option B or second idea" },
+    ],
+  },
+  newspaper: {
+    pull_quote: [
+      { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
+    ],
+  },
+};
+
+function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
+  if (!layoutId) return undefined;
+  const t = (template || "default").toLowerCase();
+  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[layoutId] ?? LAYOUT_TEXT_FIELDS[layoutId];
+}
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -255,6 +317,7 @@ export default function SceneEditModal({
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
+  const [aiNarration, setAiNarration] = useState(scene.narration_text || "");
   const [titleFontSize, setTitleFontSize] = useState<string>("");
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
@@ -322,7 +385,10 @@ export default function SceneEditModal({
     if (!open) return;
     setTitle(scene.title);
     setDescription("");
-    setDisplayText(scene.narration_text || "");
+    // Prefer dedicated display_text when available; otherwise fall back to narration_text.
+    const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
+    setDisplayText(initialDisplay);
+    setAiNarration(scene.narration_text || "");
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -486,7 +552,8 @@ export default function SceneEditModal({
         }
         await updateScene(project.id, scene.id, {
           title,
-          narration_text: displayText,
+          // Update only the on-screen display text here; narration_text continues to drive voiceover.
+          display_text: displayText,
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
         });
         if (selectedImageFile) {
@@ -510,11 +577,20 @@ export default function SceneEditModal({
       const keepLayout = selectedLayout === "__keep__";
       setLoading(true);
       try {
+        // If narration text was edited, persist it before regenerating layout/voiceover
+        const trimmedNarration = aiNarration.trim();
+        if (trimmedNarration !== (scene.narration_text || "").trim()) {
+          await updateScene(project.id, scene.id, {
+            narration_text: trimmedNarration,
+          });
+        }
+
         await regenerateScene(
           project.id,
           scene.id,
           description,
-          scene.narration_text || "",
+          // For this modal, keep display text unchanged by sending an empty display-text payload.
+          "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
           undefined
@@ -709,13 +785,15 @@ export default function SceneEditModal({
               </div>
 
               {/* ── Layout content fields (dynamic per layout type) ── */}
-              {currentLayoutId && LAYOUT_TEXT_FIELDS[currentLayoutId] && (
+              {(() => {
+                const layoutFields = getLayoutFields(project.template || "default", currentLayoutId);
+                return currentLayoutId && layoutFields && (
                 <div>
                   <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                     Layout content
                   </h4>
                   <div className="space-y-4">
-                    {LAYOUT_TEXT_FIELDS[currentLayoutId].map((field) => {
+                    {layoutFields.map((field) => {
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "string") {
@@ -860,7 +938,8 @@ export default function SceneEditModal({
                     })}
                   </div>
                 </div>
-              )}
+              );
+              })()}
 
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
@@ -1048,6 +1127,22 @@ export default function SceneEditModal({
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={2}
                 />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Narration text (voiceover script)
+                </h4>
+                <AutoGrowTextarea
+                  value={aiNarration}
+                  onChange={(e) => setAiNarration(e.target.value)}
+                  placeholder="Edit the narration that will be spoken in the voiceover..."
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                  minRows={3}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  This controls the spoken narration and scene timing. Display text is edited in Manual mode.
+                </p>
               </div>
 
               <div className="flex items-center justify-between">

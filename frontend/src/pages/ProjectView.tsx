@@ -1800,11 +1800,12 @@ export default function ProjectView() {
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                     Display text
                                   </h4>
                                   <p className="text-sm text-gray-700 leading-relaxed">
-                                    {scene.narration_text || (
+                                    {/* Prefer dedicated display_text when available; otherwise fall back to narration_text */}
+                                    {(scene.display_text ?? scene.narration_text) || (
                                       <span className="italic text-gray-300">
                                         No narration
                                       </span>

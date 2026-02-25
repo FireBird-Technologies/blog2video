@@ -106,7 +106,9 @@ export default function SceneEditor({
   const handleStartManualEdit = (scene: Scene) => {
     setEditingSceneId(scene.id);
     setEditingTitle(scene.title);
-    setEditingDisplayText(scene.narration_text || "");
+    // Prefer dedicated display_text when available; otherwise fall back to narration_text.
+    const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
+    setEditingDisplayText(initialDisplay);
     setEditMode("manual");
   };
 
@@ -115,7 +117,8 @@ export default function SceneEditor({
     try {
       await updateScene(project.id, editingSceneId, { 
         title: editingTitle,
-        narration_text: editingDisplayText 
+        // Update only on-screen display text here; narration_text remains the narration script.
+        display_text: editingDisplayText, 
       });
       setEditingSceneId(null);
       setEditingTitle("");
@@ -151,7 +154,9 @@ export default function SceneEditor({
     }
     setEditingSceneId(scene.id);
     setAiDescription("");
-    setDisplayText(scene.narration_text || "");
+    // Prefer dedicated display_text when available; otherwise fall back to narration_text.
+    const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
+    setDisplayText(initialDisplay);
     setRegenerateVoiceover(false);
     setSelectedLayout("");
     setSelectedImage(null);

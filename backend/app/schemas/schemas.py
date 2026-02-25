@@ -20,6 +20,7 @@ class ProjectCreate(BaseModel):
     logo_size: Optional[str] = "default"  # default, small, medium, large, extra_large
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
+    video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
 
 
 class SceneOut(BaseModel):
@@ -28,6 +29,7 @@ class SceneOut(BaseModel):
     order: int
     title: str
     narration_text: str
+    display_text: Optional[str] = None
     visual_description: str
     remotion_code: Optional[str] = None
     voiceover_path: Optional[str] = None
@@ -89,6 +91,7 @@ class ProjectOut(BaseModel):
     logo_size: str = "default"
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
+    video_style: str = "explainer"
     ai_assisted_editing_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -135,6 +138,7 @@ class ProjectListOut(BaseModel):
 class SceneUpdate(BaseModel):
     title: Optional[str] = None
     narration_text: Optional[str] = None
+    display_text: Optional[str] = None
     visual_description: Optional[str] = None
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
