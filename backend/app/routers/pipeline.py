@@ -312,14 +312,17 @@ async def _generate_scenes(project: Project, db: Session):
             
             # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
             scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
-            email_service.schedule_followup_email(
-                user_email=user.email,
-                user_name=user.name,
-                project_name=project.name,
-                project_url=project_url,
-                scheduled_at=scheduled_at,
-            )
-            logger.info(f"[PIPELINE] Project {project.id}: follow-up email scheduled at {scheduled_at}")
+            # Only schedule follow-up email for unpaid users
+            if user.plan == PlanTier.FREE:
+                email_service.schedule_followup_email(
+                    user_email=user.email,
+                    user_name=user.name,
+                    project_name=project.name,
+                    project_url=project_url,
+                    scheduled_at=scheduled_at,
+                )
+                logger.info(f"[PIPELINE] Project {project.id}: follow-up email scheduled at {scheduled_at}")
+            
         else:
             logger.error(f"[PIPELINE] Project {project.id}: no user found, skipping preview + follow-up emails")
     except EmailServiceError as e:
