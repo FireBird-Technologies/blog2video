@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+
+    # AI image generation: provider from env ("openai" | "gemini")
+    IMAGE_PROVIDER: str = "openai"
+    DSPY_IMAGE_LM: str = "openai/gpt-4o-mini"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
