@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -53,7 +53,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
 
       {/* Vintage newspaper texture — in-component so it loads in preview */}
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         aria-hidden
         style={{

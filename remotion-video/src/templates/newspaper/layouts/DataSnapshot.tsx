@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -49,7 +49,7 @@ const rightX = width / 2 + width / 2 * (1 - shardProgress) + 50 * shardBreak;
       {/* Shard images */}
       {/* Left shard */}
 <img
-  src="/vintage-news.avif"
+  src={staticFile("vintage-news.avif")}
   alt=""
   style={{
     position: "absolute",
@@ -67,7 +67,7 @@ const rightX = width / 2 + width / 2 * (1 - shardProgress) + 50 * shardBreak;
 
 {/* Right shard */}
 <img
-  src="/vintage-news.avif"
+  src={staticFile("vintage-news.avif")}
   alt=""
   style={{
     position: "absolute",
@@ -83,7 +83,7 @@ const rightX = width / 2 + width / 2 * (1 - shardProgress) + 50 * shardBreak;
   }}
 />
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         style={{
           position: "absolute",

@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
   Img,
+  staticFile,
 } from "remotion";
 import type { BlogLayoutProps } from "../types";
 
@@ -39,6 +40,8 @@ const DISPERSE_DURATION = 45;
 /* ───────────────────────────────────────── */
 /* SHATTER BACKGROUND                       */
 /* ───────────────────────────────────────── */
+
+const VINTAGE_BG = staticFile("vintage-news.avif");
 
 const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
@@ -104,7 +107,7 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
               position: "absolute",
               inset: 0,
               clipPath: shard.clip,
-              backgroundImage: `url("/vintage-news.avif")`,
+              backgroundImage: `url("${VINTAGE_BG}")`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               transform: `translate(${tx}px, ${ty}px) rotate(${rotate}deg) scale(${scale})`,

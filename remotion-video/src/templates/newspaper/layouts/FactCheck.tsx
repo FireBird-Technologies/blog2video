@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -69,7 +69,7 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
 
       {/* Shards */}
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         style={{
           position: "absolute",
@@ -85,7 +85,7 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
         }}
       />
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         style={{
           position: "absolute",
