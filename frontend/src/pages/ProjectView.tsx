@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
   startGeneration,
@@ -15,6 +15,7 @@ import {
   reorderScenes,
   updateScene,
   updateSceneImage,
+  generateSceneImage,
   deleteAsset,
   getValidLayouts,
   Project,
@@ -343,7 +344,15 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
+  const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
+  const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [generateImageError, setGenerateImageError] = useState<string | null>(null);
+  const [generateErrorSceneId, setGenerateErrorSceneId] = useState<number | null>(null);
+  const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -955,6 +964,68 @@ export default function ProjectView() {
     } finally {
       setUploadingSceneId(null);
     }
+  };
+
+  const handleGenerateSceneImageClick = (sceneId: number) => {
+    if (!isPro) {
+      setShowAiImageUpgradeModal(true);
+      return;
+    }
+    handleGenerateSceneImage(sceneId);
+  };
+
+  const handleGenerateSceneImage = async (sceneId: number) => {
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
+    setGeneratingImageSceneId(sceneId);
+    try {
+      const res = await generateSceneImage(project.id, sceneId);
+      setGeneratedImageBase64(res.data.image_base64);
+      setGeneratedPrompt(res.data.refined_prompt);
+      setGeneratedImageSceneId(sceneId);
+    } catch (err: unknown) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : 0;
+      if (status === 403) {
+        setShowAiImageUpgradeModal(true);
+      } else {
+        const msg =
+          err && typeof err === "object" && "response" in err
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+            : "Image generation failed";
+        setGenerateImageError(String(msg));
+        setGenerateErrorSceneId(sceneId);
+      }
+      setGeneratedImageSceneId(null);
+    } finally {
+      setGeneratingImageSceneId(null);
+    }
+  };
+
+  const handleKeepGeneratedSceneImage = (sceneId: number) => {
+    if (!generatedImageBase64) return;
+    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    fetch(dataUrl)
+      .then((r) => r.blob())
+      .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
+      .then((file) => {
+        setGeneratedImageBase64(null);
+        setGeneratedPrompt(null);
+        setGenerateImageError(null);
+        setGenerateErrorSceneId(null);
+        setGeneratedImageSceneId(null);
+        handleAddSceneImage(sceneId, file);
+      })
+      .catch(() => setGenerateImageError("Failed to use generated image"));
+  };
+
+  const handleDiscardGeneratedSceneImage = () => {
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
+    setGeneratedImageSceneId(null);
   };
 
   // Audio assets for R2 URL resolution
@@ -1889,6 +1960,7 @@ export default function ProjectView() {
                                         Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
                                       </h4>
                                       {sceneSupportsImage ? (
+                                        <>
                                         <div className="flex flex-wrap gap-2 items-start">
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
@@ -1920,6 +1992,61 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
+                                          {generatedImageSceneId === scene.id && generatedImageBase64 && (
+                                            <div className="relative rounded-lg overflow-hidden border-2 border-amber-400 flex-shrink-0 bg-gray-50 w-20">
+                                              <img
+                                                src={`data:image/png;base64,${generatedImageBase64}`}
+                                                alt="AI generated"
+                                                className="h-24 w-auto object-cover"
+                                              />
+                                              {generatedPrompt && (
+                                                <p className="text-[10px] text-gray-500 px-1 py-0.5 max-w-[80px] truncate" title={generatedPrompt}>
+                                                  {generatedPrompt}
+                                                </p>
+                                              )}
+                                              <div className="flex gap-1 p-1">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleKeepGeneratedSceneImage(scene.id)}
+                                                  className="flex-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-600 text-white hover:bg-purple-700"
+                                                >
+                                                  Keep
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={handleDiscardGeneratedSceneImage}
+                                                  className="flex-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                >
+                                                  Discard
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleGenerateSceneImageClick(scene.id)}
+                                            disabled={
+                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
+                                                || generatingImageSceneId === scene.id
+                                            }
+                                            title={
+                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
+                                                ? "Add title or narration to generate an image"
+                                                : "Generate image with AI"
+                                            }
+                                            className="flex items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-amber-700 flex-shrink-0"
+                                          >
+                                            {generatingImageSceneId === scene.id ? (
+                                              <span className="text-xs">…</span>
+                                            ) : (
+                                              <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                                </svg>
+                                                <span className="text-[10px] font-medium">AI</span>
+                                              </>
+                                            )}
+                                          </button>
                                           <label
                                             className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
                                               uploadingSceneId === scene.id
@@ -1949,6 +2076,13 @@ export default function ProjectView() {
                                             )}
                                           </label>
                                         </div>
+                                        {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
+                                          <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
+                                        )}
+                                        {!(scene.title || "").trim() && !(scene.narration_text || "").trim() && (
+                                          <p className="text-xs text-gray-400 mt-1.5">Add title or narration to use AI image generation.</p>
+                                        )}
+                                        </>
                                       ) : (
                                         <p className="text-xs text-gray-400 italic">
                                           This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
@@ -1977,6 +2111,35 @@ export default function ProjectView() {
                     imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
                     onSaved={loadProject}
                   />
+                )}
+
+                {/* AI image upgrade modal (scenes tab) */}
+                {showAiImageUpgradeModal && (
+                  <div className="fixed inset-0 z-[110] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro feature</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        AI image generation is available on the Pro plan. Upgrade to unlock.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/pricing")}
+                          className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          Go to pricing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAiImageUpgradeModal(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                        >
+                          Maybe later
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
