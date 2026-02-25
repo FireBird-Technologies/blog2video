@@ -1,7 +1,8 @@
 import React from "react";
 
 /**
- * Clean editorial paper background.
+ * Editorial paper background: base + paper grain.
+ * Vintage image + overlay are in each layout so they can use staticFile() for render.
  */
 export const NewsBackground: React.FC<{ bgColor?: string }> = ({
   bgColor = "#FAFAF8",

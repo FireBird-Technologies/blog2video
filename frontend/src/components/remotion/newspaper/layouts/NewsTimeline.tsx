@@ -45,6 +45,35 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      <img
+        src="/vintage-news.avif"
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
       {/* Single Image Card — tilted + slightly broken */}
       {imageUrl && (
         <div
@@ -84,6 +113,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           flexDirection: "column",
           padding: p ? "6% 6%" : "5% 10%",
           gap: p ? 22 : 32,
+          zIndex: 2,
         }}
       >
         {/* Header */}
@@ -91,8 +121,8 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           <div
             style={{
               fontFamily: H_FONT,
-              fontSize: titleFontSize ?? (p ? 42 : 56),
-              fontWeight: 700,
+              fontSize: titleFontSize ?? (p ? 46 : 60),
+              fontWeight: 800,
               color: textColor,
               lineHeight: 1.1,
               marginBottom: 12,
@@ -163,8 +193,8 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                   <div
                     style={{
                       fontFamily: B_FONT,
-                      fontSize: p ? 16 : 20,
-                      fontWeight: 700,
+                      fontSize: p ? 17 : 21,
+                      fontWeight: 800,
                       color: isLatest ? accentColor : textColor,
                       opacity: dateOp * (isLatest ? 1 : 0.7),
                       whiteSpace: "nowrap",
@@ -181,12 +211,12 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                   <div
                     style={{
                       fontFamily: B_FONT,
-                      fontSize: descriptionFontSize ?? (p ? 20 : 28),
+                      fontSize: descriptionFontSize ?? (p ? 22 : 30),
                       color: textColor,
-                      opacity: textOp * (isLatest ? 1 : 0.82),
+                      opacity: textOp * (isLatest ? 1 : 0.88),
                       transform: `translateX(${textX}px)`,
                       lineHeight: 1.4,
-                      fontWeight: isLatest ? 600 : 400,
+                      fontWeight: isLatest ? 700 : 500,
                       borderLeft: isLatest ? `3px solid ${accentColor}` : "3px solid transparent",
                       paddingLeft: isLatest ? 10 : 0,
                       maxWidth: "65%",      // ⬅️ limit text width
@@ -207,9 +237,10 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           <div
             style={{
               fontFamily: B_FONT,
-              fontSize: p ? 14 : 16,
+              fontSize: p ? 15 : 17,
+              fontWeight: 500,
               color: textColor,
-              opacity: interpolate(frame, [70, 85], [0, 0.5], { extrapolateRight: "clamp" }),
+              opacity: interpolate(frame, [70, 85], [0, 0.6], { extrapolateRight: "clamp" }),
               lineHeight: 1.4,
             }}
           >

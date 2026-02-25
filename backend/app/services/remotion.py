@@ -230,6 +230,19 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
 
+    # Copy static assets from the base Remotion project public/ into this workspace.
+    # This ensures template-specific backgrounds (like the vintage newspaper texture)
+    # are available both in preview and in the final rendered video.
+    template_public_dir = os.path.join(settings.REMOTION_PROJECT_PATH, "public")
+    if os.path.isdir(template_public_dir):
+        for root, _dirs, filenames in os.walk(template_public_dir):
+            for filename in filenames:
+                src = os.path.join(root, filename)
+                rel = os.path.relpath(src, template_public_dir)
+                dst = os.path.join(public_dir, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
+
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
     all_image_files: list[str] = []

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -33,9 +33,38 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "7% 6%" : "6% 9%", gap: p ? 24 : 32 }}>
+
+      <img
+        src={staticFile("vintage-news.avif")}
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "7% 6%" : "6% 9%", gap: p ? 24 : 32, zIndex: 2 }}>
         <div style={{ opacity: titleOp }}>
-          <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 38 : 50), fontWeight: 700, color: textColor, lineHeight: 1.1, marginBottom: 10 }}>{title}</div>
+          <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 42 : 54), fontWeight: 800, color: textColor, lineHeight: 1.1, marginBottom: 10 }}>{title}</div>
           <div style={{ height: 2, background: textColor, opacity: 0.12, width: `${ruleW}%` }} />
         </div>
         <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: p ? 16 : 22, alignContent: "flex-start" }}>
@@ -68,15 +97,15 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                   boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                 }}
               >
-                <div style={{ fontFamily: H_FONT, fontSize: p ? 42 : 54, fontWeight: 700, color: textColor, lineHeight: 1, marginBottom: 10 }}>{displayVal}</div>
+                <div style={{ fontFamily: H_FONT, fontSize: p ? 46 : 58, fontWeight: 800, color: textColor, lineHeight: 1, marginBottom: 10 }}>{displayVal}</div>
                 <div style={{ height: 4, background: accentColor, borderRadius: 2, width: `${ulW}%`, marginBottom: 10 }} />
-                <div style={{ fontFamily: B_FONT, fontSize: p ? 14 : 16, color: textColor, opacity: 0.68, lineHeight: 1.3 }}>{item.label}</div>
+                <div style={{ fontFamily: B_FONT, fontSize: p ? 15 : 17, fontWeight: 500, color: textColor, opacity: 0.75, lineHeight: 1.3 }}>{item.label}</div>
               </div>
             );
           })}
         </div>
         {narration && (
-          <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 14 : 16), color: textColor, opacity: interpolate(frame, [60, 76], [0, 0.55], { extrapolateRight: "clamp" }), lineHeight: 1.4 }}>
+          <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 15 : 17), fontWeight: 500, color: textColor, opacity: interpolate(frame, [60, 76], [0, 0.6], { extrapolateRight: "clamp" }), lineHeight: 1.4 }}>
             {narration}
           </div>
         )}

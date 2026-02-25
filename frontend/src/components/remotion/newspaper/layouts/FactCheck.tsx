@@ -66,6 +66,35 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      <img
+        src="/vintage-news.avif"
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        opacity: 0.2,
+        filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
       <div
         style={{
           position: "absolute",
@@ -74,6 +103,7 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
           flexDirection: "column",
           padding: p ? "7% 6%" : "5% 8%",
           gap: p ? 20 : 28,
+          zIndex: 2,
         }}
       >
         {/* Header */}
@@ -87,8 +117,8 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 36 : 48),
-                fontWeight: 700,
+                fontSize: titleFontSize ?? (p ? 40 : 52),
+                fontWeight: 800,
                 color: textColor,
                 lineHeight: 1,
               }}
@@ -144,7 +174,8 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: descriptionFontSize ?? (p ? 22 : 28),
+                fontSize: descriptionFontSize ?? (p ? 24 : 30),
+                fontWeight: 500,
                 color: textColor,
                 lineHeight: 1.45,
                 fontStyle: "italic",
@@ -215,10 +246,11 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 19 : 24),
+                fontSize: descriptionFontSize ?? (p ? 21 : 26),
+                fontWeight: 500,
                 color: textColor,
                 lineHeight: 1.55,
-                opacity: 0.9,
+                opacity: 0.95,
               }}
             >
               {rightThought}
@@ -234,8 +266,8 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
               borderTop: `2px solid ${accentColor}`,
               paddingTop: 14,
               fontFamily: B_FONT,
-              fontSize: p ? 15 : 18,
-              fontWeight: 600,
+              fontSize: p ? 16 : 19,
+              fontWeight: 700,
               color: textColor,
             }}
           >

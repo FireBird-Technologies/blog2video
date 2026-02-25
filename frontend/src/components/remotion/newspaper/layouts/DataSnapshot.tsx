@@ -54,6 +54,35 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      <img
+        src="/vintage-news.avif"
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        opacity: 0.2,
+        filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
       <div
         style={{
           position: "absolute",
@@ -62,6 +91,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           flexDirection: "column",
           padding: p ? "7% 6%" : "6% 9%",
           gap: p ? 24 : 32,
+          zIndex: 2,
         }}
       >
         {/* Header */}
@@ -69,8 +99,8 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           <div
             style={{
               fontFamily: H_FONT,
-              fontSize: titleFontSize ?? (p ? 38 : 50),
-              fontWeight: 700,
+              fontSize: titleFontSize ?? (p ? 42 : 54),
+              fontWeight: 800,
               color: textColor,
               lineHeight: 1.1,
               marginBottom: 10,
@@ -130,8 +160,8 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: H_FONT,
-                    fontSize: p ? 42 : 54,
-                    fontWeight: 700,
+                    fontSize: p ? 46 : 58,
+                    fontWeight: 800,
                     color: textColor,
                     lineHeight: 1,
                     marginBottom: 10,
@@ -155,9 +185,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 14 : 16,
+                    fontSize: p ? 15 : 17,
+                    fontWeight: 500,
                     color: textColor,
-                    opacity: 0.68,
+                    opacity: 0.75,
                     lineHeight: 1.3,
                   }}
                 >
@@ -173,9 +204,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           <div
             style={{
               fontFamily: B_FONT,
-              fontSize: descriptionFontSize ?? (p ? 14 : 16),
+              fontSize: descriptionFontSize ?? (p ? 15 : 17),
+              fontWeight: 500,
               color: textColor,
-              opacity: interpolate(frame, [60, 76], [0, 0.55], { extrapolateRight: "clamp" }),
+              opacity: interpolate(frame, [60, 76], [0, 0.6], { extrapolateRight: "clamp" }),
               lineHeight: 1.4,
             }}
           >
