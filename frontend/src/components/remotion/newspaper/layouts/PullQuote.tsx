@@ -55,6 +55,35 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      <img
+        src="/vintage-news.avif"
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        opacity: 0.2,
+        filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
       <div
         style={{
           position: "absolute",
@@ -63,6 +92,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: p ? "8% 6%" : "6% 10%",
+          zIndex: 2,
         }}
       >
         <div style={{ display: "flex", gap: p ? 20 : 32, alignItems: "flex-start", maxWidth: 860, width: "100%" }}>
@@ -102,8 +132,8 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 40 : 50),
-                fontWeight: 400,
+                fontSize: titleFontSize ?? (p ? 44 : 54),
+                fontWeight: 500,
                 lineHeight: 1.4,
                 color: textColor,
                 marginBottom: p ? 24 : 32,
@@ -132,8 +162,8 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: descriptionFontSize ?? (p ? 28 : 34),
-                    fontWeight: 600,
+                    fontSize: descriptionFontSize ?? (p ? 30 : 36),
+                    fontWeight: 700,
                     color: textColor,
                     marginBottom: 4,
                   }}
@@ -144,9 +174,10 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                   <div
                     style={{
                       fontFamily: B_FONT,
-                      fontSize: p ? 13 : 15,
+                      fontSize: p ? 14 : 16,
+                      fontWeight: 600,
                       color: textColor,
-                      opacity: sourceOp * 0.55,
+                      opacity: sourceOp * 0.6,
                       letterSpacing: "0.04em",
                     }}
                   >

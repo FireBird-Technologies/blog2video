@@ -1,12 +1,12 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "Georgia, 'Times New Roman', serif";
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
-export const ArticleLead: React.FC<BlogLayoutProps> = ({
+export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "The Story",
   narration = "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers.",
   accentColor = "#FFE34D",
@@ -16,6 +16,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -47,32 +48,185 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+      {imageUrl && (
+        <>
+          <Img
+            src={imageUrl}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "grayscale(70%) contrast(90%) brightness(85%)",
+              zIndex: 0,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(220,220,220,0.5)",
+              zIndex: 1,
+              mixBlendMode: "multiply",
+            }}
+          />
+        </>
+      )}
+
       <NewsBackground bgColor={bgColor} />
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "7% 6%" : "6% 9%" }}>
+
+      <img
+        src={staticFile("vintage-news.avif")}
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          padding: p ? "7% 6%" : "6% 9%",
+          zIndex: 2,
+        }}
+      >
         <div style={{ marginBottom: p ? 18 : 24 }}>
           <div style={{ height: 3, background: textColor, width: `${ruleW}%`, marginBottom: 10 }} />
-          <div style={{ fontFamily: B_FONT, fontSize: titleFontSize ?? (p ? 14 : 16), fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: textColor, opacity: labelOp }}>
+          <div
+            style={{
+              fontFamily: B_FONT,
+              fontSize: titleFontSize ?? (p ? 34 : 34),
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: textColor,
+              opacity: labelOp,
+            }}
+          >
             {title}
           </div>
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: p ? "column" : "row", gap: p ? 20 : 40, alignItems: "flex-start" }}>
+
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: p ? "column" : "row",
+            gap: p ? 24 : 48,
+            alignItems: "flex-start",
+          }}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 20 : 24), color: textColor, lineHeight: 1.65 }}>
-              <span style={{ float: "left", fontFamily: H_FONT, fontSize: p ? 72 : 92, fontWeight: 700, lineHeight: 0.78, marginRight: 8, marginTop: 6, color: textColor, opacity: dropCapOp, transform: `translateY(${dropCapY}px)`, display: "inline-block" }}>
+            <div
+              style={{
+                fontFamily: B_FONT,
+                fontSize: descriptionFontSize ?? (p ? 24 : 28),
+                fontWeight: 500,
+                color: textColor,
+                lineHeight: 1.65,
+              }}
+            >
+              <span
+                style={{
+                  float: "left",
+                  fontFamily: H_FONT,
+                  fontSize: p ? 84 : 104,
+                  fontWeight: 800,
+                  lineHeight: 0.78,
+                  marginRight: 10,
+                  marginTop: 6,
+                  color: textColor,
+                  opacity: dropCapOp,
+                  transform: `translateY(${dropCapY}px)`,
+                  display: "inline-block",
+                }}
+              >
                 {dropChar}
               </span>
+
               <span>
                 {visText.length > 1 ? visText.slice(1) : ""}
                 {showCursor && visChars > 0 && (
-                  <span style={{ display: "inline-block", width: 2, height: "1em", background: textColor, opacity: 0.5, marginLeft: 2, verticalAlign: "text-bottom" }} />
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 2,
+                      height: "1em",
+                      background: textColor,
+                      opacity: 0.5,
+                      marginLeft: 2,
+                      verticalAlign: "text-bottom",
+                    }}
+                  />
                 )}
               </span>
             </div>
           </div>
+
           {pullVal && (
-            <div style={{ width: p ? "100%" : 200, flexShrink: 0, opacity: pullOp, transform: `translateX(${pullSlide}px)`, borderLeft: `4px solid ${accentColor}`, paddingLeft: 18, paddingTop: 4, paddingBottom: 4, alignSelf: p ? "flex-start" : "center" }}>
-              <div style={{ fontFamily: H_FONT, fontSize: p ? 52 : 64, fontWeight: 700, color: textColor, lineHeight: 1, marginBottom: 8 }}>{displayVal}</div>
-              {pullCap && <div style={{ fontFamily: B_FONT, fontSize: p ? 14 : 16, color: textColor, opacity: 0.68, lineHeight: 1.4 }}>{pullCap}</div>}
+            <div
+              style={{
+                width: p ? "100%" : 220,
+                flexShrink: 0,
+                opacity: pullOp,
+                transform: `translateX(${pullSlide}px)`,
+                borderLeft: `4px solid ${accentColor}`,
+                paddingLeft: 18,
+                paddingTop: 4,
+                paddingBottom: 4,
+                alignSelf: p ? "flex-start" : "center",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: H_FONT,
+                  fontSize: p ? 60 : 74,
+                  fontWeight: 800,
+                  color: textColor,
+                  lineHeight: 1,
+                  marginBottom: 8,
+                }}
+              >
+                {displayVal}
+              </div>
+              {pullCap && (
+                <div
+                  style={{
+                    fontFamily: B_FONT,
+                    fontSize: p ? 17 : 19,
+                    fontWeight: 600,
+                    color: textColor,
+                    opacity: 0.75,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {pullCap}
+                </div>
+              )}
             </div>
           )}
         </div>

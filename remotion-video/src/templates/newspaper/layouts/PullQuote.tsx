@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -36,14 +36,43 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: p ? "8% 6%" : "6% 10%" }}>
+
+      <img
+        src={staticFile("vintage-news.avif")}
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: p ? "8% 6%" : "6% 10%", zIndex: 2 }}>
         <div style={{ display: "flex", gap: p ? 20 : 32, alignItems: "flex-start", maxWidth: 860, width: "100%" }}>
           <div style={{ width: p ? 5 : 6, flexShrink: 0, background: accentColor, alignSelf: "stretch", clipPath: `inset(0 0 ${100 - barH}% 0)`, minHeight: 60, borderRadius: 2 }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: H_FONT, fontSize: p ? 80 : 110, lineHeight: 0.6, color: accentColor, opacity: quoteMarkOp, transform: `scale(${quoteMarkS})`, transformOrigin: "left top", display: "block", marginBottom: p ? 8 : 12, userSelect: "none" }}>
               &#8220;
             </div>
-            <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 30 : 38), fontWeight: 400, lineHeight: 1.4, color: textColor, marginBottom: p ? 24 : 32, letterSpacing: "-0.01em" }}>
+            <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 44 : 54), fontWeight: 500, lineHeight: 1.4, color: textColor, marginBottom: p ? 24 : 32, letterSpacing: "-0.01em" }}>
               {words.slice(0, visWords).join(" ")}
               {visWords < words.length && visWords > 0 && (
                 <span style={{ display: "inline-block", width: 2, height: "0.9em", background: textColor, opacity: 0.4, marginLeft: 4, verticalAlign: "middle" }} />
@@ -51,8 +80,8 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             </div>
             {narration && (
               <div style={{ opacity: attrOp }}>
-                <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 16 : 19), fontWeight: 600, color: textColor, marginBottom: 4 }}>{narration}</div>
-                {source && <div style={{ fontFamily: B_FONT, fontSize: p ? 13 : 15, color: textColor, opacity: sourceOp * 0.55, letterSpacing: "0.04em" }}>{source}</div>}
+                <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 30 : 36), fontWeight: 700, color: textColor, marginBottom: 4 }}>{narration}</div>
+                {source && <div style={{ fontFamily: B_FONT, fontSize: p ? 14 : 16, fontWeight: 600, color: textColor, opacity: sourceOp * 0.6, letterSpacing: "0.04em" }}>{source}</div>}
               </div>
             )}
           </div>

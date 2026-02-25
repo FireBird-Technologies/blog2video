@@ -83,6 +83,35 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      <img
+        src="/vintage-news.avif"
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        opacity: 0.2,
+        filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
       <div
         style={{
           position: "absolute",
@@ -99,8 +128,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           <div
             style={{
               fontFamily: B_FONT,
-              fontSize: titleFontSize ?? (p ? 31 : 31), // ⬅️ slightly bigger
-              fontWeight: 700,
+              fontSize: titleFontSize ?? (p ? 34 : 34),
+              fontWeight: 800,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
               color: textColor,
@@ -126,17 +155,18 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 22 : 26), // ⬅️ increased default size
+                fontSize: descriptionFontSize ?? (p ? 24 : 28),
+                fontWeight: 500,
                 color: textColor,
-                lineHeight: 1.75,
+                lineHeight: 1.65,
               }}
             >
               <span
                 style={{
                   float: "left",
                   fontFamily: H_FONT,
-                  fontSize: p ? 80 : 100, // ⬅️ bigger drop cap
-                  fontWeight: 700,
+                  fontSize: p ? 84 : 104,
+                  fontWeight: 800,
                   lineHeight: 0.78,
                   marginRight: 10,
                   marginTop: 6,
@@ -186,8 +216,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: p ? 56 : 70, // ⬅️ increased pull stat
-                  fontWeight: 700,
+                  fontSize: p ? 60 : 74,
+                  fontWeight: 800,
                   color: textColor,
                   lineHeight: 1,
                   marginBottom: 8,
@@ -199,9 +229,10 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 16 : 18, // ⬅️ slightly bigger caption
+                    fontSize: p ? 17 : 19,
+                    fontWeight: 600,
                     color: textColor,
-                    opacity: 0.68,
+                    opacity: 0.75,
                     lineHeight: 1.4,
                   }}
                 >

@@ -4,6 +4,7 @@ import {
   interpolate,
   useCurrentFrame,
   Img,
+  staticFile,
 } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
@@ -90,7 +91,36 @@ export const NewsHeadline: React.FC<
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
-      {/* Newspaper grain overlay */}
+      {/* Vintage newspaper texture — staticFile for render */}
+      <img
+        src={staticFile("vintage-news.avif")}
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Newspaper grain overlay — zIndex 1 so it stays behind content (zIndex 2) */}
       <div
         style={{
           position: "absolute",
@@ -100,6 +130,7 @@ export const NewsHeadline: React.FC<
           opacity: 0.4,
           pointerEvents: "none",
           mixBlendMode: "multiply",
+          zIndex: 1,
         }}
       />
 
@@ -117,7 +148,7 @@ export const NewsHeadline: React.FC<
             borderRadius: 6,
             boxShadow: "0 20px 45px rgba(0,0,0,0.3)",
             transform: `rotate(-9deg) scale(${imageAppear})`,
-            opacity: imageAppear,
+            opacity: 0.99 + 0.1 * imageAppear,
           }}
         >
           <Img
@@ -133,7 +164,7 @@ export const NewsHeadline: React.FC<
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Main Content — zIndex 2 so text sits above grain/overlays and renders sharp */}
       <div
         style={{
           position: "absolute",
@@ -142,6 +173,7 @@ export const NewsHeadline: React.FC<
           flexDirection: "column",
           justifyContent: "center",
           padding: p ? "8% 7%" : "7% 10%",
+          zIndex: 2,
         }}
       >
         {/* Category */}
@@ -149,8 +181,8 @@ export const NewsHeadline: React.FC<
           <div
             style={{
               display: "inline-block",
-              fontSize: p ? 18 : 22,
-              fontWeight: 700,
+              fontSize: p ? 20 : 24,
+              fontWeight: 800,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
               color: textColor,
@@ -166,8 +198,8 @@ export const NewsHeadline: React.FC<
         <div
           style={{
             fontFamily: H_FONT,
-            fontSize: titleFontSize ?? (p ? 58 : 80),
-            fontWeight: 700,
+            fontSize: titleFontSize ?? (p ? 62 : 86),
+            fontWeight: 800,
             lineHeight: 1.05,
             color: textColor,
             opacity: headOp,
@@ -183,9 +215,10 @@ export const NewsHeadline: React.FC<
         {narration && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 24 : 30),
+              fontSize: descriptionFontSize ?? (p ? 26 : 32),
+              fontWeight: 600,
               color: textColor,
-              opacity: narOp * 0.85,
+              opacity: narOp,
               lineHeight: 1.6,
               marginBottom: p ? 20 : 26,
               maxWidth: "70%",
@@ -199,14 +232,15 @@ export const NewsHeadline: React.FC<
         {(author || date) && (
           <div
             style={{
-              fontSize: p ? 16 : 18,
+              fontSize: p ? 17 : 19,
+              fontWeight: 600,
               color: textColor,
-              opacity: bylineOp * 0.7,
+              opacity: bylineOp,
               display: "flex",
               gap: 10,
             }}
           >
-            {author && <span style={{ fontWeight: 600 }}>By {author}</span>}
+            {author && <span style={{ fontWeight: 700 }}>By {author}</span>}
             {author && date && <span style={{ opacity: 0.4 }}>·</span>}
             {date && <span>{date}</span>}
           </div>
