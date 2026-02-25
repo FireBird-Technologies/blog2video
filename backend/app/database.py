@@ -58,6 +58,18 @@ def init_db():
         db.close()
 
 
+def _is_numeric_type(col_type) -> bool:
+    """True if column type is REAL/Float (logo_size should be string)."""
+    if col_type is None:
+        return False
+    name = type(col_type).__name__
+    if name in ("REAL", "Float", "FLOAT", "Double", "DOUBLE_PRECISION", "NUMERIC"):
+        return True
+    if getattr(col_type, "python_type", None) == float:
+        return True
+    return False
+
+
 def _migrate(eng):
     """Add columns that may be missing from older schemas."""
     from sqlalchemy import text, inspect
@@ -66,7 +78,8 @@ def _migrate(eng):
     if "projects" not in insp.get_table_names():
         return
 
-    cols = {c["name"] for c in insp.get_columns("projects")}
+    columns = insp.get_columns("projects")
+    cols = {c["name"] for c in columns}
     is_pg = not settings.DATABASE_URL.startswith("sqlite")
 
     with eng.begin() as conn:
@@ -86,6 +99,8 @@ def _migrate(eng):
             "logo_r2_key": "VARCHAR(512)",
             "logo_r2_url": "VARCHAR(2048)",
             "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
+            "logo_opacity": "REAL DEFAULT 0.9",
+            "logo_size": "VARCHAR(20) DEFAULT 'default'",
             "custom_voice_id": "VARCHAR(100)",
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
             "template": "VARCHAR(50) DEFAULT 'default'",
@@ -97,6 +112,15 @@ def _migrate(eng):
                 conn.execute(text(
                     f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}"
                 ))
+
+        # If logo_size exists as REAL/Float, alter to VARCHAR (e.g. Postgres had it as real)
+        logo_size_col = next((c for c in columns if c["name"] == "logo_size"), None)
+        if logo_size_col and _is_numeric_type(logo_size_col.get("type")):
+            if is_pg:
+                conn.execute(text(
+                    "ALTER TABLE projects ALTER COLUMN logo_size TYPE VARCHAR(20) USING 'default'"
+                ))
+            # SQLite does not support ALTER COLUMN type; schema validator coerces on read
 
     # Migrate users table
     if "users" in insp.get_table_names():

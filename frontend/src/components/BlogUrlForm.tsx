@@ -6,6 +6,7 @@ import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
+import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 
@@ -54,6 +55,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
+  matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
 };
@@ -63,6 +65,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
+  matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
   whiteboard: { title: "Whiteboard Story", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
 };
@@ -723,6 +726,16 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
+  // ─── Step 2: Template (moved up; was step 3) ───────────────────
+  const availableTemplates = templates.length > 0
+    ? templates
+    : [
+        { id: "default", name: "Geometric Explainer" },
+        { id: "nightfall", name: "Nightfall" },
+        { id: "gridcraft", name: "Gridcraft" },
+        { id: "spotlight", name: "Spotlight" },
+        { id: "matrix", name: "Matrix" },
+      ];
   // ─── Step 2: Video style + Template ──────────────────────────
   const FALLBACK_TEMPLATES: TemplateMeta[] = [
     { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "storytelling"] },

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import traceback
 import requests
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
@@ -314,6 +315,7 @@ async def _generate_scenes(project: Project, db: Session):
     try:
         user = db.query(User).filter(User.id == project.user_id).first()
         if user:
+            
             project_url = f"{settings.FRONTEND_URL}/projects/{project.id}"
             email_service.send_preview_ready_email(
                 user_email=user.email,
@@ -321,6 +323,22 @@ async def _generate_scenes(project: Project, db: Session):
                 project_name=project.name,
                 project_url=project_url,
             )
+            
+            # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
+            scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
+            # Only schedule follow-up email for unpaid users
+            if user.plan == PlanTier.FREE:
+                email_service.schedule_followup_email(
+                    user_email=user.email,
+                    user_name=user.name,
+                    project_name=project.name,
+                    project_url=project_url,
+                    scheduled_at=scheduled_at,
+                )
+                logger.info(f"[PIPELINE] Project {project.id}: follow-up email scheduled at {scheduled_at}")
+            
+        else:
+            logger.error(f"[PIPELINE] Project {project.id}: no user found, skipping preview + follow-up emails")
     except EmailServiceError as e:
         logger.error(f"[PIPELINE] Preview-ready email failed for project {project.id}: {e}")
     except Exception as e:

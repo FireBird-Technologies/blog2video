@@ -1,0 +1,35 @@
+{
+  "id": "matrix",
+  "name": "Matrix",
+  "description": "Digital rain on a black void. Green monospace text decodes from random characters, numbers count up through cipher noise, and data streams in like intercepted transmissions. Terminal aesthetic with glitch effects. Fast, cryptic, cyberpunk.",
+  "preview_colors": {
+    "accent": "#00FF41",
+    "bg": "#000000",
+    "text": "#00FF41"
+  },
+  "composition_id": "MatrixVideo",
+  "hero_layout": "matrix_title",
+  "fallback_layout": "terminal_text",
+  "valid_layouts": [
+    "matrix_title",
+    "terminal_text",
+    "glitch_punch",
+    "data_stream",
+    "cipher_metric",
+    "fork_choice",
+    "matrix_image",
+    "transmission",
+    "awakening"
+  ],
+  "layouts_without_image": [],
+  "features": [
+    "Digital rain background animation on every scene",
+    "Character decode/scramble text reveal animations",
+    "Terminal-style monospace typography throughout",
+    "Red pill vs blue pill comparison layout",
+    "Cipher counter roll-up for statistics",
+    "Intercepted transmission rapid-fire phrases",
+    "Optional image support in all layouts",
+    "Responsive layouts (portrait/landscape)"
+  ]
+}
