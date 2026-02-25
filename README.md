@@ -9,7 +9,7 @@ short_description: Convert blog posts to AI explainer videos (DSPy, Remotion)
 ---
 
 <p align="center">
-  <img src="frontend/public/Blog.png" alt="Blog2Video Banner" />
+  <img src="frontend/public/Banner.PNG" alt="Blog2Video Banner" />
 </p>
 
 <p align="center">
@@ -50,13 +50,6 @@ It eliminates hours of manual scripting, voice recording, editing, and animation
 - **Voiceover** -- ElevenLabs Text-to-Speech
 - **Auth** -- Google OAuth 2.0 + JWT sessions
 - **Billing** -- Stripe subscriptions (Free: 1 video, Pro: $20/mo for 100 videos)
-
-## Pricing
-
-| Plan | Price | Videos |
-|------|-------|--------|
-| Free | $0 | 1 video (try it out) |
-| Pro | $20/month | 100 videos/month |
 
 ## Quick Start
 
