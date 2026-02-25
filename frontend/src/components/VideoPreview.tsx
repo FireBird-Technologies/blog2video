@@ -211,11 +211,13 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         }
       }
 
+      const onScreenText = scene.display_text ?? scene.narration_text;
+
       return {
         id: scene.id,
         order: scene.order,
         title: scene.title,
-        narration: scene.narration_text,
+        narration: onScreenText,
         layout,
         layoutProps,
         durationSeconds: Number(scene.duration_seconds) || 5,

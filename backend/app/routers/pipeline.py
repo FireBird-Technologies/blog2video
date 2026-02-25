@@ -36,6 +36,7 @@ from app.services.remotion import (
 from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+from app.dspy_modules.display_text_gen import DisplayTextGenerator
 from app.services.template_service import validate_template_id
 from app.services.email import email_service, EmailServiceError
 
@@ -201,10 +202,19 @@ async def _generate_script(project: Project, db: Session):
 
     project.name = result["title"]
 
+    # Clear existing scenes for this project
     db.query(Scene).filter(Scene.project_id == project.id).delete()
     db.flush()
 
-    for i, scene_data in enumerate(result["scenes"]):
+    # Template-aware display text generation
+    template_id = validate_template_id(project.template if project.template else "default")
+    video_style = getattr(project, "video_style", None) or "explainer"
+    scenes_raw: list[dict] = result["scenes"]
+
+    display_gen = DisplayTextGenerator(template_id, video_style=video_style)
+    display_texts = await display_gen.generate_for_scenes(scenes_raw)
+
+    for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -212,6 +222,7 @@ async def _generate_script(project: Project, db: Session):
             narration_text=scene_data["narration"],
             visual_description=scene_data["visual_description"],
             duration_seconds=scene_data.get("duration_seconds", 10),
+            display_text=display_text,
         )
         db.add(scene)
 

@@ -102,7 +102,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 30 : 38),
+                fontSize: titleFontSize ?? (p ? 40 : 50),
                 fontWeight: 400,
                 lineHeight: 1.4,
                 color: textColor,
@@ -132,7 +132,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: descriptionFontSize ?? (p ? 16 : 19),
+                    fontSize: descriptionFontSize ?? (p ? 28 : 34),
                     fontWeight: 600,
                     color: textColor,
                     marginBottom: 4,

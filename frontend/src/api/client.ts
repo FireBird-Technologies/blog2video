@@ -70,6 +70,7 @@ export interface Scene {
   order: number;
   title: string;
   narration_text: string;
+  display_text?: string | null;
   visual_description: string;
   remotion_code: string | null;
   voiceover_path: string | null;

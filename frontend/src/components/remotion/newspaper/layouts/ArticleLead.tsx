@@ -1,29 +1,12 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "Georgia, 'Times New Roman', serif";
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
-/**
- * ArticleLead — opening paragraph reveal.
- *
- * Animation (30 fps):
- *  0-14   top rule draws + section label fades
- *  10-26  drop cap appears
- *  18-70  article body typewriters in (narration prop)
- *  52-72  pull-stat card slides in from right
- *  64-80  pull-stat number counts up
- *
- * Props:
- *  title           = article section / label (e.g. "The Story")
- *  narration       = article lead paragraph text
- *  stats[0].value  = pull-stat number (e.g. "47%")
- *  stats[0].label  = pull-stat caption (e.g. "of Americans affected")
- *  accentColor     = highlight color (default yellow)
- */
-export const ArticleLead: React.FC<BlogLayoutProps> = ({
+export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "The Story",
   narration = "Lawmakers failed to pass a short-term spending bill before the midnight deadline, triggering a partial shutdown affecting hundreds of thousands of federal workers.",
   accentColor = "#FFE34D",
@@ -33,6 +16,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -57,7 +41,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
   const pullOp    = interpolate(frame, [54, 70], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const pullNumP  = interpolate(frame, [66, 82], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-  // Try to animate numeric pull value if it's a number/percent
+  // Animate numeric pull value
   const numericMatch = pullVal.match(/^(\d+(?:\.\d+)?)(.*)/);
   const baseNum      = numericMatch ? parseFloat(numericMatch[1]) : null;
   const numSuffix    = numericMatch ? numericMatch[2] : pullVal;
@@ -70,6 +54,33 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+      {/* Background image with newspaper overlay */}
+      {imageUrl && (
+        <>
+          <Img
+            src={imageUrl}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "grayscale(70%) contrast(90%) brightness(85%)",
+              zIndex: 0,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(220,220,220,0.5)", // gray newspaper overlay
+              zIndex: 1,
+              mixBlendMode: "multiply",
+            }}
+          />
+        </>
+      )}
+
       <NewsBackground bgColor={bgColor} />
 
       <div
@@ -79,6 +90,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           padding: p ? "7% 6%" : "6% 9%",
+          zIndex: 2,
         }}
       >
         {/* Top rule + section label */}
@@ -87,7 +99,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
           <div
             style={{
               fontFamily: B_FONT,
-              fontSize: titleFontSize ?? (p ? 14 : 16),
+              fontSize: titleFontSize ?? (p ? 31 : 31), // ⬅️ slightly bigger
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
@@ -105,7 +117,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
             flex: 1,
             display: "flex",
             flexDirection: p ? "column" : "row",
-            gap: p ? 20 : 40,
+            gap: p ? 24 : 48, // ⬅️ increased gap
             alignItems: "flex-start",
           }}
         >
@@ -114,20 +126,19 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 20 : 24),
+                fontSize: descriptionFontSize ?? (p ? 22 : 26), // ⬅️ increased default size
                 color: textColor,
-                lineHeight: 1.65,
+                lineHeight: 1.75,
               }}
             >
-              {/* Drop cap */}
               <span
                 style={{
                   float: "left",
                   fontFamily: H_FONT,
-                  fontSize: p ? 72 : 92,
+                  fontSize: p ? 80 : 100, // ⬅️ bigger drop cap
                   fontWeight: 700,
                   lineHeight: 0.78,
-                  marginRight: 8,
+                  marginRight: 10,
                   marginTop: 6,
                   color: textColor,
                   opacity: dropCapOp,
@@ -138,7 +149,6 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
                 {dropChar}
               </span>
 
-              {/* Body text typewriter */}
               <span>
                 {visText.length > 1 ? visText.slice(1) : ""}
                 {showCursor && visChars > 0 && (
@@ -162,7 +172,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
           {pullVal && (
             <div
               style={{
-                width: p ? "100%" : 200,
+                width: p ? "100%" : 220,
                 flexShrink: 0,
                 opacity: pullOp,
                 transform: `translateX(${pullSlide}px)`,
@@ -176,7 +186,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
               <div
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: p ? 52 : 64,
+                  fontSize: p ? 56 : 70, // ⬅️ increased pull stat
                   fontWeight: 700,
                   color: textColor,
                   lineHeight: 1,
@@ -189,7 +199,7 @@ export const ArticleLead: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 14 : 16,
+                    fontSize: p ? 16 : 18, // ⬅️ slightly bigger caption
                     color: textColor,
                     opacity: 0.68,
                     lineHeight: 1.4,

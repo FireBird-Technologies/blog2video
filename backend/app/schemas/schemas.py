@@ -28,6 +28,7 @@ class SceneOut(BaseModel):
     order: int
     title: str
     narration_text: str
+    display_text: Optional[str] = None
     visual_description: str
     remotion_code: Optional[str] = None
     voiceover_path: Optional[str] = None
@@ -117,6 +118,7 @@ class ProjectListOut(BaseModel):
 class SceneUpdate(BaseModel):
     title: Optional[str] = None
     narration_text: Optional[str] = None
+    display_text: Optional[str] = None
     visual_description: Optional[str] = None
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
