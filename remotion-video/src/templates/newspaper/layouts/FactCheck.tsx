@@ -1,0 +1,76 @@
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { NewsBackground } from "../NewsBackground";
+import type { BlogLayoutProps } from "../types";
+
+const H_FONT = "Georgia, 'Times New Roman', serif";
+const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+export const FactCheck: React.FC<BlogLayoutProps> = ({
+  title = "Fact Check",
+  narration,
+  leftThought  = "The shutdown will only last a few hours.",
+  rightThought = "Past shutdowns have averaged 16 days. Essential services may be suspended indefinitely.",
+  accentColor  = "#FFE34D",
+  bgColor      = "#FAFAF8",
+  textColor    = "#111111",
+  aspectRatio  = "landscape",
+  titleFontSize,
+  descriptionFontSize,
+  stats,
+}) => {
+  const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
+  const leftLabel  = stats?.[0]?.label ?? "CLAIMED";
+  const rightLabel = stats?.[1]?.label ?? "THE FACTS";
+
+  const headerOp  = interpolate(frame, [0, 14],  [0, 1],   { extrapolateRight: "clamp" });
+  const leftX     = interpolate(frame, [8, 32],  [-60, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const leftOp    = interpolate(frame, [8, 28],  [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rightX    = interpolate(frame, [14, 38], [60, 0],  { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rightOp   = interpolate(frame, [14, 34], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const dividerH  = interpolate(frame, [26, 44], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const verdictOp = interpolate(frame, [42, 56], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const hlSweep   = interpolate(frame, [18, 40], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+  const badgeHL = (color: string) => ({
+    backgroundImage: `linear-gradient(${color}, ${color})`,
+    backgroundSize:  `${hlSweep * 100}% 100%`,
+    backgroundRepeat: "no-repeat" as const,
+    backgroundPosition: "0 0",
+  });
+
+  return (
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+      <NewsBackground bgColor={bgColor} />
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", padding: p ? "7% 6%" : "5% 8%", gap: p ? 20 : 28 }}>
+        <div style={{ opacity: headerOp }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+            <svg width={p ? 28 : 34} height={p ? 28 : 34} viewBox="0 0 34 34" fill="none">
+              <circle cx="14" cy="14" r="10" stroke={textColor} strokeWidth="3" />
+              <line x1="22" y1="22" x2="31" y2="31" stroke={textColor} strokeWidth="3" strokeLinecap="round" />
+            </svg>
+            <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 36 : 48), fontWeight: 700, color: textColor, lineHeight: 1 }}>{title}</div>
+          </div>
+          <div style={{ height: 2, background: textColor, opacity: 0.1, width: "100%" }} />
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: p ? "column" : "row", gap: 0, alignItems: "stretch", position: "relative" }}>
+          <div style={{ flex: 1, opacity: leftOp, transform: `translateX(${leftX}px)`, paddingRight: p ? 0 : 32, paddingBottom: p ? 20 : 0 }}>
+            <div style={{ display: "inline-block", fontFamily: B_FONT, fontSize: p ? 11 : 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textColor, ...badgeHL(accentColor), paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3, marginBottom: 14 }}>{leftLabel}</div>
+            <div style={{ fontFamily: H_FONT, fontSize: descriptionFontSize ?? (p ? 22 : 28), color: textColor, lineHeight: 1.45, fontStyle: "italic" }}>"{leftThought}"</div>
+          </div>
+          {!p && <div style={{ width: 1, flexShrink: 0, background: textColor, opacity: 0.14, alignSelf: "stretch", clipPath: `inset(0 0 ${100 - dividerH}% 0)` }} />}
+          {p && <div style={{ height: 1, background: textColor, opacity: 0.14, width: `${dividerH}%`, marginBottom: 20 }} />}
+          <div style={{ flex: 1, opacity: rightOp, transform: `translateX(${rightX}px)`, paddingLeft: p ? 0 : 32 }}>
+            <div style={{ display: "inline-block", fontFamily: B_FONT, fontSize: p ? 11 : 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textColor, border: `1.5px solid ${textColor}`, paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3, marginBottom: 14, opacity: 0.7 }}>{rightLabel}</div>
+            <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 19 : 24), color: textColor, lineHeight: 1.55, opacity: 0.9 }}>{rightThought}</div>
+          </div>
+        </div>
+        {narration && (
+          <div style={{ opacity: verdictOp, borderTop: `2px solid ${accentColor}`, paddingTop: 14, fontFamily: B_FONT, fontSize: p ? 15 : 18, fontWeight: 600, color: textColor }}>{narration}</div>
+        )}
+      </div>
+    </AbsoluteFill>
+  );
+};

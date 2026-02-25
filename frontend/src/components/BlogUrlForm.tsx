@@ -7,6 +7,7 @@ import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
+import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 
 export const VIDEO_STYLES = [
   { id: "explainer", label: "Explainer", subtitle: "Educational, clear, step-by-step" },
@@ -54,6 +55,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
   whiteboard: WhiteboardPreview,
+  newspaper: NewsPaperPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -62,6 +64,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
   whiteboard: { title: "Whiteboard Story", subtitle: "Hand-drawn storytelling with stick figures" },
+  newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
