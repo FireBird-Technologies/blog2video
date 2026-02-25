@@ -5,12 +5,14 @@ import {
   Asset,
   updateScene,
   updateSceneImage,
+  generateSceneImage,
   regenerateScene,
   getValidLayouts,
   deleteAsset,
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -328,8 +330,14 @@ export default function SceneEditModal({
   const [error, setError] = useState<string | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Cleanup image preview URL
   useEffect(() => {
@@ -385,6 +393,11 @@ export default function SceneEditModal({
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
     setError(null);
+    setGeneratingImage(false);
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
+    setGenerateError(null);
+    setShowAiImageUpgradeModal(false);
     let layoutId: string | null = null;
     let ts = "";
     let ds = "";
@@ -613,11 +626,71 @@ export default function SceneEditModal({
     }
   };
 
+  const hasSceneText =
+    Boolean((scene.title || "").trim()) || Boolean((scene.narration_text || "").trim());
+
+  const handleGenerateImageClick = () => {
+    if (!isPro) {
+      setShowAiImageUpgradeModal(true);
+      return;
+    }
+    handleGenerateImage();
+  };
+
+  const handleGenerateImage = async () => {
+    setGenerateError(null);
+    setGeneratingImage(true);
+    try {
+      const res = await generateSceneImage(project.id, scene.id);
+      setGeneratedImageBase64(res.data.image_base64);
+      setGeneratedPrompt(res.data.refined_prompt);
+    } catch (err: unknown) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : 0;
+      if (status === 403) {
+        setShowAiImageUpgradeModal(true);
+      } else {
+        const msg =
+          err && typeof err === "object" && "response" in err
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+            : "Image generation failed";
+        setGenerateError(String(msg));
+      }
+      setGeneratedImageBase64(null);
+      setGeneratedPrompt(null);
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const handleKeepGeneratedImage = () => {
+    if (!generatedImageBase64) return;
+    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    fetch(dataUrl)
+      .then((r) => r.blob())
+      .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
+      .then((file) => {
+        setSelectedImageFile(file);
+        setGeneratedImageBase64(null);
+        setGeneratedPrompt(null);
+        setGenerateError(null);
+      })
+      .catch(() => setGenerateError("Failed to use generated image"));
+  };
+
+  const handleDiscardGeneratedImage = () => {
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
+    setGenerateError(null);
+  };
+
   if (!open) return null;
 
   const manualOnly = editMode === "manual";
 
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -911,6 +984,7 @@ export default function SceneEditModal({
                   Scene image
                 </h4>
                 {supportsImage ? (
+                  <>
                   <div className="flex flex-wrap gap-2">
                     {imageItems.map(({ url, asset }) => (
                       <div
@@ -963,6 +1037,36 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
+                    {generatedImageBase64 && (
+                      <div className="relative rounded-lg overflow-hidden border-2 border-amber-400 flex-shrink-0 bg-gray-50">
+                        <img
+                          src={`data:image/png;base64,${generatedImageBase64}`}
+                          alt="AI generated"
+                          className="h-20 w-auto object-cover"
+                        />
+                        {generatedPrompt && (
+                          <p className="text-[10px] text-gray-500 px-1.5 py-0.5 max-w-[140px] truncate" title={generatedPrompt}>
+                            {generatedPrompt}
+                          </p>
+                        )}
+                        <div className="flex gap-1.5 p-1.5">
+                          <button
+                            type="button"
+                            onClick={handleKeepGeneratedImage}
+                            className="flex-1 px-2 py-1 text-xs font-medium rounded bg-purple-600 text-white hover:bg-purple-700"
+                          >
+                            Keep
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDiscardGeneratedImage}
+                            className="flex-1 px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          >
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
                       <input
                         type="file"
@@ -974,7 +1078,32 @@ export default function SceneEditModal({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
                     </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateImageClick}
+                      disabled={!hasSceneText || generatingImage}
+                      title={!hasSceneText ? "Add title or narration to generate an image" : "Generate image with AI"}
+                      className="flex items-center justify-center gap-1.5 w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-amber-700"
+                    >
+                      {generatingImage ? (
+                        <span className="text-xs">…</span>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                          </svg>
+                          <span className="text-[10px] font-medium">AI</span>
+                        </>
+                      )}
+                    </button>
                   </div>
+                  {generateError && (
+                    <p className="text-xs text-red-600 mt-1.5">{generateError}</p>
+                  )}
+                  {!hasSceneText && (
+                    <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
+                  )}
+                  </>
                 ) : (
                   <p className="text-xs text-gray-400 italic">
                     This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
@@ -1141,5 +1270,34 @@ export default function SceneEditModal({
         </div>
       </div>
     </div>
+
+    {showAiImageUpgradeModal && (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
+        <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro feature</h3>
+          <p className="text-sm text-gray-600 mb-6">
+            AI image generation is available on the Pro plan. Upgrade to unlock.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/pricing")}
+              className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Go to pricing
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAiImageUpgradeModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

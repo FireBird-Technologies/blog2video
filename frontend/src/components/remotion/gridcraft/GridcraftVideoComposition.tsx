@@ -43,6 +43,7 @@ export interface GridcraftVideoCompositionProps {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: string;
   aspectRatio?: string;
 }
 
@@ -56,6 +57,7 @@ export const GridcraftVideoComposition: React.FC<
   logo,
   logoPosition,
   logoOpacity,
+  logoSize,
   aspectRatio,
 }) => {
   const FPS = 30;
@@ -112,6 +114,7 @@ export const GridcraftVideoComposition: React.FC<
             src={logo}
             position={logoPosition || "bottom_right"}
             maxOpacity={logoOpacity ?? 0.9}
+            size={logoSize || "default"}
             aspectRatio={aspectRatio || "landscape"}
           />
         </AbsoluteFill>

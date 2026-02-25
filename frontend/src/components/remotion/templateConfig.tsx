@@ -12,6 +12,7 @@ import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
 import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
+import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 
@@ -41,6 +42,7 @@ export interface TemplateConfig {
     logo?: string | null;
     logoPosition?: string;
     logoOpacity?: number;
+    logoSize?: string;
     aspectRatio?: string;
   }>;
   /** Layout for scene 0 (hero) when no remotion_code */
@@ -103,11 +105,16 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "closer",
 ]);
 
-const FRAGMENTED_LAYOUTS = new Set([
-  "fragment_hero",
-  "shatter_slide",
-  "punch_text",
-  "shatter_three_v",
+const MATRIX_LAYOUTS = new Set([
+  "matrix_title",
+  "terminal_text",
+  "glitch_punch",
+  "data_stream",
+  "cipher_metric",
+  "fork_choice",
+  "matrix_image",
+  "transmission",
+  "awakening",
 ]);
 
 const WHITEBOARD_LAYOUTS = new Set([
@@ -174,6 +181,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#EF4444",
       bg: "#000000",
       text: "#FFFFFF",
+    },
+  },
+  matrix: {
+    component: MatrixVideoComposition as React.ComponentType<any>,
+    heroLayout: "matrix_title",
+    fallbackLayout: "terminal_text",
+    validLayouts: MATRIX_LAYOUTS,
+    defaultColors: {
+      accent: "#00FF41",
+      bg: "#000000",
+      text: "#00FF41",
     },
   },
   whiteboard: {

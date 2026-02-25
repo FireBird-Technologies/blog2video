@@ -3,6 +3,7 @@ import shutil
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from sqlalchemy import text, inspect
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,8 +12,8 @@ from app.config import settings
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import (
-    ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate,
-    ReorderScenesRequest, RegenerateSceneRequest
+    ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
+    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
@@ -334,6 +335,26 @@ def delete_project(
     return {"detail": "Project deleted"}
 
 
+@router.patch("/{project_id}", response_model=ProjectOut)
+def update_project_logo(
+    project_id: int,
+    data: ProjectLogoUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update project logo settings (position, size, opacity)."""
+    project = _get_user_project(project_id, user.id, db)
+    if data.logo_position is not None:
+        project.logo_position = data.logo_position
+    if data.logo_size is not None:
+        project.logo_size = data.logo_size
+    if data.logo_opacity is not None:
+        project.logo_opacity = data.logo_opacity
+    db.commit()
+    db.refresh(project)
+    return project
+
+
 @router.patch("/{project_id}/assets/{asset_id}/exclude")
 def toggle_asset_exclusion(
     project_id: int,
@@ -482,6 +503,63 @@ def update_scene(
         print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
 
     return scene
+
+
+@router.post("/{project_id}/scenes/{scene_id}/generate-image")
+def generate_scene_image(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate an AI image for the scene from its title + narration. Returns base64 image and refined prompt.
+    No DB write; use POST .../image to upload the image when the user chooses to keep it.
+    Pro plan only."""
+    from app.models.scene import Scene
+    from app.models.user import PlanTier
+    from app.dspy_modules.image_prompt import refine_image_prompt
+    from app.services.image_gen import get_image_provider
+
+    if user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="AI image generation is available on the Pro plan. Upgrade to unlock.",
+        )
+
+    project = _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    scene_text = f"{scene.title or ''} {scene.narration_text or ''}".strip()
+    if not scene_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Scene has no title or narration text to use as prompt.",
+        )
+
+    try:
+        provider = get_image_provider()
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    if not provider:
+        raise HTTPException(
+            status_code=503,
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY or GEMINI_API_KEY)",
+        )
+
+    refined_prompt = refine_image_prompt(scene_text)
+    try:
+        image_base64 = provider.generate(refined_prompt)
+    except Exception as e:
+        print(f"[GENERATE_IMAGE] Provider error: {e}")
+        raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e
+
+    return {"image_base64": image_base64, "refined_prompt": refined_prompt}
 
 
 @router.post("/{project_id}/scenes/{scene_id}/image", response_model=SceneOut)

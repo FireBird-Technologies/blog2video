@@ -112,6 +112,7 @@ export interface Project {
   logo_r2_url: string | null;
   logo_position: string;
   logo_opacity: number;
+  logo_size: string;
   custom_voice_id: string | null;
   aspect_ratio: string;
   video_style?: string;
@@ -377,6 +378,17 @@ export const uploadLogo = (projectId: number, file: File) => {
   );
 };
 
+export interface ProjectLogoUpdate {
+  logo_position?: string;
+  logo_size?: string;
+  logo_opacity?: number;
+}
+
+export const updateProjectLogo = (
+  projectId: number,
+  data: ProjectLogoUpdate
+) => api.patch<Project>(`/projects/${projectId}`, data);
+
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
 
@@ -438,6 +450,19 @@ export const updateSceneImage = (
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+
+export interface GenerateSceneImageResponse {
+  image_base64: string;
+  refined_prompt: string;
+}
+
+export const generateSceneImage = (
+  projectId: number,
+  sceneId: number
+) =>
+  api.post<GenerateSceneImageResponse>(
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+  );
 
 export interface LayoutInfo {
   layouts: string[];
