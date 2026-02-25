@@ -66,6 +66,14 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     stats_chart: { title: [52, 64], desc: [24, 28] },
     comparison: { title: [52, 64], desc: [24, 28] },
   },
+  newspaper: {
+    news_headline: { title: [48, 64], desc: [19, 23] },
+    article_lead: { title: [14, 16], desc: [20, 24] },
+    pull_quote: { title: [30, 38], desc: [16, 19] },
+    data_snapshot: { title: [38, 50], desc: [14, 16] },
+    fact_check: { title: [36, 48], desc: [22, 24] },
+    news_timeline: { title: [36, 48], desc: [15, 18] },
+  },
 };
 
 export function getDefaultFontSizes(
@@ -203,6 +211,26 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
   stats_chart: [{ key: "stats", label: "Bar chart rows", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number 0–100" }], maxItems: 5 }],
+  // Newspaper template
+  news_headline: [
+    { key: "category", label: "Section / category", type: "string", placeholder: "e.g. Politics, Technology" },
+    { key: "leftThought", label: "Words to highlight (comma-separated)", type: "string", placeholder: "e.g. government,funding" },
+    { key: "stats", label: "Byline", type: "object_array", subFields: [{ key: "value", label: "Author (row 1) / Date (row 2)" }], maxItems: 2 },
+  ],
+  article_lead: [
+    { key: "stats", label: "Pull stat", type: "object_array", subFields: [{ key: "value", label: "Number" }, { key: "label", label: "Caption" }], maxItems: 1 },
+  ],
+  data_snapshot: [
+    { key: "stats", label: "Key figures", type: "object_array", subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }], maxItems: 4 },
+  ],
+  fact_check: [
+    { key: "leftThought", label: "Claimed", type: "text", placeholder: "The claim to check" },
+    { key: "rightThought", label: "The facts", type: "text", placeholder: "The factual correction" },
+    { key: "stats", label: "Column labels", type: "object_array", subFields: [{ key: "label", label: "Left (row 1) / Right (row 2) label" }], maxItems: 2 },
+  ],
+  news_timeline: [
+    { key: "stats", label: "Timeline events", type: "object_array", subFields: [{ key: "value", label: "Date" }, { key: "label", label: "Description" }], maxItems: 5 },
+  ],
 };
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
@@ -211,6 +239,11 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     comparison: [
       { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
       { key: "rightThought", label: "Right thought", type: "text", placeholder: "e.g. Option B or second idea" },
+    ],
+  },
+  newspaper: {
+    pull_quote: [
+      { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
 };

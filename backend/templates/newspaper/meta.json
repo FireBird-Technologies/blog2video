@@ -1,0 +1,41 @@
+{
+  "id": "newspaper",
+  "name": "Newspaper",
+  "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
+  "styles": [
+    "explainer",
+    "storytelling"
+  ],
+  "preview_colors": {
+    "accent": "#FFE34D",
+    "bg": "#FAFAF8",
+    "text": "#111111"
+  },
+  "composition_id": "NewspaperVideo",
+  "hero_layout": "news_headline",
+  "fallback_layout": "article_lead",
+  "valid_layouts": [
+    "news_headline",
+    "article_lead",
+    "pull_quote",
+    "data_snapshot",
+    "fact_check",
+    "news_timeline"
+  ],
+  "layouts_without_image": [
+    "article_lead",
+    "pull_quote",
+    "data_snapshot",
+    "fact_check",
+    "news_timeline"
+  ],
+  "features": [
+    "News headline hero with category and byline",
+    "Article lead with drop cap and pull stat",
+    "Pull quote with attribution",
+    "Data snapshot cards with key figures",
+    "Fact-check claim vs facts layout",
+    "News timeline with spine and dates",
+    "Portrait and landscape responsive layout"
+  ]
+}

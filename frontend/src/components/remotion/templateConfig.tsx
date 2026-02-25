@@ -13,6 +13,7 @@ import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
+import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -121,6 +122,15 @@ const WHITEBOARD_LAYOUTS = new Set([
   "speech_bubble_dialogue",
 ]);
 
+const NEWSPAPER_LAYOUTS = new Set([
+  "news_headline",
+  "article_lead",
+  "pull_quote",
+  "data_snapshot",
+  "fact_check",
+  "news_timeline",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -175,6 +185,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#1F2937",
       bg: "#F7F3E8",
       text: "#111827",
+    },
+  },
+  newspaper: {
+    component: NewspaperVideoComposition as React.ComponentType<any>,
+    heroLayout: "news_headline",
+    fallbackLayout: "article_lead",
+    validLayouts: NEWSPAPER_LAYOUTS,
+    defaultColors: {
+      accent: "#FFE34D",
+      bg: "#FAFAF8",
+      text: "#111111",
     },
   },
 };

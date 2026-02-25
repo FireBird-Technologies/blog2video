@@ -1,0 +1,188 @@
+import React from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { NewsBackground } from "../NewsBackground";
+import type { BlogLayoutProps } from "../types";
+
+const H_FONT = "Georgia, 'Times New Roman', serif";
+const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+/**
+ * DataSnapshot — editorial data / stats cards.
+ *
+ * Up to 4 stats rendered as clean number callout cards.
+ * Each card: large number + label + thin yellow underline.
+ *
+ * Animation (30 fps):
+ *  0-16   title + rule fade in
+ *  12-36  card 1 slides up + number counts  (stagger: +10f per card)
+ *  22-46  card 2
+ *  32-56  card 3
+ *  42-66  card 4
+ *
+ * Props:
+ *  title          = section header
+ *  narration      = optional caption below
+ *  stats[]        = up to 4 { value: "47%", label: "Agencies affected" }
+ *  accentColor    = underline color (default yellow)
+ */
+export const DataSnapshot: React.FC<BlogLayoutProps> = ({
+  title = "By the Numbers",
+  narration,
+  accentColor = "#FFE34D",
+  bgColor = "#FAFAF8",
+  textColor = "#111111",
+  aspectRatio = "landscape",
+  titleFontSize,
+  descriptionFontSize,
+  stats = [
+    { value: "800K", label: "Federal workers affected" },
+    { value: "47%",  label: "Agencies impacted" },
+    { value: "32",   label: "Days until next deadline" },
+    { value: "$6B",  label: "Daily economic cost" },
+  ],
+}) => {
+  const frame = useCurrentFrame();
+  const p = aspectRatio === "portrait";
+
+  const items = stats.slice(0, 4);
+
+  // Title
+  const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
+  const ruleW   = interpolate(frame, [4, 20], [0, 100], { extrapolateRight: "clamp" });
+
+  return (
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+      <NewsBackground bgColor={bgColor} />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          padding: p ? "7% 6%" : "6% 9%",
+          gap: p ? 24 : 32,
+        }}
+      >
+        {/* Header */}
+        <div style={{ opacity: titleOp }}>
+          <div
+            style={{
+              fontFamily: H_FONT,
+              fontSize: titleFontSize ?? (p ? 38 : 50),
+              fontWeight: 700,
+              color: textColor,
+              lineHeight: 1.1,
+              marginBottom: 10,
+            }}
+          >
+            {title}
+          </div>
+          <div style={{ height: 2, background: textColor, opacity: 0.12, width: `${ruleW}%` }} />
+        </div>
+
+        {/* Cards grid */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: p ? 16 : 22,
+            alignContent: "flex-start",
+          }}
+        >
+          {items.map((item, i) => {
+            const delay = 12 + i * 10;
+            const cardOp = interpolate(frame, [delay, delay + 16], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const cardY  = interpolate(frame, [delay, delay + 18], [28, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const ulW    = interpolate(frame, [delay + 8, delay + 22], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+            // Numeric count-up
+            const numMatch  = item.value.match(/^(\d+(?:\.\d+)?)(.*)/);
+            const baseNum   = numMatch ? parseFloat(numMatch[1]) : null;
+            const suffix    = numMatch ? numMatch[2] : "";
+            const prefix    = item.value.startsWith("$") ? "$" : "";
+            const rawNumStr = numMatch ? numMatch[1] : item.value;
+
+            const numP       = interpolate(frame, [delay + 2, delay + 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const animatedN  = baseNum !== null ? Math.round(baseNum * numP) : null;
+            const displayVal = animatedN !== null
+              ? (prefix + (rawNumStr.includes(".") ? (baseNum! * numP).toFixed(1) : animatedN) + suffix)
+              : item.value;
+
+            const cardW = p ? "calc(50% - 8px)" : items.length <= 2 ? "calc(50% - 11px)" : "calc(25% - 17px)";
+
+            return (
+              <div
+                key={i}
+                style={{
+                  width: cardW,
+                  opacity: cardOp,
+                  transform: `translateY(${cardY}px)`,
+                  backgroundColor: "rgba(255,255,255,0.7)",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  borderRadius: 8,
+                  padding: p ? "16px 18px" : "20px 22px",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                }}
+              >
+                {/* Value */}
+                <div
+                  style={{
+                    fontFamily: H_FONT,
+                    fontSize: p ? 42 : 54,
+                    fontWeight: 700,
+                    color: textColor,
+                    lineHeight: 1,
+                    marginBottom: 10,
+                  }}
+                >
+                  {displayVal}
+                </div>
+
+                {/* Yellow underline */}
+                <div
+                  style={{
+                    height: 4,
+                    background: accentColor,
+                    borderRadius: 2,
+                    width: `${ulW}%`,
+                    marginBottom: 10,
+                  }}
+                />
+
+                {/* Label */}
+                <div
+                  style={{
+                    fontFamily: B_FONT,
+                    fontSize: p ? 14 : 16,
+                    color: textColor,
+                    opacity: 0.68,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {item.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Optional caption */}
+        {narration && (
+          <div
+            style={{
+              fontFamily: B_FONT,
+              fontSize: descriptionFontSize ?? (p ? 14 : 16),
+              color: textColor,
+              opacity: interpolate(frame, [60, 76], [0, 0.55], { extrapolateRight: "clamp" }),
+              lineHeight: 1.4,
+            }}
+          >
+            {narration}
+          </div>
+        )}
+      </div>
+    </AbsoluteFill>
+  );
+};
