@@ -432,6 +432,19 @@ export const updateSceneImage = (
   );
 };
 
+export interface GenerateSceneImageResponse {
+  image_base64: string;
+  refined_prompt: string;
+}
+
+export const generateSceneImage = (
+  projectId: number,
+  sceneId: number
+) =>
+  api.post<GenerateSceneImageResponse>(
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+  );
+
 export interface LayoutInfo {
   layouts: string[];
   layout_names: Record<string, string>;
