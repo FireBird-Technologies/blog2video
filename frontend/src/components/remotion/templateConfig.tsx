@@ -13,6 +13,8 @@ import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
 import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
+import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
+import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -115,6 +117,27 @@ const MATRIX_LAYOUTS = new Set([
   "awakening",
 ]);
 
+const WHITEBOARD_LAYOUTS = new Set([
+  "drawn_title",
+  "marker_story",
+  "stick_figure_scene",
+  "stats_figures",
+  "stats_chart",
+  "comparison",
+  "countdown_timer",
+  "handwritten_equation",
+  "speech_bubble_dialogue",
+]);
+
+const NEWSPAPER_LAYOUTS = new Set([
+  "news_headline",
+  "article_lead",
+  "pull_quote",
+  "data_snapshot",
+  "fact_check",
+  "news_timeline",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -169,6 +192,28 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#00FF41",
       bg: "#000000",
       text: "#00FF41",
+    },
+  },
+  whiteboard: {
+    component: WhiteboardVideoComposition as React.ComponentType<any>,
+    heroLayout: "drawn_title",
+    fallbackLayout: "marker_story",
+    validLayouts: WHITEBOARD_LAYOUTS,
+    defaultColors: {
+      accent: "#1F2937",
+      bg: "#F7F3E8",
+      text: "#111827",
+    },
+  },
+  newspaper: {
+    component: NewspaperVideoComposition as React.ComponentType<any>,
+    heroLayout: "news_headline",
+    fallbackLayout: "article_lead",
+    validLayouts: NEWSPAPER_LAYOUTS,
+    defaultColors: {
+      accent: "#FFE34D",
+      bg: "#FAFAF8",
+      text: "#111111",
     },
   },
 };

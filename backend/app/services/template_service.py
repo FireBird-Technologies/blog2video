@@ -46,14 +46,21 @@ def _load_prompt(template_id: str) -> str:
 # ─── Public API ─────────────────────────────────────────────────────
 
 
-def list_templates() -> list[dict[str, Any]]:
-    """Return list of all templates (meta for each)."""
+def list_templates(video_style: str | None = None) -> list[dict[str, Any]]:
+    """Return list of all templates (meta for each).
+    If video_style is set, only return templates that support that style (meta.styles contains it).
+    Templates without a 'styles' key are treated as supporting all styles."""
     registry = _load_registry()
     result = []
     for tid in registry:
         meta = _load_meta(tid)
-        if meta:
-            result.append(meta)
+        if not meta:
+            continue
+        styles = meta.get("styles")
+        if video_style and styles is not None and isinstance(styles, list):
+            if video_style.strip().lower() not in [s.strip().lower() for s in styles if isinstance(s, str)]:
+                continue
+        result.append(meta)
     return result
 
 
