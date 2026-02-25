@@ -45,18 +45,27 @@ interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
-// Clean white transition for gridcraft (matches light bg)
+// Modern slide-up wipe transition for gridcraft
 const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [0, 15], [0, 1], {
+
+  // Slide up from bottom with smooth easing
+  const slideY = interpolate(frame, [0, 12], [100, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const opacity = interpolate(frame, [0, 8], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
         backgroundColor: bgColor || COLORS.BG,
-        opacity: progress,
+        opacity,
+        transform: `translateY(${slideY}%)`,
         zIndex: 10,
       }}
     />
