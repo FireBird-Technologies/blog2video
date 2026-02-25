@@ -43,6 +43,7 @@ class Project(Base):
     logo_r2_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     logo_position: Mapped[str] = mapped_column(String(20), default="bottom_right")
     logo_opacity: Mapped[float] = mapped_column(default=0.9)
+    logo_size: Mapped[str] = mapped_column(String(20), default="default")  # default, small, medium, large, extra_large
 
     # Voiceover
     custom_voice_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

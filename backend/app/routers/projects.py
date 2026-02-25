@@ -11,8 +11,8 @@ from app.config import settings
 from app.models.user import User
 from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import (
-    ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate,
-    ReorderScenesRequest, RegenerateSceneRequest
+    ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
+    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
@@ -329,6 +329,26 @@ def delete_project(
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
+
+
+@router.patch("/{project_id}", response_model=ProjectOut)
+def update_project_logo(
+    project_id: int,
+    data: ProjectLogoUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update project logo settings (position, size, opacity)."""
+    project = _get_user_project(project_id, user.id, db)
+    if data.logo_position is not None:
+        project.logo_position = data.logo_position
+    if data.logo_size is not None:
+        project.logo_size = data.logo_size
+    if data.logo_opacity is not None:
+        project.logo_opacity = data.logo_opacity
+    db.commit()
+    db.refresh(project)
+    return project
 
 
 @router.patch("/{project_id}/assets/{asset_id}/exclude")

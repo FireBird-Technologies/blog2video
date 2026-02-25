@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 from typing import Optional
 
 
@@ -17,6 +17,7 @@ class ProjectCreate(BaseModel):
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"  # top_left, top_right, bottom_left, bottom_right
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
+    logo_size: Optional[str] = "default"  # default, small, medium, large, extra_large
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
 
@@ -85,6 +86,7 @@ class ProjectOut(BaseModel):
     logo_r2_url: Optional[str] = None
     logo_position: str = "bottom_right"
     logo_opacity: float = 0.9
+    logo_size: str = "default"
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
     ai_assisted_editing_count: int = 0
@@ -93,8 +95,26 @@ class ProjectOut(BaseModel):
     scenes: list[SceneOut] = []
     assets: list[AssetOut] = []
 
+    @field_validator("logo_size", mode="before")
+    @classmethod
+    def coerce_logo_size(cls, v: object) -> str:
+        if v is None:
+            return "default"
+        if isinstance(v, (int, float)):
+            return "default"
+        s = str(v).strip().lower()
+        if s in ("default", "small", "medium", "large", "extra_large"):
+            return s
+        return "default"
+
     class Config:
         from_attributes = True
+
+
+class ProjectLogoUpdate(BaseModel):
+    logo_position: Optional[str] = None  # top_left, top_right, bottom_left, bottom_right
+    logo_size: Optional[str] = None      # default, small, medium, large, extra_large
+    logo_opacity: Optional[float] = None # 0.0 - 1.0
 
 
 class ProjectListOut(BaseModel):
