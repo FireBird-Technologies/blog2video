@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Bulk create
+    MAX_BULK_LINKS: int = 10
+
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported
     RESEND_API_KEY: str = ""

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview } from "../api/client";
+import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
@@ -26,6 +26,8 @@ interface Props {
     uploadFiles?: File[],
     template?: string
   ) => Promise<void>;
+  /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
+  onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
@@ -33,6 +35,7 @@ interface Props {
 
 const MAX_UPLOAD_FILES = 5;
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+const MAX_BULK_LINKS = 10;
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -179,7 +182,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
   );
 }
 
-export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
   const isPro = user?.plan === "pro";
 
@@ -187,12 +190,25 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 — input
-  const [mode, setMode] = useState<"url" | "upload">("url");
+  const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk: rows (url, name); per-row template, voice, format, logo
+  const [bulkRows, setBulkRows] = useState<{ url: string; name: string }[]>([{ url: "", name: "" }]);
+  const [bulkTemplates, setBulkTemplates] = useState<string[]>(["nightfall"]);
+  const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
+  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
+  const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
+  const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
+  const [bulkLogoFile, setBulkLogoFile] = useState<(File | null)[]>([null]);
+  const [bulkLogoPosition, setBulkLogoPosition] = useState<string[]>(["bottom_right"]);
+  const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
+  const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
+  const bulkLogoInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
@@ -335,16 +351,59 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   };
 
   // ─── Navigation ──────────────────────────────────────────────
-  // Step order: 1 = Project (URL/Upload), 2 = Template, 3 = Voice
+  // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
-    mode === "url" ? !!urls[0]?.trim() : docFiles.length > 0;
+    mode === "url" ? !!urls[0]?.trim() : mode === "upload" ? docFiles.length > 0 : bulkRows.some((r) => r.url.trim());
 
   const goNext = () => {
-    if (step === 1 && canGoNext1) setStep(2);
-    else if (step === 2) {
+    if (step === 1 && canGoNext1) {
+      if (mode === "bulk") {
+        const n = bulkRows.length;
+        setBulkTemplates((prev) => resizeTo(prev, n, "nightfall"));
+        setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
+        setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
+        setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
+        setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
+        setBulkLogoFile((prev) => resizeTo(prev, n, null));
+        setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
+        setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
+      }
+      setStep(2);
+    } else if (step === 2) {
       step3EnteredAtRef.current = Date.now();
       setStep(3);
     }
+  };
+
+  function resizeTo<T>(arr: T[], len: number, fill: T): T[] {
+    if (arr.length >= len) return arr.slice(0, len);
+    return [...arr, ...Array(len - arr.length).fill(fill)];
+  }
+
+  const addBulkRow = () => {
+    if (bulkRows.length >= MAX_BULK_LINKS) return;
+    setBulkRows((prev) => [...prev, { url: "", name: "" }]);
+    setBulkTemplates((prev) => [...prev, "nightfall"]);
+    setBulkVoiceGender((prev) => [...prev, "female"]);
+    setBulkVoiceAccent((prev) => [...prev, "american"]);
+    setBulkCustomVoiceId((prev) => [...prev, ""]);
+    setBulkAspectRatio((prev) => [...prev, "landscape"]);
+    setBulkLogoFile((prev) => [...prev, null]);
+    setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
+    setBulkLogoOpacity((prev) => [...prev, 0.9]);
+  };
+
+  const removeBulkRow = (index: number) => {
+    if (bulkRows.length <= 1) return;
+    setBulkRows((prev) => prev.filter((_, i) => i !== index));
+    setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
+    setBulkVoiceGender((prev) => prev.filter((_, i) => i !== index));
+    setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
+    setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
+    setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoFile((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoPosition((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoOpacity((prev) => prev.filter((_, i) => i !== index));
   };
 
   const goBack = () => {
@@ -356,11 +415,51 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step !== 3) return;
-    // Ignore submit if it fires right after "Go to step 3" (browser replays click onto the new submit button)
     const enteredAt = step3EnteredAtRef.current;
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
     step3EnteredAtRef.current = null;
     audioRef.current?.pause();
+
+    if (mode === "bulk" && onSubmitBulk) {
+      const valid = bulkRows
+        .map((r, i) => ({ ...r, i }))
+        .filter((r) => r.url.trim());
+      if (valid.length === 0) return;
+      const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => ({
+        blog_url: url.trim(),
+        name: n.trim() || undefined,
+        template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
+        voice_gender: bulkVoiceGender[i] === "none" ? "female" : bulkVoiceGender[i],
+        voice_accent: bulkVoiceAccent[i],
+        accent_color: accentColor,
+        bg_color: bgColor,
+        text_color: textColor,
+        logo_position: bulkLogoPosition[i] ?? "bottom_right",
+        logo_opacity: bulkLogoOpacity[i] ?? 0.9,
+        custom_voice_id: bulkCustomVoiceId[i]?.trim() || undefined,
+        aspect_ratio: bulkAspectRatio[i] ?? "landscape",
+      }));
+      const logoIndices: number[] = [];
+      const logoFiles: File[] = [];
+      valid.forEach((v, j) => {
+        const f = bulkLogoFile[v.i];
+        if (f) {
+          logoIndices.push(j);
+          logoFiles.push(f);
+        }
+      });
+      await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
+      setBulkRows([{ url: "", name: "" }]);
+      setBulkTemplates(["nightfall"]);
+      setBulkVoiceGender(["female"]);
+      setBulkVoiceAccent(["american"]);
+      setBulkCustomVoiceId([]);
+      setBulkAspectRatio(["landscape"]);
+      setBulkLogoFile([null]);
+      setBulkLogoPosition(["bottom_right"]);
+      setBulkLogoOpacity([0.9]);
+      return;
+    }
 
     if (mode === "upload") {
       if (docFiles.length === 0) return;
@@ -427,7 +526,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
       {/* Mode tabs — selected tab purple */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        {(["url", "upload"] as const).map((m) => (
+        {(["url", "upload", ...(onSubmitBulk ? (["bulk"] as const) : [])] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -438,10 +537,70 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {m === "url" ? "Link" : "Upload"}
+            {m === "url" ? "Link" : m === "upload" ? "Upload" : "Bulk"}
           </button>
         ))}
       </div>
+
+      {/* Bulk: multiple links (url + name per row) */}
+      {mode === "bulk" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Links <span className="text-gray-300 font-normal">(max {MAX_BULK_LINKS})</span>
+          </label>
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {bulkRows.map((row, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="url"
+                  value={row.url}
+                  onChange={(e) =>
+                    setBulkRows((prev) =>
+                      prev.map((r, j) => (j === i ? { ...r, url: e.target.value } : r))
+                    )
+                  }
+                  placeholder={`URL ${i + 1}`}
+                  className="flex-1 min-w-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                />
+                <input
+                  type="text"
+                  value={row.name}
+                  onChange={(e) =>
+                    setBulkRows((prev) =>
+                      prev.map((r, j) => (j === i ? { ...r, name: e.target.value } : r))
+                    )
+                  }
+                  placeholder="Name (optional)"
+                  className="w-28 flex-shrink-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeBulkRow(i)}
+                  disabled={bulkRows.length <= 1}
+                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  title="Remove row"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+          {bulkRows.length < MAX_BULK_LINKS && (
+            <button
+              type="button"
+              onClick={addBulkRow}
+              className="mt-2 text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add link
+            </button>
+          )}
+        </div>
+      )}
 
       {/* URL input */}
       {mode === "url" && (
@@ -541,137 +700,142 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </div>
       )}
 
-      {/* Project name */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Project Name <span className="text-gray-300 font-normal">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
-          className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-        />
-      </div>
-
-      {/* Format — moved from step 2 */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-         Video Format
-        </label>
-        <div className="flex gap-2">
-          {([
-            { value: "landscape", label: "Landscape", sub: "YouTube" },
-            { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
-          ] as const).map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setAspectRatio(opt.value)}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
-                aspectRatio === opt.value
-                  ? "bg-purple-600 text-white shadow-sm"
-                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-              }`}
-            >
-              <span>{opt.label}</span>
-              <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
-                {opt.sub}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Logo */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
-        </label>
-        <div className="flex items-center gap-3">
-          <div className="relative mb-4 inline-block">
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
-            >
-              {logoFile ? logoFile.name : "Choose file"}
-            </button>
-            {logoFile && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLogoFile(null);
-                  if (logoInputRef.current) logoInputRef.current.value = "";
-                }}
-                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
-                title="Remove logo"
-              >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
+      {/* Project name (single-link / upload only; bulk has per-row name) */}
+      {mode !== "bulk" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Project Name <span className="text-gray-300 font-normal">(optional)</span>
+          </label>
           <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] || null;
-              if (f && f.size > 2 * 1024 * 1024) {
-                alert("Logo must be under 2 MB.");
-                e.target.value = "";
-                return;
-              }
-              setLogoFile(f);
-            }}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
+            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
           />
         </div>
-        {logoFile && (
-          <div className="mt-2">
-            <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-            <div className="flex gap-1.5">
+      )}
+
+      {/* Format + Logo (single-link / upload only; bulk has per-row in step 3) */}
+      {mode !== "bulk" && (
+        <>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+             Video Format
+            </label>
+            <div className="flex gap-2">
               {([
-                { value: "top_left", label: "Top Left" },
-                { value: "top_right", label: "Top Right" },
-                { value: "bottom_left", label: "Bottom Left" },
-                { value: "bottom_right", label: "Bottom Right" },
-              ] as const).map((pos) => (
+                { value: "landscape", label: "Landscape", sub: "YouTube" },
+                { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
+              ] as const).map((opt) => (
                 <button
-                  key={pos.value}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setLogoPosition(pos.value)}
-                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                    logoPosition === pos.value
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                  onClick={() => setAspectRatio(opt.value)}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                    aspectRatio === opt.value
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
                   }`}
                 >
-                  {pos.label}
+                  <span>{opt.label}</span>
+                  <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
+                    {opt.sub}
+                  </span>
                 </button>
               ))}
             </div>
-            <div className="mt-2.5 mb-3.5">
-              <label className="block text-[10px] text-gray-500 mb-1">
-                Opacity <span className="text-gray-500">{Math.round(logoOpacity * 100)}%</span>
-              </label>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative mb-4 inline-block">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
+                >
+                  {logoFile ? logoFile.name : "Choose file"}
+                </button>
+                {logoFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLogoFile(null);
+                      if (logoInputRef.current) logoInputRef.current.value = "";
+                    }}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
+                    title="Remove logo"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={Math.round(logoOpacity * 100)}
-                onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
-                className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  if (f && f.size > 2 * 1024 * 1024) {
+                    alert("Logo must be under 2 MB.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setLogoFile(f);
+                }}
               />
             </div>
+            {logoFile && (
+              <div className="mt-2">
+                <label className="block text-[10px] text-gray-400 mb-1">Position</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { value: "top_left", label: "Top Left" },
+                    { value: "top_right", label: "Top Right" },
+                    { value: "bottom_left", label: "Bottom Left" },
+                    { value: "bottom_right", label: "Bottom Right" },
+                  ] as const).map((pos) => (
+                    <button
+                      key={pos.value}
+                      type="button"
+                      onClick={() => setLogoPosition(pos.value)}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                        logoPosition === pos.value
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2.5 mb-3.5">
+                  <label className="block text-[10px] text-gray-500 mb-1">
+                    Opacity <span className="text-gray-500">{Math.round(logoOpacity * 100)}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round(logoOpacity * 100)}
+                    onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
+                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
       </div>
 
       {/* Next — always at bottom for consistent UI in Link and Upload */}
@@ -837,6 +1001,53 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
+  // ─── Step 2 bulk: template per row ───────────────────────────
+  const step2BulkTemplate = (
+    <div className="space-y-5">
+      <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        Template per video
+      </label>
+      <div className="space-y-3 max-h-[280px] overflow-y-auto">
+        {bulkRows.map((row, i) => (
+          !row.url.trim() ? null : (
+            <div key={i} className="flex items-center gap-3 p-2 rounded-xl border border-gray-200/60 bg-gray-50/40">
+              <span className="text-xs font-medium text-gray-500 w-8 flex-shrink-0">#{i + 1}</span>
+              <span className="flex-1 min-w-0 truncate text-sm text-gray-700" title={row.url}>
+                {row.name.trim() || row.url.trim().slice(0, 40)}…
+              </span>
+              <select
+                value={bulkTemplates[i] ?? "nightfall"}
+                onChange={(e) =>
+                  setBulkTemplates((prev) => {
+                    const next = [...prev];
+                    next[i] = e.target.value;
+                    return next;
+                  })
+                }
+                className="flex-shrink-0 px-3 py-2 rounded-lg border border-gray-200/60 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+              >
+                {availableTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {TEMPLATE_DESCRIPTIONS[t.id]?.title ?? t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
+        ))}
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={goBack} className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button type="button" onClick={goNext} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+          Go to step 3
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+
   // ─── Step 3: Voice (last step) — audio playlist style ─────────
   const voiceOptions = [
     { gender: "female" as const, accent: "american" as const, key: "female_american", flag: "🇺🇸" },
@@ -978,7 +1189,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           {loading ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              {mode === "upload" ? "Extracting..." : "Creating..."}
+              {mode === "upload" ? "Extracting..." : mode === "bulk" ? "Creating..." : "Creating..."}
             </>
           ) : (
             "Generate Video"
@@ -988,9 +1199,174 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
+  // ─── Step 3 bulk: voice, format, logo per row ─────────────────
+  const step3BulkVoice = (
+    <div className="space-y-5">
+      <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        Voice, format & logo per video
+      </label>
+      <input
+        ref={bulkLogoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] || null;
+          e.target.value = "";
+          if (bulkLogoRowIndex === null) return;
+          if (f && f.size > 2 * 1024 * 1024) {
+            alert("Logo must be under 2 MB.");
+            return;
+          }
+          setBulkLogoFile((prev) => {
+            const n = [...prev];
+            n[bulkLogoRowIndex] = f;
+            return n;
+          });
+          setBulkLogoRowIndex(null);
+        }}
+      />
+      <div className="space-y-3 max-h-[320px] overflow-y-auto">
+        {bulkRows.map((row, i) =>
+          !row.url.trim() ? null : (
+            <div key={i} className="p-3 rounded-xl border border-gray-200/60 bg-gray-50/40 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 w-8 flex-shrink-0">#{i + 1}</span>
+                <span className="flex-1 min-w-0 truncate text-sm text-gray-700" title={row.url}>
+                  {row.name.trim() || row.url.trim().slice(0, 28)}…
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pl-10">
+                <select
+                  value={bulkVoiceGender[i] === "none" ? "none" : `${bulkVoiceGender[i]}_${bulkVoiceAccent[i]}`}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "none") {
+                      setBulkVoiceGender((prev) => { const n = [...prev]; n[i] = "none"; return n; });
+                      return;
+                    }
+                    const [g, a] = v.split("_") as ["female" | "male", "american" | "british"];
+                    setBulkVoiceGender((prev) => { const n = [...prev]; n[i] = g; return n; });
+                    setBulkVoiceAccent((prev) => { const n = [...prev]; n[i] = a; return n; });
+                  }}
+                  className="flex-shrink-0 px-2 py-1.5 rounded-lg border border-gray-200/60 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                >
+                  <option value="female_american">Female US</option>
+                  <option value="female_british">Female UK</option>
+                  <option value="male_american">Male US</option>
+                  <option value="male_british">Male UK</option>
+                  <option value="none">No voice</option>
+                </select>
+                {isPro && bulkVoiceGender[i] !== "none" && (
+                  <input
+                    type="text"
+                    value={bulkCustomVoiceId[i] ?? ""}
+                    onChange={(e) => {
+                      setBulkCustomVoiceId((prev) => { const n = [...prev]; n[i] = e.target.value; return n; });
+                    }}
+                    placeholder="Voice ID"
+                    className="w-24 flex-shrink-0 px-2 py-1.5 rounded-lg border border-gray-200/60 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  />
+                )}
+                <span className="text-gray-300">|</span>
+                <div className="flex gap-1">
+                  {(["landscape", "portrait"] as const).map((ar) => (
+                    <button
+                      key={ar}
+                      type="button"
+                      onClick={() => setBulkAspectRatio((prev) => { const n = [...prev]; n[i] = ar; return n; })}
+                      className={`px-2 py-1 rounded text-[10px] font-medium ${
+                        (bulkAspectRatio[i] ?? "landscape") === ar
+                          ? "bg-purple-600 text-white"
+                          : "bg-white text-gray-500 border border-gray-200/60 hover:bg-gray-50"
+                      }`}
+                    >
+                      {ar === "landscape" ? "16:9" : "9:16"}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-gray-300">|</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkLogoRowIndex(i); bulkLogoInputRef.current?.click(); }}
+                    className="px-2 py-1 rounded text-[10px] font-medium bg-white text-gray-500 border border-gray-200/60 hover:bg-gray-50"
+                  >
+                    {bulkLogoFile[i] ? bulkLogoFile[i]!.name.slice(0, 12) + "…" : "Logo"}
+                  </button>
+                  {bulkLogoFile[i] && (
+                    <button
+                      type="button"
+                      onClick={() => setBulkLogoFile((prev) => { const n = [...prev]; n[i] = null; return n; })}
+                      className="p-1 rounded text-red-500 hover:bg-red-50"
+                      title="Remove logo"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                  <select
+                    value={bulkLogoPosition[i] ?? "bottom_right"}
+                    onChange={(e) => setBulkLogoPosition((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                    className="px-1.5 py-1 rounded border border-gray-200/60 bg-white text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                  >
+                    <option value="top_left">TL</option>
+                    <option value="top_right">TR</option>
+                    <option value="bottom_left">BL</option>
+                    <option value="bottom_right">BR</option>
+                  </select>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={10}
+                    value={Math.round((bulkLogoOpacity[i] ?? 0.9) * 100)}
+                    onChange={(e) => setBulkLogoOpacity((prev) => { const n = [...prev]; n[i] = parseInt(e.target.value, 10) / 100; return n; })}
+                    className="w-14 h-1 bg-gray-200 rounded-full accent-purple-600"
+                    title="Logo opacity"
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        )}
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={goBack} className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button
+          ref={submitButtonRef}
+          type="submit"
+          disabled={loading || !onSubmitBulk}
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          {loading ? (
+            <>
+              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Creating…
+            </>
+          ) : (
+            "Create all & generate"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
   // ─── Render ──────────────────────────────────────────────────
   // Step order: 1 Project, 2 Template, 3 Voice
-  const stepContent = step === 1 ? step1 : step === 2 ? step2Template : step3Voice;
+  const stepContent =
+    step === 1
+      ? step1
+      : step === 2
+        ? mode === "bulk"
+          ? step2BulkTemplate
+          : step2Template
+        : mode === "bulk"
+          ? step3BulkVoice
+          : step3Voice;
 
   const modalWidth = "max-w-xl";
 

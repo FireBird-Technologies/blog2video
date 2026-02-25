@@ -1,13 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listProjects,
   createProject,
   createProjectFromDocs,
+  createProjectsBulk,
   deleteProject,
   createCheckoutSession,
   createPortalSession,
   uploadLogo,
+  startGeneration,
+  getPipelineStatus,
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -15,6 +18,8 @@ import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
+
+const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -25,6 +30,39 @@ export default function Dashboard() {
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [bulkPendingIds, setBulkPendingIds] = useState<number[]>([]);
+  const [bulkStatuses, setBulkStatuses] = useState<
+    Record<number, { step?: string; running?: boolean; error?: string; status?: string }>
+  >({});
+  const bulkStartedRef = useRef(false);
+  const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Hydrate bulk IDs from localStorage (or URL for backward compatibility)
+  useEffect(() => {
+    const stored = localStorage.getItem(BULK_PENDING_IDS_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed) && parsed.every((n) => typeof n === "number" && Number.isInteger(n))) {
+          setBulkPendingIds(parsed);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const q = searchParams.get("bulk");
+    if (q) {
+      const ids = q
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n));
+      if (ids.length > 0) {
+        setBulkPendingIds(ids);
+        localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadProjects();
@@ -32,6 +70,66 @@ export default function Dashboard() {
       refreshUser();
     }
   }, []);
+
+  useEffect(() => {
+    if (bulkPendingIds.length > 0) loadProjects();
+  }, [bulkPendingIds.length]);
+
+  useEffect(() => {
+    if (bulkPendingIds.length === 0) {
+      bulkStartedRef.current = false;
+      return;
+    }
+  }, [bulkPendingIds.length]);
+
+  // Start generation for each bulk id once
+  useEffect(() => {
+    if (bulkPendingIds.length === 0 || bulkStartedRef.current) return;
+    bulkStartedRef.current = true;
+    bulkPendingIds.forEach((id) => {
+      startGeneration(id).catch(() => {
+        setBulkStatuses((prev) => ({ ...prev, [id]: { running: false, error: "Failed to start", status: "created" } }));
+      });
+    });
+  }, [bulkPendingIds]);
+
+  // Poll pipeline status for bulk ids until all have running === false
+  useEffect(() => {
+    if (bulkPendingIds.length === 0) return;
+    const poll = async () => {
+      const updates: Record<number, { step?: string; running?: boolean; error?: string; status?: string }> = {};
+      const results = await Promise.allSettled(
+        bulkPendingIds.map((id) => getPipelineStatus(id).then((res) => ({ id, data: res.data })))
+      );
+      results.forEach((r) => {
+        if (r.status === "fulfilled") {
+          const { step, running, error: pipelineError, status } = r.value.data;
+          updates[r.value.id] = {
+            step: step != null ? String(step) : undefined,
+            running,
+            error: pipelineError ?? undefined,
+            status,
+          };
+        }
+      });
+      setBulkStatuses((prev) => ({ ...prev, ...updates }));
+      const allDone =
+        bulkPendingIds.length > 0 &&
+        bulkPendingIds.every((id) => updates[id] != null && updates[id].running === false);
+      if (allDone && bulkPollingRef.current) {
+        clearInterval(bulkPollingRef.current);
+        bulkPollingRef.current = null;
+      }
+    };
+    poll();
+    bulkPollingRef.current = setInterval(poll, 2000);
+    return () => {
+      if (bulkPollingRef.current) {
+        clearInterval(bulkPollingRef.current);
+        bulkPollingRef.current = null;
+      }
+    };
+  }, [bulkPendingIds.join(",")]);
 
   const loadProjects = async () => {
     try {
@@ -41,6 +139,32 @@ export default function Dashboard() {
       console.error("Failed to load projects:", err);
     } finally {
       setLoaded(true);
+    }
+  };
+
+  const handleCreateBulk = async (
+    items: import("../api/client").BulkProjectItem[],
+    logoOptions: { logoIndices: number[]; logoFiles: File[] } | null
+  ) => {
+    setCreating(true);
+    try {
+      const res = await createProjectsBulk(items, logoOptions);
+      await refreshUser();
+      setShowModal(false);
+      const ids = res.data.project_ids;
+      if (ids.length > 0) {
+        localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
+        setBulkPendingIds(ids);
+      }
+      navigate("/dashboard");
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        alert(err.response?.data?.detail || "Video limit reached. Upgrade to Pro for more.");
+      } else {
+        console.error("Bulk create failed:", err);
+      }
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -185,7 +309,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} loading={creating} />
           </div>
 
           {/* Upgrade nudge */}
@@ -252,6 +376,7 @@ export default function Dashboard() {
       {showModal && (
         <BlogUrlForm
           onSubmit={handleCreate}
+          onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
           onClose={() => setShowModal(false)}
@@ -265,6 +390,60 @@ export default function Dashboard() {
         projectName={deleteTarget?.name}
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Bulk progress */}
+      {bulkPendingIds.length > 0 && (
+        <div className="glass-card p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">Bulk progress</h2>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem(BULK_PENDING_IDS_KEY);
+                setBulkPendingIds([]);
+                loadProjects();
+              }}
+              className="text-xs font-medium text-purple-600 hover:text-purple-700"
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="space-y-2 max-h-48 overflow-y-auto">
+            {bulkPendingIds.map((id) => {
+              const s = bulkStatuses[id];
+              const name = projects.find((p) => p.id === id)?.name ?? `Project ${id}`;
+              const label = s?.error
+                ? "Error"
+                : s?.running
+                  ? s?.step ?? "Running…"
+                  : s?.status === "done"
+                    ? "Done"
+                    : s?.status ?? "—";
+              return (
+                <li
+                  key={id}
+                  className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
+                >
+                  <span
+                    className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600"
+                    onClick={() => navigate(`/project/${id}`)}
+                    title={name}
+                  >
+                    {name}
+                  </span>
+                  <span
+                    className={`flex-shrink-0 ml-2 text-xs ${
+                      s?.error ? "text-red-600" : s?.status === "done" ? "text-green-600" : "text-gray-500"
+                    }`}
+                  >
+                    {s?.error ?? label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Project list */}
       <div className="grid gap-3">
