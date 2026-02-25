@@ -1,15 +1,16 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Img } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "Georgia, 'Times New Roman', serif";
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
+
 export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "How We Got Here",
   narration,
-  accentColor = "#FFE34D",
+  accentColor = "#960f16",
   bgColor = "#FAFAF8",
   textColor = "#111111",
   aspectRatio = "landscape",
@@ -25,8 +26,13 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   imageUrl,
 }) => {
   const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const items = stats.slice(0, 5);
+
+  const bgZoom = interpolate(frame, [0, durationInFrames], [1, 1.3], {
+    extrapolateRight: "clamp",
+  });
 
   // Header
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
@@ -57,7 +63,8 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           height: "100%",
           objectFit: "cover",
           objectPosition: "center",
-          opacity: 0.2,
+          opacity: 0.5,
+          transform: `scale(${bgZoom})`,
           filter: "grayscale(75%) contrast(1.08)",
           pointerEvents: "none",
           zIndex: 1,
@@ -237,7 +244,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           <div
             style={{
               fontFamily: B_FONT,
-              fontSize: p ? 15 : 17,
+              fontSize: descriptionFontSize ?? (p ? 15 : 17),
               fontWeight: 500,
               color: textColor,
               opacity: interpolate(frame, [70, 85], [0, 0.6], { extrapolateRight: "clamp" }),
