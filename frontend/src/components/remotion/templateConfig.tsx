@@ -12,6 +12,7 @@ import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
 import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
+import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -101,6 +102,25 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "closer",
 ]);
 
+const FRAGMENTED_LAYOUTS = new Set([
+  "fragment_hero",
+  "shatter_slide",
+  "punch_text",
+  "shatter_three_v",
+]);
+
+const WHITEBOARD_LAYOUTS = new Set([
+  "drawn_title",
+  "marker_story",
+  "stick_figure_scene",
+  "stats_figures",
+  "stats_chart",
+  "comparison",
+  "countdown_timer",
+  "handwritten_equation",
+  "speech_bubble_dialogue",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -144,6 +164,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#EF4444",
       bg: "#000000",
       text: "#FFFFFF",
+    },
+  },
+  whiteboard: {
+    component: WhiteboardVideoComposition as React.ComponentType<any>,
+    heroLayout: "drawn_title",
+    fallbackLayout: "marker_story",
+    validLayouts: WHITEBOARD_LAYOUTS,
+    defaultColors: {
+      accent: "#1F2937",
+      bg: "#F7F3E8",
+      text: "#111827",
     },
   },
 };

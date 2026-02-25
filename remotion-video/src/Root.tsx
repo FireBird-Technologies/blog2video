@@ -15,6 +15,10 @@ import {
   SpotlightVideo,
   calculateSpotlightMetadata,
 } from "./templates/spotlight/SpotlightVideo";
+import {
+  WhiteboardVideo,
+  calculateWhiteboardMetadata,
+} from "./templates/whiteboard/WhiteboardVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -66,6 +70,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateSpotlightMetadata}
+      />
+      <Composition
+        id="WhiteboardVideo"
+        component={WhiteboardVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateWhiteboardMetadata}
       />
     </>
   );

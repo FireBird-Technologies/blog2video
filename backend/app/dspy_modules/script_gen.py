@@ -23,7 +23,7 @@ class BlogToScript(dspy.Signature):
     - Cut or merge content to fit 7 scenes; leave out minor details.
     STORYTELLING:
     - Narrative arc: setup → development → payoff. At most 10 scenes.
-    - Narrations can be slightly longer for emotional beats (up to 20 words). Keep display text concise.
+    - Narrations should be slightly lengthier: about 15 words per scene (roughly 12–18 words). One full sentence per scene.
     - Focus on journey, tension, or transformation; scenes should feel like story beats.
 
     GENERAL (all styles):
@@ -52,7 +52,7 @@ class BlogToScript(dspy.Signature):
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
     - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
-    - ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) as these are display texts shown on screen.
+    - Narrations: explainer/promotional 10-20 words max; storytelling about 15 words (12-18) per scene. Display texts shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -103,12 +103,12 @@ class BlogToScript(dspy.Signature):
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str — length depends on video_style: promotional 5-12 words, explainer/storytelling 10-20 words max), '
+        '"narration" (str — length by video_style: promotional 5-12 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
         '"visual_description" (str), "suggested_images" (list of str), '
         '"duration_seconds" (int). '
         'FIRST scene title must be the actual blog title (never "Hero Opening"), '
         'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
-        'ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) - these are display texts shown on screen. '
+        'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
         'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
         'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
         'Example with image: [{"title": "How AI is Changing Everything", '

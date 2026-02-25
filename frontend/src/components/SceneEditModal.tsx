@@ -58,6 +58,14 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     bento_steps: { title: 18, desc: 13 },
     pull_quote: { title: 42, desc: 16 },
   },
+  whiteboard: {
+    drawn_title: { title: [82, 118], desc: [30, 36] },
+    marker_story: { title: [68, 92], desc: [30, 40] },
+    stick_figure_scene: { title: [66, 84], desc: [30, 38] },
+    stats_figures: { title: [58, 72], desc: [26, 30] },
+    stats_chart: { title: [52, 64], desc: [24, 28] },
+    comparison: { title: [52, 64], desc: [24, 28] },
+  },
 };
 
 export function getDefaultFontSizes(
@@ -190,7 +198,28 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   kpi_grid: [{ key: "dataPoints", label: "Data points", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value" }] }],
+  // Whiteboard template
+  stats_figures: [{ key: "stats", label: "Key figures", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
+  stats_chart: [{ key: "stats", label: "Bar chart rows", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number 0–100" }], maxItems: 5 }],
 };
+
+/** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
+const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
+  whiteboard: {
+    comparison: [
+      { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
+      { key: "rightThought", label: "Right thought", type: "text", placeholder: "e.g. Option B or second idea" },
+    ],
+  },
+};
+
+function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
+  if (!layoutId) return undefined;
+  const t = (template || "default").toLowerCase();
+  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[layoutId] ?? LAYOUT_TEXT_FIELDS[layoutId];
+}
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -636,13 +665,15 @@ export default function SceneEditModal({
               </div>
 
               {/* ── Layout content fields (dynamic per layout type) ── */}
-              {currentLayoutId && LAYOUT_TEXT_FIELDS[currentLayoutId] && (
+              {(() => {
+                const layoutFields = getLayoutFields(project.template || "default", currentLayoutId);
+                return currentLayoutId && layoutFields && (
                 <div>
                   <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                     Layout content
                   </h4>
                   <div className="space-y-4">
-                    {LAYOUT_TEXT_FIELDS[currentLayoutId].map((field) => {
+                    {layoutFields.map((field) => {
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "string") {
@@ -787,7 +818,8 @@ export default function SceneEditModal({
                     })}
                   </div>
                 </div>
-              )}
+              );
+              })()}
 
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
