@@ -6,6 +6,7 @@ import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
+import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 
 export const VIDEO_STYLES = [
   { id: "explainer", label: "Explainer", subtitle: "Educational, clear, step-by-step" },
@@ -52,6 +53,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
+  whiteboard: WhiteboardPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -59,6 +61,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
+  whiteboard: { title: "Whiteboard Story", subtitle: "Hand-drawn storytelling with stick figures" },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -208,7 +211,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const [playingKey, setPlayingKey] = useState<string | null>(null);
 
   // Step 2 — video style & template
-  const [videoStyle, setVideoStyle] = useState<string>("explainer");
+  const [videoStyle, setVideoStyle] = useState<string>("promotional");
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
   const [templateListTab, setTemplateListTab] = useState<"forStyle" | "others">("forStyle");
   const [template, setTemplate] = useState("nightfall");
@@ -231,6 +234,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     window.addEventListener("click", handler);
     return () => window.removeEventListener("click", handler);
   }, [styleDropdownOpen]);
+
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
   const [bgColor, setBgColor] = useState("#FFFFFF");
@@ -718,12 +722,13 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
 
   // ─── Step 2: Video style + Template ──────────────────────────
   const FALLBACK_TEMPLATES: TemplateMeta[] = [
-    { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "promotional", "storytelling"] },
-    { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional", "storytelling"] },
-    { id: "gridcraft", name: "Gridcraft", description: "", styles: ["explainer", "promotional", "storytelling"] },
-    { id: "spotlight", name: "Spotlight", description: "", styles: ["explainer", "promotional", "storytelling"] },
+    { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "storytelling"] },
+    { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
+    { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
+    { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
+    { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
   ];
-  const styleLower = (videoStyle || "explainer").toLowerCase();
+  const styleLower = (videoStyle || "promotional").toLowerCase();
   const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
@@ -737,29 +742,21 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
 
   const step2Template = (
     <div className="space-y-5">
-      {/* Video style — prominent dropdown; drives script & voiceover tone */}
+      {/* Video style — thin dropdown (same height as before) */}
       <div className="relative" ref={styleDropdownRef}>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
           Video Style
         </label>
-        <p className="text-[11px] text-gray-500 mb-2">
-          Script and voiceover will match this style. Templates below filter by style; you can pick others in the &quot;Others&quot; tab.
-        </p>
         <button
           type="button"
           onClick={() => setStyleDropdownOpen((o) => !o)}
-          className="w-full text-left px-4 py-3.5 rounded-xl border-2 border-purple-500 bg-purple-50/80 shadow-[0_0_0_3px_rgba(124,58,237,0.1)] flex items-center justify-between gap-3 transition-all hover:bg-purple-50"
+          className="w-full text-left px-3 py-2 rounded-lg border border-purple-300/60 bg-purple-50/60 flex items-center justify-between gap-2 transition-all hover:bg-purple-50/80 text-sm"
         >
-          <div>
-            <div className="text-sm font-semibold text-gray-800">
-              {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? "Explainer"}
-            </div>
-            <div className="text-[11px] text-purple-600 mt-0.5">
-              {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.subtitle ?? "Educational, clear, step-by-step"}
-            </div>
-          </div>
+          <span className="font-medium text-gray-800">
+            {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? "Promotional"}
+          </span>
           <svg
-            className={`w-5 h-5 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -768,9 +765,9 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           </svg>
         </button>
         {styleDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-xl border-2 border-purple-200 bg-white shadow-lg overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-lg border border-purple-200 bg-white shadow-lg overflow-hidden">
             {VIDEO_STYLES.map((s) => {
-              const isSelected = (videoStyle || "explainer").toLowerCase() === s.id;
+              const isSelected = (videoStyle || "promotional").toLowerCase() === s.id;
               return (
                 <button
                   key={s.id}
@@ -779,14 +776,14 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
                     setVideoStyle(s.id);
                     setStyleDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
-                    isSelected ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-800"
+                  className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 text-sm transition-colors ${
+                    isSelected ? "bg-purple-50 text-purple-700 font-medium" : "hover:bg-gray-50 text-gray-800"
                   }`}
                 >
-                  <div className="text-sm font-semibold">{s.label}</div>
-                  <div className={`text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
+                  <span>{s.label}</span>
+                  <span className={`block text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
                     {s.subtitle}
-                  </div>
+                  </span>
                 </button>
               );
             })}
@@ -841,7 +838,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? videoStyle}
+              For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? videoStyle}
             </button>
             <button
               type="button"
@@ -948,7 +945,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
               </div>
             ) : (
               <p className="text-sm text-gray-500 py-4 text-center">
-                All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "explainer"))?.label ?? videoStyle}&quot; tab.
+                All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? videoStyle}&quot; tab.
               </p>
             )
           )}
