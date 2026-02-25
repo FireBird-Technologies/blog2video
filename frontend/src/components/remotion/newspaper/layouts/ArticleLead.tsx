@@ -95,7 +95,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           height: "100%",
           objectFit: "cover",
           objectPosition: "center",
-        opacity: 0.2,
+        opacity: 0.4,
         filter: "grayscale(75%) contrast(1.08)",
           pointerEvents: "none",
           zIndex: 1,
@@ -216,8 +216,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: p ? 60 : 74,
-                  fontWeight: 800,
+                  fontSize: p ? 56 : 70, // ⬅️ increased pull stat
+                  fontWeight: 700,
                   color: textColor,
                   lineHeight: 1,
                   marginBottom: 8,
@@ -229,10 +229,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 17 : 19,
-                    fontWeight: 600,
+                    fontSize: p ? 16 : 18, // ⬅️ slightly bigger caption
                     color: textColor,
-                    opacity: 0.75,
+                    opacity: 0.68,
                     lineHeight: 1.4,
                   }}
                 >

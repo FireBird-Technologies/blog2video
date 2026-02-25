@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Img, staticFile } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -24,30 +24,37 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   const pullVal = stats?.[0]?.value ?? "";
   const pullCap = stats?.[0]?.label ?? "";
 
+  // Animations
   const ruleW     = interpolate(frame, [0, 16],  [0, 100], { extrapolateRight: "clamp" });
   const labelOp   = interpolate(frame, [6, 20],  [0, 1],   { extrapolateRight: "clamp" });
   const dropCapOp = interpolate(frame, [10, 26], [0, 1],   { extrapolateRight: "clamp" });
   const dropCapY  = interpolate(frame, [10, 26], [16, 0],  { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
+  // Typewriter: body text reveals character by character
   const bodyProgress = interpolate(frame, [20, 74], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const visChars     = Math.floor(narration.length * bodyProgress);
   const visText      = narration.slice(0, visChars);
   const showCursor   = visChars < narration.length;
 
+  // Pull stat
   const pullSlide = interpolate(frame, [54, 72], [80, 0],  { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const pullOp    = interpolate(frame, [54, 70], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const pullNumP  = interpolate(frame, [66, 82], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
+  // Animate numeric pull value
   const numericMatch = pullVal.match(/^(\d+(?:\.\d+)?)(.*)/);
   const baseNum      = numericMatch ? parseFloat(numericMatch[1]) : null;
   const numSuffix    = numericMatch ? numericMatch[2] : pullVal;
   const animatedNum  = baseNum !== null ? Math.round(baseNum * pullNumP) : null;
   const displayVal   = animatedNum !== null ? `${animatedNum}${numSuffix}` : pullVal;
 
+  // Drop cap: first character of narration
   const dropChar = narration[0] ?? "";
+  const bodyText = narration.slice(1);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+      {/* Background image with newspaper overlay */}
       {imageUrl && (
         <>
           <Img
@@ -66,7 +73,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             style={{
               position: "absolute",
               inset: 0,
-              background: "rgba(220,220,220,0.5)",
+              background: "rgba(220,220,220,0.5)", // gray newspaper overlay
               zIndex: 1,
               mixBlendMode: "multiply",
             }}
@@ -76,8 +83,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
       <NewsBackground bgColor={bgColor} />
 
+      {/* Vintage newspaper texture — in-component so it loads in preview */}
       <img
-        src={staticFile("vintage-news.avif")}
+        src="/vintage-news.avif"
         alt=""
         aria-hidden
         style={{
@@ -87,8 +95,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           height: "100%",
           objectFit: "cover",
           objectPosition: "center",
-          opacity: 0.2,
-          filter: "grayscale(75%) contrast(1.08)",
+        opacity: 0.4,
+        filter: "grayscale(75%) contrast(1.08)",
           pointerEvents: "none",
           zIndex: 1,
         }}
@@ -114,6 +122,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           zIndex: 2,
         }}
       >
+        {/* Top rule + section label */}
         <div style={{ marginBottom: p ? 18 : 24 }}>
           <div style={{ height: 3, background: textColor, width: `${ruleW}%`, marginBottom: 10 }} />
           <div
@@ -131,15 +140,17 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           </div>
         </div>
 
+        {/* Article body layout */}
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: p ? "column" : "row",
-            gap: p ? 24 : 48,
+            gap: p ? 24 : 48, // ⬅️ increased gap
             alignItems: "flex-start",
           }}
         >
+          {/* Body text with drop cap */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
@@ -187,6 +198,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             </div>
           </div>
 
+          {/* Pull stat — right side */}
           {pullVal && (
             <div
               style={{
@@ -204,8 +216,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: p ? 60 : 74,
-                  fontWeight: 800,
+                  fontSize: p ? 56 : 70, // ⬅️ increased pull stat
+                  fontWeight: 700,
                   color: textColor,
                   lineHeight: 1,
                   marginBottom: 8,
@@ -217,10 +229,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 17 : 19,
-                    fontWeight: 600,
+                    fontSize: p ? 16 : 18, // ⬅️ slightly bigger caption
                     color: textColor,
-                    opacity: 0.75,
+                    opacity: 0.68,
                     lineHeight: 1.4,
                   }}
                 >

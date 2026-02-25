@@ -1,30 +1,11 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "Georgia, 'Times New Roman', serif";
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
-/**
- * DataSnapshot — editorial data / stats cards.
- *
- * Up to 4 stats rendered as clean number callout cards.
- * Each card: large number + label + thin yellow underline.
- *
- * Animation (30 fps):
- *  0-16   title + rule fade in
- *  12-36  card 1 slides up + number counts  (stagger: +10f per card)
- *  22-46  card 2
- *  32-56  card 3
- *  42-66  card 4
- *
- * Props:
- *  title          = section header
- *  narration      = optional caption below
- *  stats[]        = up to 4 { value: "47%", label: "Agencies affected" }
- *  accentColor    = underline color (default yellow)
- */
 export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   title = "By the Numbers",
   narration,
@@ -42,6 +23,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   ],
 }) => {
   const frame = useCurrentFrame();
+  const { durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
   const items = stats.slice(0, 4);
@@ -50,28 +32,74 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
   const ruleW   = interpolate(frame, [4, 20], [0, 100], { extrapolateRight: "clamp" });
 
+// Shard animation (2 halves of background image)
+const shardProgress = interpolate(frame, [0, durationInFrames / 2], [0, 1], { extrapolateRight: "clamp" });
+const shardBreak = interpolate(frame, [durationInFrames * 0.8, durationInFrames], [0, 1], { extrapolateRight: "clamp" });
+
+// Left shard moves from left toward center
+const leftX = -width / 2 * (1 - shardProgress) - 50 * shardBreak;
+
+// Right shard moves from right toward center, anchored to right
+const rightX = width / 2 + width / 2 * (1 - shardProgress) + 50 * shardBreak;
+
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
-      {/* Vintage newspaper texture — in-component so it loads in preview */}
+      {/* Shard images */}
+      {/* Left shard */}
+<img
+  src="/vintage-news.avif"
+  alt=""
+  style={{
+    position: "absolute",
+    top: 0,
+    left: leftX,
+    width: width / 2,
+    height: height,
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.35,
+    filter: "grayscale(75%) contrast(1.08)",
+    zIndex: 1,
+  }}
+/>
+
+{/* Right shard */}
+<img
+  src="/vintage-news.avif"
+  alt=""
+  style={{
+    position: "absolute",
+    top: 0,
+    right: rightX, // <-- anchor to right
+    width: width / 2,
+    height: height,
+    objectFit: "cover",
+    objectPosition: "center",
+    opacity: 0.35,
+    filter: "grayscale(75%) contrast(1.08)",
+    zIndex: 1,
+  }}
+/>
       <img
         src="/vintage-news.avif"
         alt=""
-        aria-hidden
         style={{
           position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
+          top: 0,
+          left: width/2 + rightX - width/2, // align right half
+          width: width/2,
+          height: height,
           objectFit: "cover",
           objectPosition: "center",
-        opacity: 0.2,
-        filter: "grayscale(75%) contrast(1.08)",
-          pointerEvents: "none",
+          opacity: 0.35,
+          filter: "grayscale(75%) contrast(1.08)",
           zIndex: 1,
         }}
       />
+
+      {/* Gradient overlay */}
       <div
         aria-hidden
         style={{
@@ -79,10 +107,11 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           inset: 0,
           background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
           pointerEvents: "none",
-          zIndex: 1,
+          zIndex: 2,
         }}
       />
 
+      {/* Content */}
       <div
         style={{
           position: "absolute",
@@ -91,7 +120,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           flexDirection: "column",
           padding: p ? "7% 6%" : "6% 9%",
           gap: p ? 24 : 32,
-          zIndex: 2,
+          zIndex: 3,
         }}
       >
         {/* Header */}
@@ -111,7 +140,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           <div style={{ height: 2, background: textColor, opacity: 0.12, width: `${ruleW}%` }} />
         </div>
 
-        {/* Cards grid */}
+        {/* Cards */}
         <div
           style={{
             flex: 1,
@@ -127,26 +156,11 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             const cardY  = interpolate(frame, [delay, delay + 18], [28, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
             const ulW    = interpolate(frame, [delay + 8, delay + 22], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
-            // Numeric count-up
-            const numMatch  = item.value.match(/^(\d+(?:\.\d+)?)(.*)/);
-            const baseNum   = numMatch ? parseFloat(numMatch[1]) : null;
-            const suffix    = numMatch ? numMatch[2] : "";
-            const prefix    = item.value.startsWith("$") ? "$" : "";
-            const rawNumStr = numMatch ? numMatch[1] : item.value;
-
-            const numP       = interpolate(frame, [delay + 2, delay + 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-            const animatedN  = baseNum !== null ? Math.round(baseNum * numP) : null;
-            const displayVal = animatedN !== null
-              ? (prefix + (rawNumStr.includes(".") ? (baseNum! * numP).toFixed(1) : animatedN) + suffix)
-              : item.value;
-
-            const cardW = p ? "calc(50% - 8px)" : items.length <= 2 ? "calc(50% - 11px)" : "calc(25% - 17px)";
-
             return (
               <div
                 key={i}
                 style={{
-                  width: cardW,
+                  width: p ? "calc(50% - 8px)" : items.length <= 2 ? "calc(50% - 11px)" : "calc(25% - 17px)",
                   opacity: cardOp,
                   transform: `translateY(${cardY}px)`,
                   backgroundColor: "rgba(255,255,255,0.7)",
@@ -167,10 +181,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                     marginBottom: 10,
                   }}
                 >
-                  {displayVal}
+                  {item.value}
                 </div>
 
-                {/* Yellow underline */}
+                {/* Underline */}
                 <div
                   style={{
                     height: 4,
@@ -185,7 +199,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 15 : 17,
+                    fontSize: descriptionFontSize ?? (p ? 15 : 17),
                     fontWeight: 500,
                     color: textColor,
                     opacity: 0.75,
