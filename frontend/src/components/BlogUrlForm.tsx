@@ -6,6 +6,7 @@ import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
+import MatrixPreview from "./templatePreviews/MatrixPreview";
 
 interface Props {
   onSubmit: (
@@ -45,6 +46,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
+  matrix: MatrixPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -52,6 +54,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
+  matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -690,10 +693,11 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const availableTemplates = templates.length > 0
     ? templates
     : [
-        { id: "default", name: "Spotlight" },
+        { id: "default", name: "Geometric Explainer" },
         { id: "nightfall", name: "Nightfall" },
         { id: "gridcraft", name: "Gridcraft" },
         { id: "spotlight", name: "Spotlight" },
+        { id: "matrix", name: "Matrix" },
       ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];

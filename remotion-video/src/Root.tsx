@@ -15,6 +15,10 @@ import {
   SpotlightVideo,
   calculateSpotlightMetadata,
 } from "./templates/spotlight/SpotlightVideo";
+import {
+  MatrixVideo,
+  calculateMatrixMetadata,
+} from "./templates/matrix/MatrixVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -67,6 +71,19 @@ export const RemotionRoot: React.FC = () => {
         }}
         calculateMetadata={calculateSpotlightMetadata}
       />
+      <Composition
+        id="MatrixVideo"
+        component={MatrixVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMatrixMetadata}
+      />
     </>
   );
 };
+
