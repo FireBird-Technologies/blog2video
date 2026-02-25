@@ -111,6 +111,27 @@ class ProjectOut(BaseModel):
         from_attributes = True
 
 
+class BulkProjectItem(BaseModel):
+    """One project in a bulk create request (same fields as ProjectCreate)."""
+    blog_url: str
+    name: Optional[str] = None
+    template: Optional[str] = "default"
+    voice_gender: Optional[str] = "female"
+    voice_accent: Optional[str] = "american"
+    accent_color: Optional[str] = "#7C3AED"
+    bg_color: Optional[str] = "#FFFFFF"
+    text_color: Optional[str] = "#000000"
+    animation_instructions: Optional[str] = None
+    logo_position: Optional[str] = "bottom_right"
+    logo_opacity: Optional[float] = 0.9
+    custom_voice_id: Optional[str] = None
+    aspect_ratio: Optional[str] = "landscape"
+
+
+class BulkCreateResponse(BaseModel):
+    project_ids: list[int]
+
+
 class ProjectLogoUpdate(BaseModel):
     logo_position: Optional[str] = None  # top_left, top_right, bottom_left, bottom_right
     logo_size: Optional[str] = None      # default, small, medium, large, extra_large
