@@ -1,10 +1,19 @@
 import React from "react";
 import { Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
+const LOGO_SIZE_MULT: Record<string, number> = {
+  small: 0.6,
+  medium: 0.8,
+  default: 1,
+  large: 1.2,
+  extra_large: 1.5,
+};
+
 interface LogoOverlayProps {
   src: string;
   position?: string; // "top_left" | "top_right" | "bottom_left" | "bottom_right"
   maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
+  size?: string; // "default" | "small" | "medium" | "large" | "extra_large"
   aspectRatio?: string; // "landscape" | "portrait"
 }
 
@@ -16,6 +25,7 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   src,
   position = "bottom_right",
   maxOpacity = 0.9,
+  size: sizePreset = "default",
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -26,9 +36,11 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const size = isPortrait
+  const mult = LOGO_SIZE_MULT[sizePreset] ?? 1;
+  const baseSize = isPortrait
     ? Math.round(width * 0.12)
     : Math.round(width * 0.105);
+  const size = Math.round(baseSize * mult);
 
   const margin = isPortrait
     ? Math.round(width * 0.032)

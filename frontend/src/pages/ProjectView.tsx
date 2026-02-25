@@ -18,6 +18,7 @@ import {
   generateSceneImage,
   deleteAsset,
   getValidLayouts,
+  updateProjectLogo,
   Project,
   Scene,
   BACKEND_URL,
@@ -31,7 +32,7 @@ import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
 import { getPendingUpload } from "../stores/pendingUpload";
 
-type Tab = "script" | "scenes" | "images" | "audio";
+type Tab = "script" | "scenes" | "images" | "audio" | "logo";
 
 const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
@@ -277,6 +278,16 @@ export default function ProjectView() {
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
+  const [logoSize, setLogoSize] = useState<string>("default");
+
+  useEffect(() => {
+    if (project) {
+      setLogoPosition(project.logo_position || "bottom_right");
+      setLogoSize(project.logo_size || "default");
+    }
+  }, [project?.id, project?.logo_position, project?.logo_size]);
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
@@ -821,6 +832,7 @@ export default function ProjectView() {
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "scenes", label: "Scenes" },
+    { id: "logo", label: "Logo" },
   ];
 
   const pipelineComplete = ["generated", "rendering", "done"].includes(
@@ -1026,6 +1038,22 @@ export default function ProjectView() {
     setGenerateImageError(null);
     setGenerateErrorSceneId(null);
     setGeneratedImageSceneId(null);
+  };
+
+  const handleSaveLogo = async () => {
+    if (!project) return;
+    setLogoSaving(true);
+    try {
+      await updateProjectLogo(project.id, {
+        logo_position: logoPosition,
+        logo_size: logoSize,
+      });
+      await loadProject();
+    } catch (err) {
+      console.error("Failed to save logo settings:", err);
+    } finally {
+      setLogoSaving(false);
+    }
   };
 
   // Audio assets for R2 URL resolution
@@ -2338,6 +2366,77 @@ export default function ProjectView() {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "logo" && (
+          <div className="glass-card p-6 max-w-lg">
+            <h2 className="text-base font-medium text-gray-900 mb-4">Logo</h2>
+            {project.logo_r2_url ? (
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Position</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: "top_left", label: "Top left" },
+                      { value: "top_right", label: "Top right" },
+                      { value: "bottom_left", label: "Bottom left" },
+                      { value: "bottom_right", label: "Bottom right" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setLogoPosition(opt.value)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          logoPosition === opt.value
+                            ? "bg-purple-600 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-700 mb-2">Size</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: "small", label: "Small" },
+                      { value: "medium", label: "Medium" },
+                      { value: "large", label: "Large" },
+                      { value: "extra_large", label: "Extra large" },
+                      { value: "default", label: "Default" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setLogoSize(opt.value)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          logoSize === opt.value
+                            ? "bg-purple-600 text-white"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveLogo}
+                  disabled={logoSaving}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {logoSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Upload a logo in project creation to adjust position and size here.
+              </p>
             )}
           </div>
         )}

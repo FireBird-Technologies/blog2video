@@ -566,6 +566,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
         "logoOpacity": getattr(project, "logo_opacity", 0.9) or 0.9,
+        "logoSize": getattr(project, "logo_size", None) or "default",
         "aspectRatio": getattr(project, "aspect_ratio", None) or "landscape",
         "scenes": scene_data,
     }
