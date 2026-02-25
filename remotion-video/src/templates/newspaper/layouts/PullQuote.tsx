@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -73,7 +73,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
       {/* Background shards */}
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         aria-hidden
         style={{
@@ -91,7 +91,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
         }}
       />
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         aria-hidden
         style={{
@@ -111,7 +111,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
       {/* Newspaper texture overlay */}
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         aria-hidden
         style={{
