@@ -43,7 +43,6 @@ const DISPERSE_DURATION = 45;
 const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-
   const disperseStart = durationInFrames - DISPERSE_DURATION;
 
   return (
@@ -86,12 +85,11 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
           rotate = shard.rot * (1 - eased) * 0.35;
           scale = 0.9 + 0.1 * eased;
         } else {
-          const fallProgress = disperse;
-          const gravity = fallProgress * fallProgress;
-          tx = shard.ox * fallProgress * 0.2;
+          const gravity = disperse * disperse;
+          tx = shard.ox * disperse * 0.2;
           ty = gravity * 900;
-          rotate = shard.rot * fallProgress * 0.25;
-          scale = 1 - 0.1 * fallProgress;
+          rotate = shard.rot * disperse * 0.25;
+          scale = 1 - 0.1 * disperse;
         }
 
         const opacity =
@@ -142,26 +140,35 @@ export const NewsHeadline: React.FC<
   imageUrl,
 }) => {
   const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
-  const cat = category ?? stats?.[0]?.label ?? "News";
-
-  const catOp = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
-  const headY = interpolate(frame, [6, 30], [38, 0], { extrapolateRight: "clamp" });
-  const headOp = interpolate(frame, [6, 28], [0, 1], { extrapolateRight: "clamp" });
-
-  const imageAppear = interpolate(frame, [12, 28], [0.8, 1], {
+  /* 🎬 Unified Fade In / Fade Out */
+  const fadeIn = interpolate(frame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
 
-  // Default highlight: first, middle, last words
+  const fadeOut = interpolate(
+    frame,
+    [durationInFrames - 25, durationInFrames],
+    [1, 0],
+    { extrapolateLeft: "clamp" }
+  );
+
+  const contentOpacity = fadeIn * fadeOut;
+
+  const cat = category ?? stats?.[0]?.label ?? "News";
+
   const words = title.split(" ");
   const defaultHighlights = [
     words[0],
     words[Math.floor(words.length / 2)],
     words[words.length - 1],
   ];
-  const highlights = highlightWords && highlightWords.length ? highlightWords : defaultHighlights;
+  const highlights =
+    highlightWords && highlightWords.length
+      ? highlightWords
+      : defaultHighlights;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
@@ -171,18 +178,16 @@ export const NewsHeadline: React.FC<
         <div
           style={{
             position: "absolute",
-            top: p ? 60 : 80,
-            right: p ? 20 : 80,
-            width: p ? 280 : 440,
-            height: p ? 220 : 320,
-            background: "#ffffff",
-            padding: 10,
-            borderRadius: 6,
-            boxShadow: "0 20px 45px rgba(0,0,0,0.25)",
-            transform: `rotate(-6deg) scale(${imageAppear})`,
+            top: p ? 160 : 250,
+            right: p ? 100 : 180,
+            width: p ? 380 : 540,
+            height: p ? 300 : 440,
+            transform: "rotate(-16deg)",
+            opacity: contentOpacity,
             zIndex: 5,
           }}
         >
+          {/* Image Layer */}
           <Img
             src={imageUrl}
             style={{
@@ -190,12 +195,44 @@ export const NewsHeadline: React.FC<
               height: "100%",
               objectFit: "cover",
               display: "block",
-              filter: "grayscale(20%) contrast(110%)",
+
+              /* Soft dissolve blur in/out */
+              filter: `
+                blur(${interpolate(frame, [0, 20], [10, 2], {
+                  extrapolateRight: "clamp",
+                })}px)
+                grayscale(100%)
+                contrast(115%)
+                brightness(92%)
+              `,
+
+              /* Feathered edge dissolve */
+              WebkitMaskImage:
+                "radial-gradient(circle at center, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)",
+              maskImage:
+                "radial-gradient(circle at center, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)",
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `
+                linear-gradient(
+                  to bottom,
+                  rgba(231, 224, 202, 0.25),
+                  rgba(233, 210, 148, 0.35)
+                )
+              `,
+              mixBlendMode: "multiply",
+              pointerEvents: "none",
             }}
           />
         </div>
       )}
 
+      {/* CONTENT */}
       <div
         style={{
           position: "absolute",
@@ -205,9 +242,11 @@ export const NewsHeadline: React.FC<
           justifyContent: "center",
           padding: p ? "8% 7%" : "7% 10%",
           zIndex: 10,
+          opacity: contentOpacity,
         }}
       >
-        <div style={{ marginBottom: 30, opacity: catOp }}>
+        {/* CATEGORY */}
+        <div style={{ marginBottom: 30 }}>
           <div
             style={{
               display: "inline-block",
@@ -224,18 +263,15 @@ export const NewsHeadline: React.FC<
           </div>
         </div>
 
-        {/* Dynamic heading with highlighter effect */}
+        {/* TITLE */}
         <div
           style={{
             fontFamily: H_FONT,
             fontSize: titleFontSize ?? (p ? 62 : 86),
             fontWeight: 800,
             lineHeight: 1.05,
-            opacity: headOp,
-            transform: `translateY(${headY}px)`,
             marginBottom: 36,
             maxWidth: p ? "100%" : "60%",
-            wordWrap: "break-word",
           }}
         >
           {words.map((word, i) => {
@@ -243,6 +279,7 @@ export const NewsHeadline: React.FC<
             const isHighlight = highlights.some(
               (hl) => hl.toLowerCase() === cleanWord.toLowerCase()
             );
+
             return (
               <span
                 key={i}
@@ -250,27 +287,32 @@ export const NewsHeadline: React.FC<
                   position: "relative",
                   display: "inline-block",
                   marginRight: "6px",
-                  lineHeight: 1.2,
                 }}
               >
                 {isHighlight && (
                   <span
                     style={{
                       position: "absolute",
-                      inset: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: "15%",
+                      height: "55%",
                       backgroundColor: accentColor,
                       opacity: 0.35,
-                      borderRadius: 2,
+                      borderRadius: 4,
                       zIndex: -1,
                     }}
                   />
                 )}
-                <span style={{ position: "relative", zIndex: 1 }}>{word}</span>
+                <span style={{ position: "relative", zIndex: 1 }}>
+                  {word}
+                </span>
               </span>
             );
           })}
         </div>
 
+        {/* NARRATION */}
         {narration && (
           <div
             style={{
