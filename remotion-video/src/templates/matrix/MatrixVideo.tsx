@@ -43,22 +43,39 @@ interface VideoProps {
   dataUrl: string;
 }
 
-/** Matrix-style transition — green flash then fade to black */
+/** Matrix-style transition — glitch distort + green flash + fade to black */
 const MatrixTransition: React.FC = () => {
   const frame = useCurrentFrame();
+
+  // Phase 1 (frames 0-3): Green scanline flash with glitch offset
   const flashProgress = interpolate(frame, [0, 3], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  // Phase 2 (frames 3-8): Scale up + fade to black
   const fadeProgress = interpolate(frame, [3, 8], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const scale = interpolate(frame, [2, 8], [1, 1.12], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Glitch horizontal offset during flash phase
+  const glitchX = frame < 3 ? Math.sin(frame * 8) * 6 : 0;
+
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: flashProgress < 1 ? "#00FF4122" : "#000000",
+        backgroundColor: flashProgress < 1 ? "#00FF4133" : "#000000",
         opacity: flashProgress < 1 ? flashProgress : fadeProgress,
+        transform: `scale(${scale}) translateX(${glitchX}px)`,
+        boxShadow: flashProgress < 1
+          ? `0 0 60px #00FF4144, inset 0 0 120px #00FF4122`
+          : "none",
       }}
     />
   );
