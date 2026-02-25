@@ -315,6 +315,7 @@ export default function SceneEditModal({
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
+  const [aiNarration, setAiNarration] = useState(scene.narration_text || "");
   const [titleFontSize, setTitleFontSize] = useState<string>("");
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
@@ -376,7 +377,10 @@ export default function SceneEditModal({
     if (!open) return;
     setTitle(scene.title);
     setDescription("");
-    setDisplayText(scene.narration_text || "");
+    // Prefer dedicated display_text when available; otherwise fall back to narration_text.
+    const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
+    setDisplayText(initialDisplay);
+    setAiNarration(scene.narration_text || "");
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -535,7 +539,8 @@ export default function SceneEditModal({
         }
         await updateScene(project.id, scene.id, {
           title,
-          narration_text: displayText,
+          // Update only the on-screen display text here; narration_text continues to drive voiceover.
+          display_text: displayText,
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
         });
         if (selectedImageFile) {
@@ -559,11 +564,20 @@ export default function SceneEditModal({
       const keepLayout = selectedLayout === "__keep__";
       setLoading(true);
       try {
+        // If narration text was edited, persist it before regenerating layout/voiceover
+        const trimmedNarration = aiNarration.trim();
+        if (trimmedNarration !== (scene.narration_text || "").trim()) {
+          await updateScene(project.id, scene.id, {
+            narration_text: trimmedNarration,
+          });
+        }
+
         await regenerateScene(
           project.id,
           scene.id,
           description,
-          scene.narration_text || "",
+          // For this modal, keep display text unchanged by sending an empty display-text payload.
+          "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
           undefined
@@ -984,6 +998,22 @@ export default function SceneEditModal({
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={2}
                 />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Narration text (voiceover script)
+                </h4>
+                <AutoGrowTextarea
+                  value={aiNarration}
+                  onChange={(e) => setAiNarration(e.target.value)}
+                  placeholder="Edit the narration that will be spoken in the voiceover..."
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
+                  minRows={3}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  This controls the spoken narration and scene timing. Display text is edited in Manual mode.
+                </p>
               </div>
 
               <div className="flex items-center justify-between">

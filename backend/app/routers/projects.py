@@ -690,7 +690,7 @@ async def regenerate_scene(
     project_id: int,
     scene_id: int,
     description: Optional[str] = Form(None),
-    narration_text: str = Form(...),
+    narration_text: Optional[str] = Form(None),
     regenerate_voiceover: str = Form("false"),
     layout: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
@@ -797,13 +797,15 @@ async def regenerate_scene(
         "don't display narration", "visualization only"
     ])
 
-    # Use the provided narration_text (display text) or keep existing if not provided
+    # Use the provided narration_text form field as DISPLAY TEXT for the scene.
+    # Voiceover continues to be driven from scene.narration_text.
     if hide_narration:
-        new_narration = ""
+        new_display_text = ""
     elif narration_text and narration_text.strip():
-        new_narration = narration_text.strip()
+        new_display_text = narration_text.strip()
     else:
-        new_narration = scene.narration_text or ""
+        # Prefer existing display_text when present; otherwise fall back to narration_text.
+        new_display_text = getattr(scene, "display_text", None) or (scene.narration_text or "")
     
     # Parse current descriptor
     current_descriptor = None
@@ -823,7 +825,7 @@ async def regenerate_scene(
             current_visual_description=scene.visual_description or "",
             user_instruction=description,
             scene_title=scene.title,
-            display_text=new_narration,
+            display_text=new_display_text,
         )
     else:
         new_visual_description = scene.visual_description or ""
@@ -859,7 +861,7 @@ async def regenerate_scene(
 
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
-            narration=new_narration,
+            narration=scene.narration_text or "",
             visual_description=new_visual_description,
             scene_index=scene.order - 1,
             total_scenes=len(all_scenes),
@@ -888,22 +890,28 @@ async def regenerate_scene(
                 descriptor["layoutProps"]["hideImage"] = True
 
         scene.visual_description = new_visual_description
-        scene.narration_text = new_narration
+        # Update display_text only; narration_text remains the narration script.
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
         scene.remotion_code = json.dumps(descriptor)
         db.commit()
     else:
         # Keep layout: no AI layout call — just preserve existing descriptor
         scene.visual_description = new_visual_description
-        scene.narration_text = new_narration
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
         db.commit()
 
     # Regenerate voiceover only if requested
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
-    if should_regenerate_voiceover and new_narration.strip():
+    # Voiceover should continue to be based on the underlying narration_text script,
+    # not the shorter display_text.
+    narration_source = (scene.narration_text or "").strip()
+    if should_regenerate_voiceover and narration_source:
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
         video_style = getattr(project, "video_style", None) or "explainer"
         expanded_voiceover = await expand_narration_to_voiceover(
-            new_narration, scene.title, video_style=video_style
+            narration_source, scene.title, video_style=video_style
         )
 
         original_narration = scene.narration_text

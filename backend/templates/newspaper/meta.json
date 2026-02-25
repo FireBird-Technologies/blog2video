@@ -23,11 +23,9 @@
     "news_timeline"
   ],
   "layouts_without_image": [
-    "article_lead",
     "pull_quote",
     "data_snapshot",
-    "fact_check",
-    "news_timeline"
+    "fact_check"
   ],
   "features": [
     "News headline hero with category and byline",

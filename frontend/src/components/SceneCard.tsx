@@ -58,7 +58,8 @@ export default function SceneCard({ scene, images }: Props) {
       </div>
 
       <p className="text-sm text-gray-600 leading-relaxed mb-2">
-        {scene.narration_text}
+        {/* Prefer display_text for on-screen preview; fall back to narration_text */}
+        {scene.display_text ?? scene.narration_text}
       </p>
 
       <p className="text-xs text-gray-400 italic mb-3">

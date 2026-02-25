@@ -520,12 +520,15 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         raw_images = [] if hide_image else scene_image_map.get(i, [])
         scene_images = raw_images[:1]
 
+        # Use display_text for on-screen text when available; otherwise fall back to narration_text.
+        on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
+
         scene_data.append(
             {
                 "id": scene.id,
                 "order": scene.order,
                 "title": scene.title,
-                "narration": scene.narration_text,
+                "narration": on_screen_text,
                 "visualDescription": scene.visual_description,
                 "layout": layout,
                 "layoutProps": layout_props,
