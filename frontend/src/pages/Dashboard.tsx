@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
@@ -23,6 +24,7 @@ const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
+  const { showError } = useErrorModal();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
@@ -166,7 +168,7 @@ export default function Dashboard() {
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        alert(err.response?.data?.detail || "Video limit reached. Upgrade to Pro for more.");
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -239,7 +241,7 @@ export default function Dashboard() {
         try {
           await uploadLogo(res.data.id, logoFile);
         } catch (err) {
-          console.error("Logo upload failed:", err);
+          showError(getErrorMessage(err, "Logo upload failed."));
         }
       }
 
@@ -248,10 +250,7 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        alert(
-          err.response.data.detail ||
-            "Video limit reached. Upgrade to Pro for more."
-        );
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Failed to create project:", err);
       }

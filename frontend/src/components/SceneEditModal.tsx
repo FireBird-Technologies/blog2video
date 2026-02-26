@@ -12,6 +12,7 @@ import {
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
@@ -327,16 +328,15 @@ export default function SceneEditModal({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { showError } = useErrorModal();
   const navigate = useNavigate();
 
   // Cleanup image preview URL
@@ -392,11 +392,9 @@ export default function SceneEditModal({
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
-    setError(null);
     setGeneratingImage(false);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
-    setGenerateError(null);
     setShowAiImageUpgradeModal(false);
     let layoutId: string | null = null;
     let ts = "";
@@ -460,7 +458,7 @@ export default function SceneEditModal({
     if (open && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
-        .catch(() => setError("Failed to load layouts"));
+        .catch(() => showError("Failed to load layouts"));
     }
   }, [open, project.id, layouts]);
 
@@ -476,7 +474,6 @@ export default function SceneEditModal({
   }, [layoutOpen]);
 
   const handleSave = async () => {
-    setError(null);
     if (editMode === "manual") {
       setLoading(true);
       try {
@@ -566,7 +563,7 @@ export default function SceneEditModal({
           err && typeof err === "object" && "response" in err
             ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
             : "Failed to update scene";
-        setError(String(msg));
+        showError(String(msg));
       } finally {
         setLoading(false);
       }
@@ -602,7 +599,7 @@ export default function SceneEditModal({
           err && typeof err === "object" && "response" in err
             ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
             : "Failed to regenerate scene";
-        setError(String(msg));
+        showError(String(msg));
       } finally {
         setLoading(false);
       }
@@ -610,7 +607,6 @@ export default function SceneEditModal({
   };
 
   const handleRemoveImage = async (assetId: number) => {
-    setError(null);
     setRemovingAssetId(assetId);
     try {
       await deleteAsset(project.id, assetId);
@@ -620,7 +616,7 @@ export default function SceneEditModal({
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
           : "Failed to remove image";
-      setError(String(msg));
+      showError(String(msg));
     } finally {
       setRemovingAssetId(null);
     }
@@ -638,7 +634,6 @@ export default function SceneEditModal({
   };
 
   const handleGenerateImage = async () => {
-    setGenerateError(null);
     setGeneratingImage(true);
     try {
       const res = await generateSceneImage(project.id, scene.id);
@@ -655,7 +650,7 @@ export default function SceneEditModal({
           err && typeof err === "object" && "response" in err
             ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
             : "Image generation failed";
-        setGenerateError(String(msg));
+        showError(String(msg));
       }
       setGeneratedImageBase64(null);
       setGeneratedPrompt(null);
@@ -674,15 +669,13 @@ export default function SceneEditModal({
         setSelectedImageFile(file);
         setGeneratedImageBase64(null);
         setGeneratedPrompt(null);
-        setGenerateError(null);
       })
-      .catch(() => setGenerateError("Failed to use generated image"));
+      .catch(() => showError("Failed to use generated image"));
   };
 
   const handleDiscardGeneratedImage = () => {
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
-    setGenerateError(null);
   };
 
   if (!open) return null;
@@ -1067,9 +1060,6 @@ export default function SceneEditModal({
                       )}
                     </button>
                   </div>
-                  {generateError && (
-                    <p className="text-xs text-red-600 mt-1.5">{generateError}</p>
-                  )}
                   {!hasSceneText && (
                     <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
                   )}
@@ -1214,11 +1204,6 @@ export default function SceneEditModal({
             </div>
           )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
         </div>
 
         <div className="p-6 border-t border-gray-100 flex justify-end gap-2">

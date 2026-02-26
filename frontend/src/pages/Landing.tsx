@@ -4,6 +4,7 @@ import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -60,7 +61,7 @@ const NAV_LINKS = [
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [authError, setAuthError] = useState<string | null>(null);
+  const { showError } = useErrorModal();
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
@@ -94,15 +95,12 @@ export default function Landing() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
-    setAuthError(null);
     try {
       const res = await googleLogin(response.credential);
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      setAuthError(
-        err?.response?.data?.detail || "Authentication failed. Please try again."
-      );
+      showError(getErrorMessage(err, "Authentication failed. Please try again."));
     }
   };
 
@@ -201,16 +199,13 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-4">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
-              onError={() => setAuthError("Google sign-in failed")}
+              onError={() => showError("Google sign-in failed")}
               size="large"
               shape="pill"
               text="continue_with"
               theme="outline"
               width="300"
             />
-            {authError && (
-              <p className="text-red-500 text-sm">{authError}</p>
-            )}
             <p className="text-xs text-gray-400">
               First video free — no credit card required
             </p>
@@ -724,7 +719,7 @@ export default function Landing() {
           <div className="flex justify-center">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
-              onError={() => setAuthError("Google sign-in failed")}
+              onError={() => showError("Google sign-in failed")}
               size="large"
               shape="pill"
               text="continue_with"
