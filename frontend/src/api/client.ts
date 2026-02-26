@@ -320,6 +320,49 @@ export const createProject = (
     video_style,
   });
 
+/** One project config for bulk create (same shape as single create). */
+export interface BulkProjectItem {
+  blog_url: string;
+  name?: string;
+  template?: string;
+  video_style?: string;
+  voice_gender?: string;
+  voice_accent?: string;
+  accent_color?: string;
+  bg_color?: string;
+  text_color?: string;
+  animation_instructions?: string;
+  logo_position?: string;
+  logo_opacity?: number;
+  custom_voice_id?: string;
+  aspect_ratio?: string;
+}
+
+export interface BulkCreateResponse {
+  project_ids: number[];
+}
+
+/** Per-project logos: indices into the projects array and corresponding files. */
+export interface BulkLogoOptions {
+  logoIndices: number[];
+  logoFiles: File[];
+}
+
+export const createProjectsBulk = (
+  projects: BulkProjectItem[],
+  logoOptions?: BulkLogoOptions | null
+) => {
+  const formData = new FormData();
+  formData.append("projects", JSON.stringify(projects));
+  if (logoOptions && logoOptions.logoIndices.length > 0 && logoOptions.logoFiles.length === logoOptions.logoIndices.length) {
+    formData.append("logo_indices", JSON.stringify(logoOptions.logoIndices));
+    logoOptions.logoFiles.forEach((f) => formData.append("logos", f));
+  }
+  return api.post<BulkCreateResponse>("/projects/bulk", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const createProjectFromDocs = (
   files: File[],
   config: {

@@ -2,6 +2,7 @@
   "id": "matrix",
   "name": "Matrix",
   "description": "Digital rain on a black void. Green monospace text decodes from random characters, numbers count up through cipher noise, and data streams in like intercepted transmissions. Terminal aesthetic with glitch effects. Fast, cryptic, cyberpunk.",
+  "styles": ["promotional"],
   "preview_colors": {
     "accent": "#00FF41",
     "bg": "#000000",

@@ -14,6 +14,7 @@ from app.models.user import User
 from app.models.project import Project, ProjectStatus
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
+    BulkProjectItem, BulkCreateResponse,
     SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
 )
 from app.services import r2_storage
@@ -79,6 +80,144 @@ def create_project(
     db.commit()
     db.refresh(project)
     return project
+
+
+def _apply_logo_to_project(
+    project_id: int,
+    user_id: int,
+    file_bytes: bytes,
+    content_type: str,
+    filename: str | None,
+    request: Request,
+    db: Session,
+) -> None:
+    """Save logo file for a project (local + R2) and update project. Caller must commit."""
+    project = _get_user_project(project_id, user_id, db)
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
+    os.makedirs(logo_dir, exist_ok=True)
+    ext = filename.rsplit(".", 1)[-1] if filename and "." in filename else "png"
+    logo_filename = f"logo.{ext}"
+    local_path = os.path.join(logo_dir, logo_filename)
+    with open(local_path, "wb") as f:
+        f.write(file_bytes)
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key = r2_storage.image_key(user_id, project_id, logo_filename)
+            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=content_type)
+            project.logo_r2_key = r2_key
+            project.logo_r2_url = r2_url
+        except Exception as e:
+            print(f"[PROJECTS] Logo R2 upload failed for project {project_id}: {e}")
+            project.logo_r2_key = None
+            project.logo_r2_url = None
+    if not project.logo_r2_url:
+        base = str(request.base_url).rstrip("/")
+        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
+    db.commit()
+    db.refresh(project)
+
+
+@router.post("/bulk", response_model=BulkCreateResponse)
+def create_projects_bulk(
+    request: Request,
+    projects_json: str = Form(..., alias="projects"),
+    logo_indices_json: Optional[str] = Form(None, alias="logo_indices"),
+    logos: Optional[list[UploadFile]] = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create multiple projects from URLs. Per-project logos via logo_indices + logos[]."""
+    import json
+    try:
+        raw = json.loads(projects_json)
+        if not isinstance(raw, list):
+            raise ValueError("projects must be an array")
+        items = [BulkProjectItem(**x) for x in raw]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid projects JSON: {e}")
+    if not items:
+        raise HTTPException(status_code=400, detail="At least one project is required.")
+    if len(items) > settings.MAX_BULK_LINKS:
+        raise HTTPException(status_code=400, detail=f"Maximum {settings.MAX_BULK_LINKS} links per bulk create.")
+    needed = len(items)
+    if user.videos_used_this_period + needed > user.video_limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Video limit reached. You have {user.video_limit - user.videos_used_this_period} slots left.",
+        )
+    logo_indices: list[int] = []
+    if logo_indices_json:
+        try:
+            logo_indices = json.loads(logo_indices_json)
+            if not isinstance(logo_indices, list):
+                logo_indices = []
+            else:
+                logo_indices = [int(x) for x in logo_indices if isinstance(x, (int, float))]
+        except Exception:
+            logo_indices = []
+    logo_files: list[UploadFile] = list(logos) if logos else []
+    if len(logo_indices) != len(logo_files):
+        logo_indices = []
+        logo_files = []
+    allowed = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+    MAX_LOGO_SIZE = 2 * 1024 * 1024
+    logo_payloads: list[tuple[int, bytes, str, Optional[str]]] = []
+    for j, idx in enumerate(logo_indices):
+        if j >= len(logo_files) or idx < 0:
+            continue
+        f = logo_files[j]
+        if not f or not f.filename:
+            continue
+        if f.content_type not in allowed:
+            raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
+        raw_bytes = f.file.read()
+        if len(raw_bytes) > MAX_LOGO_SIZE:
+            raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
+        logo_payloads.append((idx, raw_bytes, f.content_type or "image/png", f.filename))
+    created: list[Project] = []
+    for data in items:
+        if not (data.blog_url and data.blog_url.strip()):
+            continue
+        name = (data.name or "").strip() or _name_from_url(data.blog_url)
+        template_id = validate_template_id(data.template)
+        colors = get_preview_colors(template_id)
+        project = Project(
+            user_id=user.id,
+            name=name,
+            blog_url=data.blog_url.strip(),
+            template=template_id,
+            voice_gender=data.voice_gender or "female",
+            voice_accent=data.voice_accent or "american",
+            accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
+            bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
+            text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+            animation_instructions=data.animation_instructions or None,
+            logo_position=data.logo_position or "bottom_right",
+            logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
+            custom_voice_id=data.custom_voice_id or None,
+            aspect_ratio=data.aspect_ratio or "landscape",
+            video_style=(data.video_style or "explainer").strip().lower() or "explainer",
+            status=ProjectStatus.CREATED,
+        )
+        db.add(project)
+        db.flush()
+        created.append(project)
+        user.videos_used_this_period += 1
+    if not created:
+        raise HTTPException(status_code=400, detail="No valid project URLs provided.")
+    db.commit()
+    for p in created:
+        db.refresh(p)
+    project_ids = [p.id for p in created]
+    for idx, raw_bytes, content_type, filename in logo_payloads:
+        if idx >= len(created):
+            continue
+        p = created[idx]
+        try:
+            _apply_logo_to_project(p.id, user.id, raw_bytes, content_type, filename, request, db)
+        except Exception as e:
+            print(f"[PROJECTS] Bulk logo apply failed for project {p.id}: {e}")
+    return BulkCreateResponse(project_ids=project_ids)
 
 
 @router.post("/upload", response_model=ProjectOut)
@@ -226,49 +365,19 @@ def upload_logo(
     db: Session = Depends(get_db),
 ):
     """Upload a logo image for the project. Stored in R2."""
-    project = _get_user_project(project_id, user.id, db)
-
-    # Validate file type
+    _get_user_project(project_id, user.id, db)
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
-
-    # Read file content and enforce size limit (2 MB max)
     MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
     file_bytes = file.file.read()
     if len(file_bytes) > MAX_LOGO_SIZE:
         raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
-
-    # Save locally first
-    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
-    os.makedirs(logo_dir, exist_ok=True)
-
-    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "png"
-    logo_filename = f"logo.{ext}"
-    local_path = os.path.join(logo_dir, logo_filename)
-
-    with open(local_path, "wb") as f:
-        f.write(file_bytes)
-
-    # Upload to R2
-    if r2_storage.is_r2_configured():
-        try:
-            r2_key = r2_storage.image_key(user.id, project_id, logo_filename)
-            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=file.content_type)
-            project.logo_r2_key = r2_key
-            project.logo_r2_url = r2_url
-        except Exception as e:
-            print(f"[PROJECTS] Logo R2 upload failed: {e}")
-            project.logo_r2_key = None
-            project.logo_r2_url = None
-
-    # Fallback: if R2 isn't configured or upload failed, use local serving URL
-    if not project.logo_r2_url:
-        base = str(request.base_url).rstrip("/")
-        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
-
-    db.commit()
-    db.refresh(project)
+    _apply_logo_to_project(
+        project_id, user.id, file_bytes, file.content_type or "image/png",
+        file.filename, request, db,
+    )
+    project = _get_user_project(project_id, user.id, db)
     return {"logo_url": project.logo_r2_url, "logo_position": project.logo_position}
 
 
