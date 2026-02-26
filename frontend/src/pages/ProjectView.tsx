@@ -32,7 +32,7 @@ import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
 import { getPendingUpload } from "../stores/pendingUpload";
 
-type Tab = "script" | "scenes" | "images" | "audio" | "logo";
+type Tab = "script" | "scenes" | "images" | "audio";
 
 const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
@@ -280,14 +280,16 @@ export default function ProjectView() {
   const [error, setError] = useState<string | null>(null);
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
-  const [logoSize, setLogoSize] = useState<string>("default");
+  const [logoSize, setLogoSize] = useState<number>(100);
+  const [logoOpacity, setLogoOpacity] = useState<number>(0.9);
 
   useEffect(() => {
     if (project) {
       setLogoPosition(project.logo_position || "bottom_right");
-      setLogoSize(project.logo_size || "default");
+      setLogoSize(typeof project.logo_size === "number" ? project.logo_size : 100);
+      setLogoOpacity(project.logo_opacity ?? 0.9);
     }
-  }, [project?.id, project?.logo_position, project?.logo_size]);
+  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity]);
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
@@ -841,7 +843,6 @@ export default function ProjectView() {
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "scenes", label: "Scenes" },
-    { id: "logo", label: "Logo" },
   ];
 
   const pipelineComplete = ["generated", "rendering", "done"].includes(
@@ -1056,6 +1057,7 @@ export default function ProjectView() {
       await updateProjectLogo(project.id, {
         logo_position: logoPosition,
         logo_size: logoSize,
+        logo_opacity: logoOpacity,
       });
       await loadProject();
     } catch (err) {
@@ -2123,36 +2125,6 @@ export default function ProjectView() {
                                               </button>
                                             </div>
                                           ))}
-                                          {generatedImageSceneId === scene.id && generatedImageBase64 && (
-                                            <div className="relative rounded-lg overflow-hidden border-2 border-amber-400 flex-shrink-0 bg-gray-50 w-20">
-                                              <img
-                                                src={`data:image/png;base64,${generatedImageBase64}`}
-                                                alt="AI generated"
-                                                className="h-24 w-auto object-cover"
-                                              />
-                                              {generatedPrompt && (
-                                                <p className="text-[10px] text-gray-500 px-1 py-0.5 max-w-[80px] truncate" title={generatedPrompt}>
-                                                  {generatedPrompt}
-                                                </p>
-                                              )}
-                                              <div className="flex gap-1 p-1">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handleKeepGeneratedSceneImage(scene.id)}
-                                                  className="flex-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-600 text-white hover:bg-purple-700"
-                                                >
-                                                  Keep
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={handleDiscardGeneratedSceneImage}
-                                                  className="flex-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                                >
-                                                  Discard
-                                                </button>
-                                              </div>
-                                            </div>
-                                          )}
                                           <button
                                             type="button"
                                             onClick={() => handleGenerateSceneImageClick(scene.id)}
@@ -2244,6 +2216,53 @@ export default function ProjectView() {
                   />
                 )}
 
+                {/* AI generated image preview modal */}
+                {generatedImageSceneId !== null && generatedImageBase64 && (
+                  <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={handleDiscardGeneratedSceneImage}
+                    />
+                    <div
+                      className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                        <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                            title="Use this image"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDiscardGeneratedSceneImage}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                            title="Discard"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
+                        <img
+                          src={`data:image/png;base64,${generatedImageBase64}`}
+                          alt="AI generated"
+                          className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* AI image upgrade modal (scenes tab) */}
                 {showAiImageUpgradeModal && (
                   <div className="fixed inset-0 z-[110] flex items-center justify-center">
@@ -2278,44 +2297,44 @@ export default function ProjectView() {
         )}
 
         {activeTab === "images" && (
-          <div>
-            {imageAssets.length === 0 ? (
-              <p className="text-center py-16 text-xs text-gray-400">
-                Images will appear here once scraped.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      Blog Images
-                    </h2>
-                    <span className="text-xs text-gray-400">
-                      {imageAssets.filter((a) => !a.excluded).length} active
-                      {imageAssets.some((a) => a.excluded) &&
-                        ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
-                    </span>
-                  </div>
-                  {!isPro && (
-                    <span className="text-[10px] text-gray-300 flex items-center gap-1">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                      Pro — exclude images
-                    </span>
-                  )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Blog Images section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-4">
+                  <h2 className="text-base font-medium text-gray-900">
+                    Blog Images
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    {imageAssets.filter((a) => !a.excluded).length} active
+                    {imageAssets.some((a) => a.excluded) &&
+                      ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
+                  </span>
                 </div>
-
+                {!isPro && (
+                  <span className="text-[10px] text-gray-300 flex items-center gap-1">
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Pro — exclude images
+                  </span>
+                )}
+              </div>
+              {imageAssets.length === 0 ? (
+                <p className="text-sm text-gray-400 py-8">
+                  Images will appear here once scraped.
+                </p>
+              ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {imageAssets.map((asset) => {
                     const url = resolveAssetUrl(asset, project.id);
@@ -2422,8 +2441,82 @@ export default function ProjectView() {
                     );
                   })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Logo section */}
+            <div className="space-y-4">
+              <h2 className="text-base font-medium text-gray-900">Logo</h2>
+              {project.logo_r2_url ? (
+                <div className="glass-card p-6 space-y-6">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Position</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "top_left", label: "Top left" },
+                        { value: "top_right", label: "Top right" },
+                        { value: "bottom_left", label: "Bottom left" },
+                        { value: "bottom_right", label: "Bottom right" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setLogoPosition(opt.value)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            logoPosition === opt.value
+                              ? "bg-purple-600 text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Opacity</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(logoOpacity * 100)}
+                        onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
+                        className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                      />
+                      <span className="text-xs font-medium text-purple-600 tabular-nums w-10 text-right">{Math.round(logoOpacity * 100)}%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Size</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={50}
+                        max={200}
+                        step={1}
+                        value={logoSize}
+                        onChange={(e) => setLogoSize(parseFloat(e.target.value))}
+                        className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                      />
+                      <span className="text-xs font-medium text-purple-600 tabular-nums w-10 text-right">{Math.round(logoSize)}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveLogo}
+                    disabled={logoSaving}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    {logoSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 py-4">
+                  Upload a logo in project creation to adjust position, opacity and size here.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -2473,76 +2566,6 @@ export default function ProjectView() {
           </div>
         )}
 
-        {activeTab === "logo" && (
-          <div className="glass-card p-6 max-w-lg">
-            <h2 className="text-base font-medium text-gray-900 mb-4">Logo</h2>
-            {project.logo_r2_url ? (
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-medium text-gray-700 mb-2">Position</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: "top_left", label: "Top left" },
-                      { value: "top_right", label: "Top right" },
-                      { value: "bottom_left", label: "Bottom left" },
-                      { value: "bottom_right", label: "Bottom right" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setLogoPosition(opt.value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                          logoPosition === opt.value
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-700 mb-2">Size</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: "small", label: "Small" },
-                      { value: "medium", label: "Medium" },
-                      { value: "large", label: "Large" },
-                      { value: "extra_large", label: "Extra large" },
-                      { value: "default", label: "Default" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setLogoSize(opt.value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                          logoSize === opt.value
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSaveLogo}
-                  disabled={logoSaving}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  {logoSaving ? "Saving…" : "Save"}
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">
-                Upload a logo in project creation to adjust position and size here.
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
