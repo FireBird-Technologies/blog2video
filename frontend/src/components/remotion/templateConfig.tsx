@@ -42,7 +42,7 @@ export interface TemplateConfig {
     logo?: string | null;
     logoPosition?: string;
     logoOpacity?: number;
-    logoSize?: string;
+    logoSize?: number;
     aspectRatio?: string;
   }>;
   /** Layout for scene 0 (hero) when no remotion_code */
