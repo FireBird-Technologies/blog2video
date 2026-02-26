@@ -2,6 +2,7 @@
   "id": "default",
   "name": "Geometric Explainer",
   "description": "Modern tech-explainer with code blocks, animated metrics, flow diagrams, and bullet lists. Clean geometric aesthetic ideal for technical content.",
+  "styles": ["explainer", "storytelling"],
   "preview_colors": {
     "accent": "#7C3AED",
     "bg": "#FFFFFF",

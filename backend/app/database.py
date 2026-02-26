@@ -104,6 +104,7 @@ def _migrate(eng):
             "custom_voice_id": "VARCHAR(100)",
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
             "template": "VARCHAR(50) DEFAULT 'default'",
+            "video_style": "VARCHAR(30) DEFAULT 'explainer'",
             "ai_assisted_editing_count": "INTEGER DEFAULT 0",
         }
         for col_name, col_def in migrations.items():

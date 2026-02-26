@@ -82,8 +82,14 @@ def audio_key(user_id: int, project_id: int, filename: str) -> str:
 
 
 def video_key(user_id: int, project_id: int) -> str:
-    """R2 object key for a project's rendered video."""
+    """R2 object key for a project's rendered video (legacy — same key every time)."""
     return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video.mp4"
+
+
+def video_key_versioned(user_id: int, project_id: int, version: str) -> str:
+    """R2 object key for a project's rendered video with a version (e.g. timestamp).
+    Use this so each re-render gets a new URL and caches don't serve the old file."""
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video_{version}.mp4"
 
 
 def project_prefix(user_id: int, project_id: int) -> str:
@@ -171,8 +177,17 @@ def upload_project_audio(user_id: int, project_id: int, local_path: str, filenam
 
 
 def upload_project_video(user_id: int, project_id: int, local_path: str) -> str:
-    """Upload a rendered video to R2. Returns the public URL."""
+    """Upload a rendered video to R2. Uses legacy key (same URL every time). Prefer upload_project_video_versioned for re-renders."""
     key = video_key(user_id, project_id)
+    return upload_file(local_path, key, content_type="video/mp4")
+
+
+def upload_project_video_versioned(
+    user_id: int, project_id: int, local_path: str, version: str
+) -> str:
+    """Upload a rendered video to R2 with a versioned key. Returns the public URL.
+    Each render (including re-render) should use a new version so the URL changes and caches serve fresh content."""
+    key = video_key_versioned(user_id, project_id, version)
     return upload_file(local_path, key, content_type="video/mp4")
 
 

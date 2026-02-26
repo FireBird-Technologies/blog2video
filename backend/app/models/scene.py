@@ -12,6 +12,8 @@ class Scene(Base):
     order: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     narration_text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional on-screen display text. Falls back to narration_text when empty.
+    display_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     visual_description: Mapped[str] = mapped_column(Text, nullable=False)
     remotion_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     voiceover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)

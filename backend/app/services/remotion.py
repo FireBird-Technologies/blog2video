@@ -7,6 +7,7 @@ import signal
 import re
 import threading
 import tempfile
+import time
 import zipfile
 import requests
 from typing import Optional
@@ -229,6 +230,19 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     workspace = provision_workspace(project.id, template_id)
     public_dir = os.path.join(workspace, "public")
     os.makedirs(public_dir, exist_ok=True)
+
+    # Copy static assets from the base Remotion project public/ into this workspace.
+    # This ensures template-specific backgrounds (like the vintage newspaper texture)
+    # are available both in preview and in the final rendered video.
+    template_public_dir = os.path.join(settings.REMOTION_PROJECT_PATH, "public")
+    if os.path.isdir(template_public_dir):
+        for root, _dirs, filenames in os.walk(template_public_dir):
+            for filename in filenames:
+                src = os.path.join(root, filename)
+                rel = os.path.relpath(src, template_public_dir)
+                dst = os.path.join(public_dir, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
 
     # Collect and copy non-excluded images to public dir
     # If local file is missing (e.g. different Cloud Run container), download from R2
@@ -520,12 +534,15 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         raw_images = [] if hide_image else scene_image_map.get(i, [])
         scene_images = raw_images[:1]
 
+        # Use display_text for on-screen text when available; otherwise fall back to narration_text.
+        on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
+
         scene_data.append(
             {
                 "id": scene.id,
                 "order": scene.order,
                 "title": scene.title,
-                "narration": scene.narration_text,
+                "narration": on_screen_text,
                 "visualDescription": scene.visual_description,
                 "layout": layout,
                 "layoutProps": layout_props,
@@ -997,8 +1014,15 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
                 return None
 
             user_id = project.user_id
-            r2_url = r2_storage.upload_project_video(user_id, project_id, local_path)
-            r2_key = r2_storage.video_key(user_id, project_id)
+            # Use a versioned key so each render (including re-render) gets a new URL.
+            # That way the project's URL updates and caches don't serve the old video.
+            version = str(int(time.time()))
+            if project.r2_video_key:
+                r2_storage.delete_object(project.r2_video_key)
+            r2_url = r2_storage.upload_project_video_versioned(
+                user_id, project_id, local_path, version
+            )
+            r2_key = r2_storage.video_key_versioned(user_id, project_id, version)
 
             project.r2_video_key = r2_key
             project.r2_video_url = r2_url
