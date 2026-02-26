@@ -325,6 +325,7 @@ export interface BulkProjectItem {
   blog_url: string;
   name?: string;
   template?: string;
+  video_style?: string;
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;

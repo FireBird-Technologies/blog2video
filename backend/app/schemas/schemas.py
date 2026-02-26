@@ -117,6 +117,7 @@ class BulkProjectItem(BaseModel):
     blog_url: str
     name: Optional[str] = None
     template: Optional[str] = "default"
+    video_style: Optional[str] = "explainer"
     voice_gender: Optional[str] = "female"
     voice_accent: Optional[str] = "american"
     accent_color: Optional[str] = "#7C3AED"

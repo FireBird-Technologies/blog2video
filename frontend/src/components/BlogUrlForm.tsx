@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { BulkLinksSection } from "./BulkLinksSection";
 import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
@@ -44,7 +45,13 @@ interface Props {
 
 const MAX_UPLOAD_FILES = 5;
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
-const MAX_BULK_LINKS = 10;
+
+const MAX_BULK_LINKS = (() => {
+  const raw = import.meta.env.VITE_MAX_BULK_LINKS as string | undefined;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+})();
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -210,13 +217,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
-  // Bulk: rows (url, name); per-row template, voice, format, logo
-  const [bulkRows, setBulkRows] = useState<{ url: string; name: string }[]>([{ url: "", name: "" }]);
+  // Bulk: rows (url); per-row name, template, voice, format, logo
+  const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
+  const [bulkNames, setBulkNames] = useState<string[]>([""]);
   const [bulkTemplates, setBulkTemplates] = useState<string[]>(["nightfall"]);
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<string[]>(["promotional"]);
+  const [bulkTemplateListTabs, setBulkTemplateListTabs] = useState<("forStyle" | "others")[]>(["forStyle"]);
+  // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
+  const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
+  const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
+  const [bulkTextColors, setBulkTextColors] = useState<string[]>([""]);
+  const [bulkActiveIndex, setBulkActiveIndex] = useState(0);
   const [bulkLogoFile, setBulkLogoFile] = useState<(File | null)[]>([null]);
   const [bulkLogoPosition, setBulkLogoPosition] = useState<string[]>(["bottom_right"]);
   const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
@@ -394,14 +409,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (step === 1 && canGoNext1) {
       if (mode === "bulk") {
         const n = bulkRows.length;
+        setBulkNames((prev) => resizeTo(prev, n, ""));
         setBulkTemplates((prev) => resizeTo(prev, n, "nightfall"));
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
+        setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
+        setBulkTemplateListTabs((prev) => resizeTo(prev, n, "forStyle"));
+        setBulkAccentColors((prev) => resizeTo(prev, n, ""));
+        setBulkBgColors((prev) => resizeTo(prev, n, ""));
+        setBulkTextColors((prev) => resizeTo(prev, n, ""));
         setBulkLogoFile((prev) => resizeTo(prev, n, null));
         setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
         setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
+        setBulkActiveIndex(0);
       }
       setStep(2);
     } else if (step === 2) {
@@ -417,12 +439,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   const addBulkRow = () => {
     if (bulkRows.length >= MAX_BULK_LINKS) return;
-    setBulkRows((prev) => [...prev, { url: "", name: "" }]);
+    setBulkRows((prev) => [...prev, { url: "" }]);
+    setBulkNames((prev) => [...prev, ""]);
     setBulkTemplates((prev) => [...prev, "nightfall"]);
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
+    setBulkVideoStyles((prev) => [...prev, "promotional"]);
+    setBulkTemplateListTabs((prev) => [...prev, "forStyle"]);
+    setBulkAccentColors((prev) => [...prev, ""]);
+    setBulkBgColors((prev) => [...prev, ""]);
+    setBulkTextColors((prev) => [...prev, ""]);
     setBulkLogoFile((prev) => [...prev, null]);
     setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
     setBulkLogoOpacity((prev) => [...prev, 0.9]);
@@ -431,14 +459,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const removeBulkRow = (index: number) => {
     if (bulkRows.length <= 1) return;
     setBulkRows((prev) => prev.filter((_, i) => i !== index));
+    setBulkNames((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
     setBulkVoiceGender((prev) => prev.filter((_, i) => i !== index));
     setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
     setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
+    setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
+    setBulkTemplateListTabs((prev) => prev.filter((_, i) => i !== index));
+    setBulkAccentColors((prev) => prev.filter((_, i) => i !== index));
+    setBulkBgColors((prev) => prev.filter((_, i) => i !== index));
+    setBulkTextColors((prev) => prev.filter((_, i) => i !== index));
     setBulkLogoFile((prev) => prev.filter((_, i) => i !== index));
     setBulkLogoPosition((prev) => prev.filter((_, i) => i !== index));
     setBulkLogoOpacity((prev) => prev.filter((_, i) => i !== index));
+    setBulkActiveIndex((prev) => {
+      if (prev >= bulkRows.length - 1) return Math.max(0, prev - 1);
+      return prev;
+    });
   };
 
   const goBack = () => {
@@ -457,18 +495,28 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     if (mode === "bulk" && onSubmitBulk) {
       const valid = bulkRows
-        .map((r, i) => ({ ...r, i }))
+        .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
         .filter((r) => r.url.trim());
       if (valid.length === 0) return;
       const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => ({
         blog_url: url.trim(),
         name: n.trim() || undefined,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
+        video_style: (bulkVideoStyles[i] ?? "promotional").toLowerCase(),
         voice_gender: bulkVoiceGender[i] === "none" ? "female" : bulkVoiceGender[i],
         voice_accent: bulkVoiceAccent[i],
-        accent_color: accentColor,
-        bg_color: bgColor,
-        text_color: textColor,
+        accent_color:
+          bulkAccentColors[i] && bulkAccentColors[i].trim()
+            ? bulkAccentColors[i]
+            : accentColor,
+        bg_color:
+          bulkBgColors[i] && bulkBgColors[i].trim()
+            ? bulkBgColors[i]
+            : bgColor,
+        text_color:
+          bulkTextColors[i] && bulkTextColors[i].trim()
+            ? bulkTextColors[i]
+            : textColor,
         logo_position: bulkLogoPosition[i] ?? "bottom_right",
         logo_opacity: bulkLogoOpacity[i] ?? 0.9,
         custom_voice_id: bulkCustomVoiceId[i]?.trim() || undefined,
@@ -484,15 +532,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         }
       });
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
-      setBulkRows([{ url: "", name: "" }]);
+      setBulkRows([{ url: "" }]);
+      setBulkNames([""]);
       setBulkTemplates(["nightfall"]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
       setBulkAspectRatio(["landscape"]);
+      setBulkVideoStyles(["promotional"]);
+      setBulkTemplateListTabs(["forStyle"]);
+      setBulkAccentColors([""]);
+      setBulkBgColors([""]);
+      setBulkTextColors([""]);
       setBulkLogoFile([null]);
       setBulkLogoPosition(["bottom_right"]);
       setBulkLogoOpacity([0.9]);
+      setBulkActiveIndex(0);
       return;
     }
 
@@ -574,69 +629,30 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {m === "url" ? "Link" : m === "upload" ? "Upload" : "Bulk"}
+            {m === "url" ? "Link" : m === "upload" ? "Upload" : "Multi Link"}
           </button>
         ))}
       </div>
 
       {/* Bulk: multiple links (url + name per row) */}
       {mode === "bulk" && (
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-            Links <span className="text-gray-300 font-normal">(max {MAX_BULK_LINKS})</span>
-          </label>
-          <div className="space-y-2 max-h-[200px] overflow-y-auto">
-            {bulkRows.map((row, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <input
-                  type="url"
-                  value={row.url}
-                  onChange={(e) =>
-                    setBulkRows((prev) =>
-                      prev.map((r, j) => (j === i ? { ...r, url: e.target.value } : r))
-                    )
-                  }
-                  placeholder={`URL ${i + 1}`}
-                  className="flex-1 min-w-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                />
-                <input
-                  type="text"
-                  value={row.name}
-                  onChange={(e) =>
-                    setBulkRows((prev) =>
-                      prev.map((r, j) => (j === i ? { ...r, name: e.target.value } : r))
-                    )
-                  }
-                  placeholder="Name (optional)"
-                  className="w-28 flex-shrink-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeBulkRow(i)}
-                  disabled={bulkRows.length <= 1}
-                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
-                  title="Remove row"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-          {bulkRows.length < MAX_BULK_LINKS && (
-            <button
-              type="button"
-              onClick={addBulkRow}
-              className="mt-2 text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add link
-            </button>
-          )}
-        </div>
+        <BulkLinksSection
+          rows={bulkRows}
+          maxBulkLinks={MAX_BULK_LINKS}
+          aspectRatios={bulkAspectRatio}
+          onChangeUrl={(index, value) =>
+            setBulkRows((prev) => prev.map((r, i) => (i === index ? { ...r, url: value } : r)))
+          }
+          onChangeAspectRatio={(index, value) =>
+            setBulkAspectRatio((prev) => {
+              const next = [...prev];
+              next[index] = value;
+              return next;
+            })
+          }
+          onAddRow={addBulkRow}
+          onRemoveRow={removeBulkRow}
+        />
       )}
 
       {/* URL input */}
@@ -1183,52 +1199,513 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
-  // ─── Step 2 bulk: template per row ───────────────────────────
-  const step2BulkTemplate = (
-    <div className="space-y-5">
-      <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-        Template per video
-      </label>
-      <div className="space-y-3 max-h-[280px] overflow-y-auto">
-        {bulkRows.map((row, i) => (
-          !row.url.trim() ? null : (
-            <div key={i} className="flex items-center gap-3 p-2 rounded-xl border border-gray-200/60 bg-gray-50/40">
-              <span className="text-xs font-medium text-gray-500 w-8 flex-shrink-0">#{i + 1}</span>
-              <span className="flex-1 min-w-0 truncate text-sm text-gray-700" title={row.url}>
-                {row.name.trim() || row.url.trim().slice(0, 40)}…
-              </span>
-              <select
-                value={bulkTemplates[i] ?? "nightfall"}
-                onChange={(e) =>
-                  setBulkTemplates((prev) => {
+  // ─── Step 2 bulk: template per project (tabbed; same UI as single) ─────────
+  const step2BulkTemplate = (() => {
+    const indexed = bulkRows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row }) => row.url.trim());
+    if (indexed.length === 0) {
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">Add at least one valid URL to continue.</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={goBack}
+              className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const active = Math.min(bulkActiveIndex, indexed.length - 1);
+    const activeIndex = indexed[active].i;
+    const activeRow = indexed[active].row;
+
+    const tpl = bulkTemplates[activeIndex] ?? "nightfall";
+    const templateMeta = templates.find((t) => t.id === tpl);
+    const defaultAccent = templateMeta?.preview_colors?.accent ?? accentColor;
+    const defaultBg = templateMeta?.preview_colors?.bg ?? bgColor;
+    const defaultText = templateMeta?.preview_colors?.text ?? textColor;
+
+    const accent =
+      bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
+        ? bulkAccentColors[activeIndex]
+        : defaultAccent;
+    const bg =
+      bulkBgColors[activeIndex] && bulkBgColors[activeIndex].trim()
+        ? bulkBgColors[activeIndex]
+        : defaultBg;
+    const text =
+      bulkTextColors[activeIndex] && bulkTextColors[activeIndex].trim()
+        ? bulkTextColors[activeIndex]
+        : defaultText;
+    const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
+    const activeTemplateListTab = bulkTemplateListTabs[activeIndex] ?? "forStyle";
+
+    const applyBulkTemplate = (id: string) => {
+      setBulkTemplates((prev) => {
+        const next = [...prev];
+        next[activeIndex] = id;
+        return next;
+      });
+      const colors = templates.find((t) => t.id === id)?.preview_colors;
+      if (colors) {
+        setBulkAccentColors((prev) => {
+          const next = [...prev];
+          next[activeIndex] = colors.accent;
+          return next;
+        });
+        setBulkBgColors((prev) => {
+          const next = [...prev];
+          next[activeIndex] = colors.bg;
+          return next;
+        });
+        setBulkTextColors((prev) => {
+          const next = [...prev];
+          next[activeIndex] = colors.text;
+          return next;
+        });
+      }
+    };
+
+    const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
+    const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
+
+    const FALLBACK_TEMPLATES: TemplateMeta[] = [
+      { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "storytelling"] },
+      { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
+      { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
+      { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
+      { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
+    ];
+    const styleLower = (activeVideoStyle || "promotional").toLowerCase();
+    const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
+    const suggestedTemplates = sourceList.filter(
+      (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
+    );
+    const otherTemplates = sourceList.filter(
+      (t) => !t.styles?.some((s) => s.toLowerCase() === styleLower)
+    );
+
+    return (
+      <div className="space-y-5">
+        {/* Bulk logo picker (step 2) */}
+        <input
+          ref={bulkLogoInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0] || null;
+            e.target.value = "";
+            if (bulkLogoRowIndex === null) return;
+            if (f && f.size > 2 * 1024 * 1024) {
+              alert("Logo must be under 2 MB.");
+              return;
+            }
+            setBulkLogoFile((prev) => {
+              const n = [...prev];
+              n[bulkLogoRowIndex] = f;
+              return n;
+            });
+            setBulkLogoRowIndex(null);
+          }}
+        />
+
+        {/* Tabs for each bulk project */}
+        <div className="flex flex-wrap gap-1 border-b border-gray-200/80 pb-2 mb-2">
+          {indexed.map(({ row, i }, tabIdx) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setBulkActiveIndex(tabIdx)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium border ${
+                tabIdx === active
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+              }`}
+            >
+              #{tabIdx + 1} {bulkNames[i]?.trim() || row.url.trim().slice(0, 24) || "Untitled"}
+            </button>
+          ))}
+        </div>
+
+        {/* Video style — thin dropdown (same UI as single) */}
+        <div className="relative" ref={styleDropdownRef}>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Video Style
+          </label>
+          <button
+            type="button"
+            onClick={() => setStyleDropdownOpen((o) => !o)}
+            className="w-full text-left px-3 py-2 rounded-lg border border-purple-300/60 bg-purple-50/60 flex items-center justify-between gap-2 transition-all hover:bg-purple-50/80 text-sm"
+          >
+            <span className="font-medium text-gray-800">
+              {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? "Promotional"}
+            </span>
+            <svg
+              className={`w-4 h-4 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {styleDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-lg border border-purple-200 bg-white shadow-lg overflow-hidden">
+              {VIDEO_STYLES.map((s) => {
+                const isSelected = (activeVideoStyle || "promotional").toLowerCase() === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = s.id;
+                        return next;
+                      });
+                      setBulkTemplateListTabs((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = "forStyle";
+                        return next;
+                      });
+                      setStyleDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 text-sm transition-colors ${
+                      isSelected ? "bg-purple-50 text-purple-700 font-medium" : "hover:bg-gray-50 text-gray-800"
+                    }`}
+                  >
+                    <span>{s.label}</span>
+                    <span className={`block text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
+                      {s.subtitle}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Selected template — full-width preview (same UI as single) */}
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+            Selected Template
+          </label>
+          <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+            <div className="relative">
+              {SelectedPreviewComp ? (
+                <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
+              ) : (
+                <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+                  {selectedDesc?.title ?? tpl}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? tpl}</div>
+                {selectedDesc?.subtitle && (
+                  <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
+                )}
+              </div>
+              <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Templates — tab: "For [Style]" | "Others" (same UI as single) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+              Templates
+            </label>
+            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-lg">
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkTemplateListTabs((prev) => {
                     const next = [...prev];
-                    next[i] = e.target.value;
+                    next[activeIndex] = "forStyle";
                     return next;
                   })
                 }
-                className="flex-shrink-0 px-3 py-2 rounded-lg border border-gray-200/60 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  activeTemplateListTab === "forStyle"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                {availableTemplates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {TEMPLATE_DESCRIPTIONS[t.id]?.title ?? t.name}
-                  </option>
-                ))}
-              </select>
+                For {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? activeVideoStyle}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkTemplateListTabs((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = "others";
+                    return next;
+                  })
+                }
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  activeTemplateListTab === "others"
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Others
+              </button>
             </div>
-          )
-        ))}
+          </div>
+          <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+            {activeTemplateListTab === "forStyle" ? (
+              suggestedTemplates.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {suggestedTemplates.map((t) => {
+                    const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                    const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                    const isSelected = tpl === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => applyBulkTemplate(t.id)}
+                        className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                          isSelected
+                            ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                            : "border-gray-200/60 hover:border-purple-300/60"
+                        }`}
+                      >
+                        <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                          {PreviewComp ? (
+                            <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                          ) : (
+                            <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                              {t.name}
+                            </div>
+                          )}
+                          {isSelected && (
+                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                          <div className="text-[10px] font-semibold text-gray-800 truncate">
+                            {desc?.title ?? t.name}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 py-4 text-center">
+                  No templates for this style. Use the &quot;Others&quot; tab to pick any template.
+                </p>
+              )
+            ) : (
+              otherTemplates.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {otherTemplates.map((t) => {
+                    const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                    const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                    const isSelected = tpl === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => applyBulkTemplate(t.id)}
+                        className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                          isSelected
+                            ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                            : "border-gray-200/60 hover:border-purple-300/60"
+                        }`}
+                      >
+                        <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                          {PreviewComp ? (
+                            <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                          ) : (
+                            <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                              {t.name}
+                            </div>
+                          )}
+                          {isSelected && (
+                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                          <div className="text-[10px] font-semibold text-gray-800 truncate">
+                            {desc?.title ?? t.name}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 py-4 text-center">
+                  All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? activeVideoStyle}&quot; tab.
+                </p>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Video Colors
+            </label>
+            <div className="flex items-center gap-5">
+              {[
+                { label: "Accent", value: accent, setter: (v: string) => setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
+                { label: "Background", value: bg, setter: (v: string) => setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
+                { label: "Text", value: text, setter: (v: string) => setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
+              ].map(({ label, value, setter }) => (
+                <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+                  <span
+                    className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+                    style={{ backgroundColor: value }}
+                  >
+                    <input
+                      type="color"
+                      value={value}
+                      onChange={(e) => setter(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-w-[240px]">
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative mb-4 inline-block">
+                <button
+                  type="button"
+                  onClick={() => { setBulkLogoRowIndex(activeIndex); bulkLogoInputRef.current?.click(); }}
+                  className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
+                >
+                  {bulkLogoFile[activeIndex] ? bulkLogoFile[activeIndex]!.name : "Choose file"}
+                </button>
+                {bulkLogoFile[activeIndex] && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBulkLogoFile((prev) => {
+                        const n = [...prev];
+                        n[activeIndex] = null;
+                        return n;
+                      });
+                    }}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
+                    title="Remove logo"
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            {bulkLogoFile[activeIndex] && (
+              <div className="mt-2">
+                <label className="block text-[10px] text-gray-400 mb-1">Position</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { value: "top_left", label: "Top Left" },
+                    { value: "top_right", label: "Top Right" },
+                    { value: "bottom_left", label: "Bottom Left" },
+                    { value: "bottom_right", label: "Bottom Right" },
+                  ] as const).map((pos) => (
+                    <button
+                      key={pos.value}
+                      type="button"
+                      onClick={() =>
+                        setBulkLogoPosition((prev) => {
+                          const n = [...prev];
+                          n[activeIndex] = pos.value;
+                          return n;
+                        })
+                      }
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                        (bulkLogoPosition[activeIndex] ?? "bottom_right") === pos.value
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2.5 mb-3.5">
+                  <label className="block text-[10px] text-gray-500 mb-1">
+                    Opacity <span className="text-gray-500">{Math.round((bulkLogoOpacity[activeIndex] ?? 0.9) * 100)}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round((bulkLogoOpacity[activeIndex] ?? 0.9) * 100)}
+                    onChange={(e) =>
+                      setBulkLogoOpacity((prev) => {
+                        const n = [...prev];
+                        n[activeIndex] = parseInt(e.target.value, 10) / 100;
+                        return n;
+                      })
+                    }
+                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={goBack}
+            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            Go to step 3
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div className="flex gap-2 pt-1">
-        <button type="button" onClick={goBack} className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
-          Back
-        </button>
-        <button type="button" onClick={goNext} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
-          Go to step 3
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-        </button>
-      </div>
-    </div>
-  );
+    );
+  })();
 
   // ─── Step 3: Voice (last step) — audio playlist style ─────────
   const voiceOptions = [
@@ -1381,161 +1858,207 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
-  // ─── Step 3 bulk: voice, format, logo per row ─────────────────
-  const step3BulkVoice = (
-    <div className="space-y-5">
-      <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-        Voice, format & logo per video
-      </label>
-      <input
-        ref={bulkLogoInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0] || null;
-          e.target.value = "";
-          if (bulkLogoRowIndex === null) return;
-          if (f && f.size > 2 * 1024 * 1024) {
-            alert("Logo must be under 2 MB.");
-            return;
-          }
-          setBulkLogoFile((prev) => {
-            const n = [...prev];
-            n[bulkLogoRowIndex] = f;
-            return n;
-          });
-          setBulkLogoRowIndex(null);
-        }}
-      />
-      <div className="space-y-3 max-h-[320px] overflow-y-auto">
-        {bulkRows.map((row, i) =>
-          !row.url.trim() ? null : (
-            <div key={i} className="p-3 rounded-xl border border-gray-200/60 bg-gray-50/40 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 w-8 flex-shrink-0">#{i + 1}</span>
-                <span className="flex-1 min-w-0 truncate text-sm text-gray-700" title={row.url}>
-                  {row.name.trim() || row.url.trim().slice(0, 28)}…
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 pl-10">
-                <select
-                  value={bulkVoiceGender[i] === "none" ? "none" : `${bulkVoiceGender[i]}_${bulkVoiceAccent[i]}`}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "none") {
-                      setBulkVoiceGender((prev) => { const n = [...prev]; n[i] = "none"; return n; });
-                      return;
-                    }
-                    const [g, a] = v.split("_") as ["female" | "male", "american" | "british"];
-                    setBulkVoiceGender((prev) => { const n = [...prev]; n[i] = g; return n; });
-                    setBulkVoiceAccent((prev) => { const n = [...prev]; n[i] = a; return n; });
-                  }}
-                  className="flex-shrink-0 px-2 py-1.5 rounded-lg border border-gray-200/60 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+  // ─── Step 3 bulk: voice per project (tabbed) ───────────────────
+  const step3BulkVoice = (() => {
+    const indexed = bulkRows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row }) => row.url.trim());
+
+    if (indexed.length === 0) {
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">Add at least one valid URL to continue.</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={goBack}
+              className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const active = Math.min(bulkActiveIndex, indexed.length - 1);
+    const activeIndex = indexed[active].i;
+    const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
+    const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
+    const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
+
+    return (
+      <div className="space-y-5">
+        {/* Tabs for each bulk project */}
+        <div className="flex flex-wrap gap-1 border-b border-gray-200/80 pb-2 mb-2">
+          {indexed.map(({ row, i }, tabIdx) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setBulkActiveIndex(tabIdx)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-medium border ${
+                tabIdx === active
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+              }`}
+            >
+              #{tabIdx + 1} {bulkNames[i]?.trim() || row.url.trim().slice(0, 24) || "Untitled"}
+            </button>
+          ))}
+        </div>
+
+        <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+          <input
+            type="checkbox"
+            checked={rowVoiceGender === "none"}
+            onChange={(e) =>
+              setBulkVoiceGender((prev) => {
+                const next = [...prev];
+                next[activeIndex] = e.target.checked ? "none" : "female";
+                return next;
+              })
+            }
+            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+          />
+          <div>
+            <span className="text-sm font-medium text-gray-700">No voiceover</span>
+            <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+          </div>
+        </label>
+
+        <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+          <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
+            Voice — select and play to preview
+          </label>
+          <div className="space-y-2">
+            {voiceOptions.map(({ gender, accent, key, flag }) => {
+              const preview = voicePreviews[key];
+              const playbackUrl = getPlaybackUrl(key);
+              const isDisabled = rowVoiceGender === "none";
+              const isSelected = rowVoiceGender === gender && rowVoiceAccent === accent;
+              const isPlaying = playingKey === key;
+
+              const FALLBACK_NAMES: Record<string, string> = {
+                female_american: "Rachel",
+                female_british: "Alice",
+                male_american: "Bill",
+                male_british: "Daniel",
+              };
+              const FALLBACK_DESCS: Record<string, string> = {
+                female_american: "Warm & confident, clear narration",
+                female_british: "Soft & polished, refined tone",
+                male_american: "Friendly & articulate, conversational",
+                male_british: "Calm & authoritative, smooth delivery",
+              };
+              const name = FALLBACK_NAMES[key] || preview?.name || `${gender} ${accent}`;
+              const desc =
+                [gender === "female" ? "Female" : "Male", accent === "american" ? "American" : "British"].join(" • ") +
+                ` — ${preview?.description || FALLBACK_DESCS[key] || ""}`;
+
+              return (
+                <div
+                  key={key}
+                  onClick={() => { if (!isDisabled) { setBulkVoiceGender((prev) => { const n = [...prev]; n[activeIndex] = gender; return n; }); setBulkVoiceAccent((prev) => { const n = [...prev]; n[activeIndex] = accent; return n; }); } }}
+                  className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
+                    isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                  } ${
+                    isSelected
+                      ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
+                      : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20"
+                  } ${isDisabled ? "hover:border-gray-200/60 hover:bg-white/60" : ""}`}
                 >
-                  <option value="female_american">Female US</option>
-                  <option value="female_british">Female UK</option>
-                  <option value="male_american">Male US</option>
-                  <option value="male_british">Male UK</option>
-                  <option value="none">No voice</option>
-                </select>
-                {isPro && bulkVoiceGender[i] !== "none" && (
-                  <input
-                    type="text"
-                    value={bulkCustomVoiceId[i] ?? ""}
-                    onChange={(e) => {
-                      setBulkCustomVoiceId((prev) => { const n = [...prev]; n[i] = e.target.value; return n; });
-                    }}
-                    placeholder="Voice ID"
-                    className="w-24 flex-shrink-0 px-2 py-1.5 rounded-lg border border-gray-200/60 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                  />
-                )}
-                <span className="text-gray-300">|</span>
-                <div className="flex gap-1">
-                  {(["landscape", "portrait"] as const).map((ar) => (
-                    <button
-                      key={ar}
-                      type="button"
-                      onClick={() => setBulkAspectRatio((prev) => { const n = [...prev]; n[i] = ar; return n; })}
-                      className={`px-2 py-1 rounded text-[10px] font-medium ${
-                        (bulkAspectRatio[i] ?? "landscape") === ar
-                          ? "bg-purple-600 text-white"
-                          : "bg-white text-gray-500 border border-gray-200/60 hover:bg-gray-50"
-                      }`}
-                    >
-                      {ar === "landscape" ? "16:9" : "9:16"}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-gray-300">|</span>
-                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => { setBulkLogoRowIndex(i); bulkLogoInputRef.current?.click(); }}
-                    className="px-2 py-1 rounded text-[10px] font-medium bg-white text-gray-500 border border-gray-200/60 hover:bg-gray-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDisabled) playVoice(key, playbackUrl);
+                    }}
+                    disabled={!playbackUrl || isDisabled}
+                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      isDisabled || !playbackUrl
+                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : isPlaying
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700"
+                    }`}
                   >
-                    {bulkLogoFile[i] ? bulkLogoFile[i]!.name.slice(0, 12) + "…" : "Logo"}
-                  </button>
-                  {bulkLogoFile[i] && (
-                    <button
-                      type="button"
-                      onClick={() => setBulkLogoFile((prev) => { const n = [...prev]; n[i] = null; return n; })}
-                      className="p-1 rounded text-red-500 hover:bg-red-50"
-                      title="Remove logo"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    {isPlaying ? (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                       </svg>
-                    </button>
+                    ) : (
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800">
+                      {flag} {name}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+                  </div>
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
                   )}
-                  <select
-                    value={bulkLogoPosition[i] ?? "bottom_right"}
-                    onChange={(e) => setBulkLogoPosition((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })}
-                    className="px-1.5 py-1 rounded border border-gray-200/60 bg-white text-[10px] focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-                  >
-                    <option value="top_left">TL</option>
-                    <option value="top_right">TR</option>
-                    <option value="bottom_left">BL</option>
-                    <option value="bottom_right">BR</option>
-                  </select>
-                  <input
-                    type="range"
-                    min={10}
-                    max={100}
-                    step={10}
-                    value={Math.round((bulkLogoOpacity[i] ?? 0.9) * 100)}
-                    onChange={(e) => setBulkLogoOpacity((prev) => { const n = [...prev]; n[i] = parseInt(e.target.value, 10) / 100; return n; })}
-                    className="w-14 h-1 bg-gray-200 rounded-full accent-purple-600"
-                    title="Logo opacity"
-                  />
                 </div>
-              </div>
-            </div>
-          )
+              );
+            })}
+          </div>
+        </div>
+
+        {isPro && rowVoiceGender !== "none" && (
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+              Custom Voice ID <span className="text-gray-300 font-normal">(ElevenLabs)</span>
+            </label>
+            <input
+              type="text"
+              value={rowCustomVoiceId}
+              onChange={(e) =>
+                setBulkCustomVoiceId((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = e.target.value;
+                  return next;
+                })
+              }
+              placeholder="Paste your ElevenLabs voice ID to override..."
+              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+            />
+          </div>
         )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={goBack}
+            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+          >
+            Back
+          </button>
+          <button
+            ref={submitButtonRef}
+            type="submit"
+            disabled={loading || !onSubmitBulk}
+            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Creating…
+              </>
+            ) : (
+              "Create all & generate"
+            )}
+          </button>
+        </div>
       </div>
-      <div className="flex gap-2 pt-1">
-        <button type="button" onClick={goBack} className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
-          Back
-        </button>
-        <button
-          ref={submitButtonRef}
-          type="submit"
-          disabled={loading || !onSubmitBulk}
-          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Creating…
-            </>
-          ) : (
-            "Create all & generate"
-          )}
-        </button>
-      </div>
-    </div>
-  );
+    );
+  })();
 
   // ─── Render ──────────────────────────────────────────────────
   // Step order: 1 Project, 2 Template, 3 Voice
