@@ -40,7 +40,7 @@ interface VideoData {
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 

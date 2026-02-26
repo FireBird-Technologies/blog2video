@@ -1,0 +1,47 @@
+{
+  "id": "whiteboard",
+  "name": "Whiteboard Story",
+  "description": "Storytelling-first template with hand-drawn marker motion, line-draw text reveals, and stick-figure visual metaphors.",
+  "styles": [
+    "storytelling"
+  ],
+  "preview_colors": {
+    "accent": "#1F2937",
+    "bg": "#F7F3E8",
+    "text": "#111827"
+  },
+  "composition_id": "WhiteboardVideo",
+  "hero_layout": "drawn_title",
+  "fallback_layout": "marker_story",
+  "valid_layouts": [
+    "drawn_title",
+    "marker_story",
+    "stick_figure_scene",
+    "stats_figures",
+    "stats_chart",
+    "comparison",
+    "countdown_timer",
+    "handwritten_equation",
+    "speech_bubble_dialogue"
+  ],
+  "layouts_without_image": [
+    "stick_figure_scene",
+    "stats_figures",
+    "stats_chart",
+    "comparison",
+    "countdown_timer",
+    "handwritten_equation",
+    "speech_bubble_dialogue"
+  ],
+  "features": [
+    "Hand-drawn marker reveal animations",
+    "Story-beat focused layout flow",
+    "Stick-figure and doodle metaphor scenes",
+    "Stats and chart layouts for key figures",
+    "Comparison layout with two stick figures and thought clouds",
+    "Countdown timer with ring and tick marks",
+    "Handwritten equation step-by-step reveal",
+    "Speech bubble dialogue between two figures",
+    "Portrait and landscape responsive layout"
+  ]
+}

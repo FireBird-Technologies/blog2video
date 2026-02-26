@@ -183,7 +183,8 @@ export default function Dashboard() {
     customVoiceId?: string,
     aspectRatio?: string,
     uploadFiles?: File[],
-    template?: string
+    template?: string,
+    videoStyle?: string
   ) => {
     setCreating(true);
     try {
@@ -204,6 +205,7 @@ export default function Dashboard() {
           custom_voice_id: customVoiceId,
           aspect_ratio: aspectRatio,
           template,
+          video_style: videoStyle,
         });
       } else {
         // URL flow
@@ -220,7 +222,8 @@ export default function Dashboard() {
           logoOpacity,
           customVoiceId,
           aspectRatio,
-          template
+          template,
+          videoStyle
         );
       }
 

@@ -177,17 +177,23 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     raise last_error  # type: ignore
 
 
-async def generate_all_voiceovers(scenes: list[Scene], db: Session) -> list[str]:
+async def generate_all_voiceovers(
+    scenes: list[Scene], db: Session, video_style: str | None = None
+) -> list[str]:
     """Generate voiceover audio for all scenes with delays between each.
-    Expands narration_text to detailed voiceover before generating audio."""
+    Expands narration_text to detailed voiceover before generating audio.
+    video_style (explainer | promotional | storytelling) shapes expansion tone."""
     from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
-    
+
+    style = (video_style or "explainer").strip().lower() or "explainer"
     paths = []
     for i, scene in enumerate(scenes):
         try:
             # Expand narration_text to detailed voiceover
             if scene.narration_text and scene.narration_text.strip():
-                expanded = await expand_narration_to_voiceover(scene.narration_text, scene.title)
+                expanded = await expand_narration_to_voiceover(
+                    scene.narration_text, scene.title, video_style=style
+                )
                 # Temporarily store expanded text
                 original_narration = scene.narration_text
                 scene.narration_text = expanded

@@ -345,6 +345,9 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showDownloadWarning, setShowDownloadWarning] = useState(false);
+  const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
+  const [showReRenderWarning, setShowReRenderWarning] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
@@ -599,9 +602,9 @@ export default function ProjectView() {
   // Resolution is always 1080p
   const RENDER_RESOLUTION = "1080p";
 
-  const handleRender = async () => {
-    // If already rendered and available in R2, skip straight to download
-    if (project?.r2_video_url) {
+  const handleRender = async (forceReRender = false) => {
+    // If already rendered and available in R2, skip straight to download (unless forcing re-render)
+    if (!forceReRender && project?.r2_video_url) {
       setRendered(true);
       setRendering(false);
       return;
@@ -618,7 +621,7 @@ export default function ProjectView() {
 
     const startRenderAndPoll = async (res: string) => {
       try {
-        await renderVideo(projectId, res);
+        await renderVideo(projectId, res, forceReRender);
       } catch (err: any) {
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
@@ -687,14 +690,20 @@ export default function ProjectView() {
             setRendering(false);
             setSaving(true);
 
-            // Stay on saving screen until Cloudflare R2 confirms the video URL
+            // Stay on saving screen until backend reports done AND project has updated URL.
+            // (On re-render, project already has an old r2_video_url — we must wait for
+            // render-status.done so we don't show preview with stale video.)
             const maxWait = 120; // max 120 attempts (~240s)
             for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
-              const fresh = await loadProject();
-              if (fresh?.r2_video_url) break;
-              // Local-only fallback (no R2 configured)
-              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 2) break;
+              const [statusRes, fresh] = await Promise.all([
+                getRenderStatus(projectId),
+                loadProject(),
+              ]);
+              const renderDone = statusRes?.data?.done === true && !statusRes?.data?.error;
+              const hasVideoUrl = Boolean(fresh?.r2_video_url);
+              const localDone = fresh?.status === "done" && !fresh?.r2_video_url && i >= 2;
+              if (renderDone && (hasVideoUrl || localDone)) break;
             }
 
             // Transition: saving → done (green download button + auto-download)
@@ -1365,7 +1374,11 @@ export default function ProjectView() {
                 {/* Download MP4 */}
                 {!rendered ? (
                   <button
-                    onClick={() => { setError(null); handleRender(); }}
+                    onClick={() => {
+                      setError(null);
+                      setDownloadWarningMode("render");
+                      setShowDownloadWarning(true);
+                    }}
                     className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
                       error
                         ? "bg-orange-500 hover:bg-orange-600"
@@ -1394,7 +1407,10 @@ export default function ProjectView() {
                   <>
                     {/* Download MP4 */}
                     <button
-                      onClick={handleDownload}
+                      onClick={() => {
+                        setDownloadWarningMode("download");
+                        setShowDownloadWarning(true);
+                      }}
                       disabled={downloading}
                       className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
@@ -1411,6 +1427,18 @@ export default function ProjectView() {
                           Download MP4
                         </>
                       )}
+                    </button>
+
+                    {/* Re-render — re-create video with latest changes (deducts video count) */}
+                    <button
+                      onClick={() => setShowReRenderWarning(true)}
+                      disabled={rendering}
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Re-render
                     </button>
 
                     {/* Share button — inline next to Download */}
@@ -1493,6 +1521,80 @@ export default function ProjectView() {
         projectId={projectId}
         onPurchased={() => loadProject()}
       />
+
+      {/* Download warning — show before starting download when video is already rendered */}
+      {showDownloadWarning && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              {downloadWarningMode === "download"
+                ? "This link will download the video before changes applied (if any). To reflect the newest changes (if any), choose Re-render."
+                : "Changes made after rendering would require re-rendering of video, resulting in deduction of a video count."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDownloadWarning(false);
+                  if (downloadWarningMode === "render") {
+                    setError(null);
+                    handleRender();
+                  } else {
+                    handleDownload();
+                  }
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                {downloadWarningMode === "render" ? "Render & download" : "Download"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDownloadWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-render warning — deducts video count; continue only if user has new changes */}
+      {showReRenderWarning && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReRenderWarning(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will deduct your video count. Continue only if you have new changes in your video.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReRenderWarning(false);
+                  setError(null);
+                  handleRender(true);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Re-render
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReRenderWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
       {showShareMenu && project?.r2_video_url && (
@@ -1800,11 +1902,12 @@ export default function ProjectView() {
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                     Display text
                                   </h4>
                                   <p className="text-sm text-gray-700 leading-relaxed">
-                                    {scene.narration_text || (
+                                    {/* Prefer dedicated display_text when available; otherwise fall back to narration_text */}
+                                    {(scene.display_text ?? scene.narration_text) || (
                                       <span className="italic text-gray-300">
                                         No narration
                                       </span>
