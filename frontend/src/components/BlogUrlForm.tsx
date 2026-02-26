@@ -237,6 +237,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
   const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
+  const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(false);
+  const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(false);
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
@@ -503,7 +505,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         name: n.trim() || undefined,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: (bulkVideoStyles[i] ?? "promotional").toLowerCase(),
-        voice_gender: bulkVoiceGender[i] === "none" ? "female" : bulkVoiceGender[i],
+        voice_gender: bulkVoiceGender[i],
         voice_accent: bulkVoiceAccent[i],
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
@@ -929,64 +931,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
   );
-  const otherTemplates = sourceList.filter(
-    (t) => !t.styles?.some((s) => s.toLowerCase() === styleLower)
-  );
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
 
   const step2Template = (
     <div className="space-y-5">
-      {/* Video style — thin dropdown (same height as before) */}
-      <div className="relative" ref={styleDropdownRef}>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Video Style
-        </label>
-        <button
-          type="button"
-          onClick={() => setStyleDropdownOpen((o) => !o)}
-          className="w-full text-left px-3 py-2 rounded-lg border border-purple-300/60 bg-purple-50/60 flex items-center justify-between gap-2 transition-all hover:bg-purple-50/80 text-sm"
-        >
-          <span className="font-medium text-gray-800">
-            {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? "Promotional"}
-          </span>
-          <svg
-            className={`w-4 h-4 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {styleDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-lg border border-purple-200 bg-white shadow-lg overflow-hidden">
-            {VIDEO_STYLES.map((s) => {
-              const isSelected = (videoStyle || "promotional").toLowerCase() === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setVideoStyle(s.id);
-                    setStyleDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 text-sm transition-colors ${
-                    isSelected ? "bg-purple-50 text-purple-700 font-medium" : "hover:bg-gray-50 text-gray-800"
-                  }`}
-                >
-                  <span>{s.label}</span>
-                  <span className={`block text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
-                    {s.subtitle}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* Selected template — full-width preview */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -1018,132 +968,76 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
 
-      {/* Templates — tab: "For [Style]" (only for this style) | "Others" (rest) */}
+      {/* Video Style tabs + Templates list (filtered by style) */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Templates
+            Video Style
           </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-lg">
-            <button
-              type="button"
-              onClick={() => setTemplateListTab("forStyle")}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                templateListTab === "forStyle"
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? videoStyle}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTemplateListTab("others")}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                templateListTab === "others"
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Others
-            </button>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {VIDEO_STYLES.map((s) => {
+              const isSelected = (videoStyle || "promotional").toLowerCase() === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setVideoStyle(s.id)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
           </div>
         </div>
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          {templateListTab === "forStyle" ? (
-            suggestedTemplates.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {suggestedTemplates.map((t) => {
-                  const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-                  const desc = TEMPLATE_DESCRIPTIONS[t.id];
-                  const isSelected = template === t.id;
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => applyTemplate(t.id)}
-                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                        isSelected
-                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                          : "border-gray-200/60 hover:border-purple-300/60"
-                      }`}
-                    >
-                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        {PreviewComp ? (
-                          <PreviewComp key={`${t.id}-${step}`} />
-                        ) : (
-                          <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                            {t.name}
-                          </div>
-                        )}
-                        {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                        <div className="text-[10px] font-semibold text-gray-800 truncate">
-                          {desc?.title ?? t.name}
+          {suggestedTemplates.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {suggestedTemplates.map((t) => {
+                const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                const isSelected = template === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => applyTemplate(t.id)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      {PreviewComp ? (
+                        <PreviewComp key={`${t.id}-${step}`} />
+                      ) : (
+                        <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                          {t.name}
                         </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {desc?.title ?? t.name}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 py-4 text-center">
-                No templates for this style. Use the &quot;Others&quot; tab to pick any template.
-              </p>
-            )
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            otherTemplates.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {otherTemplates.map((t) => {
-                  const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-                  const desc = TEMPLATE_DESCRIPTIONS[t.id];
-                  const isSelected = template === t.id;
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => applyTemplate(t.id)}
-                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                        isSelected
-                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                          : "border-gray-200/60 hover:border-purple-300/60"
-                      }`}
-                    >
-                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        {PreviewComp ? (
-                          <PreviewComp key={`${t.id}-${step}`} />
-                        ) : (
-                          <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                            {t.name}
-                          </div>
-                        )}
-                        {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                        <div className="text-[10px] font-semibold text-gray-800 truncate">
-                          {desc?.title ?? t.name}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 py-4 text-center">
-                All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (videoStyle || "promotional"))?.label ?? videoStyle}&quot; tab.
-              </p>
-            )
+            <p className="text-sm text-gray-500 py-4 text-center">
+              No templates for this style. Try another video style above.
+            </p>
           )}
         </div>
       </div>
@@ -1244,7 +1138,68 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         ? bulkTextColors[activeIndex]
         : defaultText;
     const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
-    const activeTemplateListTab = bulkTemplateListTabs[activeIndex] ?? "forStyle";
+
+    const applyTemplateToAll = () => {
+      const targetIndices = indexed.map(({ i }) => i);
+      // Template + video style + colors
+      setBulkTemplates((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = tpl;
+        });
+        return next;
+      });
+      setBulkVideoStyles((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = activeVideoStyle || "promotional";
+        });
+        return next;
+      });
+      setBulkAccentColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = accent;
+        });
+        return next;
+      });
+      setBulkBgColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bg;
+        });
+        return next;
+      });
+      setBulkTextColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = text;
+        });
+        return next;
+      });
+      // Logo (file, position, opacity)
+      setBulkLogoFile((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoFile[activeIndex] ?? null;
+        });
+        return next;
+      });
+      setBulkLogoPosition((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoPosition[activeIndex] ?? "bottom_right";
+        });
+        return next;
+      });
+      setBulkLogoOpacity((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoOpacity[activeIndex] ?? 0.9;
+        });
+        return next;
+      });
+    };
 
     const applyBulkTemplate = (id: string) => {
       setBulkTemplates((prev) => {
@@ -1287,9 +1242,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const suggestedTemplates = sourceList.filter(
       (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
     );
-    const otherTemplates = sourceList.filter(
-      (t) => !t.styles?.some((s) => s.toLowerCase() === styleLower)
-    );
 
     return (
       <div className="space-y-5">
@@ -1316,80 +1268,42 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           }}
         />
 
-        {/* Tabs for each bulk project */}
-        <div className="flex flex-wrap gap-1 border-b border-gray-200/80 pb-2 mb-2">
-          {indexed.map(({ row, i }, tabIdx) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setBulkActiveIndex(tabIdx)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-medium border ${
-                tabIdx === active
-                  ? "bg-purple-600 text-white border-purple-600"
-                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
-            >
-              #{tabIdx + 1} {bulkNames[i]?.trim() || row.url.trim().slice(0, 24) || "Untitled"}
-            </button>
-          ))}
+        {/* Tabs for each bulk project — match Link/Upload/Multi Link tabs */}
+        <div className="flex flex-wrap gap-1 pb-2 mb-2">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {indexed.map(({ row, i }, tabIdx) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(tabIdx)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  tabIdx === active
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+                title={row.url.trim() || undefined}
+              >
+                Video #{tabIdx + 1}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Video style — thin dropdown (same UI as single) */}
-        <div className="relative" ref={styleDropdownRef}>
-          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-            Video Style
+        {/* Apply template, colors & logo to all */}
+        <div className="flex items-center justify-end mb-2">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bulkApplyTemplateAll}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBulkApplyTemplateAll(checked);
+                if (checked) applyTemplateToAll();
+              }}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="font-medium">Apply template, colors & logo to all videos</span>
           </label>
-          <button
-            type="button"
-            onClick={() => setStyleDropdownOpen((o) => !o)}
-            className="w-full text-left px-3 py-2 rounded-lg border border-purple-300/60 bg-purple-50/60 flex items-center justify-between gap-2 transition-all hover:bg-purple-50/80 text-sm"
-          >
-            <span className="font-medium text-gray-800">
-              {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? "Promotional"}
-            </span>
-            <svg
-              className={`w-4 h-4 text-purple-600 flex-shrink-0 transition-transform ${styleDropdownOpen ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {styleDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-10 rounded-lg border border-purple-200 bg-white shadow-lg overflow-hidden">
-              {VIDEO_STYLES.map((s) => {
-                const isSelected = (activeVideoStyle || "promotional").toLowerCase() === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      setBulkVideoStyles((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = s.id;
-                        return next;
-                      });
-                      setBulkTemplateListTabs((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = "forStyle";
-                        return next;
-                      });
-                      setStyleDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 text-sm transition-colors ${
-                      isSelected ? "bg-purple-50 text-purple-700 font-medium" : "hover:bg-gray-50 text-gray-800"
-                    }`}
-                  >
-                    <span>{s.label}</span>
-                    <span className={`block text-[11px] mt-0.5 ${isSelected ? "text-purple-600" : "text-gray-500"}`}>
-                      {s.subtitle}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {/* Selected template — full-width preview (same UI as single) */}
@@ -1423,146 +1337,84 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-        {/* Templates — tab: "For [Style]" | "Others" (same UI as single) */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-              Templates
-            </label>
-            <div className="flex gap-1 p-1 bg-gray-100/60 rounded-lg">
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkTemplateListTabs((prev) => {
-                    const next = [...prev];
-                    next[activeIndex] = "forStyle";
-                    return next;
-                  })
-                }
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  activeTemplateListTab === "forStyle"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                For {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? activeVideoStyle}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkTemplateListTabs((prev) => {
-                    const next = [...prev];
-                    next[activeIndex] = "others";
-                    return next;
-                  })
-                }
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  activeTemplateListTab === "others"
-                    ? "bg-white text-purple-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                Others
-              </button>
+        {/* Video Style tabs */}
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Style
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {VIDEO_STYLES.map((s) => {
+              const isSelected = (activeVideoStyle || "promotional").toLowerCase() === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() =>
+                    setBulkVideoStyles((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = s.id;
+                      return next;
+                    })
+                  }
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Templates list filtered by style */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          {suggestedTemplates.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {suggestedTemplates.map((t) => {
+                const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                const isSelected = tpl === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => applyBulkTemplate(t.id)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      {PreviewComp ? (
+                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                      ) : (
+                        <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                          {t.name}
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {desc?.title ?? t.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-          <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-            {activeTemplateListTab === "forStyle" ? (
-              suggestedTemplates.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {suggestedTemplates.map((t) => {
-                    const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-                    const desc = TEMPLATE_DESCRIPTIONS[t.id];
-                    const isSelected = tpl === t.id;
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => applyBulkTemplate(t.id)}
-                        className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                          isSelected
-                            ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                            : "border-gray-200/60 hover:border-purple-300/60"
-                        }`}
-                      >
-                        <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                          {PreviewComp ? (
-                            <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
-                          ) : (
-                            <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                              {t.name}
-                            </div>
-                          )}
-                          {isSelected && (
-                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                          <div className="text-[10px] font-semibold text-gray-800 truncate">
-                            {desc?.title ?? t.name}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 py-4 text-center">
-                  No templates for this style. Use the &quot;Others&quot; tab to pick any template.
-                </p>
-              )
-            ) : (
-              otherTemplates.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {otherTemplates.map((t) => {
-                    const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-                    const desc = TEMPLATE_DESCRIPTIONS[t.id];
-                    const isSelected = tpl === t.id;
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => applyBulkTemplate(t.id)}
-                        className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                          isSelected
-                            ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                            : "border-gray-200/60 hover:border-purple-300/60"
-                        }`}
-                      >
-                        <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                          {PreviewComp ? (
-                            <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
-                          ) : (
-                            <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                              {t.name}
-                            </div>
-                          )}
-                          {isSelected && (
-                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                          <div className="text-[10px] font-semibold text-gray-800 truncate">
-                            {desc?.title ?? t.name}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 py-4 text-center">
-                  All templates support this style. Pick one from the &quot;For {VIDEO_STYLES.find((s) => s.id === (activeVideoStyle || "promotional"))?.label ?? activeVideoStyle}&quot; tab.
-                </p>
-              )
-            )}
-          </div>
+          ) : (
+            <p className="text-sm text-gray-500 py-4 text-center">
+              No templates for this style. Try another video style above.
+            </p>
+          )}
         </div>
 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
@@ -1887,24 +1739,69 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
 
+    const applyVoiceToAll = () => {
+      const targetIndices = indexed.map(({ i }) => i);
+      setBulkVoiceGender((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceGender;
+        });
+        return next;
+      });
+      setBulkVoiceAccent((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceAccent;
+        });
+        return next;
+      });
+      setBulkCustomVoiceId((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowCustomVoiceId;
+        });
+        return next;
+      });
+    };
+
     return (
       <div className="space-y-5">
-        {/* Tabs for each bulk project */}
-        <div className="flex flex-wrap gap-1 border-b border-gray-200/80 pb-2 mb-2">
-          {indexed.map(({ row, i }, tabIdx) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setBulkActiveIndex(tabIdx)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-medium border ${
-                tabIdx === active
-                  ? "bg-purple-600 text-white border-purple-600"
-                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-              }`}
-            >
-              #{tabIdx + 1} {bulkNames[i]?.trim() || row.url.trim().slice(0, 24) || "Untitled"}
-            </button>
-          ))}
+        {/* Tabs for each bulk project — match Link/Upload/Multi Link tabs */}
+        <div className="flex flex-wrap gap-1 pb-2 mb-2">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {indexed.map(({ row, i }, tabIdx) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(tabIdx)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  tabIdx === active
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+                title={row.url.trim() || undefined}
+              >
+                Video #{tabIdx + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Apply voice selection to all */}
+        <div className="flex items-center justify-end mb-1">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bulkApplyVoiceAll}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBulkApplyVoiceAll(checked);
+                if (checked) applyVoiceToAll();
+              }}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="font-medium">Apply voice settings to all videos</span>
+          </label>
         </div>
 
         <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
