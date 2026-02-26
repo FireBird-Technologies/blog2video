@@ -120,6 +120,13 @@ export default function Dashboard() {
         clearInterval(bulkPollingRef.current);
         bulkPollingRef.current = null;
       }
+      if (allDone) {
+        // All bulk pipeline runs finished (success or error) — clear state and refresh projects
+        localStorage.removeItem(BULK_PENDING_IDS_KEY);
+        setBulkPendingIds([]);
+        setBulkStatuses({});
+        loadProjects();
+      }
     };
     poll();
     bulkPollingRef.current = setInterval(poll, 2000);
@@ -414,14 +421,30 @@ export default function Dashboard() {
           <ul className="space-y-2 max-h-48 overflow-y-auto">
             {bulkPendingIds.map((id) => {
               const s = bulkStatuses[id];
-              const name = projects.find((p) => p.id === id)?.name ?? `Project ${id}`;
-              const label = s?.error
-                ? "Error"
-                : s?.running
-                  ? s?.step ?? "Running…"
-                  : s?.status === "done"
-                    ? "Done"
-                    : s?.status ?? "—";
+              const project = projects.find((p) => p.id === id);
+              const name =
+                (project?.name && project.name.trim()) ||
+                project?.blog_url ||
+                "Untitled project";
+              const stepNumber =
+                s && s.step != null && !Number.isNaN(Number(s.step))
+                  ? Number(s.step)
+                  : 0;
+              const stepTargets: Record<number, number> = {
+                0: 3,
+                1: 20,
+                2: 48,
+                3: 72,
+                4: 100,
+              };
+              let rowPercent = 0;
+              if (s?.error) {
+                rowPercent = 100;
+              } else if (s && !s.running && s.status === "done") {
+                rowPercent = 100;
+              } else if (s) {
+                rowPercent = stepTargets[stepNumber] ?? 100;
+              }
               return (
                 <li
                   key={id}
@@ -434,13 +457,40 @@ export default function Dashboard() {
                   >
                     {name}
                   </span>
-                  <span
-                    className={`flex-shrink-0 ml-2 text-xs ${
-                      s?.error ? "text-red-600" : s?.status === "done" ? "text-green-600" : "text-gray-500"
-                    }`}
-                  >
-                    {s?.error ?? label}
-                  </span>
+                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-64">
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-1.5 transition-all ${
+                          s?.error
+                            ? "bg-red-500"
+                            : s && !s.running && s.status === "done"
+                              ? "bg-green-500"
+                              : "bg-purple-600"
+                        }`}
+                        style={{ width: `${rowPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2 w-full">
+                      <span
+                        className={`text-[11px] ${
+                          s?.error
+                            ? "text-red-600"
+                            : s && !s.running && s.status === "done"
+                              ? "text-green-600"
+                              : "text-gray-500"
+                        } truncate`}
+                      >
+                        {s?.error
+                          ? s.error
+                          : s && !s.running && s.status === "done"
+                            ? "Done"
+                            : s?.status ?? "Running…"}
+                      </span>
+                      <span className="text-[11px] text-gray-500 tabular-nums">
+                        {rowPercent}%
+                      </span>
+                    </div>
+                  </div>
                 </li>
               );
             })}

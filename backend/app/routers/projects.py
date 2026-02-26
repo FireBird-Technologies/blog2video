@@ -194,6 +194,7 @@ def create_projects_bulk(
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
+            video_style=(data.video_style or "explainer").strip().lower() or "explainer",
             status=ProjectStatus.CREATED,
         )
         db.add(project)
