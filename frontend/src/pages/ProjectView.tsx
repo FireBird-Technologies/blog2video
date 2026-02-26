@@ -31,8 +31,26 @@ import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
 import { getPendingUpload } from "../stores/pendingUpload";
+import Joyride, { CallBackProps, STATUS } from "react-joyride";
 
 type Tab = "script" | "scenes" | "images" | "audio";
+
+const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
+const TAB_TOUR_CONTENT: Record<Tab, string> = {
+  script: "Script — View the full script for your video. All scene titles and narration in one place.",
+  scenes: "Scenes — Edit each scene: change title and narration, reorder by dragging, or regenerate images with AI.",
+  images: "Images — Manage all images and your logo styling.",
+  audio: "Audio — Preview the voiceover for each scene.",
+};
+function buildProjectTourSteps(tabs: { id: Tab; label: string }[]) {
+  return tabs.map((tab) => ({
+    target: `[data-tour="tab-${tab.id}"]`,
+    content: TAB_TOUR_CONTENT[tab.id],
+    disableBeacon: true,
+    placement: "bottom" as const,
+  }));
+}
+const PROJECT_JOYRIDE_STYLES = { options: { primaryColor: "#7c3aed", width: 280 }, tooltip: { fontSize: 13 }, tooltipContent: { fontSize: 13, padding: "12px 8px" }, buttonNext: { fontSize: 12 }, buttonBack: { fontSize: 12 } };
 
 const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
@@ -369,6 +387,39 @@ export default function ProjectView() {
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const tabsGuideSeenKey = user ? `${TABS_GUIDE_SEEN_KEY}_${user.id}` : TABS_GUIDE_SEEN_KEY;
+  const showTabsGuideCallout =
+    searchParams.get("showTabsGuide") === "1" && !localStorage.getItem(tabsGuideSeenKey);
+  const [tabsTourStepIndex, setTabsTourStepIndex] = useState(0);
+  const dismissTabsGuide = useCallback(() => {
+    if (user) localStorage.setItem(tabsGuideSeenKey, "true");
+    navigate(`/project/${id}`, { replace: true });
+  }, [navigate, id, user, tabsGuideSeenKey]);
+  const handleProjectTourCallback = useCallback(
+    (data: CallBackProps) => {
+      if ((data as { action?: string }).action === "close" || data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
+        dismissTabsGuide();
+        return;
+      }
+      const type = (data as { type?: string }).type;
+      const action = data.action;
+      const index = data.index ?? 0;
+      const stepsCount = project?.voice_gender !== "none" ? 4 : 3;
+      const isLastStep = index === stepsCount - 1;
+      if (type === "step:after" && action === "next" && isLastStep) {
+        dismissTabsGuide();
+        return;
+      }
+      if (type === "step:after" && (action === "next" || action === "prev")) {
+        const targetIndex = action === "next" ? Math.min(index + 1, stepsCount - 1) : Math.max(index - 1, 0);
+        setTabsTourStepIndex(targetIndex);
+      }
+    },
+    [dismissTabsGuide, project?.voice_gender]
+  );
+  useEffect(() => {
+    if (showTabsGuideCallout) setTabsTourStepIndex(0);
+  }, [showTabsGuideCallout]);
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -1695,6 +1746,21 @@ export default function ProjectView() {
         </div>
       )}
 
+      {showTabsGuideCallout && (
+        <Joyride
+          steps={buildProjectTourSteps(tabs)}
+          run={true}
+          stepIndex={tabsTourStepIndex}
+          continuous
+          showSkipButton={false}
+          callback={handleProjectTourCallback}
+          scrollToFirstStep={true}
+          disableScrolling={false}
+          spotlightClicks={false}
+          styles={PROJECT_JOYRIDE_STYLES}
+          locale={{ last: "Explore" }}
+        />
+      )}
       {/* Pill tabs */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
         {tabs.map((tab) => (
@@ -1706,6 +1772,7 @@ export default function ProjectView() {
                 ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-gray-400 hover:text-gray-600"
             }`}
+            data-tour={`tab-${tab.id}`}
           >
             {tab.label}
           </button>

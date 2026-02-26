@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import Joyride, { CallBackProps, STATUS } from "react-joyride";
 import {
   listProjects,
   createProject,
@@ -20,6 +21,18 @@ import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
+const FORM_TOUR_SEEN_KEY = "blog2video_form_tour_seen";
+
+const FORM_TOUR_STEPS = [
+  { target: "[data-tour=\"mode-link\"]", content: "Link — Paste a blog or article URL here. Use a paywall-free link for best results. Then proceed to step 2.", disableBeacon: true, placement: "right" as const },
+  { target: "[data-tour=\"mode-upload\"]", content: "Upload — Add documents (PDF, DOCX, PPTX). Max 5 files, 5 MB each. Then proceed to step 2.", disableBeacon: true, placement: "right" as const },
+  { target: "[data-tour=\"create-step1\"]", content: "Step 1 — Add your content via Link or Upload above, then proceed to step 2.", disableBeacon: true, placement: "right" as const },
+  { target: "[data-tour=\"create-step2\"]", content: "Step 2 — Pick a video style and template. Preview and choose one, then proceed to step 3.", disableBeacon: true, placement: "right" as const },
+  { target: "[data-tour=\"create-step3\"]", content: "Step 3 — Choose a voice for narration (or no voiceover). Preview, then proceed to step 4.", disableBeacon: true, placement: "right" as const },
+  { target: "[data-tour=\"create-submit\"]", content: "Click Generate Video to create your video. You'll be taken to the project page to edit scenes, images, and voiceover.", disableBeacon: true, placement: "top" as const },
+];
+
+const FORM_JOYRIDE_STYLES = { options: { primaryColor: "#7c3aed", width: 280, textColor: "#374151" }, tooltip: { fontSize: 13 }, tooltipContent: { fontSize: 13, padding: "12px 8px" }, buttonNext: { fontSize: 12 }, buttonBack: { fontSize: 12 } };
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -36,6 +49,11 @@ export default function Dashboard() {
   >({});
   const bulkStartedRef = useRef(false);
   const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [runFormTour, setRunFormTour] = useState(false);
+  const [formStepForTour, setFormStepForTour] = useState<1 | 2 | 3>(1);
+  const [joyrideStepIndex, setJoyrideStepIndex] = useState(0);
+  const [resetFormToStepOneKey, setResetFormToStepOneKey] = useState(0);
 
   // Hydrate bulk IDs from localStorage (or URL for backward compatibility)
   useEffect(() => {
@@ -74,6 +92,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (bulkPendingIds.length > 0) loadProjects();
   }, [bulkPendingIds.length]);
+
+  const formTourSeenKey = user ? `${FORM_TOUR_SEEN_KEY}_${user.id}` : FORM_TOUR_SEEN_KEY;
+  useEffect(() => {
+    if (loaded && user && projects.length === 0 && !localStorage.getItem(formTourSeenKey)) {
+      setRunFormTour(true);
+      setFormStepForTour(1);
+      setJoyrideStepIndex(0);
+    }
+  }, [loaded, user, projects.length, formTourSeenKey]);
 
   useEffect(() => {
     if (bulkPendingIds.length === 0) {
@@ -245,7 +272,8 @@ export default function Dashboard() {
 
       await refreshUser();
       setShowModal(false);
-      navigate(`/project/${res.data.id}`);
+      const isFirstVideo = projects.length === 0;
+      navigate(isFirstVideo ? `/project/${res.data.id}?showTabsGuide=1` : `/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
         alert(
@@ -297,12 +325,63 @@ export default function Dashboard() {
     });
   };
 
+  const endFormTour = () => {
+    if (user) localStorage.setItem(`${FORM_TOUR_SEEN_KEY}_${user.id}`, "true");
+    setRunFormTour(false);
+    setJoyrideStepIndex(0);
+    setFormStepForTour(1);
+    setResetFormToStepOneKey((k) => k + 1);
+  };
+
+  const handleFormTourCallback = (data: CallBackProps) => {
+    const index = data.index ?? 0;
+    const action = data.action;
+    const type = (data as { type?: string }).type;
+    if ((data as { action?: string }).action === "close") {
+      endFormTour();
+      return;
+    }
+    const isStepAfter = type === "step:after";
+    const isLastStep = index === FORM_TOUR_STEPS.length - 1;
+    if (isStepAfter && action === "next" && isLastStep) {
+      endFormTour();
+      return;
+    }
+    if (isStepAfter && (action === "next" || action === "prev")) {
+      const targetIndex = action === "next" ? Math.min(index + 1, FORM_TOUR_STEPS.length - 1) : Math.max(index - 1, 0);
+      const newFormStep = targetIndex <= 2 ? 1 : targetIndex === 3 ? 2 : 3;
+      if (targetIndex === 4 || targetIndex === 5) {
+        setFormStepForTour(3);
+        setTimeout(() => setJoyrideStepIndex(targetIndex), 0);
+      } else {
+        setFormStepForTour(newFormStep);
+        setJoyrideStepIndex(targetIndex);
+      }
+    }
+    if (data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) endFormTour();
+  };
+
   const isPro = user?.plan === "pro";
 
   // ─── Onboarding (0 projects) ───────────────────────────────
   if (loaded && projects.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
+        {runFormTour && (
+          <Joyride
+            steps={FORM_TOUR_STEPS}
+            run={true}
+            stepIndex={joyrideStepIndex}
+            continuous
+            showSkipButton={false}
+            callback={handleFormTourCallback}
+            scrollToFirstStep={false}
+            disableScrolling={false}
+            spotlightClicks={false}
+            styles={FORM_JOYRIDE_STYLES}
+            locale={{ last: "Start generating" }}
+          />
+        )}
         <div className="w-full max-w-md">
           {/* Welcome header */}
           <div className="text-center mb-8">
@@ -319,7 +398,13 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} loading={creating} />
+            <BlogUrlForm
+              onSubmit={handleCreate}
+              onSubmitBulk={handleCreateBulk}
+              loading={creating}
+              tourStep={runFormTour ? formStepForTour : undefined}
+              resetToStepOneKey={resetFormToStepOneKey}
+            />
           </div>
 
           {/* Upgrade nudge */}

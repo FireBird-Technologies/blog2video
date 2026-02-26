@@ -41,6 +41,10 @@ interface Props {
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
+  /** When set (Dashboard create-form tour), form shows this step so the tour can spotlight it. */
+  tourStep?: 1 | 2 | 3;
+  /** When this key changes (e.g. after tour ends), form resets to step 1. */
+  resetToStepOneKey?: number;
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -202,12 +206,22 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
   );
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, tourStep, resetToStepOneKey }: Props) {
   const { user } = useAuth();
   const isPro = user?.plan === "pro";
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  useEffect(() => {
+    if (tourStep != null) setStep(tourStep);
+  }, [tourStep]);
+
+  useEffect(() => {
+    if (resetToStepOneKey != null && resetToStepOneKey > 0) setStep(1);
+  }, [resetToStepOneKey]);
+
+  const effectiveStep = tourStep ?? step;
 
   // Step 1 — input
   const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
@@ -616,7 +630,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
   const step1 = (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0" data-tour="create-step1">
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
       {/* Mode tabs — selected tab purple */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
@@ -630,6 +644,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 ? "bg-white text-purple-600 shadow-sm"
                 : "text-gray-400 hover:text-gray-600"
             }`}
+            data-tour={m === "url" ? "mode-link" : m === "upload" ? "mode-upload" : undefined}
           >
             {m === "url" ? "Link" : m === "upload" ? "Upload" : "Multi Link"}
           </button>
@@ -936,7 +951,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
 
   const step2Template = (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="create-step2">
       {/* Selected template — full-width preview */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -1574,7 +1589,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   const step3Voice = (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="create-step3">
       <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
         <input
           type="checkbox"
@@ -1695,6 +1710,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           ref={submitButtonRef}
           type="submit"
           disabled={loading}
+          data-tour="create-submit"
           className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -1958,11 +1974,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   })();
 
   // ─── Render ──────────────────────────────────────────────────
-  // Step order: 1 Project, 2 Template, 3 Voice
   const stepContent =
-    step === 1
+    effectiveStep === 1
       ? step1
-      : step === 2
+      : effectiveStep === 2
         ? mode === "bulk"
           ? step2BulkTemplate
           : step2Template
@@ -1989,7 +2004,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         }
       }}
     >
-      <StepIndicator current={step} total={3} />
+      <StepIndicator current={effectiveStep} total={3} />
       {stepContentWrapper}
       <UpgradeModal
         open={showUpgrade}
@@ -2002,7 +2017,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   if (!asModal) {
     return (
       <div>
-        <StepIndicator current={step} total={3} />
+        <StepIndicator current={effectiveStep} total={3} />
         <form
           onSubmit={handleSubmit}
           onKeyDown={(e) => {
