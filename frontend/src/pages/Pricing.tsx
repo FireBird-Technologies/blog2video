@@ -193,7 +193,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
-                  onError={() => setAuthError("Google sign-in failed")}
+                  onError={() => showError("Google sign-in failed")}
                   size="large"
                   shape="pill"
                   text="signup_with"
@@ -248,7 +248,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
-                  onError={() => setAuthError("Google sign-in failed")}
+                  onError={() => showError("Google sign-in failed")}
                   size="large"
                   shape="pill"
                   text="continue_with"
@@ -348,7 +348,7 @@ export default function Pricing() {
               <div className="flex justify-center">
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
-                  onError={() => setAuthError("Google sign-in failed")}
+                  onError={() => showError("Google sign-in failed")}
                   size="large"
                   shape="pill"
                   text="continue_with"
