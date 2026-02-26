@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
 
@@ -12,22 +12,33 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
   titleFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
   const isLight = bgColor === "#FFFFFF" || bgColor === "#ffffff";
 
-  // Image animations
-  const imgOpacity = interpolate(frame, [0, 40], [0, 1], {
+  // Image: smooth spring-driven zoom-in reveal
+  const imgSpring = spring({
+    frame,
+    fps,
+    config: { damping: 30, stiffness: 60, mass: 1.2 },
+  });
+  const imgOpacity = interpolate(imgSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const imgScale = interpolate(frame, [0, 60], [1.08, 1.0], {
+  const imgScale = interpolate(imgSpring, [0, 1], [1.1, 1.0], {
     extrapolateRight: "clamp",
   });
 
-  // Title animations
-  const titleOpacity = interpolate(frame, [15, 40], [0, 1], {
+  // Title: spring entrance with slide up
+  const titleSpring = spring({
+    frame: frame - 12,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const titleOpacity = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const titleY = interpolate(frame, [15, 40], [40, 0], {
+  const titleY = interpolate(titleSpring, [0, 1], [35, 0], {
     extrapolateRight: "clamp",
   });
 

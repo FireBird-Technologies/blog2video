@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Timeline: React.FC<SceneLayoutProps> = ({
@@ -12,9 +12,15 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 20], [0, 1], {
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
   const lineH = interpolate(frame, [15, 80], [0, 100], {
@@ -70,14 +76,19 @@ export const Timeline: React.FC<SceneLayoutProps> = ({
         />
 
         {timelineItems.map((item, i) => {
-          const delay = 20 + i * 15;
-          const op = interpolate(frame, [delay, delay + 12], [0, 1], {
+          const delay = 18 + i * 12;
+          const itemSpring = spring({
+            frame: frame - delay,
+            fps,
+            config: { damping: 16, stiffness: 120, mass: 1 },
+          });
+          const op = interpolate(itemSpring, [0, 1], [0, 1], {
             extrapolateRight: "clamp",
           });
-          const x = interpolate(frame, [delay, delay + 12], [-30, 0], {
+          const x = interpolate(itemSpring, [0, 1], [-30, 0], {
             extrapolateRight: "clamp",
           });
-          const dotScale = interpolate(frame, [delay, delay + 8], [0, 1], {
+          const dotScale = interpolate(itemSpring, [0, 0.6], [0, 1], {
             extrapolateRight: "clamp",
           });
           const isLast = i === timelineItems.length - 1;
