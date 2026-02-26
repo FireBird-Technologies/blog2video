@@ -1037,36 +1037,6 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
-                    {generatedImageBase64 && (
-                      <div className="relative rounded-lg overflow-hidden border-2 border-amber-400 flex-shrink-0 bg-gray-50">
-                        <img
-                          src={`data:image/png;base64,${generatedImageBase64}`}
-                          alt="AI generated"
-                          className="h-20 w-auto object-cover"
-                        />
-                        {generatedPrompt && (
-                          <p className="text-[10px] text-gray-500 px-1.5 py-0.5 max-w-[140px] truncate" title={generatedPrompt}>
-                            {generatedPrompt}
-                          </p>
-                        )}
-                        <div className="flex gap-1.5 p-1.5">
-                          <button
-                            type="button"
-                            onClick={handleKeepGeneratedImage}
-                            className="flex-1 px-2 py-1 text-xs font-medium rounded bg-purple-600 text-white hover:bg-purple-700"
-                          >
-                            Keep
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDiscardGeneratedImage}
-                            className="flex-1 px-2 py-1 text-xs font-medium rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          >
-                            Discard
-                          </button>
-                        </div>
-                      </div>
-                    )}
                     <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
                       <input
                         type="file"
@@ -1294,6 +1264,53 @@ export default function SceneEditModal({
             >
               Maybe later
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* AI generated image preview popup */}
+    {generatedImageBase64 && (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={handleDiscardGeneratedImage}
+        />
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+            <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleKeepGeneratedImage}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                title="Use this image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardGeneratedImage}
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                title="Discard"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
+            <img
+              src={`data:image/png;base64,${generatedImageBase64}`}
+              alt="AI generated"
+              className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
+            />
           </div>
         </div>
       </div>
