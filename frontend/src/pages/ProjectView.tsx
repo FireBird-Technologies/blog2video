@@ -24,6 +24,7 @@ import {
   BACKEND_URL,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
@@ -277,7 +278,8 @@ export default function ProjectView() {
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const { showError } = useErrorModal();
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
   const [logoSize, setLogoSize] = useState<number>(100);
@@ -453,7 +455,7 @@ export default function ProjectView() {
     try {
       const res = await getProject(projectId);
       setProject(res.data);
-      setError(null); // clear any previous load errors on success
+      setHasError(false); // clear any previous load errors on success
       if (res.data.status === "done") {
         setRendered(true);
       }
@@ -463,7 +465,7 @@ export default function ProjectView() {
       }).catch(() => {/* ignore */});
       return res.data;
     } catch {
-      setError("Failed to load project");
+      showError("Failed to load project"); setHasError(true);
       return null;
     } finally {
       setLoading(false);
@@ -491,7 +493,7 @@ export default function ProjectView() {
         generationStarted.current = true;
         setPipelineRunning(true);
         setPipelineStep(1); // "Uploading" step
-        setError(null);
+        setHasError(false);
         try {
           await uploadProjectDocuments(projectId, pendingFiles);
           // Reload project (status is now SCRAPED)
@@ -500,9 +502,7 @@ export default function ProjectView() {
           await startGeneration(projectId);
           startPolling();
         } catch (err: any) {
-          setError(
-            err?.response?.data?.detail || "Failed to upload documents."
-          );
+          showError(getErrorMessage(err, "Failed to upload documents.")); setHasError(true);
           setPipelineRunning(false);
         }
         return;
@@ -526,15 +526,13 @@ export default function ProjectView() {
   const kickOffGeneration = async () => {
     setPipelineRunning(true);
     setPipelineStep(0);
-    setError(null);
+    setHasError(false);
 
     try {
       await startGeneration(projectId);
       startPolling();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.detail || "Failed to start generation."
-      );
+      showError(getErrorMessage(err, "Failed to start generation. Please try again or contact support, if the issue persist.")); setHasError(true);
       setPipelineRunning(false);
     }
   };
@@ -549,7 +547,10 @@ export default function ProjectView() {
         setPipelineStep(step);
 
         if (pipelineError) {
-          setError(pipelineError);
+          // Log the detailed pipeline error, but show a friendly, generic message to the user.
+          console.error("Pipeline error while generating video:", pipelineError);
+          showError(DEFAULT_ERROR_MESSAGE);
+          setHasError(true);
           setPipelineRunning(false);
           stopPolling();
           await loadProject();
@@ -617,7 +618,7 @@ export default function ProjectView() {
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
     setRenderTimeLeft(null);
-    setError(null);
+    setHasError(false);
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
 
@@ -627,9 +628,7 @@ export default function ProjectView() {
       } catch (err: any) {
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
-          setError(
-            err?.response?.data?.detail || "Render failed after multiple attempts."
-          );
+          showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
           setRendering(false);
           return;
         }
@@ -671,7 +670,7 @@ export default function ProjectView() {
               await new Promise((r) => setTimeout(r, 3000));
               startRenderAndPoll(res);
             } else {
-              setError(`${renderErr} (after ${MAX_RENDER_RETRIES} retries)`);
+              showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
               setRendering(false);
               stopRenderPolling();
             }
@@ -733,7 +732,7 @@ export default function ProjectView() {
   const handleDownload = async () => {
     if (!project) return;
     setDownloading(true);
-    setError(null);
+    setHasError(false);
     const safeName =
       project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
 
@@ -754,7 +753,7 @@ export default function ProjectView() {
           await loadProject();
           continue;
         }
-        setError(err?.response?.data?.detail || "Download failed.");
+        showError(getErrorMessage(err, "Download failed. try again or contact support if the issue persist.")); setHasError(true);
         break;
       }
     }
@@ -764,7 +763,7 @@ export default function ProjectView() {
   const handleOpenStudio = async () => {
     if (!project) return;
     setDownloadingStudio(true);
-    setError(null);
+    setHasError(false);
     try {
       const res = await launchStudio(projectId);
       const url = res.data.studio_url;
@@ -775,7 +774,7 @@ export default function ProjectView() {
       if (err?.response?.status === 403) {
         setShowUpgrade(true);
       } else {
-        setError(err?.response?.data?.detail || "Failed to launch Studio.");
+        showError(getErrorMessage(err, "Failed to launch Studio.")); setHasError(true);
       }
     } finally {
       setDownloadingStudio(false);
@@ -793,7 +792,7 @@ export default function ProjectView() {
       if (err?.response?.status === 403) {
         setShowUpgrade(true);
       } else {
-        setError(err?.response?.data?.detail || "Studio download failed.");
+        showError(getErrorMessage(err, "Studio download failed.")); setHasError(true);
       }
     } finally {
       setDownloadingStudio(false);
@@ -1061,7 +1060,7 @@ export default function ProjectView() {
       });
       await loadProject();
     } catch (err) {
-      console.error("Failed to save logo settings:", err);
+      showError(getErrorMessage(err, "Failed to save logo settings."));
     } finally {
       setLogoSaving(false);
     }
@@ -1168,9 +1167,8 @@ export default function ProjectView() {
             </span>
           </div>
 
-          {error && (
+          {hasError && (
             <div className="mt-6">
-              <p className="text-xs text-red-500 mb-3">{error}</p>
               <button
                 onClick={kickOffGeneration}
                 className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1246,9 +1244,8 @@ export default function ProjectView() {
                 Feel free to browse other tabs — just don't close this one.
               </p>
 
-              {error && (
+              {hasError && (
                 <div className="mt-4">
-                  <p className="text-xs text-red-500 mb-3">{error}</p>
                   <button
                     onClick={() => handleRender()}
                     className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1377,12 +1374,12 @@ export default function ProjectView() {
                 {!rendered ? (
                   <button
                     onClick={() => {
-                      setError(null);
+                      setHasError(false);
                       setDownloadWarningMode("render");
                       setShowDownloadWarning(true);
                     }}
                     className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                      error
+                      hasError
                         ? "bg-orange-500 hover:bg-orange-600"
                         : "bg-purple-600 hover:bg-purple-700"
                     }`}
@@ -1397,13 +1394,13 @@ export default function ProjectView() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d={error
+                        d={hasError
                           ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                           : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                         }
                       />
                     </svg>
-                    {error ? "Resume Download" : "Download MP4"}
+                    {hasError ? "Resume Download" : "Download MP4"}
                   </button>
                 ) : (
                   <>
@@ -1543,7 +1540,7 @@ export default function ProjectView() {
                 onClick={() => {
                   setShowDownloadWarning(false);
                   if (downloadWarningMode === "render") {
-                    setError(null);
+                    setHasError(false);
                     handleRender();
                   } else {
                     handleDownload();
@@ -1579,7 +1576,7 @@ export default function ProjectView() {
                 type="button"
                 onClick={() => {
                   setShowReRenderWarning(false);
-                  setError(null);
+                  setHasError(false);
                   handleRender(true);
                 }}
                 className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
@@ -1678,7 +1675,7 @@ export default function ProjectView() {
             </div>
 
             <div className="flex items-center gap-2">
-              {error && (
+              {hasError && (
                 <button
                   onClick={kickOffGeneration}
                   className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1688,10 +1685,6 @@ export default function ProjectView() {
               )}
             </div>
           </div>
-
-          {error && (
-            <p className="mt-3 text-xs text-red-500">{error}</p>
-          )}
         </div>
       )}
 

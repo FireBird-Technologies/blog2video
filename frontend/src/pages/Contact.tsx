@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { sendEnterpriseContact } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
 
 
@@ -13,13 +14,12 @@ export default function Contact() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { showError } = useErrorModal();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSuccess(null);
-    setError(null);
     try {
       await sendEnterpriseContact({ name, company, contact_details: contactDetails, message });
       setSuccess("Thank you for the feedback, we'll get back soon.");
@@ -29,9 +29,8 @@ export default function Contact() {
       setMessage("");
     } catch (err: any) {
       console.error("Enterprise contact failed", err);
-      setError(
-        err?.response?.data?.detail ||
-          "Something went wrong. Please try again or email us directly."
+      showError(
+        getErrorMessage(err, "Something went wrong. Please try again or email us directly.")
       );
     } finally {
       setLoading(false);
@@ -250,12 +249,6 @@ export default function Contact() {
                       placeholder="Share a bit about your use case, team size, and what you need."
                     />
                   </div>
-
-                  {error && (
-                    <p className="text-xs text-red-500">
-                      {error}
-                    </p>
-                  )}
 
                   <div className="flex justify-end gap-2 pt-2">
                     <button
