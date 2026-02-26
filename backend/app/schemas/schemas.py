@@ -17,7 +17,7 @@ class ProjectCreate(BaseModel):
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"  # top_left, top_right, bottom_left, bottom_right
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
-    logo_size: Optional[str] = "default"  # default, small, medium, large, extra_large
+    logo_size: Optional[float] = 100.0  # percentage, e.g. 100 = 100%
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
@@ -88,7 +88,7 @@ class ProjectOut(BaseModel):
     logo_r2_url: Optional[str] = None
     logo_position: str = "bottom_right"
     logo_opacity: float = 0.9
-    logo_size: str = "default"
+    logo_size: float = 100.0  # percentage
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
@@ -100,15 +100,13 @@ class ProjectOut(BaseModel):
 
     @field_validator("logo_size", mode="before")
     @classmethod
-    def coerce_logo_size(cls, v: object) -> str:
+    def coerce_logo_size(cls, v: object) -> float:
         if v is None:
-            return "default"
+            return 100.0
         if isinstance(v, (int, float)):
-            return "default"
-        s = str(v).strip().lower()
-        if s in ("default", "small", "medium", "large", "extra_large"):
-            return s
-        return "default"
+            p = float(v)
+            return max(50.0, min(200.0, p))
+        return 100.0
 
     class Config:
         from_attributes = True
@@ -137,8 +135,17 @@ class BulkCreateResponse(BaseModel):
 
 class ProjectLogoUpdate(BaseModel):
     logo_position: Optional[str] = None  # top_left, top_right, bottom_left, bottom_right
-    logo_size: Optional[str] = None      # default, small, medium, large, extra_large
+    logo_size: Optional[float] = None    # percentage, e.g. 100 = 100% (50-200), REAL for smooth slider
     logo_opacity: Optional[float] = None # 0.0 - 1.0
+
+    @field_validator("logo_size", mode="before")
+    @classmethod
+    def clamp_logo_size(cls, v: object) -> Optional[float]:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return max(50.0, min(200.0, float(v)))
+        return None
 
 
 class ProjectListOut(BaseModel):
