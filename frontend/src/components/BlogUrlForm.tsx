@@ -1269,7 +1269,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         />
 
         {/* Tabs for each bulk project — match Link/Upload/Multi Link tabs */}
-        <div className="flex flex-wrap gap-1 pb-2 mb-2">
+        <div className="flex flex-wrap gap-1 mb-2">
           <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
             {indexed.map(({ row, i }, tabIdx) => (
               <button
@@ -1290,7 +1290,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
 
         {/* Apply template, colors & logo to all */}
-        <div className="flex items-center justify-end mb-2">
+        <div className="flex items-center justify-start ml-1 mb-1">
           <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -1788,7 +1788,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
 
         {/* Apply voice selection to all */}
-        <div className="flex items-center justify-end mb-1">
+        <div className="flex items-center justify-start mb-2 ml-1">
           <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
             <input
               type="checkbox"
