@@ -24,6 +24,13 @@ class OpenAIProvider(ImageProvider):
         self._client = OpenAI(api_key=api_key)
 
     def generate(self, prompt: str, **kwargs) -> str:
+        # Default size/quality if not provided (layout-based caller usually passes size)
+        if "size" not in kwargs:
+            kwargs.setdefault("size", "1536x1024")
+        if "quality" not in kwargs:
+            kwargs.setdefault("quality", "high")
+        if "n" not in kwargs:
+            kwargs.setdefault("n", 1)
         response = self._client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
@@ -46,6 +53,12 @@ class GeminiProvider(ImageProvider):
         self._client = genai.Client(api_key=api_key)
 
     def generate(self, prompt: str, **kwargs) -> str:
+        generation_config = kwargs.pop("generation_config", None)
+        config = None
+        if generation_config and isinstance(generation_config, dict):
+            config = self._build_gemini_config(generation_config)
+        if config is not None:
+            kwargs["config"] = config
         response = self._client.models.generate_content(
             model="gemini-2.5-flash-image",
             contents=[prompt],
@@ -59,6 +72,39 @@ class GeminiProvider(ImageProvider):
                         return base64.b64encode(data).decode("ascii")
                     return data
         raise RuntimeError("No image returned from Gemini")
+
+    def _build_gemini_config(self, gen_config: dict):
+        """Build SDK config from our generation_config dict (aspect_ratio, image_size)."""
+        try:
+            from google.genai import types
+            aspect_ratio = gen_config.get("aspect_ratio") or "16:9"
+            image_size = gen_config.get("image_size") or "2k"
+            if hasattr(types, "GenerateContentConfig"):
+                kwargs = {}
+                if hasattr(types, "ImageGenerationConfig"):
+                    kwargs["image_generation_config"] = types.ImageGenerationConfig(
+                        aspect_ratio=aspect_ratio,
+                        image_size=image_size,
+                    )
+                elif hasattr(types, "ImageConfig"):
+                    kwargs["image_config"] = types.ImageConfig(
+                        aspect_ratio=aspect_ratio,
+                        image_size=image_size,
+                    )
+                if kwargs:
+                    return types.GenerateContentConfig(**kwargs)
+            if hasattr(types, "GenerationConfig") and hasattr(types, "ImageConfig"):
+                return types.GenerateContentConfig(
+                    generation_config=types.GenerationConfig(
+                        image_config=types.ImageConfig(
+                            aspect_ratio=aspect_ratio,
+                            image_size=image_size,
+                        )
+                    )
+                )
+        except Exception:
+            pass
+        return None
 
 
 def get_image_provider() -> Optional[ImageProvider]:
