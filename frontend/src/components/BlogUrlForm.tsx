@@ -239,8 +239,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
   const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
-  const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(false);
-  const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(false);
+  const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
+  const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
+  const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
+  const [bulkVoiceMasterIndex, setBulkVoiceMasterIndex] = useState(0);
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
@@ -552,6 +554,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkLogoPosition(["bottom_right"]);
       setBulkLogoOpacity([0.9]);
       setBulkActiveIndex(0);
+      setBulkApplyTemplateAll(true);
+      setBulkTemplateMasterIndex(0);
+      setBulkApplyVoiceAll(true);
+      setBulkVoiceMasterIndex(0);
       return;
     }
 
@@ -1103,7 +1109,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (indexed.length === 0) {
       return (
         <div className="space-y-5">
-          <p className="text-sm text-gray-500">Add at least one valid URL to continue.</p>
+          <p className="text-sm text-gray-500">Please go back to step 1 to continue again.</p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
@@ -1120,6 +1126,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const active = Math.min(bulkActiveIndex, indexed.length - 1);
     const activeIndex = indexed[active].i;
     const activeRow = indexed[active].row;
+    const masterIndex =
+      indexed.find(({ i }) => i === bulkTemplateMasterIndex)?.i ?? indexed[0].i;
 
     const tpl = bulkTemplates[activeIndex] ?? "nightfall";
     const templateMeta = templates.find((t) => t.id === tpl);
@@ -1204,29 +1212,80 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     };
 
     const applyBulkTemplate = (id: string) => {
+      const colors = templates.find((t) => t.id === id)?.preview_colors;
+      const targetIndices = indexed.map(({ i }) => i);
+
+      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+        setBulkApplyTemplateAll(false);
+        setBulkTemplates((prev) => {
+          const next = [...prev];
+          next[activeIndex] = id;
+          return next;
+        });
+        if (colors) {
+          setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
+          setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
+          setBulkTextColors((prev) => { const next = [...prev]; next[activeIndex] = colors.text; return next; });
+        }
+        return;
+      }
+
+      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+        setBulkTemplates((prev) => {
+          const next = [...prev];
+          targetIndices.forEach((idx) => { next[idx] = id; });
+          return next;
+        });
+        if (colors) {
+          setBulkAccentColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.accent; });
+            return next;
+          });
+          setBulkBgColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.bg; });
+            return next;
+          });
+          setBulkTextColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.text; });
+            return next;
+          });
+        }
+        return;
+      }
+
       setBulkTemplates((prev) => {
         const next = [...prev];
         next[activeIndex] = id;
         return next;
       });
-      const colors = templates.find((t) => t.id === id)?.preview_colors;
       if (colors) {
-        setBulkAccentColors((prev) => {
-          const next = [...prev];
-          next[activeIndex] = colors.accent;
-          return next;
-        });
-        setBulkBgColors((prev) => {
-          const next = [...prev];
-          next[activeIndex] = colors.bg;
-          return next;
-        });
-        setBulkTextColors((prev) => {
-          const next = [...prev];
-          next[activeIndex] = colors.text;
-          return next;
-        });
+        setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
+        setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
+        setBulkTextColors((prev) => { const next = [...prev]; next[activeIndex] = colors.text; return next; });
       }
+    };
+
+    const targetIndicesForTemplate = indexed.map(({ i }) => i);
+    const setBulkColor = (kind: "accent" | "bg" | "text", v: string) => {
+      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+        setBulkApplyTemplateAll(false);
+        if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        return;
+      }
+      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+        if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        return;
+      }
+      if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+      if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+      if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
     };
 
     const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
@@ -1259,6 +1318,26 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             if (bulkLogoRowIndex === null) return;
             if (f && f.size > 2 * 1024 * 1024) {
               showError("Logo must be under 2 MB.");
+              return;
+            }
+            const targetIndices = indexed.map(({ i }) => i);
+            if (bulkApplyTemplateAll && bulkLogoRowIndex !== masterIndex) {
+              setBulkApplyTemplateAll(false);
+              setBulkLogoFile((prev) => {
+                const n = [...prev];
+                n[bulkLogoRowIndex] = f;
+                return n;
+              });
+              setBulkLogoRowIndex(null);
+              return;
+            }
+            if (bulkApplyTemplateAll && bulkLogoRowIndex === masterIndex) {
+              setBulkLogoFile((prev) => {
+                const n = [...prev];
+                targetIndices.forEach((idx) => { n[idx] = f; });
+                return n;
+              });
+              setBulkLogoRowIndex(null);
               return;
             }
             setBulkLogoFile((prev) => {
@@ -1300,7 +1379,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               onChange={(e) => {
                 const checked = e.target.checked;
                 setBulkApplyTemplateAll(checked);
-                if (checked) applyTemplateToAll();
+                if (checked) {
+                  setBulkTemplateMasterIndex(activeIndex);
+                  applyTemplateToAll();
+                }
               }}
               className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
             />
@@ -1351,13 +1433,31 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const targetIndices = indexed.map(({ i }) => i);
+                    if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                      setBulkApplyTemplateAll(false);
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = s.id;
+                        return next;
+                      });
+                      return;
+                    }
+                    if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => { next[idx] = s.id; });
+                        return next;
+                      });
+                      return;
+                    }
                     setBulkVideoStyles((prev) => {
                       const next = [...prev];
                       next[activeIndex] = s.id;
                       return next;
-                    })
-                  }
+                    });
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                     isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   }`}
@@ -1427,9 +1527,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </label>
             <div className="flex items-center gap-5">
               {[
-                { label: "Accent", value: accent, setter: (v: string) => setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
-                { label: "Background", value: bg, setter: (v: string) => setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
-                { label: "Text", value: text, setter: (v: string) => setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; }) },
+                { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
+                { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
+                { label: "Text", value: text, setter: (v: string) => setBulkColor("text", v) },
               ].map(({ label, value, setter }) => (
                 <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
                   <span
@@ -1467,11 +1567,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setBulkLogoFile((prev) => {
-                        const n = [...prev];
-                        n[activeIndex] = null;
-                        return n;
-                      });
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        setBulkLogoFile((prev) => { const n = [...prev]; n[activeIndex] = null; return n; });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        setBulkLogoFile((prev) => {
+                          const n = [...prev];
+                          targetIndices.forEach((idx) => { n[idx] = null; });
+                          return n;
+                        });
+                        return;
+                      }
+                      setBulkLogoFile((prev) => { const n = [...prev]; n[activeIndex] = null; return n; });
                     }}
                     className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
                     title="Remove logo"
@@ -1496,13 +1606,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     <button
                       key={pos.value}
                       type="button"
-                      onClick={() =>
-                        setBulkLogoPosition((prev) => {
-                          const n = [...prev];
-                          n[activeIndex] = pos.value;
-                          return n;
-                        })
-                      }
+                      onClick={() => {
+                        const targetIndices = indexed.map(({ i }) => i);
+                        if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                          setBulkApplyTemplateAll(false);
+                          setBulkLogoPosition((prev) => { const n = [...prev]; n[activeIndex] = pos.value; return n; });
+                          return;
+                        }
+                        if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                          setBulkLogoPosition((prev) => {
+                            const n = [...prev];
+                            targetIndices.forEach((idx) => { n[idx] = pos.value; });
+                            return n;
+                          });
+                          return;
+                        }
+                        setBulkLogoPosition((prev) => { const n = [...prev]; n[activeIndex] = pos.value; return n; });
+                      }}
                       className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
                         (bulkLogoPosition[activeIndex] ?? "bottom_right") === pos.value
                           ? "bg-purple-600 text-white"
@@ -1523,13 +1643,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     max={100}
                     step={5}
                     value={Math.round((bulkLogoOpacity[activeIndex] ?? 0.9) * 100)}
-                    onChange={(e) =>
-                      setBulkLogoOpacity((prev) => {
-                        const n = [...prev];
-                        n[activeIndex] = parseInt(e.target.value, 10) / 100;
-                        return n;
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) / 100;
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        setBulkLogoOpacity((prev) => {
+                          const n = [...prev];
+                          targetIndices.forEach((idx) => { n[idx] = val; });
+                          return n;
+                        });
+                        return;
+                      }
+                      setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
+                    }}
                     className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
                   />
                 </div>
@@ -1721,7 +1852,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (indexed.length === 0) {
       return (
         <div className="space-y-5">
-          <p className="text-sm text-gray-500">Add at least one valid URL to continue.</p>
+          <p className="text-sm text-gray-500">Please go back to step 1 to continue again.</p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
@@ -1737,6 +1868,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     const active = Math.min(bulkActiveIndex, indexed.length - 1);
     const activeIndex = indexed[active].i;
+    const masterIndex =
+      indexed.find(({ i }) => i === bulkVoiceMasterIndex)?.i ??
+      indexed[0].i;
     const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
@@ -1798,7 +1932,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               onChange={(e) => {
                 const checked = e.target.checked;
                 setBulkApplyVoiceAll(checked);
-                if (checked) applyVoiceToAll();
+                if (checked) {
+                  // Use the currently active video as the master when (re)enabling apply-to-all.
+                  setBulkVoiceMasterIndex(activeIndex);
+                  applyVoiceToAll();
+                }
               }}
               className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
             />
@@ -1810,13 +1948,40 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <input
             type="checkbox"
             checked={rowVoiceGender === "none"}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.target.checked ? "none" : "female";
+              const targetIndices = indexed.map(({ i }) => i);
+
+              if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                // Editing a non-master video breaks the global sync.
+                setBulkApplyVoiceAll(false);
+                setBulkVoiceGender((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = value;
+                  return next;
+                });
+                return;
+              }
+
+              if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                // Master row change: keep all videos in sync.
+                setBulkVoiceGender((prev) => {
+                  const next = [...prev];
+                  targetIndices.forEach((idx) => {
+                    next[idx] = value;
+                  });
+                  return next;
+                });
+                return;
+              }
+
+              // No global sync: only update this row.
               setBulkVoiceGender((prev) => {
                 const next = [...prev];
-                next[activeIndex] = e.target.checked ? "none" : "female";
+                next[activeIndex] = value;
                 return next;
-              })
-            }
+              });
+            }}
             className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
           <div>
@@ -1857,7 +2022,57 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               return (
                 <div
                   key={key}
-                  onClick={() => { if (!isDisabled) { setBulkVoiceGender((prev) => { const n = [...prev]; n[activeIndex] = gender; return n; }); setBulkVoiceAccent((prev) => { const n = [...prev]; n[activeIndex] = accent; return n; }); } }}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    const targetIndices = indexed.map(({ i }) => i);
+
+                    if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                      // Editing a non-master video breaks the global sync.
+                      setBulkApplyVoiceAll(false);
+                      setBulkVoiceGender((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = gender;
+                        return next;
+                      });
+                      setBulkVoiceAccent((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = accent;
+                        return next;
+                      });
+                      return;
+                    }
+
+                    if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                      // Master row change: keep all videos in sync.
+                      setBulkVoiceGender((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => {
+                          next[idx] = gender;
+                        });
+                        return next;
+                      });
+                      setBulkVoiceAccent((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => {
+                          next[idx] = accent;
+                        });
+                        return next;
+                      });
+                      return;
+                    }
+
+                    // No global sync: only update this row.
+                    setBulkVoiceGender((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = gender;
+                      return next;
+                    });
+                    setBulkVoiceAccent((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = accent;
+                      return next;
+                    });
+                  }}
                   className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
                     isDisabled ? "cursor-not-allowed" : "cursor-pointer"
                   } ${
@@ -1918,13 +2133,40 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <input
               type="text"
               value={rowCustomVoiceId}
-              onChange={(e) =>
+              onChange={(e) => {
+                const value = e.target.value;
+                const targetIndices = indexed.map(({ i }) => i);
+
+                if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                  // Editing a non-master video breaks the global sync.
+                  setBulkApplyVoiceAll(false);
+                  setBulkCustomVoiceId((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = value;
+                    return next;
+                  });
+                  return;
+                }
+
+                if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                  // Master row change: keep all videos in sync.
+                  setBulkCustomVoiceId((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => {
+                      next[idx] = value;
+                    });
+                    return next;
+                  });
+                  return;
+                }
+
+                // No global sync: only update this row.
                 setBulkCustomVoiceId((prev) => {
                   const next = [...prev];
-                  next[activeIndex] = e.target.value;
+                  next[activeIndex] = value;
                   return next;
-                })
-              }
+                });
+              }}
               placeholder="Paste your ElevenLabs voice ID to override..."
               className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
             />

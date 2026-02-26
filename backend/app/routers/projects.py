@@ -143,7 +143,7 @@ def create_projects_bulk(
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached. You have {user.video_limit - user.videos_used_this_period} slots left.",
+            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade or buy more credits.",
         )
     logo_indices: list[int] = []
     if logo_indices_json:
