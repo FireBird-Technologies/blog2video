@@ -2034,9 +2034,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm mt-6" onClick={onClose} />
       <div
-        className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[90vh] overflow-y-auto transition-all duration-300`}
+        className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300`}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
