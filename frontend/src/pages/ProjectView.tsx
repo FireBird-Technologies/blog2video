@@ -690,14 +690,20 @@ export default function ProjectView() {
             setRendering(false);
             setSaving(true);
 
-            // Stay on saving screen until Cloudflare R2 confirms the video URL
+            // Stay on saving screen until backend reports done AND project has updated URL.
+            // (On re-render, project already has an old r2_video_url — we must wait for
+            // render-status.done so we don't show preview with stale video.)
             const maxWait = 120; // max 120 attempts (~240s)
             for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
-              const fresh = await loadProject();
-              if (fresh?.r2_video_url) break;
-              // Local-only fallback (no R2 configured)
-              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 2) break;
+              const [statusRes, fresh] = await Promise.all([
+                getRenderStatus(projectId),
+                loadProject(),
+              ]);
+              const renderDone = statusRes?.data?.done === true && !statusRes?.data?.error;
+              const hasVideoUrl = Boolean(fresh?.r2_video_url);
+              const localDone = fresh?.status === "done" && !fresh?.r2_video_url && i >= 2;
+              if (renderDone && (hasVideoUrl || localDone)) break;
             }
 
             // Transition: saving → done (green download button + auto-download)
