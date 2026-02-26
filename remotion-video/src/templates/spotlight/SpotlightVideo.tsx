@@ -44,17 +44,27 @@ interface VideoProps {
   dataUrl: string;
 }
 
+// Dramatic scale-punch transition for spotlight
 const SpotlightTransition: React.FC = () => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [0, 8], [0, 1], {
+
+  // Fast dramatic scale-up punch
+  const scale = interpolate(frame, [0, 6], [1, 1.15], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const opacity = interpolate(frame, [0, 5], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
         backgroundColor: "#000000",
-        opacity: progress,
+        opacity,
+        transform: `scale(${scale})`,
       }}
     />
   );
