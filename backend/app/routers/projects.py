@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import time
@@ -22,6 +23,7 @@ from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
 
 # ─── Constants ────────────────────────────────────────────
 _MAX_UPLOAD_FILES = 5
@@ -623,11 +625,18 @@ def generate_scene_image(
 ):
     """Generate an AI image for the scene from its title + narration. Returns base64 image and refined prompt.
     No DB write; use POST .../image to upload the image when the user chooses to keep it.
-    Pro plan only."""
+    Pro plan only. Image size/aspect is chosen from the scene's layout so the image fits without clipping."""
+    import json
     from app.models.scene import Scene
     from app.models.user import PlanTier
     from app.dspy_modules.image_prompt import refine_image_prompt
     from app.services.image_gen import get_image_provider
+    from app.services.image_dimensions import (
+        get_image_aspect_for_layout,
+        get_openai_size,
+        get_gemini_image_config,
+    )
+    from app.services.template_service import get_fallback_layout
 
     if user.plan != PlanTier.PRO:
         raise HTTPException(
@@ -661,9 +670,44 @@ def generate_scene_image(
             detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY or GEMINI_API_KEY)",
         )
 
+    layout_id = get_fallback_layout(project.template)
+    if scene.remotion_code:
+        try:
+            desc = json.loads(scene.remotion_code)
+            if desc.get("layout"):
+                layout_id = desc["layout"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    project_aspect = getattr(project, "aspect_ratio", None) or "landscape"
+    aspect_ratio = get_image_aspect_for_layout(
+        project.template or "default",
+        layout_id,
+        project_aspect,
+    )
+    provider_name = (settings.IMAGE_PROVIDER or "openai").strip().lower()
+    if provider_name == "openai":
+        openai_size = get_openai_size(aspect_ratio)
+        gen_kwargs = {
+            "size": openai_size,
+            "quality": "high",
+            "n": 1,
+        }
+        logger.info(
+            "[GENERATE_IMAGE] provider=openai layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio, openai_size,
+        )
+    else:
+        gemini_config = get_gemini_image_config(aspect_ratio)
+        gen_kwargs = {"generation_config": gemini_config}
+        logger.info(
+            "[GENERATE_IMAGE] provider=gemini layout=%r template=%r project_aspect=%r image_aspect=%r aspect_ratio=%s image_size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio,
+            gemini_config.get("aspect_ratio"), gemini_config.get("image_size"),
+        )
+
     refined_prompt = refine_image_prompt(scene_text)
     try:
-        image_base64 = provider.generate(refined_prompt)
+        image_base64 = provider.generate(refined_prompt, **gen_kwargs)
     except Exception as e:
         print(f"[GENERATE_IMAGE] Provider error: {e}")
         raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e

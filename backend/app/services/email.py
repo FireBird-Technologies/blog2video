@@ -278,22 +278,22 @@ class EmailService:
         Uses Resend scheduled send. If scheduled_at is None, sends immediately.
         """
         first_name = user_name.split()[0] if user_name else "there"
-        subject = f"Reminder: your video '{project_name}' is about to expire"
+        subject = f"Reminder: download your video '{project_name}' before it's deleted"
         html = self._build_html(
-            headline=f"Hi {first_name}, your video is about to expire",
-            body_paragraph=(
-                f"Your Blog2Video project <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
-                f"is ready and is about to be deleted. Preview and download your video before it's removed in about 30 minutes."
-            ),
-            cta_label="Preview Before It Expires",
-            cta_url=project_url,
+          headline=f"Hi {first_name}, download your video before it's deleted",
+          body_paragraph=(
+            f"Your Blog2Video project <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+            f"will be deleted in about 30 minutes. Download it before it's removed."
+          ),
+          cta_label="Download Before It's Deleted",
+          cta_url=project_url,
         )
         text = (
-            f"Hi {first_name},\n\n"
-            f"Your Blog2Video project '{project_name}' is about to expire. "
-            f"Preview and download your video before it's deleted in about 30 minutes.\n\n"
-            f"View it here: {project_url}\n\n"
-            f"— The Blog2Video Team\n"
+          f"Hi {first_name},\n\n"
+          f"Your Blog2Video project '{project_name}' will be deleted in about 30 minutes. "
+          f"Download it before it's removed:\n\n"
+          f"{project_url}\n\n"
+          f"— The Blog2Video Team\n"
         )
         self.provider.send_email(
             to=user_email,
