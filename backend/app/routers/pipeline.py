@@ -467,25 +467,38 @@ def _rebuild_workspace_sync(project_id: int) -> None:
 async def render_video_endpoint(
     project_id: int,
     resolution: str = "1080p",
+    force_render: bool = False,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Kick off async video render. Poll /render-status for progress.
 
     All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
+    When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
 
     # Always render at 1080p
     resolution = "1080p"
 
-    # Already rendered and available in R2 — skip re-render
-    if project.r2_video_url:
+    # Already rendered and available in R2 — skip re-render unless force_render (re-render with latest changes)
+    if project.r2_video_url and not force_render:
         return {
             "detail": "Already rendered",
             "progress": 100,
             "r2_video_url": project.r2_video_url,
         }
+
+    # Re-render: deduct a video count (same as creating a new video)
+    if force_render:
+        user_row = db.query(User).filter(User.id == user.id).first()
+        if not user_row or not user_row.can_create_video:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Video limit reached ({getattr(user_row, 'video_limit', 1)}). Re-render counts as a video. Upgrade or purchase more credits.",
+            )
+        user_row.videos_used_this_period += 1
+        db.commit()
 
     # Don't restart if already rendering
     prog = get_render_progress(project_id)
@@ -626,8 +639,12 @@ def download_video_endpoint(
     # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
     if project.r2_video_url:
         try:
+            # Cache-bust so re-renders serve the new file (CDN/browser may cache by URL)
+            sep = "&" if "?" in project.r2_video_url else "?"
+            ts = int(project.updated_at.timestamp()) if getattr(project, "updated_at", None) else 0
+            fetch_url = f"{project.r2_video_url}{sep}v={ts}"
             resp = requests.get(
-                project.r2_video_url,
+                fetch_url,
                 timeout=120,
                 stream=True,
             )
