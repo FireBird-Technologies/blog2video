@@ -31,7 +31,7 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
         </span>
       </label>
 
-      <div className="space-y-2">
+      <div className="space-y-2 mb-6">
         {rows.map((row, i) => {
           const ar = aspectRatios[i] ?? "landscape";
 
@@ -134,7 +134,7 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
         <button
           type="button"
           onClick={onAddRow}
-          className="mt-2 text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+          className="mt-4 text-xs mb-6 font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
         >
           <svg
             className="w-4 h-4"
