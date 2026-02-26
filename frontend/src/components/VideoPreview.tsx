@@ -263,7 +263,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     logo: project.logo_r2_url || null,
     logoPosition: project.logo_position || "bottom_right",
     logoOpacity: project.logo_opacity ?? 0.9,
-    logoSize: project.logo_size || "default",
+    logoSize: typeof project.logo_size === "number" ? project.logo_size : 100,
     aspectRatio: project.aspect_ratio || "landscape",
   };
 

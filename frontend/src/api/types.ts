@@ -62,7 +62,7 @@ export interface Project {
   logo_r2_url: string | null;
   logo_position: string;
   logo_opacity: number;
-  logo_size: string;
+  logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
   created_at: string;
