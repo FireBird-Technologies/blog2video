@@ -14,6 +14,7 @@ import {
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
@@ -23,6 +24,7 @@ const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
+  const { showError } = useErrorModal();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
@@ -166,7 +168,7 @@ export default function Dashboard() {
       navigate("/dashboard");
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        alert(err.response?.data?.detail || "Video limit reached. Upgrade to Pro for more.");
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -239,7 +241,7 @@ export default function Dashboard() {
         try {
           await uploadLogo(res.data.id, logoFile);
         } catch (err) {
-          console.error("Logo upload failed:", err);
+          showError(getErrorMessage(err, "Logo upload failed."));
         }
       }
 
@@ -248,10 +250,7 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        alert(
-          err.response.data.detail ||
-            "Video limit reached. Upgrade to Pro for more."
-        );
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Failed to create project:", err);
       }
@@ -281,15 +280,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleManageBilling = async () => {
-    try {
-      const res = await createPortalSession();
-      window.location.href = res.data.portal_url;
-    } catch (err) {
-      console.error("Failed to open portal:", err);
-    }
-  };
-
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
@@ -303,7 +293,7 @@ export default function Dashboard() {
   if (loaded && projects.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-xl">
           {/* Welcome header */}
           <div className="text-center mb-8">
             <div className="w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
@@ -351,23 +341,16 @@ export default function Dashboard() {
             {!isPro && " -- upgrade for 100/month"}
           </p>
         </div>
-        <div>
-          {isPro ? (
-            <button
-              onClick={() => navigate("/subscription")}
-              className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
-            >
-              Manage billing
-            </button>
-          ) : (
-            <button
-              onClick={handleUpgrade}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              Upgrade to Pro -- $50/mo
-            </button>
-          )}
-        </div>
+       <div>
+        {!isPro && (
+          <button
+            onClick={handleUpgrade}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            Upgrade to Pro -- $50/mo
+          </button>
+        )}
+      </div>
       </div>
 
       {/* Header */}

@@ -9,6 +9,7 @@ import {
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -72,8 +73,8 @@ export default function SceneEditor({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { showError } = useErrorModal();
 
   // Cleanup image preview URL
   useEffect(() => {
@@ -96,9 +97,8 @@ export default function SceneEditor({
     if (editMode === "ai" && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
-        .catch((err) => {
-          console.error("Failed to load layouts:", err);
-          setError("Failed to load layouts");
+        .catch(() => {
+          showError("Failed to load layouts");
         });
     }
   }, [editMode, project.id, layouts]);
@@ -126,7 +126,7 @@ export default function SceneEditor({
       setEditMode("none");
       onScenesUpdated();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to update scene");
+      showError(getErrorMessage(err, "Failed to update scene"));
     }
   };
 
@@ -143,13 +143,13 @@ export default function SceneEditor({
       setReorderMode(false);
       onScenesUpdated();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to reorder scenes");
+      showError(getErrorMessage(err, "Failed to reorder scenes"));
     }
   };
 
   const handleStartAIEdit = (scene: Scene) => {
     if (!canUseAI) {
-      setError("AI editing limit reached. Upgrade to Pro for unlimited edits.");
+      showError("AI editing limit reached. Upgrade to Pro for unlimited edits.");
       return;
     }
     setEditingSceneId(scene.id);
@@ -165,15 +165,14 @@ export default function SceneEditor({
 
   const handleRegenerate = async () => {
     if (!editingSceneId || !aiDescription.trim()) {
-      setError("Please provide a description");
+      showError("Please provide a description");
       return;
     }
     if (regenerateVoiceover && !displayText.trim()) {
-      setError("Display text is required when regenerating voiceover");
+      showError("Display text is required when regenerating voiceover");
       return;
     }
     setLoading(true);
-    setError(null);
     try {
       await regenerateScene(
         project.id,
@@ -193,7 +192,7 @@ export default function SceneEditor({
       setSelectedImage(null);
       onScenesUpdated();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to regenerate scene");
+      showError(getErrorMessage(err, "Failed to regenerate scene"));
     } finally {
       setLoading(false);
     }
@@ -264,13 +263,6 @@ export default function SceneEditor({
           </div>
         )}
       </div>
-
-      {/* Error display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
 
       {/* Manual Edit Mode */}
       {editMode === "manual" && (

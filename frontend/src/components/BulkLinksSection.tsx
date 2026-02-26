@@ -54,7 +54,7 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
                   {/* Landscape */}
                   <button
                     type="button"
-                    title="Landscape"
+                    title="Landscape for Desktop/Youtube Videos"
                     onClick={() => onChangeAspectRatio(i, "landscape")}
                     className={`px-3 py-1.5 rounded-lg flex items-center transition-all ${
                       ar === "landscape"
@@ -77,7 +77,7 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
                   {/* Portrait */}
                   <button
                     type="button"
-                    title="Portrait"
+                    title="Portrait for tiktok/instagram/mobile videos"
                     onClick={() => onChangeAspectRatio(i, "portrait")}
                     className={`px-3 py-1.5 rounded-lg flex items-center transition-all ${
                       ar === "portrait"
