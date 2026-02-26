@@ -31,7 +31,6 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
         </span>
       </label>
 
-      {/* Removed internal scroll */}
       <div className="space-y-2">
         {rows.map((row, i) => {
           const ar = aspectRatios[i] ?? "landscape";
@@ -48,70 +47,57 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
                 className="flex-1 max-w-[75%] min-w-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               />
 
-              {/* Format Icons */}
-              <div className="flex items-center gap-2">
-                
-                {/* Landscape (Desktop) */}
-                <button
-                  type="button"
-                  title="Landscape"
-                  onClick={() => onChangeAspectRatio(i, "landscape")}
-                  className={`py-2 px-3 rounded-lg border transition-colors ${
-                    ar === "landscape"
-                      ? "bg-purple-600 text-white border-purple-600"
-                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <rect
-                      x="3"
-                      y="4"
-                      width="18"
-                      height="12"
-                      rx="2"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M8 20h8M12 16v4"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
+              {/* Format Toggle */}
+              <div className="flex items-center">
+                <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
 
-                {/* Portrait (Mobile) */}
-                <button
-                  type="button"
-                  title="Portrait"
-                  onClick={() => onChangeAspectRatio(i, "portrait")}
-                  className={`p-2 rounded-lg border transition-colors ${
-                    ar === "portrait"
-                      ? "bg-purple-600 text-white border-purple-600"
-                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  {/* Landscape */}
+                  <button
+                    type="button"
+                    title="Landscape"
+                    onClick={() => onChangeAspectRatio(i, "landscape")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center transition-all ${
+                      ar === "landscape"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
                   >
-                    <rect
-                      x="7"
-                      y="2"
-                      width="10"
-                      height="20"
-                      rx="2"
-                      strokeWidth="2"
-                    />
-                    <circle cx="12" cy="18" r="1" strokeWidth="2" />
-                  </svg>
-                </button>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                    >
+                      <rect x="3" y="4" width="18" height="12" rx="2" />
+                      <path d="M8 20h8M12 16v4" strokeLinecap="round" />
+                    </svg>
+                  </button>
+
+                  {/* Portrait */}
+                  <button
+                    type="button"
+                    title="Portrait"
+                    onClick={() => onChangeAspectRatio(i, "portrait")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center transition-all ${
+                      ar === "portrait"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                    >
+                      <rect x="7" y="2" width="10" height="20" rx="2" />
+                      <circle cx="12" cy="18" r="1" />
+                    </svg>
+                  </button>
+
+                </div>
               </div>
 
               {/* Remove Button */}
