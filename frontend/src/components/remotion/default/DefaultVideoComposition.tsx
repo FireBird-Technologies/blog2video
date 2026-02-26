@@ -26,7 +26,7 @@ export interface DefaultVideoCompositionProps {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
-  logoSize?: string;
+  logoSize?: number;
   aspectRatio?: string;
 }
 
@@ -87,7 +87,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           src={logo}
           position={logoPosition || "bottom_right"}
           maxOpacity={logoOpacity ?? 0.9}
-          size={logoSize || "default"}
+          size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
       )}
