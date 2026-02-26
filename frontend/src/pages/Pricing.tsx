@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 
 export default function Pricing() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [authError, setAuthError] = useState<string | null>(null);
+  const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     "monthly"
@@ -15,34 +16,26 @@ export default function Pricing() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
-    setAuthError(null);
     try {
       const res = await googleLogin(response.credential);
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      setAuthError(
-        err?.response?.data?.detail ||
-          "Authentication failed. Please try again."
-      );
+      showError(getErrorMessage(err, "Authentication failed. Please try again."));
     }
   };
 
   const [perVideoLoading, setPerVideoLoading] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const handleUpgrade = async () => {
     if (!user) return;
     setCheckoutLoading(true);
-    setCheckoutError(null);
     try {
       const res = await createCheckoutSession(billingCycle);
       window.location.href = res.data.checkout_url;
     } catch (err: any) {
       console.error("Pro checkout error:", err);
-      setCheckoutError(
-        err?.response?.data?.detail || "Checkout failed. Please try again."
-      );
+      showError(getErrorMessage(err, "Checkout failed. Please try again."));
       setCheckoutLoading(false);
     }
   };
@@ -50,7 +43,6 @@ export default function Pricing() {
   const handlePerVideo = async () => {
     if (!user) return;
     setPerVideoLoading(true);
-    setCheckoutError(null);
     try {
       const res = await createPerVideoCheckout();
       if (res.data.checkout_url) {
@@ -58,9 +50,7 @@ export default function Pricing() {
       }
     } catch (err: any) {
       console.error("Per-video checkout error:", err);
-      setCheckoutError(
-        err?.response?.data?.detail || "Checkout failed. Please try again."
-      );
+      showError(getErrorMessage(err, "Checkout failed. Please try again."));
       setPerVideoLoading(false);
     }
   };
@@ -411,12 +401,6 @@ export default function Pricing() {
             </button>
           </div>
         </div>
-
-        {(authError || checkoutError) && (
-          <p className="text-red-500 text-sm text-center mt-6">
-            {authError || checkoutError}
-          </p>
-        )}
 
         {/* Cost breakdown callout */}
         <div className="max-w-md mx-auto mt-8 text-center">

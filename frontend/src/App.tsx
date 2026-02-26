@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
@@ -92,7 +93,9 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ErrorModalProvider>
+        <AppRoutes />
+      </ErrorModalProvider>
     </AuthProvider>
   );
 }

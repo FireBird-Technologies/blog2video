@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
@@ -204,6 +205,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
 
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
+  const { showError } = useErrorModal();
   const isPro = user?.plan === "pro";
 
   // Wizard step
@@ -840,7 +842,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
                   if (f && f.size > 2 * 1024 * 1024) {
-                    alert("Logo must be under 2 MB.");
+                    showError("Logo must be under 2 MB.");
                     e.target.value = "";
                     return;
                   }
@@ -1256,7 +1258,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             e.target.value = "";
             if (bulkLogoRowIndex === null) return;
             if (f && f.size > 2 * 1024 * 1024) {
-              alert("Logo must be under 2 MB.");
+              showError("Logo must be under 2 MB.");
               return;
             }
             setBulkLogoFile((prev) => {
