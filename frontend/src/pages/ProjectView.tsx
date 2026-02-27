@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
+  listProjects,
   startGeneration,
   getPipelineStatus,
   renderVideo,
@@ -24,6 +25,7 @@ import {
   Scene,
   BACKEND_URL,
 } from "../api/client";
+import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import StatusBadge from "../components/StatusBadge";
@@ -35,6 +37,33 @@ import VideoPreview from "../components/VideoPreview";
 import { getPendingUpload } from "../stores/pendingUpload";
 
 type Tab = "script" | "scenes" | "images" | "audio";
+
+const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
+const TABS_CONTAINER_STEP: Step = {
+  target: '[data-tour="tabs-container"]',
+  content: "Use these tabs to work on your video: Script shows the full narration, Images manages your visuals and logo, Audio lets you preview voiceover for each scene, and Scenes lets you edit each scene’s text and layout.",
+  disableBeacon: true,
+  placement: "bottom",
+};
+const SCENE_EDIT_FIRST_STEP: Step = {
+  target: '[data-tour="scene-edit-first"]',
+  content: "Click Edit to open the scene editor: change the title and on-screen text, pick a layout, assign or replace the image, adjust font sizes, or use AI-assisted editing to regenerate the scene from a description.",
+  disableBeacon: true,
+  placement: "right",
+};
+const PROJECT_JOYRIDE_STYLES = {
+  options: { primaryColor: "#7c3aed", width: 280 },
+  tooltip: { fontSize: 13 },
+  tooltipContent: { fontSize: 13, padding: "12px 8px" },
+  buttonNext: { fontSize: 12 },
+  buttonBack: { fontSize: 12 },
+};
+
+function buildProjectTourSteps(project: Project | null): Step[] {
+  const steps: Step[] = [TABS_CONTAINER_STEP];
+  if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
+  return steps;
+}
 
 const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
@@ -374,6 +403,71 @@ export default function ProjectView() {
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const tabsGuideSeenKey = user ? `${TABS_GUIDE_SEEN_KEY}_${user.id}` : TABS_GUIDE_SEEN_KEY;
+  const [runProjectTour, setRunProjectTour] = useState(false);
+  const [tabsTourStepIndex, setTabsTourStepIndex] = useState(0);
+  const tourAutoStartedRef = useRef(false);
+  const tourShownThisSessionRef = useRef(false);
+  const [projectCount, setProjectCount] = useState<number | null>(null);
+  const dismissTabsGuide = useCallback(() => {
+    if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
+    tourShownThisSessionRef.current = false;
+    setRunProjectTour(false);
+    navigate(`/project/${id}`, { replace: true });
+  }, [navigate, id, user, tabsGuideSeenKey]);
+  const projectTourSteps = buildProjectTourSteps(project);
+  const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
+  const pipelineFinished = project?.status === "generated" || project?.status === "done";
+  // Pre-fetch project count when guide not seen so we can start tour when pipeline is done
+  useEffect(() => {
+    if (localStorage.getItem(tabsGuideSeenKey) || !user) return;
+    listProjects()
+      .then((res) => setProjectCount(res.data.length))
+      .catch(() => setProjectCount(0));
+  }, [tabsGuideSeenKey, user?.id]);
+  // Start guide ONLY when: pipeline finished (all 3 stages done, status generated/done), polling stopped, 1 project, guide not seen
+  useEffect(() => {
+    if (localStorage.getItem(tabsGuideSeenKey) || !scenesLoaded || !project || tourAutoStartedRef.current) return;
+    if (projectCount !== 1) return;
+    if (!pipelineFinished || pipelineRunning) return;
+    tourAutoStartedRef.current = true;
+    tourShownThisSessionRef.current = true;
+    setActiveTab("scenes");
+    setTabsTourStepIndex(0);
+    setRunProjectTour(true);
+  }, [tabsGuideSeenKey, scenesLoaded, project?.id, project?.status, projectCount, pipelineFinished, pipelineRunning]);
+  const handleProjectTourCallback = useCallback(
+    (data: CallBackProps) => {
+      if ((data as { action?: string }).action === "close" || data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED) {
+        if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
+        tourShownThisSessionRef.current = false;
+        setRunProjectTour(false);
+        navigate(`/project/${id}`, { replace: true });
+        return;
+      }
+      const type = (data as { type?: string }).type;
+      const action = data.action;
+      const index = data.index ?? 0;
+      const stepsCount = projectTourSteps.length;
+      const isLastStep = index === stepsCount - 1;
+      if (type === "step:after" && action === "next" && isLastStep) {
+        if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
+        tourShownThisSessionRef.current = false;
+        setRunProjectTour(false);
+        navigate(`/project/${id}`, { replace: true });
+        return;
+      }
+      if (type === "step:after" && (action === "next" || action === "prev")) {
+        if (action === "next" && index === 0) setActiveTab("scenes");
+        const targetIndex = action === "next" ? Math.min(index + 1, stepsCount - 1) : Math.max(index - 1, 0);
+        setTabsTourStepIndex(targetIndex);
+      }
+    },
+    [navigate, id, user, tabsGuideSeenKey, projectTourSteps.length]
+  );
+  useEffect(() => {
+    if (runProjectTour) setTabsTourStepIndex(0);
+  }, [runProjectTour]);
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -1715,8 +1809,23 @@ export default function ProjectView() {
         </div>
       )}
 
+      {runProjectTour && (
+        <Joyride
+          steps={projectTourSteps}
+          run={true}
+          stepIndex={tabsTourStepIndex}
+          continuous
+          showSkipButton={true}
+          callback={handleProjectTourCallback}
+          scrollToFirstStep={true}
+          disableScrolling={false}
+          spotlightClicks={false}
+          styles={PROJECT_JOYRIDE_STYLES}
+          locale={{ back: "Back", close: "Close", last: "Done", next: "Next", skip: "Skip" }}
+        />
+      )}
       {/* Pill tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit" data-tour="tabs-container">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -1866,6 +1975,7 @@ export default function ProjectView() {
                                   }}
                                   className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
                                   title="Edit scene"
+                                  data-tour={idx === 0 ? "scene-edit-first" : undefined}
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -2464,8 +2574,33 @@ export default function ProjectView() {
             {/* Logo section */}
             <div className="space-y-4">
               <h2 className="text-base font-medium text-gray-900">Logo</h2>
+              <input
+                type="file"
+                ref={logoFileInputRef}
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="hidden"
+                onChange={handleUploadLogo}
+              />
               {project.logo_r2_url ? (
                 <div className="glass-card p-6 space-y-6">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={project.logo_r2_url}
+                        alt="Current logo"
+                        className="h-10 w-10 object-contain rounded border border-gray-200"
+                      />
+                     
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => logoFileInputRef.current?.click()}
+                      disabled={logoUploading}
+                      className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"
+                    >
+                      {logoUploading ? "Uploading…" : "Replace logo"}
+                    </button>
+                  </div>
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Position</label>
                     <div className="flex flex-wrap gap-2">
@@ -2542,13 +2677,6 @@ export default function ProjectView() {
                     >
                       {logoUploading ? "Uploading…" : "Choose file"}
                     </button>
-                    <input
-                      type="file"
-                      ref={logoFileInputRef}
-                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                      className="hidden"
-                      onChange={handleUploadLogo}
-                    />
                   </div>
                 </div>
               )}
