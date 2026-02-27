@@ -77,6 +77,18 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
   },
+  custom: {
+    // Universal arrangements (font sizes are approximate — UniversalScene handles sizing)
+    "full-center": { title: [36, 48], desc: [18, 22] },
+    "split-left": { title: [32, 42], desc: [16, 20] },
+    "split-right": { title: [32, 42], desc: [16, 20] },
+    "top-bottom": { title: [34, 44], desc: [18, 22] },
+    "grid-2x2": { title: [24, 32], desc: [14, 16] },
+    "grid-3": { title: [22, 28], desc: [13, 15] },
+    "asymmetric-left": { title: [32, 42], desc: [16, 20] },
+    "asymmetric-right": { title: [32, 42], desc: [16, 20] },
+    "stacked": { title: [34, 44], desc: [18, 22] },
+  },
 };
 
 export function getDefaultFontSizes(
@@ -85,7 +97,8 @@ export function getDefaultFontSizes(
   aspectRatio: string
 ): { title: number; desc: number } {
   const p = aspectRatio === "portrait";
-  const t = (template || "default").toLowerCase();
+  const raw = (template || "default").toLowerCase();
+  const t = raw.startsWith("custom_") ? "custom" : raw;
   const layout = layoutId || "text_narration";
   const defs = LAYOUT_FONT_DEFAULTS[t]?.[layout] ?? LAYOUT_FONT_DEFAULTS.default?.text_narration ?? { title: [34, 44], desc: [20, 23] };
   const titleVal = defs.title;
@@ -354,17 +367,21 @@ export default function SceneEditModal({
   const aiUsageCount = project.ai_assisted_editing_count || 0;
   const canUseAI = isPro || aiUsageCount < 3;
 
+  const isCustomTemplate = (project.template || "").startsWith("custom_");
+
   const currentLayoutId = (() => {
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
+        // Custom templates store arrangement in layoutConfig
+        if (desc.layoutConfig?.arrangement) return desc.layoutConfig.arrangement;
         return desc.layout || null;
       }
     } catch { /* ignore */ }
     return null;
   })();
   const currentLayoutLabel = currentLayoutId
-    ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/_/g, " "))
+    ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " "))
     : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
@@ -403,10 +420,21 @@ export default function SceneEditModal({
     if (scene.remotion_code) {
       try {
         const desc = JSON.parse(scene.remotion_code);
-        layoutId = desc.layout || null;
+        // Custom templates: extract arrangement from layoutConfig
+        if (desc.layoutConfig?.arrangement) {
+          layoutId = desc.layoutConfig.arrangement;
+        } else {
+          layoutId = desc.layout || null;
+        }
+        // Custom templates: font sizes live in layoutConfig, not layoutProps
+        if (desc.layoutConfig) {
+          if (typeof desc.layoutConfig.titleFontSize === "number") ts = String(desc.layoutConfig.titleFontSize);
+          if (typeof desc.layoutConfig.descriptionFontSize === "number") ds = String(desc.layoutConfig.descriptionFontSize);
+        }
         const lp = desc.layoutProps || {};
-        if (typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
-        if (typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
+        // Built-in templates: font sizes live in layoutProps
+        if (!ts && typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
+        if (!ds && typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
         lpCopy = { ...lp };
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
@@ -488,64 +516,75 @@ export default function SceneEditModal({
         const defTitle = defaultFontSizes.title;
         const defDesc = defaultFontSizes.desc;
         if (tsNum !== null || dsNum !== null || scene.remotion_code) {
-          let desc: { layout?: string; layoutProps?: Record<string, unknown> } = {};
+          let desc: Record<string, unknown> = {};
           if (scene.remotion_code) {
             try {
               desc = JSON.parse(scene.remotion_code);
             } catch { /* ignore */ }
           }
-          const lp = { ...(desc.layoutProps || {}), ...editableLayoutProps };
-          // data_visualization: convert editable chart form back to stored shapes
-          const layoutId = desc.layout || "";
-          if (layoutId === "data_visualization") {
-            if (Array.isArray(lp.barChartRows)) {
-              const rows = lp.barChartRows as { label?: string; value?: string }[];
-              lp.barChart = {
-                labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-                values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-              };
-              delete lp.barChartRows;
+          // Custom templates use layoutConfig — skip layoutProps editing
+          if (desc.layoutConfig) {
+            // For custom templates, only persist font size overrides in layoutConfig
+            const config = desc.layoutConfig as Record<string, unknown>;
+            if (tsNum !== null && tsNum !== defTitle) config.titleFontSize = tsNum;
+            else delete config.titleFontSize;
+            if (dsNum !== null && dsNum !== defDesc) config.descriptionFontSize = dsNum;
+            else delete config.descriptionFontSize;
+            remotionCode = JSON.stringify(desc);
+          } else {
+            const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
+            // data_visualization: convert editable chart form back to stored shapes
+            const layoutId = (desc.layout as string) || "";
+            if (layoutId === "data_visualization") {
+              if (Array.isArray(lp.barChartRows)) {
+                const rows = lp.barChartRows as { label?: string; value?: string }[];
+                lp.barChart = {
+                  labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                  values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+                };
+                delete lp.barChartRows;
+              }
+              if (Array.isArray(lp.pieChartRows)) {
+                const rows = lp.pieChartRows as { label?: string; value?: string }[];
+                lp.pieChart = {
+                  labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                  values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+                };
+                delete lp.pieChartRows;
+              }
+              if (Array.isArray(lp.lineChartLabels) && Array.isArray(lp.lineChartDatasets)) {
+                const labels = (lp.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+                const datasets = (lp.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
+                  label: (d && d.label != null ? String(d.label) : "") as string,
+                  values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+                    .split(",")
+                    .map((s) => Number(s.trim()) || 0),
+                }));
+                lp.lineChart = { labels, datasets };
+                delete lp.lineChartLabels;
+                delete lp.lineChartDatasets;
+              }
             }
-            if (Array.isArray(lp.pieChartRows)) {
-              const rows = lp.pieChartRows as { label?: string; value?: string }[];
-              lp.pieChart = {
-                labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
-                values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
-              };
-              delete lp.pieChartRows;
+            // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
+            const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
+            if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length || bar.values.every((v) => v === 0))) {
+              delete lp.barChart;
             }
-            if (Array.isArray(lp.lineChartLabels) && Array.isArray(lp.lineChartDatasets)) {
-              const labels = (lp.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
-              const datasets = (lp.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
-                label: (d && d.label != null ? String(d.label) : "") as string,
-                values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
-                  .split(",")
-                  .map((s) => Number(s.trim()) || 0),
-              }));
-              lp.lineChart = { labels, datasets };
-              delete lp.lineChartLabels;
-              delete lp.lineChartDatasets;
+            const pie = lp.pieChart as { labels?: unknown[]; values?: number[] } | undefined;
+            if (pie && (!Array.isArray(pie.labels) || !pie.labels.length || !Array.isArray(pie.values) || !pie.values.length || pie.values.every((v) => v === 0))) {
+              delete lp.pieChart;
             }
+            const line = lp.lineChart as { labels?: unknown[]; datasets?: { values?: number[] }[] } | undefined;
+            if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
+              delete lp.lineChart;
+            }
+            if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
+            else delete lp.titleFontSize;
+            if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
+            else delete lp.descriptionFontSize;
+            desc.layoutProps = lp;
+            remotionCode = JSON.stringify(desc);
           }
-          // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
-          const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
-          if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length || bar.values.every((v) => v === 0))) {
-            delete lp.barChart;
-          }
-          const pie = lp.pieChart as { labels?: unknown[]; values?: number[] } | undefined;
-          if (pie && (!Array.isArray(pie.labels) || !pie.labels.length || !Array.isArray(pie.values) || !pie.values.length || pie.values.every((v) => v === 0))) {
-            delete lp.pieChart;
-          }
-          const line = lp.lineChart as { labels?: unknown[]; datasets?: { values?: number[] }[] } | undefined;
-          if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
-            delete lp.lineChart;
-          }
-          if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
-          else delete lp.titleFontSize;
-          if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
-          else delete lp.descriptionFontSize;
-          desc.layoutProps = lp;
-          remotionCode = JSON.stringify(desc);
         }
         await updateScene(project.id, scene.id, {
           title,
@@ -590,7 +629,7 @@ export default function SceneEditModal({
           "",
           regenerateVoiceover,
           keepLayout ? "__keep__" : (selectedLayout === "__auto__" ? undefined : selectedLayout || undefined),
-          undefined
+          selectedImageFile || undefined
         );
         onSaved();
         onClose();
@@ -1137,7 +1176,7 @@ export default function SceneEditModal({
                       ? (currentLayoutLabel)
                       : selectedLayout === "__auto__"
                         ? "Auto (Let AI choose)"
-                        : (layouts?.layout_names[selectedLayout] || selectedLayout.replace(/_/g, " "))}
+                        : (layouts?.layout_names[selectedLayout] || selectedLayout.replace(/[-_]/g, " "))}
                   </span>
                   <button
                     type="button"
@@ -1192,7 +1231,7 @@ export default function SceneEditModal({
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
                           >
-                            {layouts.layout_names[layoutId] || layoutId.replace(/_/g, " ")}
+                            {layouts.layout_names[layoutId] || layoutId.replace(/[-_]/g, " ")}
                             <span className={`ml-1 ${supportsImageForLayout ? "text-gray-500" : "text-gray-400 italic"}`}>
                               ({supportsImageForLayout ? "Supports images" : "Does not support images"})
                             </span>
