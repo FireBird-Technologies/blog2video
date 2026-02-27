@@ -22,7 +22,7 @@
     "fact_check",
     "news_timeline"
   ],
-  "layouts_without_image": ["pull_quote", "data_snapshot", "fact_check", "article_lead"],
+  "layouts_without_image": ["pull_quote", "data_snapshot"],
   "features": [
     "News headline hero with category and byline",
     "Article lead with drop cap and pull stat",
