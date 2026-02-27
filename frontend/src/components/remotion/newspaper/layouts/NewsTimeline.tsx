@@ -117,14 +117,17 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           <div
             style={{
               position: "absolute",
-              bottom: p ? "15%" : "20%",
-              right: p ? "5%" : "8%",
-              width: p ? 300 : 480,
-              height: p ? 240 : 340,
+              // Adjusted positioning: reduced 'right' and 'bottom' to move it toward center
+              bottom: p ? "15%" : "18%", 
+              right: p ? "9%" : "12%",
+              // Increased dimensions
+              width: p ? 380 : 620, 
+              height: p ? 300 : 440,
               background: "#fff",
               padding: "12px 12px 40px 12px",
-              boxShadow: "10px 15px 30px rgba(0,0,0,0.4), inset 0 0 10px rgba(0,0,0,0.05)",
-              transform: `rotate(${interpolate(imageSpring, [0, 1], [5, -6])}deg) scale(${imageSpring}) translateZ(50px)`,
+              boxShadow: "15px 20px 40px rgba(0,0,0,0.4), inset 0 0 10px rgba(0,0,0,0.05)",
+              // Adjusted rotation to be subtler since the image is larger
+              transform: `rotate(${interpolate(imageSpring, [0, 1], [3, -3])}deg) scale(${imageSpring}) translateZ(50px)`,
               opacity: imageSpring,
               zIndex: 10,
               clipPath: "polygon(2% 0%, 98% 1%, 100% 98%, 95% 100%, 50% 98%, 2% 100%, 0% 50%)",
@@ -141,6 +144,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                 }}
               />
             </div>
+            {/* Halftone texture overlay */}
             <div style={{
               position: 'absolute',
               inset: 0,
@@ -152,6 +156,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           </div>
         )}
 
+        
         {/* Content Layer */}
         <div
           style={{
