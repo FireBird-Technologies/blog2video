@@ -5,6 +5,7 @@ import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import TemplateShowcaseSection from "../components/TemplateShowcaseSection";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -375,6 +376,13 @@ export default function Landing() {
               </div>
             );
           })()}
+        </div>
+      </section>
+
+      {/* ─── Multiple templates ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <TemplateShowcaseSection />
         </div>
       </section>
 
