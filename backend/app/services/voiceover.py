@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from mutagen.mp3 import MP3
@@ -211,7 +212,7 @@ async def generate_all_voiceovers(
             paths.append(path)
             # Wait between scenes to avoid rate limits
             if i < len(scenes) - 1 and path:
-                time.sleep(SCENE_DELAY)
+                await asyncio.sleep(SCENE_DELAY)
         except Exception as e:
             print(f"[VOICEOVER] Failed to generate voiceover for scene {scene.order} after {MAX_RETRIES} retries: {e}")
             paths.append("")
