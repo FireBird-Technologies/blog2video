@@ -11,7 +11,7 @@ from app.services.template_service import (
     get_fallback_layout,
 )
 
-# Valid arrangements for the universal layout engine
+# Valid arrangements for the universal layout engine (custom templates)
 VALID_ARRANGEMENTS = {
     "full-center", "split-left", "split-right", "top-bottom",
     "grid-2x2", "grid-3", "asymmetric-left", "asymmetric-right", "stacked",
@@ -21,6 +21,127 @@ VALID_ELEMENT_TYPES = {
     "heading", "body-text", "card-grid", "code-block", "metric-row",
     "image", "quote", "timeline", "steps", "icon-text",
 }
+
+
+# ─── Built-in templates: layout catalog + layout_props_json ───────────────────
+
+
+class BuiltInTemplateSceneToDescriptor(dspy.Signature):
+    """
+    You are an expert video scene designer creating engaging, varied layouts.
+
+    ═══ CRITICAL RULES ═══
+    1. Extract ONLY factual content from narration — NEVER invent or fabricate
+    2. Use exact prop keys from the layout catalog (case-sensitive)
+    3. Choose layouts that match content richness (complex content → complex layout)
+    4. Prioritize VARIETY — avoid repeating recent layouts unless content demands it
+    5. If narration lacks data for a layout's required props, choose a simpler layout
+
+    ═══ VARIETY STRATEGY ═══
+    - Check previous_layouts and underused_layouts to maximize diversity
+    - Avoid consecutive identical layouts unless absolutely necessary
+    - Balance between: content fit (70%), variety (20%), visual flow (10%)
+    - Use full layout catalog — don't default to 2-3 "safe" choices
+
+    ═══ PROP EXTRACTION ═══
+    - Quote directly from narration when possible
+    - For arrays: extract ALL mentioned items, not just 1-2 examples
+    - For numbers: extract exact values if stated
+    - For charts: extract ALL data points mentioned (categories, values, time points)
+    - If a prop is optional and not in narration, omit it (don't guess)
+    - Use EXACT prop key names from the layout catalog (e.g., "barChart" not "bar_chart", "metrics" not "metric")
+
+    ═══ OUTPUT FORMAT ═══
+    - layout: exact layout ID from catalog (lowercase, underscores)
+    - layout_props_json: valid JSON with exact prop keys from catalog
+    - reasoning: your step-by-step thought process
+    """
+
+    template_prompt: str = dspy.InputField(
+        desc="Full template prompt: design philosophy, layout catalog with prop schemas, content extraction rules"
+    )
+    scene_title: str = dspy.InputField(desc="Title of this scene")
+    narration: str = dspy.InputField(desc="Narration text — source of truth for prop extraction")
+    visual_description: str = dspy.InputField(desc="Visual hints and styling context")
+    scene_index: int = dspy.InputField(desc="Scene number (0-based)")
+    total_scenes: int = dspy.InputField(desc="Total scene count")
+    previous_layouts: str = dspy.InputField(
+        desc="Comma-separated list of last 3 layouts used (for variety)"
+    )
+    underused_layouts: str = dspy.InputField(
+        desc="Comma-separated list of layouts not yet used (prioritize these for variety)"
+    )
+    preferred_layout: str = dspy.InputField(
+        desc="Optional: User's preferred layout type. If provided, use this layout and extract props accordingly. Must be one of the valid layouts from the catalog. Empty string means no preference."
+    )
+
+    reasoning: str = dspy.OutputField(
+        desc="Your reasoning: (1) Content analysis, (2) Layout choice rationale, (3) Prop extraction details, (4) Variety considerations"
+    )
+    layout: str = dspy.OutputField(
+        desc="Layout ID from catalog (must be exact match, lowercase with underscores). If preferred_layout is provided and valid, use that layout. Otherwise, pick the most VISUALLY ENGAGING option that fits the content."
+    )
+    layout_props_json: str = dspy.OutputField(
+        desc='Valid JSON object with layout-specific props. Use exact prop keys from catalog. Return {} for layouts with no required props. Do NOT wrap in markdown code blocks.'
+    )
+
+
+class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
+    """
+    You are an expert video scene designer. The USER is editing a single scene.
+
+    ═══ REGENERATION CONTEXT ═══
+    - This is a single-scene edit: the user has requested changes (description) and/or chosen a layout.
+    - If preferred_layout is provided, YOU MUST use that layout and only extract props from the content.
+    - If preferred_layout is empty, choose the best layout that fits the content and avoids repeating
+      layouts already used in other_scenes_layouts (so the full video stays varied).
+    - Respect the user's intent: if visual_description says "no image" or "visualization only", adapt.
+
+    ═══ PROP EXTRACTION ═══
+    - Extract ONLY factual content from narration and visual_description — NEVER invent.
+    - Use exact prop keys from the layout catalog (case-sensitive).
+    - For arrays: extract ALL mentioned items. For charts: extract ALL data points.
+    - If a prop is optional and not in the content, omit it (don't guess).
+    - Use EXACT prop key names from the catalog (e.g., "barChart", "metrics").
+
+    ═══ OUTPUT FORMAT ═══
+    - layout: exact layout ID from catalog (lowercase, underscores). If preferred_layout is given, return that.
+    - layout_props_json: valid JSON with exact prop keys from catalog. Return {} when no props needed. Do NOT wrap in markdown code blocks.
+    - reasoning: brief step-by-step reasoning (content, layout choice or use of preferred, prop extraction).
+    """
+
+    template_prompt: str = dspy.InputField(
+        desc="Full template prompt: layout catalog with prop schemas, content extraction rules"
+    )
+    scene_title: str = dspy.InputField(desc="Title of this scene")
+    narration: str = dspy.InputField(desc="Narration text — source of truth for prop extraction")
+    visual_description: str = dspy.InputField(
+        desc="User's edit description or visual hints (e.g. 'make it more dramatic', 'show a chart'). Drive layout and props from this when relevant."
+    )
+    scene_index: int = dspy.InputField(desc="0-based scene index")
+    total_scenes: int = dspy.InputField(desc="Total number of scenes in the video")
+    other_scenes_layouts: str = dspy.InputField(
+        desc="Layouts used in OTHER scenes (e.g. 'scene 0: cinematic_title, scene 2: glass_narrative'). Avoid repeating these when choosing a layout if no preferred_layout is given."
+    )
+    preferred_layout: str = dspy.InputField(
+        desc="User's chosen layout ID. If non-empty and valid, USE THIS LAYOUT and only extract props. If empty, choose the best layout that fits content and varies from other_scenes_layouts."
+    )
+    current_descriptor: str = dspy.InputField(
+        desc="Optional: current scene descriptor as JSON (layout + layoutProps). Use to preserve or adapt existing props when the user is refining rather than replacing. Empty string if no existing descriptor."
+    )
+
+    reasoning: str = dspy.OutputField(
+        desc="Brief reasoning: (1) Content / user intent, (2) Layout choice (or use of preferred_layout), (3) Prop extraction"
+    )
+    layout: str = dspy.OutputField(
+        desc="Layout ID from catalog (exact match, lowercase with underscores). Must equal preferred_layout when preferred_layout is non-empty."
+    )
+    layout_props_json: str = dspy.OutputField(
+        desc='Valid JSON object with layout-specific props. Exact prop keys from catalog. {} when none. Do NOT wrap in markdown code blocks.'
+    )
+
+
+# ─── Custom templates: universal layout engine (layout_config_json) ─────────────
 
 
 class TemplateSceneToDescriptor(dspy.Signature):
@@ -192,10 +313,20 @@ class TemplateSceneGenerator:
             self._hero_layout = get_hero_layout(template_id)
             self._fallback_layout = get_fallback_layout(template_id)
 
-        self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
-        self.descriptor = dspy.asyncify(self._descriptor)
-        self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
-        self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
+        if self._is_custom:
+            self._descriptor = dspy.ChainOfThought(TemplateSceneToDescriptor)
+            self.descriptor = dspy.asyncify(self._descriptor)
+            self._regenerate_descriptor = dspy.ChainOfThought(RegenerateSceneToDescriptor)
+            self.regenerate_descriptor = dspy.asyncify(self._regenerate_descriptor)
+            self.builtin_descriptor = None
+            self.builtin_regenerate_descriptor = None
+        else:
+            self._builtin_descriptor = dspy.ChainOfThought(BuiltInTemplateSceneToDescriptor)
+            self.builtin_descriptor = dspy.asyncify(self._builtin_descriptor)
+            self._builtin_regenerate_descriptor = dspy.ChainOfThought(BuiltInRegenerateSceneToDescriptor)
+            self.builtin_regenerate_descriptor = dspy.asyncify(self._builtin_regenerate_descriptor)
+            self._descriptor = self.descriptor = None
+            self._regenerate_descriptor = self.regenerate_descriptor = None
 
         if self._is_custom:
             self.variety_tracker = ArrangementVarietyTracker(
@@ -205,6 +336,46 @@ class TemplateSceneGenerator:
             self.variety_tracker = ArrangementVarietyTracker(
                 get_valid_layouts(template_id), get_hero_layout(template_id),
             )
+
+    def _parse_props_json(self, props_str: str) -> dict:
+        """Parse layout_props_json for built-in templates."""
+        try:
+            raw = (props_str or "").strip()
+            if raw.startswith("```"):
+                lines = raw.split("\n")[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                raw = "\n".join(lines)
+            props = json.loads(raw)
+            return props if isinstance(props, dict) else {}
+        except (json.JSONDecodeError, TypeError) as e:
+            if self.debug:
+                print(f"⚠️  Props JSON parse error: {e}\n   Raw: {(props_str or '')[:100]}")
+            return {}
+
+    def _validate_props(self, layout: str, props: dict) -> dict:
+        """Validate props against layout schema in meta. If no schema, pass through."""
+        layout_meta = (self._meta or {}).get("layouts", {}).get(layout, {})
+        prop_schema = layout_meta.get("props", {})
+        if not prop_schema:
+            return props
+        validated = {}
+        for key, value in props.items():
+            if key not in prop_schema:
+                continue
+            schema = prop_schema[key]
+            expected_type = schema.get("type", "string")
+            if expected_type == "string" and isinstance(value, str):
+                validated[key] = value
+            elif expected_type == "number" and isinstance(value, (int, float)):
+                validated[key] = value
+            elif expected_type == "boolean" and isinstance(value, bool):
+                validated[key] = value
+            elif expected_type == "array" and isinstance(value, list):
+                validated[key] = value
+            elif expected_type == "object" and isinstance(value, dict):
+                validated[key] = value
+        return validated
 
     def _parse_config_json(self, config_str: str) -> dict:
         try:
@@ -470,13 +641,13 @@ class TemplateSceneGenerator:
     # ─── Legacy support for built-in templates ───
 
     async def _generate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, max_retries, preferred_layout):
-        """Old-style descriptor for built-in templates."""
+        """Old-style descriptor for built-in templates (layout + layoutProps from catalog)."""
         if scene_index == 0 and not preferred_layout:
             self.variety_tracker.record(self._hero_layout)
             return {"layout": self._hero_layout, "layoutProps": {}}
 
-        previous = self.variety_tracker.get_previous_arrangements()
-        underused = self.variety_tracker.get_underused_arrangements()
+        previous_layouts = self.variety_tracker.get_previous_arrangements()
+        underused_layouts = self.variety_tracker.get_underused_arrangements()
 
         normalized_preferred = None
         if preferred_layout:
@@ -486,30 +657,32 @@ class TemplateSceneGenerator:
 
         for attempt in range(max_retries + 1):
             try:
-                result = await self.descriptor(
+                result = await self.builtin_descriptor(
                     template_prompt=self._prompt,
                     scene_title=scene_title,
                     narration=narration,
                     visual_description=visual_description,
                     scene_index=scene_index,
                     total_scenes=total_scenes,
-                    previous_arrangements=previous,
-                    underused_arrangements=underused,
-                    preferred_arrangement=normalized_preferred or "",
+                    previous_layouts=previous_layouts,
+                    underused_layouts=underused_layouts,
+                    preferred_layout=normalized_preferred or "",
                 )
 
-                config = self._parse_config_json(result.layout_config_json)
-                layout = config.get("layout", config.get("arrangement", self._fallback_layout))
-                layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
+                layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                 if layout not in self._valid_layouts:
-                    layout = self._fallback_layout
+                    if normalized_preferred:
+                        layout = normalized_preferred
+                    else:
+                        if self.debug:
+                            print(f"  Invalid layout '{layout}' (attempt {attempt + 1})")
+                        continue
 
-                props = config.get("layoutProps", {})
-                if isinstance(props, list):
-                    props = {}
+                props = self._parse_props_json(result.layout_props_json)
+                validated_props = self._validate_props(layout, props)
 
                 self.variety_tracker.record(layout)
-                return {"layout": layout, "layoutProps": props}
+                return {"layout": layout, "layoutProps": validated_props}
             except Exception as e:
                 if self.debug:
                     print(f"⚠️  Error: {e}")
@@ -519,7 +692,7 @@ class TemplateSceneGenerator:
         return {"layout": self._fallback_layout, "layoutProps": {}}
 
     async def _regenerate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, other_scenes_layouts, preferred_layout, current_descriptor):
-        """Old-style regeneration for built-in templates."""
+        """Old-style regeneration for built-in templates (layout + layoutProps from catalog)."""
         if scene_index == 0 and not preferred_layout:
             return {"layout": self._hero_layout, "layoutProps": {}}
 
@@ -532,28 +705,28 @@ class TemplateSceneGenerator:
         current_str = json.dumps(current_descriptor) if current_descriptor else ""
 
         try:
-            result = await self.regenerate_descriptor(
+            result = await self.builtin_regenerate_descriptor(
                 template_prompt=self._prompt,
                 scene_title=scene_title,
                 narration=narration,
                 visual_description=visual_description,
                 scene_index=scene_index,
                 total_scenes=total_scenes,
-                other_scenes_arrangements=other_scenes_layouts or "(none yet)",
-                preferred_arrangement=normalized or "",
+                other_scenes_layouts=other_scenes_layouts or "(none yet)",
+                preferred_layout=normalized or "",
                 current_descriptor=current_str,
             )
-        except Exception:
+        except Exception as e:
+            if self.debug:
+                print(f"⚠️  [Regenerate] DSPy error: {e}")
             return {"layout": normalized or self._fallback_layout, "layoutProps": {}}
 
-        config = self._parse_config_json(result.layout_config_json)
-        layout = config.get("layout", config.get("arrangement", normalized or self._fallback_layout))
-        layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
+        layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+        if normalized:
+            layout = normalized
         if layout not in self._valid_layouts:
             layout = normalized or self._fallback_layout
 
-        props = config.get("layoutProps", {})
-        if isinstance(props, list):
-            props = {}
-
-        return {"layout": layout, "layoutProps": props}
+        props = self._parse_props_json(result.layout_props_json)
+        validated_props = self._validate_props(layout, props)
+        return {"layout": layout, "layoutProps": validated_props}
