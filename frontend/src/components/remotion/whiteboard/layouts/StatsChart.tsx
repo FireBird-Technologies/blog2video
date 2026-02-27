@@ -41,7 +41,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
       <WhiteboardBackground bgColor={bgColor} />
 
-      {/* Paper grain + ink filter — matches all other components */}
+      {/* Paper grain + ink filter */}
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
         <defs>
           <filter id="grain">
@@ -56,6 +56,14 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           </filter>
         </defs>
         <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        
+        {/* Bolder, Darker Random Drawings */}
+        <g stroke={accentColor} strokeWidth="5" fill="none" opacity="0.85" filter="url(#ink)">
+            <path d="M 50,150 Q 80,120 110,150 T 170,150" strokeDasharray="10 5" />
+            <circle cx="90%" cy="15%" r="40" strokeDasharray="15 10" />
+            <path d="M 85%,85% L 92%,92% M 92%,85% L 85%,92%" />
+            <path d="M 10%,80% C 15%,75% 25%,85% 30%,80%" strokeWidth="6" />
+        </g>
       </svg>
 
       <div
@@ -65,21 +73,23 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "center", 
+          textAlign: "center",     
           padding: p ? "10% 8%" : "8% 10%",
-          gap: p ? 24 : 32,
+          gap: p ? 32 : 48,
         }}
       >
         {/* Title block */}
-        <div style={{ textAlign: "center", opacity: titleOp }}>
+        <div style={{ opacity: titleOp, display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div
             style={{
               color: textColor,
               fontWeight: 700,
               fontSize: titleFontSize ?? (p ? 58 : 72),
               lineHeight: 1.1,
-              marginBottom: 8,
+              marginBottom: 16,
               filter: "url(#ink)",
+              maxWidth: 800,
             }}
           >
             {title}
@@ -101,7 +111,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
         <div
           style={{
             width: "100%",
-            maxWidth: p ? "100%" : 720,
+            maxWidth: p ? "100%" : 800,
             display: "flex",
             flexDirection: "column",
             gap: p ? 16 : 20,
@@ -123,7 +133,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                   opacity: interpolate(frame, [delay, delay + 8], [0, 1], { extrapolateRight: "clamp" }),
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                   {/* Label */}
                   <span
                     style={{
@@ -131,7 +141,8 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                       color: textColor,
                       fontSize: p ? 18 : 22,
                       fontWeight: 600,
-                      minWidth: p ? 70 : 90,
+                      minWidth: p ? 80 : 120,
+                      textAlign: "left",
                       filter: "url(#ink)",
                     }}
                   >
@@ -142,32 +153,29 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                   <div
                     style={{
                       flex: 1,
-                      height: p ? 26 : 32,
-                      borderRadius: 6,
+                      height: p ? 28 : 36,
+                      borderRadius: 8,
                       backgroundColor: "rgba(0,0,0,0.06)",
                       overflow: "hidden",
-                      border: `2.5px solid ${accentColor}`,
+                      border: `3px solid ${accentColor}`,
                       position: "relative",
+                      transform: `rotate(${(i % 2 === 0 ? 0.5 : -0.5)}deg)`,
                     }}
                   >
-                    {/* Bleed fill for marker feel */}
                     <div
                       style={{
                         position: "absolute",
                         inset: 0,
                         width: `${barWidthPct * 100}%`,
                         backgroundColor: accentColor,
-                        opacity: 0.18,
-                        borderRadius: 4,
+                        opacity: 0.15,
                       }}
                     />
-                    {/* Core fill */}
                     <div
                       style={{
                         width: `${barWidthPct * 100}%`,
                         height: "100%",
                         backgroundColor: accentColor,
-                        borderRadius: 4,
                       }}
                     />
                   </div>
@@ -177,14 +185,14 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                     style={{
                       flexShrink: 0,
                       color: accentColor,
-                      fontSize: p ? 20 : 24,
+                      fontSize: p ? 20 : 26,
                       fontWeight: 800,
-                      minWidth: 44,
+                      minWidth: 50,
                       textAlign: "right",
                       filter: "url(#ink)",
                     }}
                   >
-                    {item.value}
+                    {item.value}%
                   </span>
                 </div>
               </div>
