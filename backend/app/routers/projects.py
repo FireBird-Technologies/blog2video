@@ -137,8 +137,6 @@ def create_projects_bulk(
         raise HTTPException(status_code=400, detail=f"Invalid projects JSON: {e}")
     if not items:
         raise HTTPException(status_code=400, detail="At least one project is required.")
-    if len(items) > settings.MAX_BULK_LINKS:
-        raise HTTPException(status_code=400, detail=f"Maximum {settings.MAX_BULK_LINKS} links per bulk create.")
     needed = len(items)
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
