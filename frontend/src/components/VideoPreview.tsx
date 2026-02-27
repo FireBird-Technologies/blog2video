@@ -14,6 +14,7 @@ interface SceneInput {
   narration: string;
   layout: string;
   layoutProps: Record<string, unknown>;
+  layoutConfig?: Record<string, unknown>;
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
@@ -148,25 +149,47 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
       }
     }
 
+    const isCustom = (project.template || "").startsWith("custom_");
+
     return project.scenes.map((scene, idx) => {
       let layout = config.fallbackLayout;
       let layoutProps: Record<string, unknown> = {};
+      let layoutConfig: Record<string, unknown> | undefined;
 
       if (scene.remotion_code) {
         try {
           const descriptor = JSON.parse(scene.remotion_code);
-          layout = descriptor.layout || config.fallbackLayout;
-          layoutProps = descriptor.layoutProps || {};
+          if (descriptor.layoutConfig) {
+            // Universal layout engine (custom templates)
+            layoutConfig = descriptor.layoutConfig;
+            layout = descriptor.layoutConfig.arrangement || "full-center";
+            if (isCustom) {
+              console.log(`[VideoPreview] scene ${idx} ✅: layoutConfig found, arrangement=${layout}, elements=${descriptor.layoutConfig.elements?.length}`);
+            }
+          } else {
+            // Built-in templates: legacy layout + layoutProps
+            layout = descriptor.layout || config.fallbackLayout;
+            layoutProps = descriptor.layoutProps || {};
+            if (isCustom) {
+              console.error(`[VideoPreview] scene ${idx} ❌: custom template but NO layoutConfig in remotion_code! Keys: ${Object.keys(descriptor).join(", ")}. This means remotion.py overwrote it.`);
+            }
+          }
         } catch {
-          /* legacy */
+          if (isCustom) {
+            console.error(`[VideoPreview] scene ${idx} ❌: failed to parse remotion_code: ${scene.remotion_code?.substring(0, 100)}`);
+          }
         }
+      } else if (isCustom) {
+        console.error(`[VideoPreview] scene ${idx} ❌: no remotion_code at all — pipeline hasn't generated this scene yet`);
       }
 
       if (scene.order === 1 && !scene.remotion_code) {
         layout = config.heroLayout;
       }
 
-      if (!config.validLayouts.has(layout)) {
+      // For custom templates, arrangements are validated by the backend;
+      // for built-in templates, validate against the template's layout set.
+      if (!isCustom && !config.validLayouts.has(layout)) {
         layout = config.fallbackLayout;
       }
 
@@ -220,6 +243,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
         narration: onScreenText,
         layout,
         layoutProps,
+        ...(layoutConfig ? { layoutConfig } : {}),
         durationSeconds: Number(scene.duration_seconds) || 5,
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
@@ -265,6 +289,7 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     logoOpacity: project.logo_opacity ?? 0.9,
     logoSize: typeof project.logo_size === "number" ? project.logo_size : 100,
     aspectRatio: project.aspect_ratio || "landscape",
+    ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };
 
   const Composition = config.component;
