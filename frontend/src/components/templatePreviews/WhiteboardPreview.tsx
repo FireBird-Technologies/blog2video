@@ -29,7 +29,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
 /* ─── TOKENS ─────────────────────────────────────────────── */
 const BG     = "#F7F3E8";
 const TEXT   = "#1a1209";
-const ACCENT = "#d4420a";
+const ACCENT = "#0a0a0a";
 const FONT   = "'Comic Sans MS','Segoe Print','Bradley Hand',cursive";
 
 /* ─── ANIMATION TIMER ────────────────────────────────────── 
