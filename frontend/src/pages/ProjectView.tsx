@@ -19,6 +19,7 @@ import {
   deleteAsset,
   getValidLayouts,
   updateProjectLogo,
+  uploadLogo,
   Project,
   Scene,
   BACKEND_URL,
@@ -281,6 +282,8 @@ export default function ProjectView() {
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
   const [logoSaving, setLogoSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
   const [logoSize, setLogoSize] = useState<number>(100);
   const [logoOpacity, setLogoOpacity] = useState<number>(0.9);
@@ -1027,17 +1030,21 @@ export default function ProjectView() {
   const handleKeepGeneratedSceneImage = (sceneId: number) => {
     if (!generatedImageBase64) return;
     const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    setGenerateImageError(null);
     fetch(dataUrl)
       .then((r) => r.blob())
       .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
-      .then((file) => {
-        setGeneratedImageBase64(null);
-        setGeneratedPrompt(null);
-        setGenerateImageError(null);
-        setGenerateErrorSceneId(null);
-        setGeneratedImageSceneId(null);
-        handleAddSceneImage(sceneId, file);
-      })
+      .then((file) =>
+        handleAddSceneImage(sceneId, file)
+          .then(() => {
+            setGeneratedImageBase64(null);
+            setGeneratedPrompt(null);
+            setGenerateImageError(null);
+            setGenerateErrorSceneId(null);
+            setGeneratedImageSceneId(null);
+          })
+          .catch(() => setGenerateImageError("Failed to use generated image"))
+      )
       .catch(() => setGenerateImageError("Failed to use generated image"));
   };
 
@@ -1063,6 +1070,26 @@ export default function ProjectView() {
       showError(getErrorMessage(err, "Failed to save logo settings."));
     } finally {
       setLogoSaving(false);
+    }
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !project) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showError("Logo must be under 2 MB.");
+      e.target.value = "";
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      await uploadLogo(project.id, file);
+      await loadProject();
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to upload logo."));
+    } finally {
+      setLogoUploading(false);
     }
   };
 
@@ -2106,13 +2133,13 @@ export default function ProjectView() {
                                                 type="button"
                                                 onClick={() => handleRemoveSceneImage(asset.id)}
                                                 disabled={removingAssetId === asset.id}
-                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                                               >
                                                 {removingAssetId === asset.id ? (
                                                   <span className="text-[10px]">…</span>
                                                 ) : (
-                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                   </svg>
                                                 )}
                                               </button>
@@ -2130,10 +2157,10 @@ export default function ProjectView() {
                                                 ? "Add title or narration to generate an image"
                                                 : "Generate image with AI"
                                             }
-                                            className="flex items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-amber-700 flex-shrink-0"
+                                            className="flex items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700 flex-shrink-0"
                                           >
                                             {generatingImageSceneId === scene.id ? (
-                                              <span className="text-xs">…</span>
+                                              <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                                             ) : (
                                               <>
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2145,7 +2172,7 @@ export default function ProjectView() {
                                           </button>
                                           <label
                                             className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                              uploadingSceneId === scene.id
+                                              uploadingSceneId === scene.id && generatedImageSceneId !== scene.id
                                                 ? "border-purple-300 bg-purple-50/50 cursor-wait"
                                                 : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
                                             }`}
@@ -2163,7 +2190,7 @@ export default function ProjectView() {
                                                 }
                                               }}
                                             />
-                                            {uploadingSceneId === scene.id ? (
+                                            {uploadingSceneId === scene.id && generatedImageSceneId !== scene.id ? (
                                               <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
                                             ) : (
                                               <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2226,31 +2253,36 @@ export default function ProjectView() {
                           <button
                             type="button"
                             onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                             title="Use this image"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           </button>
                           <button
                             type="button"
                             onClick={handleDiscardGeneratedSceneImage}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                             title="Discard"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
+                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0 relative">
                         <img
                           src={`data:image/png;base64,${generatedImageBase64}`}
                           alt="AI generated"
                           className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
                         />
+                        {uploadingSceneId === generatedImageSceneId && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg">
+                            <span className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2386,10 +2418,10 @@ export default function ProjectView() {
                           <button
                             onClick={() => handleToggleExclusion(asset.id)}
                             disabled={isToggling}
-                            className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                            className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all border ${
                               asset.excluded
-                                ? "bg-green-500 text-white hover:bg-green-600"
-                                : "bg-white/80 text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                                ? "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600"
+                                : "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 opacity-0 group-hover:opacity-100"
                             } ${isToggling ? "animate-pulse" : ""}`}
                             title={
                               asset.excluded
@@ -2398,34 +2430,26 @@ export default function ProjectView() {
                             }
                           >
                             {isToggling ? (
-                              <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                              <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                             ) : asset.excluded ? (
                               <svg
-                                className="w-3.5 h-3.5"
+                                className="w-3 h-3"
                                 fill="none"
                                 stroke="currentColor"
+                                strokeWidth={2.5}
                                 viewBox="0 0 24 24"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2.5}
-                                  d="M12 4v16m8-8H4"
-                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                               </svg>
                             ) : (
                               <svg
-                                className="w-3.5 h-3.5"
+                                className="w-3 h-3"
                                 fill="none"
                                 stroke="currentColor"
+                                strokeWidth={2.5}
                                 viewBox="0 0 24 24"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2.5}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             )}
                           </button>
@@ -2505,9 +2529,28 @@ export default function ProjectView() {
                   </button>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 py-4">
-                  Upload a logo in project creation to adjust position, opacity and size here.
-                </p>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                    Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => logoFileInputRef.current?.click()}
+                      disabled={logoUploading}
+                      className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all disabled:opacity-60 disabled:pointer-events-none"
+                    >
+                      {logoUploading ? "Uploading…" : "Choose file"}
+                    </button>
+                    <input
+                      type="file"
+                      ref={logoFileInputRef}
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={handleUploadLogo}
+                    />
+                  </div>
+                </div>
               )}
             </div>
           </div>
