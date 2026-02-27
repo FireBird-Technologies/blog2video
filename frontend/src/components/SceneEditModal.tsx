@@ -227,6 +227,41 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
   stats_chart: [{ key: "stats", label: "Bar chart rows", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number 0–100" }], maxItems: 5 }],
+  countdown_timer: [
+    {
+      key: "stats",
+      label: "Countdown settings",
+      type: "object_array",
+      subFields: [
+        { key: "value", label: "Start at (2–9)", placeholder: "e.g. 5" },
+        { key: "label", label: "Label under timer", placeholder: "e.g. seconds" },
+      ],
+      maxItems: 1,
+    },
+  ],
+  handwritten_equation: [
+    {
+      key: "stats",
+      label: "Equation steps",
+      type: "object_array",
+      subFields: [
+        { key: "label", label: "Step label", placeholder: "e.g. Example" },
+        { key: "value", label: "Equation / value", placeholder: "e.g. A = P(1 + r/n)^(n·t)" },
+      ],
+      maxItems: 5,
+    },
+  ],
+  speech_bubble_dialogue: [
+    { key: "leftThought", label: "Left bubble text", type: "text", placeholder: "What the left character says" },
+    { key: "rightThought", label: "Right bubble text", type: "text", placeholder: "What the right character says" },
+    {
+      key: "stats",
+      label: "Speaker names",
+      type: "object_array",
+      subFields: [{ key: "label", label: "Name" }],
+      maxItems: 2,
+    },
+  ],
   // Newspaper template
   news_headline: [
     { key: "category", label: "Section / category", type: "string", placeholder: "e.g. Politics, Technology" },

@@ -14,15 +14,52 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
-  const textOp = interpolate(frame, [10, 28], [0, 1], { extrapolateRight: "clamp" });
-  const drawProgress = interpolate(frame, [0, 36], [0, 1], { extrapolateRight: "clamp" });
 
-  const dash = 400;
-  const offset = dash * (1 - drawProgress);
+  // 1. BOUNCE MATH
+  // Math.abs(Math.sin) creates a bouncing "camel hump" shape
+  const bounceHeight = 120;
+  const bounceRaw = Math.abs(Math.sin(frame * 0.1));
+  const ballOffset = bounceRaw * bounceHeight;
+
+  // 2. ARM MOVEMENT
+  // The arms move slightly to meet the ball at the bottom (0)
+  const shoulderY = 130;
+  const handX = 220;
+  // Arms follow the ball only at the very bottom of the bounce for a "catch" feel
+  const handY = 200 - (1 - bounceRaw) * 20; 
+  const elbowX = 165;
+  const elbowY = 170;
+
+  const figProgress = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" });
+  const textOp = interpolate(frame, [28, 46], [0, 1], { extrapolateRight: "clamp" });
+
+  const dash = 500;
+  const figOff = dash * (1 - figProgress);
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
+
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
+        <defs>
+          <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+            <feComponentTransfer><feFuncA type="linear" slope="0.055" /></feComponentTransfer>
+            <feComposite in2="SourceGraphic" operator="over" />
+          </filter>
+          <filter id="ink" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.038" numOctaves="5" seed="22" result="w" />
+            <feDisplacementMap in="SourceGraphic" in2="w" scale="3" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+      </svg>
 
       <div
         style={{
@@ -32,51 +69,49 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
           flexDirection: p ? "column" : "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: p ? 20 : 40,
-          padding: p ? "8% 8%" : "6% 8%",
+          gap: p ? 20 : 44,
+          padding: p ? "8% 8%" : "5% 7%",
         }}
       >
-        <svg
-          viewBox="0 0 400 360"
-          style={{
-            width: p ? "82%" : "42%",
-            maxWidth: 620,
-            height: "auto",
-          }}
-        >
-          <circle cx="120" cy="72" r="28" fill="none" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="120" y1="102" x2="120" y2="210" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="120" y1="132" x2="72" y2="174" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="120" y1="132" x2="168" y2="174" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="120" y1="210" x2="82" y2="292" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="120" y1="210" x2="160" y2="292" stroke={textColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
+        <svg viewBox="0 0 420 370" style={{ width: p ? "84%" : "44%", maxWidth: 640, height: "auto" }} fill="none">
+          <g filter="url(#ink)" strokeLinecap="round" strokeLinejoin="round">
+            {/* Ground line */}
+            <line x1={10} y1={310} x2={410} y2={308} stroke={textColor} strokeWidth={4} strokeOpacity={0.3} />
 
-          <circle cx="292" cy="160" r="56" fill="none" stroke={accentColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="252" y1="160" x2="332" y2="160" stroke={accentColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="292" y1="120" x2="292" y2="200" stroke={accentColor} strokeWidth="6" strokeDasharray={dash} strokeDashoffset={offset} />
-          <path d="M176 160 C 208 160, 226 160, 246 160" fill="none" stroke={accentColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
+            {/* === STICK MAN === */}
+            <circle cx={110} cy={66} r={30} stroke={textColor} strokeWidth={5} strokeDasharray={dash} strokeDashoffset={figOff} />
+            <line x1={110} y1={98} x2={110} y2={218} stroke={textColor} strokeWidth={5} strokeDasharray={dash} strokeDashoffset={figOff} />
+
+            {/* Arms - Both same opacity */}
+            <path 
+              d={`M110,${shoulderY} L${elbowX},${elbowY} L${handX},${handY}`} 
+              stroke={textColor} 
+              strokeWidth={5} 
+              fill="none" 
+            />
+            <path 
+              d={`M110,${shoulderY} L${elbowX - 15},${elbowY + 10} L${handX},${handY}`} 
+              stroke={textColor} 
+              strokeWidth={5} 
+              fill="none" 
+            />
+
+            {/* Legs */}
+            <path d="M110,218 L80,308" stroke={textColor} strokeWidth={5} />
+            <path d="M110,218 L140,308" stroke={textColor} strokeWidth={5} />
+
+            {/* === BOUNCING BALL === */}
+            {/* The ball bounces UP from the hand position */}
+            <g transform={`translate(0, ${-ballOffset})`}>
+              <circle cx={handX} cy={handY - 25} r={25} stroke={accentColor} strokeWidth={5} fill={bgColor} />
+              <path d={`M${handX-10},${handY-32} Q${handX},${handY-25} ${handX+10},${handY-32}`} stroke={accentColor} strokeWidth={3} strokeOpacity={0.5} />
+            </g>
+          </g>
         </svg>
 
-        <div style={{ flex: 1, opacity: textOp, color: textColor, textAlign: p ? "center" : "left" }}>
-          <div
-            style={{
-              fontWeight: 700,
-              lineHeight: 1.04,
-              fontSize: titleFontSize ?? (p ? 66 : 84),
-            }}
-          >
-            {title}
-          </div>
-          <div
-            style={{
-              marginTop: 18,
-              fontSize: descriptionFontSize ?? (p ? 30 : 38),
-              lineHeight: 1.2,
-              maxWidth: p ? "100%" : 680,
-            }}
-          >
-            {narration}
-          </div>
+        <div style={{ flex: 1, color: textColor, opacity: textOp, textAlign: p ? "center" : "left" }}>
+          <div style={{ fontWeight: 700, fontSize: titleFontSize ?? (p ? 64 : 82), filter: "url(#ink)" }}>{title}</div>
+          <div style={{ marginTop: 18, fontSize: descriptionFontSize ?? (p ? 30 : 38), filter: "url(#ink)" }}>{narration}</div>
         </div>
       </div>
     </AbsoluteFill>
