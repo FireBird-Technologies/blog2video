@@ -167,45 +167,183 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
         </div>
       </div>
 
-      {/* Stick figure — bottom right, looking left at the heading */}
-      <svg
-        style={{
-          position: "absolute",
-          right: p ? "5%" : "6%",
-          bottom: p ? "5%" : "6%",
-          width: p ? "18%" : "11%",
-          height: "auto",
-          pointerEvents: "none",
-        }}
-        viewBox="0 0 100 124"
-        fill="none"
+      {/* Stick figure — energetic motion */}
+<svg
+  style={{
+    position: "absolute",
+    right: p ? "5%" : "6%",
+    bottom: p ? "5%" : "6%",
+    width: p ? "18%" : "11%",
+    height: "auto",
+    pointerEvents: "none",
+  }}
+  viewBox="0 0 100 124"
+  fill="none"
+>
+  <filter id="inkFig">
+    <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="9" result="w" />
+    <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+  </filter>
+
+  {(() => {
+    // 🔥 Bigger Motion Values
+    const bounce = Math.abs(Math.sin(frame * 0.15)) * 2;   // strong vertical bounce
+    const sway = Math.sin(frame * 0.12) * 2;               // stronger rotation
+    const armSwing = Math.sin(frame * 0.25) * 18;          // big presenting motion
+    const headNod = Math.sin(frame * 0.18) * 6;            // head movement
+
+    return (
+      <g
+        filter="url(#inkFig)"
+        transform={`
+          translate(0, ${-bounce})
+          rotate(${sway} 50 70)
+        `}
       >
-        <filter id="inkFig">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="9" result="w" />
-          <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-        <g filter="url(#inkFig)">
-          {/* Double-stroke: wide bleed + core */}
-          <circle cx="50" cy="22" r="14" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" fill="none" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <circle cx="50" cy="22" r="14" stroke={textColor} strokeWidth="4" fill="none" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-
-          <line x1="50" y1="38" x2="50" y2="72" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <line x1="50" y1="38" x2="50" y2="72" stroke={textColor} strokeWidth="4" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-
-          {/* Left arm angled as if pointing at the title */}
-          <line x1="50" y1="48" x2="22" y2="38" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <line x1="50" y1="48" x2="22" y2="38" stroke={textColor} strokeWidth="4" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-
-          <line x1="50" y1="48" x2="74" y2="62" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <line x1="50" y1="48" x2="74" y2="62" stroke={textColor} strokeWidth="4" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-
-          <path d="M50,72 Q42,96 32,112" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" fill="none" strokeLinecap="round" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <path d="M50,72 Q42,96 32,112" stroke={textColor} strokeWidth="4" fill="none" strokeLinecap="round" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-
-          <path d="M50,72 Q58,96 68,112" stroke={textColor} strokeWidth="7" strokeOpacity="0.18" fill="none" strokeLinecap="round" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
-          <path d="M50,72 Q58,96 68,112" stroke={textColor} strokeWidth="4" fill="none" strokeLinecap="round" strokeDasharray={stickDash} strokeDashoffset={stickOff} />
+        {/* HEAD with nod */}
+        <g transform={`rotate(${headNod} 50 22)`}>
+          <circle
+            cx="50"
+            cy="22"
+            r="14"
+            stroke={textColor}
+            strokeWidth="7"
+            strokeOpacity="0.18"
+            fill="none"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+          <circle
+            cx="50"
+            cy="22"
+            r="14"
+            stroke={textColor}
+            strokeWidth="4"
+            fill="none"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
         </g>
-      </svg>
+
+        {/* BODY */}
+        <line
+          x1="50"
+          y1="38"
+          x2="50"
+          y2="72"
+          stroke={textColor}
+          strokeWidth="7"
+          strokeOpacity="0.18"
+          strokeDasharray={stickDash}
+          strokeDashoffset={stickOff}
+        />
+        <line
+          x1="50"
+          y1="38"
+          x2="50"
+          y2="72"
+          stroke={textColor}
+          strokeWidth="4"
+          strokeDasharray={stickDash}
+          strokeDashoffset={stickOff}
+        />
+
+        {/* LEFT ARM – BIG SWING */}
+        <g transform={`rotate(${armSwing} 50 48)`}>
+          <line
+            x1="50"
+            y1="48"
+            x2="18"
+            y2="30"
+            stroke={textColor}
+            strokeWidth="7"
+            strokeOpacity="0.18"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+          <line
+            x1="50"
+            y1="48"
+            x2="18"
+            y2="30"
+            stroke={textColor}
+            strokeWidth="4"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+        </g>
+
+        {/* RIGHT ARM slight counter motion */}
+        <g transform={`rotate(${-armSwing * 0.6} 50 48)`}>
+          <line
+            x1="50"
+            y1="48"
+            x2="78"
+            y2="60"
+            stroke={textColor}
+            strokeWidth="7"
+            strokeOpacity="0.18"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+          <line
+            x1="50"
+            y1="48"
+            x2="78"
+            y2="60"
+            stroke={textColor}
+            strokeWidth="4"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+        </g>
+
+        {/* LEGS with slight movement */}
+        <g transform={`rotate(${sway * 0.5} 50 72)`}>
+          <path
+            d="M50,72 Q42,96 32,112"
+            stroke={textColor}
+            strokeWidth="7"
+            strokeOpacity="0.18"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+          <path
+            d="M50,72 Q42,96 32,112"
+            stroke={textColor}
+            strokeWidth="4"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+
+          <path
+            d="M50,72 Q58,96 68,112"
+            stroke={textColor}
+            strokeWidth="7"
+            strokeOpacity="0.18"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+          <path
+            d="M50,72 Q58,96 68,112"
+            stroke={textColor}
+            strokeWidth="4"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={stickDash}
+            strokeDashoffset={stickOff}
+          />
+        </g>
+      </g>
+    );
+  })()}
+</svg>
     </AbsoluteFill>
   );
 };

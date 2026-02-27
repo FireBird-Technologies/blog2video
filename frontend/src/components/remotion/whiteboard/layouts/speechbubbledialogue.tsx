@@ -12,26 +12,66 @@ import type { WhiteboardLayoutProps } from "../types";
 
 // ─── Stick figure ────────────────────────────────────────────────────────────
 function StickFigure({
-  cx, dash, offset, stroke,
+  cx, dash, offset, stroke, isRight,
 }: {
-  cx: number; dash: number; offset: number; stroke: string;
+  cx: number;
+  dash: number;
+  offset: number;
+  stroke: string;
+  isRight?: boolean;
 }) {
+  const frame = useCurrentFrame();
+
+  // ─── Motion settings
+  const waveSpeed = 0.15;    // arm waving speed
+  const waveAmplitude = 16;
+  const bobSpeed = 0.08;     // vertical bob speed
+  const bobAmplitude = 8;    // up/down motion
+  const swaySpeed = 0.06;    // horizontal sway speed
+  const swayAmplitude = 6;   // left/right motion
+
+  const wave = Math.sin(frame * waveSpeed);
+  const bob  = Math.sin(frame * bobSpeed) * bobAmplitude;
+  const sway = Math.sin(frame * swaySpeed) * swayAmplitude;
+
+  // body coordinates
+  const headY = 60 + bob;
+  const bodyStartY = 88 + bob;
+  const bodyEndY = 188 + bob;
+
+  // legs
+  const leftLegX = cx - 14 + sway;
+  const rightLegX = cx + 16 + sway;
+  const legY1 = bodyEndY;
+  const legY2 = 290 + bob;
+
+  // arms: one waving
+  const armBaseY = 114 + bob;
+  const armLeftX = cx - 40 + sway;
+  const armRightX = cx + 36 + sway;
+
+  const wavingArmX = isRight ? armLeftX : armRightX;
+  const wavingArmY = armBaseY + 20 + wave * waveAmplitude;
+  const staticArmX = isRight ? armRightX : armLeftX;
+  const staticArmY = isRight ? 130 + bob : 136 + bob;
+
   return (
     <g strokeLinecap="round" strokeLinejoin="round">
-      {/* bleed */}
-      <circle cx={cx} cy={60} r={26} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      <line x1={cx} y1={88} x2={cx} y2={188} stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},114 Q${cx - 40},136 ${cx - 64},154`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},114 Q${cx + 36},130 ${cx + 58},142`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},188 Q${cx - 14},240 ${cx - 26},290`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},188 Q${cx + 16},240 ${cx + 28},290`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
-      {/* core */}
-      <circle cx={cx} cy={60} r={26} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
-      <line x1={cx} y1={88} x2={cx} y2={188} stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},114 Q${cx - 40},136 ${cx - 64},154`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},114 Q${cx + 36},130 ${cx + 58},142`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},188 Q${cx - 14},240 ${cx - 26},290`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
-      <path d={`M${cx},188 Q${cx + 16},240 ${cx + 28},290`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      {/* Bleed layer */}
+      <circle cx={cx + sway} cy={headY} r={26} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+      <line x1={cx + sway} y1={bodyStartY} x2={cx + sway} y2={bodyEndY} stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${armBaseY} Q${wavingArmX},${wavingArmY} ${wavingArmX},${wavingArmY}`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${armBaseY} Q${staticArmX},${staticArmY} ${staticArmX},${staticArmY}`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${bodyEndY} Q${leftLegX},${legY2} ${leftLegX},${legY2}`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${bodyEndY} Q${rightLegX},${legY2} ${rightLegX},${legY2}`} fill="none" stroke={stroke} strokeWidth={9} strokeOpacity={0.18} strokeDasharray={dash} strokeDashoffset={offset} />
+
+      {/* Core layer */}
+      <circle cx={cx + sway} cy={headY} r={26} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      <line x1={cx + sway} y1={bodyStartY} x2={cx + sway} y2={bodyEndY} stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${armBaseY} Q${wavingArmX},${wavingArmY} ${wavingArmX},${wavingArmY}`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${armBaseY} Q${staticArmX},${staticArmY} ${staticArmX},${staticArmY}`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${bodyEndY} Q${leftLegX},${legY2} ${leftLegX},${legY2}`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
+      <path d={`M${cx + sway},${bodyEndY} Q${rightLegX},${legY2} ${rightLegX},${legY2}`} fill="none" stroke={stroke} strokeWidth={4.5} strokeDasharray={dash} strokeDashoffset={offset} />
     </g>
   );
 }
@@ -254,16 +294,13 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
             <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={3} strokeLinecap="round" />
           </g>
 
-          {/* Left figure */}
-          <g filter="url(#inkFigs)">
-            <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} />
-          </g>
+        {/* Left figure — waves right hand */}
+          <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} />
 
-          {/* Right figure — mirror via transform */}
-          <g filter="url(#inkFigs)" transform={`translate(${svgW}, 0) scale(-1, 1)`}>
-            <StickFigure cx={svgW - rightCX} dash={figDash} offset={figOff} stroke={accentColor} />
+          {/* Right figure — waves left hand */}
+          <g transform={`translate(${svgW}, 0) scale(-1, 1)`}>
+            <StickFigure cx={svgW - rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={false} />
           </g>
-
           {/* Speaker labels — clearly BELOW the ground line */}
           <text
             x={leftCX} y={labelY}

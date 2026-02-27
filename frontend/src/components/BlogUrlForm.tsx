@@ -77,7 +77,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
   matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
-  whiteboard: { title: "Whiteboard Story", subtitle: "Hand-drawn storytelling with stick figures" },
+  whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
 };
 
@@ -932,7 +932,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
     { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
     { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-    { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
+    { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
   ];
   const styleLower = (videoStyle || "promotional").toLowerCase();
   const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
@@ -1296,7 +1296,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
       { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
       { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-      { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
+      { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
     ];
     const styleLower = (activeVideoStyle || "promotional").toLowerCase();
     const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;

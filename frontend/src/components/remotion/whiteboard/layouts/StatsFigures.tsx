@@ -6,15 +6,22 @@ const DEFAULT_STATS: WhiteboardStatItem[] = [
   { label: "Growth", value: "50%" },
   { label: "Faster", value: "3x" },
   { label: "Users", value: "10K+" },
+  { label: "Revenue", value: "$2M" },
+  { label: "Retention", value: "92%" },
+  { label: "Markets", value: "12" },
+  { label: "ROI", value: "4x" },
 ];
 
-// Hand-drawn box SVG border for a stat card
-// Uses a normalised 100×100 viewBox + preserveAspectRatio="none" so it
-// always stretches to fill whatever size the parent card ends up being.
 function HandDrawnBox({
-  color, dashArray, dashOffset, seed = 1,
+  color,
+  dashArray,
+  dashOffset,
+  seed = 1,
 }: {
-  color: string; dashArray: number; dashOffset: number; seed?: number;
+  color: string;
+  dashArray: number;
+  dashOffset: number;
+  seed?: number;
 }) {
   return (
     <svg
@@ -33,13 +40,11 @@ function HandDrawnBox({
       <defs>
         <filter id={`inkCard${seed}`} x="-5%" y="-5%" width="110%" height="110%">
           <feTurbulence type="fractalNoise" baseFrequency="0.04 0.025" numOctaves="4" seed={seed} result="w" />
-          <feDisplacementMap in="SourceGraphic" in2="w" scale="2" xChannelSelector="R" yChannelSelector="G" />
+          <feDisplacementMap in="SourceGraphic" in2="w" scale={2} xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </defs>
       <g filter={`url(#inkCard${seed})`} strokeLinecap="round" strokeLinejoin="round">
-        {/* Bleed layer */}
         <rect x={2} y={2} width={96} height={96} rx={10} stroke={color} strokeWidth={7} strokeOpacity={0.18} />
-        {/* Core layer */}
         <rect
           x={2} y={2} width={96} height={96} rx={10}
           stroke={color} strokeWidth={3}
@@ -65,30 +70,27 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
   const stats = statsProp?.length ? statsProp : DEFAULT_STATS;
-  const maxItems = Math.min(stats.length, 4);
+
+  const mainStats = stats.slice(0, 5);
+  const floatingStats = stats.slice(5);
 
   const titleOp = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
 
+  // Predefined floating slots (edges and corners)
+ const floatingSlots = [
+  { top: "15%", left: "15%", rotation: -8 },
+  { top: "15%", right: "15%", rotation: 6 },
+  { bottom: "15%", left: "15%", rotation: -5 },
+  { bottom: "15%", right: "15%", rotation: 7 },
+  { top: "35%", left: "10%", rotation: -10 },
+  { top: "35%", right: "10%", rotation: 9 },
+  { bottom: "30%", left: "12%", rotation: -6 },
+  { bottom: "30%", right: "12%", rotation: 8 },
+];
+
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
-      <WhiteboardBackground bgColor={bgColor} />
-
-      {/* Paper grain */}
-      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
-        <defs>
-          <filter id="grain">
-            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" stitchTiles="stitch" />
-            <feColorMatrix type="saturate" values="0" />
-            <feComponentTransfer><feFuncA type="linear" slope="0.052" /></feComponentTransfer>
-            <feComposite in2="SourceGraphic" operator="over" />
-          </filter>
-          <filter id="ink" x="-4%" y="-4%" width="108%" height="108%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.038" numOctaves="5" seed="7" result="w" />
-            <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
-      </svg>
+      <WhiteboardBackground bgColor={"#FFFFFF"} />
 
       <div
         style={{
@@ -102,7 +104,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
           gap: p ? 28 : 40,
         }}
       >
-        {/* Title block */}
+        {/* Title */}
         <div style={{ textAlign: "center", opacity: titleOp }}>
           <div
             style={{
@@ -111,7 +113,6 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 58 : 70),
               lineHeight: 1.1,
               marginBottom: 8,
-              filter: "url(#ink)",
             }}
           >
             {title}
@@ -122,30 +123,27 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
               fontSize: descriptionFontSize ?? (p ? 26 : 30),
               opacity: 0.9,
               maxWidth: p ? "100%" : 640,
-              filter: "url(#ink)",
             }}
           >
             {narration}
           </div>
         </div>
 
-        {/* Stat cards */}
+        {/* Center Stats */}
         <div
           style={{
             display: "flex",
             flexWrap: "wrap",
             gap: p ? 20 : 30,
             justifyContent: "center",
-            alignItems: "stretch",
           }}
         >
-          {stats.slice(0, maxItems).map((item, i) => {
+          {mainStats.map((item, i) => {
             const delay = 20 + i * 9;
             const drawProgress = interpolate(frame, [delay, delay + 24], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             });
-            // Normalised viewBox is 100x100, perimeter ≈ 400
             const dash = 400;
             const offset = dash * (1 - drawProgress);
             const cardOp = interpolate(frame, [delay, delay + 12], [0, 1], { extrapolateRight: "clamp" });
@@ -158,7 +156,6 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                   minWidth: p ? 120 : 148,
                   padding: p ? "18px 16px" : "22px 20px",
                   backgroundColor: "rgba(255,255,255,0.5)",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.07)",
                   borderRadius: 14,
                   opacity: cardOp,
                   display: "flex",
@@ -170,72 +167,45 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                 }}
               >
                 <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 1} />
-
-                {/* Value */}
-                <span
-                  style={{
-                    color: accentColor,
-                    fontSize: p ? 34 : 42,
-                    fontWeight: 800,
-                    fontFamily: "inherit",
-                    filter: "url(#ink)",
-                    lineHeight: 1,
-                  }}
-                >
-                  {item.value}
-                </span>
-
-                {/* Divider line — wobbly, percentage-based so it fits any card width */}
-                <svg
-                  viewBox="0 0 100 10"
-                  preserveAspectRatio="none"
-                  style={{ display: "block", width: "80%", height: 8 }}
-                  fill="none"
-                >
-                  <defs>
-                    <filter id={`inkDiv${i}`} x="-5%" y="-40%" width="110%" height="180%">
-                      <feTurbulence type="fractalNoise" baseFrequency="0.08 0.4" numOctaves="3" seed={i + 8} result="w" />
-                      <feDisplacementMap in="SourceGraphic" in2="w" scale="1.5" xChannelSelector="R" yChannelSelector="G" />
-                    </filter>
-                  </defs>
-                  <path
-                    d="M4,5 Q50,3 96,5"
-                    stroke={textColor}
-                    strokeWidth="4"
-                    strokeOpacity="0.2"
-                    strokeLinecap="round"
-                    filter={`url(#inkDiv${i})`}
-                    strokeDasharray={100}
-                    strokeDashoffset={100 * (1 - drawProgress)}
-                  />
-                  <path
-                    d="M4,5 Q50,3 96,5"
-                    stroke={textColor}
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    filter={`url(#inkDiv${i})`}
-                    strokeDasharray={100}
-                    strokeDashoffset={100 * (1 - drawProgress)}
-                  />
-                </svg>
-
-                {/* Label */}
-                <div
-                  style={{
-                    color: textColor,
-                    fontSize: p ? 17 : 20,
-                    fontWeight: 600,
-                    textAlign: "center",
-                    filter: "url(#ink)",
-                  }}
-                >
-                  {item.label}
-                </div>
+                <span style={{ color: accentColor, fontSize: p ? 34 : 42, fontWeight: 800 }}>{item.value}</span>
+                <div style={{ color: textColor, fontSize: p ? 17 : 20, fontWeight: 600, textAlign: "center" }}>{item.label}</div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Floating Stats */}
+      {floatingStats.map((item, i) => {
+        const slot = floatingSlots[i % floatingSlots.length];
+        const delay = 60 + i * 10;
+        const progress = interpolate(frame, [delay, delay + 20], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const dash = 400;
+        const offset = dash * (1 - progress);
+
+        return (
+          <div
+            key={`floating-${i}`}
+            style={{
+              position: "absolute",
+              ...(({ rotation, ...rest }) => rest)(slot),
+              transform: `rotate(${slot.rotation}deg)`,
+              padding: "16px 20px",
+              backgroundColor: "rgba(255,255,255,0.55)",
+              borderRadius: 12,
+              minWidth: 130,
+              opacity: progress,
+            }}
+          >
+            <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 20} />
+            <div style={{ fontSize: 28, fontWeight: 800, color: accentColor }}>{item.value}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: textColor }}>{item.label}</div>
+          </div>
+        );
+      })}
     </AbsoluteFill>
   );
 };

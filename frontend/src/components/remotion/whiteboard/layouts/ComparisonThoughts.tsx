@@ -33,6 +33,86 @@ function WobblyRect({
   );
 }
 
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+function getRandomLetter() {
+  return LETTERS[Math.floor(Math.random() * LETTERS.length)];
+}
+
+function FloatingLetters({
+  isRight,
+  textColor,
+}: {
+  isRight: boolean;
+  textColor: string;
+}) {
+  const frame = useCurrentFrame();
+
+  const emissionRate = 4; // lower = more letters
+  const lifetime = 45; // frames each letter lives
+
+  const letters = [];
+
+  const totalLetters = Math.floor(frame / emissionRate);
+
+  for (let i = 0; i < totalLetters; i++) {
+    const spawnFrame = i * emissionRate;
+    const age = frame - spawnFrame;
+
+    if (age > lifetime) continue;
+
+    const progress = age / lifetime;
+
+    // deterministic random seed per letter
+    const seed = i * 999;
+
+    const randomYOffset = Math.sin(seed) * 10;
+    const randomSize = 14 + (seed % 10);
+
+    const xMove = interpolate(
+      progress,
+      [0, 1],
+      [0, isRight ? -160 : 160]
+    );
+
+    const yMove = interpolate(
+      progress,
+      [0, 1],
+      [0, -20 + randomYOffset]
+    );
+
+    const opacity = interpolate(
+      progress,
+      [0, 0.7, 1],
+      [1, 0.8, 0]
+    );
+
+    const scale = interpolate(progress, [0, 1], [1, 0.7]);
+
+    letters.push(
+      <div
+        key={i}
+        style={{
+          position: "absolute",
+          top: 40,
+          left: isRight ? "40%" : "60%",
+          transform: `translate(${xMove}px, ${yMove}px) scale(${scale})`,
+          opacity,
+          pointerEvents: "none",
+          fontSize: randomSize,
+          fontWeight: 700,
+          color: textColor,
+          filter: "url(#ink)",
+        }}
+      >
+        {getRandomLetter()}
+      </div>
+    );
+  }
+
+  return <>{letters}</>;
+}
+
 // Estimates how many lines the thought text will wrap to inside the bubble,
 // so we can size the viewBox + foreignObject accordingly.
 function estimateBubbleHeight(text: string, fontSize: number, bubbleInnerW: number): number {
@@ -168,38 +248,63 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   const titleOp = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
 
   // Stickman SVG — shared between both sides
-  function Stickman({ isRight, seed }: { isRight: boolean; seed: number }) {
-    return (
-      <svg
-        viewBox="0 0 100 160"
-        // Increased: was "36%"/"28%", now "46%"/"36%"
-        style={{ width: p ? "46%" : "36%", maxWidth: 240, height: "auto" }}
-      >
-        <defs>
-          <filter id={`inkFig${seed}`} x="-5%" y="-5%" width="110%" height="110%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
-            <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-        <g filter={`url(#inkFig${seed})`} strokeLinecap="round" strokeLinejoin="round">
-          {/* Bleed layer */}
-          <circle cx="50" cy="28" r="16" fill="none" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="46" x2="50" y2="100" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="58" x2={isRight ? 24 : 76} y2="78" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="58" x2={isRight ? 76 : 24} y2="72" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="100" x2="30" y2="152" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="100" x2="70" y2="152" stroke={textColor} strokeWidth="9" strokeOpacity="0.18" strokeDasharray={dash} strokeDashoffset={offset} />
-          {/* Core layer */}
-          <circle cx="50" cy="28" r="16" fill="none" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="46" x2="50" y2="100" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="58" x2={isRight ? 24 : 76} y2="78" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="58" x2={isRight ? 76 : 24} y2="72" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="100" x2="30" y2="152" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-          <line x1="50" y1="100" x2="70" y2="152" stroke={textColor} strokeWidth="5" strokeDasharray={dash} strokeDashoffset={offset} />
-        </g>
-      </svg>
-    );
-  }
+ function Stickman({ isRight, seed }: { isRight: boolean; seed: number }) {
+  const frame = useCurrentFrame();
+  const waveSpeed = 0.13; // speed of waving
+  const waveAmplitude = 16; // vertical swing amplitude
+  const phaseOffset = isRight ? 0.9 : 0;
+
+  const wave = Math.sin(frame * waveSpeed + phaseOffset);
+
+  const headY = 28;
+  const bodyStartY = 46;
+  const bodyEndY = 100;
+
+  // Swapped waving arm coordinates
+  const wavingBaseX = isRight ? 24 : 76; // left arm for right stickman, right arm for left stickman
+  const wavingBaseY = 72;
+
+  const wavingArmEndX = wavingBaseX + wave * (isRight ? -10 : 10); // horizontal swing
+  const wavingArmEndY = wavingBaseY - Math.abs(wave) * waveAmplitude - 6;
+
+  // Static arm coordinates
+  const staticArmEndX = isRight ? 76 : 24; 
+  const staticArmEndY = 78;
+
+  return (
+    <svg viewBox="0 0 100 160" style={{ width: "36%", maxWidth: 240, height: "auto" }} fill="none">
+      <defs>
+        <filter id={`inkFig${seed}`} x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
+          <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+
+      <g filter={`url(#inkFig${seed})`} strokeLinecap="round" strokeLinejoin="round">
+        {/* Bleed layer */}
+        <circle cx="50" cy={headY} r="16" fill="none" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+        <line x1="50" y1={bodyStartY} x2="50" y2={bodyEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+        <line x1="50" y1={58} x2={staticArmEndX} y2={staticArmEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+        <line x1="50" y1={58} x2={wavingArmEndX} y2={wavingArmEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+
+        <line x1="50" y1={bodyEndY} x2="30" y2="152" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+        <line x1="50" y1={bodyEndY} x2="70" y2="152" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+
+        {/* Core layer */}
+        <circle cx="50" cy={headY} r="16" fill="none" stroke={textColor} strokeWidth={5} />
+        <line x1="50" y1={bodyStartY} x2="50" y2={bodyEndY} stroke={textColor} strokeWidth={5} />
+        <line x1="50" y1={58} x2={staticArmEndX} y2={staticArmEndY} stroke={textColor} strokeWidth={5} />
+        <line x1="50" y1={58} x2={wavingArmEndX} y2={wavingArmEndY} stroke={textColor} strokeWidth={5} />
+
+        <line x1="50" y1={bodyEndY} x2="30" y2="152" stroke={textColor} strokeWidth={5} />
+        <line x1="50" y1={bodyEndY} x2="70" y2="152" stroke={textColor} strokeWidth={5} />
+
+        {/* Waving hand dot */}
+        <circle cx={wavingArmEndX} cy={wavingArmEndY} r={4} fill={textColor} opacity={0.55} />
+      </g>
+    </svg>
+  );
+}
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
@@ -291,7 +396,10 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={0}
             />
-            <Stickman isRight={false} seed={2} />
+           <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+              <FloatingLetters isRight={false} textColor={textColor} />
+              <Stickman isRight={false} seed={2} />
+            </div>
           </div>
 
           {/* VS label */}
@@ -337,7 +445,10 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={1}
             />
-            <Stickman isRight seed={6} />
+            <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+              <FloatingLetters isRight={true} textColor={textColor} />
+              <Stickman isRight={true} seed={2} />
+            </div>
           </div>
         </div>
       </div>
