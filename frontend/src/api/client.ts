@@ -70,6 +70,7 @@ export interface Scene {
   order: number;
   title: string;
   narration_text: string;
+  display_text?: string | null;
   visual_description: string;
   remotion_code: string | null;
   voiceover_path: string | null;
@@ -111,8 +112,10 @@ export interface Project {
   logo_r2_url: string | null;
   logo_position: string;
   logo_opacity: number;
+  logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  video_style?: string;
   ai_assisted_editing_count?: number;
   created_at: string;
   updated_at: string;
@@ -265,11 +268,12 @@ export interface TemplateMeta {
   id: string;
   name: string;
   description: string;
+  styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
   preview_colors?: { accent: string; bg: string; text: string };
 }
 
-export const getTemplates = () =>
-  api.get<TemplateMeta[]>("/templates");
+export const getTemplates = (style?: string) =>
+  api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
 
 export interface VoicePreview {
   voice_id: string;
@@ -296,7 +300,8 @@ export const createProject = (
   logo_opacity?: number,
   custom_voice_id?: string,
   aspect_ratio?: string,
-  template?: string
+  template?: string,
+  video_style?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -312,7 +317,51 @@ export const createProject = (
     custom_voice_id,
     aspect_ratio,
     template,
+    video_style,
   });
+
+/** One project config for bulk create (same shape as single create). */
+export interface BulkProjectItem {
+  blog_url: string;
+  name?: string;
+  template?: string;
+  video_style?: string;
+  voice_gender?: string;
+  voice_accent?: string;
+  accent_color?: string;
+  bg_color?: string;
+  text_color?: string;
+  animation_instructions?: string;
+  logo_position?: string;
+  logo_opacity?: number;
+  custom_voice_id?: string;
+  aspect_ratio?: string;
+}
+
+export interface BulkCreateResponse {
+  project_ids: number[];
+}
+
+/** Per-project logos: indices into the projects array and corresponding files. */
+export interface BulkLogoOptions {
+  logoIndices: number[];
+  logoFiles: File[];
+}
+
+export const createProjectsBulk = (
+  projects: BulkProjectItem[],
+  logoOptions?: BulkLogoOptions | null
+) => {
+  const formData = new FormData();
+  formData.append("projects", JSON.stringify(projects));
+  if (logoOptions && logoOptions.logoIndices.length > 0 && logoOptions.logoFiles.length === logoOptions.logoIndices.length) {
+    formData.append("logo_indices", JSON.stringify(logoOptions.logoIndices));
+    logoOptions.logoFiles.forEach((f) => formData.append("logos", f));
+  }
+  return api.post<BulkCreateResponse>("/projects/bulk", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const createProjectFromDocs = (
   files: File[],
@@ -329,6 +378,7 @@ export const createProjectFromDocs = (
     custom_voice_id?: string;
     aspect_ratio?: string;
     template?: string;
+    video_style?: string;
   } = {}
 ) => {
   const formData = new FormData();
@@ -347,6 +397,7 @@ export const createProjectFromDocs = (
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
   if (config.template) formData.append("template", config.template);
+  if (config.video_style) formData.append("video_style", config.video_style);
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -369,6 +420,17 @@ export const uploadLogo = (projectId: number, file: File) => {
     { headers: { "Content-Type": "multipart/form-data" } }
   );
 };
+
+export interface ProjectLogoUpdate {
+  logo_position?: string;
+  logo_size?: number;
+  logo_opacity?: number;
+}
+
+export const updateProjectLogo = (
+  projectId: number,
+  data: ProjectLogoUpdate
+) => api.patch<Project>(`/projects/${projectId}`, data);
 
 export const listProjects = () =>
   api.get<ProjectListItem[]>("/projects");
@@ -432,9 +494,23 @@ export const updateSceneImage = (
   );
 };
 
+export interface GenerateSceneImageResponse {
+  image_base64: string;
+  refined_prompt: string;
+}
+
+export const generateSceneImage = (
+  projectId: number,
+  sceneId: number
+) =>
+  api.post<GenerateSceneImageResponse>(
+    `/projects/${projectId}/scenes/${sceneId}/generate-image`
+  );
+
 export interface LayoutInfo {
   layouts: string[];
   layout_names: Record<string, string>;
+  layouts_without_image?: string[];
 }
 
 export const getValidLayouts = (projectId: number) =>
@@ -481,8 +557,14 @@ export const regenerateScene = (
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
-export const renderVideo = (id: number, resolution: string = "1080p") =>
-  api.post(`/projects/${id}/render?resolution=${resolution}`);
+export const renderVideo = (
+  id: number,
+  resolution: string = "1080p",
+  forceReRender = false
+) =>
+  api.post(
+    `/projects/${id}/render?resolution=${resolution}&force_render=${forceReRender}`
+  );
 
 export interface RenderStatus {
   progress: number;

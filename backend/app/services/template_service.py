@@ -46,14 +46,21 @@ def _load_prompt(template_id: str) -> str:
 # ─── Public API ─────────────────────────────────────────────────────
 
 
-def list_templates() -> list[dict[str, Any]]:
-    """Return list of all templates (meta for each)."""
+def list_templates(video_style: str | None = None) -> list[dict[str, Any]]:
+    """Return list of all templates (meta for each).
+    If video_style is set, only return templates that support that style (meta.styles contains it).
+    Templates without a 'styles' key are treated as supporting all styles."""
     registry = _load_registry()
     result = []
     for tid in registry:
         meta = _load_meta(tid)
-        if meta:
-            result.append(meta)
+        if not meta:
+            continue
+        styles = meta.get("styles")
+        if video_style and styles is not None and isinstance(styles, list):
+            if video_style.strip().lower() not in [s.strip().lower() for s in styles if isinstance(s, str)]:
+                continue
+        result.append(meta)
     return result
 
 
@@ -73,6 +80,15 @@ def get_valid_layouts(template_id: str) -> set[str]:
     if not meta:
         return set()
     layouts = meta.get("valid_layouts", [])
+    return set(layouts) if isinstance(layouts, list) else set()
+
+
+def get_layouts_without_image(template_id: str) -> set[str]:
+    """Get the set of layout IDs that do not support/display images for a template."""
+    meta = _load_meta(template_id)
+    if not meta:
+        return set()
+    layouts = meta.get("layouts_without_image", [])
     return set(layouts) if isinstance(layouts, list) else set()
 
 
@@ -98,14 +114,6 @@ def get_composition_id(template_id: str) -> str:
     if not meta:
         return "DefaultVideo"
     return meta.get("composition_id", "DefaultVideo")
-
-
-def get_image_layout(template_id: str) -> str | None:
-    """Get the layout ID for image-heavy scenes (blog images). None = no override."""
-    meta = _load_meta(template_id)
-    if not meta:
-        return None
-    return meta.get("image_layout")
 
 
 def get_preview_colors(template_id: str) -> dict[str, str] | None:

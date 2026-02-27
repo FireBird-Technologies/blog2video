@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const BulletList: React.FC<SceneLayoutProps> = ({
@@ -12,9 +12,15 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 20], [0, 1], {
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
 
@@ -43,7 +49,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 30 : 40),
+          fontSize: titleFontSize ?? (p ? 36 : 48),
           fontWeight: 700,
           fontFamily: "Inter, sans-serif",
           opacity: titleOp,
@@ -56,11 +62,16 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
       </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: p ? 16 : 20 }}>
         {bullets.map((b, i) => {
-          const delay = 20 + i * 12;
-          const op = interpolate(frame, [delay, delay + 15], [0, 1], {
+          const delay = 18 + i * 10;
+          const itemSpring = spring({
+            frame: frame - delay,
+            fps,
+            config: { damping: 18, stiffness: 120, mass: 1 },
+          });
+          const op = interpolate(itemSpring, [0, 1], [0, 1], {
             extrapolateRight: "clamp",
           });
-          const x = interpolate(frame, [delay, delay + 15], [-40, 0], {
+          const x = interpolate(itemSpring, [0, 1], [-40, 0], {
             extrapolateRight: "clamp",
           });
           return (
@@ -101,7 +112,7 @@ export const BulletList: React.FC<SceneLayoutProps> = ({
               <span
                 style={{
                   color: textColor,
-                  fontSize: descriptionFontSize ?? (p ? 18 : 22),
+                  fontSize: descriptionFontSize ?? (p ? 22 : 26),
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 500,
                   lineHeight: 1.4,

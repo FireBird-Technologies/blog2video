@@ -2,6 +2,7 @@
   "id": "default",
   "name": "Geometric Explainer",
   "description": "Modern tech-explainer with code blocks, animated metrics, flow diagrams, and bullet lists. Clean geometric aesthetic ideal for technical content.",
+  "styles": ["explainer", "storytelling"],
   "preview_colors": {
     "accent": "#7C3AED",
     "bg": "#FFFFFF",
@@ -10,7 +11,6 @@
   "composition_id": "DefaultVideo",
   "hero_layout": "hero_image",
   "fallback_layout": "text_narration",
-  "image_layout": "image_caption",
   "valid_layouts": [
     "hero_image",
     "text_narration",
@@ -21,6 +21,16 @@
     "metric",
     "quote_callout",
     "image_caption",
+    "timeline"
+  ],
+  "layouts_without_image": [
+    "text_narration",
+    "code_block",
+    "bullet_list",
+    "flow_diagram",
+    "comparison",
+    "metric",
+    "quote_callout",
     "timeline"
   ]
 }

@@ -5,6 +5,7 @@ interface LogoOverlayProps {
   src: string;
   position?: string; // "top_left" | "top_right" | "bottom_left" | "bottom_right"
   maxOpacity?: number; // 0.0 - 1.0 (default 0.9)
+  size?: number; // percentage, e.g. 100 = 100%
   aspectRatio?: string; // "landscape" | "portrait"
 }
 
@@ -16,6 +17,7 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
   src,
   position = "bottom_right",
   maxOpacity = 0.9,
+  size: sizePercent = 100,
   aspectRatio = "landscape",
 }) => {
   const frame = useCurrentFrame();
@@ -26,9 +28,11 @@ export const LogoOverlay: React.FC<LogoOverlayProps> = ({
     extrapolateRight: "clamp",
   });
 
-  const size = isPortrait
+  const percent = typeof sizePercent === "number" && sizePercent > 0 ? sizePercent : 100;
+  const baseSize = isPortrait
     ? Math.round(width * 0.12)
     : Math.round(width * 0.105);
+  const size = Math.round(baseSize * (percent / 100));
 
   const margin = isPortrait
     ? Math.round(width * 0.032)

@@ -4,14 +4,13 @@ import type { NightfallLayoutProps } from "../types";
 
 /**
  * CinematicTitle — Enhanced Professional Version
- * 
+ *
  * Improvements:
  * - Layered title reveal with mask animation
  * - Particle-like accent elements
  * - Dynamic subtitle tracking
- * - Professional kerning and typography
- * - Cinematic build-up timing
- * - Optional company/brand lockup area
+ * - Cinematic build-up: intro text first (0–70), then hero image reveals (70+)
+ * - Image appears AFTER intro text with lighter overlay so it's visible
  */
 
 export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
@@ -22,10 +21,25 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+
+  // Image appears AFTER intro text (frames 70–110) — full-bleed, visible
+  const imageOpacity = interpolate(
+    frame,
+    [70, 110],
+    [0, 1],
+    { extrapolateRight: "clamp" }
+  );
+  const imageScale = interpolate(
+    frame,
+    [70, 150],
+    [1.05, 1],
+    { extrapolateRight: "clamp" }
+  );
 
   // Title animations with spring
   const titleY = spring({
@@ -87,7 +101,45 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
+
+      {/* ── Background: dark first, then image reveals after intro ── */}
       <DarkBackground />
+
+      {/* ── Hero image: appears AFTER intro text (frame 70+), full-bleed with lighter overlay ── */}
+      {imageUrl && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              transformOrigin: "center center",
+            }}
+          >
+            <img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+          {/* Lighter overlay — image stays prominent (lower = more image visibility) */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at center, rgba(10,10,26,0.25) 0%, rgba(10,10,26,0.55) 100%)",
+              opacity: imageOpacity,
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
 
       {/* Accent Particles */}
       {particles.map((particle, i) => {
@@ -119,6 +171,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               transform: `scale(${particleScale})`,
               boxShadow: `0 0 20px ${accentColor}`,
               filter: "blur(1px)",
+              zIndex: 2,
             }}
           />
         );
@@ -134,10 +187,11 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: p ? 60 : 120,
+          zIndex: 2,
         }}
       >
 
-        {/* Title — bright white text, background unchanged (DarkBackground) */}
+        {/* Title — bright white text */}
         <h1
           style={{
             fontSize: titleFontSize ?? (p ? 88 : 140),
@@ -155,7 +209,6 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         >
           {title}
         </h1>
-
 
         {/* Decorative Strip */}
         <div
@@ -192,7 +245,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           />
         </div>
 
-        {/* Subtitle/Narration — bright white */}
+        {/* Subtitle/Narration */}
         {narration && (
           <p
             style={{
@@ -214,7 +267,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         )}
       </div>
 
-      {/* Bottom accent line (optional brand lockup area) */}
+      {/* Bottom accent line */}
       <div
         style={{
           position: "absolute",

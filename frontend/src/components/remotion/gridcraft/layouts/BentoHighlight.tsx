@@ -34,6 +34,10 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
 
   const hasImage = !!imageUrl;
 
+  // Facts text size follows display/description text size
+  const factFontSize = descriptionFontSize ?? 16;
+  const factLabelSize = Math.round(factFontSize * 0.6);
+
   return (
     <div
       style={{
@@ -92,7 +96,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             Main Point
           </div>
           <div style={{
-            fontSize: titleFontSize ?? 32,
+            fontSize: titleFontSize ?? 38,
             fontWeight: 700,
             lineHeight: 1.3,
             color: textColor || COLORS.DARK,
@@ -101,7 +105,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             {primaryText}
           </div>
           {subtitle && (
-            <div style={{ fontSize: descriptionFontSize ?? 18, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
+            <div style={{ fontSize: descriptionFontSize ?? 22, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
           )}
         </div>
       </div>
@@ -124,10 +128,10 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
                  transform: `scale(${s})`,
                  opacity: o,
              }}>
-                 <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase" }}>
+                 <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase" }}>
                      Fact {i + 1}
                  </div>
-                 <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4 }}>
+                 <div style={{ fontSize: factFontSize, fontWeight: 600, lineHeight: 1.4 }}>
                      {fact}
                  </div>
              </div>

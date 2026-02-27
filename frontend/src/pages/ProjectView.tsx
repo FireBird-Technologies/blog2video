@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
   startGeneration,
@@ -15,12 +15,16 @@ import {
   reorderScenes,
   updateScene,
   updateSceneImage,
+  generateSceneImage,
   deleteAsset,
+  getValidLayouts,
+  updateProjectLogo,
   Project,
   Scene,
   BACKEND_URL,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
@@ -274,7 +278,20 @@ export default function ProjectView() {
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
   const [activeTab, setActiveTab] = useState<Tab>("script");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const { showError } = useErrorModal();
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
+  const [logoSize, setLogoSize] = useState<number>(100);
+  const [logoOpacity, setLogoOpacity] = useState<number>(0.9);
+
+  useEffect(() => {
+    if (project) {
+      setLogoPosition(project.logo_position || "bottom_right");
+      setLogoSize(typeof project.logo_size === "number" ? project.logo_size : 100);
+      setLogoOpacity(project.logo_opacity ?? 0.9);
+    }
+  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity]);
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
@@ -332,6 +349,9 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showDownloadWarning, setShowDownloadWarning] = useState(false);
+  const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
+  const [showReRenderWarning, setShowReRenderWarning] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
@@ -342,6 +362,15 @@ export default function ProjectView() {
   const [reorderSaving, setReorderSaving] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
+  const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
+  const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [generateImageError, setGenerateImageError] = useState<string | null>(null);
+  const [generateErrorSceneId, setGenerateErrorSceneId] = useState<number | null>(null);
+  const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
+  const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -426,13 +455,17 @@ export default function ProjectView() {
     try {
       const res = await getProject(projectId);
       setProject(res.data);
-      setError(null); // clear any previous load errors on success
+      setHasError(false); // clear any previous load errors on success
       if (res.data.status === "done") {
         setRendered(true);
       }
+      // Fetch layout image-support info (non-blocking)
+      getValidLayouts(projectId).then((lr) => {
+        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+      }).catch(() => {/* ignore */});
       return res.data;
     } catch {
-      setError("Failed to load project");
+      showError("Failed to load project"); setHasError(true);
       return null;
     } finally {
       setLoading(false);
@@ -460,7 +493,7 @@ export default function ProjectView() {
         generationStarted.current = true;
         setPipelineRunning(true);
         setPipelineStep(1); // "Uploading" step
-        setError(null);
+        setHasError(false);
         try {
           await uploadProjectDocuments(projectId, pendingFiles);
           // Reload project (status is now SCRAPED)
@@ -469,9 +502,7 @@ export default function ProjectView() {
           await startGeneration(projectId);
           startPolling();
         } catch (err: any) {
-          setError(
-            err?.response?.data?.detail || "Failed to upload documents."
-          );
+          showError(getErrorMessage(err, "Failed to upload documents.")); setHasError(true);
           setPipelineRunning(false);
         }
         return;
@@ -495,15 +526,13 @@ export default function ProjectView() {
   const kickOffGeneration = async () => {
     setPipelineRunning(true);
     setPipelineStep(0);
-    setError(null);
+    setHasError(false);
 
     try {
       await startGeneration(projectId);
       startPolling();
     } catch (err: any) {
-      setError(
-        err?.response?.data?.detail || "Failed to start generation."
-      );
+      showError(getErrorMessage(err, "Failed to start generation. Please try again or contact support, if the issue persist.")); setHasError(true);
       setPipelineRunning(false);
     }
   };
@@ -518,7 +547,10 @@ export default function ProjectView() {
         setPipelineStep(step);
 
         if (pipelineError) {
-          setError(pipelineError);
+          // Log the detailed pipeline error, but show a friendly, generic message to the user.
+          console.error("Pipeline error while generating video:", pipelineError);
+          showError(DEFAULT_ERROR_MESSAGE);
+          setHasError(true);
           setPipelineRunning(false);
           stopPolling();
           await loadProject();
@@ -573,9 +605,9 @@ export default function ProjectView() {
   // Resolution is always 1080p
   const RENDER_RESOLUTION = "1080p";
 
-  const handleRender = async () => {
-    // If already rendered and available in R2, skip straight to download
-    if (project?.r2_video_url) {
+  const handleRender = async (forceReRender = false) => {
+    // If already rendered and available in R2, skip straight to download (unless forcing re-render)
+    if (!forceReRender && project?.r2_video_url) {
       setRendered(true);
       setRendering(false);
       return;
@@ -586,19 +618,17 @@ export default function ProjectView() {
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
     setRenderTimeLeft(null);
-    setError(null);
+    setHasError(false);
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
 
     const startRenderAndPoll = async (res: string) => {
       try {
-        await renderVideo(projectId, res);
+        await renderVideo(projectId, res, forceReRender);
       } catch (err: any) {
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
-          setError(
-            err?.response?.data?.detail || "Render failed after multiple attempts."
-          );
+          showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
           setRendering(false);
           return;
         }
@@ -640,7 +670,7 @@ export default function ProjectView() {
               await new Promise((r) => setTimeout(r, 3000));
               startRenderAndPoll(res);
             } else {
-              setError(`${renderErr} (after ${MAX_RENDER_RETRIES} retries)`);
+              showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
               setRendering(false);
               stopRenderPolling();
             }
@@ -661,14 +691,20 @@ export default function ProjectView() {
             setRendering(false);
             setSaving(true);
 
-            // Stay on saving screen until Cloudflare R2 confirms the video URL
+            // Stay on saving screen until backend reports done AND project has updated URL.
+            // (On re-render, project already has an old r2_video_url — we must wait for
+            // render-status.done so we don't show preview with stale video.)
             const maxWait = 120; // max 120 attempts (~240s)
             for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
-              const fresh = await loadProject();
-              if (fresh?.r2_video_url) break;
-              // Local-only fallback (no R2 configured)
-              if (fresh?.status === "done" && !fresh?.r2_video_url && i >= 2) break;
+              const [statusRes, fresh] = await Promise.all([
+                getRenderStatus(projectId),
+                loadProject(),
+              ]);
+              const renderDone = statusRes?.data?.done === true && !statusRes?.data?.error;
+              const hasVideoUrl = Boolean(fresh?.r2_video_url);
+              const localDone = fresh?.status === "done" && !fresh?.r2_video_url && i >= 2;
+              if (renderDone && (hasVideoUrl || localDone)) break;
             }
 
             // Transition: saving → done (green download button + auto-download)
@@ -696,7 +732,7 @@ export default function ProjectView() {
   const handleDownload = async () => {
     if (!project) return;
     setDownloading(true);
-    setError(null);
+    setHasError(false);
     const safeName =
       project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
 
@@ -717,7 +753,7 @@ export default function ProjectView() {
           await loadProject();
           continue;
         }
-        setError(err?.response?.data?.detail || "Download failed.");
+        showError(getErrorMessage(err, "Download failed. try again or contact support if the issue persist.")); setHasError(true);
         break;
       }
     }
@@ -727,7 +763,7 @@ export default function ProjectView() {
   const handleOpenStudio = async () => {
     if (!project) return;
     setDownloadingStudio(true);
-    setError(null);
+    setHasError(false);
     try {
       const res = await launchStudio(projectId);
       const url = res.data.studio_url;
@@ -738,7 +774,7 @@ export default function ProjectView() {
       if (err?.response?.status === 403) {
         setShowUpgrade(true);
       } else {
-        setError(err?.response?.data?.detail || "Failed to launch Studio.");
+        showError(getErrorMessage(err, "Failed to launch Studio.")); setHasError(true);
       }
     } finally {
       setDownloadingStudio(false);
@@ -756,7 +792,7 @@ export default function ProjectView() {
       if (err?.response?.status === 403) {
         setShowUpgrade(true);
       } else {
-        setError(err?.response?.data?.detail || "Studio download failed.");
+        showError(getErrorMessage(err, "Studio download failed.")); setHasError(true);
       }
     } finally {
       setDownloadingStudio(false);
@@ -814,7 +850,15 @@ export default function ProjectView() {
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
-  const activeImageAssets = imageAssets.filter((a) => !a.excluded);
+  const activeImageAssets = imageAssets
+    .filter((a) => !a.excluded)
+    .slice()
+    .sort((a, b) => {
+      const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (ad !== bd) return ad - bd;
+      return (a.id ?? 0) - (b.id ?? 0);
+    });
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -855,22 +899,22 @@ export default function ProjectView() {
       if (assignedImage && filenameToAsset.has(assignedImage)) {
         const m = assignedImage.match(/^scene_(\d+)_/);
         if (m) {
-          // Scene-specific assignment must match current scene id
+          // Scene-specific assignment must match current scene id (one image per scene)
           const assignedSceneId = parseInt(m[1], 10);
           if (assignedSceneId === scene.id) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         } else {
-          // Generic assignment: enforce 1 generic -> 1 scene
+          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
           if (!usedGenericFiles.has(assignedImage)) {
             const asset = filenameToAsset.get(assignedImage)!;
             const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx].push(url);
-            sceneImageAssetsMap[idx].push({ url, asset });
+            sceneImageMap[idx] = [url];
+            sceneImageAssetsMap[idx] = [{ url, asset }];
             usedGenericFiles.add(assignedImage);
           }
         }
@@ -906,21 +950,19 @@ export default function ProjectView() {
     }
 
     // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
-    // IMPORTANT: Skip scenes with hideImage=true (user explicitly removed image)
+    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
     let genericIdx = 0;
-    for (let sceneIdx = 0; sceneIdx < project.scenes.length && genericIdx < genericAssets.length; sceneIdx++) {
-      if (sceneImageMap[sceneIdx].length === 0 && !hideImageFlags[sceneIdx]) {
+    for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+      if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
+      while (genericIdx < genericAssets.length) {
         const candidate = genericAssets[genericIdx];
-        // Skip if already used in first pass
-        if (usedGenericFiles.has(candidate.filename)) {
-          genericIdx++;
-          continue;
-        }
-        const url = resolveAssetUrl(candidate, project.id);
-        sceneImageMap[sceneIdx].push(url);
-        sceneImageAssetsMap[sceneIdx].push({ url, asset: candidate });
-        usedGenericFiles.add(candidate.filename);
         genericIdx++;
+        if (usedGenericFiles.has(candidate.filename)) continue;
+        const url = resolveAssetUrl(candidate, project.id);
+        sceneImageMap[sceneIdx] = [url];
+        sceneImageAssetsMap[sceneIdx] = [{ url, asset: candidate }];
+        usedGenericFiles.add(candidate.filename);
+        break;
       }
     }
   }
@@ -942,6 +984,85 @@ export default function ProjectView() {
       await loadProject();
     } finally {
       setUploadingSceneId(null);
+    }
+  };
+
+  const handleGenerateSceneImageClick = (sceneId: number) => {
+    if (!isPro) {
+      setShowAiImageUpgradeModal(true);
+      return;
+    }
+    handleGenerateSceneImage(sceneId);
+  };
+
+  const handleGenerateSceneImage = async (sceneId: number) => {
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
+    setGeneratingImageSceneId(sceneId);
+    try {
+      const res = await generateSceneImage(project.id, sceneId);
+      setGeneratedImageBase64(res.data.image_base64);
+      setGeneratedPrompt(res.data.refined_prompt);
+      setGeneratedImageSceneId(sceneId);
+    } catch (err: unknown) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : 0;
+      if (status === 403) {
+        setShowAiImageUpgradeModal(true);
+      } else {
+        const msg =
+          err && typeof err === "object" && "response" in err
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+            : "Image generation failed";
+        setGenerateImageError(String(msg));
+        setGenerateErrorSceneId(sceneId);
+      }
+      setGeneratedImageSceneId(null);
+    } finally {
+      setGeneratingImageSceneId(null);
+    }
+  };
+
+  const handleKeepGeneratedSceneImage = (sceneId: number) => {
+    if (!generatedImageBase64) return;
+    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    fetch(dataUrl)
+      .then((r) => r.blob())
+      .then((blob) => new File([blob], "generated.png", { type: "image/png" }))
+      .then((file) => {
+        setGeneratedImageBase64(null);
+        setGeneratedPrompt(null);
+        setGenerateImageError(null);
+        setGenerateErrorSceneId(null);
+        setGeneratedImageSceneId(null);
+        handleAddSceneImage(sceneId, file);
+      })
+      .catch(() => setGenerateImageError("Failed to use generated image"));
+  };
+
+  const handleDiscardGeneratedSceneImage = () => {
+    setGeneratedImageBase64(null);
+    setGeneratedPrompt(null);
+    setGenerateImageError(null);
+    setGenerateErrorSceneId(null);
+    setGeneratedImageSceneId(null);
+  };
+
+  const handleSaveLogo = async () => {
+    if (!project) return;
+    setLogoSaving(true);
+    try {
+      await updateProjectLogo(project.id, {
+        logo_position: logoPosition,
+        logo_size: logoSize,
+        logo_opacity: logoOpacity,
+      });
+      await loadProject();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to save logo settings."));
+    } finally {
+      setLogoSaving(false);
     }
   };
 
@@ -1046,9 +1167,8 @@ export default function ProjectView() {
             </span>
           </div>
 
-          {error && (
+          {hasError && (
             <div className="mt-6">
-              <p className="text-xs text-red-500 mb-3">{error}</p>
               <button
                 onClick={kickOffGeneration}
                 className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1124,9 +1244,8 @@ export default function ProjectView() {
                 Feel free to browse other tabs — just don't close this one.
               </p>
 
-              {error && (
+              {hasError && (
                 <div className="mt-4">
-                  <p className="text-xs text-red-500 mb-3">{error}</p>
                   <button
                     onClick={() => handleRender()}
                     className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1254,9 +1373,13 @@ export default function ProjectView() {
                 {/* Download MP4 */}
                 {!rendered ? (
                   <button
-                    onClick={() => { setError(null); handleRender(); }}
+                    onClick={() => {
+                      setHasError(false);
+                      setDownloadWarningMode("render");
+                      setShowDownloadWarning(true);
+                    }}
                     className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                      error
+                      hasError
                         ? "bg-orange-500 hover:bg-orange-600"
                         : "bg-purple-600 hover:bg-purple-700"
                     }`}
@@ -1271,19 +1394,22 @@ export default function ProjectView() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d={error
+                        d={hasError
                           ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                           : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                         }
                       />
                     </svg>
-                    {error ? "Resume Download" : "Download MP4"}
+                    {hasError ? "Resume Download" : "Download MP4"}
                   </button>
                 ) : (
                   <>
                     {/* Download MP4 */}
                     <button
-                      onClick={handleDownload}
+                      onClick={() => {
+                        setDownloadWarningMode("download");
+                        setShowDownloadWarning(true);
+                      }}
                       disabled={downloading}
                       className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
@@ -1302,6 +1428,18 @@ export default function ProjectView() {
                       )}
                     </button>
 
+                    {/* Re-render — re-create video with latest changes (deducts video count) */}
+                    <button
+                      onClick={() => setShowReRenderWarning(true)}
+                      disabled={rendering}
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Re-render
+                    </button>
+
                     {/* Share button — inline next to Download */}
                     {project.r2_video_url && (
                       <div className="relative" ref={shareAnchorRef}>
@@ -1315,43 +1453,6 @@ export default function ProjectView() {
                           Share
                         </button>
 
-                        {showShareMenu && (
-                          <>
-                            <div className="fixed inset-0 z-[100]" onClick={() => setShowShareMenu(false)} />
-                            <div className="absolute right-0 top-full mt-2 z-[110] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex flex-col gap-2.5">
-                              {/* TikTok */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-                                title="Copy link for TikTok"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-                                </svg>
-                              </button>
-                              {/* YouTube */}
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-                                title="Copy link for YouTube"
-                              >
-                                <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                                </svg>
-                              </button>
-                              {/* Facebook */}
-                              <button
-                                onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-                                className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-                                title="Share on Facebook"
-                              >
-                                <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -1362,13 +1463,20 @@ export default function ProjectView() {
             {/* Video player area + Chat */}
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
-              <div className="flex-1 flex flex-col min-w-0 bg-black/[0.02]">
+              <div className="flex-1 flex flex-col min-w-0 min-h-0">
                 {project.scenes.length > 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
-                    <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg border border-gray-200/40">
+                  <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    <div
+                      className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
+                      style={
+                        project.aspect_ratio === "portrait"
+                          ? { minHeight: "70vh" }
+                          : undefined
+                      }
+                    >
                       <VideoPreview project={project} />
                     </div>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-[11px] text-gray-400 flex-shrink-0">
                       Live preview · {project.scenes.length} scenes
                       {totalAudioDuration > 0 &&
                         ` · ${Math.round(totalAudioDuration)}s`}
@@ -1412,6 +1520,80 @@ export default function ProjectView() {
         projectId={projectId}
         onPurchased={() => loadProject()}
       />
+
+      {/* Download warning — show before starting download when video is already rendered */}
+      {showDownloadWarning && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              {downloadWarningMode === "download"
+                ? "This link will download the video before changes applied (if any). To reflect the newest changes (if any), choose Re-render."
+                : "Changes made after rendering would require re-rendering of video, resulting in deduction of a video count."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDownloadWarning(false);
+                  if (downloadWarningMode === "render") {
+                    setHasError(false);
+                    handleRender();
+                  } else {
+                    handleDownload();
+                  }
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                {downloadWarningMode === "render" ? "Render & download" : "Download"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDownloadWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-render warning — deducts video count; continue only if user has new changes */}
+      {showReRenderWarning && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReRenderWarning(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will deduct your video count. Continue only if you have new changes in your video.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReRenderWarning(false);
+                  setHasError(false);
+                  handleRender(true);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Re-render
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReRenderWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
       {showShareMenu && project?.r2_video_url && (
@@ -1493,7 +1675,7 @@ export default function ProjectView() {
             </div>
 
             <div className="flex items-center gap-2">
-              {error && (
+              {hasError && (
                 <button
                   onClick={kickOffGeneration}
                   className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
@@ -1503,10 +1685,6 @@ export default function ProjectView() {
               )}
             </div>
           </div>
-
-          {error && (
-            <p className="mt-3 text-xs text-red-500">{error}</p>
-          )}
         </div>
       )}
 
@@ -1719,11 +1897,12 @@ export default function ProjectView() {
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                     Display text
                                   </h4>
                                   <p className="text-sm text-gray-700 leading-relaxed">
-                                    {scene.narration_text || (
+                                    {/* Prefer dedicated display_text when available; otherwise fall back to narration_text */}
+                                    {(scene.display_text ?? scene.narration_text) || (
                                       <span className="italic text-gray-300">
                                         No narration
                                       </span>
@@ -1894,71 +2073,120 @@ export default function ProjectView() {
                                 )}
 
                                 {/* Scene images — same add/remove as manual edit in modal */}
-                                <div>
-                                  <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                                    Images ({(sceneImageAssetsMap[idx] || []).length})
-                                  </h4>
-                                  <div className="flex flex-wrap gap-2 items-start">
-                                    {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
-                                      <div
-                                        key={asset.id}
-                                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
-                                      >
-                                        <img
-                                          src={url}
-                                          alt=""
-                                          className="h-24 w-auto object-cover"
-                                          loading="lazy"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = "none";
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveSceneImage(asset.id)}
-                                          disabled={removingAssetId === asset.id}
-                                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
-                                        >
-                                          {removingAssetId === asset.id ? (
-                                            <span className="text-[10px]">…</span>
-                                          ) : (
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <label
-                                      className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
-                                        uploadingSceneId === scene.id
-                                          ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                          : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
-                                      }`}
-                                    >
-                                      <input
-                                        type="file"
-                                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                                        className="hidden"
-                                        disabled={uploadingSceneId === scene.id}
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) {
-                                            handleAddSceneImage(scene.id, file);
-                                            e.target.value = "";
-                                          }
-                                        }}
-                                      />
-                                      {uploadingSceneId === scene.id ? (
-                                        <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                {(() => {
+                                  const sceneLayout = (() => {
+                                    try {
+                                      return scene.remotion_code ? JSON.parse(scene.remotion_code).layout : null;
+                                    } catch { return null; }
+                                  })();
+                                  const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  return (
+                                    <div>
+                                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                        Images ({sceneSupportsImage ? (sceneImageAssetsMap[idx] || []).length : 0})
+                                      </h4>
+                                      {sceneSupportsImage ? (
+                                        <>
+                                        <div className="flex flex-wrap gap-2 items-start">
+                                          {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
+                                            <div
+                                              key={asset.id}
+                                              className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                                            >
+                                              <img
+                                                src={url}
+                                                alt=""
+                                                className="h-24 w-auto object-cover"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                  (e.target as HTMLImageElement).style.display = "none";
+                                                }}
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                disabled={removingAssetId === asset.id}
+                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                                              >
+                                                {removingAssetId === asset.id ? (
+                                                  <span className="text-[10px]">…</span>
+                                                ) : (
+                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                  </svg>
+                                                )}
+                                              </button>
+                                            </div>
+                                          ))}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleGenerateSceneImageClick(scene.id)}
+                                            disabled={
+                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
+                                                || generatingImageSceneId === scene.id
+                                            }
+                                            title={
+                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
+                                                ? "Add title or narration to generate an image"
+                                                : "Generate image with AI"
+                                            }
+                                            className="flex items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-amber-700 flex-shrink-0"
+                                          >
+                                            {generatingImageSceneId === scene.id ? (
+                                              <span className="text-xs">…</span>
+                                            ) : (
+                                              <>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                                </svg>
+                                                <span className="text-[10px] font-medium">AI</span>
+                                              </>
+                                            )}
+                                          </button>
+                                          <label
+                                            className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
+                                              uploadingSceneId === scene.id
+                                                ? "border-purple-300 bg-purple-50/50 cursor-wait"
+                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                            }`}
+                                          >
+                                            <input
+                                              type="file"
+                                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                                              className="hidden"
+                                              disabled={uploadingSceneId === scene.id}
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  handleAddSceneImage(scene.id, file);
+                                                  e.target.value = "";
+                                                }
+                                              }}
+                                            />
+                                            {uploadingSceneId === scene.id ? (
+                                              <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                              </svg>
+                                            )}
+                                          </label>
+                                        </div>
+                                        {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
+                                          <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
+                                        )}
+                                        {!(scene.title || "").trim() && !(scene.narration_text || "").trim() && (
+                                          <p className="text-xs text-gray-400 mt-1.5">Add title or narration to use AI image generation.</p>
+                                        )}
+                                        </>
                                       ) : (
-                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
+                                        <p className="text-xs text-gray-400 italic">
+                                          This layout does not support images. You can change the layout through AI assisted editing to an image supporting layout.
+                                        </p>
                                       )}
-                                    </label>
-                                  </div>
-                                </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
@@ -1980,50 +2208,126 @@ export default function ProjectView() {
                     onSaved={loadProject}
                   />
                 )}
+
+                {/* AI generated image preview modal */}
+                {generatedImageSceneId !== null && generatedImageBase64 && (
+                  <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={handleDiscardGeneratedSceneImage}
+                    />
+                    <div
+                      className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                        <h3 className="text-lg font-semibold text-gray-900">AI generated image</h3>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => generatedImageSceneId !== null && handleKeepGeneratedSceneImage(generatedImageSceneId)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                            title="Use this image"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDiscardGeneratedSceneImage}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                            title="Discard"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-auto p-4 flex flex-col items-center bg-gray-50 min-h-0">
+                        <img
+                          src={`data:image/png;base64,${generatedImageBase64}`}
+                          alt="AI generated"
+                          className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI image upgrade modal (scenes tab) */}
+                {showAiImageUpgradeModal && (
+                  <div className="fixed inset-0 z-[110] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro feature</h3>
+                      <p className="text-sm text-gray-600 mb-6">
+                        AI image generation is available on the Pro plan. Upgrade to unlock.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/pricing")}
+                          className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          Go to pricing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAiImageUpgradeModal(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                        >
+                          Maybe later
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
         {activeTab === "images" && (
-          <div>
-            {imageAssets.length === 0 ? (
-              <p className="text-center py-16 text-xs text-gray-400">
-                Images will appear here once scraped.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-baseline gap-4">
-                    <h2 className="text-base font-medium text-gray-900">
-                      Blog Images
-                    </h2>
-                    <span className="text-xs text-gray-400">
-                      {imageAssets.filter((a) => !a.excluded).length} active
-                      {imageAssets.some((a) => a.excluded) &&
-                        ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
-                    </span>
-                  </div>
-                  {!isPro && (
-                    <span className="text-[10px] text-gray-300 flex items-center gap-1">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                      Pro — exclude images
-                    </span>
-                  )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Blog Images section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-4">
+                  <h2 className="text-base font-medium text-gray-900">
+                    Blog Images
+                  </h2>
+                  <span className="text-xs text-gray-400">
+                    {imageAssets.filter((a) => !a.excluded).length} active
+                    {imageAssets.some((a) => a.excluded) &&
+                      ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
+                  </span>
                 </div>
-
+                {!isPro && (
+                  <span className="text-[10px] text-gray-300 flex items-center gap-1">
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Pro — exclude images
+                  </span>
+                )}
+              </div>
+              {imageAssets.length === 0 ? (
+                <p className="text-sm text-gray-400 py-8">
+                  Images will appear here once scraped.
+                </p>
+              ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {imageAssets.map((asset) => {
                     const url = resolveAssetUrl(asset, project.id);
@@ -2130,8 +2434,82 @@ export default function ProjectView() {
                     );
                   })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Logo section */}
+            <div className="space-y-4">
+              <h2 className="text-base font-medium text-gray-900">Logo</h2>
+              {project.logo_r2_url ? (
+                <div className="glass-card p-6 space-y-6">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Position</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "top_left", label: "Top left" },
+                        { value: "top_right", label: "Top right" },
+                        { value: "bottom_left", label: "Bottom left" },
+                        { value: "bottom_right", label: "Bottom right" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setLogoPosition(opt.value)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            logoPosition === opt.value
+                              ? "bg-purple-600 text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Opacity</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(logoOpacity * 100)}
+                        onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
+                        className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                      />
+                      <span className="text-xs font-medium text-purple-600 tabular-nums w-10 text-right">{Math.round(logoOpacity * 100)}%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Size</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={50}
+                        max={200}
+                        step={1}
+                        value={logoSize}
+                        onChange={(e) => setLogoSize(parseFloat(e.target.value))}
+                        className="w-64 h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                      />
+                      <span className="text-xs font-medium text-purple-600 tabular-nums w-10 text-right">{Math.round(logoSize)}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveLogo}
+                    disabled={logoSaving}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    {logoSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 py-4">
+                  Upload a logo in project creation to adjust position, opacity and size here.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -2180,6 +2558,7 @@ export default function ProjectView() {
             )}
           </div>
         )}
+
       </div>
     </div>
   );

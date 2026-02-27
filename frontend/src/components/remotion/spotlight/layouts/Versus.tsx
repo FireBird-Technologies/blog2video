@@ -117,7 +117,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 28 : 40),
+            fontSize: titleFontSize ?? (p ? 34 : 48),
             fontWeight: 900,
             color: "#000000",
             textAlign: "center",
@@ -131,7 +131,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         {displayLeftDesc && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 12 : 16),
+              fontSize: descriptionFontSize ?? (p ? 16 : 20),
               color: "#888888",
               marginTop: 12,
               textAlign: "center",
@@ -188,7 +188,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 28 : 40),
+            fontSize: titleFontSize ?? (p ? 34 : 48),
             fontWeight: 900,
             color: "#FFFFFF",
             textAlign: "center",
@@ -202,7 +202,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
         {displayRightDesc && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 12 : 16),
+              fontSize: descriptionFontSize ?? (p ? 16 : 20),
               color: "#666666",
               marginTop: 12,
               textAlign: "center",

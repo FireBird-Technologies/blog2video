@@ -145,7 +145,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 28 : 42),
+            fontSize: titleFontSize ?? (p ? 34 : 50),
             fontWeight: 700,
             color: textColor || "#FFFFFF",
             letterSpacing: "-0.02em",
@@ -162,7 +162,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         <div
           style={{
             marginTop: p ? 24 : 36,
-            fontSize: descriptionFontSize ?? (p ? 12 : 16),
+            fontSize: descriptionFontSize ?? (p ? 16 : 20),
             fontWeight: 300,
             color: "#666666",
             letterSpacing: "0.12em",
