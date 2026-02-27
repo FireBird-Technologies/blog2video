@@ -48,7 +48,7 @@ function FloatingLetters({
 }) {
   const frame = useCurrentFrame();
 
-  const emissionRate = 4; // lower = more letters
+  const emissionRate = 7; // lower = more letters
   const lifetime = 45; // frames each letter lives
 
   const letters = [];
@@ -72,13 +72,13 @@ function FloatingLetters({
     const xMove = interpolate(
       progress,
       [0, 1],
-      [0, isRight ? -160 : 160]
+      [0, isRight ? -200 : 160]
     );
 
     const yMove = interpolate(
       progress,
       [0, 1],
-      [0, -20 + randomYOffset]
+      [0, -25 + randomYOffset]
     );
 
     const opacity = interpolate(
@@ -113,8 +113,7 @@ function FloatingLetters({
   return <>{letters}</>;
 }
 
-// Estimates how many lines the thought text will wrap to inside the bubble,
-// so we can size the viewBox + foreignObject accordingly.
+// Estimates how many lines the thought text will wrap to inside the bubble
 function estimateBubbleHeight(text: string, fontSize: number, bubbleInnerW: number): number {
   const approxCharsPerLine = Math.floor(bubbleInnerW / (fontSize * 0.58));
   const words = text.split(" ");
@@ -129,7 +128,7 @@ function estimateBubbleHeight(text: string, fontSize: number, bubbleInnerW: numb
     }
   }
   const lineH = fontSize * 1.4;
-  const padding = 28; // top+bottom padding inside bubble
+  const padding = 28; 
   return Math.max(80, lines * lineH + padding);
 }
 
@@ -145,11 +144,16 @@ interface ThoughtBubbleProps {
 
 function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index }: ThoughtBubbleProps) {
   const fontSize = isPortrait ? 22 : 26;
-  const bubbleInnerW = 272; // viewBox units available for text (300 - 2*14)
+  const bubbleInnerW = 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
   const vbW = 300;
-  const vbH = contentH + 20; // +20 for tail
+  const vbH = contentH + 20; 
   const tailY = contentH + 4;
+  const frame = useCurrentFrame();
+  // Vertical floating
+  const floatY = Math.sin(frame * 0.05 + index) * 15; 
+  // Slight rotation wave
+  const waveRotation = Math.sin(frame * 0.04 + index) * 5;
 
   return (
     <div
@@ -159,6 +163,9 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
         marginBottom: 14,
         opacity: bubbleOp,
         position: "relative",
+        // Combine vertical translation and rotation
+        transform: `translateY(${floatY}px) rotate(${waveRotation}deg)`,
+        transformOrigin: "center bottom", // Makes the "wave" pivot from the tail area
       }}
     >
       <svg
@@ -173,19 +180,16 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
           </filter>
         </defs>
         <g filter={`url(#inkBubble${index})`}>
-          {/* Bleed layer */}
           <WobblyRect
             x={4} y={4} w={vbW - 8} h={contentH - 8} r={20}
             stroke={textColor} strokeWidth={7}
             fill="rgba(255,255,255,0.82)" opacity={0.22}
           />
-          {/* Core layer — animated draw */}
           <WobblyRect
             x={4} y={4} w={vbW - 8} h={contentH - 8} r={20}
             stroke={textColor} strokeWidth={3.5}
             fill="rgba(255,255,255,0.82)"
           />
-          {/* Tail */}
           <path
             d={`M${vbW / 2 - 14},${tailY} Q${vbW / 2},${tailY + 14} ${vbW / 2 + 2},${tailY + 18} Q${vbW / 2 + 16},${tailY + 14} ${vbW / 2 + 28},${tailY}`}
             fill="rgba(255,255,255,0.82)"
@@ -194,7 +198,6 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
             strokeLinejoin="round"
           />
         </g>
-        {/* Text rendered in foreignObject sized to match content */}
         <foreignObject x="14" y="12" width={bubbleInnerW} height={contentH - 8}>
           <div
             style={{
@@ -247,70 +250,92 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   const bubbleOp = interpolate(frame, [14, 30], [0, 1], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
 
-  // Stickman SVG — shared between both sides
- function Stickman({ isRight, seed }: { isRight: boolean; seed: number }) {
-  const frame = useCurrentFrame();
-  const waveSpeed = 0.13; // speed of waving
-  const waveAmplitude = 16; // vertical swing amplitude
-  const phaseOffset = isRight ? 0.9 : 0;
+  function Stickman({ isRight, seed }: { isRight: boolean; seed: number }) {
+    const frame = useCurrentFrame();
+    const t = frame * 0.05;
 
-  const wave = Math.sin(frame * waveSpeed + phaseOffset);
+    // 1. Human Physics Simulation
+    const breath = Math.sin(t * 1.2) * 1.5;
+    const jitter = (Math.sin(frame * 0.4) * 0.5);
 
-  const headY = 28;
-  const bodyStartY = 46;
-  const bodyEndY = 100;
+    // 2. Contrapposto (Weight Shift)
+    const weightShift = Math.sin(t * 0.8) * 4;
+    const hipX = 50 + weightShift;
+    const hipY = 105;
 
-  // Swapped waving arm coordinates
-  const wavingBaseX = isRight ? 24 : 76; // left arm for right stickman, right arm for left stickman
-  const wavingBaseY = 72;
+    // 3. Torso and Shoulder (Counter Lean)
+    const torsoAngle = (isRight ? -3 : 3) + Math.cos(t * 0.7) * 4;
+    const torsoRad = (torsoAngle * Math.PI) / 180;
+    const shoulderX = hipX + Math.sin(torsoRad) * 45;
+    const shoulderY = hipY - Math.cos(torsoRad) * 45 + breath;
 
-  const wavingArmEndX = wavingBaseX + wave * (isRight ? -10 : 10); // horizontal swing
-  const wavingArmEndY = wavingBaseY - Math.abs(wave) * waveAmplitude - 6;
+    // 4. Head (Bobbing, slightly offset)
+    const headTilt = Math.sin(t * 1.5) * 5;
+    const headRad = ((torsoAngle + headTilt) * Math.PI) / 180;
+    const headX = shoulderX + Math.sin(headRad) * 18;
+    const headY = shoulderY - Math.cos(headRad) * 18 + jitter;
 
-  // Static arm coordinates
-  const staticArmEndX = isRight ? 76 : 24; 
-  const staticArmEndY = 78;
+    // 5. MODIFIED thinking Arm (Pensive pose, scratching temple)
+    // Shift hand to the *side* of the head (temple) to prevent overlap
+    const handOffset = 18; // outward
+    const targetHandX = headX + (isRight ? handOffset : -handOffset);
+    const targetHandY = headY + 5 + Math.sin(t * 2) * 3;
+    
+    // Elbow IK: Create a wide, natural bend
+    const elbowArc = 26; // outward
+    const elbowYDrop = 12; // downward
+    const elbowX = (shoulderX + targetHandX) / 2 + (isRight ? elbowArc : -elbowArc);
+    const elbowY = (shoulderY + targetHandY) / 2 + elbowYDrop;
 
-  return (
-    <svg viewBox="0 0 100 160" style={{ width: "36%", maxWidth: 240, height: "auto" }} fill="none">
-      <defs>
-        <filter id={`inkFig${seed}`} x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
-          <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </defs>
+    // 6. Resting Arm (Dangling)
+    const restHandX = shoulderX + (isRight ? -22 : 22) + Math.sin(t) * 5;
+    const restHandY = shoulderY + 30 + Math.cos(t) * 5;
+    const restElbowArc = 10;
+    const restElbowX = (shoulderX + restHandX) / 2 + (isRight ? -restElbowArc : restElbowArc);
+    const restElbowY = (shoulderY + restHandY) / 2 + 10;
 
-      <g filter={`url(#inkFig${seed})`} strokeLinecap="round" strokeLinejoin="round">
-        {/* Bleed layer */}
-        <circle cx="50" cy={headY} r="16" fill="none" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
-        <line x1="50" y1={bodyStartY} x2="50" y2={bodyEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
-        <line x1="50" y1={58} x2={staticArmEndX} y2={staticArmEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
-        <line x1="50" y1={58} x2={wavingArmEndX} y2={wavingArmEndY} stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+    // 7. Fixed stance legs (show contrapposto)
+    const footLX = 35;
+    const footRX = 65;
+    const footY = 155;
 
-        <line x1="50" y1={bodyEndY} x2="30" y2="152" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
-        <line x1="50" y1={bodyEndY} x2="70" y2="152" stroke={textColor} strokeWidth={9} strokeOpacity={0.18} />
+    return (
+      <svg viewBox="0 0 100 160" style={{ width: "36%", maxWidth: 240, height: "auto", overflow: "visible" }} fill="none">
+        <defs>
+          <filter id={`inkFig${seed}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
+            <feDisplacementMap in="SourceGraphic" in2="w" scale="2" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
 
-        {/* Core layer */}
-        <circle cx="50" cy={headY} r="16" fill="none" stroke={textColor} strokeWidth={5} />
-        <line x1="50" y1={bodyStartY} x2="50" y2={bodyEndY} stroke={textColor} strokeWidth={5} />
-        <line x1="50" y1={58} x2={staticArmEndX} y2={staticArmEndY} stroke={textColor} strokeWidth={5} />
-        <line x1="50" y1={58} x2={wavingArmEndX} y2={wavingArmEndY} stroke={textColor} strokeWidth={5} />
+        <g filter={`url(#inkFig${seed})`} strokeLinecap="round" strokeLinejoin="round">
+          {/* Main Skeleton */}
+          <circle cx={headX} cy={headY} r="15" stroke={textColor} strokeWidth={4.5} />
+          
+          {/* Spine */}
+          <line x1={shoulderX} y1={shoulderY} x2={hipX} y2={hipY} stroke={textColor} strokeWidth={5} />
+          
+          {/* WIDE Thinking Arm (Shoulder -> WIDE Elbow Q-Point -> Temple Target) */}
+          <path d={`M ${shoulderX} ${shoulderY} Q ${elbowX} ${elbowY} ${targetHandX} ${targetHandY}`} stroke={textColor} strokeWidth={4.5} fill="none" />
+          
+          {/* Resting Arm */}
+          <path d={`M ${shoulderX} ${shoulderY} Q ${restElbowX} ${restElbowY} ${restHandX} ${restHandY}`} stroke={textColor} strokeWidth={4.5} fill="none" />
 
-        <line x1="50" y1={bodyEndY} x2="30" y2="152" stroke={textColor} strokeWidth={5} />
-        <line x1="50" y1={bodyEndY} x2="70" y2="152" stroke={textColor} strokeWidth={5} />
-
-        {/* Waving hand dot */}
-        <circle cx={wavingArmEndX} cy={wavingArmEndY} r={4} fill={textColor} opacity={0.55} />
-      </g>
-    </svg>
-  );
-}
+          {/* Contrapposto Legs */}
+          <line x1={hipX} y1={hipY} x2={footLX} y2={footY} stroke={textColor} strokeWidth={5} />
+          <line x1={hipX} y1={hipY} x2={footRX} y2={footY} stroke={textColor} strokeWidth={5} />
+          
+          {/* Small joint dot for hand */}
+          <circle cx={targetHandX} cy={targetHandY} r={2.5} fill={textColor} />
+        </g>
+      </svg>
+    );
+  }
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
       <WhiteboardBackground bgColor={bgColor} />
 
-      {/* Paper grain + ink filter definitions */}
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
         <defs>
           <filter id="grain">
@@ -336,7 +361,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
           padding: p ? "8% 6%" : "5% 7%",
         }}
       >
-        {/* Title */}
         <div style={{ textAlign: "center", marginBottom: p ? 16 : 22, opacity: titleOp }}>
           <div
             style={{
@@ -364,7 +388,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
           )}
         </div>
 
-        {/* Two figures + VS */}
         <div
           style={{
             flex: 1,
@@ -376,7 +399,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
             padding: p ? "0 4%" : "0 5%",
           }}
         >
-          {/* Left figure */}
           <div
             style={{
               flex: 1,
@@ -396,13 +418,11 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={0}
             />
-           <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
-              <FloatingLetters isRight={false} textColor={textColor} />
+            <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
               <Stickman isRight={false} seed={2} />
             </div>
           </div>
 
-          {/* VS label */}
           <div
             style={{
               display: "flex",
@@ -425,7 +445,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
             </span>
           </div>
 
-          {/* Right figure */}
           <div
             style={{
               flex: 1,
@@ -446,8 +465,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               index={1}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
-              <FloatingLetters isRight={true} textColor={textColor} />
-              <Stickman isRight={true} seed={2} />
+              <Stickman isRight={true} seed={3} />
             </div>
           </div>
         </div>

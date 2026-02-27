@@ -9,7 +9,7 @@ engine_kwargs = {}
 
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
-    engine_kwargs["poolclass"] = StaticPool
+    # engine_kwargs["poolclass"] = StaticPool
 else:
     # PostgreSQL connection pool settings
     engine_kwargs["poolclass"] = QueuePool

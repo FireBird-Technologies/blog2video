@@ -214,6 +214,41 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
   stats_chart: [{ key: "stats", label: "Bar chart rows", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number 0–100" }], maxItems: 5 }],
+  countdown_timer: [
+    {
+      key: "stats",
+      label: "Countdown settings",
+      type: "object_array",
+      subFields: [
+        { key: "value", label: "Start at (2–9)", placeholder: "e.g. 5" },
+        { key: "label", label: "Label under timer", placeholder: "e.g. seconds" },
+      ],
+      maxItems: 1,
+    },
+  ],
+  handwritten_equation: [
+    {
+      key: "stats",
+      label: "Equation steps",
+      type: "object_array",
+      subFields: [
+        { key: "label", label: "Step label", placeholder: "e.g. Example" },
+        { key: "value", label: "Equation / value", placeholder: "e.g. A = P(1 + r/n)^(n·t)" },
+      ],
+      maxItems: 5,
+    },
+  ],
+  speech_bubble_dialogue: [
+    { key: "leftThought", label: "Left bubble text", type: "text", placeholder: "What the left character says" },
+    { key: "rightThought", label: "Right bubble text", type: "text", placeholder: "What the right character says" },
+    {
+      key: "stats",
+      label: "Speaker names",
+      type: "object_array",
+      subFields: [{ key: "label", label: "Name" }],
+      maxItems: 2,
+    },
+  ],
   // Newspaper template
   news_headline: [
     { key: "category", label: "Section / category", type: "string", placeholder: "e.g. Politics, Technology" },
@@ -699,10 +734,10 @@ export default function SceneEditModal({
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -997,13 +1032,13 @@ export default function SceneEditModal({
                           type="button"
                           onClick={() => handleRemoveImage(asset.id)}
                           disabled={removingAssetId === asset.id}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 shadow"
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                         >
                           {removingAssetId === asset.id ? (
                             <span className="text-[10px]">…</span>
                           ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           )}
                         </button>
@@ -1022,10 +1057,10 @@ export default function SceneEditModal({
                             setSelectedImageFile(null);
                             setImagePreviewUrl(null);
                           }}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 shadow"
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       </div>
@@ -1046,7 +1081,7 @@ export default function SceneEditModal({
                       onClick={handleGenerateImageClick}
                       disabled={!hasSceneText || generatingImage}
                       title={!hasSceneText ? "Add title or narration to generate an image" : "Generate image with AI"}
-                      className="flex items-center justify-center gap-1.5 w-20 h-20 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-amber-700"
+                      className="flex items-center justify-center gap-1.5 w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700"
                     >
                       {generatingImage ? (
                         <span className="text-xs">…</span>
@@ -1271,21 +1306,21 @@ export default function SceneEditModal({
               <button
                 type="button"
                 onClick={handleKeepGeneratedImage}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                 title="Use this image"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </button>
               <button
                 type="button"
                 onClick={handleDiscardGeneratedImage}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                 title="Discard"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>

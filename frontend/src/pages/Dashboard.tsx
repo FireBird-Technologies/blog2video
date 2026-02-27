@@ -95,7 +95,7 @@ export default function Dashboard() {
     });
   }, [bulkPendingIds]);
 
-  // Poll pipeline status for bulk ids until all have running === false
+  // Poll pipeline status for bulk ids; remove each project from the list when it's done (generated/done or running false)
   useEffect(() => {
     if (bulkPendingIds.length === 0) return;
     const poll = async () => {
@@ -115,15 +115,22 @@ export default function Dashboard() {
         }
       });
       setBulkStatuses((prev) => ({ ...prev, ...updates }));
-      const allDone =
-        bulkPendingIds.length > 0 &&
-        bulkPendingIds.every((id) => updates[id] != null && updates[id].running === false);
-      if (allDone && bulkPollingRef.current) {
-        clearInterval(bulkPollingRef.current);
-        bulkPollingRef.current = null;
-      }
-      if (allDone) {
-        // All bulk pipeline runs finished (success or error) — clear state and refresh projects
+
+      // Consider a project done when we have an update and pipeline finished or terminal status
+      const isDone = (id: number) => {
+        const u = updates[id];
+        return u != null && (u.running === false || u.status === "generated" || u.status === "done");
+      };
+      const doneIds = new Set(bulkPendingIds.filter(isDone));
+      const newPending = bulkPendingIds.filter((id) => !doneIds.has(id));
+
+      setBulkPendingIds((prev) => prev.filter((id) => !doneIds.has(id)));
+
+      if (newPending.length === 0) {
+        if (bulkPollingRef.current) {
+          clearInterval(bulkPollingRef.current);
+          bulkPollingRef.current = null;
+        }
         localStorage.removeItem(BULK_PENDING_IDS_KEY);
         setBulkPendingIds([]);
         setBulkStatuses({});
