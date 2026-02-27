@@ -285,7 +285,8 @@ async def _generate_scenes(project: Project, db: Session):
     )
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
-    for scene, descriptor in zip(scenes, descriptors):
+    for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
@@ -302,7 +303,13 @@ async def _generate_scenes(project: Project, db: Session):
             except (json.JSONDecodeError, TypeError):
                 pass
         scene.remotion_code = json.dumps(descriptor)
+        if has_layout_config:
+            lc = descriptor["layoutConfig"]
+            print(f"[PIPELINE] Scene {i} stored ✅: layoutConfig.arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}, decorations={lc.get('decorations')}")
+        else:
+            print(f"[PIPELINE] Scene {i} stored: legacy layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
     db.commit()
+    print(f"[PIPELINE] All {len(scenes)} scene descriptors committed to DB")
 
     # Step 3: Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db)

@@ -24,6 +24,7 @@ from app.services.template_service import (
     get_fallback_layout,
     get_composition_id,
     get_layouts_without_image,
+    is_custom_template,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,8 +79,11 @@ def _scan_template_files(template_root: str, template_id: str) -> list[str]:
     """
     files = list(_SHARED_SRC_FILES)
 
+    # Map custom_N → "custom" directory for custom templates
+    scan_id = "custom" if is_custom_template(template_id) else template_id
+
     # Scan src/templates/{template_id}/ recursively for .tsx and .ts files
-    template_dir = os.path.join(template_root, "src", "templates", template_id)
+    template_dir = os.path.join(template_root, "src", "templates", scan_id)
     if os.path.isdir(template_dir):
         for root, dirs, filenames in os.walk(template_dir):
             for filename in filenames:
@@ -311,7 +315,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             if scene.remotion_code:
                 try:
                     desc = json.loads(scene.remotion_code)
-                    layout = desc.get("layout", layout)
+                    # For custom templates, layout lives inside layoutConfig.arrangement
+                    if "layoutConfig" in desc:
+                        layout = desc["layoutConfig"].get("arrangement", layout)
+                    else:
+                        layout = desc.get("layout", layout)
                     layout_props = desc.get("layoutProps", {}) or {}
                 except (json.JSONDecodeError, TypeError):
                     pass
@@ -393,7 +401,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 if scene.remotion_code:
                     try:
                         desc = json.loads(scene.remotion_code)
-                        layout = desc.get("layout", layout)
+                        # For custom templates, layout lives inside layoutConfig.arrangement
+                        if "layoutConfig" in desc:
+                            layout = desc["layoutConfig"].get("arrangement", layout)
+                        else:
+                            layout = desc.get("layout", layout)
                         layout_props = desc.get("layoutProps", {}) or {}
                     except (json.JSONDecodeError, TypeError):
                         pass
@@ -410,7 +422,32 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     # Uploading a scene-specific image should re-enable images even if hideImage was set
                     layout_props.pop("hideImage", None)
                     hide_image_flags[scene_idx] = False
-                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    # Preserve the full descriptor (including layoutConfig for custom templates)
+                    if scene.remotion_code:
+                        try:
+                            full_desc = json.loads(scene.remotion_code)
+                            has_lc = "layoutConfig" in full_desc
+                            full_desc["layoutProps"] = layout_props
+                            if not has_lc:
+                                full_desc["layout"] = layout
+                            scene.remotion_code = json.dumps(full_desc)
+                            print(f"[REMOTION] Scene-specific image pass: scene {scene_idx} → assignedImage={filename}, layoutConfig={'preserved ✅' if has_lc else 'NOT present (legacy)'}")
+                        except (json.JSONDecodeError, TypeError):
+                            if is_custom_template(template_id):
+                                print(f"[REMOTION] ❌ Scene-specific image pass: scene {scene_idx} → parse error on CUSTOM template, skipping to avoid layoutConfig loss")
+                            else:
+                                scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                                print(f"[REMOTION] ⚠️ Scene-specific image pass: scene {scene_idx} → parse error, wrote legacy format")
+                                scenes_need_update.append(scene)
+                            continue
+                    else:
+                        if is_custom_template(template_id):
+                            print(f"[REMOTION] ❌ Scene-specific image pass: scene {scene_idx} → no existing code for CUSTOM template, skipping")
+                        else:
+                            scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                            print(f"[REMOTION] ⚠️ Scene-specific image pass: scene {scene_idx} → no existing code, wrote legacy format")
+                            scenes_need_update.append(scene)
+                        continue
                     scenes_need_update.append(scene)
 
         # Third pass: Assign generic images to scenes without one yet (1 per scene)
@@ -423,7 +460,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             scene_layout = get_fallback_layout(template_id)
             if scene.remotion_code:
                 try:
-                    scene_layout = json.loads(scene.remotion_code).get("layout", scene_layout)
+                    _desc = json.loads(scene.remotion_code)
+                    if "layoutConfig" in _desc:
+                        scene_layout = _desc["layoutConfig"].get("arrangement", scene_layout)
+                    else:
+                        scene_layout = _desc.get("layout", scene_layout)
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -456,14 +497,42 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 if scene.remotion_code:
                     try:
                         desc = json.loads(scene.remotion_code)
-                        layout = desc.get("layout", layout)
+                        if "layoutConfig" in desc:
+                            layout = desc["layoutConfig"].get("arrangement", layout)
+                        else:
+                            layout = desc.get("layout", layout)
                         layout_props = desc.get("layoutProps", {}) or {}
                     except (json.JSONDecodeError, TypeError):
                         pass
                 # Only update if assignment changed
                 if layout_props.get("assignedImage") != assigned_filename:
                     layout_props["assignedImage"] = assigned_filename
-                    scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                    # Preserve the full descriptor (including layoutConfig for custom templates)
+                    if scene.remotion_code:
+                        try:
+                            full_desc = json.loads(scene.remotion_code)
+                            has_lc = "layoutConfig" in full_desc
+                            full_desc["layoutProps"] = layout_props
+                            if not has_lc:
+                                full_desc["layout"] = layout
+                            scene.remotion_code = json.dumps(full_desc)
+                            print(f"[REMOTION] Generic image pass: scene {scene_idx} → assignedImage={assigned_filename}, layoutConfig={'preserved ✅' if has_lc else 'NOT present (legacy)'}")
+                        except (json.JSONDecodeError, TypeError):
+                            if is_custom_template(template_id):
+                                print(f"[REMOTION] ❌ Generic image pass: scene {scene_idx} → parse error on CUSTOM template, skipping to avoid layoutConfig loss")
+                            else:
+                                scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                                print(f"[REMOTION] ⚠️ Generic image pass: scene {scene_idx} → parse error, wrote legacy format")
+                                scenes_need_update.append(scene)
+                            continue
+                    else:
+                        if is_custom_template(template_id):
+                            print(f"[REMOTION] ❌ Generic image pass: scene {scene_idx} → no existing code for CUSTOM template, skipping")
+                        else:
+                            scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
+                            print(f"[REMOTION] ⚠️ Generic image pass: scene {scene_idx} → no existing code, wrote legacy format")
+                            scenes_need_update.append(scene)
+                        continue
                     scenes_need_update.append(scene)
 
     # Commit scene updates if any
@@ -521,11 +590,17 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         fallback = get_fallback_layout(template_id)
         layout = fallback
         layout_props = {}
+        layout_config = None
         if scene.remotion_code:
             try:
                 desc = json.loads(scene.remotion_code)
-                layout = desc.get("layout", fallback)
-                layout_props = desc.get("layoutProps", {})
+                if "layoutConfig" in desc:
+                    # Universal layout engine (custom templates)
+                    layout_config = desc["layoutConfig"]
+                else:
+                    # Built-in templates: legacy layout + layoutProps
+                    layout = desc.get("layout", fallback)
+                    layout_props = desc.get("layoutProps", {})
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -537,20 +612,28 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         # Use display_text for on-screen text when available; otherwise fall back to narration_text.
         on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
 
-        scene_data.append(
-            {
-                "id": scene.id,
-                "order": scene.order,
-                "title": scene.title,
-                "narration": on_screen_text,
-                "visualDescription": scene.visual_description,
-                "layout": layout,
-                "layoutProps": layout_props,
-                "durationSeconds": scene.duration_seconds,
-                "voiceoverFile": voiceover_filename,
-                "images": scene_images,
-            }
-        )
+        scene_entry: dict = {
+            "id": scene.id,
+            "order": scene.order,
+            "title": scene.title,
+            "narration": on_screen_text,
+            "visualDescription": scene.visual_description,
+            "durationSeconds": scene.duration_seconds,
+            "voiceoverFile": voiceover_filename,
+            "images": scene_images,
+        }
+
+        if layout_config is not None:
+            # Custom templates: universal layout config
+            scene_entry["layoutConfig"] = layout_config
+            print(f"[REMOTION] Scene {i}: layoutConfig → arrangement={layout_config.get('arrangement')}, elements={len(layout_config.get('elements', []))}, decorations={layout_config.get('decorations')}")
+        else:
+            # Built-in templates: legacy format
+            scene_entry["layout"] = layout
+            scene_entry["layoutProps"] = layout_props
+            print(f"[REMOTION] Scene {i}: legacy → layout={layout}, layoutProps keys={list(layout_props.keys())}")
+
+        scene_data.append(scene_entry)
 
     # Copy logo to public dir if available
     logo_file = None
@@ -587,6 +670,16 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "aspectRatio": getattr(project, "aspect_ratio", None) or "landscape",
         "scenes": scene_data,
     }
+
+    # Include theme object for custom templates (drives CustomVideoComposition)
+    if is_custom_template(template_id):
+        from app.services.template_service import _load_custom_template_data
+        custom_data = _load_custom_template_data(template_id)
+        if custom_data and custom_data.get("theme"):
+            data["theme"] = custom_data["theme"]
+            print(f"[REMOTION] Custom theme loaded for {template_id}: style={custom_data['theme'].get('style')}, accent={custom_data['theme'].get('colors', {}).get('accent')}")
+        else:
+            print(f"[REMOTION] WARNING: No theme found for custom template {template_id}")
     data_path = os.path.join(public_dir, "data.json")
     with open(data_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
