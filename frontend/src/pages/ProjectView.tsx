@@ -2262,21 +2262,20 @@ export default function ProjectView() {
                                               !(scene.title || "").trim() && !(scene.narration_text || "").trim()
                                                 || generatingImageSceneId === scene.id
                                             }
-                                            title={
-                                              !(scene.title || "").trim() && !(scene.narration_text || "").trim()
-                                                ? "Add title or narration to generate an image"
-                                                : "Generate image with AI"
-                                            }
-                                            className="flex items-center justify-center gap-1 w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700 flex-shrink-0"
+                                            className="group relative flex items-center justify-center w-20 h-24 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700 flex-shrink-0"
                                           >
                                             {generatingImageSceneId === scene.id ? (
                                               <span className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
                                             ) : (
                                               <>
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                                                 </svg>
-                                                <span className="text-[10px] font-medium">AI</span>
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center z-10">
+                                                  {(scene.title || "").trim() || (scene.narration_text || "").trim()
+                                                    ? "Generate Image with AI"
+                                                    : "Add title or narration to generate an image"}
+                                                </span>
                                               </>
                                             )}
                                           </button>
@@ -2588,7 +2587,7 @@ export default function ProjectView() {
                       <img
                         src={project.logo_r2_url}
                         alt="Current logo"
-                        className="h-10 w-10 object-contain rounded border border-gray-200"
+                        className="h-14 w-14 object-contain rounded border border-gray-200"
                       />
                      
                     </div>

@@ -1045,17 +1045,18 @@ export default function SceneEditModal({
                       type="button"
                       onClick={handleGenerateImageClick}
                       disabled={!hasSceneText || generatingImage}
-                      title={!hasSceneText ? "Add title or narration to generate an image" : "Generate image with AI"}
-                      className="flex items-center justify-center gap-1.5 w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700"
+                      className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-purple-700"
                     >
                       {generatingImage ? (
                         <span className="text-xs">…</span>
                       ) : (
                         <>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                           </svg>
-                          <span className="text-[10px] font-medium">AI</span>
+                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-900 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap max-w-[180px] text-center">
+                            {hasSceneText ? "Generate Image with AI" : "Add title or narration to generate an image"}
+                          </span>
                         </>
                       )}
                     </button>
