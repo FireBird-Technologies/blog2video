@@ -190,8 +190,8 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
       <svg
         style={{
           position: "absolute",
-          bottom: 0,
-          left: 0,
+          bottom: 80,
+          left: 50,
           width: p ? "30%" : "22%",
           height: "auto",
           pointerEvents: "none",
@@ -259,6 +259,47 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           {/* Stars */}
           <path d="M30,100 L32,88 L40,96 L28,92 L44,90 Z" stroke={accentColor} strokeWidth="2.5" fill="none" strokeDasharray={doodleDash} strokeDashoffset={doodleOff} />
           <path d="M240,80 L242,70 L248,78 L238,74 L252,72 Z" stroke={textColor} strokeWidth="2" fill="none" strokeDasharray={doodleDash} strokeDashoffset={doodleOff} />
+          {/* Stars cluster */}
+
+          {/* Star 3 */}
+          <path
+            d="M120,90 L122,80 L130,88 L118,84 L134,82 Z"
+            stroke={textColor}
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray={doodleDash}
+            strokeDashoffset={doodleOff}
+          />
+
+          {/* Star 4 */}
+          <path
+            d="M200,60 L202,50 L210,58 L198,54 L214,52 Z"
+            stroke={textColor}
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray={doodleDash}
+            strokeDashoffset={doodleOff}
+          />
+
+          {/* Star 5 small sparkle */}
+          <path
+            d="M160,110 L162,104 L168,108 L158,106 L170,104 Z"
+            stroke={accentColor}
+            strokeWidth="1.8"
+            fill="none"
+            strokeDasharray={doodleDash}
+            strokeDashoffset={doodleOff}
+          />
+
+          {/* Tiny cross sparkle */}
+          <path
+            d="M100,150 L100,160 M95,155 L105,155"
+            stroke={textColor}
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeDasharray={doodleDash}
+            strokeDashoffset={doodleOff}
+          />
         </g>
       </svg>
     </AbsoluteFill>
