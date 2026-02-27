@@ -603,6 +603,21 @@ def delete_asset(
         except Exception as e:
             print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
 
+    # Rebuild workspace so data.json reflects the deleted asset and
+    # updated hideImage flags immediately.
+    try:
+        from app.services.remotion import rebuild_workspace
+        project = _get_user_project(project_id, user.id, db)
+        all_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, all_scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: workspace rebuild after asset deletion failed: {e}")
+
     return {"detail": "Asset deleted"}
 
 
@@ -1154,24 +1169,24 @@ async def regenerate_scene(
             current_descriptor=current_descriptor,
         )
 
-        # Preserve image assignment from old descriptor into the new one
-        # (only applies to built-in templates that use layoutProps)
-        if "layoutProps" in descriptor or not is_custom_template(project.template):
-            if remove_image:
-                if "layoutProps" not in descriptor:
-                    descriptor["layoutProps"] = {}
+        # Preserve image assignment from old descriptor into the new one.
+        # Applies to all templates. Custom templates use layoutConfig for
+        # arrangement but still use layoutProps for image tracking.
+        if remove_image:
+            if "layoutProps" not in descriptor:
+                descriptor["layoutProps"] = {}
+            descriptor["layoutProps"]["hideImage"] = True
+            descriptor["layoutProps"].pop("imageUrl", None)
+            descriptor["layoutProps"].pop("assignedImage", None)
+        elif not image and current_descriptor:
+            old_lp = current_descriptor.get("layoutProps") or {}
+            if "layoutProps" not in descriptor:
+                descriptor["layoutProps"] = {}
+            old_assigned = old_lp.get("assignedImage")
+            if old_assigned:
+                descriptor["layoutProps"]["assignedImage"] = old_assigned
+            if old_lp.get("hideImage"):
                 descriptor["layoutProps"]["hideImage"] = True
-                descriptor["layoutProps"].pop("imageUrl", None)
-                descriptor["layoutProps"].pop("assignedImage", None)
-            elif not image and current_descriptor:
-                old_lp = current_descriptor.get("layoutProps") or {}
-                if "layoutProps" not in descriptor:
-                    descriptor["layoutProps"] = {}
-                old_assigned = old_lp.get("assignedImage")
-                if old_assigned:
-                    descriptor["layoutProps"]["assignedImage"] = old_assigned
-                if old_lp.get("hideImage"):
-                    descriptor["layoutProps"]["hideImage"] = True
 
         # Preserve custom font sizes from old layoutConfig into the new descriptor
         if is_custom_template(project.template) and "layoutConfig" in descriptor and current_descriptor:
