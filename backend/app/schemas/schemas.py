@@ -93,6 +93,7 @@ class ProjectOut(BaseModel):
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     ai_assisted_editing_count: int = 0
+    custom_theme: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []

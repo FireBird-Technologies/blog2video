@@ -4,14 +4,15 @@ import shutil
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from sqlalchemy import text, inspect
+from sqlalchemy import func, text, inspect
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
 from app.config import settings
-from app.models.user import User
+from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
+from app.models.scene import Scene
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
@@ -20,10 +21,20 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
+
+
+def _inject_custom_theme(project: Project) -> Project:
+    """Attach custom_theme to a project so ProjectOut serialization includes it."""
+    if is_custom_template(project.template):
+        data = _load_custom_template_data(project.template)
+        project.custom_theme = data["theme"] if data else None
+    else:
+        project.custom_theme = None
+    return project
 
 # ─── Constants ────────────────────────────────────────────
 _MAX_UPLOAD_FILES = 5
@@ -54,6 +65,11 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template)
+    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+        )
     colors = get_preview_colors(template_id)
     project = Project(
         user_id=user.id,
@@ -79,7 +95,7 @@ def create_project(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    return project
+    return _inject_custom_theme(project)
 
 
 def _apply_logo_to_project(
@@ -143,6 +159,14 @@ def create_projects_bulk(
             status_code=403,
             detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade or buy more credits.",
         )
+    if user.plan != PlanTier.PRO:
+        for data in items:
+            tid = getattr(data, "template", None) or ""
+            if tid and str(tid).strip().startswith("custom_"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+                )
     logo_indices: list[int] = []
     if logo_indices_json:
         try:
@@ -271,6 +295,11 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template)
+    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+        )
     colors = get_preview_colors(template_id)
     print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
     project = Project(
@@ -306,7 +335,7 @@ def create_project_from_upload(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.post("/{project_id}/upload-documents", response_model=ProjectOut)
@@ -351,7 +380,7 @@ def upload_documents_to_project(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.post("/{project_id}/logo")
@@ -384,26 +413,34 @@ def list_projects(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all projects for the current user."""
-    projects = (
-        db.query(Project)
+    """List all projects for the current user. Single query with scene count subquery."""
+    scene_counts = (
+        db.query(Scene.project_id, func.count(Scene.id).label("cnt"))
+        .group_by(Scene.project_id)
+        .subquery()
+    )
+    rows = (
+        db.query(
+            Project,
+            func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
+        )
+        .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
         .filter(Project.user_id == user.id)
         .order_by(Project.created_at.desc())
         .all()
     )
-    result = []
-    for p in projects:
-        item = ProjectListOut(
+    return [
+        ProjectListOut(
             id=p.id,
             name=p.name,
             blog_url=p.blog_url,
             status=p.status.value,
             created_at=p.created_at,
             updated_at=p.updated_at,
-            scene_count=len(p.scenes),
+            scene_count=int(scene_count),
         )
-        result.append(item)
-    return result
+        for p, scene_count in rows
+    ]
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -414,7 +451,7 @@ def get_project(
 ):
     """Get a single project with all its scenes and assets."""
     project = _get_user_project(project_id, user.id, db)
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.delete("/{project_id}")
@@ -565,6 +602,21 @@ def delete_asset(
             r2_storage.delete_file(r2_key)
         except Exception as e:
             print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
+
+    # Rebuild workspace so data.json reflects the deleted asset and
+    # updated hideImage flags immediately.
+    try:
+        from app.services.remotion import rebuild_workspace
+        project = _get_user_project(project_id, user.id, db)
+        all_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, all_scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: workspace rebuild after asset deletion failed: {e}")
 
     return {"detail": "Asset deleted"}
 
@@ -959,7 +1011,12 @@ async def regenerate_scene(
     normalized_layout = None
     if layout and not keep_layout:
         valid_layouts = get_valid_layouts(project.template)
-        normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
+        # Custom templates use hyphenated arrangements (e.g. "split-left"),
+        # built-in templates use underscored layout IDs (e.g. "text_narration").
+        if is_custom_template(project.template):
+            normalized_layout = layout.strip().lower().replace(" ", "-")
+        else:
+            normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
         if normalized_layout not in valid_layouts:
             raise HTTPException(
                 status_code=400,
@@ -1077,7 +1134,10 @@ async def regenerate_scene(
             if s.remotion_code:
                 try:
                     desc = json.loads(s.remotion_code)
-                    layout_name = desc.get("layout", "unknown")
+                    if "layoutConfig" in desc:
+                        layout_name = desc["layoutConfig"].get("arrangement", "unknown")
+                    else:
+                        layout_name = desc.get("layout", "unknown")
                 except (json.JSONDecodeError, TypeError):
                     pass
             other_layout_parts.append(f"scene {s.order}: {layout_name}")
@@ -1086,7 +1146,17 @@ async def regenerate_scene(
         # If keep_layout + description: force the current layout as preferred
         effective_layout = normalized_layout
         if keep_layout and has_description and current_descriptor:
-            effective_layout = current_descriptor.get("layout")
+            if "layoutConfig" in current_descriptor:
+                effective_layout = current_descriptor["layoutConfig"].get("arrangement")
+            else:
+                effective_layout = current_descriptor.get("layout")
+
+        print(f"[REGENERATE] template={project.template}, is_custom={is_custom_template(project.template)}")
+        print(f"[REGENERATE] keep_layout={keep_layout}, normalized_layout={normalized_layout}, effective_layout={effective_layout}")
+        print(f"[REGENERATE] other_scenes: {other_scenes_layouts}")
+        if current_descriptor:
+            has_lc = "layoutConfig" in current_descriptor
+            print(f"[REGENERATE] current descriptor: has_layoutConfig={has_lc}, keys={list(current_descriptor.keys())}")
 
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
@@ -1099,7 +1169,9 @@ async def regenerate_scene(
             current_descriptor=current_descriptor,
         )
 
-        # Preserve image assignment from old descriptor into the new one
+        # Preserve image assignment from old descriptor into the new one.
+        # Applies to all templates. Custom templates use layoutConfig for
+        # arrangement but still use layoutProps for image tracking.
         if remove_image:
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
@@ -1110,13 +1182,27 @@ async def regenerate_scene(
             old_lp = current_descriptor.get("layoutProps") or {}
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
-            # Preserve assignedImage so the generic stays locked to this scene
             old_assigned = old_lp.get("assignedImage")
             if old_assigned:
                 descriptor["layoutProps"]["assignedImage"] = old_assigned
-            # Preserve hideImage if it was explicitly set (user removed image earlier)
             if old_lp.get("hideImage"):
                 descriptor["layoutProps"]["hideImage"] = True
+
+        # Preserve custom font sizes from old layoutConfig into the new descriptor
+        if is_custom_template(project.template) and "layoutConfig" in descriptor and current_descriptor:
+            old_lc = current_descriptor.get("layoutConfig") or {}
+            new_lc = descriptor["layoutConfig"]
+            if "titleFontSize" in old_lc and "titleFontSize" not in new_lc:
+                new_lc["titleFontSize"] = old_lc["titleFontSize"]
+            if "descriptionFontSize" in old_lc and "descriptionFontSize" not in new_lc:
+                new_lc["descriptionFontSize"] = old_lc["descriptionFontSize"]
+
+        # Debug: log the final descriptor that will be stored
+        if "layoutConfig" in descriptor:
+            lc = descriptor["layoutConfig"]
+            print(f"[REGENERATE] RESULT: layoutConfig → arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}")
+        else:
+            print(f"[REGENERATE] RESULT: legacy → layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
 
         scene.visual_description = new_visual_description
         # Update display_text only; narration_text remains the narration script.

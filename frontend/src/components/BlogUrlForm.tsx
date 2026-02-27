@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem } from "../api/client";
+import { getTemplates, getVoicePreviews,listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem,type CustomTemplateItem } from "../api/client";
 import UpgradeModal from "./UpgradeModal";
+import CustomTemplateUpgradeModal from "./CustomTemplateUpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
@@ -11,6 +13,7 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
+import CustomPreview from "./templatePreviews/CustomPreview";
 
 export const VIDEO_STYLES = [
   { id: "explainer", label: "Explainer", subtitle: "Educational, clear, step-by-step" },
@@ -77,7 +80,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
   matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
-  whiteboard: { title: "Whiteboard Story", subtitle: "Hand-drawn storytelling with stick figures" },
+  whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
 };
 
@@ -131,10 +134,13 @@ interface VideoLightboxProps {
   onClose: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  customTemplate?: CustomTemplateItem | null;
 }
-function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: VideoLightboxProps) {
+function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, customTemplate }: VideoLightboxProps) {
   const PreviewComp = TEMPLATE_PREVIEWS[templateId];
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
+  const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
+  const subtitle = customTemplate ? "Custom template" : desc?.subtitle;
 
   // Close on Escape
   useEffect(() => {
@@ -161,7 +167,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
               <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
             </div>
             <span className="text-[11px] text-white/40 font-medium tracking-wide">
-              {desc?.title ?? templateId} — Preview
+              {title} — Preview
             </span>
             <button onClick={onClose} className="text-white/30 hover:text-white/70 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +178,9 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
 
           {/* Video content */}
           <div className="bg-black">
-            {PreviewComp ? (
+            {customTemplate ? (
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} />
+            ) : PreviewComp ? (
               <PreviewComp />
             ) : (
               <div className="w-full aspect-video bg-gray-900 flex items-center justify-center text-gray-500 text-sm">
@@ -184,7 +192,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
           {/* Bottom controls bar */}
           <div className="flex items-center justify-between px-4 py-3 bg-[#1a1a1a] border-t border-white/[0.06]">
             <div className="text-[11px] text-white/40">
-              {desc?.subtitle}
+              {subtitle}
             </div>
             <button
               onClick={() => { onSelect(); onClose(); }}
@@ -194,7 +202,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
                   : "bg-purple-600 text-white hover:bg-purple-700"
               }`}
             >
-              {isSelected ? "✓ Selected" : "Use this template"}
+              {isSelected ? "Selected" : "Use this template"}
             </button>
           </div>
         </div>
@@ -207,6 +215,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const isPro = user?.plan === "pro";
+  const navigate = useNavigate();
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -293,6 +302,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const step3EnteredAtRef = useRef<number | null>(null);
 
   // Load all templates once (filtering by style is done in UI)
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
+
+  // Load templates & voice previews once
   useEffect(() => {
     getTemplates()
       .then((r) => setTemplates(r.data))
@@ -300,18 +313,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     getVoicePreviews()
       .then((r) => setVoicePreviews(r.data))
       .catch(() => {});
+    listCustomTemplates()
+      .then((r) => setCustomTemplates(r.data))
+      .catch(() => {});
   }, []);
 
   // Sync colors to the selected template when templates load (so default "nightfall" shows nightfall colors on step 2)
   useEffect(() => {
     if (templates.length === 0) return;
+    // Check custom templates first
+    if (template.startsWith("custom_")) {
+      const customId = parseInt(template.replace("custom_", ""));
+      const ct = customTemplates.find((t) => t.id === customId);
+      if (ct) {
+        setAccentColor(ct.preview_colors.accent);
+        setBgColor(ct.preview_colors.bg);
+        setTextColor(ct.preview_colors.text);
+      }
+      return;
+    }
     const meta = templates.find((t) => t.id === template);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
       setTextColor(meta.preview_colors.text);
     }
-  }, [templates, template]);
+  }, [templates, customTemplates, template]);
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
@@ -504,6 +531,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
         .filter((r) => r.url.trim());
       if (valid.length === 0) return;
+      if (!isPro && valid.some((v) => (bulkTemplates[v.i] ?? "").startsWith("custom_"))) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
       const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => ({
         blog_url: url.trim(),
         name: n.trim() || undefined,
@@ -563,6 +594,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     if (mode === "upload") {
       if (docFiles.length === 0) return;
+      if (template.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
       await onSubmit(
         "",
         name.trim() || undefined,
@@ -586,6 +621,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     } else {
       const validUrls = urls.filter((u) => u.trim());
       if (validUrls.length === 0) return;
+      if (template.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
       for (const url of validUrls) {
         await onSubmit(
           url.trim(),
@@ -613,7 +652,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
+    if (id.startsWith("custom_") && !isPro) {
+      setShowCustomTemplateUpgrade(true);
+      return;
+    }
     setTemplate(id);
+    // Custom template
+    if (id.startsWith("custom_")) {
+      const customId = parseInt(id.replace("custom_", ""));
+      const ct = customTemplates.find((t) => t.id === customId);
+      if (ct) {
+        setAccentColor(ct.preview_colors.accent);
+        setBgColor(ct.preview_colors.bg);
+        setTextColor(ct.preview_colors.text);
+      }
+      return;
+    }
     const meta = templates.find((t) => t.id === id);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
@@ -932,7 +986,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
     { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
     { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-    { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
+    { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
   ];
   const styleLower = (videoStyle || "promotional").toLowerCase();
   const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
@@ -942,6 +996,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
+  const selectedCustom = template.startsWith("custom_")
+    ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
+    : null;
 
   const step2Template = (
     <div className="space-y-5">
@@ -952,7 +1009,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
-            {SelectedPreviewComp ? (
+            {selectedCustom ? (
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} key={`selected-custom-${selectedCustom.id}-${step}`} />
+            ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
               <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
@@ -962,10 +1021,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
           <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
             <div>
-              <div className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? template}</div>
-              {selectedDesc?.subtitle && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-800">
+                  {selectedCustom ? selectedCustom.name : (selectedDesc?.title ?? template)}
+                </span>
+                {selectedCustom && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustom.preview_colors.accent }}>
+                    Custom
+                  </span>
+                )}
+              </div>
+              {selectedCustom ? (
+                <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+              ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
-              )}
+              ) : null}
             </div>
             <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
               <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -998,10 +1068,89 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => setVideoStyle("custom")}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                (videoStyle || "promotional").toLowerCase() === "custom"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Custom Templates
+            </button>
           </div>
         </div>
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          {suggestedTemplates.length > 0 ? (
+          {(videoStyle || "promotional").toLowerCase() === "custom" ? (
+            <div className="grid grid-cols-3 gap-2">
+              {customTemplates.map((ct) => {
+                const customId = `custom_${ct.id}`;
+                const isSelected = template === customId;
+                return (
+                  <div
+                    key={customId}
+                    onClick={() => applyTemplate(customId)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                        Custom
+                      </div>
+                      {!isPro && (
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                          Pro
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {ct.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div
+                onClick={() => {
+                  if (!isPro) {
+                    setShowCustomTemplateUpgrade(true);
+                    return;
+                  }
+                  if (onClose) onClose();
+                  navigate("/dashboard?tab=templates");
+                }}
+                className="rounded-lg border-2 border-dashed border-gray-200/60 hover:border-purple-400/60 cursor-pointer transition-all group flex flex-col items-center justify-center min-h-[56px]"
+              >
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-colors">
+                    <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-medium text-gray-400 group-hover:text-purple-600 transition-colors">
+                    Add Custom
+                  </span>
+                  {!isPro && (
+                    <span className="text-[8px] text-purple-500 font-medium">Upgrade to use</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : suggestedTemplates.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {suggestedTemplates.map((t) => {
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
@@ -1131,9 +1280,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
     const tpl = bulkTemplates[activeIndex] ?? "nightfall";
     const templateMeta = templates.find((t) => t.id === tpl);
-    const defaultAccent = templateMeta?.preview_colors?.accent ?? accentColor;
-    const defaultBg = templateMeta?.preview_colors?.bg ?? bgColor;
-    const defaultText = templateMeta?.preview_colors?.text ?? textColor;
+    const selectedCustomBulk = tpl.startsWith("custom_")
+      ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
+      : null;
+    const defaultAccent = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.accent
+      : templateMeta?.preview_colors?.accent ?? accentColor;
+    const defaultBg = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.bg
+      : templateMeta?.preview_colors?.bg ?? bgColor;
+    const defaultText = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.text
+      : templateMeta?.preview_colors?.text ?? textColor;
 
     const accent =
       bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
@@ -1212,7 +1370,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     };
 
     const applyBulkTemplate = (id: string) => {
-      const colors = templates.find((t) => t.id === id)?.preview_colors;
+      if (id.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
+      const colors = id.startsWith("custom_")
+        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
+        : templates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
 
       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
@@ -1296,7 +1460,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
       { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
       { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-      { id: "whiteboard", name: "Whiteboard Story", description: "", styles: ["storytelling"] },
+      { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
     ];
     const styleLower = (activeVideoStyle || "promotional").toLowerCase();
     const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
@@ -1397,7 +1561,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </label>
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
             <div className="relative">
-              {SelectedPreviewComp ? (
+              {selectedCustomBulk ? (
+                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+              ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
                 <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
@@ -1407,10 +1573,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
             <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? tpl}</div>
-                {selectedDesc?.subtitle && (
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
+                  {selectedCustomBulk && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
+                      Custom
+                    </span>
+                  )}
+                </div>
+                {selectedCustomBulk ? (
+                  <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+                ) : selectedDesc?.subtitle ? (
                   <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
-                )}
+                ) : null}
               </div>
               <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1466,12 +1641,96 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() =>
+                setBulkVideoStyles((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = "custom";
+                  return next;
+                })
+              }
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                (activeVideoStyle || "promotional").toLowerCase() === "custom"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Custom Templates
+            </button>
           </div>
         </div>
 
         {/* Templates list filtered by style */}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          {suggestedTemplates.length > 0 ? (
+          {(activeVideoStyle || "promotional").toLowerCase() === "custom" ? (
+            <div className="grid grid-cols-3 gap-2">
+              {customTemplates.map((ct) => {
+                const customId = `custom_${ct.id}`;
+                const isSelected = tpl === customId;
+                return (
+                  <div
+                    key={customId}
+                    onClick={() => applyBulkTemplate(customId)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                        Custom
+                      </div>
+                      {!isPro && (
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                          Pro
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {ct.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div
+                onClick={() => {
+                  if (!isPro) {
+                    setShowCustomTemplateUpgrade(true);
+                    return;
+                  }
+                  if (onClose) onClose();
+                  navigate("/dashboard?tab=templates");
+                }}
+                className="rounded-lg border-2 border-dashed border-gray-200/60 hover:border-purple-400/60 cursor-pointer transition-all group flex flex-col items-center justify-center min-h-[56px]"
+              >
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-colors">
+                    <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-medium text-gray-400 group-hover:text-purple-600 transition-colors">
+                    Add Custom
+                  </span>
+                  {!isPro && (
+                    <span className="text-[8px] text-purple-500 font-medium">Upgrade to use</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : suggestedTemplates.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
               {suggestedTemplates.map((t) => {
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
@@ -2240,6 +2499,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         onClose={() => setShowUpgrade(false)}
         feature="Upgrade"
       />
+      <CustomTemplateUpgradeModal
+        open={showCustomTemplateUpgrade}
+        onClose={() => setShowCustomTemplateUpgrade(false)}
+      />
     </form>
   );
 
@@ -2262,12 +2525,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           onClose={() => setShowUpgrade(false)}
           feature="Upgrade"
         />
+        <CustomTemplateUpgradeModal
+          open={showCustomTemplateUpgrade}
+          onClose={() => setShowCustomTemplateUpgrade(false)}
+        />
         {videoPreviewId && (
           <TemplateVideoLightbox
             templateId={videoPreviewId}
             onClose={() => setVideoPreviewId(null)}
             onSelect={() => applyTemplate(videoPreviewId)}
             isSelected={template === videoPreviewId}
+            customTemplate={videoPreviewId.startsWith("custom_") ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", ""))) : null}
           />
         )}
       </div>

@@ -9,7 +9,7 @@ engine_kwargs = {}
 
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
-    engine_kwargs["poolclass"] = StaticPool
+    # engine_kwargs["poolclass"] = StaticPool
 else:
     # PostgreSQL connection pool settings
     engine_kwargs["poolclass"] = QueuePool
@@ -42,10 +42,35 @@ def get_db():
         db.close()
 
 
+def _migrate_custom_templates(eng):
+    """Drop old custom_templates table if it has an enum-based category column."""
+    from sqlalchemy import text, inspect
+
+    insp = inspect(eng)
+    if "custom_templates" not in insp.get_table_names():
+        return
+
+    # Check if category column uses an enum type (old schema) vs varchar (new)
+    for col in insp.get_columns("custom_templates"):
+        if col["name"] == "category" and hasattr(col["type"], "enums"):
+            # Old enum-based column — drop table so create_all rebuilds it
+            with eng.begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS custom_templates"))
+            is_pg = not settings.DATABASE_URL.startswith("sqlite")
+            if is_pg:
+                with eng.begin() as conn:
+                    conn.execute(text("DROP TYPE IF EXISTS templatecategory CASCADE"))
+            print("[MIGRATE] Dropped old custom_templates table (enum -> varchar)")
+            return
+
+
 def init_db():
     """Create all tables, run lightweight migrations, and seed plans."""
-    from app.models import User, Project, Scene, Asset, ChatMessage, SubscriptionPlan, Subscription  # noqa: F401
+    from app.models import User, Project, Scene, Asset, ChatMessage, SubscriptionPlan, Subscription, CustomTemplate  # noqa: F401
 
+    # Drop old custom_templates table if it uses the enum-based category column
+    # so create_all recreates it with VARCHAR category.
+    _migrate_custom_templates(engine)
     Base.metadata.create_all(bind=engine)
     _migrate(engine)
 

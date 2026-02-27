@@ -15,6 +15,7 @@ import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition
 import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
+import { CustomVideoComposition } from "./custom/CustomVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -44,6 +45,8 @@ export interface TemplateConfig {
     logoOpacity?: number;
     logoSize?: number;
     aspectRatio?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    theme?: any;
   }>;
   /** Layout for scene 0 (hero) when no remotion_code */
   heroLayout: string;
@@ -137,6 +140,17 @@ const NEWSPAPER_LAYOUTS = new Set([
   "fact_check",
   "news_timeline",
 ]);
+const CUSTOM_ARRANGEMENTS = new Set([
+  "full-center",
+  "split-left",
+  "split-right",
+  "top-bottom",
+  "grid-2x2",
+  "grid-3",
+  "asymmetric-left",
+  "asymmetric-right",
+  "stacked",
+]);
 
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
@@ -216,11 +230,26 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       text: "#111111",
     },
   },
+  custom: {
+    component: CustomVideoComposition as React.ComponentType<any>,
+    heroLayout: "full-center",
+    fallbackLayout: "full-center",
+    validLayouts: CUSTOM_ARRANGEMENTS,
+    defaultColors: {
+      accent: "#7C3AED",
+      bg: "#FFFFFF",
+      text: "#1A1A2E",
+    },
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
 
 export function getTemplateConfig(templateId: string | undefined): TemplateConfig {
   const id = (templateId || "default").trim().toLowerCase();
+  // Route "custom_42", "custom_123" etc. to the custom template config
+  if (id.startsWith("custom_")) {
+    return TEMPLATE_REGISTRY.custom;
+  }
   return TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
 }
