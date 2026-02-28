@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import {
   updateCustomTemplate,
   type CustomTemplateItem,
@@ -17,6 +18,18 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const styleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
+        setStyleOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const theme = template.theme;
 
@@ -37,7 +50,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
     }
   };
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -115,32 +128,41 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             <p className="text-[11px] text-gray-500 mb-2">
               This sets script and voice tone (Explainer/Promotional/Storytelling). Your template appears in its matching style tab and in Custom Templates.
             </p>
-            <div className="space-y-2">
-              {VIDEO_STYLE_OPTIONS.map((style) => {
-                const selected = supportedVideoStyle === style.id;
-                return (
-                  <button
-                    key={style.id}
-                    type="button"
-                    onClick={() => setSupportedVideoStyle(style.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${
-                      selected
-                        ? "border-purple-400 bg-purple-50"
-                        : "border-gray-200 hover:border-purple-200 bg-white"
-                    }`}
+            <div ref={styleRef} className="relative">
+              <div className="flex items-center gap-2">
+                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                  {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStyleOpen(!styleOpen)}
+                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                >
+                  <svg
+                    className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-800">{style.label}</span>
-                      <span
-                        className={`w-3 h-3 rounded-full border ${
-                          selected ? "bg-purple-600 border-purple-600" : "border-gray-300"
-                        }`}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{style.subtitle}</p>
-                  </button>
-                );
-              })}
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+              {styleOpen && (
+                <div className="absolute z-10 mt-1.5 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                  {VIDEO_STYLE_OPTIONS.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${
+                        supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                      }`}
+                    >
+                      {style.label}
+                      <span className="ml-1 text-gray-400">— {style.subtitle}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -199,6 +221,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactDOM from "react-dom";
 import { createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 
@@ -57,7 +58,7 @@ export default function UpgradeModal({
 
   const anyLoading = loadingPro || loadingVideo;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* backdrop */}
       <div
@@ -232,6 +233,7 @@ export default function UpgradeModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

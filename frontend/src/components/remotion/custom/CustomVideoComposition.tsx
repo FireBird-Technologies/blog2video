@@ -58,6 +58,7 @@ export interface CustomVideoCompositionProps {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: number;
   aspectRatio?: string;
   theme?: CustomTheme;
 }
@@ -70,6 +71,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
   logo,
   logoPosition,
   logoOpacity,
+  logoSize,
   aspectRatio,
   theme: rawTheme,
 }) => {
@@ -146,6 +148,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
           src={logo}
           position={logoPosition || "bottom_right"}
           maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import {
   Scene,
   Project,
@@ -756,7 +757,7 @@ export default function SceneEditModal({
 
   const manualOnly = editMode === "manual";
 
-  return (
+  return ReactDOM.createPortal(
     <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div
@@ -1375,6 +1376,7 @@ export default function SceneEditModal({
         </div>
       </div>
     )}
-    </>
+    </>,
+    document.body
   );
 }

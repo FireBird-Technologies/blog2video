@@ -5,6 +5,9 @@ import { getTemplateConfig } from "./remotion/templateConfig";
 
 interface VideoPreviewProps {
   project: Project;
+  logoSizeOverride?: number;
+  logoOpacityOverride?: number;
+  logoPositionOverride?: string;
 }
 
 interface SceneInput {
@@ -20,7 +23,7 @@ interface SceneInput {
   voiceoverUrl?: string;
 }
 
-export default function VideoPreview({ project }: VideoPreviewProps) {
+export default function VideoPreview({ project, logoSizeOverride, logoOpacityOverride, logoPositionOverride }: VideoPreviewProps) {
   const config = getTemplateConfig(project.template);
 
   const scenes = useMemo((): SceneInput[] => {
@@ -285,9 +288,9 @@ export default function VideoPreview({ project }: VideoPreviewProps) {
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
     logo: project.logo_r2_url || null,
-    logoPosition: project.logo_position || "bottom_right",
-    logoOpacity: project.logo_opacity ?? 0.9,
-    logoSize: typeof project.logo_size === "number" ? project.logo_size : 100,
+    logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
+    logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
+    logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };

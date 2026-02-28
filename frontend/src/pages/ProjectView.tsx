@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
@@ -1595,7 +1596,7 @@ export default function ProjectView() {
                           : undefined
                       }
                     >
-                      <VideoPreview project={project} />
+                      <VideoPreview project={project} logoSizeOverride={logoSize} logoOpacityOverride={logoOpacity} logoPositionOverride={logoPosition} />
                     </div>
                     <p className="text-[11px] text-gray-400 flex-shrink-0">
                       Live preview · {project.scenes.length} scenes
@@ -1643,7 +1644,7 @@ export default function ProjectView() {
       />
 
       {/* Download warning — show before starting download when video is already rendered */}
-      {showDownloadWarning && (
+      {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
@@ -1680,11 +1681,12 @@ export default function ProjectView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Re-render warning — deducts video count; continue only if user has new changes */}
-      {showReRenderWarning && (
+      {showReRenderWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReRenderWarning(false)} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
@@ -1713,7 +1715,8 @@ export default function ProjectView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
@@ -2346,7 +2349,7 @@ export default function ProjectView() {
                 )}
 
                 {/* AI generated image preview modal */}
-                {generatedImageSceneId !== null && generatedImageBase64 && (
+                {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                     <div
                       className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -2394,11 +2397,12 @@ export default function ProjectView() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
 
                 {/* AI image upgrade modal (scenes tab) */}
-                {showAiImageUpgradeModal && (
+                {showAiImageUpgradeModal && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[110] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
@@ -2423,7 +2427,8 @@ export default function ProjectView() {
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}

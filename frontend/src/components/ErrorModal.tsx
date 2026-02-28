@@ -1,3 +1,5 @@
+import ReactDOM from "react-dom";
+
 interface Props {
   open: boolean;
   message: string;
@@ -7,7 +9,7 @@ interface Props {
 export default function ErrorModal({ open, message, onClose }: Props) {
   if (!open) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -56,6 +58,7 @@ export default function ErrorModal({ open, message, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
