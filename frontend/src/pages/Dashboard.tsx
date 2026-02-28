@@ -442,13 +442,21 @@ export default function Dashboard() {
             </button>
           </div>
           <ul className="space-y-2 max-h-48 overflow-y-auto">
-            {bulkPendingIds.map((id) => {
+            {(() => {
+              const nameCount: Record<string, number> = {};
+              for (const pid of bulkPendingIds) {
+                const p = projects.find((pr) => pr.id === pid);
+                const n = (p?.name && p.name.trim()) || p?.blog_url || "Untitled project";
+                nameCount[n] = (nameCount[n] ?? 0) + 1;
+              }
+              return bulkPendingIds.map((id) => {
               const s = bulkStatuses[id];
               const project = projects.find((p) => p.id === id);
               const name =
                 (project?.name && project.name.trim()) ||
                 project?.blog_url ||
                 "Untitled project";
+              const showUrl = (nameCount[name] ?? 0) > 1 && project?.blog_url;
               const stepNumber =
                 s && s.step != null && !Number.isNaN(Number(s.step))
                   ? Number(s.step)
@@ -473,13 +481,14 @@ export default function Dashboard() {
                   key={id}
                   className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
                 >
-                  <span
-                    className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600"
-                    onClick={() => navigate(`/project/${id}`)}
-                    title={name}
-                  >
-                    {name}
-                  </span>
+                  <div className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600" onClick={() => navigate(`/project/${id}`)}>
+                    <span className="truncate block" title={name}>{name}</span>
+                    {showUrl && (
+                      <span className="text-[10px] text-gray-400 truncate block" title={project.blog_url || ""}>
+                        {project.blog_url}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex flex-col items-end flex-shrink-0 ml-3 w-64">
                     <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                       <div
@@ -516,7 +525,8 @@ export default function Dashboard() {
                   </div>
                 </li>
               );
-            })}
+            });
+            })()}
           </ul>
         </div>
       )}
