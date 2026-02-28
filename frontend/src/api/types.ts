@@ -21,6 +21,7 @@ export interface Scene {
   order: number;
   title: string;
   narration_text: string;
+  display_text?: string | null;
   visual_description: string;
   remotion_code: string | null;
   voiceover_path: string | null;
@@ -61,6 +62,7 @@ export interface Project {
   logo_r2_url: string | null;
   logo_position: string;
   logo_opacity: number;
+  logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
   created_at: string;

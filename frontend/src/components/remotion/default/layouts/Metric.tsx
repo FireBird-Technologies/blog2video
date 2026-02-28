@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Metric: React.FC<SceneLayoutProps> = ({
@@ -12,9 +12,15 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 20], [0, 1], {
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
 
@@ -29,7 +35,12 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   const barW = interpolate(frame, [10, 50], [0, Math.min(numericValue, 100)], {
     extrapolateRight: "clamp",
   });
-  const subOp = interpolate(frame, [35, 50], [0, 1], {
+  const subSpring = spring({
+    frame: frame - 35,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const subOp = interpolate(subSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
 

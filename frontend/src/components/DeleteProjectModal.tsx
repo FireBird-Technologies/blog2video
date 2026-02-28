@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactDOM from "react-dom";
 
 interface Props {
   open: boolean;
@@ -29,7 +30,7 @@ export default function DeleteProjectModal({
 
   if (!open) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -112,6 +113,7 @@ export default function DeleteProjectModal({
             </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

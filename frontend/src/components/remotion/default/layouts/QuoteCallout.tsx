@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const QuoteCallout: React.FC<SceneLayoutProps> = ({
@@ -14,18 +14,33 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
   const barH = interpolate(frame, [0, 25], [0, 100], {
     extrapolateRight: "clamp",
   });
-  const textOp = interpolate(frame, [10, 30], [0, 1], {
+
+  // Quote text springs in with slide
+  const textSpring = spring({
+    frame: frame - 8,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const textOp = interpolate(textSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const textX = interpolate(frame, [10, 30], [-30, 0], {
+  const textX = interpolate(textSpring, [0, 1], [-30, 0], {
     extrapolateRight: "clamp",
   });
-  const labelOp = interpolate(frame, [20, 35], [0, 1], {
+
+  // Author label springs in after quote
+  const labelSpring = spring({
+    frame: frame - 20,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const labelOp = interpolate(labelSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
   const glowOp = interpolate(frame, [5, 40], [0, 0.15], {

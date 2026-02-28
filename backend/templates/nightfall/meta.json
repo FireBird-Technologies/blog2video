@@ -2,6 +2,7 @@
   "id": "nightfall",
   "name": "Nightfall",
   "description": "Dark cinematic glass — frosted panels over gradient mesh, neon-glow data visualizations, animated charts, and dramatic kinetic title reveals. Premium tech keynote feel with full support for data/stats blogs. All layouts support images alongside content.",
+  "styles": ["explainer", "promotional"],
   "preview_colors": {
     "accent": "#818CF8",
     "bg": "#0A0A1A",

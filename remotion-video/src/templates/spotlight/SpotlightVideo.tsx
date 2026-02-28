@@ -35,6 +35,7 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: string;
   aspectRatio?: string;
   scenes: SceneData[];
 }
@@ -43,17 +44,27 @@ interface VideoProps {
   dataUrl: string;
 }
 
+// Dramatic scale-punch transition for spotlight
 const SpotlightTransition: React.FC = () => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [0, 8], [0, 1], {
+
+  // Fast dramatic scale-up punch
+  const scale = interpolate(frame, [0, 6], [1, 1.15], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const opacity = interpolate(frame, [0, 5], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
         backgroundColor: "#000000",
-        opacity: progress,
+        opacity,
+        transform: `scale(${scale})`,
       }}
     />
   );
@@ -197,6 +208,7 @@ export const SpotlightVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

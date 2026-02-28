@@ -41,6 +41,7 @@ export default function ScriptPanel({ scenes, projectName }: Props) {
               <span className="text-[11px] text-gray-300">{scene.duration_seconds}s</span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mb-2">
+              {/* Script panel shows the narration text (voiceover script), not the shorter display text */}
               {scene.narration_text}
             </p>
             <p className="text-xs text-gray-400 italic">

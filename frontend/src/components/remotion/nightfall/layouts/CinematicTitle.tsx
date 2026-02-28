@@ -9,10 +9,8 @@ import type { NightfallLayoutProps } from "../types";
  * - Layered title reveal with mask animation
  * - Particle-like accent elements
  * - Dynamic subtitle tracking
- * - Professional kerning and typography
- * - Cinematic build-up timing
- * - Optional company/brand lockup area
- * - Optional background image with slow zoom + heavy dark overlay
+ * - Cinematic build-up: intro text first (0–70), then hero image reveals (70+)
+ * - Image appears AFTER intro text with lighter overlay so it's visible
  */
 
 export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
@@ -29,22 +27,17 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   const fps = 30;
   const p = aspectRatio === "portrait";
 
-  // Duration assumption for zoom: image zooms over 150 frames (5s at 30fps)
-  const ZOOM_DURATION = 150;
-
-  // Slow zoom-in until image covers full screen (Ken Burns)
-  const imageScale = interpolate(
-    frame,
-    [0, ZOOM_DURATION],
-    [1.08, 1],
-    { extrapolateRight: "clamp" }
-  );
-
-  // Image fades in gently at the start
+  // Image appears AFTER intro text (frames 70–110) — full-bleed, visible
   const imageOpacity = interpolate(
     frame,
-    [0, 20],
+    [70, 110],
     [0, 1],
+    { extrapolateRight: "clamp" }
+  );
+  const imageScale = interpolate(
+    frame,
+    [70, 150],
+    [1.05, 1],
     { extrapolateRight: "clamp" }
   );
 
@@ -109,10 +102,12 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
 
-      {/* ── Background: either image with overlay, or solid dark ── */}
-      {imageUrl ? (
+      {/* ── Background: dark first, then image reveals after intro ── */}
+      <DarkBackground />
+
+      {/* ── Hero image: appears AFTER intro text (frame 70+), full-bleed with lighter overlay ── */}
+      {imageUrl && (
         <>
-          {/* Zooming image layer */}
           <div
             style={{
               position: "absolute",
@@ -120,7 +115,6 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               opacity: imageOpacity,
               transform: `scale(${imageScale})`,
               transformOrigin: "center center",
-              willChange: "transform",
             }}
           >
             <img
@@ -133,27 +127,18 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               }}
             />
           </div>
-
-          {/* Dark purple overlay (Nightfall base #0A0A1A) — image very lightly visible */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundColor: "#0A0A1A",
-              opacity: 0,
-            }}
-          />
+          {/* Lighter overlay — image stays prominent (lower = more image visibility) */}
           <div
             style={{
               position: "absolute",
               inset: 0,
               background:
-                "radial-gradient(ellipse at center, rgba(10,10,26,0.82) 0%, rgba(10,10,26,0.96) 100%)",
+                "radial-gradient(ellipse at center, rgba(10,10,26,0.25) 0%, rgba(10,10,26,0.55) 100%)",
+              opacity: imageOpacity,
+              pointerEvents: "none",
             }}
           />
         </>
-      ) : (
-        <DarkBackground />
       )}
 
       {/* Accent Particles */}
@@ -186,6 +171,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               transform: `scale(${particleScale})`,
               boxShadow: `0 0 20px ${accentColor}`,
               filter: "blur(1px)",
+              zIndex: 2,
             }}
           />
         );
@@ -201,6 +187,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: p ? 60 : 120,
+          zIndex: 2,
         }}
       >
 

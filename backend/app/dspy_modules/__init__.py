@@ -22,5 +22,5 @@ def ensure_dspy_configured():
             "anthropic/claude-sonnet-4-5-20250929",
             api_key=settings.ANTHROPIC_API_KEY,
         )
-        dspy.configure(lm=lm, async_max_workers=8)
+        dspy.configure(lm=lm, async_max_workers=100)
         _configured = True

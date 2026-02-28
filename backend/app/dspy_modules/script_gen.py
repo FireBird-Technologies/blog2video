@@ -7,14 +7,27 @@ from app.dspy_modules import ensure_dspy_configured
 class BlogToScript(dspy.Signature):
     """
     Given blog content, a list of image URLs from the blog, and a hero image path,
-    create a structured video script for an explainer video. The script should be
+    create a structured video script. The script tone and structure MUST match the
+    chosen video_style (explainer / promotional / storytelling). The script should be
     engaging, clear, and organized into scenes suitable for a Remotion-based video.
 
-    IMPORTANT RULES:
-    - The video should be AS LONG AS NEEDED to cover the blog content thoroughly.
-    - Do NOT artificially shorten content. Each major point deserves its own scene.
-    - Output at most 10 scenes. If the blog is short, fewer scenes are fine.
-    - Combine only truly related minor points; give major topics their own scene.
+    ═══ STYLE-SPECIFIC RULES (CRITICAL — follow for the given video_style) ═══
+    EXPLAINER:
+    - Cover the blog content thoroughly. Output at most 10 scenes.
+    - Each major point can have its own scene. Combine only truly related minor points.
+    - Narrations: 1 sentence, 10–20 words max per scene (display text).
+    PROMOTIONAL:
+    - Maximum 7 scenes. Be concise and punchy. Prioritize benefits and impact over detail.
+    - Narrations MUST be short: 5–12 words per scene. One punchy line per scene. No long sentences.
+    - Structure: hook → 2–3 benefit/feature beats → clear call-to-action or closing.
+    - Cut or merge content to fit 7 scenes; leave out minor details.
+    STORYTELLING:
+    - Narrative arc: setup → development → payoff. At most 10 scenes.
+    - Narrations should be slightly lengthier: about 15 words per scene (roughly 12–18 words). One full sentence per scene.
+    - Focus on journey, tension, or transformation; scenes should feel like story beats.
+
+    GENERAL (all styles):
+    - Do not exceed the scene limit for the chosen style (explainer/storytelling: 10; promotional: 7).
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
@@ -39,7 +52,7 @@ class BlogToScript(dspy.Signature):
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
     - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
-    - ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) as these are display texts shown on screen.
+    - Narrations: explainer/promotional 10-20 words max; storytelling about 15 words (12-18) per scene. Display texts shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -80,16 +93,22 @@ class BlogToScript(dspy.Signature):
     blog_images: str = dspy.InputField(desc="JSON array of image URLs/paths available from the blog")
     hero_image: str = dspy.InputField(desc="Path to the main hero/header image of the blog. Use this in the first (hero opening) scene.")
     aspect_ratio: str = dspy.InputField(desc="Video aspect ratio: 'landscape' (16:9, 1920x1080) or 'portrait' (9:16, 1080x1920). Adjust layouts accordingly.")
+    video_style: str = dspy.InputField(
+        desc="Video style that defines tone and structure: 'explainer' = educational, clear, step-by-step; "
+        "'promotional' = persuasive, benefit-focused, call-to-action, product/solution sell; "
+        "'storytelling' = narrative arc, emotional hooks, character/journey, story-driven. "
+        "Write title, scene titles, narrations, and visual_description to match this style exactly."
+    )
 
-    title: str = dspy.OutputField(desc="A compelling title for the explainer video")
+    title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str -- concise display text, 1 sentence, 10-15 words max), '
+        '"narration" (str — length by video_style: promotional 5-12 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
         '"visual_description" (str), "suggested_images" (list of str), '
         '"duration_seconds" (int). '
         'FIRST scene title must be the actual blog title (never "Hero Opening"), '
         'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
-        'ALL scenes should have SHORT narrations (1 sentence, 10-20 words max) - these are display texts shown on screen. '
+        'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
         'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
         'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
         'Example with image: [{"title": "How AI is Changing Everything", '
@@ -117,10 +136,12 @@ class ScriptGenerator:
         blog_images: list[str],
         hero_image: str = "",
         aspect_ratio: str = "landscape",
+        video_style: str = "explainer",
     ) -> dict:
         """
         Generate a video script from blog content (async).
         The video duration is determined by the content length -- no artificial limit.
+        video_style (explainer | promotional | storytelling) drives tone and structure.
 
         Returns:
             dict with 'title' and 'scenes' (list of scene dicts)
@@ -130,18 +151,28 @@ class ScriptGenerator:
             blog_images=json.dumps(blog_images),
             hero_image=hero_image or "(no hero image available)",
             aspect_ratio=aspect_ratio or "landscape",
+            video_style=(video_style or "explainer").strip().lower() or "explainer",
         )
 
-        # Parse the scenes JSON
-        scenes = self._parse_scenes(result.scenes_json)
+        # Parse the scenes JSON and apply style-specific limits
+        style = (video_style or "explainer").strip().lower() or "explainer"
+        scenes = self._parse_scenes(result.scenes_json, video_style=style)
 
         return {
             "title": result.title,
             "scenes": scenes,
         }
 
-    def _parse_scenes(self, scenes_json: str) -> list[dict]:
-        """Parse and validate the scenes JSON output."""
+    def _max_scenes_for_style(self, video_style: str) -> int:
+        """Maximum number of scenes allowed for the given video style."""
+        if video_style == "promotional":
+            return 7
+        if video_style in ("storytelling", "explainer"):
+            return 10
+        return 10
+
+    def _parse_scenes(self, scenes_json: str, video_style: str = "explainer") -> list[dict]:
+        """Parse and validate the scenes JSON output. Enforces style-specific scene limit and short narrations for promotional."""
         try:
             # Try to extract JSON from the response (it might have markdown code fences)
             cleaned = scenes_json.strip()
@@ -154,12 +185,20 @@ class ScriptGenerator:
             if not isinstance(scenes, list):
                 scenes = [scenes]
 
-            # Validate each scene has required fields, cap at 10
+            max_scenes = self._max_scenes_for_style(video_style)
+            max_narration_words = 14 if video_style == "promotional" else None  # soft cap for truncation
+
             validated = []
-            for i, scene in enumerate(scenes[:10]):
+            for i, scene in enumerate(scenes[:max_scenes]):
+                narration = scene.get("narration", "").strip()
+                # For promotional, keep narrations short: truncate to ~14 words if over
+                if max_narration_words and narration:
+                    words = narration.split()
+                    if len(words) > max_narration_words:
+                        narration = " ".join(words[:max_narration_words])
                 validated.append({
                     "title": scene.get("title", f"Scene {i + 1}"),
-                    "narration": scene.get("narration", ""),
+                    "narration": narration,
                     "visual_description": scene.get("visual_description", ""),
                     "suggested_images": scene.get("suggested_images", []),
                     "duration_seconds": scene.get("duration_seconds", 10),

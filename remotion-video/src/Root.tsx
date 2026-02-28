@@ -15,6 +15,22 @@ import {
   SpotlightVideo,
   calculateSpotlightMetadata,
 } from "./templates/spotlight/SpotlightVideo";
+import {
+  MatrixVideo,
+  calculateMatrixMetadata,
+} from "./templates/matrix/MatrixVideo";
+import {
+  WhiteboardVideo,
+  calculateWhiteboardMetadata,
+} from "./templates/whiteboard/WhiteboardVideo";
+import {
+  NewspaperVideo,
+  calculateNewspaperMetadata,
+} from "./templates/newspaper/NewspaperVideo";
+import {
+  CustomVideo,
+  calculateCustomMetadata,
+} from "./templates/custom/CustomVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -66,6 +82,54 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateSpotlightMetadata}
+      />
+      <Composition
+        id="MatrixVideo"
+        component={MatrixVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMatrixMetadata}
+      />
+      <Composition
+        id="WhiteboardVideo"
+        component={WhiteboardVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateWhiteboardMetadata}
+      />
+      <Composition
+        id="NewspaperVideo"
+        component={NewspaperVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateNewspaperMetadata}
+      />
+      <Composition
+        id="CustomVideo"
+        component={CustomVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateCustomMetadata}
       />
     </>
   );

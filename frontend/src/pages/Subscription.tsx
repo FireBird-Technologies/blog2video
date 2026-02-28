@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   getBillingStatus,
@@ -253,7 +254,7 @@ export default function Subscription() {
       </section>
 
       {/* Cancel confirmation dialog */}
-      {showCancelConfirm && (
+      {showCancelConfirm && ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
@@ -282,7 +283,8 @@ export default function Subscription() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Usage & data */}

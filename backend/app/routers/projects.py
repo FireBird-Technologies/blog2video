@@ -1,25 +1,40 @@
+import logging
 import os
 import shutil
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from sqlalchemy import func, text, inspect
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
 from app.config import settings
-from app.models.user import User
+from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
+from app.models.scene import Scene
 from app.schemas.schemas import (
-    ProjectCreate, ProjectOut, ProjectListOut, SceneOut, SceneUpdate,
-    ReorderScenesRequest, RegenerateSceneRequest
+    ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
+    BulkProjectItem, BulkCreateResponse,
+    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+logger = logging.getLogger(__name__)
+
+
+def _inject_custom_theme(project: Project) -> Project:
+    """Attach custom_theme to a project so ProjectOut serialization includes it."""
+    if is_custom_template(project.template):
+        data = _load_custom_template_data(project.template)
+        project.custom_theme = data["theme"] if data else None
+    else:
+        project.custom_theme = None
+    return project
 
 # ─── Constants ────────────────────────────────────────────
 _MAX_UPLOAD_FILES = 5
@@ -30,6 +45,20 @@ _ALLOWED_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
+
+
+def _normalize_video_style(video_style: str | None) -> str:
+    """Normalize and validate video style."""
+    style = (video_style or "").strip().lower()
+    if not style:
+        return "explainer"
+    if style not in _VALID_VIDEO_STYLES:
+        raise HTTPException(
+            status_code=422,
+            detail="video_style must be one of: explainer, promotional, storytelling",
+        )
+    return style
 
 
 @router.post("", response_model=ProjectOut)
@@ -50,7 +79,13 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template)
+    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+        )
     colors = get_preview_colors(template_id)
+    normalized_video_style = _normalize_video_style(data.video_style)
     project = Project(
         user_id=user.id,
         name=name,
@@ -66,6 +101,7 @@ def create_project(
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
+        video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -74,7 +110,152 @@ def create_project(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    return project
+    return _inject_custom_theme(project)
+
+
+def _apply_logo_to_project(
+    project_id: int,
+    user_id: int,
+    file_bytes: bytes,
+    content_type: str,
+    filename: str | None,
+    request: Request,
+    db: Session,
+) -> None:
+    """Save logo file for a project (local + R2) and update project. Caller must commit."""
+    project = _get_user_project(project_id, user_id, db)
+    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
+    os.makedirs(logo_dir, exist_ok=True)
+    ext = filename.rsplit(".", 1)[-1] if filename and "." in filename else "png"
+    logo_filename = f"logo.{ext}"
+    local_path = os.path.join(logo_dir, logo_filename)
+    with open(local_path, "wb") as f:
+        f.write(file_bytes)
+    if r2_storage.is_r2_configured():
+        try:
+            r2_key = r2_storage.image_key(user_id, project_id, logo_filename)
+            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=content_type)
+            project.logo_r2_key = r2_key
+            project.logo_r2_url = r2_url
+        except Exception as e:
+            print(f"[PROJECTS] Logo R2 upload failed for project {project_id}: {e}")
+            project.logo_r2_key = None
+            project.logo_r2_url = None
+    if not project.logo_r2_url:
+        base = str(request.base_url).rstrip("/")
+        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
+    db.commit()
+    db.refresh(project)
+
+
+@router.post("/bulk", response_model=BulkCreateResponse)
+def create_projects_bulk(
+    request: Request,
+    projects_json: str = Form(..., alias="projects"),
+    logo_indices_json: Optional[str] = Form(None, alias="logo_indices"),
+    logos: Optional[list[UploadFile]] = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create multiple projects from URLs. Per-project logos via logo_indices + logos[]."""
+    import json
+    try:
+        raw = json.loads(projects_json)
+        if not isinstance(raw, list):
+            raise ValueError("projects must be an array")
+        items = [BulkProjectItem(**x) for x in raw]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid projects JSON: {e}")
+    if not items:
+        raise HTTPException(status_code=400, detail="At least one project is required.")
+    needed = len(items)
+    if user.videos_used_this_period + needed > user.video_limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade or buy more credits.",
+        )
+    if user.plan != PlanTier.PRO:
+        for data in items:
+            tid = getattr(data, "template", None) or ""
+            if tid and str(tid).strip().startswith("custom_"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+                )
+    logo_indices: list[int] = []
+    if logo_indices_json:
+        try:
+            logo_indices = json.loads(logo_indices_json)
+            if not isinstance(logo_indices, list):
+                logo_indices = []
+            else:
+                logo_indices = [int(x) for x in logo_indices if isinstance(x, (int, float))]
+        except Exception:
+            logo_indices = []
+    logo_files: list[UploadFile] = list(logos) if logos else []
+    if len(logo_indices) != len(logo_files):
+        logo_indices = []
+        logo_files = []
+    allowed = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+    MAX_LOGO_SIZE = 2 * 1024 * 1024
+    logo_payloads: list[tuple[int, bytes, str, Optional[str]]] = []
+    for j, idx in enumerate(logo_indices):
+        if j >= len(logo_files) or idx < 0:
+            continue
+        f = logo_files[j]
+        if not f or not f.filename:
+            continue
+        if f.content_type not in allowed:
+            raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
+        raw_bytes = f.file.read()
+        if len(raw_bytes) > MAX_LOGO_SIZE:
+            raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
+        logo_payloads.append((idx, raw_bytes, f.content_type or "image/png", f.filename))
+    created: list[Project] = []
+    for data in items:
+        if not (data.blog_url and data.blog_url.strip()):
+            continue
+        name = (data.name or "").strip() or _name_from_url(data.blog_url)
+        template_id = validate_template_id(data.template)
+        colors = get_preview_colors(template_id)
+        normalized_video_style = _normalize_video_style(data.video_style)
+        project = Project(
+            user_id=user.id,
+            name=name,
+            blog_url=data.blog_url.strip(),
+            template=template_id,
+            voice_gender=data.voice_gender or "female",
+            voice_accent=data.voice_accent or "american",
+            accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
+            bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
+            text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+            animation_instructions=data.animation_instructions or None,
+            logo_position=data.logo_position or "bottom_right",
+            logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
+            custom_voice_id=data.custom_voice_id or None,
+            aspect_ratio=data.aspect_ratio or "landscape",
+            video_style=normalized_video_style,
+            status=ProjectStatus.CREATED,
+        )
+        db.add(project)
+        db.flush()
+        created.append(project)
+        user.videos_used_this_period += 1
+    if not created:
+        raise HTTPException(status_code=400, detail="No valid project URLs provided.")
+    db.commit()
+    for p in created:
+        db.refresh(p)
+    project_ids = [p.id for p in created]
+    for idx, raw_bytes, content_type, filename in logo_payloads:
+        if idx >= len(created):
+            continue
+        p = created[idx]
+        try:
+            _apply_logo_to_project(p.id, user.id, raw_bytes, content_type, filename, request, db)
+        except Exception as e:
+            print(f"[PROJECTS] Bulk logo apply failed for project {p.id}: {e}")
+    return BulkCreateResponse(project_ids=project_ids)
 
 
 @router.post("/upload", response_model=ProjectOut)
@@ -93,6 +274,7 @@ def create_project_from_upload(
     custom_voice_id: Optional[str] = Form(None),
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
+    video_style: Optional[str] = Form("explainer"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -129,7 +311,13 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template)
+    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+        )
     colors = get_preview_colors(template_id)
+    normalized_video_style = _normalize_video_style(video_style)
     print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
     project = Project(
         user_id=user.id,
@@ -146,13 +334,14 @@ def create_project_from_upload(
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
+        video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
     )
     db.add(project)
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    print(f"[PROJECTS] Project {project.id} created with template='{project.template}'")
+    print(f"[PROJECTS] Project {project.id} created with template='{project.template}', video_style='{project.video_style}'")
 
     # ── Extract text + images from documents ────────────────
     try:
@@ -163,7 +352,7 @@ def create_project_from_upload(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.post("/{project_id}/upload-documents", response_model=ProjectOut)
@@ -208,7 +397,7 @@ def upload_documents_to_project(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.post("/{project_id}/logo")
@@ -220,49 +409,19 @@ def upload_logo(
     db: Session = Depends(get_db),
 ):
     """Upload a logo image for the project. Stored in R2."""
-    project = _get_user_project(project_id, user.id, db)
-
-    # Validate file type
+    _get_user_project(project_id, user.id, db)
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Logo must be PNG, JPEG, WebP, or SVG.")
-
-    # Read file content and enforce size limit (2 MB max)
     MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
     file_bytes = file.file.read()
     if len(file_bytes) > MAX_LOGO_SIZE:
         raise HTTPException(status_code=400, detail="Logo file too large. Maximum size is 2 MB.")
-
-    # Save locally first
-    logo_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}")
-    os.makedirs(logo_dir, exist_ok=True)
-
-    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "png"
-    logo_filename = f"logo.{ext}"
-    local_path = os.path.join(logo_dir, logo_filename)
-
-    with open(local_path, "wb") as f:
-        f.write(file_bytes)
-
-    # Upload to R2
-    if r2_storage.is_r2_configured():
-        try:
-            r2_key = r2_storage.image_key(user.id, project_id, logo_filename)
-            r2_url = r2_storage.upload_file(local_path, r2_key, content_type=file.content_type)
-            project.logo_r2_key = r2_key
-            project.logo_r2_url = r2_url
-        except Exception as e:
-            print(f"[PROJECTS] Logo R2 upload failed: {e}")
-            project.logo_r2_key = None
-            project.logo_r2_url = None
-
-    # Fallback: if R2 isn't configured or upload failed, use local serving URL
-    if not project.logo_r2_url:
-        base = str(request.base_url).rstrip("/")
-        project.logo_r2_url = f"{base}/media/projects/{project_id}/{logo_filename}"
-
-    db.commit()
-    db.refresh(project)
+    _apply_logo_to_project(
+        project_id, user.id, file_bytes, file.content_type or "image/png",
+        file.filename, request, db,
+    )
+    project = _get_user_project(project_id, user.id, db)
     return {"logo_url": project.logo_r2_url, "logo_position": project.logo_position}
 
 
@@ -271,26 +430,34 @@ def list_projects(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all projects for the current user."""
-    projects = (
-        db.query(Project)
+    """List all projects for the current user. Single query with scene count subquery."""
+    scene_counts = (
+        db.query(Scene.project_id, func.count(Scene.id).label("cnt"))
+        .group_by(Scene.project_id)
+        .subquery()
+    )
+    rows = (
+        db.query(
+            Project,
+            func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
+        )
+        .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
         .filter(Project.user_id == user.id)
         .order_by(Project.created_at.desc())
         .all()
     )
-    result = []
-    for p in projects:
-        item = ProjectListOut(
+    return [
+        ProjectListOut(
             id=p.id,
             name=p.name,
             blog_url=p.blog_url,
             status=p.status.value,
             created_at=p.created_at,
             updated_at=p.updated_at,
-            scene_count=len(p.scenes),
+            scene_count=int(scene_count),
         )
-        result.append(item)
-    return result
+        for p, scene_count in rows
+    ]
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -301,7 +468,7 @@ def get_project(
 ):
     """Get a single project with all its scenes and assets."""
     project = _get_user_project(project_id, user.id, db)
-    return project
+    return _inject_custom_theme(project)
 
 
 @router.delete("/{project_id}")
@@ -329,6 +496,26 @@ def delete_project(
     db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
+
+
+@router.patch("/{project_id}", response_model=ProjectOut)
+def update_project_logo(
+    project_id: int,
+    data: ProjectLogoUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update project logo settings (position, size, opacity)."""
+    project = _get_user_project(project_id, user.id, db)
+    if data.logo_position is not None:
+        project.logo_position = data.logo_position
+    if data.logo_size is not None:
+        project.logo_size = data.logo_size
+    if data.logo_opacity is not None:
+        project.logo_opacity = data.logo_opacity
+    db.commit()
+    db.refresh(project)
+    return project
 
 
 @router.patch("/{project_id}/assets/{asset_id}/exclude")
@@ -433,6 +620,21 @@ def delete_asset(
         except Exception as e:
             print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
 
+    # Rebuild workspace so data.json reflects the deleted asset and
+    # updated hideImage flags immediately.
+    try:
+        from app.services.remotion import rebuild_workspace
+        project = _get_user_project(project_id, user.id, db)
+        all_scenes = (
+            db.query(Scene)
+            .filter(Scene.project_id == project_id)
+            .order_by(Scene.order)
+            .all()
+        )
+        rebuild_workspace(project, all_scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: workspace rebuild after asset deletion failed: {e}")
+
     return {"detail": "Asset deleted"}
 
 
@@ -479,6 +681,105 @@ def update_scene(
         print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
 
     return scene
+
+
+@router.post("/{project_id}/scenes/{scene_id}/generate-image")
+def generate_scene_image(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate an AI image for the scene from its title + narration. Returns base64 image and refined prompt.
+    No DB write; use POST .../image to upload the image when the user chooses to keep it.
+    Pro plan only. Image size/aspect is chosen from the scene's layout so the image fits without clipping."""
+    import json
+    from app.models.scene import Scene
+    from app.models.user import PlanTier
+    from app.dspy_modules.image_prompt import refine_image_prompt
+    from app.services.image_gen import get_image_provider
+    from app.services.image_dimensions import (
+        get_image_aspect_for_layout,
+        get_openai_size,
+        get_gemini_image_config,
+    )
+    from app.services.template_service import get_fallback_layout
+
+    if user.plan != PlanTier.PRO:
+        raise HTTPException(
+            status_code=403,
+            detail="AI image generation is available on the Pro plan. Upgrade to unlock.",
+        )
+
+    project = _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    scene_text = f"{scene.title or ''} {scene.narration_text or ''}".strip()
+    if not scene_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Scene has no title or narration text to use as prompt.",
+        )
+
+    try:
+        provider = get_image_provider()
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    if not provider:
+        raise HTTPException(
+            status_code=503,
+            detail="Image generation not configured. Set IMAGE_PROVIDER and the corresponding API key (OPENAI_API_KEY or GEMINI_API_KEY)",
+        )
+
+    layout_id = get_fallback_layout(project.template)
+    if scene.remotion_code:
+        try:
+            desc = json.loads(scene.remotion_code)
+            if desc.get("layout"):
+                layout_id = desc["layout"]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    project_aspect = getattr(project, "aspect_ratio", None) or "landscape"
+    aspect_ratio = get_image_aspect_for_layout(
+        project.template or "default",
+        layout_id,
+        project_aspect,
+    )
+    provider_name = (settings.IMAGE_PROVIDER or "openai").strip().lower()
+    if provider_name == "openai":
+        openai_size = get_openai_size(aspect_ratio)
+        gen_kwargs = {
+            "size": openai_size,
+            "quality": "high",
+            "n": 1,
+        }
+        logger.info(
+            "[GENERATE_IMAGE] provider=openai layout=%r template=%r project_aspect=%r image_aspect=%r size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio, openai_size,
+        )
+    else:
+        gemini_config = get_gemini_image_config(aspect_ratio)
+        gen_kwargs = {"generation_config": gemini_config}
+        logger.info(
+            "[GENERATE_IMAGE] provider=gemini layout=%r template=%r project_aspect=%r image_aspect=%r aspect_ratio=%s image_size=%s",
+            layout_id, project.template, project_aspect, aspect_ratio,
+            gemini_config.get("aspect_ratio"), gemini_config.get("image_size"),
+        )
+
+    refined_prompt = refine_image_prompt(scene_text)
+    try:
+        image_base64 = provider.generate(refined_prompt, **gen_kwargs)
+    except Exception as e:
+        print(f"[GENERATE_IMAGE] Provider error: {e}")
+        raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e
+
+    return {"image_base64": image_base64, "refined_prompt": refined_prompt}
 
 
 @router.post("/{project_id}/scenes/{scene_id}/image", response_model=SceneOut)
@@ -687,7 +988,7 @@ async def regenerate_scene(
     project_id: int,
     scene_id: int,
     description: Optional[str] = Form(None),
-    narration_text: str = Form(...),
+    narration_text: Optional[str] = Form(None),
     regenerate_voiceover: str = Form("false"),
     layout: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
@@ -727,7 +1028,12 @@ async def regenerate_scene(
     normalized_layout = None
     if layout and not keep_layout:
         valid_layouts = get_valid_layouts(project.template)
-        normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
+        # Custom templates use hyphenated arrangements (e.g. "split-left"),
+        # built-in templates use underscored layout IDs (e.g. "text_narration").
+        if is_custom_template(project.template):
+            normalized_layout = layout.strip().lower().replace(" ", "-")
+        else:
+            normalized_layout = layout.strip().lower().replace(" ", "_").replace("-", "_")
         if normalized_layout not in valid_layouts:
             raise HTTPException(
                 status_code=400,
@@ -794,13 +1100,15 @@ async def regenerate_scene(
         "don't display narration", "visualization only"
     ])
 
-    # Use the provided narration_text (display text) or keep existing if not provided
+    # Use the provided narration_text form field as DISPLAY TEXT for the scene.
+    # Voiceover continues to be driven from scene.narration_text.
     if hide_narration:
-        new_narration = ""
+        new_display_text = ""
     elif narration_text and narration_text.strip():
-        new_narration = narration_text.strip()
+        new_display_text = narration_text.strip()
     else:
-        new_narration = scene.narration_text or ""
+        # Prefer existing display_text when present; otherwise fall back to narration_text.
+        new_display_text = getattr(scene, "display_text", None) or (scene.narration_text or "")
     
     # Parse current descriptor
     current_descriptor = None
@@ -820,7 +1128,7 @@ async def regenerate_scene(
             current_visual_description=scene.visual_description or "",
             user_instruction=description,
             scene_title=scene.title,
-            display_text=new_narration,
+            display_text=new_display_text,
         )
     else:
         new_visual_description = scene.visual_description or ""
@@ -843,7 +1151,10 @@ async def regenerate_scene(
             if s.remotion_code:
                 try:
                     desc = json.loads(s.remotion_code)
-                    layout_name = desc.get("layout", "unknown")
+                    if "layoutConfig" in desc:
+                        layout_name = desc["layoutConfig"].get("arrangement", "unknown")
+                    else:
+                        layout_name = desc.get("layout", "unknown")
                 except (json.JSONDecodeError, TypeError):
                     pass
             other_layout_parts.append(f"scene {s.order}: {layout_name}")
@@ -852,11 +1163,21 @@ async def regenerate_scene(
         # If keep_layout + description: force the current layout as preferred
         effective_layout = normalized_layout
         if keep_layout and has_description and current_descriptor:
-            effective_layout = current_descriptor.get("layout")
+            if "layoutConfig" in current_descriptor:
+                effective_layout = current_descriptor["layoutConfig"].get("arrangement")
+            else:
+                effective_layout = current_descriptor.get("layout")
+
+        print(f"[REGENERATE] template={project.template}, is_custom={is_custom_template(project.template)}")
+        print(f"[REGENERATE] keep_layout={keep_layout}, normalized_layout={normalized_layout}, effective_layout={effective_layout}")
+        print(f"[REGENERATE] other_scenes: {other_scenes_layouts}")
+        if current_descriptor:
+            has_lc = "layoutConfig" in current_descriptor
+            print(f"[REGENERATE] current descriptor: has_layoutConfig={has_lc}, keys={list(current_descriptor.keys())}")
 
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
-            narration=new_narration,
+            narration=scene.narration_text or "",
             visual_description=new_visual_description,
             scene_index=scene.order - 1,
             total_scenes=len(all_scenes),
@@ -865,7 +1186,9 @@ async def regenerate_scene(
             current_descriptor=current_descriptor,
         )
 
-        # Preserve image assignment from old descriptor into the new one
+        # Preserve image assignment from old descriptor into the new one.
+        # Applies to all templates. Custom templates use layoutConfig for
+        # arrangement but still use layoutProps for image tracking.
         if remove_image:
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
@@ -876,29 +1199,52 @@ async def regenerate_scene(
             old_lp = current_descriptor.get("layoutProps") or {}
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
-            # Preserve assignedImage so the generic stays locked to this scene
             old_assigned = old_lp.get("assignedImage")
             if old_assigned:
                 descriptor["layoutProps"]["assignedImage"] = old_assigned
-            # Preserve hideImage if it was explicitly set (user removed image earlier)
             if old_lp.get("hideImage"):
                 descriptor["layoutProps"]["hideImage"] = True
 
+        # Preserve custom font sizes from old layoutConfig into the new descriptor
+        if is_custom_template(project.template) and "layoutConfig" in descriptor and current_descriptor:
+            old_lc = current_descriptor.get("layoutConfig") or {}
+            new_lc = descriptor["layoutConfig"]
+            if "titleFontSize" in old_lc and "titleFontSize" not in new_lc:
+                new_lc["titleFontSize"] = old_lc["titleFontSize"]
+            if "descriptionFontSize" in old_lc and "descriptionFontSize" not in new_lc:
+                new_lc["descriptionFontSize"] = old_lc["descriptionFontSize"]
+
+        # Debug: log the final descriptor that will be stored
+        if "layoutConfig" in descriptor:
+            lc = descriptor["layoutConfig"]
+            print(f"[REGENERATE] RESULT: layoutConfig → arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}")
+        else:
+            print(f"[REGENERATE] RESULT: legacy → layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
+
         scene.visual_description = new_visual_description
-        scene.narration_text = new_narration
+        # Update display_text only; narration_text remains the narration script.
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
         scene.remotion_code = json.dumps(descriptor)
         db.commit()
     else:
         # Keep layout: no AI layout call — just preserve existing descriptor
         scene.visual_description = new_visual_description
-        scene.narration_text = new_narration
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
         db.commit()
 
     # Regenerate voiceover only if requested
     should_regenerate_voiceover = regenerate_voiceover.lower() == "true"
-    if should_regenerate_voiceover and new_narration.strip():
+    # Voiceover should continue to be based on the underlying narration_text script,
+    # not the shorter display_text.
+    narration_source = (scene.narration_text or "").strip()
+    if should_regenerate_voiceover and narration_source:
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
-        expanded_voiceover = await expand_narration_to_voiceover(new_narration, scene.title)
+        video_style = getattr(project, "video_style", None) or "explainer"
+        expanded_voiceover = await expand_narration_to_voiceover(
+            narration_source, scene.title, video_style=video_style
+        )
 
         original_narration = scene.narration_text
         scene.narration_text = expanded_voiceover

@@ -5,8 +5,8 @@
   "scripts": {
     "studio": "npx remotion studio",
     "player": "npx vite --config vite.player.config.ts player.html",
-    "render": "npx remotion render ExplainerVideo out/video.mp4",
-    "build": "npx remotion render ExplainerVideo out/video.mp4"
+    "render": "npx remotion render DefaultVideo out/video.mp4",
+    "build": "npx remotion render DefaultVideo out/video.mp4"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",

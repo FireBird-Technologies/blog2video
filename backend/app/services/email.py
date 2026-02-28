@@ -7,11 +7,13 @@ Current provider: Resend (resend Python SDK)
 Notifications:
   - send_preview_ready_email()      → scenes generated, user can preview (GENERATED)
   - send_download_ready_email()     → MP4 render complete, user can download (DONE)
+  - schedule_followup_email()      → optional follow-up e.g. 23.5h after project updated_at (scheduled via Resend)
   - send_enterprise_contact_email() → enterprise contact form submission
 """
 
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.config import settings
@@ -41,9 +43,10 @@ class BaseEmailProvider(ABC):
         html_content: str,
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
+        scheduled_at: Optional[datetime] = None,
     ) -> None:
         """
-        Send a transactional email.
+        Send a transactional email (immediately or at a scheduled time).
 
         Args:
             to:           Recipient email address.
@@ -51,6 +54,7 @@ class BaseEmailProvider(ABC):
             html_content: HTML body.
             text_content: Plain-text fallback (optional but recommended).
             from_email:   Override the default sender address.
+            scheduled_at: If set, schedule send at this time (UTC); provider must support it.
 
         Raises:
             EmailServiceError: If the send fails for any reason.
@@ -73,6 +77,7 @@ class ResendEmailProvider(BaseEmailProvider):
         html_content: str,
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
+        scheduled_at: Optional[datetime] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
@@ -89,10 +94,19 @@ class ResendEmailProvider(BaseEmailProvider):
         }
         if text_content:
             params["text"] = text_content
+        if scheduled_at is not None:
+            # Resend expects ISO 8601 UTC; assume naive datetimes are UTC
+            dt = scheduled_at
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            params["scheduled_at"] = dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         try:
             result = resend.Emails.send(params)
-            logger.info(f"[EMAIL] Sent '{subject}' → {to} (id: {getattr(result, 'id', result)})")
+            if scheduled_at is not None:
+                logger.info(f"[EMAIL] Scheduled '{subject}' → {to} at {params.get('scheduled_at')} (id: {getattr(result, 'id', result)})")
+            else:
+                logger.info(f"[EMAIL] Sent '{subject}' → {to} (id: {getattr(result, 'id', result)})")
         except Exception as exc:
             msg = f"Resend error sending to {to}: {exc}"
             logger.error(f"[EMAIL] {msg}", exc_info=True)
@@ -143,7 +157,7 @@ class EmailService:
         <table width="560" cellpadding="0" cellspacing="0"
                style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#6d28d9;padding:32px 40px;text-align:center;">
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
               <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
                 Blog<span style="color:#c4b5fd;">2</span>Video
               </span>
@@ -155,14 +169,14 @@ class EmailService:
               <p style="margin:0 0 28px;font-size:15px;color:#4b5563;line-height:1.65;">{body_paragraph}</p>
               <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
                 <tr>
-                  <td style="background:#6d28d9;border-radius:6px;">
+                  <td style="background:#9333EA;border-radius:6px;">
                     <a href="{cta_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">{cta_label}</a>
                   </td>
                 </tr>
               </table>
               <p style="margin:0;font-size:13px;color:#9ca3af;">
                 If the button doesn't work, copy and paste this link:<br/>
-                <a href="{cta_url}" style="color:#6d28d9;word-break:break-all;">{cta_url}</a>
+                <a href="{cta_url}" style="color:#9333EA;word-break:break-all;">{cta_url}</a>
               </p>
             </td>
           </tr>
@@ -251,6 +265,45 @@ class EmailService:
             from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
         )
 
+    def schedule_followup_email(
+        self,
+        user_email: str,
+        user_name: str,
+        project_name: str,
+        project_url: str,
+        scheduled_at: Optional[datetime] = None,
+    ) -> None:
+        """
+        Schedule a follow-up email (e.g. 23.5 hours after project.updated_at).
+        Uses Resend scheduled send. If scheduled_at is None, sends immediately.
+        """
+        first_name = user_name.split()[0] if user_name else "there"
+        subject = f"Reminder: download your video '{project_name}' before it's deleted"
+        html = self._build_html(
+          headline=f"Hi {first_name}, download your video before it's deleted",
+          body_paragraph=(
+            f"Your Blog2Video project <strong style=\"color:#111827;\">\"{project_name}\"</strong> "
+            f"will be deleted in about 30 minutes. Download it before it's removed."
+          ),
+          cta_label="Download Before It's Deleted",
+          cta_url=project_url,
+        )
+        text = (
+          f"Hi {first_name},\n\n"
+          f"Your Blog2Video project '{project_name}' will be deleted in about 30 minutes. "
+          f"Download it before it's removed:\n\n"
+          f"{project_url}\n\n"
+          f"— The Blog2Video Team\n"
+        )
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            html_content=html,
+            text_content=text,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+            scheduled_at=scheduled_at,
+        )
+
     def send_enterprise_contact_email(
         self,
         name: str,
@@ -281,7 +334,7 @@ class EmailService:
         <table width="560" cellpadding="0" cellspacing="0"
                style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:#6d28d9;padding:24px 40px;">
+            <td style="background:#9333EA;padding:24px 40px;">
               <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
             </td>
           </tr>

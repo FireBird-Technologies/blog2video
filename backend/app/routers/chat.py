@@ -176,7 +176,14 @@ def _apply_scene_changes(
         if "title" in change:
             scene.title = change["title"]
         if "narration" in change:
-            scene.narration_text = change["narration"]
+            # When the narration script changes via chat editing, keep display_text in sync
+            # by default so on-screen text reflects the new script. Templates that want
+            # distinct display_text can regenerate it later.
+            new_narr = change["narration"]
+            scene.narration_text = new_narr
+            # Best-effort: if display_text exists, update it to match; otherwise leave None.
+            if hasattr(scene, "display_text"):
+                scene.display_text = new_narr
         if "visual_description" in change:
             scene.visual_description = change["visual_description"]
         if "duration_seconds" in change:

@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const TextNarration: React.FC<SceneLayoutProps> = ({
@@ -12,17 +12,35 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 25], [0, 1], {
+  // Title: spring-driven entrance with slide up
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const textOp = interpolate(frame, [15, 40], [0, 1], {
+  const titleY = interpolate(titleSpring, [0, 1], [25, 0], {
     extrapolateRight: "clamp",
   });
-  const textY = interpolate(frame, [15, 40], [20, 0], {
+
+  // Narration: spring-driven with slight delay
+  const textSpring = spring({
+    frame: frame - 15,
+    fps,
+    config: { damping: 24, stiffness: 80, mass: 1 },
+  });
+  const textOp = interpolate(textSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
+  const textY = interpolate(textSpring, [0, 1], [20, 0], {
+    extrapolateRight: "clamp",
+  });
+
   const circleScale = interpolate(frame, [0, 35], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -71,6 +89,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 40 : 52),
             fontWeight: 700,
             opacity: titleOp,
+            transform: `translateY(${titleY}px)`,
             marginTop: 0,
             marginBottom: 24,
             fontFamily: "Inter, sans-serif",
