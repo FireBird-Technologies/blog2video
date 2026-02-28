@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
@@ -146,7 +147,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -204,8 +205,20 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
+}
+
+function deriveNameFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.replace(/\/$/, "").split("/");
+    const path = segments[segments.length - 1] || parsed.hostname;
+    return path.replace(/[-_]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()).slice(0, 100) || "Untitled Project";
+  } catch {
+    return "Untitled Project";
+  }
 }
 
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
@@ -513,9 +526,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
-      const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => ({
-        blog_url: url.trim(),
-        name: n.trim() || undefined,
+      // Detect duplicate URLs and auto-suffix names
+      const urlCounts: Record<string, number> = {};
+      const urlSeenSoFar: Record<string, number> = {};
+      for (const { url } of valid) {
+        const normalized = url.trim();
+        urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
+      }
+
+      const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
+        const normalized = url.trim();
+        urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
+        const isDuplicate = urlCounts[normalized] > 1;
+
+        let resolvedName = n.trim() || undefined;
+        if (!resolvedName && isDuplicate) {
+          const occurrence = urlSeenSoFar[normalized];
+          const derived = deriveNameFromUrl(normalized);
+          resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
+        }
+
+        return {
+        blog_url: normalized,
+        name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: bulkVideoStyles[i] ?? "promotional",
         voice_gender: bulkVoiceGender[i],
@@ -536,7 +569,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         logo_opacity: bulkLogoOpacity[i] ?? 0.9,
         custom_voice_id: bulkCustomVoiceId[i]?.trim() || undefined,
         aspect_ratio: bulkAspectRatio[i] ?? "landscape",
-      }));
+      };
+      });
       const logoIndices: number[] = [];
       const logoFiles: File[] = [];
       valid.forEach((v, j) => {
@@ -678,7 +712,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </div>
 
       {/* Bulk: multiple links (url + name per row) */}
-      {mode === "bulk" && (
+      {mode === "bulk" && (<>
         <BulkLinksSection
           rows={bulkRows}
           maxBulkLinks={MAX_BULK_LINKS}
@@ -696,7 +730,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           onAddRow={addBulkRow}
           onRemoveRow={removeBulkRow}
         />
-      )}
+        {(() => {
+          const seen = new Set<string>();
+          const hasDupes = bulkRows.some((r) => {
+            const t = r.url.trim();
+            if (!t) return false;
+            if (seen.has(t)) return true;
+            seen.add(t);
+            return false;
+          });
+          return hasDupes ? (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+              Duplicate URLs detected — suffixes will be added to project names to differentiate them.
+            </p>
+          ) : null;
+        })()}
+      </>)}
 
       {/* URL input */}
       {mode === "url" && (
@@ -2666,9 +2715,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     );
   }
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm mt-6" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
         className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300`}
       >
@@ -2691,6 +2740,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           isSelected={template === videoPreviewId}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
