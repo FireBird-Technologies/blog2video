@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
 import { getTemplates, getVoicePreviews,listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem,type CustomTemplateItem } from "../api/client";
+import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradeModal from "./UpgradeModal";
 import CustomTemplateUpgradeModal from "./CustomTemplateUpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
@@ -15,11 +16,7 @@ import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
 
-export const VIDEO_STYLES = [
-  { id: "explainer", label: "Explainer", subtitle: "Educational, clear, step-by-step" },
-  { id: "promotional", label: "Promotional", subtitle: "Persuasive, benefit-focused, CTA" },
-  { id: "storytelling", label: "Storytelling", subtitle: "Narrative arc, emotional, story-driven" },
-] as const;
+export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
 interface Props {
   onSubmit: (
@@ -38,7 +35,7 @@ interface Props {
     aspectRatio?: string,
     uploadFiles?: File[],
     template?: string,
-    videoStyle?: string
+    videoStyle?: VideoStyleId
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -231,13 +228,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Bulk: rows (url); per-row name, template, voice, format, logo
   const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
-  const [bulkTemplates, setBulkTemplates] = useState<string[]>(["nightfall"]);
+  const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
-  const [bulkVideoStyles, setBulkVideoStyles] = useState<string[]>(["promotional"]);
-  const [bulkTemplateListTabs, setBulkTemplateListTabs] = useState<("forStyle" | "others")[]>(["forStyle"]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
+  const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
   const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
@@ -263,29 +260,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [playingKey, setPlayingKey] = useState<string | null>(null);
 
   // Step 2 — video style & template
-  const [videoStyle, setVideoStyle] = useState<string>("promotional");
-  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false);
-  const [templateListTab, setTemplateListTab] = useState<"forStyle" | "others">("forStyle");
-  const [template, setTemplate] = useState("nightfall");
+  const [videoStyle, setVideoStyle] = useState<VideoStyleId>("promotional");
+  const [templatePickerView, setTemplatePickerView] = useState<"style" | "custom">("style");
+  const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
-  const styleDropdownRef = useRef<HTMLDivElement>(null);
-
-  // When style changes, show "For this style" templates first
-  useEffect(() => {
-    setTemplateListTab("forStyle");
-  }, [videoStyle]);
-
-  // Close style dropdown on click outside
-  useEffect(() => {
-    if (!styleDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (styleDropdownRef.current && !styleDropdownRef.current.contains(e.target as Node)) {
-        setStyleDropdownOpen(false);
-      }
-    };
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, [styleDropdownOpen]);
 
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
@@ -318,7 +296,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {});
   }, []);
 
-  // Sync colors to the selected template when templates load (so default "nightfall" shows nightfall colors on step 2)
+  // Sync colors to the selected template when templates load.
   useEffect(() => {
     if (templates.length === 0) return;
     // Check custom templates first
@@ -443,13 +421,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       if (mode === "bulk") {
         const n = bulkRows.length;
         setBulkNames((prev) => resizeTo(prev, n, ""));
-        setBulkTemplates((prev) => resizeTo(prev, n, "nightfall"));
+        setBulkTemplates((prev) => resizeTo(prev, n, "default"));
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
-        setBulkTemplateListTabs((prev) => resizeTo(prev, n, "forStyle"));
+        setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
         setBulkAccentColors((prev) => resizeTo(prev, n, ""));
         setBulkBgColors((prev) => resizeTo(prev, n, ""));
         setBulkTextColors((prev) => resizeTo(prev, n, ""));
@@ -474,13 +452,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (bulkRows.length >= MAX_BULK_LINKS) return;
     setBulkRows((prev) => [...prev, { url: "" }]);
     setBulkNames((prev) => [...prev, ""]);
-    setBulkTemplates((prev) => [...prev, "nightfall"]);
+    setBulkTemplates((prev) => [...prev, "default"]);
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [...prev, "promotional"]);
-    setBulkTemplateListTabs((prev) => [...prev, "forStyle"]);
+    setBulkTemplatePickerViews((prev) => [...prev, "style"]);
     setBulkAccentColors((prev) => [...prev, ""]);
     setBulkBgColors((prev) => [...prev, ""]);
     setBulkTextColors((prev) => [...prev, ""]);
@@ -499,7 +477,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
-    setBulkTemplateListTabs((prev) => prev.filter((_, i) => i !== index));
+    setBulkTemplatePickerViews((prev) => prev.filter((_, i) => i !== index));
     setBulkAccentColors((prev) => prev.filter((_, i) => i !== index));
     setBulkBgColors((prev) => prev.filter((_, i) => i !== index));
     setBulkTextColors((prev) => prev.filter((_, i) => i !== index));
@@ -539,7 +517,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         blog_url: url.trim(),
         name: n.trim() || undefined,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
-        video_style: (bulkVideoStyles[i] ?? "promotional").toLowerCase(),
+        video_style: bulkVideoStyles[i] ?? "promotional",
         voice_gender: bulkVoiceGender[i],
         voice_accent: bulkVoiceAccent[i],
         accent_color:
@@ -571,13 +549,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
       setBulkRows([{ url: "" }]);
       setBulkNames([""]);
-      setBulkTemplates(["nightfall"]);
+      setBulkTemplates(["default"]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles(["promotional"]);
-      setBulkTemplateListTabs(["forStyle"]);
+      setBulkTemplatePickerViews(["style"]);
       setBulkAccentColors([""]);
       setBulkBgColors([""]);
       setBulkTextColors([""]);
@@ -662,6 +640,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       const customId = parseInt(id.replace("custom_", ""));
       const ct = customTemplates.find((t) => t.id === customId);
       if (ct) {
+        setVideoStyle(normalizeVideoStyle(ct.supported_video_style));
         setAccentColor(ct.preview_colors.accent);
         setBgColor(ct.preview_colors.bg);
         setTextColor(ct.preview_colors.text);
@@ -970,29 +949,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     </div>
   );
 
-  // ─── Step 2: Template (moved up; was step 3) ───────────────────
-  const availableTemplates = templates.length > 0
-    ? templates
-    : [
-        { id: "default", name: "Geometric Explainer" },
-        { id: "nightfall", name: "Nightfall" },
-        { id: "gridcraft", name: "Gridcraft" },
-        { id: "spotlight", name: "Spotlight" },
-        { id: "matrix", name: "Matrix" },
-      ];
   // ─── Step 2: Video style + Template ──────────────────────────
-  const FALLBACK_TEMPLATES: TemplateMeta[] = [
-    { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "storytelling"] },
-    { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
-    { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
-    { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-    { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
-  ];
-  const styleLower = (videoStyle || "promotional").toLowerCase();
-  const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
+  const styleLower = normalizeVideoStyle(videoStyle);
+  const sourceList = templates;
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
   );
+  const customTemplatesForStyle = customTemplates.filter(
+    (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
+  );
+
+  const styleTemplateItems: Array<
+    | { type: "builtin"; id: string; data: TemplateMeta }
+    | { type: "custom"; id: string; data: CustomTemplateItem }
+  > = [
+    ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+    ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+  ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
@@ -1054,12 +1027,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </label>
           <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
             {VIDEO_STYLES.map((s) => {
-              const isSelected = (videoStyle || "promotional").toLowerCase() === s.id;
+              const isSelected = videoStyle === s.id && templatePickerView === "style";
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setVideoStyle(s.id)}
+                  onClick={() => {
+                    setVideoStyle(s.id);
+                    setTemplatePickerView("style");
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                     isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   }`}
@@ -1071,9 +1047,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
             <button
               type="button"
-              onClick={() => setVideoStyle("custom")}
+              onClick={() => setTemplatePickerView("custom")}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                (videoStyle || "promotional").toLowerCase() === "custom"
+                templatePickerView === "custom"
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
@@ -1083,7 +1059,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          {(videoStyle || "promotional").toLowerCase() === "custom" ? (
+          {templatePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
               {customTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
@@ -1150,9 +1126,51 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </div>
               </div>
             </div>
-          ) : suggestedTemplates.length > 0 ? (
+          ) : styleTemplateItems.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
-              {suggestedTemplates.map((t) => {
+              {styleTemplateItems.map((item) => {
+                if (item.type === "custom") {
+                  const ct = item.data;
+                  const customId = item.id;
+                  const isSelected = template === customId;
+                  return (
+                    <div
+                      key={customId}
+                      onClick={() => applyTemplate(customId)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                          Custom
+                        </div>
+                        {!isPro && (
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                            Pro
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {ct.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const t = item.data;
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
@@ -1278,7 +1296,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const masterIndex =
       indexed.find(({ i }) => i === bulkTemplateMasterIndex)?.i ?? indexed[0].i;
 
-    const tpl = bulkTemplates[activeIndex] ?? "nightfall";
+    const tpl = bulkTemplates[activeIndex] ?? "default";
     const templateMeta = templates.find((t) => t.id === tpl);
     const selectedCustomBulk = tpl.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
@@ -1306,6 +1324,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         ? bulkTextColors[activeIndex]
         : defaultText;
     const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
+    const activePickerView = bulkTemplatePickerViews[activeIndex] ?? "style";
 
     const applyTemplateToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -1374,6 +1393,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
+      const matchedCustom = id.startsWith("custom_")
+        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
+        : null;
+      const customStyle = matchedCustom?.supported_video_style
+        ? normalizeVideoStyle(matchedCustom.supported_video_style)
+        : null;
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : templates.find((t) => t.id === id)?.preview_colors;
@@ -1386,6 +1411,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
+        if (customStyle) {
+          setBulkVideoStyles((prev) => {
+            const next = [...prev];
+            next[activeIndex] = customStyle;
+            return next;
+          });
+        }
         if (colors) {
           setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
           setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -1400,6 +1432,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           targetIndices.forEach((idx) => { next[idx] = id; });
           return next;
         });
+        if (customStyle) {
+          setBulkVideoStyles((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = customStyle; });
+            return next;
+          });
+        }
         if (colors) {
           setBulkAccentColors((prev) => {
             const next = [...prev];
@@ -1425,6 +1464,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
+      if (customStyle) {
+        setBulkVideoStyles((prev) => {
+          const next = [...prev];
+          next[activeIndex] = customStyle;
+          return next;
+        });
+      }
       if (colors) {
         setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
         setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
@@ -1455,18 +1501,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
     const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
 
-    const FALLBACK_TEMPLATES: TemplateMeta[] = [
-      { id: "default", name: "Geometric Explainer", description: "", styles: ["explainer", "storytelling"] },
-      { id: "nightfall", name: "Nightfall", description: "", styles: ["explainer", "promotional"] },
-      { id: "gridcraft", name: "Gridcraft", description: "", styles: ["promotional", "storytelling"] },
-      { id: "spotlight", name: "Spotlight", description: "", styles: ["promotional"] },
-      { id: "whiteboard", name: "Stick Man", description: "", styles: ["storytelling"] },
-    ];
-    const styleLower = (activeVideoStyle || "promotional").toLowerCase();
-    const sourceList = templates.length > 0 ? templates : FALLBACK_TEMPLATES;
+    const styleLower = normalizeVideoStyle(activeVideoStyle);
+    const sourceList = templates;
     const suggestedTemplates = sourceList.filter(
       (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
     );
+    const customTemplatesForStyle = customTemplates.filter(
+      (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
+    );
+    const styleTemplateItems: Array<
+      | { type: "builtin"; id: string; data: TemplateMeta }
+      | { type: "custom"; id: string; data: CustomTemplateItem }
+    > = [
+      ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+      ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+    ];
 
     return (
       <div className="space-y-5">
@@ -1603,7 +1652,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </label>
           <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
             {VIDEO_STYLES.map((s) => {
-              const isSelected = (activeVideoStyle || "promotional").toLowerCase() === s.id;
+              const isSelected = activeVideoStyle === s.id && activePickerView === "style";
               return (
                 <button
                   key={s.id}
@@ -1617,6 +1666,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         next[activeIndex] = s.id;
                         return next;
                       });
+                      setBulkTemplatePickerViews((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = "style";
+                        return next;
+                      });
                       return;
                     }
                     if (bulkApplyTemplateAll && activeIndex === masterIndex) {
@@ -1625,11 +1679,21 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         targetIndices.forEach((idx) => { next[idx] = s.id; });
                         return next;
                       });
+                      setBulkTemplatePickerViews((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => { next[idx] = "style"; });
+                        return next;
+                      });
                       return;
                     }
                     setBulkVideoStyles((prev) => {
                       const next = [...prev];
                       next[activeIndex] = s.id;
+                      return next;
+                    });
+                    setBulkTemplatePickerViews((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = "style";
                       return next;
                     });
                   }}
@@ -1643,15 +1707,33 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             })}
             <button
               type="button"
-              onClick={() =>
-                setBulkVideoStyles((prev) => {
+              onClick={() => {
+                const targetIndices = indexed.map(({ i }) => i);
+                if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                  setBulkApplyTemplateAll(false);
+                  setBulkTemplatePickerViews((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = "custom";
+                    return next;
+                  });
+                  return;
+                }
+                if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                  setBulkTemplatePickerViews((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => { next[idx] = "custom"; });
+                    return next;
+                  });
+                  return;
+                }
+                setBulkTemplatePickerViews((prev) => {
                   const next = [...prev];
                   next[activeIndex] = "custom";
                   return next;
-                })
-              }
+                });
+              }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                (activeVideoStyle || "promotional").toLowerCase() === "custom"
+                activePickerView === "custom"
                   ? "bg-white text-purple-600 shadow-sm"
                   : "text-gray-400 hover:text-gray-600"
               }`}
@@ -1663,7 +1745,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
         {/* Templates list filtered by style */}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          {(activeVideoStyle || "promotional").toLowerCase() === "custom" ? (
+          {activePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
               {customTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
@@ -1730,9 +1812,51 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </div>
               </div>
             </div>
-          ) : suggestedTemplates.length > 0 ? (
+          ) : styleTemplateItems.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
-              {suggestedTemplates.map((t) => {
+              {styleTemplateItems.map((item) => {
+                if (item.type === "custom") {
+                  const ct = item.data;
+                  const customId = item.id;
+                  const isSelected = tpl === customId;
+                  return (
+                    <div
+                      key={customId}
+                      onClick={() => applyBulkTemplate(customId)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                          Custom
+                        </div>
+                        {!isPro && (
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                            Pro
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {ct.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const t = item.data;
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;

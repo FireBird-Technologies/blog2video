@@ -169,6 +169,48 @@ def _migrate(eng):
                         f"ALTER TABLE assets ADD COLUMN {col_name} {col_def}"
                     ))
 
+    # Migrate custom_templates table
+    if "custom_templates" in insp.get_table_names():
+        template_cols = {c["name"] for c in insp.get_columns("custom_templates")}
+        with eng.begin() as conn:
+            if "supported_video_style" not in template_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE custom_templates "
+                        "ADD COLUMN supported_video_style VARCHAR(30) DEFAULT 'explainer'"
+                    )
+                )
+
+            # For missing/blank values, default to explainer.
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = 'explainer'
+                    WHERE supported_video_style IS NULL OR trim(supported_video_style) = ''
+                    """
+                )
+            )
+
+            # Normalize values and force valid set.
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = lower(trim(coalesce(supported_video_style, '')))
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = 'explainer'
+                    WHERE supported_video_style NOT IN ('explainer', 'promotional', 'storytelling')
+                    """
+                )
+            )
+
     # Migrate PostgreSQL enum types — add missing values.
     # ALTER TYPE ... ADD VALUE cannot run inside a transaction, so we use
     # a raw DBAPI connection with autocommit.

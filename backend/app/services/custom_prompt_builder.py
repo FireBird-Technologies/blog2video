@@ -300,7 +300,7 @@ Choose decorations that match the template's decorative elements ({decorative_st
 """
 
 
-def build_custom_meta(theme: dict, name: str) -> dict[str, Any]:
+def build_custom_meta(theme: dict, name: str, supported_video_style: str = "explainer") -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
     Returns the same shape as filesystem-based meta.json files.
@@ -312,11 +312,15 @@ def build_custom_meta(theme: dict, name: str) -> dict[str, Any]:
 
     arrangements = list(CUSTOM_ARRANGEMENTS)
 
+    style = (supported_video_style or "explainer").strip().lower()
+    if style not in {"explainer", "promotional", "storytelling"}:
+        style = "explainer"
+
     return {
         "id": "custom",
         "name": name,
         "description": f"Custom template: {name}",
-        "styles": ["explainer", "promotional", "storytelling"],
+        "styles": [style],
         "preview_colors": {
             "accent": colors.get("accent", "#7C3AED"),
             "bg": colors.get("bg", "#FFFFFF"),

@@ -608,6 +608,15 @@ class TemplateSceneGenerator:
         text_color: str = "#000000",
         animation_instructions: str = "",
     ) -> list[dict]:
+        """Generate scene descriptors in batches of BATCH_SIZE for concurrency.
+
+        Within each batch scenes share the same variety tracker state and run
+        concurrently via asyncio.gather.  Between batches the tracker updates
+        so subsequent batches get accurate variety hints.
+        """
+        import asyncio as _aio
+
+        BATCH_SIZE = 4
         total = len(scenes_data)
 
         if self._is_custom:
@@ -615,21 +624,41 @@ class TemplateSceneGenerator:
                 self._valid_arrangements, self._hero_arrangement,
             )
 
-        results = []
-        for i, s in enumerate(scenes_data):
-            result = await self.generate_scene_descriptor(
-                scene_title=s["title"],
-                narration=s["narration"],
-                visual_description=s["visual_description"],
-                scene_index=i,
-                total_scenes=total,
-            )
-            results.append(result)
+        results: list[dict] = [{}] * total
 
-            if self.debug:
-                lc = result.get("layoutConfig", {})
-                arr = lc.get("arrangement", result.get("layout", "?"))
-                print(f"Scene {i}: {arr} | History: {self.variety_tracker.get_previous_arrangements()}")
+        for batch_start in range(0, total, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total)
+            batch_indices = list(range(batch_start, batch_end))
+
+            tasks = [
+                self.generate_scene_descriptor(
+                    scene_title=scenes_data[i]["title"],
+                    narration=scenes_data[i]["narration"],
+                    visual_description=scenes_data[i]["visual_description"],
+                    scene_index=i,
+                    total_scenes=total,
+                )
+                for i in batch_indices
+            ]
+
+            batch_results = await _aio.gather(*tasks, return_exceptions=True)
+
+            for idx, (i, res) in enumerate(zip(batch_indices, batch_results)):
+                if isinstance(res, Exception):
+                    print(f"[SCENE_GEN] Scene {i} failed: {res}, using fallback")
+                    res = {"layoutConfig": {
+                        "arrangement": "top-bottom",
+                        "elements": [
+                            {"type": "heading", "content": {"text": scenes_data[i]["title"]}, "emphasis": "primary"},
+                        ],
+                        "decorations": ["accent-bar-bottom"],
+                    }}
+                results[i] = res
+
+                if self.debug:
+                    lc = res.get("layoutConfig", {})
+                    arr = lc.get("arrangement", res.get("layout", "?"))
+                    print(f"Scene {i}: {arr} | History: {self.variety_tracker.get_previous_arrangements()}")
 
         if self.debug:
             print(f"\n Distribution:")

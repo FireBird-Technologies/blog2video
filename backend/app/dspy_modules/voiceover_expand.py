@@ -42,6 +42,20 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     )
 
 
+# Module-level singleton predictor (avoid re-creating on every call)
+_predictor_async = None
+
+
+def _get_predictor():
+    global _predictor_async
+    if _predictor_async is None:
+        ensure_dspy_configured()
+        _predictor_async = dspy.asyncify(
+            dspy.ChainOfThought(ExpandNarrationToVoiceover)
+        )
+    return _predictor_async
+
+
 async def expand_narration_to_voiceover(
     display_text: str,
     scene_title: str = "",
@@ -54,15 +68,13 @@ async def expand_narration_to_voiceover(
     """
     if not (display_text and display_text.strip()):
         return ""
-    
+
     # If display text is already long (more than 50 words), assume it's already expanded enough
     word_count = len(display_text.split())
     if word_count > 50:
         return display_text.strip()
 
-    ensure_dspy_configured()
-    predictor = dspy.ChainOfThought(ExpandNarrationToVoiceover)
-    predictor_async = dspy.asyncify(predictor)
+    predictor_async = _get_predictor()
 
     style = (video_style or "explainer").strip().lower() or "explainer"
     try:

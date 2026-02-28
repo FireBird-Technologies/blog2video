@@ -4,6 +4,7 @@ import {
   type CustomTemplateItem,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import { VIDEO_STYLE_OPTIONS, type VideoStyleId } from "../constants/videoStyles";
 
 interface Props {
   template: CustomTemplateItem;
@@ -13,6 +14,7 @@ interface Props {
 
 export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
   const [name, setName] = useState(template.name);
+  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +27,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
     try {
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
+        supported_video_style: supportedVideoStyle,
       });
       onSaved(res.data);
     } catch (err: any) {
@@ -103,6 +106,42 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
               {theme.animationPreset}
             </span>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Video Style
+            </label>
+            <p className="text-[11px] text-gray-500 mb-2">
+              This sets script and voice tone (Explainer/Promotional/Storytelling). Your template appears in its matching style tab and in Custom Templates.
+            </p>
+            <div className="space-y-2">
+              {VIDEO_STYLE_OPTIONS.map((style) => {
+                const selected = supportedVideoStyle === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => setSupportedVideoStyle(style.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${
+                      selected
+                        ? "border-purple-400 bg-purple-50"
+                        : "border-gray-200 hover:border-purple-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-800">{style.label}</span>
+                      <span
+                        className={`w-3 h-3 rounded-full border ${
+                          selected ? "bg-purple-600 border-purple-600" : "border-gray-300"
+                        }`}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{style.subtitle}</p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Visual patterns (read-only) */}

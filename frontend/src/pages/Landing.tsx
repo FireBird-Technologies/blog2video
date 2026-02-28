@@ -24,10 +24,10 @@ const INITIAL_DEMOS: DemoVideo[] = [
   {
     id: "demo-1",
     title: "Blog2Video Demo",
-    youtubeId: "2gZ1FMYLcdQ",
-    blogUrl: "https://www.firebird-technologies.com/p/building-a-reliable-text-to-sql-pipeline",
-    blogTitle: "Building a Reliable Text-to-SQL Pipeline",
-    blogExcerpt: "How to build a robust pipeline that converts natural language into SQL queries.",
+    youtubeId: "64UTm77OZqU",
+    blogUrl: "https://www.firebird-technologies.com/p/honest-review-of-lovable-from-an",
+    blogTitle: "Honest Review of Lovable from an AI Perspective",
+    blogExcerpt: "An in-depth analysis of Lovable's features and capabilities from an AI standpoint.",
   },
   // Add more like:
   // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "..." },
