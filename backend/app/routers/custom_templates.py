@@ -12,10 +12,12 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.models.user import User
 from app.models.custom_template import CustomTemplate
-from app.services.custom_prompt_builder import build_custom_prompt, build_custom_meta
+from app.services.custom_prompt_builder import build_custom_prompt
 from app.services.template_service import invalidate_custom_template_cache
 
 router = APIRouter(prefix="/api/custom-templates", tags=["custom-templates"])
+
+VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 
 
 # ─── Pydantic schemas ────────────────────────────────────────
@@ -36,11 +38,13 @@ class CreateCustomTemplateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     source_url: str | None = Field(None, max_length=2048)
     theme: dict
+    supported_video_style: str | None = None
 
 
 class UpdateCustomTemplateRequest(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     theme: dict | None = None
+    supported_video_style: str | None = None
 
 
 class CustomTemplateOut(BaseModel):
@@ -48,6 +52,7 @@ class CustomTemplateOut(BaseModel):
     name: str
     source_url: str | None
     category: str
+    supported_video_style: str
     theme: dict
     preview_colors: dict
     created_at: str
@@ -75,11 +80,15 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
     """Serialize a CustomTemplate to API response dict."""
     theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
     colors = theme.get("colors", {})
+    style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
+    if style not in VALID_VIDEO_STYLES:
+        style = "explainer"
     return {
         "id": tpl.id,
         "name": tpl.name,
         "source_url": tpl.source_url,
         "category": tpl.category or "blog",
+        "supported_video_style": style,
         "theme": theme,
         "preview_colors": {
             "accent": colors.get("accent", "#7C3AED"),
@@ -127,6 +136,16 @@ def _validate_theme(theme: dict) -> dict:
     return theme
 
 
+def _validate_supported_video_style(style: str | None) -> str:
+    normalized = (style or "").strip().lower()
+    if normalized not in VALID_VIDEO_STYLES:
+        raise HTTPException(
+            status_code=422,
+            detail="supported_video_style must be one of: explainer, promotional, storytelling",
+        )
+    return normalized
+
+
 # ─── Endpoints ────────────────────────────────────────────────
 
 
@@ -167,6 +186,10 @@ def create_custom_template(
     """Create a new custom template from an extracted/edited theme."""
     theme = _validate_theme(data.theme)
     category = theme.get("category", "blog")
+    if data.supported_video_style is not None:
+        supported_video_style = _validate_supported_video_style(data.supported_video_style)
+    else:
+        supported_video_style = "explainer"
 
     # Generate prompt and cache it
     generated_prompt = build_custom_prompt(theme, data.name)
@@ -176,6 +199,7 @@ def create_custom_template(
         name=data.name,
         source_url=data.source_url,
         category=category,
+        supported_video_style=supported_video_style,
         theme=json.dumps(theme),
         generated_prompt=generated_prompt,
     )
@@ -231,6 +255,9 @@ def update_custom_template(
         tpl.theme = json.dumps(theme)
         # Regenerate prompt with updated theme
         tpl.generated_prompt = build_custom_prompt(theme, tpl.name)
+
+    if data.supported_video_style is not None:
+        tpl.supported_video_style = _validate_supported_video_style(data.supported_video_style)
 
     db.commit()
     db.refresh(tpl)

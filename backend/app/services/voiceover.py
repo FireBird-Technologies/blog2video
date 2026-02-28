@@ -181,39 +181,88 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 async def generate_all_voiceovers(
     scenes: list[Scene], db: Session, video_style: str | None = None
 ) -> list[str]:
-    """Generate voiceover audio for all scenes with delays between each.
-    Expands narration_text to detailed voiceover before generating audio.
-    video_style (explainer | promotional | storytelling) shapes expansion tone."""
+    """Generate voiceover audio for all scenes concurrently.
+
+    Phase A: Expand narration texts in parallel (Claude LLM calls, semaphore=4).
+    Phase B: Generate TTS audio concurrently (ElevenLabs, semaphore=2, each in
+             its own DB session via run_in_executor since the SDK is sync).
+
+    video_style (explainer | promotional | storytelling) shapes expansion tone.
+    """
     from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+    from app.database import SessionLocal
 
     style = (video_style or "explainer").strip().lower() or "explainer"
-    paths = []
-    for i, scene in enumerate(scenes):
+
+    # ── Phase A: Parallel LLM expansion ──────────────────────────
+    expand_sem = asyncio.Semaphore(4)
+
+    async def _expand(scene: Scene) -> str:
+        if not scene.narration_text or not scene.narration_text.strip():
+            return scene.narration_text or ""
+        async with expand_sem:
+            return await expand_narration_to_voiceover(
+                scene.narration_text, scene.title, video_style=style
+            )
+
+    expanded_texts = await asyncio.gather(
+        *[_expand(s) for s in scenes], return_exceptions=True
+    )
+    # Replace exceptions with original text
+    for i, result in enumerate(expanded_texts):
+        if isinstance(result, Exception):
+            print(f"[VOICEOVER] Expand failed for scene {scenes[i].order}: {result}")
+            expanded_texts[i] = scenes[i].narration_text or ""
+
+    # ── Phase B: Concurrent TTS (semaphore=2, per-thread DB session) ─
+    tts_sem = asyncio.Semaphore(2)
+    loop = asyncio.get_event_loop()
+
+    def _tts_in_thread(scene_id: int, expanded_text: str, scene_order: int) -> str:
+        """Run TTS in a thread with its own DB session."""
+        tts_db = SessionLocal()
         try:
-            # Expand narration_text to detailed voiceover
-            if scene.narration_text and scene.narration_text.strip():
-                expanded = await expand_narration_to_voiceover(
-                    scene.narration_text, scene.title, video_style=style
-                )
-                # Temporarily store expanded text
-                original_narration = scene.narration_text
-                scene.narration_text = expanded
-                db.commit()
-                
-                # Generate voiceover
-                path = generate_voiceover(scene, db, use_expanded=False)
-                
-                # Restore original narration_text
-                scene.narration_text = original_narration
-                db.commit()
-            else:
-                path = generate_voiceover(scene, db, use_expanded=False)
-            
-            paths.append(path)
-            # Wait between scenes to avoid rate limits
-            if i < len(scenes) - 1 and path:
-                await asyncio.sleep(SCENE_DELAY)
+            scene = tts_db.query(Scene).filter(Scene.id == scene_id).first()
+            if not scene:
+                return ""
+            original = scene.narration_text
+            scene.narration_text = expanded_text
+            tts_db.commit()
+
+            path = generate_voiceover(scene, tts_db, use_expanded=False)
+
+            # Restore original narration_text
+            scene.narration_text = original
+            tts_db.commit()
+            return path
         except Exception as e:
-            print(f"[VOICEOVER] Failed to generate voiceover for scene {scene.order} after {MAX_RETRIES} retries: {e}")
+            print(f"[VOICEOVER] TTS failed for scene {scene_order}: {e}")
+            try:
+                tts_db.rollback()
+            except Exception:
+                pass
+            return ""
+        finally:
+            tts_db.close()
+
+    async def _bounded_tts(scene: Scene, expanded_text: str) -> str:
+        async with tts_sem:
+            return await loop.run_in_executor(
+                None, _tts_in_thread, scene.id, expanded_text, scene.order
+            )
+
+    paths_raw = await asyncio.gather(
+        *[_bounded_tts(s, t) for s, t in zip(scenes, expanded_texts)],
+        return_exceptions=True,
+    )
+
+    # ── Collect results ──────────────────────────────────────────
+    paths: list[str] = []
+    for i, p in enumerate(paths_raw):
+        if isinstance(p, Exception):
+            print(f"[VOICEOVER] Scene {scenes[i].order} TTS error: {p}")
             paths.append("")
+        else:
+            paths.append(p or "")
+
     return paths

@@ -20,6 +20,7 @@ import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
+import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
@@ -212,7 +213,7 @@ export default function Dashboard() {
     aspectRatio?: string,
     uploadFiles?: File[],
     template?: string,
-    videoStyle?: string
+    videoStyle?: VideoStyleId
   ) => {
     setCreating(true);
     try {

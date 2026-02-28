@@ -43,7 +43,7 @@ _custom_template_cache: dict[str, dict[str, Any] | None] = {}
 def _load_custom_template_data(template_id: str) -> dict[str, Any] | None:
     """
     Load a custom template's theme + generated_prompt from DB.
-    Returns a dict with keys: theme, generated_prompt, name, category.
+    Returns a dict with keys: theme, generated_prompt, name, category, supported_video_style.
     Returns None if not found. Results are cached for the process lifetime
     to avoid repeated DB queries within a single request.
     """
@@ -65,11 +65,15 @@ def _load_custom_template_data(template_id: str) -> dict[str, Any] | None:
             _custom_template_cache[template_id] = None
             return None
         theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
+        style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
+        if style not in {"explainer", "promotional", "storytelling"}:
+            style = "explainer"
         result = {
             "theme": theme,
             "generated_prompt": tpl.generated_prompt or "",
             "name": tpl.name,
             "category": tpl.category or "blog",
+            "supported_video_style": style,
         }
         _custom_template_cache[template_id] = result
         return result
@@ -91,7 +95,11 @@ def _get_custom_meta(template_id: str) -> dict[str, Any] | None:
     if not data:
         return None
     from app.services.custom_prompt_builder import build_custom_meta
-    return build_custom_meta(data["theme"], data["name"])
+    return build_custom_meta(
+        data["theme"],
+        data["name"],
+        supported_video_style=data.get("supported_video_style", "explainer"),
+    )
 
 
 def _get_custom_prompt(template_id: str) -> str:

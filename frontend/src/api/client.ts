@@ -5,6 +5,7 @@ export * from "./projects";
 export * from "./enterprise";
 
 import axios from "axios";
+import type { VideoStyleId } from "../constants/videoStyles";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
 // In local dev it's empty — Vite proxy handles /api and /media routing.
@@ -115,7 +116,7 @@ export interface Project {
   logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
-  video_style?: string;
+  video_style?: VideoStyleId;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   created_at: string;
@@ -302,7 +303,7 @@ export const createProject = (
   custom_voice_id?: string,
   aspect_ratio?: string,
   template?: string,
-  video_style?: string
+  video_style?: VideoStyleId
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -326,7 +327,7 @@ export interface BulkProjectItem {
   blog_url: string;
   name?: string;
   template?: string;
-  video_style?: string;
+  video_style?: VideoStyleId;
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;
@@ -379,7 +380,7 @@ export const createProjectFromDocs = (
     custom_voice_id?: string;
     aspect_ratio?: string;
     template?: string;
-    video_style?: string;
+    video_style?: VideoStyleId;
   } = {}
 ) => {
   const formData = new FormData();
@@ -644,6 +645,7 @@ export interface CustomTemplateItem {
   name: string;
   source_url: string | null;
   category: string;
+  supported_video_style: VideoStyleId;
   theme: CustomTemplateTheme;
   preview_colors: { accent: string; bg: string; text: string };
   created_at: string;
@@ -667,11 +669,12 @@ export const createCustomTemplate = (data: {
   name: string;
   source_url?: string;
   theme: CustomTemplateTheme;
+  supported_video_style?: VideoStyleId;
 }) => api.post<CustomTemplateItem>("/custom-templates", data);
 
 export const updateCustomTemplate = (
   id: number,
-  data: { name?: string; theme?: CustomTemplateTheme }
+  data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
 export const deleteCustomTemplate = (id: number) =>

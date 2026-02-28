@@ -233,40 +233,15 @@ async def _generate_script(project: Project, db: Session):
 
 
 async def _generate_scenes(project: Project, db: Session):
-    """Generate voiceovers first, then scene layout descriptors, then write Remotion data."""
-    scenes = project.scenes
-    image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
+    """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
-    # Step 1: Generate voiceovers FIRST (sync, runs in thread)
-    # Skip entirely when user chose "no voiceover"
-    if getattr(project, "voice_gender", None) == "none":
-        print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
-        for scene in scenes:
-            if scene.narration_text:
-                word_count = len(scene.narration_text.split())
-                scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
-            else:
-                scene.duration_seconds = 5.0
-            scene.voiceover_path = None
-        db.commit()
-    else:
-        await generate_all_voiceovers(
-            scenes, db, video_style=getattr(project, "video_style", None) or "explainer"
-        )
-
-    # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
-    db.expire(project)
+    Voiceovers and scene descriptors are independent — descriptors only need
+    title/narration/visual_description which don't change during TTS generation.
+    Running them concurrently via asyncio.gather cuts wall-clock time significantly.
+    """
     scenes = project.scenes
 
-    # Step 2: Generate layout descriptors with TemplateSceneGenerator
-    # Ensure template is read from database (refresh if needed)
-    db.refresh(project)
-    template_id = validate_template_id(project.template if project.template else "default")
-    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
-    scene_gen = TemplateSceneGenerator(template_id)
-    image_filenames = [
-        a.filename for a in project.assets if a.asset_type.value == "image"
-    ]
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
     scenes_data = [
         {
             "title": s.title,
@@ -275,14 +250,51 @@ async def _generate_scenes(project: Project, db: Session):
         }
         for s in scenes
     ]
-    descriptors = await scene_gen.generate_all_scenes(
-        scenes_data,
-        image_filenames,
-        accent_color=project.accent_color or "#7C3AED",
-        bg_color=project.bg_color or "#FFFFFF",
-        text_color=project.text_color or "#000000",
-        animation_instructions=project.animation_instructions or "",
-    )
+
+    # Prepare scene descriptor generator
+    db.refresh(project)
+    template_id = validate_template_id(project.template if project.template else "default")
+    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
+    scene_gen = TemplateSceneGenerator(template_id)
+    image_filenames = [
+        a.filename for a in project.assets if a.asset_type.value == "image"
+    ]
+
+    # ── Task 1: Voiceovers ───────────────────────────────────────
+    async def _voiceover_task():
+        if getattr(project, "voice_gender", None) == "none":
+            print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
+            for scene in scenes:
+                if scene.narration_text:
+                    word_count = len(scene.narration_text.split())
+                    scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
+                else:
+                    scene.duration_seconds = 5.0
+                scene.voiceover_path = None
+            db.commit()
+        else:
+            await generate_all_voiceovers(
+                scenes, db, video_style=getattr(project, "video_style", None) or "explainer"
+            )
+
+    # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
+    async def _descriptor_task():
+        result = await scene_gen.generate_all_scenes(
+            scenes_data,
+            image_filenames,
+            accent_color=project.accent_color or "#7C3AED",
+            bg_color=project.bg_color or "#FFFFFF",
+            text_color=project.text_color or "#000000",
+            animation_instructions=project.animation_instructions or "",
+        )
+        return result
+
+    # Run both concurrently
+    _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
+
+    # Re-load scenes to pick up voiceover changes from per-thread DB sessions
+    db.expire(project)
+    scenes = project.scenes
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
@@ -305,13 +317,13 @@ async def _generate_scenes(project: Project, db: Session):
         scene.remotion_code = json.dumps(descriptor)
         if has_layout_config:
             lc = descriptor["layoutConfig"]
-            print(f"[PIPELINE] Scene {i} stored ✅: layoutConfig.arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}, decorations={lc.get('decorations')}")
+            print(f"[PIPELINE] Scene {i} stored: layoutConfig.arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}, decorations={lc.get('decorations')}")
         else:
             print(f"[PIPELINE] Scene {i} stored: legacy layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
     db.commit()
     print(f"[PIPELINE] All {len(scenes)} scene descriptors committed to DB")
 
-    # Step 3: Write data.json + assets to per-project Remotion workspace
+    # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db)
 
     project.status = ProjectStatus.GENERATED

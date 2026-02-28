@@ -45,6 +45,20 @@ _ALLOWED_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
+
+
+def _normalize_video_style(video_style: str | None) -> str:
+    """Normalize and validate video style."""
+    style = (video_style or "").strip().lower()
+    if not style:
+        return "explainer"
+    if style not in _VALID_VIDEO_STYLES:
+        raise HTTPException(
+            status_code=422,
+            detail="video_style must be one of: explainer, promotional, storytelling",
+        )
+    return style
 
 
 @router.post("", response_model=ProjectOut)
@@ -71,6 +85,7 @@ def create_project(
             detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
+    normalized_video_style = _normalize_video_style(data.video_style)
     project = Project(
         user_id=user.id,
         name=name,
@@ -86,7 +101,7 @@ def create_project(
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
-        video_style=(data.video_style or "explainer").strip().lower() or "explainer",
+        video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -203,6 +218,7 @@ def create_projects_bulk(
         name = (data.name or "").strip() or _name_from_url(data.blog_url)
         template_id = validate_template_id(data.template)
         colors = get_preview_colors(template_id)
+        normalized_video_style = _normalize_video_style(data.video_style)
         project = Project(
             user_id=user.id,
             name=name,
@@ -218,7 +234,7 @@ def create_projects_bulk(
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
-            video_style=(data.video_style or "explainer").strip().lower() or "explainer",
+            video_style=normalized_video_style,
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -301,6 +317,7 @@ def create_project_from_upload(
             detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
+    normalized_video_style = _normalize_video_style(video_style)
     print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
     project = Project(
         user_id=user.id,
@@ -317,7 +334,7 @@ def create_project_from_upload(
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
-        video_style=(video_style or "explainer").strip().lower() or "explainer",
+        video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
     )
     db.add(project)

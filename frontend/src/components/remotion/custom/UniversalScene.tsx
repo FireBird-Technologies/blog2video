@@ -130,6 +130,15 @@ function getArrangementStyle(
   }
 }
 
+function hasUsableImageUrl(url?: string | null): boolean {
+  if (typeof url !== "string") return false;
+  const normalized = url.trim();
+  if (!normalized) return false;
+
+  const lower = normalized.toLowerCase();
+  return lower !== "null" && lower !== "undefined" && lower !== "about:blank";
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    DECORATION RENDERER
    ═══════════════════════════════════════════════════════════════════ */
@@ -663,7 +672,8 @@ function ImageElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
   const { deco, theme } = ctx;
   const anim = animatedSpring(ctx);
   const imageUrl = el.content.imageUrl;
-  if (!imageUrl) return null;
+  if (!hasUsableImageUrl(imageUrl)) return null;
+  const resolvedImageUrl = (imageUrl as string).trim();
 
   return (
     <div
@@ -677,7 +687,7 @@ function ImageElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
       }}
     >
       <Img
-        src={imageUrl}
+        src={resolvedImageUrl}
         style={{
           ...deco.imageFrame,
           width: el.size === "full" ? "100%" : el.size === "large" ? "80%" : "60%",
@@ -1048,6 +1058,11 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
     console.log(`[UniversalScene] theme: style=${theme.style}, density=${theme.patterns?.spacing?.density}, gridGap=${theme.patterns?.spacing?.gridGap}, contentPadding=${JSON.stringify(deco.contentPadding)}`);
   }
 
+  const sceneImageUrl =
+    typeof imageUrl === "string" && hasUsableImageUrl(imageUrl)
+      ? imageUrl.trim()
+      : undefined;
+
   // Inject title/narration/imageUrl into elements if not already present
   const elements = config.elements.map((el) => {
     if (el.type === "heading" && !el.content.text) {
@@ -1056,8 +1071,8 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
     if (el.type === "body-text" && !el.content.text) {
       return { ...el, content: { ...el.content, text: narration } };
     }
-    if (el.type === "image" && !el.content.imageUrl && imageUrl) {
-      return { ...el, content: { ...el.content, imageUrl } };
+    if (el.type === "image" && sceneImageUrl && !hasUsableImageUrl(el.content.imageUrl)) {
+      return { ...el, content: { ...el.content, imageUrl: sceneImageUrl } };
     }
     return el;
   });
@@ -1065,12 +1080,13 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
   // Auto-inject image if available and not already used by any element or background
   let effectiveConfig = config;
   const hasImageElement = elements.some(
-    (el) => el.type === "image" && el.content.imageUrl,
+    (el) => el.type === "image" && hasUsableImageUrl(el.content.imageUrl),
   );
   const bgIsImage =
-    config.background?.type === "image" && config.background?.imageUrl;
+    config.background?.type === "image" &&
+    hasUsableImageUrl(config.background.imageUrl);
 
-  if (imageUrl && !hasImageElement && !bgIsImage) {
+  if (sceneImageUrl && !hasImageElement && !bgIsImage) {
     const splitArrangements = [
       "split-left",
       "split-right",
@@ -1081,7 +1097,7 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
       // Split layouts: add as panel element in second zone
       elements.push({
         type: "image",
-        content: { imageUrl },
+        content: { imageUrl: sceneImageUrl },
         emphasis: "secondary",
       });
     } else if (["top-bottom", "stacked"].includes(config.arrangement)) {
@@ -1089,7 +1105,7 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
       const insertIdx = Math.min(1, elements.length);
       elements.splice(insertIdx, 0, {
         type: "image",
-        content: { imageUrl },
+        content: { imageUrl: sceneImageUrl },
         size: "large",
         emphasis: "secondary",
       });
@@ -1097,7 +1113,7 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
       // Center/grid: use as background with overlay
       effectiveConfig = {
         ...config,
-        background: { type: "image" as const, imageUrl },
+        background: { type: "image" as const, imageUrl: sceneImageUrl },
       };
     }
   }
@@ -1107,9 +1123,9 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
     ...effectiveConfig,
     background:
       effectiveConfig.background?.type === "image" &&
-      !effectiveConfig.background.imageUrl &&
-      imageUrl
-        ? { ...effectiveConfig.background, imageUrl }
+      !hasUsableImageUrl(effectiveConfig.background.imageUrl) &&
+      sceneImageUrl
+        ? { ...effectiveConfig.background, imageUrl: sceneImageUrl }
         : effectiveConfig.background,
   };
 

@@ -7,6 +7,9 @@ import {
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
+import { VIDEO_STYLE_OPTIONS } from "../constants/videoStyles";
+
+const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
 
 export default function CustomTemplates() {
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
@@ -134,6 +137,9 @@ export default function CustomTemplates() {
 
                   {/* Style + animation */}
                   <div className="flex gap-1.5 mb-3">
+                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
+                      {STYLE_LABELS[tpl.supported_video_style] ?? tpl.supported_video_style}
+                    </span>
                     <span className="text-[10px] text-gray-400">{tpl.theme.style}</span>
                     <span className="text-[10px] text-gray-300">/</span>
                     <span className="text-[10px] text-gray-400">{tpl.theme.animationPreset}</span>
