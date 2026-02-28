@@ -5,6 +5,7 @@ export * from "./projects";
 export * from "./enterprise";
 
 import axios from "axios";
+import type { VideoStyleId } from "../constants/videoStyles";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
 // In local dev it's empty — Vite proxy handles /api and /media routing.
@@ -115,8 +116,9 @@ export interface Project {
   logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
-  video_style?: string;
+  video_style?: VideoStyleId;
   ai_assisted_editing_count?: number;
+  custom_theme?: CustomTemplateTheme | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -301,7 +303,7 @@ export const createProject = (
   custom_voice_id?: string,
   aspect_ratio?: string,
   template?: string,
-  video_style?: string
+  video_style?: VideoStyleId
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -325,7 +327,7 @@ export interface BulkProjectItem {
   blog_url: string;
   name?: string;
   template?: string;
-  video_style?: string;
+  video_style?: VideoStyleId;
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;
@@ -378,7 +380,7 @@ export const createProjectFromDocs = (
     custom_voice_id?: string;
     aspect_ratio?: string;
     template?: string;
-    video_style?: string;
+    video_style?: VideoStyleId;
   } = {}
 ) => {
   const formData = new FormData();
@@ -620,5 +622,65 @@ export const sendChatMessage = (id: number, message: string) =>
 
 export const getChatHistory = (id: number) =>
   api.get<ChatMessage[]>(`/projects/${id}/chat/history`);
+
+// ─── Custom Templates API (Pro only) ─────────────────────
+
+export interface CustomTemplateTheme {
+  colors: { accent: string; bg: string; text: string; surface: string; muted: string };
+  fonts: { heading: string; body: string; mono: string };
+  borderRadius: number;
+  style: "minimal" | "glass" | "bold" | "neon" | "soft";
+  animationPreset: "fade" | "slide" | "spring" | "typewriter";
+  category: string;
+  patterns: {
+    cards: { corners: string; shadowDepth: string; borderStyle: string };
+    spacing: { density: string; gridGap: number };
+    images: { treatment: string; overlay: string; captionStyle: string };
+    layout: { direction: string; decorativeElements: string[] };
+  };
+}
+
+export interface CustomTemplateItem {
+  id: number;
+  name: string;
+  source_url: string | null;
+  category: string;
+  supported_video_style: VideoStyleId;
+  theme: CustomTemplateTheme;
+  preview_colors: { accent: string; bg: string; text: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExtractThemeResponse {
+  extractable: boolean;
+  reason: string;
+  theme: CustomTemplateTheme | null;
+  template_name: string;
+}
+
+export const listCustomTemplates = () =>
+  api.get<CustomTemplateItem[]>("/custom-templates");
+
+export const getCustomTemplate = (id: number) =>
+  api.get<CustomTemplateItem>(`/custom-templates/${id}`);
+
+export const createCustomTemplate = (data: {
+  name: string;
+  source_url?: string;
+  theme: CustomTemplateTheme;
+  supported_video_style?: VideoStyleId;
+}) => api.post<CustomTemplateItem>("/custom-templates", data);
+
+export const updateCustomTemplate = (
+  id: number,
+  data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
+) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
+
+export const deleteCustomTemplate = (id: number) =>
+  api.delete(`/custom-templates/${id}`);
+
+export const extractTheme = (url: string) =>
+  api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
 export default api;

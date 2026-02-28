@@ -86,6 +86,13 @@ class DisplayTextGenerator:
         if not scenes:
             return []
 
+        # Limit per-pipeline concurrency to avoid monopolizing the shared thread pool
+        sem = asyncio.Semaphore(4)
+
+        async def _bounded_predict(**kwargs):
+            async with sem:
+                return await self.predictor(**kwargs)
+
         tasks = []
         for s in scenes:
             narration = (s.get("narration") or "").strip()
@@ -99,7 +106,7 @@ class DisplayTextGenerator:
                 continue
 
             tasks.append(
-                self.predictor(
+                _bounded_predict(
                     template_id=self.template_id,
                     video_style=self.video_style,
                     scene_title=title,

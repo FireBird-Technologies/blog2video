@@ -5,6 +5,7 @@ import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import TemplateShowcaseSection from "../components/TemplateShowcaseSection";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -23,10 +24,10 @@ const INITIAL_DEMOS: DemoVideo[] = [
   {
     id: "demo-1",
     title: "Blog2Video Demo",
-    youtubeId: "2gZ1FMYLcdQ",
-    blogUrl: "https://www.firebird-technologies.com/p/building-a-reliable-text-to-sql-pipeline",
-    blogTitle: "Building a Reliable Text-to-SQL Pipeline",
-    blogExcerpt: "How to build a robust pipeline that converts natural language into SQL queries.",
+    youtubeId: "64UTm77OZqU",
+    blogUrl: "https://www.firebird-technologies.com/p/honest-review-of-lovable-from-an",
+    blogTitle: "Honest Review of Lovable from an AI Perspective",
+    blogExcerpt: "An in-depth analysis of Lovable's features and capabilities from an AI standpoint.",
   },
   // Add more like:
   // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "..." },
@@ -375,6 +376,13 @@ export default function Landing() {
               </div>
             );
           })()}
+        </div>
+      </section>
+
+      {/* ─── Multiple templates ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <TemplateShowcaseSection />
         </div>
       </section>
 

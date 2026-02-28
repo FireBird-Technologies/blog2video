@@ -19,6 +19,8 @@ import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
+import CustomTemplates from "./CustomTemplates";
+import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
@@ -65,6 +67,11 @@ export default function Dashboard() {
       }
     }
   }, [searchParams]);
+  const isPro = user?.plan === "pro";
+  const templatesRequested = searchParams.get("tab") === "templates";
+  const [activeTab, setActiveTab] = useState<"projects" | "templates">(
+    templatesRequested ? "templates" : "projects"
+  );
 
   useEffect(() => {
     loadProjects();
@@ -146,6 +153,12 @@ export default function Dashboard() {
       }
     };
   }, [bulkPendingIds.join(",")]);
+  // Deep-link to templates tab via ?tab=templates (reacts to param changes)
+  useEffect(() => {
+    if (searchParams.get("tab") === "templates") {
+      setActiveTab("templates");
+    }
+  }, [searchParams]);
 
   const loadProjects = async () => {
     try {
@@ -200,7 +213,7 @@ export default function Dashboard() {
     aspectRatio?: string,
     uploadFiles?: File[],
     template?: string,
-    videoStyle?: string
+    videoStyle?: VideoStyleId
   ) => {
     setCreating(true);
     try {
@@ -294,10 +307,8 @@ export default function Dashboard() {
     });
   };
 
-  const isPro = user?.plan === "pro";
-
   // ─── Onboarding (0 projects) ───────────────────────────────
-  if (loaded && projects.length === 0) {
+  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || templatesRequested))) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
@@ -360,6 +371,28 @@ export default function Dashboard() {
       </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+        {(["projects", "templates"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              activeTab === tab
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            {tab === "projects" ? "Projects" : "My Templates"}
+          </button>
+        ))}
+      </div>
+
+      {/* ─── My Templates tab ────────────────────────────────── */}
+      {activeTab === "templates" ? (
+        <CustomTemplates />
+      ) : (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
@@ -562,6 +595,8 @@ export default function Dashboard() {
         ))
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

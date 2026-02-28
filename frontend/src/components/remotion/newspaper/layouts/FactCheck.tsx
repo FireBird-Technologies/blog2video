@@ -1,12 +1,12 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
 const H_FONT = "Georgia, 'Times New Roman', serif";
 const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
-export const FactCheck: React.FC<BlogLayoutProps> = ({
+export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "Fact Check",
   narration,
   leftThought  = "The shutdown will only last a few hours.",
@@ -18,6 +18,7 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -26,15 +27,20 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
   const leftLabel  = stats?.[0]?.label ?? "CLAIMED";
   const rightLabel = stats?.[1]?.label ?? "THE FACTS";
 
-  // Animations
-  const headerOp  = interpolate(frame, [0, 14],  [0, 1],   { extrapolateRight: "clamp" });
-  const leftX     = interpolate(frame, [8, 32],  [-60, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const leftOp    = interpolate(frame, [8, 28],  [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const rightX    = interpolate(frame, [14, 38], [60, 0],  { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const rightOp   = interpolate(frame, [14, 34], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const dividerH  = interpolate(frame, [26, 44], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const verdictOp = interpolate(frame, [42, 56], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const hlSweep   = interpolate(frame, [18, 40], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  // Existing Animations
+  const headerOp   = interpolate(frame, [0, 14],  [0, 1],   { extrapolateRight: "clamp" });
+  const leftX      = interpolate(frame, [8, 32],  [-60, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const leftOp     = interpolate(frame, [8, 28],  [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rightX     = interpolate(frame, [14, 38], [60, 0],  { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rightOp    = interpolate(frame, [14, 34], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const dividerH   = interpolate(frame, [26, 44], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const verdictOp  = interpolate(frame, [42, 56], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const hlSweep    = interpolate(frame, [18, 40], [0, 1],   { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+  // Image Specific Animations
+  const imageOpacity = interpolate(frame, [30, 50], [0, 1], { extrapolateRight: "clamp" });
+  const imageScale = interpolate(frame, [30, 50], [0.8, 1], { extrapolateRight: "clamp" });
+  const imageRotation = interpolate(frame, [30, 50], [-5, 3], { extrapolateRight: "clamp" });
 
   const badgeHL = (color: string) => ({
     backgroundImage: `linear-gradient(${color}, ${color})`,
@@ -43,33 +49,26 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
     backgroundPosition: "0 0",
   });
 
-  // --- Shard motion ---
   const { width, height } = { width: p ? 1080 : 1920, height: p ? 1920 : 1080 };
-
   const joinProgress = interpolate(frame, [0, 40], [0, 1], { extrapolateRight: "clamp" });
   const breakProgress = interpolate(frame, [durationInFrames - 30, durationInFrames], [0, 1], { extrapolateRight: "clamp" });
 
-  // Left shard
+  // Shard motion
   const leftShardX = -width / 2 * (1 - joinProgress) - 40 * breakProgress;
   const leftShardY = -height / 5 * (1 - joinProgress) - 20 * breakProgress;
   const leftShardRot = -8 + 8 * joinProgress + 2 * breakProgress;
-  const leftShardOpacity = 0.35 + 0.15 * joinProgress;
-  const leftShardScale = 0.95 + 0.05 * joinProgress;
-
-  // Right shard (stays anchored to right)
+  
   const rightShardX = -40 * breakProgress;
   const rightShardY = height / 5 * (1 - joinProgress) + 20 * breakProgress;
   const rightShardRot = 8 - 8 * joinProgress - 2 * breakProgress;
-  const rightShardOpacity = 0.35 + 0.15 * joinProgress;
-  const rightShardScale = 0.95 + 0.05 * joinProgress;
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <NewsBackground bgColor={bgColor} />
 
-      {/* Shards */}
+      {/* Background Shards */}
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         style={{
           position: "absolute",
@@ -78,14 +77,13 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
           width: width / 2,
           height,
           objectFit: "cover",
-          objectPosition: "center",
-          opacity: leftShardOpacity,
-          transform: `rotate(${leftShardRot}deg) scale(${leftShardScale})`,
+          opacity: 0.4,
+          transform: `rotate(${leftShardRot}deg)`,
           zIndex: 1,
         }}
       />
       <img
-        src="/vintage-news.avif"
+        src={staticFile("vintage-news.avif")}
         alt=""
         style={{
           position: "absolute",
@@ -94,21 +92,8 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
           width: width / 2,
           height,
           objectFit: "cover",
-          objectPosition: "center",
-          opacity: rightShardOpacity,
-          transform: `rotate(${rightShardRot}deg) scale(${rightShardScale})`,
-          zIndex: 1,
-        }}
-      />
-
-      {/* Gradient overlay */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(135deg, rgba(235,225,210,0.42) 0%, rgba(245,238,225,0.38) 50%, rgba(225,215,195,0.42) 100%)",
-          pointerEvents: "none",
+          opacity: 0.4,
+          transform: `rotate(${rightShardRot}deg)`,
           zIndex: 1,
         }}
       />
@@ -131,157 +116,94 @@ export const FactCheck: React.FC<BlogLayoutProps> = ({
               <circle cx="14" cy="14" r="10" stroke={textColor} strokeWidth="3" />
               <line x1="22" y1="22" x2="31" y2="31" stroke={textColor} strokeWidth="3" strokeLinecap="round" />
             </svg>
-            <div
-              style={{
-                fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 40 : 52),
-                fontWeight: 800,
-                color: textColor,
-                lineHeight: 1,
-              }}
-            >
+            <div style={{
+              fontFamily: H_FONT,
+              fontSize: titleFontSize ?? (p ? 40 : 52),
+              fontWeight: 800,
+              color: textColor,
+              lineHeight: 1,
+            }}>
               {title}
             </div>
           </div>
           <div style={{ height: 2, background: textColor, opacity: 0.1, width: "100%" }} />
         </div>
 
-        {/* Two columns */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: p ? "column" : "row",
-            gap: 0,
-            alignItems: "stretch",
-            position: "relative",
-          }}
-        >
-          {/* Left column */}
-          <div
-            style={{
-              flex: 1,
-              opacity: leftOp,
-              transform: `translateX(${leftX}px)`,
-              paddingRight: p ? 0 : 32,
-              paddingBottom: p ? 20 : 0,
-            }}
-          >
-            <div
-              style={{
-                display: "inline-block",
-                fontFamily: B_FONT,
-                fontSize: p ? 11 : 13,
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: textColor,
-                ...badgeHL(accentColor),
-                paddingLeft: 6,
-                paddingRight: 6,
-                paddingTop: 3,
-                paddingBottom: 3,
-                marginBottom: 14,
-              }}
-            >
-              {leftLabel}
+        {/* Two columns + Image Area */}
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: p ? "column" : "row",
+          position: "relative",
+        }}>
+          {/* Main Content (Columns) */}
+          <div style={{ flex: 2, display: "flex", flexDirection: p ? "column" : "row" }}>
+            <div style={{ flex: 1, opacity: leftOp, transform: `translateX(${leftX}px)`, paddingRight: p ? 0 : 32, paddingBottom: p ? 20 : 0 }}>
+              <div style={{ display: "inline-block", fontFamily: B_FONT, fontSize: p ? 11 : 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textColor, ...badgeHL(accentColor), padding: "3px 6px", marginBottom: 14 }}>
+                {leftLabel}
+              </div>
+              <div style={{ fontFamily: H_FONT, fontSize: descriptionFontSize ?? (p ? 22 : 28), fontWeight: 500, color: textColor, lineHeight: 1.45, fontStyle: "italic" }}>
+                "{leftThought}"
+              </div>
             </div>
-            <div
-              style={{
-                fontFamily: H_FONT,
-                fontSize: descriptionFontSize ?? (p ? 24 : 30),
-                fontWeight: 500,
-                color: textColor,
-                lineHeight: 1.45,
-                fontStyle: "italic",
-              }}
-            >
-              "{leftThought}"
+
+            <div style={{ width: p ? "100%" : 1, height: p ? 1 : "auto", background: textColor, opacity: 0.14, margin: p ? "10px 0" : "0", alignSelf: "stretch", clipPath: !p ? `inset(0 0 ${100 - dividerH}% 0)` : "none" }} />
+
+            <div style={{ flex: 1, opacity: rightOp, transform: `translateX(${rightX}px)`, paddingLeft: p ? 0 : 32 }}>
+              <div style={{ display: "inline-block", fontFamily: B_FONT, fontSize: p ? 11 : 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textColor, border: `1.5px solid ${textColor}`, padding: "3px 6px", marginBottom: 14, opacity: 0.7 }}>
+                {rightLabel}
+              </div>
+              <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 20 : 24), fontWeight: 500, color: textColor, lineHeight: 1.55, opacity: 0.95 }}>
+                {rightThought}
+              </div>
             </div>
           </div>
 
-          {/* Divider */}
-          {!p && (
-            <div
-              style={{
-                width: 1,
-                flexShrink: 0,
-                background: textColor,
-                opacity: 0.14,
-                alignSelf: "stretch",
-                clipPath: `inset(0 0 ${100 - dividerH}% 0)`,
-              }}
-            />
-          )}
-          {p && (
-            <div
-              style={{
-                height: 1,
-                background: textColor,
-                opacity: 0.14,
-                width: `${dividerH}%`,
-                marginBottom: 20,
-              }}
-            />
-          )}
-
-          {/* Right column */}
-          <div
-            style={{
-              flex: 1,
-              opacity: rightOp,
-              transform: `translateX(${rightX}px)`,
-              paddingLeft: p ? 0 : 32,
-            }}
-          >
-            <div
-              style={{
-                display: "inline-block",
-                fontFamily: B_FONT,
-                fontSize: p ? 11 : 13,
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: textColor,
-                border: `1.5px solid ${textColor}`,
-                paddingLeft: 6,
-                paddingRight: 6,
-                paddingTop: 3,
-                paddingBottom: 3,
-                marginBottom: 14,
-                opacity: 0.7,
-              }}
-            >
-              {rightLabel}
+          {/* VINTAGE IMAGE CUTOUT - Positions itself at the bottom-right of the columns */}
+          {imageUrl && (
+            <div style={{
+              position: p ? "relative" : "absolute",
+              bottom: p ? 0 : "-5%",
+              right: p ? "auto" : 0,
+              width: p ? "60%" : "35%",
+              alignSelf: p ? "center" : "flex-end",
+              marginTop: p ? 20 : 0,
+              zIndex: 5,
+              opacity: imageOpacity,
+              transform: `scale(${imageScale}) rotate(${imageRotation}deg)`,
+              backgroundColor: "#fdf8e6",
+              padding: "8px",
+              boxShadow: "5px 15px 30px rgba(0,0,0,0.2)",
+              border: "1px dashed #aaa",
+            }}>
+              <div style={{ position: "relative", overflow: "hidden" }}>
+                <Img
+                  src={imageUrl}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                    filter: "grayscale(100%) contrast(1.2) brightness(0.95)",
+                    mixBlendMode: "multiply",
+                  }}
+                />
+                {/* HALFTONE DOT OVERLAY */}
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  opacity: 0.12,
+                  mixBlendMode: "multiply",
+                  backgroundImage: `radial-gradient(circle at center, black 1px, transparent 1.2px)`,
+                  backgroundSize: "3px 3px",
+                }} />
+              </div>
             </div>
-            <div
-              style={{
-                fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 21 : 26),
-                fontWeight: 500,
-                color: textColor,
-                lineHeight: 1.55,
-                opacity: 0.95,
-              }}
-            >
-              {rightThought}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Verdict */}
         {narration && (
-          <div
-            style={{
-              opacity: verdictOp,
-              borderTop: `2px solid ${accentColor}`,
-              paddingTop: 14,
-              fontFamily: B_FONT,
-              fontSize:  descriptionFontSize ?? (p ? 21 : 26),
-              fontWeight: 700,
-              color: textColor,
-            }}
-          >
+          <div style={{ opacity: verdictOp, borderTop: `2px solid ${accentColor}`, paddingTop: 14, fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 21 : 26), fontWeight: 700, color: textColor }}>
             {narration}
           </div>
         )}

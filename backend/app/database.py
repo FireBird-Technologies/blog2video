@@ -9,7 +9,7 @@ engine_kwargs = {}
 
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
-    engine_kwargs["poolclass"] = StaticPool
+    # engine_kwargs["poolclass"] = StaticPool
 else:
     # PostgreSQL connection pool settings
     engine_kwargs["poolclass"] = QueuePool
@@ -42,10 +42,35 @@ def get_db():
         db.close()
 
 
+def _migrate_custom_templates(eng):
+    """Drop old custom_templates table if it has an enum-based category column."""
+    from sqlalchemy import text, inspect
+
+    insp = inspect(eng)
+    if "custom_templates" not in insp.get_table_names():
+        return
+
+    # Check if category column uses an enum type (old schema) vs varchar (new)
+    for col in insp.get_columns("custom_templates"):
+        if col["name"] == "category" and hasattr(col["type"], "enums"):
+            # Old enum-based column — drop table so create_all rebuilds it
+            with eng.begin() as conn:
+                conn.execute(text("DROP TABLE IF EXISTS custom_templates"))
+            is_pg = not settings.DATABASE_URL.startswith("sqlite")
+            if is_pg:
+                with eng.begin() as conn:
+                    conn.execute(text("DROP TYPE IF EXISTS templatecategory CASCADE"))
+            print("[MIGRATE] Dropped old custom_templates table (enum -> varchar)")
+            return
+
+
 def init_db():
     """Create all tables, run lightweight migrations, and seed plans."""
-    from app.models import User, Project, Scene, Asset, ChatMessage, SubscriptionPlan, Subscription  # noqa: F401
+    from app.models import User, Project, Scene, Asset, ChatMessage, SubscriptionPlan, Subscription, CustomTemplate  # noqa: F401
 
+    # Drop old custom_templates table if it uses the enum-based category column
+    # so create_all recreates it with VARCHAR category.
+    _migrate_custom_templates(engine)
     Base.metadata.create_all(bind=engine)
     _migrate(engine)
 
@@ -143,6 +168,48 @@ def _migrate(eng):
                     conn.execute(text(
                         f"ALTER TABLE assets ADD COLUMN {col_name} {col_def}"
                     ))
+
+    # Migrate custom_templates table
+    if "custom_templates" in insp.get_table_names():
+        template_cols = {c["name"] for c in insp.get_columns("custom_templates")}
+        with eng.begin() as conn:
+            if "supported_video_style" not in template_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE custom_templates "
+                        "ADD COLUMN supported_video_style VARCHAR(30) DEFAULT 'explainer'"
+                    )
+                )
+
+            # For missing/blank values, default to explainer.
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = 'explainer'
+                    WHERE supported_video_style IS NULL OR trim(supported_video_style) = ''
+                    """
+                )
+            )
+
+            # Normalize values and force valid set.
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = lower(trim(coalesce(supported_video_style, '')))
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    UPDATE custom_templates
+                    SET supported_video_style = 'explainer'
+                    WHERE supported_video_style NOT IN ('explainer', 'promotional', 'storytelling')
+                    """
+                )
+            )
 
     # Migrate PostgreSQL enum types — add missing values.
     # ALTER TYPE ... ADD VALUE cannot run inside a transaction, so we use
