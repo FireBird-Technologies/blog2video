@@ -1,6 +1,7 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 sqlalchemy>=2.0.0
+alembic>=1.14.0
 pydantic-settings>=2.0.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
