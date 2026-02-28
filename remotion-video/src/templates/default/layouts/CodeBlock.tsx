@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const CodeBlock: React.FC<SceneLayoutProps> = ({
@@ -12,15 +12,31 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
   titleFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 20], [0, 1], {
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const codeOp = interpolate(frame, [15, 40], [0, 1], {
+
+  // Code block springs in with scale + slide
+  const codeSpring = spring({
+    frame: frame - 12,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const codeOp = interpolate(codeSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const codeY = interpolate(frame, [15, 40], [30, 0], {
+  const codeY = interpolate(codeSpring, [0, 1], [25, 0], {
+    extrapolateRight: "clamp",
+  });
+  const codeScale = interpolate(codeSpring, [0, 1], [0.96, 1], {
     extrapolateRight: "clamp",
   });
   const lineReveal = interpolate(frame, [20, 20 + codeLines.length * 10], [0, codeLines.length], {
@@ -63,7 +79,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
           padding: p ? "20px 24px" : "28px 36px",
           border: "1px solid #333",
           opacity: codeOp,
-          transform: `translateY(${codeY}px)`,
+          transform: `translateY(${codeY}px) scale(${codeScale})`,
           overflow: "hidden",
         }}
       >

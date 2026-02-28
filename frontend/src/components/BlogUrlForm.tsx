@@ -1,11 +1,23 @@
 import { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { getTemplates, getVoicePreviews, BACKEND_URL, type TemplateMeta, type VoicePreview } from "../api/client";
+import { useErrorModal } from "../contexts/ErrorModalContext";
+import { BulkLinksSection } from "./BulkLinksSection";
+import { getTemplates, getVoicePreviews,listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem,type CustomTemplateItem } from "../api/client";
+import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradeModal from "./UpgradeModal";
+import CustomTemplateUpgradeModal from "./CustomTemplateUpgradeModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
+import MatrixPreview from "./templatePreviews/MatrixPreview";
+import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
+import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
+import CustomPreview from "./templatePreviews/CustomPreview";
+
+export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
 interface Props {
   onSubmit: (
@@ -23,8 +35,11 @@ interface Props {
     customVoiceId?: string,
     aspectRatio?: string,
     uploadFiles?: File[],
-    template?: string
+    template?: string,
+    videoStyle?: VideoStyleId
   ) => Promise<void>;
+  /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
+  onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
   loading?: boolean;
   asModal?: boolean;
   onClose?: () => void;
@@ -32,6 +47,13 @@ interface Props {
 
 const MAX_UPLOAD_FILES = 5;
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+
+const MAX_BULK_LINKS = (() => {
+  const raw = import.meta.env.VITE_MAX_BULK_LINKS as string | undefined;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+})();
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -45,6 +67,9 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
+  matrix: MatrixPreview,
+  whiteboard: WhiteboardPreview,
+  newspaper: NewsPaperPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -52,6 +77,9 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   nightfall: { title: "Nightfall", subtitle: "Dark cinematic glass aesthetic" },
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
+  matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
+  whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
+  newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -104,10 +132,13 @@ interface VideoLightboxProps {
   onClose: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  customTemplate?: CustomTemplateItem | null;
 }
-function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: VideoLightboxProps) {
+function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, customTemplate }: VideoLightboxProps) {
   const PreviewComp = TEMPLATE_PREVIEWS[templateId];
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
+  const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
+  const subtitle = customTemplate ? "Custom template" : desc?.subtitle;
 
   // Close on Escape
   useEffect(() => {
@@ -116,7 +147,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -134,7 +165,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
               <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
             </div>
             <span className="text-[11px] text-white/40 font-medium tracking-wide">
-              {desc?.title ?? templateId} — Preview
+              {title} — Preview
             </span>
             <button onClick={onClose} className="text-white/30 hover:text-white/70 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +176,9 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
 
           {/* Video content */}
           <div className="bg-black">
-            {PreviewComp ? (
+            {customTemplate ? (
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} />
+            ) : PreviewComp ? (
               <PreviewComp />
             ) : (
               <div className="w-full aspect-video bg-gray-900 flex items-center justify-center text-gray-500 text-sm">
@@ -157,7 +190,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
           {/* Bottom controls bar */}
           <div className="flex items-center justify-between px-4 py-3 bg-[#1a1a1a] border-t border-white/[0.06]">
             <div className="text-[11px] text-white/40">
-              {desc?.subtitle}
+              {subtitle}
             </div>
             <button
               onClick={() => { onSelect(); onClose(); }}
@@ -167,29 +200,68 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected }: Vi
                   : "bg-purple-600 text-white hover:bg-purple-700"
               }`}
             >
-              {isSelected ? "✓ Selected" : "Use this template"}
+              {isSelected ? "Selected" : "Use this template"}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
-export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Props) {
+function deriveNameFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.replace(/\/$/, "").split("/");
+    const path = segments[segments.length - 1] || parsed.hostname;
+    return path.replace(/[-_]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()).slice(0, 100) || "Untitled Project";
+  } catch {
+    return "Untitled Project";
+  }
+}
+
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
+  const { showError } = useErrorModal();
   const isPro = user?.plan === "pro";
+  const navigate = useNavigate();
 
   // Wizard step
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1 — input
-  const [mode, setMode] = useState<"url" | "upload">("url");
+  const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
   const [urls, setUrls] = useState<string[]>([""]);
   const [name, setName] = useState("");
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk: rows (url); per-row name, template, voice, format, logo
+  const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
+  const [bulkNames, setBulkNames] = useState<string[]>([""]);
+  const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
+  const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
+  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
+  const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
+  const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
+  const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
+  // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
+  const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
+  const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
+  const [bulkTextColors, setBulkTextColors] = useState<string[]>([""]);
+  const [bulkActiveIndex, setBulkActiveIndex] = useState(0);
+  const [bulkLogoFile, setBulkLogoFile] = useState<(File | null)[]>([null]);
+  const [bulkLogoPosition, setBulkLogoPosition] = useState<string[]>(["bottom_right"]);
+  const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
+  const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
+  const bulkLogoInputRef = useRef<HTMLInputElement>(null);
+  const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
+  const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
+  const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
+  const [bulkVoiceMasterIndex, setBulkVoiceMasterIndex] = useState(0);
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
@@ -200,9 +272,12 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
   const [playingKey, setPlayingKey] = useState<string | null>(null);
 
-  // Step 3 — template & style
-  const [template, setTemplate] = useState("nightfall");
+  // Step 2 — video style & template
+  const [videoStyle, setVideoStyle] = useState<VideoStyleId>("promotional");
+  const [templatePickerView, setTemplatePickerView] = useState<"style" | "custom">("style");
+  const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
   const [bgColor, setBgColor] = useState("#FFFFFF");
@@ -217,6 +292,10 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   /** When we navigated to step 3 (ms). Used to ignore submit from replayed click after "Go to step 3". */
   const step3EnteredAtRef = useRef<number | null>(null);
 
+  // Load all templates once (filtering by style is done in UI)
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
+
   // Load templates & voice previews once
   useEffect(() => {
     getTemplates()
@@ -225,18 +304,32 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     getVoicePreviews()
       .then((r) => setVoicePreviews(r.data))
       .catch(() => {});
+    listCustomTemplates()
+      .then((r) => setCustomTemplates(r.data))
+      .catch(() => {});
   }, []);
 
-  // Sync colors to the selected template when templates load (so default "nightfall" shows nightfall colors on step 2)
+  // Sync colors to the selected template when templates load.
   useEffect(() => {
     if (templates.length === 0) return;
+    // Check custom templates first
+    if (template.startsWith("custom_")) {
+      const customId = parseInt(template.replace("custom_", ""));
+      const ct = customTemplates.find((t) => t.id === customId);
+      if (ct) {
+        setAccentColor(ct.preview_colors.accent);
+        setBgColor(ct.preview_colors.bg);
+        setTextColor(ct.preview_colors.text);
+      }
+      return;
+    }
     const meta = templates.find((t) => t.id === template);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
       setTextColor(meta.preview_colors.text);
     }
-  }, [templates, template]);
+  }, [templates, customTemplates, template]);
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
@@ -332,16 +425,82 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   };
 
   // ─── Navigation ──────────────────────────────────────────────
-  // Step order: 1 = Project (URL/Upload), 2 = Template, 3 = Voice
+  // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
-    mode === "url" ? !!urls[0]?.trim() : docFiles.length > 0;
+    mode === "url" ? !!urls[0]?.trim() : mode === "upload" ? docFiles.length > 0 : bulkRows.some((r) => r.url.trim());
 
   const goNext = () => {
-    if (step === 1 && canGoNext1) setStep(2);
-    else if (step === 2) {
+    if (step === 1 && canGoNext1) {
+      if (mode === "bulk") {
+        const n = bulkRows.length;
+        setBulkNames((prev) => resizeTo(prev, n, ""));
+        setBulkTemplates((prev) => resizeTo(prev, n, "default"));
+        setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
+        setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
+        setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
+        setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
+        setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
+        setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
+        setBulkAccentColors((prev) => resizeTo(prev, n, ""));
+        setBulkBgColors((prev) => resizeTo(prev, n, ""));
+        setBulkTextColors((prev) => resizeTo(prev, n, ""));
+        setBulkLogoFile((prev) => resizeTo(prev, n, null));
+        setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
+        setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
+        setBulkActiveIndex(0);
+      }
+      setStep(2);
+    } else if (step === 2) {
       step3EnteredAtRef.current = Date.now();
       setStep(3);
     }
+  };
+
+  function resizeTo<T>(arr: T[], len: number, fill: T): T[] {
+    if (arr.length >= len) return arr.slice(0, len);
+    return [...arr, ...Array(len - arr.length).fill(fill)];
+  }
+
+  const addBulkRow = () => {
+    if (bulkRows.length >= MAX_BULK_LINKS) return;
+    setBulkRows((prev) => [...prev, { url: "" }]);
+    setBulkNames((prev) => [...prev, ""]);
+    setBulkTemplates((prev) => [...prev, "default"]);
+    setBulkVoiceGender((prev) => [...prev, "female"]);
+    setBulkVoiceAccent((prev) => [...prev, "american"]);
+    setBulkCustomVoiceId((prev) => [...prev, ""]);
+    setBulkAspectRatio((prev) => [...prev, "landscape"]);
+    setBulkVideoStyles((prev) => [...prev, "promotional"]);
+    setBulkTemplatePickerViews((prev) => [...prev, "style"]);
+    setBulkAccentColors((prev) => [...prev, ""]);
+    setBulkBgColors((prev) => [...prev, ""]);
+    setBulkTextColors((prev) => [...prev, ""]);
+    setBulkLogoFile((prev) => [...prev, null]);
+    setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
+    setBulkLogoOpacity((prev) => [...prev, 0.9]);
+  };
+
+  const removeBulkRow = (index: number) => {
+    if (bulkRows.length <= 1) return;
+    setBulkRows((prev) => prev.filter((_, i) => i !== index));
+    setBulkNames((prev) => prev.filter((_, i) => i !== index));
+    setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
+    setBulkVoiceGender((prev) => prev.filter((_, i) => i !== index));
+    setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
+    setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
+    setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
+    setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
+    setBulkTemplatePickerViews((prev) => prev.filter((_, i) => i !== index));
+    setBulkAccentColors((prev) => prev.filter((_, i) => i !== index));
+    setBulkBgColors((prev) => prev.filter((_, i) => i !== index));
+    setBulkTextColors((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoFile((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoPosition((prev) => prev.filter((_, i) => i !== index));
+    setBulkLogoOpacity((prev) => prev.filter((_, i) => i !== index));
+    setBulkActiveIndex((prev) => {
+      if (prev >= bulkRows.length - 1) return Math.max(0, prev - 1);
+      return prev;
+    });
   };
 
   const goBack = () => {
@@ -353,14 +512,104 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step !== 3) return;
-    // Ignore submit if it fires right after "Go to step 3" (browser replays click onto the new submit button)
     const enteredAt = step3EnteredAtRef.current;
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
     step3EnteredAtRef.current = null;
     audioRef.current?.pause();
 
+    if (mode === "bulk" && onSubmitBulk) {
+      const valid = bulkRows
+        .map((r, i) => ({ url: r.url, name: bulkNames[i] ?? "", i }))
+        .filter((r) => r.url.trim());
+      if (valid.length === 0) return;
+      if (!isPro && valid.some((v) => (bulkTemplates[v.i] ?? "").startsWith("custom_"))) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
+      // Detect duplicate URLs and auto-suffix names
+      const urlCounts: Record<string, number> = {};
+      const urlSeenSoFar: Record<string, number> = {};
+      for (const { url } of valid) {
+        const normalized = url.trim();
+        urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
+      }
+
+      const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
+        const normalized = url.trim();
+        urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
+        const isDuplicate = urlCounts[normalized] > 1;
+
+        let resolvedName = n.trim() || undefined;
+        if (!resolvedName && isDuplicate) {
+          const occurrence = urlSeenSoFar[normalized];
+          const derived = deriveNameFromUrl(normalized);
+          resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
+        }
+
+        return {
+        blog_url: normalized,
+        name: resolvedName,
+        template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
+        video_style: bulkVideoStyles[i] ?? "promotional",
+        voice_gender: bulkVoiceGender[i],
+        voice_accent: bulkVoiceAccent[i],
+        accent_color:
+          bulkAccentColors[i] && bulkAccentColors[i].trim()
+            ? bulkAccentColors[i]
+            : accentColor,
+        bg_color:
+          bulkBgColors[i] && bulkBgColors[i].trim()
+            ? bulkBgColors[i]
+            : bgColor,
+        text_color:
+          bulkTextColors[i] && bulkTextColors[i].trim()
+            ? bulkTextColors[i]
+            : textColor,
+        logo_position: bulkLogoPosition[i] ?? "bottom_right",
+        logo_opacity: bulkLogoOpacity[i] ?? 0.9,
+        custom_voice_id: bulkCustomVoiceId[i]?.trim() || undefined,
+        aspect_ratio: bulkAspectRatio[i] ?? "landscape",
+      };
+      });
+      const logoIndices: number[] = [];
+      const logoFiles: File[] = [];
+      valid.forEach((v, j) => {
+        const f = bulkLogoFile[v.i];
+        if (f) {
+          logoIndices.push(j);
+          logoFiles.push(f);
+        }
+      });
+      await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
+      setBulkRows([{ url: "" }]);
+      setBulkNames([""]);
+      setBulkTemplates(["default"]);
+      setBulkVoiceGender(["female"]);
+      setBulkVoiceAccent(["american"]);
+      setBulkCustomVoiceId([]);
+      setBulkAspectRatio(["landscape"]);
+      setBulkVideoStyles(["promotional"]);
+      setBulkTemplatePickerViews(["style"]);
+      setBulkAccentColors([""]);
+      setBulkBgColors([""]);
+      setBulkTextColors([""]);
+      setBulkLogoFile([null]);
+      setBulkLogoPosition(["bottom_right"]);
+      setBulkLogoOpacity([0.9]);
+      setBulkActiveIndex(0);
+      setBulkApplyTemplateAll(true);
+      setBulkTemplateMasterIndex(0);
+      setBulkApplyVoiceAll(true);
+      setBulkVoiceMasterIndex(0);
+      return;
+    }
+
     if (mode === "upload") {
       if (docFiles.length === 0) return;
+      if (template.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
       await onSubmit(
         "",
         name.trim() || undefined,
@@ -376,13 +625,18 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         customVoiceId.trim() || undefined,
         aspectRatio,
         docFiles,
-        template !== "default" ? template : undefined
+        template !== "default" ? template : undefined,
+        videoStyle
       );
       setDocFiles([]);
       setName("");
     } else {
       const validUrls = urls.filter((u) => u.trim());
       if (validUrls.length === 0) return;
+      if (template.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
       for (const url of validUrls) {
         await onSubmit(
           url.trim(),
@@ -399,7 +653,8 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           customVoiceId.trim() || undefined,
           aspectRatio,
           undefined,
-          template !== "default" ? template : undefined
+          template !== "default" ? template : undefined,
+          videoStyle
         );
       }
       setUrls([""]);
@@ -409,7 +664,23 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
+    if (id.startsWith("custom_") && !isPro) {
+      setShowCustomTemplateUpgrade(true);
+      return;
+    }
     setTemplate(id);
+    // Custom template
+    if (id.startsWith("custom_")) {
+      const customId = parseInt(id.replace("custom_", ""));
+      const ct = customTemplates.find((t) => t.id === customId);
+      if (ct) {
+        setVideoStyle(normalizeVideoStyle(ct.supported_video_style));
+        setAccentColor(ct.preview_colors.accent);
+        setBgColor(ct.preview_colors.bg);
+        setTextColor(ct.preview_colors.text);
+      }
+      return;
+    }
     const meta = templates.find((t) => t.id === id);
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
@@ -424,7 +695,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
       {/* Mode tabs — selected tab purple */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        {(["url", "upload"] as const).map((m) => (
+        {(["url", "upload", ...(onSubmitBulk ? (["bulk"] as const) : [])] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -435,10 +706,46 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {m === "url" ? "Link" : "Upload"}
+            {m === "url" ? "Link" : m === "upload" ? "Upload" : "Multi Link"}
           </button>
         ))}
       </div>
+
+      {/* Bulk: multiple links (url + name per row) */}
+      {mode === "bulk" && (<>
+        <BulkLinksSection
+          rows={bulkRows}
+          maxBulkLinks={MAX_BULK_LINKS}
+          aspectRatios={bulkAspectRatio}
+          onChangeUrl={(index, value) =>
+            setBulkRows((prev) => prev.map((r, i) => (i === index ? { ...r, url: value } : r)))
+          }
+          onChangeAspectRatio={(index, value) =>
+            setBulkAspectRatio((prev) => {
+              const next = [...prev];
+              next[index] = value;
+              return next;
+            })
+          }
+          onAddRow={addBulkRow}
+          onRemoveRow={removeBulkRow}
+        />
+        {(() => {
+          const seen = new Set<string>();
+          const hasDupes = bulkRows.some((r) => {
+            const t = r.url.trim();
+            if (!t) return false;
+            if (seen.has(t)) return true;
+            seen.add(t);
+            return false;
+          });
+          return hasDupes ? (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mt-2">
+              Duplicate URLs detected — suffixes will be added to project names to differentiate them.
+            </p>
+          ) : null;
+        })()}
+      </>)}
 
       {/* URL input */}
       {mode === "url" && (
@@ -538,137 +845,142 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </div>
       )}
 
-      {/* Project name */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-          Project Name <span className="text-gray-300 font-normal">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
-          className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-        />
-      </div>
-
-      {/* Format — moved from step 2 */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-         Video Format
-        </label>
-        <div className="flex gap-2">
-          {([
-            { value: "landscape", label: "Landscape", sub: "YouTube" },
-            { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
-          ] as const).map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setAspectRatio(opt.value)}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
-                aspectRatio === opt.value
-                  ? "bg-purple-600 text-white shadow-sm"
-                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
-              }`}
-            >
-              <span>{opt.label}</span>
-              <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
-                {opt.sub}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Logo */}
-      <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
-        </label>
-        <div className="flex items-center gap-3">
-          <div className="relative mb-4 inline-block">
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
-            >
-              {logoFile ? logoFile.name : "Choose file"}
-            </button>
-            {logoFile && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLogoFile(null);
-                  if (logoInputRef.current) logoInputRef.current.value = "";
-                }}
-                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-sm transition-colors"
-                title="Remove logo"
-              >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
+      {/* Project name (single-link / upload only; bulk has per-row name) */}
+      {mode !== "bulk" && (
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+            Project Name <span className="text-gray-300 font-normal">(optional)</span>
+          </label>
           <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] || null;
-              if (f && f.size > 2 * 1024 * 1024) {
-                alert("Logo must be under 2 MB.");
-                e.target.value = "";
-                return;
-              }
-              setLogoFile(f);
-            }}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={mode === "url" ? "Auto-generated from URL" : "Auto-generated from file name"}
+            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
           />
         </div>
-        {logoFile && (
-          <div className="mt-2">
-            <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-            <div className="flex gap-1.5">
+      )}
+
+      {/* Format + Logo (single-link / upload only; bulk has per-row in step 3) */}
+      {mode !== "bulk" && (
+        <>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+             Video Format
+            </label>
+            <div className="flex gap-2">
               {([
-                { value: "top_left", label: "Top Left" },
-                { value: "top_right", label: "Top Right" },
-                { value: "bottom_left", label: "Bottom Left" },
-                { value: "bottom_right", label: "Bottom Right" },
-              ] as const).map((pos) => (
+                { value: "landscape", label: "Landscape", sub: "YouTube" },
+                { value: "portrait", label: "Portrait", sub: "TikTok / Reels" },
+              ] as const).map((opt) => (
                 <button
-                  key={pos.value}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setLogoPosition(pos.value)}
-                  className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                    logoPosition === pos.value
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                  onClick={() => setAspectRatio(opt.value)}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all flex flex-col items-center gap-0.5 ${
+                    aspectRatio === opt.value
+                      ? "bg-purple-600 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60"
                   }`}
                 >
-                  {pos.label}
+                  <span>{opt.label}</span>
+                  <span className={`text-[9px] ${aspectRatio === opt.value ? "text-purple-200" : "text-gray-300"}`}>
+                    {opt.sub}
+                  </span>
                 </button>
               ))}
             </div>
-            <div className="mt-2.5 mb-3.5">
-              <label className="block text-[10px] text-gray-500 mb-1">
-                Opacity <span className="text-gray-500">{Math.round(logoOpacity * 100)}%</span>
-              </label>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative mb-4 inline-block">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
+                >
+                  {logoFile ? logoFile.name : "Choose file"}
+                </button>
+                {logoFile && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLogoFile(null);
+                      if (logoInputRef.current) logoInputRef.current.value = "";
+                    }}
+                    className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 flex items-center justify-center transition-colors"
+                    title="Remove logo"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={Math.round(logoOpacity * 100)}
-                onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
-                className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  if (f && f.size > 2 * 1024 * 1024) {
+                    showError("Logo must be under 2 MB.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setLogoFile(f);
+                }}
               />
             </div>
+            {logoFile && (
+              <div className="mt-2">
+                <label className="block text-[10px] text-gray-400 mb-1">Position</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { value: "top_left", label: "Top Left" },
+                    { value: "top_right", label: "Top Right" },
+                    { value: "bottom_left", label: "Bottom Left" },
+                    { value: "bottom_right", label: "Bottom Right" },
+                  ] as const).map((pos) => (
+                    <button
+                      key={pos.value}
+                      type="button"
+                      onClick={() => setLogoPosition(pos.value)}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                        logoPosition === pos.value
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2.5 mb-3.5">
+                  <label className="block text-[10px] text-gray-500 mb-1">
+                    Opacity <span className="text-gray-500">{Math.round(logoOpacity * 100)}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round(logoOpacity * 100)}
+                    onChange={(e) => setLogoOpacity(parseInt(e.target.value, 10) / 100)}
+                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
       </div>
 
       {/* Next — always at bottom for consistent UI in Link and Upload */}
@@ -686,18 +998,29 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
-  // ─── Step 2: Template (moved up; was step 3) ───────────────────
-  const availableTemplates = templates.length > 0
-    ? templates
-    : [
-        { id: "default", name: "Spotlight" },
-        { id: "nightfall", name: "Nightfall" },
-        { id: "gridcraft", name: "Gridcraft" },
-        { id: "spotlight", name: "Spotlight" },
-      ];
+  // ─── Step 2: Video style + Template ──────────────────────────
+  const styleLower = normalizeVideoStyle(videoStyle);
+  const sourceList = templates;
+  const suggestedTemplates = sourceList.filter(
+    (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
+  );
+  const customTemplatesForStyle = customTemplates.filter(
+    (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
+  );
+
+  const styleTemplateItems: Array<
+    | { type: "builtin"; id: string; data: TemplateMeta }
+    | { type: "custom"; id: string; data: CustomTemplateItem }
+  > = [
+    ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+    ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+  ];
 
   const SelectedPreviewComp = TEMPLATE_PREVIEWS[template];
   const selectedDesc = TEMPLATE_DESCRIPTIONS[template];
+  const selectedCustom = template.startsWith("custom_")
+    ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
+    : null;
 
   const step2Template = (
     <div className="space-y-5">
@@ -708,7 +1031,9 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
-            {SelectedPreviewComp ? (
+            {selectedCustom ? (
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} key={`selected-custom-${selectedCustom.id}-${step}`} />
+            ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
               <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
@@ -718,10 +1043,21 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           </div>
           <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
             <div>
-              <div className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? template}</div>
-              {selectedDesc?.subtitle && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-800">
+                  {selectedCustom ? selectedCustom.name : (selectedDesc?.title ?? template)}
+                </span>
+                {selectedCustom && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustom.preview_colors.accent }}>
+                    Custom
+                  </span>
+                )}
+              </div>
+              {selectedCustom ? (
+                <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+              ) : selectedDesc?.subtitle ? (
                 <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
-              )}
+              ) : null}
             </div>
             <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
               <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -732,53 +1068,201 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         </div>
       </div>
 
-      {/* All templates — scrollable box, 3 per row */}
+      {/* Video Style tabs + Templates list (filtered by style) */}
       <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          All Templates
-        </label>
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
-          <div className="grid grid-cols-3 gap-2">
-            {availableTemplates.map((t) => {
-              const PreviewComp = TEMPLATE_PREVIEWS[t.id];
-              const desc = TEMPLATE_DESCRIPTIONS[t.id];
-              const isSelected = template === t.id;
-
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Style
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {VIDEO_STYLES.map((s) => {
+              const isSelected = videoStyle === s.id && templatePickerView === "style";
               return (
-                <div
-                  key={t.id}
-                  onClick={() => applyTemplate(t.id)}
-                  className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
-                    isSelected
-                      ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                      : "border-gray-200/60 hover:border-purple-300/60"
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setVideoStyle(s.id);
+                    setTemplatePickerView("style");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                    {PreviewComp ? (
-                      <PreviewComp key={`${t.id}-${step}`} />
-                    ) : (
-                      <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                        {t.name}
-                      </div>
-                    )}
-                    {isSelected && (
-                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
-                    <div className="text-[10px] font-semibold text-gray-800 truncate">
-                      {desc?.title ?? t.name}
-                    </div>
-                  </div>
-                </div>
+                  {s.label}
+                </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => setTemplatePickerView("custom")}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                templatePickerView === "custom"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Custom Templates
+            </button>
           </div>
+        </div>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          {templatePickerView === "custom" ? (
+            <div className="grid grid-cols-3 gap-2">
+              {customTemplates.map((ct) => {
+                const customId = `custom_${ct.id}`;
+                const isSelected = template === customId;
+                return (
+                  <div
+                    key={customId}
+                    onClick={() => applyTemplate(customId)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                        Custom
+                      </div>
+                      {!isPro && (
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                          Pro
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {ct.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div
+                onClick={() => {
+                  if (!isPro) {
+                    setShowCustomTemplateUpgrade(true);
+                    return;
+                  }
+                  if (onClose) onClose();
+                  navigate("/dashboard?tab=templates");
+                }}
+                className="rounded-lg border-2 border-dashed border-gray-200/60 hover:border-purple-400/60 cursor-pointer transition-all group flex flex-col items-center justify-center min-h-[56px]"
+              >
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-colors">
+                    <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-medium text-gray-400 group-hover:text-purple-600 transition-colors">
+                    Add Custom
+                  </span>
+                  {!isPro && (
+                    <span className="text-[8px] text-purple-500 font-medium">Upgrade to use</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : styleTemplateItems.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {styleTemplateItems.map((item) => {
+                if (item.type === "custom") {
+                  const ct = item.data;
+                  const customId = item.id;
+                  const isSelected = template === customId;
+                  return (
+                    <div
+                      key={customId}
+                      onClick={() => applyTemplate(customId)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                          Custom
+                        </div>
+                        {!isPro && (
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                            Pro
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {ct.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const t = item.data;
+                const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                const isSelected = template === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => applyTemplate(t.id)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      {PreviewComp ? (
+                        <PreviewComp key={`${t.id}-${step}`} />
+                      ) : (
+                        <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                          {t.name}
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {desc?.title ?? t.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 py-4 text-center">
+              No templates for this style. Try another video style above.
+            </p>
+          )}
         </div>
       </div>
 
@@ -832,6 +1316,813 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
       </div>
     </div>
   );
+
+  // ─── Step 2 bulk: template per project (tabbed; same UI as single) ─────────
+  const step2BulkTemplate = (() => {
+    const indexed = bulkRows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row }) => row.url.trim());
+    if (indexed.length === 0) {
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">Please go back to step 1 to continue again.</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={goBack}
+              className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const active = Math.min(bulkActiveIndex, indexed.length - 1);
+    const activeIndex = indexed[active].i;
+    const activeRow = indexed[active].row;
+    const masterIndex =
+      indexed.find(({ i }) => i === bulkTemplateMasterIndex)?.i ?? indexed[0].i;
+
+    const tpl = bulkTemplates[activeIndex] ?? "default";
+    const templateMeta = templates.find((t) => t.id === tpl);
+    const selectedCustomBulk = tpl.startsWith("custom_")
+      ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
+      : null;
+    const defaultAccent = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.accent
+      : templateMeta?.preview_colors?.accent ?? accentColor;
+    const defaultBg = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.bg
+      : templateMeta?.preview_colors?.bg ?? bgColor;
+    const defaultText = selectedCustomBulk
+      ? selectedCustomBulk.preview_colors.text
+      : templateMeta?.preview_colors?.text ?? textColor;
+
+    const accent =
+      bulkAccentColors[activeIndex] && bulkAccentColors[activeIndex].trim()
+        ? bulkAccentColors[activeIndex]
+        : defaultAccent;
+    const bg =
+      bulkBgColors[activeIndex] && bulkBgColors[activeIndex].trim()
+        ? bulkBgColors[activeIndex]
+        : defaultBg;
+    const text =
+      bulkTextColors[activeIndex] && bulkTextColors[activeIndex].trim()
+        ? bulkTextColors[activeIndex]
+        : defaultText;
+    const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
+    const activePickerView = bulkTemplatePickerViews[activeIndex] ?? "style";
+
+    const applyTemplateToAll = () => {
+      const targetIndices = indexed.map(({ i }) => i);
+      // Template + video style + colors
+      setBulkTemplates((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = tpl;
+        });
+        return next;
+      });
+      setBulkVideoStyles((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = activeVideoStyle || "promotional";
+        });
+        return next;
+      });
+      setBulkAccentColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = accent;
+        });
+        return next;
+      });
+      setBulkBgColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bg;
+        });
+        return next;
+      });
+      setBulkTextColors((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = text;
+        });
+        return next;
+      });
+      // Logo (file, position, opacity)
+      setBulkLogoFile((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoFile[activeIndex] ?? null;
+        });
+        return next;
+      });
+      setBulkLogoPosition((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoPosition[activeIndex] ?? "bottom_right";
+        });
+        return next;
+      });
+      setBulkLogoOpacity((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = bulkLogoOpacity[activeIndex] ?? 0.9;
+        });
+        return next;
+      });
+    };
+
+    const applyBulkTemplate = (id: string) => {
+      if (id.startsWith("custom_") && !isPro) {
+        setShowCustomTemplateUpgrade(true);
+        return;
+      }
+      const matchedCustom = id.startsWith("custom_")
+        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
+        : null;
+      const customStyle = matchedCustom?.supported_video_style
+        ? normalizeVideoStyle(matchedCustom.supported_video_style)
+        : null;
+      const colors = id.startsWith("custom_")
+        ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
+        : templates.find((t) => t.id === id)?.preview_colors;
+      const targetIndices = indexed.map(({ i }) => i);
+
+      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+        setBulkApplyTemplateAll(false);
+        setBulkTemplates((prev) => {
+          const next = [...prev];
+          next[activeIndex] = id;
+          return next;
+        });
+        if (customStyle) {
+          setBulkVideoStyles((prev) => {
+            const next = [...prev];
+            next[activeIndex] = customStyle;
+            return next;
+          });
+        }
+        if (colors) {
+          setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
+          setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
+          setBulkTextColors((prev) => { const next = [...prev]; next[activeIndex] = colors.text; return next; });
+        }
+        return;
+      }
+
+      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+        setBulkTemplates((prev) => {
+          const next = [...prev];
+          targetIndices.forEach((idx) => { next[idx] = id; });
+          return next;
+        });
+        if (customStyle) {
+          setBulkVideoStyles((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = customStyle; });
+            return next;
+          });
+        }
+        if (colors) {
+          setBulkAccentColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.accent; });
+            return next;
+          });
+          setBulkBgColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.bg; });
+            return next;
+          });
+          setBulkTextColors((prev) => {
+            const next = [...prev];
+            targetIndices.forEach((idx) => { next[idx] = colors.text; });
+            return next;
+          });
+        }
+        return;
+      }
+
+      setBulkTemplates((prev) => {
+        const next = [...prev];
+        next[activeIndex] = id;
+        return next;
+      });
+      if (customStyle) {
+        setBulkVideoStyles((prev) => {
+          const next = [...prev];
+          next[activeIndex] = customStyle;
+          return next;
+        });
+      }
+      if (colors) {
+        setBulkAccentColors((prev) => { const next = [...prev]; next[activeIndex] = colors.accent; return next; });
+        setBulkBgColors((prev) => { const next = [...prev]; next[activeIndex] = colors.bg; return next; });
+        setBulkTextColors((prev) => { const next = [...prev]; next[activeIndex] = colors.text; return next; });
+      }
+    };
+
+    const targetIndicesForTemplate = indexed.map(({ i }) => i);
+    const setBulkColor = (kind: "accent" | "bg" | "text", v: string) => {
+      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+        setBulkApplyTemplateAll(false);
+        if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+        return;
+      }
+      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+        if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; targetIndicesForTemplate.forEach((idx) => { n[idx] = v; }); return n; });
+        return;
+      }
+      if (kind === "accent") setBulkAccentColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+      if (kind === "bg") setBulkBgColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+      if (kind === "text") setBulkTextColors((prev) => { const n = [...prev]; n[activeIndex] = v; return n; });
+    };
+
+    const SelectedPreviewComp = TEMPLATE_PREVIEWS[tpl];
+    const selectedDesc = TEMPLATE_DESCRIPTIONS[tpl];
+
+    const styleLower = normalizeVideoStyle(activeVideoStyle);
+    const sourceList = templates;
+    const suggestedTemplates = sourceList.filter(
+      (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
+    );
+    const customTemplatesForStyle = customTemplates.filter(
+      (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
+    );
+    const styleTemplateItems: Array<
+      | { type: "builtin"; id: string; data: TemplateMeta }
+      | { type: "custom"; id: string; data: CustomTemplateItem }
+    > = [
+      ...suggestedTemplates.map((t) => ({ type: "builtin" as const, id: t.id, data: t })),
+      ...customTemplatesForStyle.map((ct) => ({ type: "custom" as const, id: `custom_${ct.id}`, data: ct })),
+    ];
+
+    return (
+      <div className="space-y-5">
+        {/* Bulk logo picker (step 2) */}
+        <input
+          ref={bulkLogoInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0] || null;
+            e.target.value = "";
+            if (bulkLogoRowIndex === null) return;
+            if (f && f.size > 2 * 1024 * 1024) {
+              showError("Logo must be under 2 MB.");
+              return;
+            }
+            const targetIndices = indexed.map(({ i }) => i);
+            if (bulkApplyTemplateAll && bulkLogoRowIndex !== masterIndex) {
+              setBulkApplyTemplateAll(false);
+              setBulkLogoFile((prev) => {
+                const n = [...prev];
+                n[bulkLogoRowIndex] = f;
+                return n;
+              });
+              setBulkLogoRowIndex(null);
+              return;
+            }
+            if (bulkApplyTemplateAll && bulkLogoRowIndex === masterIndex) {
+              setBulkLogoFile((prev) => {
+                const n = [...prev];
+                targetIndices.forEach((idx) => { n[idx] = f; });
+                return n;
+              });
+              setBulkLogoRowIndex(null);
+              return;
+            }
+            setBulkLogoFile((prev) => {
+              const n = [...prev];
+              n[bulkLogoRowIndex] = f;
+              return n;
+            });
+            setBulkLogoRowIndex(null);
+          }}
+        />
+
+        {/* Tabs for each bulk project — match Link/Upload/Multi Link tabs */}
+        <div className="flex flex-wrap gap-1 mb-2">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {indexed.map(({ row, i }, tabIdx) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(tabIdx)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  tabIdx === active
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+                title={row.url.trim() || undefined}
+              >
+                Video #{tabIdx + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Apply template, colors & logo to all */}
+        <div className="flex items-center justify-start ml-1 mb-1">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bulkApplyTemplateAll}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBulkApplyTemplateAll(checked);
+                if (checked) {
+                  setBulkTemplateMasterIndex(activeIndex);
+                  applyTemplateToAll();
+                }
+              }}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="font-medium">Apply template, colors & logo to all videos</span>
+          </label>
+        </div>
+
+        {/* Selected template — full-width preview (same UI as single) */}
+        <div>
+          <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+            Selected Template
+          </label>
+          <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+            <div className="relative">
+              {selectedCustomBulk ? (
+                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+              ) : SelectedPreviewComp ? (
+                <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
+              ) : (
+                <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-300 text-sm">
+                  {selectedDesc?.title ?? tpl}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
+                  {selectedCustomBulk && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
+                      Custom
+                    </span>
+                  )}
+                </div>
+                {selectedCustomBulk ? (
+                  <div className="text-[11px] text-gray-400 mt-0.5">Custom template</div>
+                ) : selectedDesc?.subtitle ? (
+                  <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc.subtitle}</div>
+                ) : null}
+              </div>
+              <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Video Style tabs */}
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Style
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {VIDEO_STYLES.map((s) => {
+              const isSelected = activeVideoStyle === s.id && activePickerView === "style";
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    const targetIndices = indexed.map(({ i }) => i);
+                    if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                      setBulkApplyTemplateAll(false);
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = s.id;
+                        return next;
+                      });
+                      setBulkTemplatePickerViews((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = "style";
+                        return next;
+                      });
+                      return;
+                    }
+                    if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                      setBulkVideoStyles((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => { next[idx] = s.id; });
+                        return next;
+                      });
+                      setBulkTemplatePickerViews((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => { next[idx] = "style"; });
+                        return next;
+                      });
+                      return;
+                    }
+                    setBulkVideoStyles((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = s.id;
+                      return next;
+                    });
+                    setBulkTemplatePickerViews((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = "style";
+                      return next;
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    isSelected ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                const targetIndices = indexed.map(({ i }) => i);
+                if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                  setBulkApplyTemplateAll(false);
+                  setBulkTemplatePickerViews((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = "custom";
+                    return next;
+                  });
+                  return;
+                }
+                if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                  setBulkTemplatePickerViews((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => { next[idx] = "custom"; });
+                    return next;
+                  });
+                  return;
+                }
+                setBulkTemplatePickerViews((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = "custom";
+                  return next;
+                });
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                activePickerView === "custom"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              Custom Templates
+            </button>
+          </div>
+        </div>
+
+        {/* Templates list filtered by style */}
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          {activePickerView === "custom" ? (
+            <div className="grid grid-cols-3 gap-2">
+              {customTemplates.map((ct) => {
+                const customId = `custom_${ct.id}`;
+                const isSelected = tpl === customId;
+                return (
+                  <div
+                    key={customId}
+                    onClick={() => applyBulkTemplate(customId)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                        Custom
+                      </div>
+                      {!isPro && (
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                          Pro
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {ct.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div
+                onClick={() => {
+                  if (!isPro) {
+                    setShowCustomTemplateUpgrade(true);
+                    return;
+                  }
+                  if (onClose) onClose();
+                  navigate("/dashboard?tab=templates");
+                }}
+                className="rounded-lg border-2 border-dashed border-gray-200/60 hover:border-purple-400/60 cursor-pointer transition-all group flex flex-col items-center justify-center min-h-[56px]"
+              >
+                <div className="flex flex-col items-center gap-1 py-2">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center transition-colors">
+                    <svg className="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-medium text-gray-400 group-hover:text-purple-600 transition-colors">
+                    Add Custom
+                  </span>
+                  {!isPro && (
+                    <span className="text-[8px] text-purple-500 font-medium">Upgrade to use</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : styleTemplateItems.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {styleTemplateItems.map((item) => {
+                if (item.type === "custom") {
+                  const ct = item.data;
+                  const customId = item.id;
+                  const isSelected = tpl === customId;
+                  return (
+                    <div
+                      key={customId}
+                      onClick={() => applyBulkTemplate(customId)}
+                      className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                        isSelected
+                          ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                          : "border-gray-200/60 hover:border-purple-300/60"
+                      }`}
+                    >
+                      <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: ct.preview_colors.accent }}>
+                          Custom
+                        </div>
+                        {!isPro && (
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white">
+                            Pro
+                          </div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                        <div className="text-[10px] font-semibold text-gray-800 truncate">
+                          {ct.name}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const t = item.data;
+                const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                const isSelected = tpl === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => applyBulkTemplate(t.id)}
+                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                      isSelected
+                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : "border-gray-200/60 hover:border-purple-300/60"
+                    }`}
+                  >
+                    <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                      {PreviewComp ? (
+                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                      ) : (
+                        <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
+                          {t.name}
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`px-2 py-1 transition-colors ${isSelected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                      <div className="text-[10px] font-semibold text-gray-800 truncate">
+                        {desc?.title ?? t.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 py-4 text-center">
+              No templates for this style. Try another video style above.
+            </p>
+          )}
+        </div>
+
+        {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Video Colors
+            </label>
+            <div className="flex items-center gap-5">
+              {[
+                { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
+                { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
+                { label: "Text", value: text, setter: (v: string) => setBulkColor("text", v) },
+              ].map(({ label, value, setter }) => (
+                <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+                  <span
+                    className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
+                    style={{ backgroundColor: value }}
+                  >
+                    <input
+                      type="color"
+                      value={value}
+                      onChange={(e) => setter(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-w-[240px]">
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative mb-4 inline-block">
+                <button
+                  type="button"
+                  onClick={() => { setBulkLogoRowIndex(activeIndex); bulkLogoInputRef.current?.click(); }}
+                  className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200/60 transition-all pr-8"
+                >
+                  {bulkLogoFile[activeIndex] ? bulkLogoFile[activeIndex]!.name : "Choose file"}
+                </button>
+                {bulkLogoFile[activeIndex] && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        setBulkLogoFile((prev) => { const n = [...prev]; n[activeIndex] = null; return n; });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        setBulkLogoFile((prev) => {
+                          const n = [...prev];
+                          targetIndices.forEach((idx) => { n[idx] = null; });
+                          return n;
+                        });
+                        return;
+                      }
+                      setBulkLogoFile((prev) => { const n = [...prev]; n[activeIndex] = null; return n; });
+                    }}
+                    className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 flex items-center justify-center transition-colors"
+                    title="Remove logo"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            {bulkLogoFile[activeIndex] && (
+              <div className="mt-2">
+                <label className="block text-[10px] text-gray-400 mb-1">Position</label>
+                <div className="flex gap-1.5">
+                  {([
+                    { value: "top_left", label: "Top Left" },
+                    { value: "top_right", label: "Top Right" },
+                    { value: "bottom_left", label: "Bottom Left" },
+                    { value: "bottom_right", label: "Bottom Right" },
+                  ] as const).map((pos) => (
+                    <button
+                      key={pos.value}
+                      type="button"
+                      onClick={() => {
+                        const targetIndices = indexed.map(({ i }) => i);
+                        if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                          setBulkApplyTemplateAll(false);
+                          setBulkLogoPosition((prev) => { const n = [...prev]; n[activeIndex] = pos.value; return n; });
+                          return;
+                        }
+                        if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                          setBulkLogoPosition((prev) => {
+                            const n = [...prev];
+                            targetIndices.forEach((idx) => { n[idx] = pos.value; });
+                            return n;
+                          });
+                          return;
+                        }
+                        setBulkLogoPosition((prev) => { const n = [...prev]; n[activeIndex] = pos.value; return n; });
+                      }}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                        (bulkLogoPosition[activeIndex] ?? "bottom_right") === pos.value
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-50 text-gray-400 hover:bg-gray-100 border border-gray-200/60"
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-2.5 mb-3.5">
+                  <label className="block text-[10px] text-gray-500 mb-1">
+                    Opacity <span className="text-gray-500">{Math.round((bulkLogoOpacity[activeIndex] ?? 0.9) * 100)}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    value={Math.round((bulkLogoOpacity[activeIndex] ?? 0.9) * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) / 100;
+                      const targetIndices = indexed.map(({ i }) => i);
+                      if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
+                        setBulkApplyTemplateAll(false);
+                        setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
+                        return;
+                      }
+                      if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                        setBulkLogoOpacity((prev) => {
+                          const n = [...prev];
+                          targetIndices.forEach((idx) => { n[idx] = val; });
+                          return n;
+                        });
+                        return;
+                      }
+                      setBulkLogoOpacity((prev) => { const n = [...prev]; n[activeIndex] = val; return n; });
+                    }}
+                    className="w-full h-1.5 bg-gray-300 rounded-full appearance-none cursor-pointer accent-purple-600"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={goBack}
+            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            Go to step 3
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  })();
 
   // ─── Step 3: Voice (last step) — audio playlist style ─────────
   const voiceOptions = [
@@ -974,7 +2265,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           {loading ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              {mode === "upload" ? "Extracting..." : "Creating..."}
+              {mode === "upload" ? "Extracting..." : mode === "bulk" ? "Creating..." : "Creating..."}
             </>
           ) : (
             "Generate Video"
@@ -984,9 +2275,376 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
     </div>
   );
 
+  // ─── Step 3 bulk: voice per project (tabbed) ───────────────────
+  const step3BulkVoice = (() => {
+    const indexed = bulkRows
+      .map((row, i) => ({ row, i }))
+      .filter(({ row }) => row.url.trim());
+
+    if (indexed.length === 0) {
+      return (
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">Please go back to step 1 to continue again.</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={goBack}
+              className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const active = Math.min(bulkActiveIndex, indexed.length - 1);
+    const activeIndex = indexed[active].i;
+    const masterIndex =
+      indexed.find(({ i }) => i === bulkVoiceMasterIndex)?.i ??
+      indexed[0].i;
+    const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
+    const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
+    const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
+
+    const applyVoiceToAll = () => {
+      const targetIndices = indexed.map(({ i }) => i);
+      setBulkVoiceGender((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceGender;
+        });
+        return next;
+      });
+      setBulkVoiceAccent((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVoiceAccent;
+        });
+        return next;
+      });
+      setBulkCustomVoiceId((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowCustomVoiceId;
+        });
+        return next;
+      });
+    };
+
+    return (
+      <div className="space-y-5">
+        {/* Tabs for each bulk project — match Link/Upload/Multi Link tabs */}
+        <div className="flex flex-wrap gap-1 pb-2 mb-2">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {indexed.map(({ row, i }, tabIdx) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(tabIdx)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  tabIdx === active
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+                title={row.url.trim() || undefined}
+              >
+                Video #{tabIdx + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Apply voice selection to all */}
+        <div className="flex items-center justify-start mb-2 ml-1">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bulkApplyVoiceAll}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setBulkApplyVoiceAll(checked);
+                if (checked) {
+                  // Use the currently active video as the master when (re)enabling apply-to-all.
+                  setBulkVoiceMasterIndex(activeIndex);
+                  applyVoiceToAll();
+                }
+              }}
+              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+            />
+            <span className="font-medium">Apply voice settings to all videos</span>
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+          <input
+            type="checkbox"
+            checked={rowVoiceGender === "none"}
+            onChange={(e) => {
+              const value = e.target.checked ? "none" : "female";
+              const targetIndices = indexed.map(({ i }) => i);
+
+              if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                // Editing a non-master video breaks the global sync.
+                setBulkApplyVoiceAll(false);
+                setBulkVoiceGender((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = value;
+                  return next;
+                });
+                return;
+              }
+
+              if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                // Master row change: keep all videos in sync.
+                setBulkVoiceGender((prev) => {
+                  const next = [...prev];
+                  targetIndices.forEach((idx) => {
+                    next[idx] = value;
+                  });
+                  return next;
+                });
+                return;
+              }
+
+              // No global sync: only update this row.
+              setBulkVoiceGender((prev) => {
+                const next = [...prev];
+                next[activeIndex] = value;
+                return next;
+              });
+            }}
+            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+          />
+          <div>
+            <span className="text-sm font-medium text-gray-700">No voiceover</span>
+            <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+          </div>
+        </label>
+
+        <div className={rowVoiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
+          <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
+            Voice — select and play to preview
+          </label>
+          <div className="space-y-2">
+            {voiceOptions.map(({ gender, accent, key, flag }) => {
+              const preview = voicePreviews[key];
+              const playbackUrl = getPlaybackUrl(key);
+              const isDisabled = rowVoiceGender === "none";
+              const isSelected = rowVoiceGender === gender && rowVoiceAccent === accent;
+              const isPlaying = playingKey === key;
+
+              const FALLBACK_NAMES: Record<string, string> = {
+                female_american: "Rachel",
+                female_british: "Alice",
+                male_american: "Bill",
+                male_british: "Daniel",
+              };
+              const FALLBACK_DESCS: Record<string, string> = {
+                female_american: "Warm & confident, clear narration",
+                female_british: "Soft & polished, refined tone",
+                male_american: "Friendly & articulate, conversational",
+                male_british: "Calm & authoritative, smooth delivery",
+              };
+              const name = FALLBACK_NAMES[key] || preview?.name || `${gender} ${accent}`;
+              const desc =
+                [gender === "female" ? "Female" : "Male", accent === "american" ? "American" : "British"].join(" • ") +
+                ` — ${preview?.description || FALLBACK_DESCS[key] || ""}`;
+
+              return (
+                <div
+                  key={key}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    const targetIndices = indexed.map(({ i }) => i);
+
+                    if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                      // Editing a non-master video breaks the global sync.
+                      setBulkApplyVoiceAll(false);
+                      setBulkVoiceGender((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = gender;
+                        return next;
+                      });
+                      setBulkVoiceAccent((prev) => {
+                        const next = [...prev];
+                        next[activeIndex] = accent;
+                        return next;
+                      });
+                      return;
+                    }
+
+                    if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                      // Master row change: keep all videos in sync.
+                      setBulkVoiceGender((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => {
+                          next[idx] = gender;
+                        });
+                        return next;
+                      });
+                      setBulkVoiceAccent((prev) => {
+                        const next = [...prev];
+                        targetIndices.forEach((idx) => {
+                          next[idx] = accent;
+                        });
+                        return next;
+                      });
+                      return;
+                    }
+
+                    // No global sync: only update this row.
+                    setBulkVoiceGender((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = gender;
+                      return next;
+                    });
+                    setBulkVoiceAccent((prev) => {
+                      const next = [...prev];
+                      next[activeIndex] = accent;
+                      return next;
+                    });
+                  }}
+                  className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
+                    isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                  } ${
+                    isSelected
+                      ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
+                      : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20"
+                  } ${isDisabled ? "hover:border-gray-200/60 hover:bg-white/60" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDisabled) playVoice(key, playbackUrl);
+                    }}
+                    disabled={!playbackUrl || isDisabled}
+                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      isDisabled || !playbackUrl
+                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                        : isPlaying
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700"
+                    }`}
+                  >
+                    {isPlaying ? (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800">
+                      {flag} {name}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
+                  </div>
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {isPro && rowVoiceGender !== "none" && (
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+              Custom Voice ID <span className="text-gray-300 font-normal">(ElevenLabs)</span>
+            </label>
+            <input
+              type="text"
+              value={rowCustomVoiceId}
+              onChange={(e) => {
+                const value = e.target.value;
+                const targetIndices = indexed.map(({ i }) => i);
+
+                if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
+                  // Editing a non-master video breaks the global sync.
+                  setBulkApplyVoiceAll(false);
+                  setBulkCustomVoiceId((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = value;
+                    return next;
+                  });
+                  return;
+                }
+
+                if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                  // Master row change: keep all videos in sync.
+                  setBulkCustomVoiceId((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => {
+                      next[idx] = value;
+                    });
+                    return next;
+                  });
+                  return;
+                }
+
+                // No global sync: only update this row.
+                setBulkCustomVoiceId((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = value;
+                  return next;
+                });
+              }}
+              placeholder="Paste your ElevenLabs voice ID to override..."
+              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={goBack}
+            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+          >
+            Back
+          </button>
+          <button
+            ref={submitButtonRef}
+            type="submit"
+            disabled={loading || !onSubmitBulk}
+            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Creating…
+              </>
+            ) : (
+              "Create all & generate"
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  })();
+
   // ─── Render ──────────────────────────────────────────────────
   // Step order: 1 Project, 2 Template, 3 Voice
-  const stepContent = step === 1 ? step1 : step === 2 ? step2Template : step3Voice;
+  const stepContent =
+    step === 1
+      ? step1
+      : step === 2
+        ? mode === "bulk"
+          ? step2BulkTemplate
+          : step2Template
+        : mode === "bulk"
+          ? step3BulkVoice
+          : step3Voice;
 
   const modalWidth = "max-w-xl";
 
@@ -1014,6 +2672,10 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
         onClose={() => setShowUpgrade(false)}
         feature="Upgrade"
       />
+      <CustomTemplateUpgradeModal
+        open={showCustomTemplateUpgrade}
+        onClose={() => setShowCustomTemplateUpgrade(false)}
+      />
     </form>
   );
 
@@ -1036,23 +2698,28 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           onClose={() => setShowUpgrade(false)}
           feature="Upgrade"
         />
+        <CustomTemplateUpgradeModal
+          open={showCustomTemplateUpgrade}
+          onClose={() => setShowCustomTemplateUpgrade(false)}
+        />
         {videoPreviewId && (
           <TemplateVideoLightbox
             templateId={videoPreviewId}
             onClose={() => setVideoPreviewId(null)}
             onSelect={() => applyTemplate(videoPreviewId)}
             isSelected={template === videoPreviewId}
+            customTemplate={videoPreviewId.startsWith("custom_") ? customTemplates.find((ct) => ct.id === parseInt(videoPreviewId.replace("custom_", ""))) : null}
           />
         )}
       </div>
     );
   }
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[90vh] overflow-y-auto transition-all duration-300`}
+        className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300`}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1073,6 +2740,7 @@ export default function BlogUrlForm({ onSubmit, loading, asModal, onClose }: Pro
           isSelected={template === videoPreviewId}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

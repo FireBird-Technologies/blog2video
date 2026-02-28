@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
 
@@ -14,18 +14,32 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const imgOp = interpolate(frame, [0, 25], [0, 1], {
+  // Image springs in with zoom
+  const imgSpring = spring({
+    frame,
+    fps,
+    config: { damping: 28, stiffness: 70, mass: 1 },
+  });
+  const imgOp = interpolate(imgSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const imgScale = interpolate(frame, [0, 25], [1.05, 1], {
+  const imgScale = interpolate(imgSpring, [0, 1], [1.06, 1], {
     extrapolateRight: "clamp",
   });
-  const textOp = interpolate(frame, [15, 35], [0, 1], {
+
+  // Text springs in after image
+  const textSpring = spring({
+    frame: frame - 12,
+    fps,
+    config: { damping: 20, stiffness: 80, mass: 1 },
+  });
+  const textOp = interpolate(textSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const textY = interpolate(frame, [15, 35], [20, 0], {
+  const textY = interpolate(textSpring, [0, 1], [20, 0], {
     extrapolateRight: "clamp",
   });
   const borderW = interpolate(frame, [5, 30], [0, 100], {

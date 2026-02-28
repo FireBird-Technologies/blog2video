@@ -4,6 +4,7 @@ import asyncio
 import logging
 import traceback
 import requests
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,6 +37,7 @@ from app.services.remotion import (
 from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+from app.dspy_modules.display_text_gen import DisplayTextGenerator
 from app.services.template_service import validate_template_id
 from app.services.email import email_service, EmailServiceError
 
@@ -196,14 +198,24 @@ async def _generate_script(project: Project, db: Session):
         blog_images=image_paths,
         hero_image=hero_image,
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
+        video_style=getattr(project, "video_style", "explainer") or "explainer",
     )
 
     project.name = result["title"]
 
+    # Clear existing scenes for this project
     db.query(Scene).filter(Scene.project_id == project.id).delete()
     db.flush()
 
-    for i, scene_data in enumerate(result["scenes"]):
+    # Template-aware display text generation
+    template_id = validate_template_id(project.template if project.template else "default")
+    video_style = getattr(project, "video_style", None) or "explainer"
+    scenes_raw: list[dict] = result["scenes"]
+
+    display_gen = DisplayTextGenerator(template_id, video_style=video_style)
+    display_texts = await display_gen.generate_for_scenes(scenes_raw)
+
+    for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -211,6 +223,7 @@ async def _generate_script(project: Project, db: Session):
             narration_text=scene_data["narration"],
             visual_description=scene_data["visual_description"],
             duration_seconds=scene_data.get("duration_seconds", 10),
+            display_text=display_text,
         )
         db.add(scene)
 
@@ -220,38 +233,15 @@ async def _generate_script(project: Project, db: Session):
 
 
 async def _generate_scenes(project: Project, db: Session):
-    """Generate voiceovers first, then scene layout descriptors, then write Remotion data."""
-    scenes = project.scenes
-    image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
+    """Generate voiceovers and scene layout descriptors concurrently, then write Remotion data.
 
-    # Step 1: Generate voiceovers FIRST (sync, runs in thread)
-    # Skip entirely when user chose "no voiceover"
-    if getattr(project, "voice_gender", None) == "none":
-        print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
-        for scene in scenes:
-            if scene.narration_text:
-                word_count = len(scene.narration_text.split())
-                scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
-            else:
-                scene.duration_seconds = 5.0
-            scene.voiceover_path = None
-        db.commit()
-    else:
-        await generate_all_voiceovers(scenes, db)
-
-    # Re-load scenes so we have fresh voiceover_path / duration from the voiceover thread
-    db.expire(project)
+    Voiceovers and scene descriptors are independent — descriptors only need
+    title/narration/visual_description which don't change during TTS generation.
+    Running them concurrently via asyncio.gather cuts wall-clock time significantly.
+    """
     scenes = project.scenes
 
-    # Step 2: Generate layout descriptors with TemplateSceneGenerator
-    # Ensure template is read from database (refresh if needed)
-    db.refresh(project)
-    template_id = validate_template_id(project.template if project.template else "default")
-    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
-    scene_gen = TemplateSceneGenerator(template_id)
-    image_filenames = [
-        a.filename for a in project.assets if a.asset_type.value == "image"
-    ]
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
     scenes_data = [
         {
             "title": s.title,
@@ -260,17 +250,55 @@ async def _generate_scenes(project: Project, db: Session):
         }
         for s in scenes
     ]
-    descriptors = await scene_gen.generate_all_scenes(
-        scenes_data,
-        image_filenames,
-        accent_color=project.accent_color or "#7C3AED",
-        bg_color=project.bg_color or "#FFFFFF",
-        text_color=project.text_color or "#000000",
-        animation_instructions=project.animation_instructions or "",
-    )
+
+    # Prepare scene descriptor generator
+    db.refresh(project)
+    template_id = validate_template_id(project.template if project.template else "default")
+    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
+    scene_gen = TemplateSceneGenerator(template_id)
+    image_filenames = [
+        a.filename for a in project.assets if a.asset_type.value == "image"
+    ]
+
+    # ── Task 1: Voiceovers ───────────────────────────────────────
+    async def _voiceover_task():
+        if getattr(project, "voice_gender", None) == "none":
+            print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
+            for scene in scenes:
+                if scene.narration_text:
+                    word_count = len(scene.narration_text.split())
+                    scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
+                else:
+                    scene.duration_seconds = 5.0
+                scene.voiceover_path = None
+            db.commit()
+        else:
+            await generate_all_voiceovers(
+                scenes, db, video_style=getattr(project, "video_style", None) or "explainer"
+            )
+
+    # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
+    async def _descriptor_task():
+        result = await scene_gen.generate_all_scenes(
+            scenes_data,
+            image_filenames,
+            accent_color=project.accent_color or "#7C3AED",
+            bg_color=project.bg_color or "#FFFFFF",
+            text_color=project.text_color or "#000000",
+            animation_instructions=project.animation_instructions or "",
+        )
+        return result
+
+    # Run both concurrently
+    _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
+
+    # Re-load scenes to pick up voiceover changes from per-thread DB sessions
+    db.expire(project)
+    scenes = project.scenes
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
-    for scene, descriptor in zip(scenes, descriptors):
+    for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:
                 old_desc = json.loads(scene.remotion_code)
@@ -287,9 +315,15 @@ async def _generate_scenes(project: Project, db: Session):
             except (json.JSONDecodeError, TypeError):
                 pass
         scene.remotion_code = json.dumps(descriptor)
+        if has_layout_config:
+            lc = descriptor["layoutConfig"]
+            print(f"[PIPELINE] Scene {i} stored: layoutConfig.arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}, decorations={lc.get('decorations')}")
+        else:
+            print(f"[PIPELINE] Scene {i} stored: legacy layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
     db.commit()
+    print(f"[PIPELINE] All {len(scenes)} scene descriptors committed to DB")
 
-    # Step 3: Write data.json + assets to per-project Remotion workspace
+    # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db)
 
     project.status = ProjectStatus.GENERATED
@@ -300,6 +334,7 @@ async def _generate_scenes(project: Project, db: Session):
     try:
         user = db.query(User).filter(User.id == project.user_id).first()
         if user:
+            
             project_url = f"{settings.FRONTEND_URL}/projects/{project.id}"
             email_service.send_preview_ready_email(
                 user_email=user.email,
@@ -307,6 +342,22 @@ async def _generate_scenes(project: Project, db: Session):
                 project_name=project.name,
                 project_url=project_url,
             )
+            
+            # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
+            scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
+            # Only schedule follow-up email for unpaid users
+            if user.plan == PlanTier.FREE:
+                email_service.schedule_followup_email(
+                    user_email=user.email,
+                    user_name=user.name,
+                    project_name=project.name,
+                    project_url=project_url,
+                    scheduled_at=scheduled_at,
+                )
+                logger.info(f"[PIPELINE] Project {project.id}: follow-up email scheduled at {scheduled_at}")
+            
+        else:
+            logger.error(f"[PIPELINE] Project {project.id}: no user found, skipping preview + follow-up emails")
     except EmailServiceError as e:
         logger.error(f"[PIPELINE] Preview-ready email failed for project {project.id}: {e}")
     except Exception as e:
@@ -435,25 +486,38 @@ def _rebuild_workspace_sync(project_id: int) -> None:
 async def render_video_endpoint(
     project_id: int,
     resolution: str = "1080p",
+    force_render: bool = False,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Kick off async video render. Poll /render-status for progress.
 
     All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
+    When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
 
     # Always render at 1080p
     resolution = "1080p"
 
-    # Already rendered and available in R2 — skip re-render
-    if project.r2_video_url:
+    # Already rendered and available in R2 — skip re-render unless force_render (re-render with latest changes)
+    if project.r2_video_url and not force_render:
         return {
             "detail": "Already rendered",
             "progress": 100,
             "r2_video_url": project.r2_video_url,
         }
+
+    # Re-render: deduct a video count (same as creating a new video)
+    if force_render:
+        user_row = db.query(User).filter(User.id == user.id).first()
+        if not user_row or not user_row.can_create_video:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Video limit reached ({getattr(user_row, 'video_limit', 1)}). Re-render counts as a video. Upgrade or purchase more credits.",
+            )
+        user_row.videos_used_this_period += 1
+        db.commit()
 
     # Don't restart if already rendering
     prog = get_render_progress(project_id)
@@ -594,8 +658,12 @@ def download_video_endpoint(
     # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
     if project.r2_video_url:
         try:
+            # Cache-bust so re-renders serve the new file (CDN/browser may cache by URL)
+            sep = "&" if "?" in project.r2_video_url else "?"
+            ts = int(project.updated_at.timestamp()) if getattr(project, "updated_at", None) else 0
+            fetch_url = f"{project.r2_video_url}{sep}v={ts}"
             resp = requests.get(
-                project.r2_video_url,
+                fetch_url,
                 timeout=120,
                 stream=True,
             )

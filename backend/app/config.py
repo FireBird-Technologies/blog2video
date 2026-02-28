@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+
+    # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
+    IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
+    DSPY_IMAGE_LM: str =  "openai/gpt-4o-mini"
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -57,6 +63,7 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str = "blog2video"
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
+
 
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported

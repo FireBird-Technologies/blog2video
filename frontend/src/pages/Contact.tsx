@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { sendEnterpriseContact } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
 
 
@@ -13,13 +15,12 @@ export default function Contact() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { showError } = useErrorModal();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSuccess(null);
-    setError(null);
     try {
       await sendEnterpriseContact({ name, company, contact_details: contactDetails, message });
       setSuccess("Thank you for the feedback, we'll get back soon.");
@@ -29,9 +30,8 @@ export default function Contact() {
       setMessage("");
     } catch (err: any) {
       console.error("Enterprise contact failed", err);
-      setError(
-        err?.response?.data?.detail ||
-          "Something went wrong. Please try again or email us directly."
+      showError(
+        getErrorMessage(err, "Something went wrong. Please try again or email us directly.")
       );
     } finally {
       setLoading(false);
@@ -139,7 +139,7 @@ export default function Contact() {
       </div>
 
       {/* Enterprise contact modal */}
-      {open && (
+      {open && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
@@ -251,12 +251,6 @@ export default function Contact() {
                     />
                   </div>
 
-                  {error && (
-                    <p className="text-xs text-red-500">
-                      {error}
-                    </p>
-                  )}
-
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
@@ -277,7 +271,8 @@ export default function Contact() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

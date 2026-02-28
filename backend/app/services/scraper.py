@@ -3,6 +3,7 @@ import re
 import json
 import hashlib
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
@@ -991,123 +992,139 @@ _MAX_GIF_DIMENSION = 480          # px — GIFs wider or taller than this are re
 
 # ─── Image downloading ────────────────────────────────────
 
+_CTYPE_TO_EXT = {
+    "image/webp": ".webp",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/avif": ".avif",
+}
+
+_IMAGE_HEADERS = {
+    **_BROWSER_HEADERS,
+    "Accept": "image/webp,image/avif,image/png,image/jpeg,image/*,*/*;q=0.8",
+}
+
+
+def _download_single_image(
+    url: str, user_id: int, project_id: int, project_media_dir: str,
+) -> tuple[str, dict] | None:
+    """Download one image, apply size/GIF filters, upload to R2.
+
+    Returns (local_path, asset_kwargs) on success, None on skip/failure.
+    Does NO database operations — the caller handles all DB writes.
+    """
+    try:
+        response = requests.get(url, headers=_IMAGE_HEADERS, timeout=15, stream=True)
+        response.raise_for_status()
+
+        ctype = (response.headers.get("Content-Type") or "").lower()
+        if ctype and "image" not in ctype:
+            print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
+            return None
+
+        ext = None
+        for ct_key, ct_ext in _CTYPE_TO_EXT.items():
+            if ct_key in ctype:
+                ext = ct_ext
+                break
+
+        if not ext:
+            parsed = urlparse(url)
+            ext = os.path.splitext(parsed.path)[1] or ".jpg"
+            if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
+                ext = ".jpg"
+
+        url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
+        filename = f"img_{url_hash}{ext}"
+        local_path = os.path.join(project_media_dir, filename)
+
+        with open(local_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        # Discard tiny files — icons/badges, not blog images
+        file_size = os.path.getsize(local_path)
+        min_size = _MIN_IMAGE_BYTES_CDN if _is_from_content_cdn(url) else _MIN_IMAGE_BYTES
+        if file_size < min_size:
+            os.remove(local_path)
+            print(f"[SCRAPER] Discarded tiny image ({file_size} bytes, min={min_size}): {url[:80]}")
+            return None
+
+        # Cap GIFs — convert oversized GIFs to static PNG (first frame)
+        if ext == ".gif":
+            needs_static = file_size > _MAX_GIF_BYTES
+            try:
+                with Image.open(local_path) as img:
+                    w, h = img.size
+                    if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
+                        needs_static = True
+                    if needs_static:
+                        img.seek(0)
+                        frame = img.convert("RGBA")
+                        if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
+                            frame.thumbnail((_MAX_GIF_DIMENSION, _MAX_GIF_DIMENSION), Image.LANCZOS)
+                        new_filename = filename.replace(".gif", ".png")
+                        new_path = os.path.join(project_media_dir, new_filename)
+                        frame.save(new_path, "PNG")
+                        os.remove(local_path)
+                        local_path = new_path
+                        filename = new_filename
+                        reason = f"size={file_size // 1024}KB" if file_size > _MAX_GIF_BYTES else f"dims={w}x{h}"
+                        print(f"[SCRAPER] GIF capped ({reason}) → static PNG: {filename}")
+            except Exception as e:
+                print(f"[SCRAPER] GIF cap check failed (keeping as-is): {e}")
+
+        # Upload to R2 if configured
+        r2_key = None
+        r2_url = None
+        if r2_storage.is_r2_configured():
+            try:
+                r2_url = r2_storage.upload_project_image(user_id, project_id, local_path, filename)
+                r2_key = r2_storage.image_key(user_id, project_id, filename)
+            except Exception as e:
+                print(f"[SCRAPER] R2 upload failed for {filename}: {e}")
+
+        return (local_path, dict(
+            project_id=project_id,
+            asset_type=AssetType.IMAGE,
+            original_url=url,
+            local_path=local_path,
+            filename=filename,
+            r2_key=r2_key,
+            r2_url=r2_url,
+        ))
+
+    except Exception as e:
+        print(f"[SCRAPER] Failed to download image {url}: {e}")
+        return None
+
+
 def _download_images(user_id: int, project_id: int, image_urls: list[str], db: Session) -> list[str]:
-    """Download images, discard anything that's too small to be a real blog image."""
+    """Download images concurrently, discard anything too small to be a real blog image."""
     project_media_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
     os.makedirs(project_media_dir, exist_ok=True)
 
-    # Use image-specific Accept header so servers like Medium
-    # respond with the correct Content-Type (including webp)
-    _IMAGE_HEADERS = {
-        **_BROWSER_HEADERS,
-        "Accept": "image/webp,image/avif,image/png,image/jpeg,image/*,*/*;q=0.8",
-    }
+    local_paths: list[str] = []
+    asset_records: list[dict] = []
 
-    local_paths = []
-    for url in image_urls:
-        try:
-            response = requests.get(url, headers=_IMAGE_HEADERS, timeout=15, stream=True)
-            response.raise_for_status()
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {
+            pool.submit(_download_single_image, url, user_id, project_id, project_media_dir): url
+            for url in image_urls
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                path, asset_kwargs = result
+                local_paths.append(path)
+                asset_records.append(asset_kwargs)
 
-            # Check Content-Type — only keep actual images
-            ctype = (response.headers.get("Content-Type") or "").lower()
-            if ctype and "image" not in ctype:
-                print(f"[SCRAPER] Skipping non-image content-type ({ctype}): {url[:80]}")
-                continue
-
-            # Determine correct extension from Content-Type first (Medium
-            # serves WebP images from URLs with no extension at all)
-            _CTYPE_TO_EXT = {
-                "image/webp": ".webp",
-                "image/png": ".png",
-                "image/jpeg": ".jpg",
-                "image/jpg": ".jpg",
-                "image/gif": ".gif",
-                "image/avif": ".avif",
-            }
-            ext = None
-            for ct_key, ct_ext in _CTYPE_TO_EXT.items():
-                if ct_key in ctype:
-                    ext = ct_ext
-                    break
-
-            # Fallback: try to get extension from the URL path
-            if not ext:
-                parsed = urlparse(url)
-                ext = os.path.splitext(parsed.path)[1] or ".jpg"
-                if ext not in (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"):
-                    ext = ".jpg"
-            url_hash = hashlib.md5(url.encode()).hexdigest()[:10]
-            filename = f"img_{url_hash}{ext}"
-            local_path = os.path.join(project_media_dir, filename)
-
-            with open(local_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-            # Discard tiny files — they are icons/badges, not blog images
-            # Use lower threshold for known content CDNs (webp is very compact)
-            file_size = os.path.getsize(local_path)
-            min_size = _MIN_IMAGE_BYTES_CDN if _is_from_content_cdn(url) else _MIN_IMAGE_BYTES
-            if file_size < min_size:
-                os.remove(local_path)
-                print(f"[SCRAPER] Discarded tiny image ({file_size} bytes, min={min_size}): {url[:80]}")
-                continue
-
-            # Cap GIFs — large/high-res GIFs eat too much memory during Remotion render.
-            # Convert oversized GIFs to a static PNG (first frame).
-            if ext == ".gif":
-                needs_static = file_size > _MAX_GIF_BYTES
-                try:
-                    with Image.open(local_path) as img:
-                        w, h = img.size
-                        if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
-                            needs_static = True
-                        if needs_static:
-                            # Extract first frame, resize if needed
-                            img.seek(0)
-                            frame = img.convert("RGBA")
-                            if w > _MAX_GIF_DIMENSION or h > _MAX_GIF_DIMENSION:
-                                frame.thumbnail((_MAX_GIF_DIMENSION, _MAX_GIF_DIMENSION), Image.LANCZOS)
-                            # Save as PNG, update filename/path
-                            new_filename = filename.replace(".gif", ".png")
-                            new_path = os.path.join(project_media_dir, new_filename)
-                            frame.save(new_path, "PNG")
-                            os.remove(local_path)
-                            local_path = new_path
-                            filename = new_filename
-                            ext = ".png"
-                            reason = f"size={file_size // 1024}KB" if file_size > _MAX_GIF_BYTES else f"dims={w}x{h}"
-                            print(f"[SCRAPER] GIF capped ({reason}) → static PNG: {filename}")
-                except Exception as e:
-                    print(f"[SCRAPER] GIF cap check failed (keeping as-is): {e}")
-
-            # Upload to R2 if configured
-            r2_key = None
-            r2_url = None
-            if r2_storage.is_r2_configured():
-                try:
-                    r2_url = r2_storage.upload_project_image(user_id, project_id, local_path, filename)
-                    r2_key = r2_storage.image_key(user_id, project_id, filename)
-                except Exception as e:
-                    print(f"[SCRAPER] R2 upload failed for {filename}: {e}")
-
-            asset = Asset(
-                project_id=project_id,
-                asset_type=AssetType.IMAGE,
-                original_url=url,
-                local_path=local_path,
-                filename=filename,
-                r2_key=r2_key,
-                r2_url=r2_url,
-            )
-            db.add(asset)
-            local_paths.append(local_path)
-
-        except Exception as e:
-            print(f"[SCRAPER] Failed to download image {url}: {e}")
-            continue
-
+    # All DB operations on the main thread (session is not thread-safe)
+    for kwargs in asset_records:
+        db.add(Asset(**kwargs))
     db.commit()
+
     print(f"[SCRAPER] Downloaded {len(local_paths)} blog images (discarded icons/small files)")
     return local_paths

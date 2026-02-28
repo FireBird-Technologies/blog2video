@@ -22,9 +22,10 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - Prefer slightly longer or equal length when possible
 
     ═══ STYLE RULES ═══
-    - Natural spoken tone
+    - Match the video_style tone: explainer = clear and educational; promotional = persuasive, benefit-focused; storytelling = narrative, engaging.
+    - Natural spoken tone for that style
     - Clean phrasing
-    - No elaboration
+    - No elaboration beyond what fits the style
 
     Output ONLY the final narration text.
     No labels. No quotes. No commentary.
@@ -32,36 +33,55 @@ class ExpandNarrationToVoiceover(dspy.Signature):
 
     scene_title: str = dspy.InputField(desc="Title of this scene (for context)")
     display_text: str = dspy.InputField(desc="Short display text shown on screen (1-2 sentences)")
-    
+    video_style: str = dspy.InputField(
+        desc="Video style: explainer (educational), promotional (persuasive, benefit-focused), storytelling (narrative). Match tone in the voiceover."
+    )
+
     expanded_voiceover: str = dspy.OutputField(
         desc="Slightly expanded voiceover narration (only 1-2 sentences longer than display text, or 20-30% more words). Plain text only, no markdown or quotes."
     )
 
 
+# Module-level singleton predictor (avoid re-creating on every call)
+_predictor_async = None
+
+
+def _get_predictor():
+    global _predictor_async
+    if _predictor_async is None:
+        ensure_dspy_configured()
+        _predictor_async = dspy.asyncify(
+            dspy.ChainOfThought(ExpandNarrationToVoiceover)
+        )
+    return _predictor_async
+
+
 async def expand_narration_to_voiceover(
     display_text: str,
     scene_title: str = "",
+    video_style: str = "explainer",
 ) -> str:
     """
     Slightly expand a short display text into a natural voiceover narration.
+    video_style (explainer | promotional | storytelling) shapes the tone.
     Returns the expanded text, or the original text if expansion fails.
     """
     if not (display_text and display_text.strip()):
         return ""
-    
+
     # If display text is already long (more than 50 words), assume it's already expanded enough
     word_count = len(display_text.split())
     if word_count > 50:
         return display_text.strip()
 
-    ensure_dspy_configured()
-    predictor = dspy.ChainOfThought(ExpandNarrationToVoiceover)
-    predictor_async = dspy.asyncify(predictor)
+    predictor_async = _get_predictor()
 
+    style = (video_style or "explainer").strip().lower() or "explainer"
     try:
         result = await predictor_async(
             scene_title=scene_title or "",
             display_text=display_text.strip(),
+            video_style=style,
         )
         out = (result.expanded_voiceover or "").strip()
         if out:

@@ -23,6 +23,7 @@ export interface NightfallVideoCompositionProps {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: number;
   aspectRatio?: string;
 }
 
@@ -36,6 +37,7 @@ export const NightfallVideoComposition: React.FC<
   logo,
   logoPosition,
   logoOpacity,
+  logoSize,
   aspectRatio,
 }) => {
   const FPS = 30;
@@ -81,6 +83,7 @@ export const NightfallVideoComposition: React.FC<
           src={logo}
           position={logoPosition || "bottom_right"}
           maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
       )}

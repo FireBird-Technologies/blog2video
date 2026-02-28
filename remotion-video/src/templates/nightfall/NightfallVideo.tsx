@@ -35,26 +35,44 @@ interface VideoData {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: string;
   aspectRatio?: string;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
-// Dark transition for nightfall (matches dark bg)
+// Cinematic dark transition with blur + scale for nightfall
 const NightfallTransition: React.FC = () => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [0, 15], [0, 1], {
+
+  // Smooth ease-in opacity
+  const opacity = interpolate(frame, [0, 12], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  // Subtle scale up for a cinematic "push" feel
+  const scale = interpolate(frame, [0, 15], [1, 1.06], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Blur ramps up to soften the scene before cutting
+  const blur = interpolate(frame, [0, 10], [0, 8], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
         backgroundColor: "#0A0A1A",
-        opacity: progress,
+        opacity,
+        transform: `scale(${scale})`,
+        backdropFilter: `blur(${blur}px)`,
       }}
     />
   );
@@ -218,6 +236,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

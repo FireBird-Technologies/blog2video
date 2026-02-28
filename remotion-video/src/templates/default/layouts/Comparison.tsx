@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Comparison: React.FC<SceneLayoutProps> = ({
@@ -15,24 +15,45 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
 
-  const titleOp = interpolate(frame, [0, 20], [0, 1], {
+  const titleSpring = spring({
+    frame: frame - 3,
+    fps,
+    config: { damping: 22, stiffness: 90, mass: 1 },
+  });
+  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
     extrapolateRight: "clamp",
   });
-  const leftX = interpolate(frame, [10, 30], [p ? 0 : -60, 0], {
+
+  // Left side slides in with spring
+  const leftSpring = spring({
+    frame: frame - 10,
+    fps,
+    config: { damping: 18, stiffness: 100, mass: 1 },
+  });
+  const leftX = interpolate(leftSpring, [0, 1], [p ? 0 : -60, 0], {
     extrapolateRight: "clamp",
   });
-  const leftY = interpolate(frame, [10, 30], [p ? -40 : 0, 0], {
+  const leftY = interpolate(leftSpring, [0, 1], [p ? -40 : 0, 0], {
     extrapolateRight: "clamp",
   });
-  const rightX = interpolate(frame, [10, 30], [p ? 0 : 60, 0], {
+
+  // Right side slides in with spring (slightly delayed)
+  const rightSpring = spring({
+    frame: frame - 16,
+    fps,
+    config: { damping: 18, stiffness: 100, mass: 1 },
+  });
+  const rightX = interpolate(rightSpring, [0, 1], [p ? 0 : 60, 0], {
     extrapolateRight: "clamp",
   });
-  const rightY = interpolate(frame, [10, 30], [p ? 40 : 0, 0], {
+  const rightY = interpolate(rightSpring, [0, 1], [p ? 40 : 0, 0], {
     extrapolateRight: "clamp",
   });
-  const op = interpolate(frame, [10, 30], [0, 1], {
+
+  const op = interpolate(frame, [10, 25], [0, 1], {
     extrapolateRight: "clamp",
   });
   const dividerH = interpolate(frame, [5, 35], [0, 100], {

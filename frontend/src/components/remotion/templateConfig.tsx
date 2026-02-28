@@ -12,6 +12,10 @@ import { DefaultVideoComposition } from "./default/DefaultVideoComposition";
 import { NightfallVideoComposition } from "./nightfall/NightfallVideoComposition";
 import { GridcraftVideoComposition } from "./gridcraft/GridcraftVideoComposition";
 import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition";
+import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
+import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
+import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
+import { CustomVideoComposition } from "./custom/CustomVideoComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -39,7 +43,10 @@ export interface TemplateConfig {
     logo?: string | null;
     logoPosition?: string;
     logoOpacity?: number;
+    logoSize?: number;
     aspectRatio?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    theme?: any;
   }>;
   /** Layout for scene 0 (hero) when no remotion_code */
   heroLayout: string;
@@ -101,6 +108,50 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "closer",
 ]);
 
+const MATRIX_LAYOUTS = new Set([
+  "matrix_title",
+  "terminal_text",
+  "glitch_punch",
+  "data_stream",
+  "cipher_metric",
+  "fork_choice",
+  "matrix_image",
+  "transmission",
+  "awakening",
+]);
+
+const WHITEBOARD_LAYOUTS = new Set([
+  "drawn_title",
+  "marker_story",
+  "stick_figure_scene",
+  "stats_figures",
+  "stats_chart",
+  "comparison",
+  "countdown_timer",
+  "handwritten_equation",
+  "speech_bubble_dialogue",
+]);
+
+const NEWSPAPER_LAYOUTS = new Set([
+  "news_headline",
+  "article_lead",
+  "pull_quote",
+  "data_snapshot",
+  "fact_check",
+  "news_timeline",
+]);
+const CUSTOM_ARRANGEMENTS = new Set([
+  "full-center",
+  "split-left",
+  "split-right",
+  "top-bottom",
+  "grid-2x2",
+  "grid-3",
+  "asymmetric-left",
+  "asymmetric-right",
+  "stacked",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -146,11 +197,59 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       text: "#FFFFFF",
     },
   },
+  matrix: {
+    component: MatrixVideoComposition as React.ComponentType<any>,
+    heroLayout: "matrix_title",
+    fallbackLayout: "terminal_text",
+    validLayouts: MATRIX_LAYOUTS,
+    defaultColors: {
+      accent: "#00FF41",
+      bg: "#000000",
+      text: "#00FF41",
+    },
+  },
+  whiteboard: {
+    component: WhiteboardVideoComposition as React.ComponentType<any>,
+    heroLayout: "drawn_title",
+    fallbackLayout: "marker_story",
+    validLayouts: WHITEBOARD_LAYOUTS,
+    defaultColors: {
+      accent: "#1F2937",
+      bg: "#F7F3E8",
+      text: "#111827",
+    },
+  },
+  newspaper: {
+    component: NewspaperVideoComposition as React.ComponentType<any>,
+    heroLayout: "news_headline",
+    fallbackLayout: "article_lead",
+    validLayouts: NEWSPAPER_LAYOUTS,
+    defaultColors: {
+      accent: "#FFE34D",
+      bg: "#FAFAF8",
+      text: "#111111",
+    },
+  },
+  custom: {
+    component: CustomVideoComposition as React.ComponentType<any>,
+    heroLayout: "full-center",
+    fallbackLayout: "full-center",
+    validLayouts: CUSTOM_ARRANGEMENTS,
+    defaultColors: {
+      accent: "#7C3AED",
+      bg: "#FFFFFF",
+      text: "#1A1A2E",
+    },
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
 
 export function getTemplateConfig(templateId: string | undefined): TemplateConfig {
   const id = (templateId || "default").trim().toLowerCase();
+  // Route "custom_42", "custom_123" etc. to the custom template config
+  if (id.startsWith("custom_")) {
+    return TEMPLATE_REGISTRY.custom;
+  }
   return TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
 }

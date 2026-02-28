@@ -1,23 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listProjects,
   createProject,
   createProjectFromDocs,
+  createProjectsBulk,
   deleteProject,
   createCheckoutSession,
   createPortalSession,
   uploadLogo,
+  startGeneration,
+  getPipelineStatus,
   ProjectListItem,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
+import CustomTemplates from "./CustomTemplates";
+import type { VideoStyleId } from "../constants/videoStyles";
+
+const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
+  const { showError } = useErrorModal();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
@@ -25,6 +34,44 @@ export default function Dashboard() {
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [bulkPendingIds, setBulkPendingIds] = useState<number[]>([]);
+  const [bulkStatuses, setBulkStatuses] = useState<
+    Record<number, { step?: string; running?: boolean; error?: string; status?: string }>
+  >({});
+  const bulkStartedRef = useRef(false);
+  const bulkPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Hydrate bulk IDs from localStorage (or URL for backward compatibility)
+  useEffect(() => {
+    const stored = localStorage.getItem(BULK_PENDING_IDS_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as unknown;
+        if (Array.isArray(parsed) && parsed.every((n) => typeof n === "number" && Number.isInteger(n))) {
+          setBulkPendingIds(parsed);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const q = searchParams.get("bulk");
+    if (q) {
+      const ids = q
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !Number.isNaN(n));
+      if (ids.length > 0) {
+        setBulkPendingIds(ids);
+        localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
+      }
+    }
+  }, [searchParams]);
+  const isPro = user?.plan === "pro";
+  const templatesRequested = searchParams.get("tab") === "templates";
+  const [activeTab, setActiveTab] = useState<"projects" | "templates">(
+    templatesRequested ? "templates" : "projects"
+  );
 
   useEffect(() => {
     loadProjects();
@@ -32,6 +79,86 @@ export default function Dashboard() {
       refreshUser();
     }
   }, []);
+
+  useEffect(() => {
+    if (bulkPendingIds.length > 0) loadProjects();
+  }, [bulkPendingIds.length]);
+
+  useEffect(() => {
+    if (bulkPendingIds.length === 0) {
+      bulkStartedRef.current = false;
+      return;
+    }
+  }, [bulkPendingIds.length]);
+
+  // Start generation for each bulk id once
+  useEffect(() => {
+    if (bulkPendingIds.length === 0 || bulkStartedRef.current) return;
+    bulkStartedRef.current = true;
+    bulkPendingIds.forEach((id) => {
+      startGeneration(id).catch(() => {
+        setBulkStatuses((prev) => ({ ...prev, [id]: { running: false, error: "Failed to start", status: "created" } }));
+      });
+    });
+  }, [bulkPendingIds]);
+
+  // Poll pipeline status for bulk ids; remove each project from the list when it's done (generated/done or running false)
+  useEffect(() => {
+    if (bulkPendingIds.length === 0) return;
+    const poll = async () => {
+      const updates: Record<number, { step?: string; running?: boolean; error?: string; status?: string }> = {};
+      const results = await Promise.allSettled(
+        bulkPendingIds.map((id) => getPipelineStatus(id).then((res) => ({ id, data: res.data })))
+      );
+      results.forEach((r) => {
+        if (r.status === "fulfilled") {
+          const { step, running, error: pipelineError, status } = r.value.data;
+          updates[r.value.id] = {
+            step: step != null ? String(step) : undefined,
+            running,
+            error: pipelineError ?? undefined,
+            status,
+          };
+        }
+      });
+      setBulkStatuses((prev) => ({ ...prev, ...updates }));
+
+      // Consider a project done when we have an update and pipeline finished or terminal status
+      const isDone = (id: number) => {
+        const u = updates[id];
+        return u != null && (u.running === false || u.status === "generated" || u.status === "done");
+      };
+      const doneIds = new Set(bulkPendingIds.filter(isDone));
+      const newPending = bulkPendingIds.filter((id) => !doneIds.has(id));
+
+      setBulkPendingIds((prev) => prev.filter((id) => !doneIds.has(id)));
+
+      if (newPending.length === 0) {
+        if (bulkPollingRef.current) {
+          clearInterval(bulkPollingRef.current);
+          bulkPollingRef.current = null;
+        }
+        localStorage.removeItem(BULK_PENDING_IDS_KEY);
+        setBulkPendingIds([]);
+        setBulkStatuses({});
+        loadProjects();
+      }
+    };
+    poll();
+    bulkPollingRef.current = setInterval(poll, 2000);
+    return () => {
+      if (bulkPollingRef.current) {
+        clearInterval(bulkPollingRef.current);
+        bulkPollingRef.current = null;
+      }
+    };
+  }, [bulkPendingIds.join(",")]);
+  // Deep-link to templates tab via ?tab=templates (reacts to param changes)
+  useEffect(() => {
+    if (searchParams.get("tab") === "templates") {
+      setActiveTab("templates");
+    }
+  }, [searchParams]);
 
   const loadProjects = async () => {
     try {
@@ -41,6 +168,32 @@ export default function Dashboard() {
       console.error("Failed to load projects:", err);
     } finally {
       setLoaded(true);
+    }
+  };
+
+  const handleCreateBulk = async (
+    items: import("../api/client").BulkProjectItem[],
+    logoOptions: { logoIndices: number[]; logoFiles: File[] } | null
+  ) => {
+    setCreating(true);
+    try {
+      const res = await createProjectsBulk(items, logoOptions);
+      await refreshUser();
+      setShowModal(false);
+      const ids = res.data.project_ids;
+      if (ids.length > 0) {
+        localStorage.setItem(BULK_PENDING_IDS_KEY, JSON.stringify(ids));
+        setBulkPendingIds(ids);
+      }
+      navigate("/dashboard");
+    } catch (err: any) {
+      if (err?.response?.status === 403) {
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
+      } else {
+        console.error("Bulk create failed:", err);
+      }
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -59,7 +212,8 @@ export default function Dashboard() {
     customVoiceId?: string,
     aspectRatio?: string,
     uploadFiles?: File[],
-    template?: string
+    template?: string,
+    videoStyle?: VideoStyleId
   ) => {
     setCreating(true);
     try {
@@ -80,6 +234,7 @@ export default function Dashboard() {
           custom_voice_id: customVoiceId,
           aspect_ratio: aspectRatio,
           template,
+          video_style: videoStyle,
         });
       } else {
         // URL flow
@@ -96,7 +251,8 @@ export default function Dashboard() {
           logoOpacity,
           customVoiceId,
           aspectRatio,
-          template
+          template,
+          videoStyle
         );
       }
 
@@ -105,7 +261,7 @@ export default function Dashboard() {
         try {
           await uploadLogo(res.data.id, logoFile);
         } catch (err) {
-          console.error("Logo upload failed:", err);
+          showError(getErrorMessage(err, "Logo upload failed."));
         }
       }
 
@@ -114,10 +270,7 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        alert(
-          err.response.data.detail ||
-            "Video limit reached. Upgrade to Pro for more."
-        );
+        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Failed to create project:", err);
       }
@@ -147,15 +300,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleManageBilling = async () => {
-    try {
-      const res = await createPortalSession();
-      window.location.href = res.data.portal_url;
-    } catch (err) {
-      console.error("Failed to open portal:", err);
-    }
-  };
-
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
@@ -163,13 +307,11 @@ export default function Dashboard() {
     });
   };
 
-  const isPro = user?.plan === "pro";
-
   // ─── Onboarding (0 projects) ───────────────────────────────
-  if (loaded && projects.length === 0) {
+  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || templatesRequested))) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-xl">
           {/* Welcome header */}
           <div className="text-center mb-8">
             <div className="w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
@@ -185,7 +327,7 @@ export default function Dashboard() {
 
           {/* Inline form (same fields, not a modal) */}
           <div className="glass-card p-7">
-            <BlogUrlForm onSubmit={handleCreate} loading={creating} />
+            <BlogUrlForm onSubmit={handleCreate} onSubmitBulk={handleCreateBulk} loading={creating} />
           </div>
 
           {/* Upgrade nudge */}
@@ -217,25 +359,40 @@ export default function Dashboard() {
             {!isPro && " -- upgrade for 100/month"}
           </p>
         </div>
-        <div>
-          {isPro ? (
-            <button
-              onClick={() => navigate("/subscription")}
-              className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
-            >
-              Manage billing
-            </button>
-          ) : (
-            <button
-              onClick={handleUpgrade}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              Upgrade to Pro -- $50/mo
-            </button>
-          )}
-        </div>
+       <div>
+        {!isPro && (
+          <button
+            onClick={handleUpgrade}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            Upgrade to Pro -- $50/mo
+          </button>
+        )}
+      </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+        {(["projects", "templates"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              activeTab === tab
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            {tab === "projects" ? "Projects" : "My Templates"}
+          </button>
+        ))}
+      </div>
+
+      {/* ─── My Templates tab ────────────────────────────────── */}
+      {activeTab === "templates" ? (
+        <CustomTemplates />
+      ) : (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
@@ -252,6 +409,7 @@ export default function Dashboard() {
       {showModal && (
         <BlogUrlForm
           onSubmit={handleCreate}
+          onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
           onClose={() => setShowModal(false)}
@@ -265,6 +423,113 @@ export default function Dashboard() {
         projectName={deleteTarget?.name}
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Bulk progress */}
+      {bulkPendingIds.length > 0 && (
+        <div className="glass-card p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">Bulk progress</h2>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem(BULK_PENDING_IDS_KEY);
+                setBulkPendingIds([]);
+                loadProjects();
+              }}
+              className="text-xs font-medium text-purple-600 hover:text-purple-700"
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="space-y-2 max-h-48 overflow-y-auto">
+            {(() => {
+              const nameCount: Record<string, number> = {};
+              for (const pid of bulkPendingIds) {
+                const p = projects.find((pr) => pr.id === pid);
+                const n = (p?.name && p.name.trim()) || p?.blog_url || "Untitled project";
+                nameCount[n] = (nameCount[n] ?? 0) + 1;
+              }
+              return bulkPendingIds.map((id) => {
+              const s = bulkStatuses[id];
+              const project = projects.find((p) => p.id === id);
+              const name =
+                (project?.name && project.name.trim()) ||
+                project?.blog_url ||
+                "Untitled project";
+              const showUrl = (nameCount[name] ?? 0) > 1 && project?.blog_url;
+              const stepNumber =
+                s && s.step != null && !Number.isNaN(Number(s.step))
+                  ? Number(s.step)
+                  : 0;
+              const stepTargets: Record<number, number> = {
+                0: 3,
+                1: 20,
+                2: 48,
+                3: 72,
+                4: 100,
+              };
+              let rowPercent = 0;
+              if (s?.error) {
+                rowPercent = 100;
+              } else if (s && !s.running && s.status === "done") {
+                rowPercent = 100;
+              } else if (s) {
+                rowPercent = stepTargets[stepNumber] ?? 100;
+              }
+              return (
+                <li
+                  key={id}
+                  className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
+                >
+                  <div className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600" onClick={() => navigate(`/project/${id}`)}>
+                    <span className="truncate block" title={name}>{name}</span>
+                    {showUrl && (
+                      <span className="text-[10px] text-gray-400 truncate block" title={project.blog_url || ""}>
+                        {project.blog_url}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-64">
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-1.5 transition-all ${
+                          s?.error
+                            ? "bg-red-500"
+                            : s && !s.running && s.status === "done"
+                              ? "bg-green-500"
+                              : "bg-purple-600"
+                        }`}
+                        style={{ width: `${rowPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2 w-full">
+                      <span
+                        className={`text-[11px] ${
+                          s?.error
+                            ? "text-red-600"
+                            : s && !s.running && s.status === "done"
+                              ? "text-green-600"
+                              : "text-gray-500"
+                        } truncate`}
+                      >
+                        {s?.error
+                          ? s.error
+                          : s && !s.running && s.status === "done"
+                            ? "Done"
+                            : s?.status ?? "Running…"}
+                      </span>
+                      <span className="text-[11px] text-gray-500 tabular-nums">
+                        {rowPercent}%
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            });
+            })()}
+          </ul>
+        </div>
+      )}
 
       {/* Project list */}
       <div className="grid gap-3">
@@ -340,6 +605,8 @@ export default function Dashboard() {
         ))
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

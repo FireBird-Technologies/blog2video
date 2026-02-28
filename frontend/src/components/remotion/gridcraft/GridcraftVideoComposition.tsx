@@ -5,18 +5,26 @@ import { LogoOverlay } from "../LogoOverlay";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 
-// Clean white transition for gridcraft (matches light bg)
+// Modern slide-up wipe transition for gridcraft
 const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [0, 15], [0, 1], {
+
+  const slideY = interpolate(frame, [0, 12], [100, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const opacity = interpolate(frame, [0, 8], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
         backgroundColor: bgColor || COLORS.BG,
-        opacity: progress,
+        opacity,
+        transform: `translateY(${slideY}%)`,
         zIndex: 10,
       }}
     />
@@ -43,6 +51,7 @@ export interface GridcraftVideoCompositionProps {
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: number;
   aspectRatio?: string;
 }
 
@@ -56,6 +65,7 @@ export const GridcraftVideoComposition: React.FC<
   logo,
   logoPosition,
   logoOpacity,
+  logoSize,
   aspectRatio,
 }) => {
   const FPS = 30;
@@ -112,6 +122,7 @@ export const GridcraftVideoComposition: React.FC<
             src={logo}
             position={logoPosition || "bottom_right"}
             maxOpacity={logoOpacity ?? 0.9}
+            size={logoSize ?? 100}
             aspectRatio={aspectRatio || "landscape"}
           />
         </AbsoluteFill>
