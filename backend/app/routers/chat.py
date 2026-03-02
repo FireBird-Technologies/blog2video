@@ -27,11 +27,11 @@ async def chat_edit(
     Only modifies the specific scenes requested -- voiceover and remotion code
     for untouched scenes are preserved.
     """
-    # Chat editing is a Pro-only feature
-    if user.plan != PlanTier.PRO:
+    # Chat editing is a Pro/Standard feature
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="AI chat editing is available on the Pro plan. Upgrade to edit your videos.",
+            detail="AI chat editing is available on the Pro or Standard plan. Upgrade to edit your videos.",
         )
 
     project = (
