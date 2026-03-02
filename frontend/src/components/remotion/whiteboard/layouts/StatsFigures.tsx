@@ -103,6 +103,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   textColor,
   aspectRatio,
   titleFontSize,
+  bgColor,
   descriptionFontSize,
   stats: statsProp,
 }) => {
@@ -129,8 +130,8 @@ const floatingSlots = [
   ];
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#FFFFFF", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
-      <WhiteboardBackground bgColor={"#FFFFFF"} />
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+      <WhiteboardBackground bgColor={bgColor} />
       
       {/* Bold Corner Drawings */}
       <CornerScribble side="tl" color={accentColor} seed={101} />
