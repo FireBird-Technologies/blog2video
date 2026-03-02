@@ -35,6 +35,7 @@ import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
+import UpgradePlanModal from "../components/UpgradePlanModal";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
@@ -301,7 +302,7 @@ export default function ProjectView() {
   const projectId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
 
   const [project, setProject] = useState<Project | null>(null);
   const projectRef = useRef<Project | null>(null);
@@ -1989,22 +1990,6 @@ export default function ProjectView() {
                                   <span className="text-xs font-medium">Edit</span>
                                 </button>
 
-                                {/* Delete — same UI as Edit: icon + label */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSceneToDelete(scene);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
-                                  title="Delete scene"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  <span className="text-xs font-medium">Delete</span>
-                                </button>
-
                                 {/* Status pills */}
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <span
@@ -2048,6 +2033,22 @@ export default function ProjectView() {
                                     />
                                   </svg>
                                 </div>
+
+                                {/* Delete — at the end of the row */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSceneToDelete(scene);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-auto"
+                                  title="Delete scene"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  <span className="text-xs font-medium">Delete</span>
+                                </button>
                               </div>
                             </button>
 
@@ -2442,34 +2443,11 @@ export default function ProjectView() {
                 )}
 
                 {/* AI image upgrade modal (scenes tab) */}
-                {showAiImageUpgradeModal && ReactDOM.createPortal(
-                  <div className="fixed inset-0 z-[110] flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro feature</h3>
-                      <p className="text-sm text-gray-600 mb-6">
-                        AI image generation is available on the Pro plan. Upgrade to unlock.
-                      </p>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => navigate("/pricing")}
-                          className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                        >
-                          Go to pricing
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowAiImageUpgradeModal(false)}
-                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-                        >
-                          Maybe later
-                        </button>
-                      </div>
-                    </div>
-                  </div>,
-                  document.body
-                )}
+                <UpgradePlanModal
+                  open={showAiImageUpgradeModal}
+                  onClose={() => setShowAiImageUpgradeModal(false)}
+                  projectId={project?.id}
+                />
               </div>
             )}
           </div>

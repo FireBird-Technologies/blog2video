@@ -669,28 +669,34 @@ export default function Landing() {
 
       {/* ─── Pricing preview ─── */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center reveal">
+        <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Start free. Pay per video. Or go Pro.
+            Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, $50/month
-            for 100 videos with AI editing and Studio access, or custom plans for enterprise teams.
+            Your first video is free. Then $5/video pay-as-you-go, $25/month
+            (or $20/mo annual), $50/month with unlimited AI edit & image generation,
+            or custom plans for enterprise teams.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
+          <div className="flex flex-row items-center justify-center gap-3 overflow-x-auto pb-2">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
               <p className="text-xs text-gray-400 mt-1">First video free</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
               <p className="text-3xl font-bold text-gray-900">$5</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px] ring-1 ring-purple-200 relative">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+              <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
+              <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
+            </div>
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 ring-1 ring-purple-200 relative">
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
@@ -698,7 +704,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px] border-2 border-purple-300">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 border-2 border-purple-300">
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
               <p className="text-3xl font-bold text-gray-900">Custom</p>
               <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
