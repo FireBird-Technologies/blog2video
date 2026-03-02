@@ -8,9 +8,38 @@ app_port: 7860
 short_description: Convert blog posts to AI explainer videos (DSPy, Remotion)
 ---
 
-# Blog2Video
+<p align="center">
+  <img src="frontend/public/Banner.PNG" alt="Blog2Video Banner" />
+</p>
 
-Convert blog posts into explainer videos using AI. Powered by DSPy (Anthropic Claude), ElevenLabs TTS, and Remotion.
+<p align="center">
+  🎬 <strong>Turn any blog post into a professional AI-powered explainer video in minutes.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=w3Vq8KhDzPU" target="_blank">
+    ▶ Watch Product Demo
+  </a>
+</p>
+
+---
+
+## 🚀 What is Blog2Video?
+
+**Blog2Video** is an AI-powered platform that converts blog posts into ready-to-publish explainer videos automatically.
+
+Paste a blog URL and the system:
+
+- 🧠 Extracts and understands the article content  
+- ✍️ Generates a structured multi-scene video script using Claude (via DSPy)  
+- 🎙 Produces realistic AI voiceover with ElevenLabs  
+- 🎬 Auto-generates Remotion-based animated video scenes  
+- 💬 Lets you refine everything through an AI chat editor  
+- 🎞 Exports a production-ready video  
+
+It eliminates hours of manual scripting, voice recording, editing, and animation work — enabling creators, startups, and marketers to repurpose written content into engaging video content instantly.
+
+---
 
 ## Architecture
 
@@ -21,13 +50,6 @@ Convert blog posts into explainer videos using AI. Powered by DSPy (Anthropic Cl
 - **Voiceover** -- ElevenLabs Text-to-Speech
 - **Auth** -- Google OAuth 2.0 + JWT sessions
 - **Billing** -- Stripe subscriptions (Free: 1 video, Pro: $20/mo for 100 videos)
-
-## Pricing
-
-| Plan | Price | Videos |
-|------|-------|--------|
-| Free | $0 | 1 video (try it out) |
-| Pro | $20/month | 100 videos/month |
 
 ## Quick Start
 
