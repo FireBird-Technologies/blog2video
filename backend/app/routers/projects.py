@@ -683,6 +683,49 @@ def update_scene(
     return scene
 
 
+@router.delete("/{project_id}/scenes/{scene_id}", status_code=204)
+def delete_scene(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a scene and renumber remaining scenes. Rebuilds Remotion workspace."""
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    db.delete(scene)
+    db.commit()
+
+    remaining = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    for i, s in enumerate(remaining, 1):
+        s.order = i
+    db.commit()
+    for s in remaining:
+        db.refresh(s)
+
+    try:
+        rebuild_workspace(project, remaining, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to rebuild workspace after scene delete for project {project_id}: {e}")
+
+    return None
+
+
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
 def generate_scene_image(
     project_id: int,
