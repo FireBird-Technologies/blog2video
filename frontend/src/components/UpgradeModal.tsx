@@ -6,7 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 interface Props {
   open: boolean;
   onClose: () => void;
-  feature: string; // e.g. "AI Chat Editor", "Remotion Studio"
+  feature: string; // e.g. "Unlimited AI edit & image generation"
   projectId?: number; // If provided, show per-video option
   onPurchased?: () => void; // Called after returning from checkout
 }
@@ -133,8 +133,7 @@ export default function UpgradeModal({
                 </p>
                 <ul className="space-y-1.5 mb-4">
                   {[
-                    "Remotion Studio access",
-                    "AI chat editor",
+                    "Unlimited AI edit & image generation",
                     "Download project files",
                     "No subscription needed",
                   ].map((f) => (
@@ -190,8 +189,7 @@ export default function UpgradeModal({
               <ul className="space-y-1.5 mb-4">
                 {[
                   "100 videos per month",
-                  "AI chat editor",
-                  "Remotion Studio on all videos",
+                  "Unlimited AI edit & image generation",
                   "Priority support",
                 ].map((f) => (
                   <li
