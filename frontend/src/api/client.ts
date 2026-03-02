@@ -230,10 +230,24 @@ export const getPublicConfig = () =>
 
 // ─── Billing API ──────────────────────────────────────────
 
-export const createCheckoutSession = (billingCycle: "monthly" | "annual" = "monthly") =>
-  api.post<{ checkout_url: string }>("/billing/checkout", {
-    billing_cycle: billingCycle,
+export type CheckoutPlan = "pro" | "standard";
+
+export const createCheckoutSession = (
+  options:
+    | { plan?: CheckoutPlan; billing_cycle?: "monthly" | "annual" }
+    | "monthly"
+    | "annual"
+    = "monthly"
+) => {
+  const plan =
+    typeof options === "string" ? "pro" : (options?.plan ?? "pro");
+  const billing_cycle =
+    typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
+  return api.post<{ checkout_url: string }>("/billing/checkout", {
+    plan,
+    billing_cycle,
   });
+};
 
 export const createPerVideoCheckout = (projectId?: number) =>
   api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
@@ -566,6 +580,7 @@ export const regenerateScene = (
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
+  
   return api.post<Scene>(
     `/projects/${projectId}/scenes/${sceneId}/regenerate`,
     formData,

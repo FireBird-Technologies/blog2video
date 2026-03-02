@@ -31,12 +31,26 @@ export default function Pricing() {
     if (!user) return;
     setCheckoutLoading(true);
     try {
-      const res = await createCheckoutSession(billingCycle);
+      const res = await createCheckoutSession({ plan: "pro", billing_cycle: billingCycle });
       window.location.href = res.data.checkout_url;
     } catch (err: any) {
       console.error("Pro checkout error:", err);
       showError(getErrorMessage(err, "Checkout failed. Please try again."));
       setCheckoutLoading(false);
+    }
+  };
+
+  const [standardCheckoutLoading, setStandardCheckoutLoading] = useState(false);
+  const handleStandardUpgrade = async () => {
+    if (!user) return;
+    setStandardCheckoutLoading(true);
+    try {
+      const res = await createCheckoutSession({ plan: "standard", billing_cycle: billingCycle });
+      window.location.href = res.data.checkout_url;
+    } catch (err: any) {
+      console.error("Standard checkout error:", err);
+      showError(getErrorMessage(err, "Checkout failed. Please try again."));
+      setStandardCheckoutLoading(false);
     }
   };
 
@@ -56,6 +70,8 @@ export default function Pricing() {
   };
 
   const isPro = user?.plan === "pro";
+  const isStandard = user?.plan === "standard";
+  const isPaid = isPro || isStandard;
 
   const monthlyPrice = 50;
   const annualMonthlyPrice = 40;
@@ -143,8 +159,8 @@ export default function Pricing() {
       </div>
 
       {/* Plans */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 max-w-[1600px] mx-auto">
           {/* Free */}
           <div className="glass-card p-7 flex flex-col">
             <div className="mb-6">
@@ -172,7 +188,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["AI chat editor", "Remotion Studio"].map((f) => (
+              {["Unlimited AI edit & image generation"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -187,7 +203,7 @@ export default function Pricing() {
                 disabled
                 className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
               >
-                {isPro ? "Downgrade not available" : "Current plan"}
+                {user.plan === "free" ? "Current plan" : "Downgrade not available"}
               </button>
             ) : (
               <div className="flex justify-center">
@@ -223,8 +239,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "AI chat editor",
-                "Remotion Studio access",
+                "Unlimited AI edit & image generation",
                 "Buy as many as you need",
               ].map((f) => (
                 <li
@@ -239,11 +254,102 @@ export default function Pricing() {
             {user ? (
               <button
                 onClick={handlePerVideo}
-                disabled={perVideoLoading || isPro}
+                disabled={perVideoLoading || isPaid}
                 className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
               >
                 {perVideoLoading ? "Redirecting…" : "Buy a video"}
               </button>
+            ) : (
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => showError("Google sign-in failed")}
+                  size="large"
+                  shape="pill"
+                  text="continue_with"
+                  theme="outline"
+                  width="190"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Standard */}
+          <div className="glass-card p-7 flex flex-col">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Standard
+              </h3>
+              <p className="text-sm text-gray-400">
+                All features, 30 videos/month
+              </p>
+            </div>
+            <div className="mb-6">
+              {isAnnual ? (
+                <>
+                  <span className="text-4xl font-bold text-gray-900">$20</span>
+                  <span className="text-sm text-gray-400 ml-1">/month</span>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-sm text-gray-400 line-through">$25/mo</span>
+                    <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                      Save 20%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">$240 billed annually</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-bold text-gray-900">$25</span>
+                  <span className="text-sm text-gray-400 ml-1">/month</span>
+                  <p className="text-xs text-gray-400 mt-1">or $20/mo billed annually</p>
+                </>
+              )}
+            </div>
+            <ul className="space-y-3 mb-8 flex-1">
+              {[
+                "30 videos per month",
+                "AI script generation",
+                "ElevenLabs voiceover",
+                "Remotion video preview",
+                "Render & download MP4",
+                "Unlimited AI edit & image generation",
+                "Priority support",
+              ].map((f) => (
+                <li
+                  key={f}
+                  className="flex items-start gap-2.5 text-sm text-gray-600"
+                >
+                  <CheckIcon />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            {user ? (
+              isStandard ? (
+                <button
+                  disabled
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+                >
+                  Current plan
+                </button>
+              ) : isPro ? (
+                <button
+                  disabled
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+                >
+                  You're on Pro
+                </button>
+              ) : (
+                <button
+                  onClick={handleStandardUpgrade}
+                  disabled={standardCheckoutLoading}
+                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
+                >
+                  {standardCheckoutLoading
+                    ? "Redirecting to checkout..."
+                    : "Upgrade to Standard"}
+                </button>
+              )
             ) : (
               <div className="flex justify-center">
                 <GoogleLogin
@@ -312,8 +418,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "AI chat editor — refine scenes",
-                "Full Remotion Studio access",
+                "Unlimited AI edit & image generation",
                 "Priority support",
               ].map((f) => (
                 <li
@@ -377,8 +482,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
-                "AI chat editor",
-                "Full Remotion Studio access",
+                "Unlimited AI edit & image generation",
                 "Custom integrations",
                 "Dedicated support",
                 "SSO & enterprise security",
@@ -432,6 +536,9 @@ export default function Pricing() {
                 <th className="py-4 px-6 font-medium text-gray-500 text-center">
                   Per Video
                 </th>
+                <th className="py-4 px-6 font-medium text-gray-600 text-center">
+                  Standard
+                </th>
                 <th className="py-4 px-6 font-medium text-purple-600 text-center">
                   Pro
                 </th>
@@ -442,16 +549,15 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$5/video", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
-                { feature: "Videos", free: "First video free", perVideo: "Unlimited", pro: "100/month", customized: "Custom" },
-                { feature: "AI script generation", free: true, perVideo: true, pro: true, customized: true },
-                { feature: "ElevenLabs voiceover", free: true, perVideo: true, pro: true, customized: true },
-                { feature: "Voice selection (4 options)", free: true, perVideo: true, pro: true, customized: true },
-                { feature: "Video preview", free: true, perVideo: true, pro: true, customized: true },
-                { feature: "Render & download MP4", free: true, perVideo: true, pro: true, customized: true },
-                { feature: "AI chat editor", free: false, perVideo: true, pro: true, customized: true },
-                { feature: "Remotion Studio access", free: false, perVideo: true, pro: true, customized: true },
-                { feature: "Priority support", free: false, perVideo: false, pro: true, customized: true },
+                { feature: "Price", free: "$0", perVideo: "$5/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
+                { feature: "Videos", free: "First video free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
+                { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Voice selection (4 options)", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Unlimited AI edit & image generation", free: false, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
               ].map((row, i) => (
                 <tr
                   key={row.feature}
@@ -480,6 +586,17 @@ export default function Pricing() {
                       )
                     ) : (
                       <span className="text-gray-500">{row.perVideo}</span>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-6 text-center">
+                    {typeof row.standard === "boolean" ? (
+                      row.standard ? (
+                        <GreenCheck />
+                      ) : (
+                        <GrayX />
+                      )
+                    ) : (
+                      <span className="text-gray-700">{row.standard}</span>
                     )}
                   </td>
                   <td className="py-3.5 px-6 text-center">
@@ -528,7 +645,7 @@ export default function Pricing() {
             },
             {
               q: "What's the difference between per-video and Pro?",
-              a: "Per-video is pay-as-you-go at $5 each \u2014 great if you only make a few. Pro at $50/month gives you 100 videos plus AI chat editing and Remotion Studio. If you make 10+ videos/month, Pro is the clear winner.",
+              a: "Per-video is pay-as-you-go at $5 each \u2014 great if you only make a few. Pro at $50/month gives you 100 videos plus unlimited AI edit & image generation. If you make 10+ videos/month, Pro is the clear winner.",
             },
             {
               q: "How does annual billing work?",
@@ -536,7 +653,7 @@ export default function Pricing() {
             },
             {
               q: "Can I edit the video after generation?",
-              a: "Free and per-video users can preview and download. Pro users get access to the AI chat editor (tell the AI to rewrite scenes) and full Remotion Studio for manual editing.",
+              a: "Free and per-video users can preview and download. Pro and Standard users get unlimited AI edit & image generation.",
             },
             {
               q: "What voices are available?",

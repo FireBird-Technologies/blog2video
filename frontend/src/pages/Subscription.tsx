@@ -58,10 +58,21 @@ export default function Subscription() {
   const handleUpgrade = async (cycle?: "monthly" | "annual") => {
     setActionLoading("upgrade");
     try {
-      const res = await createCheckoutSession(cycle || billingCycle);
+      const res = await createCheckoutSession({ plan: "pro", billing_cycle: cycle || billingCycle });
       window.location.href = res.data.checkout_url;
     } catch (err) {
       console.error("Failed to start checkout:", err);
+      setActionLoading(null);
+    }
+  };
+
+  const handleStandardUpgrade = async () => {
+    setActionLoading("standard");
+    try {
+      const res = await createCheckoutSession({ plan: "standard", billing_cycle: billingCycle });
+      window.location.href = res.data.checkout_url;
+    } catch (err) {
+      console.error("Failed to start Standard checkout:", err);
       setActionLoading(null);
     }
   };
@@ -117,7 +128,9 @@ export default function Subscription() {
       currency: currency.toUpperCase(),
     }).format(cents / 100);
 
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isStandard = user?.plan === "standard";
+  const isPaid = isPro;
 
   if (loading) {
     return (
@@ -362,7 +375,7 @@ export default function Subscription() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            {isPro ? "Your Plan" : "Available Plans"}
+            {isPaid ? "Your Plan" : "Available Plans"}
           </h2>
 
           {/* Monthly / Annual toggle */}
@@ -387,9 +400,9 @@ export default function Subscription() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Free */}
-          <div className={`glass-card p-5 flex flex-col ${!isPro && billing?.plan === "free" ? "ring-2 ring-purple-200" : ""}`}>
+          <div className={`glass-card p-5 flex flex-col ${!isPaid && billing?.plan === "free" ? "ring-2 ring-purple-200" : ""}`}>
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Free</h3>
               <p className="text-xs text-gray-400 mt-0.5">Try it out</p>
@@ -402,10 +415,9 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2 text-gray-300"><CrossMark />AI chat editor</li>
-              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Remotion Studio</li>
+              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Unlimited AI edit & image generation</li>
             </ul>
-            {!isPro && billing?.plan === "free" ? (
+            {!isPaid && billing?.plan === "free" ? (
               <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
                 Current plan
               </div>
@@ -429,8 +441,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />AI chat editor</li>
-              <li className="flex items-start gap-2"><CheckMark />Remotion Studio</li>
+              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
             </ul>
             <button
               onClick={async () => {
@@ -444,16 +455,70 @@ export default function Subscription() {
                   setActionLoading(null);
                 }
               }}
-              disabled={actionLoading === "per_video"}
+              disabled={actionLoading === "per_video" || isPaid}
               className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
             >
               {actionLoading === "per_video" ? "Redirecting…" : "Buy a video"}
             </button>
           </div>
 
+          {/* Standard */}
+          <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Standard</h3>
+              <p className="text-xs text-gray-400 mt-0.5">30 videos/month</p>
+            </div>
+            <div className="mb-4">
+              {billingCycle === "annual" ? (
+                <>
+                  <span className="text-2xl font-bold text-gray-900">$20</span>
+                  <span className="text-xs text-gray-400 ml-1">/month</span>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs text-gray-400 line-through">$25/mo</span>
+                    <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
+                      Save 20%
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">$240 billed annually</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-gray-900">$25</span>
+                  <span className="text-xs text-gray-400 ml-1">/month</span>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    or <span className="font-medium text-gray-500">$20/mo</span> billed annually
+                  </p>
+                </>
+              )}
+            </div>
+            <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
+              <li className="flex items-start gap-2"><CheckMark />30 videos / month</li>
+              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
+              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
+              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />Priority support</li>
+            </ul>
+            {isStandard ? (
+              <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
+                Current plan
+              </div>
+            ) : isPro ? (
+              <div className="py-2 text-center text-xs text-gray-400">You're on Pro</div>
+            ) : (
+              <button
+                onClick={handleStandardUpgrade}
+                disabled={actionLoading === "standard"}
+                className="w-full py-2 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-60"
+              >
+                {actionLoading === "standard" ? "Redirecting..." : "Upgrade to Standard"}
+              </button>
+            )}
+          </div>
+
           {/* Pro */}
-          <div className={`glass-card p-5 flex flex-col relative ${isPro ? "ring-2 ring-purple-200" : "ring-2 ring-purple-100"}`}>
-            {!isPro && (
+          <div className={`glass-card p-5 flex flex-col relative ${user?.plan === "pro" ? "ring-2 ring-purple-200" : "ring-2 ring-purple-100"}`}>
+            {!isPaid && (
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-3 py-0.5 bg-purple-600 text-white text-[10px] font-semibold rounded-full">
                   Best value
@@ -492,11 +557,10 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />AI chat editor</li>
-              <li className="flex items-start gap-2"><CheckMark />Remotion Studio</li>
+              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {isPro ? (
+            {user?.plan === "pro" ? (
               <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
                 Current plan
               </div>
@@ -525,8 +589,7 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-              <li className="flex items-start gap-2"><CheckMark />AI chat editor</li>
-              <li className="flex items-start gap-2"><CheckMark />Remotion Studio</li>
+              <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
               <li className="flex items-start gap-2"><CheckMark />Custom integrations</li>
               <li className="flex items-start gap-2"><CheckMark />Dedicated support</li>
               <li className="flex items-start gap-2"><CheckMark />Custom pricing</li>
