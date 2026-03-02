@@ -452,6 +452,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setStep(2);
     } else if (step === 2) {
       step3EnteredAtRef.current = Date.now();
+      setBulkActiveIndex(0);
       setStep(3);
     }
   };
@@ -503,10 +504,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   };
 
-  const goBack = () => {
-    if (step === 2) setStep(1);
-    else if (step === 3) setStep(2);
-  };
+ const goBack = () => {
+  if (step === 2) {
+    setStep(1);
+    setBulkActiveIndex(0);
+  } 
+  else if (step === 3) {
+    setStep(2);
+    setBulkActiveIndex(0);
+  }
+};
 
   // ─── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
