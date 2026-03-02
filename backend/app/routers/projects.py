@@ -79,10 +79,10 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template)
-    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
@@ -169,18 +169,26 @@ def create_projects_bulk(
     if not items:
         raise HTTPException(status_code=400, detail="At least one project is required.")
     needed = len(items)
+    if user.plan == PlanTier.FREE and needed > 1:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "upgrade_required_bulk",
+                "message": "Bulk upload of multiple videos requires a paid plan. Upgrade to create more than one video at a time.",
+            },
+        )
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
             status_code=403,
-            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade or buy more credits.",
+            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade your plan or buy more credits.",
         )
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         for data in items:
             tid = getattr(data, "template", None) or ""
             if tid and str(tid).strip().startswith("custom_"):
                 raise HTTPException(
                     status_code=403,
-                    detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+                    detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
                 )
     logo_indices: list[int] = []
     if logo_indices_json:
@@ -311,10 +319,10 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template)
-    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
@@ -748,10 +756,10 @@ def generate_scene_image(
     )
     from app.services.template_service import get_fallback_layout
 
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="AI image generation is available on the Pro plan. Upgrade to unlock.",
+            detail="AI image generation is available on the Pro or Standard plan. Upgrade to unlock.",
         )
 
     project = _get_user_project(project_id, user.id, db)
@@ -1051,11 +1059,11 @@ async def regenerate_scene(
     project = _get_user_project(project_id, user.id, db)
     
     # Check usage limits
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         if project.ai_assisted_editing_count >= 3:
             raise HTTPException(
                 status_code=403,
-                detail="AI editing limit reached (3 uses per project). Upgrade to Pro for unlimited AI edits."
+                detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
             )
     
     scene = (
@@ -1300,7 +1308,7 @@ async def regenerate_scene(
 
     # Increment usage count only when AI was actually used
     used_ai = needs_layout_regen or should_regenerate_voiceover
-    if used_ai and user.plan != PlanTier.PRO:
+    if used_ai and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         project.ai_assisted_editing_count += 1
 
     db.commit()

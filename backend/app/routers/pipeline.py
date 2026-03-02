@@ -446,7 +446,7 @@ def download_studio_endpoint(
 ):
     """Download the project's Remotion workspace as a zip (Pro or per-video paid)."""
     project = _get_project(project_id, user.id, db)
-    if user.plan != PlanTier.PRO and not project.studio_unlocked:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD) and not project.studio_unlocked:
         raise HTTPException(status_code=403, detail="Studio requires Pro plan or per-video purchase")
 
     try:
