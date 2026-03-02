@@ -18,6 +18,7 @@ import {
   updateScene,
   updateSceneImage,
   generateSceneImage,
+  deleteScene,
   deleteAsset,
   getValidLayouts,
   updateProjectLogo,
@@ -35,6 +36,7 @@ import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../componen
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
 
 type Tab = "script" | "scenes" | "images" | "audio";
@@ -393,6 +395,7 @@ export default function ProjectView() {
   const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
+  const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
   const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
@@ -1986,6 +1989,22 @@ export default function ProjectView() {
                                   <span className="text-xs font-medium">Edit</span>
                                 </button>
 
+                                {/* Delete — same UI as Edit: icon + label */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSceneToDelete(scene);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                  title="Delete scene"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  <span className="text-xs font-medium">Delete</span>
+                                </button>
+
                                 {/* Status pills */}
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <span
@@ -2347,6 +2366,27 @@ export default function ProjectView() {
                     onSaved={loadProject}
                   />
                 )}
+
+                {/* Delete scene confirmation modal */}
+                <ConfirmDeleteModal
+                  open={sceneToDelete != null}
+                  onClose={() => setSceneToDelete(null)}
+                  title="Delete this scene?"
+                  subtitle={sceneToDelete?.title}
+                  warningMessage="This cannot be undone."
+                  onConfirm={async () => {
+                    if (!sceneToDelete) return;
+                    try {
+                      await deleteScene(project.id, sceneToDelete.id);
+                      if (sceneEditModal?.id === sceneToDelete.id) setSceneEditModal(null);
+                      if (expandedScene === sceneToDelete.id) setExpandedScene(null);
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+                      throw err;
+                    }
+                  }}
+                />
 
                 {/* AI generated image preview modal */}
                 {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(

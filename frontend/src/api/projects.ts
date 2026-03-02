@@ -86,6 +86,9 @@ export const updateScene = (
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
 
+export const deleteScene = (projectId: number, sceneId: number) =>
+  api.delete(`/projects/${projectId}/scenes/${sceneId}`);
+
 export const launchStudio = (id: number) =>
   api.post<StudioResponse>(`/projects/${id}/launch-studio`);
 
