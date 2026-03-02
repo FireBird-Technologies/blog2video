@@ -25,6 +25,8 @@ import {
   Project,
   Scene,
   BACKEND_URL,
+  bulkUpdateSceneTypography,
+  updateProject
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -37,7 +39,7 @@ import UpgradeModal from "../components/UpgradeModal";
 import VideoPreview from "../components/VideoPreview";
 import { getPendingUpload } from "../stores/pendingUpload";
 
-type Tab = "script" | "scenes" | "images" | "audio";
+type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
@@ -317,6 +319,29 @@ export default function ProjectView() {
   const [logoPosition, setLogoPosition] = useState<string>("bottom_right");
   const [logoSize, setLogoSize] = useState<number>(100);
   const [logoOpacity, setLogoOpacity] = useState<number>(0.9);
+
+  const [globalTitleSize, setGlobalTitleSize] = useState(60);
+  const [globalDescSize, setGlobalDescSize] = useState(32);
+  const [savingGlobalTypography, setSavingGlobalTypography] = useState(false);
+
+  const [settingsAccentColor, setSettingsAccentColor] = useState("#7C3AED");
+  const [settingsBgColor, setSettingsBgColor] = useState("#FFFFFF");
+  const [settingsTextColor, setSettingsTextColor] = useState("#000000");
+  const [savingColors, setSavingColors] = useState(false);
+
+
+  useEffect(() => {
+    if (project) {
+      setLogoPosition(project.logo_position || "bottom_right");
+      setLogoSize(typeof project.logo_size === "number" ? project.logo_size : 100);
+      setLogoOpacity(project.logo_opacity ?? 0.9);
+      // ADD THESE:
+      setSettingsAccentColor(project.accent_color || "#7C3AED");
+      setSettingsBgColor(project.bg_color || "#FFFFFF");
+      setSettingsTextColor(project.text_color || "#000000");
+    }
+  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
+      project?.accent_color, project?.bg_color, project?.text_color]);
 
   useEffect(() => {
     if (project) {
@@ -940,6 +965,7 @@ export default function ProjectView() {
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "scenes", label: "Scenes" },
+    { id: "settings", label: "Settings" },
   ];
 
   const pipelineComplete = ["generated", "rendering", "done"].includes(
@@ -1861,13 +1887,15 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-baseline gap-4 mb-2">
-                  <h2 className="text-base font-medium text-gray-900">
-                    {project.name}
-                  </h2>
-                  <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
-                  </span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-baseline gap-4">
+                    <h2 className="text-base font-medium text-gray-900">
+                      {project.name}
+                    </h2>
+                    <span className="text-xs text-gray-400">
+                      {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
+                    </span>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -2434,6 +2462,155 @@ export default function ProjectView() {
             )}
           </div>
         )}
+
+       {activeTab === "settings" && (
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+            <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
+            <div className="glass-card p-6 flex flex-col gap-6">
+              <div>
+                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                  <span>Title font size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={20}
+                  max={200}
+                  step={1}
+                  value={globalTitleSize}
+                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                  <span>Display text size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={12}
+                  max={80}
+                  step={1}
+                  value={globalDescSize}
+                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingGlobalTypography}
+                  onClick={async () => {
+                    setSavingGlobalTypography(true);
+                    try {
+                      await bulkUpdateSceneTypography(project.id, {
+                        title_font_size: globalTitleSize,
+                        description_font_size: globalDescSize,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to update typography."));
+                    } finally {
+                      setSavingGlobalTypography(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingGlobalTypography ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Applying…
+                    </>
+                  ) : (
+                    "Apply to all Scenes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Colors</h2>
+            <p className="text-xs text-gray-400 mb-5">Theme colors applied across all scenes.</p>
+            <div className="glass-card p-6 flex flex-col gap-5">
+              {(
+                [
+                  { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
+                  { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
+                  { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
+                ] as const
+              ).map(({ label, value, setter, hint }) => (
+                <div key={label} className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700">{label}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div
+                      className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
+                      style={{ backgroundColor: value }}
+                      onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
+                    >
+                      <input
+                        id={`color-input-${label}`}
+                        type="color"
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        className="opacity-0 w-full h-full cursor-pointer"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
+                      }}
+                      className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
+                      placeholder="#000000"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingColors}
+                  onClick={async () => {
+                    setSavingColors(true);
+                    try {
+                      await updateProject(project.id, {
+                        accent_color: settingsAccentColor,
+                        bg_color: settingsBgColor,
+                        text_color: settingsTextColor,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save colors."));
+                    } finally {
+                      setSavingColors(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingColors ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save colors"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
         {activeTab === "images" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

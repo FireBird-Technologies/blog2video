@@ -16,7 +16,7 @@ from app.models.scene import Scene
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
-    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
+    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, SceneTypographyBulkUpdate, ProjectUpdate
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
@@ -111,6 +111,22 @@ def create_project(
     db.commit()
     db.refresh(project)
     return _inject_custom_theme(project)
+
+
+@router.patch("/{project_id}/update-project", response_model=ProjectOut)
+def update_project(
+    project_id: int,
+    data: ProjectUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(project, field, value)
+    db.commit()
+    db.refresh(project)
+    return project
+
 
 
 def _apply_logo_to_project(
@@ -681,6 +697,58 @@ def update_scene(
         print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
 
     return scene
+
+@router.put("/{project_id}/bulk-update-scenes", response_model=list[SceneOut])
+def bulk_update_scene_typography(
+    project_id: int,
+    data: SceneTypographyBulkUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update titleFontSize and descriptionFontSize for all scenes in a project."""
+    from app.models.scene import Scene
+    from app.services.remotion import write_remotion_data
+    import json
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+
+    for scene in scenes:
+        if not scene.remotion_code:
+            continue
+        try:
+            descriptor = json.loads(scene.remotion_code)
+        except Exception:
+            continue
+
+        layout_props = descriptor.get("layoutProps", {}) or {}
+
+        if data.title_font_size is not None:
+            layout_props["titleFontSize"] = data.title_font_size
+        if data.description_font_size is not None:
+            layout_props["descriptionFontSize"] = data.description_font_size
+
+        descriptor["layoutProps"] = layout_props
+        scene.remotion_code = json.dumps(descriptor)
+
+    db.commit()
+
+    # Refresh and sync remotion workspace once after all updates
+    for scene in scenes:
+        db.refresh(scene)
+
+    try:
+        write_remotion_data(project, scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to write remotion data after bulk typography update: {e}")
+
+    return scenes
 
 
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
