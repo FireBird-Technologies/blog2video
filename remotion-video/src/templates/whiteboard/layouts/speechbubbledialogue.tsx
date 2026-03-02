@@ -450,7 +450,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
             />
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
       <div
