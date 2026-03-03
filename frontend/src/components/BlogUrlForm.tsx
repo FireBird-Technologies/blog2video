@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getVoicePreviews,listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem,type CustomTemplateItem } from "../api/client";
+import { getTemplates, getVoicePreviews, getMyVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradeModal from "./UpgradeModal";
 import UpgradePlanModal from "./UpgradePlanModal";
@@ -16,6 +16,7 @@ import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
@@ -83,6 +84,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
+
 
 // Step indicator — order: 1 Content, 2 Template, 3 Voice
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -268,6 +270,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
+  const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
+  const [myVoicesLoading, setMyVoicesLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -296,7 +300,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
 
-  // Load templates & voice previews once
+  // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
     getTemplates()
       .then((r) => setTemplates(r.data))
@@ -307,6 +311,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     listCustomTemplates()
       .then((r) => setCustomTemplates(r.data))
       .catch(() => {});
+    setMyVoicesLoading(true);
+    getMyVoices()
+      .then((r) => setMyVoicesList(r.data ?? []))
+      .catch(() => setMyVoicesList([]))
+      .finally(() => setMyVoicesLoading(false));
   }, []);
 
   // Sync colors to the selected template when templates load.
@@ -377,6 +386,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       preloadedAudioRef.current[key] = audio;
     }
     audio.currentTime = 0;
+    audio.onended = () => setPlayingKey(null);
+    audio.onerror = () => setPlayingKey(null);
+    audio.play().catch(() => setPlayingKey(null));
+    audioRef.current = audio;
+    setPlayingKey(key);
+  };
+
+  const playMyVoice = (saved: { voice_id: string; preview_url?: string | null; audio_base64?: string | null }) => {
+    const key = `my_${saved.voice_id}`;
+    if (playingKey === key) {
+      audioRef.current?.pause();
+      setPlayingKey(null);
+      return;
+    }
+    const src = saved.audio_base64 ? `data:audio/mpeg;base64,${saved.audio_base64}` : saved.preview_url;
+    if (!src) return;
+    audioRef.current?.pause();
+    const audio = new Audio(src);
     audio.onended = () => setPlayingKey(null);
     audio.onerror = () => setPlayingKey(null);
     audio.play().catch(() => setPlayingKey(null));
@@ -2126,16 +2153,29 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Step 3: Voice (last step) — audio playlist style ─────────
   const voiceOptions = [
-    { gender: "female" as const, accent: "american" as const, key: "female_american", flag: "🇺🇸" },
-    { gender: "female" as const, accent: "british" as const, key: "female_british", flag: "🇬🇧" },
-    { gender: "male" as const, accent: "american" as const, key: "male_american", flag: "🇺🇸" },
-    { gender: "male" as const, accent: "british" as const, key: "male_british", flag: "🇬🇧" },
+    { gender: "female" as const, accent: "american" as const, key: "female_american" },
+    { gender: "female" as const, accent: "british" as const, key: "female_british" },
+    { gender: "male" as const, accent: "american" as const, key: "male_american" },
+    { gender: "male" as const, accent: "british" as const, key: "male_british" },
   ];
 
   const getPlaybackUrl = (key: string): string | null => {
     if (!VOICE_PREVIEW_KEYS.includes(key)) return null;
     const base = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
     return `${base}/voices/preview-audio?key=${encodeURIComponent(key)}`;
+  };
+
+  const FALLBACK_VOICE_NAMES: Record<string, string> = {
+    female_american: "Rachel",
+    female_british: "Alice",
+    male_american: "Bill",
+    male_british: "Daniel",
+  };
+  const FALLBACK_VOICE_DESCS: Record<string, string> = {
+    female_american: "Warm & confident, clear narration",
+    female_british: "Soft & polished, refined tone",
+    male_american: "Friendly & articulate, conversational",
+    male_british: "Calm & authoritative, smooth delivery",
   };
 
   const step3Voice = (
@@ -2153,100 +2193,128 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </label>
 
+      {/* My voices — below No voiceover, above premade voices. When empty, keep clickable so "Go to Voices" works. */}
+      <div className={voiceGender === "none" && myVoicesList.length > 0 ? "opacity-60 pointer-events-none" : ""}>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          My voices
+        </label>
+        {myVoicesLoading ? (
+          <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+            <p className="text-[11px] text-gray-500">Loading your voices…</p>
+          </div>
+        ) : myVoicesList.length === 0 ? (
+          <div className="space-y-1">
+            <p className="text-[11px] text-gray-500">
+              No voices saved. Add voices in the Voices tab to use them here.
+            </p>
+            {!isPro && (
+              <button
+                type="button"
+                onClick={() => setShowUpgrade(true)}
+                className="text-[11px] text-purple-600 hover:text-purple-700 hover:underline"
+              >
+                Upgrade to paid plan to add video
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[220px] overflow-y-auto">
+            {myVoicesList.map((saved) => {
+              const isSelected = customVoiceId === saved.voice_id;
+              const canSelect = isPro;
+              const hasPreview = !!(saved.preview_url || saved.audio_base64);
+              const myKey = `my_${saved.voice_id}`;
+              const isPlaying = playingKey === myKey;
+              const { displayName } = getMyVoiceDisplayName(saved.name);
+              return (
+                <VoiceItem
+                  key={saved.id}
+                  name={displayName}
+                  subtitle={subtitleForSavedVoice(saved)}
+                  hasPreview={hasPreview}
+                  isPlaying={isPlaying}
+                  onPlay={() => playMyVoice(saved)}
+                  disabled={false}
+                  isSelected={isSelected}
+                  onClick={() => {
+                    if (!canSelect) {
+                      setShowUpgrade(true);
+                      return;
+                    }
+                    setCustomVoiceId(isSelected ? "" : saved.voice_id);
+                  }}
+                  badge={
+                    !isPro ? (
+                      <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shrink-0">
+                        Pro
+                      </div>
+                    ) : null
+                  }
+                  actions={
+                    isSelected ? (
+                      <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
         <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
           Voice — select and play to preview
         </label>
         <div className="space-y-2">
-          {voiceOptions.map(({ gender, accent, key, flag }) => {
+          {voiceOptions.map(({ gender, accent, key }) => {
             const preview = voicePreviews[key];
             const playbackUrl = getPlaybackUrl(key);
             const isDisabled = voiceGender === "none";
-            const isSelected = voiceGender === gender && voiceAccent === accent;
+            const isSelected = !customVoiceId && voiceGender === gender && voiceAccent === accent;
             const isPlaying = playingKey === key;
-            const FALLBACK_NAMES: Record<string, string> = {
-              female_american: "Rachel",
-              female_british: "Alice",
-              male_american: "Bill",
-              male_british: "Daniel",
-            };
-            const FALLBACK_DESCS: Record<string, string> = {
-              female_american: "Warm & confident, clear narration",
-              female_british: "Soft & polished, refined tone",
-              male_american: "Friendly & articulate, conversational",
-              male_british: "Calm & authoritative, smooth delivery",
-            };
-            const name = FALLBACK_NAMES[key] || preview?.name || `${gender} ${accent}`;
-            const desc = [gender === "female" ? "Female" : "Male", accent === "american" ? "American" : "British"].join(" • ") + ` — ${preview?.description || FALLBACK_DESCS[key] || ""}`;
-
+            const name = FALLBACK_VOICE_NAMES[key] || preview?.name || `${gender} ${accent}`;
+            const subtitle = formatVoiceSubtitle(
+              gender === "female" ? "Female" : "Male",
+              accent === "american" ? "American" : "British",
+              preview?.description || FALLBACK_VOICE_DESCS[key] || ""
+            );
             return (
-              <div
+              <VoiceItem
                 key={key}
-                onClick={() => { if (!isDisabled) { setVoiceGender(gender); setVoiceAccent(accent); } }}
-                className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
-                  isDisabled ? "cursor-not-allowed" : "cursor-pointer"
-                } ${
-                  isSelected
-                    ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
-                    : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20"
-                } ${isDisabled ? "hover:border-gray-200/60 hover:bg-white/60" : ""}`}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!isDisabled) playVoice(key, playbackUrl);
-                  }}
-                  disabled={!playbackUrl || isDisabled}
-                  className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    isDisabled || !playbackUrl
-                      ? "bg-gray-50 text-gray-300 cursor-not-allowed"
-                      : isPlaying
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700"
-                  }`}
-                >
-                    {isPlaying ? (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-800">{flag} {name}</div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
-                  </div>
-                  {isSelected && (
+                name={name}
+                subtitle={subtitle}
+                hasPreview={!!playbackUrl}
+                isPlaying={isPlaying}
+                onPlay={() => playVoice(key, playbackUrl)}
+                disabled={isDisabled}
+                isSelected={isSelected}
+                onClick={() => {
+                  if (!isDisabled) {
+                    setVoiceGender(gender);
+                    setVoiceAccent(accent);
+                    setCustomVoiceId("");
+                  }
+                }}
+                actions={
+                  isSelected ? (
                     <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  ) : null
+                }
+              />
+            );
+          })}
         </div>
       </div>
-
-      {isPro && voiceGender !== "none" && (
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-            Custom Voice ID <span className="text-gray-300 font-normal">(ElevenLabs)</span>
-          </label>
-          <input
-            type="text"
-            value={customVoiceId}
-            onChange={(e) => setCustomVoiceId(e.target.value)}
-            placeholder="Paste your ElevenLabs voice ID to override..."
-            className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-          />
-        </div>
-      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -2427,183 +2495,193 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             Voice — select and play to preview
           </label>
           <div className="space-y-2">
-            {voiceOptions.map(({ gender, accent, key, flag }) => {
+            {voiceOptions.map(({ gender, accent, key }) => {
               const preview = voicePreviews[key];
               const playbackUrl = getPlaybackUrl(key);
               const isDisabled = rowVoiceGender === "none";
-              const isSelected = rowVoiceGender === gender && rowVoiceAccent === accent;
+              const isSelected = !rowCustomVoiceId && rowVoiceGender === gender && rowVoiceAccent === accent;
               const isPlaying = playingKey === key;
-
-              const FALLBACK_NAMES: Record<string, string> = {
-                female_american: "Rachel",
-                female_british: "Alice",
-                male_american: "Bill",
-                male_british: "Daniel",
-              };
-              const FALLBACK_DESCS: Record<string, string> = {
-                female_american: "Warm & confident, clear narration",
-                female_british: "Soft & polished, refined tone",
-                male_american: "Friendly & articulate, conversational",
-                male_british: "Calm & authoritative, smooth delivery",
-              };
-              const name = FALLBACK_NAMES[key] || preview?.name || `${gender} ${accent}`;
-              const desc =
-                [gender === "female" ? "Female" : "Male", accent === "american" ? "American" : "British"].join(" • ") +
-                ` — ${preview?.description || FALLBACK_DESCS[key] || ""}`;
-
-              return (
-                <div
-                  key={key}
-                  onClick={() => {
-                    if (isDisabled) return;
-                    const targetIndices = indexed.map(({ i }) => i);
-
-                    if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
-                      // Editing a non-master video breaks the global sync.
-                      setBulkApplyVoiceAll(false);
-                      setBulkVoiceGender((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = gender;
-                        return next;
-                      });
-                      setBulkVoiceAccent((prev) => {
-                        const next = [...prev];
-                        next[activeIndex] = accent;
-                        return next;
-                      });
-                      return;
-                    }
-
-                    if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-                      // Master row change: keep all videos in sync.
-                      setBulkVoiceGender((prev) => {
-                        const next = [...prev];
-                        targetIndices.forEach((idx) => {
-                          next[idx] = gender;
-                        });
-                        return next;
-                      });
-                      setBulkVoiceAccent((prev) => {
-                        const next = [...prev];
-                        targetIndices.forEach((idx) => {
-                          next[idx] = accent;
-                        });
-                        return next;
-                      });
-                      return;
-                    }
-
-                    // No global sync: only update this row.
-                    setBulkVoiceGender((prev) => {
-                      const next = [...prev];
-                      next[activeIndex] = gender;
-                      return next;
-                    });
-                    setBulkVoiceAccent((prev) => {
-                      const next = [...prev];
-                      next[activeIndex] = accent;
-                      return next;
-                    });
-                  }}
-                  className={`flex items-center gap-3 rounded-xl border-2 p-3 transition-all ${
-                    isDisabled ? "cursor-not-allowed" : "cursor-pointer"
-                  } ${
-                    isSelected
-                      ? "border-purple-500 bg-purple-50/60 shadow-[0_0_0_4px_rgba(124,58,237,0.08)]"
-                      : "border-gray-200/60 bg-white/60 hover:border-purple-300/60 hover:bg-purple-50/20"
-                  } ${isDisabled ? "hover:border-gray-200/60 hover:bg-white/60" : ""}`}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isDisabled) playVoice(key, playbackUrl);
-                    }}
-                    disabled={!playbackUrl || isDisabled}
-                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                      isDisabled || !playbackUrl
-                        ? "bg-gray-50 text-gray-300 cursor-not-allowed"
-                        : isPlaying
-                          ? "bg-purple-600 text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700"
-                    }`}
-                  >
-                    {isPlaying ? (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-800">
-                      {flag} {name}
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{desc}</p>
-                  </div>
-                  {isSelected && (
-                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
+              const name = FALLBACK_VOICE_NAMES[key] || preview?.name || `${gender} ${accent}`;
+              const subtitle = formatVoiceSubtitle(
+                gender === "female" ? "Female" : "Male",
+                accent === "american" ? "American" : "British",
+                preview?.description || FALLBACK_VOICE_DESCS[key] || ""
               );
-            })}
-          </div>
-        </div>
 
-        {isPro && rowVoiceGender !== "none" && (
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-              Custom Voice ID <span className="text-gray-300 font-normal">(ElevenLabs)</span>
-            </label>
-            <input
-              type="text"
-              value={rowCustomVoiceId}
-              onChange={(e) => {
-                const value = e.target.value;
+              const handleBulkVoiceClick = () => {
+                if (isDisabled) return;
                 const targetIndices = indexed.map(({ i }) => i);
 
                 if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
-                  // Editing a non-master video breaks the global sync.
                   setBulkApplyVoiceAll(false);
+                  setBulkVoiceGender((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = gender;
+                    return next;
+                  });
+                  setBulkVoiceAccent((prev) => {
+                    const next = [...prev];
+                    next[activeIndex] = accent;
+                    return next;
+                  });
                   setBulkCustomVoiceId((prev) => {
                     const next = [...prev];
-                    next[activeIndex] = value;
+                    next[activeIndex] = "";
                     return next;
                   });
                   return;
                 }
 
                 if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-                  // Master row change: keep all videos in sync.
+                  setBulkVoiceGender((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => { next[idx] = gender; });
+                    return next;
+                  });
+                  setBulkVoiceAccent((prev) => {
+                    const next = [...prev];
+                    targetIndices.forEach((idx) => { next[idx] = accent; });
+                    return next;
+                  });
                   setBulkCustomVoiceId((prev) => {
                     const next = [...prev];
-                    targetIndices.forEach((idx) => {
-                      next[idx] = value;
-                    });
+                    targetIndices.forEach((idx) => { next[idx] = ""; });
                     return next;
                   });
                   return;
                 }
 
-                // No global sync: only update this row.
-                setBulkCustomVoiceId((prev) => {
+                setBulkVoiceGender((prev) => {
                   const next = [...prev];
-                  next[activeIndex] = value;
+                  next[activeIndex] = gender;
                   return next;
                 });
-              }}
-              placeholder="Paste your ElevenLabs voice ID to override..."
-              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
-            />
+                setBulkVoiceAccent((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = accent;
+                  return next;
+                });
+                setBulkCustomVoiceId((prev) => {
+                  const next = [...prev];
+                  next[activeIndex] = "";
+                  return next;
+                });
+              };
+
+              return (
+                <VoiceItem
+                  key={key}
+                  name={name}
+                  subtitle={subtitle}
+                  hasPreview={!!playbackUrl}
+                  isPlaying={isPlaying}
+                  onPlay={() => playVoice(key, playbackUrl)}
+                  disabled={isDisabled}
+                  isSelected={isSelected}
+                  onClick={handleBulkVoiceClick}
+                  actions={
+                    isSelected ? (
+                      <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : null
+                  }
+                />
+              );
+            })}
           </div>
-        )}
+
+          {/* My voices — loaded from API; play for all, select only for Pro */}
+          <div className="relative mt-4">
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              My voices
+            </label>
+            {myVoicesLoading ? (
+              <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+                <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+                <p className="text-[11px] text-gray-500">Loading your voices…</p>
+              </div>
+            ) : myVoicesList.length === 0 ? (
+          <div className="space-y-1">
+            <p className="text-[11px] text-gray-500">
+              No voices saved. Add voices in the Voices tab to use them here.
+            </p>
+            {!isPro && (
+              <button
+                type="button"
+                onClick={() => setShowUpgrade(true)}
+                className="text-[11px] text-purple-600 hover:text-purple-700 hover:underline"
+              >
+                Upgrade to paid plan to add video
+              </button>
+            )}
+          </div>
+            ) : (
+              <div className="space-y-2 max-h-[220px] overflow-y-auto">
+                {myVoicesList.map((saved) => {
+                  const isSelectedBulk = rowCustomVoiceId === saved.voice_id;
+                  const canSelectBulk = isPro;
+                  const hasPreview = !!(saved.preview_url || saved.audio_base64);
+                  const myKey = `my_${saved.voice_id}`;
+                  const isPlaying = playingKey === myKey;
+                  const { displayName } = getMyVoiceDisplayName(saved.name);
+                  return (
+                    <VoiceItem
+                      key={saved.id}
+                      name={displayName}
+                      subtitle={subtitleForSavedVoice(saved)}
+                      hasPreview={hasPreview}
+                      isPlaying={isPlaying}
+                      onPlay={() => playMyVoice(saved)}
+                      disabled={false}
+                      isSelected={isSelectedBulk}
+                        onClick={() => {
+                          if (!canSelectBulk) {
+                            setShowUpgrade(true);
+                            return;
+                          }
+                          const value = isSelectedBulk ? "" : saved.voice_id;
+                          const targetIndices = indexed.map(({ i }) => i);
+                          if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                            setBulkCustomVoiceId((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = value; });
+                              return next;
+                            });
+                          } else {
+                            setBulkApplyVoiceAll(false);
+                            setBulkCustomVoiceId((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = value;
+                              return next;
+                            });
+                          }
+                        }}
+                        badge={
+                          !isPro ? (
+                            <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shrink-0">
+                              Pro
+                            </div>
+                          ) : null
+                        }
+                        actions={
+                          isSelectedBulk ? (
+                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          ) : null
+                        }
+                      />
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="flex gap-2 pt-1">
           <button

@@ -212,3 +212,69 @@ class StudioResponse(BaseModel):
 class RenderResponse(BaseModel):
     output_path: str
     status: str
+
+
+# ─── Custom voices (creation records: prompt/response/form) ───
+
+class CustomVoiceCreate(BaseModel):
+    voice_id: str
+    source: str  # "prompt" | "form"
+    prompt_text: Optional[str] = None
+    response: Optional[dict] = None  # full API response, stored as JSON
+    form_gender: Optional[str] = None
+    form_age: Optional[str] = None
+    form_persona: Optional[str] = None
+    form_speed: Optional[str] = None
+    form_accent: Optional[str] = None
+    preview_url: Optional[str] = None
+    audio_base64: Optional[str] = None
+
+
+class CustomVoiceOut(BaseModel):
+    id: int
+    name: str
+    voice_id: str
+    source: str
+    prompt_text: Optional[str] = None
+    form_gender: Optional[str] = None
+    form_age: Optional[str] = None
+    form_persona: Optional[str] = None
+    form_speed: Optional[str] = None
+    form_accent: Optional[str] = None
+    preview_url: Optional[str] = None
+    audio_base64: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Saved voices (user's My Voices; can reference custom_voice) ─
+
+class SavedVoiceCreate(BaseModel):
+    voice_id: str
+    name: str
+    preview_url: Optional[str] = None
+    audio_base64: Optional[str] = None
+    source: Optional[str] = "custom"  # "custom" | "prebuilt"
+    gender: Optional[str] = None
+    accent: Optional[str] = None
+    description: Optional[str] = None
+    custom_voice_id: Optional[int] = None
+
+
+class SavedVoiceOut(BaseModel):
+    id: int
+    voice_id: str
+    name: str
+    preview_url: Optional[str] = None
+    audio_base64: Optional[str] = None
+    source: str = "custom"
+    gender: Optional[str] = None
+    accent: Optional[str] = None
+    description: Optional[str] = None
+    created_at: datetime
+    custom_voice_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
