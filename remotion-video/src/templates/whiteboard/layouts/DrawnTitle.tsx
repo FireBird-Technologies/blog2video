@@ -139,7 +139,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           <feComponentTransfer><feFuncA type="linear" slope="0.055" /></feComponentTransfer>
           <feComposite in2="SourceGraphic" operator="over" />
         </filter>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
       {/* TEXT LAYER: Lower z-index than stickman */}

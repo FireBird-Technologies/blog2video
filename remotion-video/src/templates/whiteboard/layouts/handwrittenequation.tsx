@@ -88,7 +88,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
             <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
       {/* Guide lines */}
