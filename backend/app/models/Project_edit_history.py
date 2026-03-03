@@ -19,7 +19,7 @@ class ProjectEditHistory(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"),
+        ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -37,7 +37,7 @@ class ProjectEditHistory(Base):
         index=True,
     )
 
-    project = relationship("Project")
+    project = relationship("Project", back_populates="project_edit_history")
 
 
 Index("ix_project_edit_project", ProjectEditHistory.project_id)
