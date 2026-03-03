@@ -625,15 +625,26 @@ export const fetchVideoBlob = async (id: number): Promise<string> => {
 };
 
 export const downloadVideo = async (id: number, filename?: string) => {
-  const blobUrl = await fetchVideoBlob(id);
-  const a = document.createElement("a");
-  a.href = blobUrl;
-  a.download = filename || "video.mp4";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(blobUrl);
+  try {
+  
+    const res = await api.get(`/projects/${id}/download`);
+
+    const finalR2Url = res.request.responseURL;
+
+    const link = document.createElement("a");
+    link.href = finalR2Url;
+    link.setAttribute("download", filename || "video.mp4");
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+  } catch (err) {
+    // Fallback: If the API call fails, just try a direct browser navigation
+    console.error("Link trigger failed, trying direct window location", err);
+  }
 };
+
 
 export const downloadStudioZip = async (id: number, filename?: string) => {
   const res = await api.get(`/projects/${id}/download-studio`, {

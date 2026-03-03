@@ -8,7 +8,7 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
@@ -652,42 +652,38 @@ def download_video_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Stream the rendered video for download. Avoids CORS by proxying through backend."""
-    project = _get_project(project_id, user.id, db)
+    """
+    Directs the client to the video file. 
+    1. Checks if the video is on R2 and redirects.
+    2. Falls back to local storage if R2 is not available.
+    3. Returns 202 if still rendering or 404 if missing.
+    """
+    # 1. Fetch project and verify ownership
+    project = db.query(Project).filter(
+        Project.id == project_id, 
+        Project.user_id == user.id
+    ).first()
 
-    # Prefer R2 URL — stream from R2 to avoid CORS issues in the browser
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # 2. Case A: Video is stored on Cloudflare R2
     if project.r2_video_url:
-        try:
-            # Cache-bust so re-renders serve the new file (CDN/browser may cache by URL)
-            sep = "&" if "?" in project.r2_video_url else "?"
-            ts = int(project.updated_at.timestamp()) if getattr(project, "updated_at", None) else 0
-            fetch_url = f"{project.r2_video_url}{sep}v={ts}"
-            resp = requests.get(
-                fetch_url,
-                timeout=120,
-                stream=True,
-            )
-            resp.raise_for_status()
-            headers = {"Content-Disposition": 'attachment; filename="video.mp4"'}
-            cl = resp.headers.get("Content-Length")
-            if cl:
-                headers["Content-Length"] = cl
-            return StreamingResponse(
-                resp.iter_content(chunk_size=64 * 1024),
-                media_type="video/mp4",
-                headers=headers,
-            )
-        except requests.RequestException as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Failed to fetch video from storage: {str(e)}",
-            )
+        # Generate Cache-buster based on project update time
+        sep = "&" if "?" in project.r2_video_url else "?"
+        ts = int(project.updated_at.timestamp()) if project.updated_at else 0
+        redirect_url = f"{project.r2_video_url}{sep}v={ts}"
+        
+        # 307 Temporary Redirect: Hands off the request to the R2 CDN
+        return RedirectResponse(url=redirect_url, status_code=307)
 
-    # Fallback: local file
+    # 3. Case B: Fallback to Local Storage
     local_path = os.path.join(
         settings.MEDIA_DIR, f"projects/{project.id}/output/video.mp4"
     )
+    
     if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        # Sanitized filename for the browser save dialog
         safe_name = (project.name or "video").replace(" ", "_")[:50]
         return FileResponse(
             path=local_path,
@@ -695,11 +691,16 @@ def download_video_endpoint(
             filename=f"{safe_name}.mp4",
         )
 
+    # 4. Case C: Check rendering progress before giving up
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
-        raise HTTPException(status_code=202, detail="Video is still rendering.")
+        raise HTTPException(
+            status_code=202, 
+            detail="Video is still rendering. Please wait."
+        )
 
-    raise HTTPException(status_code=404, detail="Video not rendered yet.")
+    raise HTTPException(status_code=404, detail="Video file not found.")
+
 
 
 def _get_project(project_id: int, user_id: int, db: Session) -> Project:

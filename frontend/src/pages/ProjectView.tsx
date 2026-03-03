@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
+import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
@@ -366,6 +367,7 @@ export default function ProjectView() {
 
   // Render state
   const [rendering, setRendering] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [saving, setSaving] = useState(false); // "Saving to cloud" after render completes
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -549,34 +551,55 @@ export default function ProjectView() {
     };
   }, [videoBlobUrl]);
 
-  // Auto-download once render finishes (with retry in case R2 upload is still in progress)
-  useEffect(() => {
-    if (!autoDownloadRef.current || !rendered || !project || downloading) return;
-    autoDownloadRef.current = false;
+ // Auto-download once render finishes
+useEffect(() => {
+  // 1. Only run if rendered is true and we haven't auto-downloaded yet
+  if (!autoDownloadRef.current || !rendered || !project) return;
 
-    const safeName =
-      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
-
+  const tryAutoDownload = async () => {
+    let currentProject = project;
     let attempts = 0;
-    const maxAttempts = 6; // ~12 seconds of retrying
+    const maxAttempts = 6;
 
-    const tryDownload = async () => {
-      while (attempts < maxAttempts) {
+    while (attempts < maxAttempts) {
+      // 2. Check if we actually have the URL yet
+      if (currentProject.r2_video_url) {
         try {
-          await downloadVideo(projectId, `${safeName}.mp4`);
-          return; // success
-        } catch {
-          attempts++;
-          if (attempts < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 2000));
-            // Refresh project to pick up r2_video_url
-            await loadProject();
-          }
+          // IMPORTANT: Use the native link method, NOT the axios-based downloadVideo
+          const safeName = currentProject.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+          const cacheBuster = `?v=${new Date().getTime()}`;
+          const finalUrl = currentProject.r2_video_url + cacheBuster;
+
+          const link = document.createElement("a");
+          link.href = finalUrl;
+          link.setAttribute("download", `${safeName}.mp4`);
+          // Use target _blank to handle cases where download attribute is ignored
+          link.target = "_blank"; 
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          autoDownloadRef.current = false;
+          return;
+        } catch (err) {
+          console.error("Auto-download trigger failed", err);
         }
       }
-    };
-    tryDownload();
-  }, [rendered]); // eslint-disable-line react-hooks/exhaustive-deps
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const updated = await loadProject(); 
+        if (updated) currentProject = updated;
+      }
+    }
+
+    autoDownloadRef.current = false; 
+  };
+
+  tryAutoDownload();
+}, [rendered, project?.r2_video_url]); 
 
   const loadProject = useCallback(async () => {
     try {
@@ -857,34 +880,68 @@ export default function ProjectView() {
   };
 
   const handleDownload = async () => {
-    if (!project) return;
+    if (!project || !project.r2_video_url) {
+      showError("Video URL not found. Please wait for rendering to finish.");
+      return;
+    }
+
     setDownloading(true);
     setHasError(false);
-    const safeName =
-      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
 
-    // Retry a few times in case R2 upload is still finishing
-    let attempts = 0;
-    const maxAttempts = 4;
-    while (attempts < maxAttempts) {
-      try {
-        await downloadVideo(projectId, `${safeName}.mp4`);
-        setDownloading(false);
-        return;
-      } catch (err: any) {
-        attempts++;
-        const status = err?.response?.status;
-        // 202 = still processing, 404 = not ready yet — retry
-        if ((status === 202 || status === 404) && attempts < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 2000));
-          await loadProject();
-          continue;
-        }
-        showError(getErrorMessage(err, "Download failed. try again or contact support if the issue persist.")); setHasError(true);
-        break;
-      }
+    try {
+      // 1. Generate the filename
+      const safeName = project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+      
+      // 2. Use the R2 URL from your project object
+      // We add a timestamp to ensure the browser doesn't serve a cached old version
+      const cacheBuster = `?v=${new Date(project.updated_at).getTime()}`;
+      const finalUrl = project.r2_video_url + cacheBuster;
+
+      // 3. Trigger a Native Browser Download
+      // This bypasses Axios/Fetch and avoids the "Network Error" CORS block
+      const link = document.createElement("a");
+      link.href = finalUrl;
+      link.setAttribute("download", `${safeName}.mp4`);
+      
+      // For cross-origin downloads to work correctly with the 'download' attribute,
+      // the R2 bucket must have the correct CORS headers (see below).
+      link.target = "_blank"; 
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setDownloading(false);
+    } catch (err: any) {
+      console.error("Download trigger failed:", err);
+      showError("Could not start download. Try right-clicking the video and 'Save As'.");
+      setHasError(true);
+      setDownloading(false);
     }
-    setDownloading(false);
+  };
+
+
+  const handleCopyDownloadLink = async () => {
+    try {
+      if (!project?.r2_video_url) {
+        setCopyStatus("error");
+        return;
+      }
+
+      await navigator.clipboard.writeText(project.r2_video_url);
+      setCopyStatus("success");
+
+      setTimeout(() => {
+        setCopyStatus("idle");
+      }, 2500);
+    } catch (err) {
+      console.error("Copy failed", err);
+      setCopyStatus("error");
+
+      setTimeout(() => {
+        setCopyStatus("idle");
+      }, 2500);
+    }
   };
 
   const handleOpenStudio = async () => {
@@ -1677,15 +1734,54 @@ export default function ProjectView() {
       {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
               {downloadWarningMode === "download"
-                ? "This link will download the video before changes applied (if any). To reflect the newest changes (if any), choose Re-render."
-                : "Changes made after rendering would require re-rendering of video, resulting in deduction of a video count."}
+                ? "This download may not include your most recent edits. To ensure all changes are reflected, please re-render the video before downloading."
+                : "Make sure You have made all the changes. Re-rendering of video will result in deduction of a video count."}
             </p>
+
+
+            {downloadWarningMode === "download" && (
+              <div className="mb-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Having trouble downloading? Copy the link and paste it into a new browser tab.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyDownloadLink}
+                    className={`flex items-center gap-1 text-xs font-medium transition ${
+                      copyStatus === "success"
+                        ? "text-green-600"
+                        : copyStatus === "error"
+                        ? "text-red-600"
+                        : "text-blue-600 hover:text-blue-700"
+                    }`}
+                  >
+                    {copyStatus === "success" ? (
+                      <>
+                        ✓ Copied
+                      </>
+                    ) : copyStatus === "error" ? (
+                      <>
+                        ⚠ Failed
+                      </>
+                    ) : (
+                      <>
+                        🔗 Copy 
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+
             <div className="flex gap-3">
               <button
                 type="button"
