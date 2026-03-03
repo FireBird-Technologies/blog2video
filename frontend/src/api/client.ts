@@ -697,4 +697,117 @@ export const deleteCustomTemplate = (id: number) =>
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
 
+// ─── ElevenLabs voices (default / available) ─────────────────
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  labels: Record<string, string>;
+  category?: string;
+  description?: string;
+}
+
+export interface ListVoicesResponse {
+  voices: ElevenLabsVoice[];
+  has_more: boolean;
+}
+
+export const getVoices = () => api.get<ListVoicesResponse>("/voices");
+
+// ─── Voice design (preset + custom prompt) ───────────────────
+
+export interface VoiceDesignPreview {
+  generated_voice_id: string;
+  audio_base_64: string;
+  media_type?: string;
+  duration_secs?: number;
+}
+
+export interface VoiceDesignResponse {
+  previews: VoiceDesignPreview[];
+  text?: string;
+}
+
+export interface DesignFromPresetPayload {
+  gender?: string;
+  age?: string;
+  persona?: string;
+  speed?: string;
+  accent?: string;
+}
+
+export const designVoiceFromPreset = (payload: DesignFromPresetPayload) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-preset", payload);
+
+export const designVoiceFromPrompt = (payload: { prompt: string }) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-prompt", payload);
+
+// ─── Saved voices (user's My Voices, persisted in DB) ─────────
+
+export interface SavedVoiceFromAPI {
+  id: number;
+  voice_id: string;
+  name: string;
+  preview_url?: string | null;
+  audio_base64?: string | null;
+  source: string;
+  gender?: string | null;
+  accent?: string | null;
+  description?: string | null;
+  created_at: string;
+  custom_voice_id?: number | null;
+}
+
+export const getMyVoices = () => api.get<SavedVoiceFromAPI[]>("/voices/saved");
+
+export const saveVoice = (payload: {
+  voice_id: string;
+  name: string;
+  preview_url?: string;
+  audio_base64?: string;
+  source?: string;
+  gender?: string;
+  accent?: string;
+  description?: string;
+  custom_voice_id?: number;
+}) => api.post<SavedVoiceFromAPI>("/voices/saved", payload);
+
+// ─── Custom voices (creation records: prompt/response/form) ─────
+
+export interface CustomVoiceFromAPI {
+  id: number;
+  name: string;
+  voice_id: string;
+  source: string;
+  prompt_text?: string | null;
+  form_gender?: string | null;
+  form_age?: string | null;
+  form_persona?: string | null;
+  form_speed?: string | null;
+  form_accent?: string | null;
+  preview_url?: string | null;
+  audio_base64?: string | null;
+  created_at: string;
+}
+
+export const createCustomVoice = (payload: {
+  voice_id: string;
+  source: "prompt" | "form";
+  prompt_text?: string;
+  response?: Record<string, unknown>;
+  form_gender?: string;
+  form_age?: string;
+  form_persona?: string;
+  form_speed?: string;
+  form_accent?: string;
+  preview_url?: string;
+  audio_base64?: string;
+}) => api.post<CustomVoiceFromAPI>("/voices/custom", payload);
+
+export const getCustomVoices = () => api.get<CustomVoiceFromAPI[]>("/voices/custom");
+
+export const deleteSavedVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
+
 export default api;

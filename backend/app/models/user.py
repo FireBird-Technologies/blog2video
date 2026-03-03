@@ -36,6 +36,8 @@ class User(Base):
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
     custom_templates = relationship("CustomTemplate", back_populates="user", cascade="all, delete-orphan")
+    saved_voices = relationship("SavedVoice", back_populates="user", cascade="all, delete-orphan")
+    custom_voices = relationship("CustomVoice", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def video_limit(self) -> int:
