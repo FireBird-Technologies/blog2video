@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import QueuePool
+
 from app.config import settings
 
 # Handle SQLite vs PostgreSQL connection args
@@ -9,7 +10,6 @@ engine_kwargs = {}
 
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
-    # engine_kwargs["poolclass"] = StaticPool
 else:
     # PostgreSQL connection pool settings
     engine_kwargs["poolclass"] = QueuePool
@@ -42,199 +42,22 @@ def get_db():
         db.close()
 
 
-def _migrate_custom_templates(eng):
-    """Drop old custom_templates table if it has an enum-based category column."""
-    from sqlalchemy import text, inspect
-
-    insp = inspect(eng)
-    if "custom_templates" not in insp.get_table_names():
-        return
-
-    # Check if category column uses an enum type (old schema) vs varchar (new)
-    for col in insp.get_columns("custom_templates"):
-        if col["name"] == "category" and hasattr(col["type"], "enums"):
-            # Old enum-based column — drop table so create_all rebuilds it
-            with eng.begin() as conn:
-                conn.execute(text("DROP TABLE IF EXISTS custom_templates"))
-            is_pg = not settings.DATABASE_URL.startswith("sqlite")
-            if is_pg:
-                with eng.begin() as conn:
-                    conn.execute(text("DROP TYPE IF EXISTS templatecategory CASCADE"))
-            print("[MIGRATE] Dropped old custom_templates table (enum -> varchar)")
-            return
-
-
 def init_db():
-    """Create all tables, run lightweight migrations, and seed plans."""
-    from app.models import User, Project, Scene, Asset, ChatMessage, SubscriptionPlan, Subscription, CustomTemplate  # noqa: F401
-
-    # Drop old custom_templates table if it uses the enum-based category column
-    # so create_all recreates it with VARCHAR category.
-    _migrate_custom_templates(engine)
-    Base.metadata.create_all(bind=engine)
-    _migrate(engine)
-
-    # Seed subscription plans on every startup (idempotent)
+    """Load models and seed plan data; schema is managed by Alembic."""
+    from app.models import (  # noqa: F401
+        Asset,
+        ChatMessage,
+        CustomTemplate,
+        Project,
+        Scene,
+        Subscription,
+        SubscriptionPlan,
+        User,
+    )
     from app.models.subscription import seed_plans
+
     db = SessionLocal()
     try:
         seed_plans(db)
     finally:
         db.close()
-
-
-def _is_numeric_type(col_type) -> bool:
-    """True if column type is REAL/Float (logo_size should be string)."""
-    if col_type is None:
-        return False
-    name = type(col_type).__name__
-    if name in ("REAL", "Float", "FLOAT", "Double", "DOUBLE_PRECISION", "NUMERIC"):
-        return True
-    if getattr(col_type, "python_type", None) == float:
-        return True
-    return False
-
-
-def _migrate(eng):
-    """Add columns that may be missing from older schemas."""
-    from sqlalchemy import text, inspect
-
-    insp = inspect(eng)
-    if "projects" not in insp.get_table_names():
-        return
-
-    columns = insp.get_columns("projects")
-    cols = {c["name"] for c in columns}
-    is_pg = not settings.DATABASE_URL.startswith("sqlite")
-
-    with eng.begin() as conn:
-        # Helper: ALTER TABLE ADD COLUMN (Postgres ignores IF NOT EXISTS style,
-        # so we check the column set in Python first)
-        migrations = {
-            "voice_gender": "VARCHAR(10) DEFAULT 'female'",
-            "voice_accent": "VARCHAR(10) DEFAULT 'american'",
-            "player_port": "INTEGER",
-            "accent_color": "VARCHAR(20) DEFAULT '#7C3AED'",
-            "bg_color": "VARCHAR(20) DEFAULT '#FFFFFF'",
-            "text_color": "VARCHAR(20) DEFAULT '#000000'",
-            "animation_instructions": "TEXT",
-            "studio_unlocked": "BOOLEAN DEFAULT 0",
-            "r2_video_key": "VARCHAR(512)",
-            "r2_video_url": "VARCHAR(2048)",
-            "logo_r2_key": "VARCHAR(512)",
-            "logo_r2_url": "VARCHAR(2048)",
-            "logo_position": "VARCHAR(20) DEFAULT 'bottom_right'",
-            "logo_opacity": "REAL DEFAULT 0.9",
-            "logo_size": "REAL DEFAULT 100",
-            "custom_voice_id": "VARCHAR(100)",
-            "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
-            "template": "VARCHAR(50) DEFAULT 'default'",
-            "video_style": "VARCHAR(30) DEFAULT 'explainer'",
-            "ai_assisted_editing_count": "INTEGER DEFAULT 0",
-        }
-        for col_name, col_def in migrations.items():
-            if col_name not in cols:
-                conn.execute(text(
-                    f"ALTER TABLE projects ADD COLUMN {col_name} {col_def}"
-                ))
-
-        # If logo_size exists as VARCHAR (old preset), alter to INTEGER for percentage (user may run migration)
-        # New installs get INTEGER DEFAULT 100 from migrations dict above.
-
-    # Migrate users table
-    if "users" in insp.get_table_names():
-        user_cols = {c["name"] for c in insp.get_columns("users")}
-        with eng.begin() as conn:
-            user_migrations = {
-                "video_limit_bonus": "INTEGER DEFAULT 0",
-            }
-            for col_name, col_def in user_migrations.items():
-                if col_name not in user_cols:
-                    conn.execute(text(
-                        f"ALTER TABLE users ADD COLUMN {col_name} {col_def}"
-                    ))
-
-    # Migrate assets table
-    if "assets" in insp.get_table_names():
-        asset_cols = {c["name"] for c in insp.get_columns("assets")}
-        with eng.begin() as conn:
-            asset_migrations = {
-                "r2_key": "VARCHAR(512)",
-                "r2_url": "VARCHAR(2048)",
-                "excluded": "BOOLEAN DEFAULT 0",
-            }
-            for col_name, col_def in asset_migrations.items():
-                if col_name not in asset_cols:
-                    conn.execute(text(
-                        f"ALTER TABLE assets ADD COLUMN {col_name} {col_def}"
-                    ))
-
-    # Migrate custom_templates table
-    if "custom_templates" in insp.get_table_names():
-        template_cols = {c["name"] for c in insp.get_columns("custom_templates")}
-        with eng.begin() as conn:
-            if "supported_video_style" not in template_cols:
-                conn.execute(
-                    text(
-                        "ALTER TABLE custom_templates "
-                        "ADD COLUMN supported_video_style VARCHAR(30) DEFAULT 'explainer'"
-                    )
-                )
-
-            # For missing/blank values, default to explainer.
-            conn.execute(
-                text(
-                    """
-                    UPDATE custom_templates
-                    SET supported_video_style = 'explainer'
-                    WHERE supported_video_style IS NULL OR trim(supported_video_style) = ''
-                    """
-                )
-            )
-
-            # Normalize values and force valid set.
-            conn.execute(
-                text(
-                    """
-                    UPDATE custom_templates
-                    SET supported_video_style = lower(trim(coalesce(supported_video_style, '')))
-                    """
-                )
-            )
-            conn.execute(
-                text(
-                    """
-                    UPDATE custom_templates
-                    SET supported_video_style = 'explainer'
-                    WHERE supported_video_style NOT IN ('explainer', 'promotional', 'storytelling')
-                    """
-                )
-            )
-
-    # Migrate PostgreSQL enum types — add missing values.
-    # ALTER TYPE ... ADD VALUE cannot run inside a transaction, so we use
-    # a raw DBAPI connection with autocommit.
-    if is_pg:
-        try:
-            raw_conn = eng.raw_connection()
-            raw_conn.autocommit = True
-            cur = raw_conn.cursor()
-
-            # Get existing values for the subscriptionstatus enum
-            cur.execute(
-                "SELECT enumlabel FROM pg_enum "
-                "JOIN pg_type ON pg_enum.enumtypid = pg_type.oid "
-                "WHERE pg_type.typname = 'subscriptionstatus'"
-            )
-            existing = {row[0] for row in cur.fetchall()}
-
-            needed = ["requires_action"]
-            for val in needed:
-                if val not in existing:
-                    cur.execute(f"ALTER TYPE subscriptionstatus ADD VALUE '{val}'")
-                    print(f"[MIGRATE] Added '{val}' to subscriptionstatus enum")
-
-            cur.close()
-            raw_conn.close()
-        except Exception as e:
-            print(f"[MIGRATE] Enum migration skipped: {e}")

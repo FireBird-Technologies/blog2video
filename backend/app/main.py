@@ -135,7 +135,7 @@ async def _periodic_paid_tier_cleanup():
             # Clean expired subscription users' projects
             for user_id in user_ids_to_clean:
                 user = db.query(User).filter(User.id == user_id).first()
-                if not user or user.plan == PlanTier.PRO:
+                if not user or user.plan in (PlanTier.PRO, PlanTier.STANDARD):
                     continue  # Skip if they re-subscribed
 
                 stale_projects = (
@@ -178,6 +178,9 @@ async def _periodic_paid_tier_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB, start background tasks."""
+    free_cleanup = None
+    paid_cleanup = None
+
     try:
         print("[STARTUP] Initializing database...")
         init_db()
@@ -186,7 +189,7 @@ async def lifespan(app: FastAPI):
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback
         traceback.print_exc()
-        # Don't raise - let the app start anyway (might be a migration issue)
+        raise
     
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
@@ -200,9 +203,11 @@ async def lifespan(app: FastAPI):
     yield
     
     try:
-        free_cleanup.cancel()
-        paid_cleanup.cancel()
-    except:
+        if free_cleanup:
+            free_cleanup.cancel()
+        if paid_cleanup:
+            paid_cleanup.cancel()
+    except Exception:
         pass
 
 
