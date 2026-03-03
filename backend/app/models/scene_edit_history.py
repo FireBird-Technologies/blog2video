@@ -19,13 +19,13 @@ class SceneEditHistory(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"),
+        ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
     scene_id: Mapped[int] = mapped_column(
-        ForeignKey("scenes.id"),
+        ForeignKey("scenes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -46,8 +46,8 @@ class SceneEditHistory(Base):
         index=True,
     )
 
-    project = relationship("Project")
-    scene = relationship("Scene")
+    scene = relationship("Scene", back_populates="edit_history")
+    project = relationship("Project", back_populates="scene_edit_history")
 
 
 Index("ix_scene_edit_project_scene", SceneEditHistory.project_id, SceneEditHistory.scene_id)
