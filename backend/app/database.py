@@ -53,6 +53,9 @@ def init_db():
         Subscription,
         SubscriptionPlan,
         User,
+        ProjectEditHistory,
+        SceneEditHistory,
+
     )
     from app.models.subscription import seed_plans
 
