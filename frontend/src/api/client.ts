@@ -487,14 +487,31 @@ export interface PipelineStatus {
 export const startGeneration = (id: number) =>
   api.post(`/projects/${id}/generate`);
 
+
 export const getPipelineStatus = (id: number) =>
   api.get<PipelineStatus>(`/projects/${id}/status`);
+
+
+export const bulkUpdateSceneTypography = (
+  projectId: number,
+  data: { title_font_size?: number; description_font_size?: number }
+) =>
+  api.put<Scene[]>(
+    `/projects/${projectId}/bulk-update-scenes`,
+    data
+  );
+
+export const updateProject = (
+  projectId: number,
+  data: { accent_color?: string; bg_color?: string; text_color?: string }
+) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
 export const updateScene = (
   projectId: number,
   sceneId: number,
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
+
 
 export const updateSceneImage = (
   projectId: number,
@@ -563,6 +580,7 @@ export const regenerateScene = (
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
+  
   return api.post<Scene>(
     `/projects/${projectId}/scenes/${sceneId}/regenerate`,
     formData,

@@ -55,7 +55,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
             <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
         
         {/* Bolder, Darker Random Drawings */}
         <g stroke={accentColor} strokeWidth="5" fill="none" opacity="0.85" filter="url(#ink)">

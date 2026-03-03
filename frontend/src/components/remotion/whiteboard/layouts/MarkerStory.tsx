@@ -58,7 +58,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             <feDisplacementMap in="SourceGraphic" in2="warp" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
       <div
