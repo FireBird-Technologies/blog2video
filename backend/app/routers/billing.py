@@ -75,9 +75,10 @@ def list_plans(db: Session = Depends(get_db)):
     return plans
 
 
-# ─── Pro Subscription Checkout ────────────────────────────
+# ─── Pro / Standard Subscription Checkout ─────────────────
 
 class CheckoutRequest(BaseModel):
+    plan: str = "pro"  # "pro" or "standard"
     billing_cycle: str = "monthly"  # "monthly" or "annual"
 
 
@@ -87,19 +88,33 @@ def create_checkout_session(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a Stripe Checkout session for the Pro plan (monthly or annual)."""
-    if user.plan == PlanTier.PRO:
-        raise HTTPException(status_code=400, detail="Already on Pro plan")
-
-    # Pick the right price ID based on billing cycle
-    if body.billing_cycle == "annual":
-        price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
-        if not price_id:
-            raise HTTPException(status_code=400, detail="Annual plan not configured yet")
+    """Create a Stripe Checkout session for Pro or Standard plan."""
+    if body.plan == "standard":
+        if user.plan in (PlanTier.STANDARD):
+            raise HTTPException(status_code=400, detail="Already on Standard plan")
+        if body.billing_cycle == "annual":
+            price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Standard annual plan not configured yet")
+        else:
+            price_id = settings.STRIPE_STANDARD_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Standard plan not configured yet")
+        subscription_type = "standard_subscription"
+        billing_cycle = body.billing_cycle
     else:
-        price_id = settings.STRIPE_PRO_PRICE_ID
-        if not price_id:
-            raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
+        if user.plan == PlanTier.PRO:
+            raise HTTPException(status_code=400, detail="Already on Pro plan")
+        if body.billing_cycle == "annual":
+            price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Annual plan not configured yet")
+        else:
+            price_id = settings.STRIPE_PRO_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
+        subscription_type = "pro_subscription"
+        billing_cycle = body.billing_cycle
 
     # Ensure the user has a Stripe customer
     if not user.stripe_customer_id:
@@ -125,8 +140,9 @@ def create_checkout_session(
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
             "user_id": str(user.id),
-            "type": "pro_subscription",
-            "billing_cycle": body.billing_cycle,
+            "type": subscription_type,
+            "plan": body.plan,
+            "billing_cycle": billing_cycle,
         },
     )
 
@@ -512,19 +528,23 @@ def _handle_checkout_completed(session: dict, db: Session):
                 db.commit()
                 print(f"[BILLING] Per-video credit purchased for user {user_id}")
     else:
-        # Pro subscription checkout
+        # Pro or Standard subscription checkout
         subscription_id = session.get("subscription")
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         if user:
-            user.plan = PlanTier.PRO
+            billing_cycle = metadata.get("billing_cycle", "monthly")
+            if checkout_type == "standard_subscription":
+                plan_slug = "standard_annual" if billing_cycle == "annual" else "standard_monthly"
+                user.plan = PlanTier.STANDARD
+            else:
+                plan_slug = "pro_annual" if billing_cycle == "annual" else "pro_monthly"
+                user.plan = PlanTier.PRO
             user.stripe_subscription_id = subscription_id
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
 
-            # Record the subscription
-            plan = db.query(SubscriptionPlan).filter_by(slug="pro_monthly").first()
+            plan = db.query(SubscriptionPlan).filter_by(slug=plan_slug).first()
             if plan:
-                # Deactivate any previous active subscription for this user
                 db.query(Subscription).filter(
                     Subscription.user_id == user.id,
                     Subscription.status == SubscriptionStatus.ACTIVE,
@@ -552,16 +572,19 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
-        if status in ("active", "trialing"):
-            user.plan = PlanTier.PRO
-        elif status in ("canceled", "unpaid", "past_due"):
+        if status in ("canceled", "unpaid", "past_due"):
             user.plan = PlanTier.FREE
+        # For active/trialing, set plan from existing Subscription record so we don't overwrite Standard with Pro
 
         # Update the Subscription record
         sub = db.query(Subscription).filter_by(
             stripe_subscription_id=stripe_sub_id
         ).first()
         if sub:
+            if status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("standard"):
+                user.plan = PlanTier.STANDARD
+            elif status in ("active", "trialing") and sub.plan and sub.plan.slug.startswith("pro"):
+                user.plan = PlanTier.PRO
             if status in ("active", "trialing"):
                 sub.status = SubscriptionStatus.ACTIVE
             elif status == "past_due":
