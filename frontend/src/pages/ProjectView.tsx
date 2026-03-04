@@ -1531,7 +1531,7 @@ useEffect(() => {
               </div>
               <div className="flex items-center gap-2">
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
-                {hasStudioAccess ? (
+                {/* {hasStudioAccess ? (
                   <button
                     onClick={handleOpenStudio}
                     disabled={downloadingStudio}
@@ -1577,7 +1577,7 @@ useEffect(() => {
                     </svg>
                     Studio
                   </button>
-                )}
+                )} */}
 
                 {/* Download MP4 */}
                 {!rendered ? (
@@ -1722,13 +1722,13 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
-      <UpgradeModal
+      {/* <UpgradeModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature="Remotion Studio"
         projectId={projectId}
         onPurchased={() => loadProject()}
-      />
+      /> */}
 
       {/* Download warning — show before starting download when video is already rendered */}
       {showDownloadWarning && ReactDOM.createPortal(
