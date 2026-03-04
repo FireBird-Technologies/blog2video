@@ -24,3 +24,4 @@ class Scene(Base):
 
     # Relationships
     project = relationship("Project", back_populates="scenes")
+    edit_history = relationship("SceneEditHistory", back_populates="scene", cascade="all, delete-orphan", passive_deletes=True,)

@@ -230,10 +230,24 @@ export const getPublicConfig = () =>
 
 // ─── Billing API ──────────────────────────────────────────
 
-export const createCheckoutSession = (billingCycle: "monthly" | "annual" = "monthly") =>
-  api.post<{ checkout_url: string }>("/billing/checkout", {
-    billing_cycle: billingCycle,
+export type CheckoutPlan = "pro" | "standard";
+
+export const createCheckoutSession = (
+  options:
+    | { plan?: CheckoutPlan; billing_cycle?: "monthly" | "annual" }
+    | "monthly"
+    | "annual"
+    = "monthly"
+) => {
+  const plan =
+    typeof options === "string" ? "pro" : (options?.plan ?? "pro");
+  const billing_cycle =
+    typeof options === "string" ? options : (options?.billing_cycle ?? "monthly");
+  return api.post<{ checkout_url: string }>("/billing/checkout", {
+    plan,
+    billing_cycle,
   });
+};
 
 export const createPerVideoCheckout = (projectId?: number) =>
   api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
@@ -473,14 +487,31 @@ export interface PipelineStatus {
 export const startGeneration = (id: number) =>
   api.post(`/projects/${id}/generate`);
 
+
 export const getPipelineStatus = (id: number) =>
   api.get<PipelineStatus>(`/projects/${id}/status`);
+
+
+export const bulkUpdateSceneTypography = (
+  projectId: number,
+  data: { title_font_size?: number; description_font_size?: number }
+) =>
+  api.put<Scene[]>(
+    `/projects/${projectId}/bulk-update-scenes`,
+    data
+  );
+
+export const updateProject = (
+  projectId: number,
+  data: { accent_color?: string; bg_color?: string; text_color?: string }
+) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
 export const updateScene = (
   projectId: number,
   sceneId: number,
   data: Partial<Scene>
 ) => api.put<Scene>(`/projects/${projectId}/scenes/${sceneId}`, data);
+
 
 export const updateSceneImage = (
   projectId: number,
@@ -549,6 +580,7 @@ export const regenerateScene = (
   formData.append("regenerate_voiceover", regenerateVoiceover ? "true" : "false");
   if (layout) formData.append("layout", layout);
   if (imageFile) formData.append("image", imageFile);
+  
   return api.post<Scene>(
     `/projects/${projectId}/scenes/${sceneId}/regenerate`,
     formData,
@@ -593,15 +625,26 @@ export const fetchVideoBlob = async (id: number): Promise<string> => {
 };
 
 export const downloadVideo = async (id: number, filename?: string) => {
-  const blobUrl = await fetchVideoBlob(id);
-  const a = document.createElement("a");
-  a.href = blobUrl;
-  a.download = filename || "video.mp4";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(blobUrl);
+  try {
+  
+    const res = await api.get(`/projects/${id}/download`);
+
+    const finalR2Url = res.request.responseURL;
+
+    const link = document.createElement("a");
+    link.href = finalR2Url;
+    link.setAttribute("download", filename || "video.mp4");
+    
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+  } catch (err) {
+    // Fallback: If the API call fails, just try a direct browser navigation
+    console.error("Link trigger failed, trying direct window location", err);
+  }
 };
+
 
 export const downloadStudioZip = async (id: number, filename?: string) => {
   const res = await api.get(`/projects/${id}/download-studio`, {

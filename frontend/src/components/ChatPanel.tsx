@@ -10,7 +10,7 @@ interface Props {
 
 export default function ChatPanel({ projectId, onScenesUpdated }: Props) {
   const { user } = useAuth();
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

@@ -95,6 +95,18 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
       >
         <NewsBackground bgColor={bgColor} />
 
+        {/* bgColor tint overlay — mirrors NewsHeadline behaviour */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: bgColor,
+            opacity: 0.45,
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+
         {/* Vintage texture */}
         <img
           src={staticFile("vintage-news.avif")}

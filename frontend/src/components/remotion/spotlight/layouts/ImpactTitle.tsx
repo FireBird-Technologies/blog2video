@@ -14,6 +14,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   narration,
   imageUrl,
   accentColor,
+  textColor,
   bgColor,
   aspectRatio,
   titleFontSize,
@@ -85,7 +86,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
           style={{
             fontSize: titleFontSize ?? (p ? 76 : 118),
             fontWeight: 900,
-            color: "#FFFFFF",
+            color: textColor,
             fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
             textAlign: "center",
             lineHeight: 1.05,
@@ -104,7 +105,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
             style={{
               fontSize: descriptionFontSize ?? (p ? 22 : 26),
               fontWeight: 300,
-              color: "#666666",
+              color: textColor,
               fontFamily: "Arial, sans-serif",
               textAlign: "center",
               marginTop: p ? 20 : 28,

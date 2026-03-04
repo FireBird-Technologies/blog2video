@@ -156,6 +156,32 @@ SEED_PLANS = [
         "sort_order": 1,
     },
     {
+        "slug": "standard_monthly",
+        "name": "Standard Monthly",
+        "description": "30 videos/month with all features",
+        "price_cents": 2500,
+        "billing_interval": BillingInterval.MONTHLY,
+        "video_limit": 30,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STRIPE_STANDARD_PRICE_ID
+        "sort_order": 2,
+    },
+    {
+        "slug": "standard_annual",
+        "name": "Standard Annual",
+        "description": "30 videos/month — save 20% with annual billing",
+        "price_cents": 2000,  # $20/mo effective
+        "billing_interval": BillingInterval.ANNUAL,
+        "video_limit": 30,
+        "includes_studio": True,
+        "includes_chat_editor": True,
+        "includes_priority_support": True,
+        "stripe_price_id": None,  # Set from STRIPE_STANDARD_ANNUAL_PRICE_ID
+        "sort_order": 3,
+    },
+    {
         "slug": "pro_monthly",
         "name": "Pro Monthly",
         "description": "100 videos/month with all features",
@@ -166,7 +192,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_PRO_PRICE_ID
-        "sort_order": 2,
+        "sort_order": 4,
     },
     {
         "slug": "pro_annual",
@@ -179,7 +205,7 @@ SEED_PLANS = [
         "includes_chat_editor": True,
         "includes_priority_support": True,
         "stripe_price_id": None,  # Set from STRIPE_PRO_ANNUAL_PRICE_ID if added
-        "sort_order": 3,
+        "sort_order": 5,
     },
 ]
 
@@ -203,6 +229,8 @@ def seed_plans(db_session) -> None:
     # Map config price IDs to plan slugs (only use real Stripe IDs)
     _stripe_ids = {
         "per_video": settings.STRIPE_PER_VIDEO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PER_VIDEO_PRICE_ID) else None,
+        "standard_monthly": settings.STRIPE_STANDARD_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_PRICE_ID", "")) else None,
+        "standard_annual": settings.STRIPE_STANDARD_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_STANDARD_ANNUAL_PRICE_ID", "")) else None,
         "pro_monthly": settings.STRIPE_PRO_PRICE_ID if _is_real_stripe_id(settings.STRIPE_PRO_PRICE_ID) else None,
         "pro_annual": settings.STRIPE_PRO_ANNUAL_PRICE_ID if _is_real_stripe_id(getattr(settings, "STRIPE_PRO_ANNUAL_PRICE_ID", "")) else None,
     }

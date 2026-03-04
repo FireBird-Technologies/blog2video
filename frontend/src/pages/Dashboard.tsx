@@ -17,6 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
+import UpgradePlanModal from "../components/UpgradePlanModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
@@ -34,6 +35,7 @@ export default function Dashboard() {
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [showBulkUpgradeModal, setShowBulkUpgradeModal] = useState(false);
   const [bulkPendingIds, setBulkPendingIds] = useState<number[]>([]);
   const [bulkStatuses, setBulkStatuses] = useState<
     Record<number, { step?: string; running?: boolean; error?: string; status?: string }>
@@ -67,7 +69,7 @@ export default function Dashboard() {
       }
     }
   }, [searchParams]);
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
   const templatesRequested = searchParams.get("tab") === "templates";
   const [activeTab, setActiveTab] = useState<"projects" | "templates">(
     templatesRequested ? "templates" : "projects"
@@ -187,7 +189,12 @@ export default function Dashboard() {
       }
       navigate("/dashboard");
     } catch (err: any) {
-      if (err?.response?.status === 403) {
+      const detail = err?.response?.data?.detail;
+      const isBulkUpgradeRequired =
+        err?.response?.status === 403 && typeof detail === "object" && detail?.code === "upgrade_required_bulk";
+      if (isBulkUpgradeRequired) {
+        setShowBulkUpgradeModal(true);
+      } else if (err?.response?.status === 403) {
         showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
       } else {
         console.error("Bulk create failed:", err);
@@ -341,6 +348,13 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+
+          <UpgradePlanModal
+            open={showBulkUpgradeModal}
+            onClose={() => setShowBulkUpgradeModal(false)}
+            title="Upgrade to create multiple videos"
+            subtitle="Bulk upload of multiple videos requires a paid plan. Choose a plan below to unlock multi-link creation."
+          />
         </div>
       </div>
     );
@@ -415,6 +429,14 @@ export default function Dashboard() {
           onClose={() => setShowModal(false)}
         />
       )}
+
+      {/* Bulk upgrade modal: free user tried to create more than one video */}
+      <UpgradePlanModal
+        open={showBulkUpgradeModal}
+        onClose={() => setShowBulkUpgradeModal(false)}
+        title="Upgrade to create multiple videos"
+        subtitle="Bulk upload of multiple videos requires a paid plan. Choose a plan below to unlock multi-link creation."
+      />
 
       {/* Delete project confirmation */}
       <DeleteProjectModal

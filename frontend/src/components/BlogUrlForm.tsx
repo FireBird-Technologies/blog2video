@@ -7,7 +7,7 @@ import { BulkLinksSection } from "./BulkLinksSection";
 import { getTemplates, getVoicePreviews,listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem,type CustomTemplateItem } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradeModal from "./UpgradeModal";
-import CustomTemplateUpgradeModal from "./CustomTemplateUpgradeModal";
+import UpgradePlanModal from "./UpgradePlanModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
@@ -224,7 +224,7 @@ function deriveNameFromUrl(url: string): string {
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
   const navigate = useNavigate();
 
   // Wizard step
@@ -452,6 +452,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setStep(2);
     } else if (step === 2) {
       step3EnteredAtRef.current = Date.now();
+      setBulkActiveIndex(0);
       setStep(3);
     }
   };
@@ -503,10 +504,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   };
 
-  const goBack = () => {
-    if (step === 2) setStep(1);
-    else if (step === 3) setStep(2);
-  };
+ const goBack = () => {
+  if (step === 2) {
+    setStep(1);
+    setBulkActiveIndex(0);
+  } 
+  else if (step === 3) {
+    setStep(2);
+    setBulkActiveIndex(0);
+  }
+};
 
   // ─── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2672,9 +2679,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         onClose={() => setShowUpgrade(false)}
         feature="Upgrade"
       />
-      <CustomTemplateUpgradeModal
+      <UpgradePlanModal
         open={showCustomTemplateUpgrade}
         onClose={() => setShowCustomTemplateUpgrade(false)}
+        title="Upgrade to use custom template"
+        subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
       />
     </form>
   );
@@ -2698,9 +2707,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           onClose={() => setShowUpgrade(false)}
           feature="Upgrade"
         />
-        <CustomTemplateUpgradeModal
+        <UpgradePlanModal
           open={showCustomTemplateUpgrade}
           onClose={() => setShowCustomTemplateUpgrade(false)}
+          title="Upgrade to use custom template"
+          subtitle="Your custom template is ready. Upgrade to Pro to use it when creating new videos."
         />
         {videoPreviewId && (
           <TemplateVideoLightbox

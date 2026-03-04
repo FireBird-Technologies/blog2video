@@ -87,7 +87,7 @@ export default function SceneEditor({
     }
   }, [selectedImage]);
 
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
   const aiUsageCount = project.ai_assisted_editing_count || 0;
   const canUseAI = isPro || aiUsageCount < 3;
   const remainingAI = isPro ? "Unlimited" : `${3 - aiUsageCount} remaining`;

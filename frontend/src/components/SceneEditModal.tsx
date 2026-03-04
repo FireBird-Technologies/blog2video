@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
+import UpgradePlanModal from "./UpgradePlanModal";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -399,7 +400,7 @@ export default function SceneEditModal({
     }
   }, [selectedImageFile]);
 
-  const isPro = user?.plan === "pro";
+  const isPro = user?.plan === "pro" || user?.plan === "standard";
   const aiUsageCount = project.ai_assisted_editing_count || 0;
   const canUseAI = isPro || aiUsageCount < 3;
 
@@ -1302,33 +1303,11 @@ export default function SceneEditModal({
       </div>
     </div>
 
-    {showAiImageUpgradeModal && (
-      <div className="fixed inset-0 z-[110] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAiImageUpgradeModal(false)} />
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro feature</h3>
-          <p className="text-sm text-gray-600 mb-6">
-            AI image generation is available on the Pro plan. Upgrade to unlock.
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/pricing")}
-              className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            >
-              Go to pricing
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAiImageUpgradeModal(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              Maybe later
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
+    <UpgradePlanModal
+      open={showAiImageUpgradeModal}
+      onClose={() => setShowAiImageUpgradeModal(false)}
+      projectId={project?.id}
+    />
 
     {/* AI generated image preview popup */}
     {generatedImageBase64 && (

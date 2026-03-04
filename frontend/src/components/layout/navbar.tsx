@@ -24,6 +24,14 @@ const Navbar = () => {
             Pricing
           </Link>
 
+          {/* Blogs link */}
+          <Link
+            to="/blogs"
+            className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
+          >
+            Blogs
+          </Link>
+
           {/* Billing link */}
           <Link
             to="/subscription"

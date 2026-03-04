@@ -57,6 +57,7 @@ const NAV_LINKS = [
   { href: "#how", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/blogs", label: "Blogs" },
 ];
 
 export default function Landing() {
@@ -553,7 +554,7 @@ export default function Landing() {
               {
                 step: "4",
                 title: "Render & share",
-                desc: "Preview instantly, render to MP4, or open Remotion Studio for full creative control.",
+                desc: "Preview instantly, render to MP4 and download or share.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 ),
@@ -600,11 +601,11 @@ export default function Landing() {
                 desc: "Choose from 4 ElevenLabs voices: male or female, British or American. Natural narration that sounds like a professional documentary orator.",
                 tag: null,
               },
-              {
-                title: "Remotion Studio export",
-                desc: "Every frame is a React component. Open the full Remotion Studio to customize animations, timing, colors, and code — total creative control.",
-                tag: "Pro",
-              },
+              // {
+              //   title: "Remotion Studio export",
+              //   desc: "Every frame is a React component. Open the full Remotion Studio to customize animations, timing, colors, and code — total creative control.",
+              //   tag: "Pro",
+              // },
               {
                 title: "AI chat editor",
                 desc: "Tell the AI to rewrite a scene, change tone, add detail, or restructure. Your edits are applied instantly without re-generating the entire video.",
@@ -668,28 +669,34 @@ export default function Landing() {
 
       {/* ─── Pricing preview ─── */}
       <section className="py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center reveal">
+        <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Start free. Pay per video. Or go Pro.
+            Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, $50/month
-            for 100 videos with AI editing and Studio access, or custom plans for enterprise teams.
+            Your first video is free. Then $5/video pay-as-you-go, $25/month
+            (or $20/mo annual), $50/month with unlimited AI edit & image generation,
+            or custom plans for enterprise teams.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
+          <div className="flex flex-row items-center justify-center gap-3 overflow-x-auto pb-2">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
               <p className="text-xs text-gray-400 mt-1">First video free</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px]">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
               <p className="text-3xl font-bold text-gray-900">$5</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px] ring-1 ring-purple-200 relative">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+              <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
+              <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
+            </div>
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 ring-1 ring-purple-200 relative">
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
@@ -697,7 +704,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center min-w-[170px] border-2 border-purple-300">
+            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 border-2 border-purple-300">
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
               <p className="text-3xl font-bold text-gray-900">Custom</p>
               <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
@@ -739,15 +746,48 @@ export default function Landing() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="py-10 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">B2V</div>
-            Blog2Video
+    <footer className="py-4 border-t border-gray-100">
+      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between">
+        
+        {/* Left Side - Logo */}
+        <div className="flex items-center gap-2 text-gray-400 text-xs">
+          <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">
+            B2V
           </div>
-          <p>Powered by DSPy, Remotion, and ElevenLabs</p>
+          <span>Blog2Video</span>
         </div>
-      </footer>
+
+        {/* Right Side - Company Credit + Powered By */}
+        <div className="flex flex-col items-end gap-1">
+          
+          {/* Made By */}
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span>Made by</span>
+
+            <a
+              href="https://firebird-technologies.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-gray-500 font-medium hover:text-purple-600 transition duration-200"
+            >
+              <img
+                src="/Logo-Firebird.webp"
+                alt="Firebird Technologies Logo"
+                className="h-5 object-contain"
+              />
+              FireBirdTech
+            </a>
+          </div>
+
+          {/* Powered By - Smaller */}
+          <p className="text-[10px] text-gray-400">
+            Powered by DSPy, Remotion, and ElevenLabs
+          </p>
+
+        </div>
+
+      </div>
+    </footer>
     </div>
   );
 }

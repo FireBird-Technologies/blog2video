@@ -7,6 +7,7 @@ from app.database import Base
 
 class PlanTier(str, enum.Enum):
     FREE = "free"
+    STANDARD = "standard"
     PRO = "pro"
 
 
@@ -39,7 +40,12 @@ class User(Base):
     @property
     def video_limit(self) -> int:
         """Max videos allowed in the current billing period."""
-        base = 1 if self.plan == PlanTier.FREE else 100  # Free: 1, Pro: 100/month
+        if self.plan == PlanTier.FREE:
+            base = 1
+        elif self.plan == PlanTier.STANDARD:
+            base = 30
+        else:
+            base = 100  # Pro
         return base + (self.video_limit_bonus or 0)
 
     @property
