@@ -16,12 +16,13 @@ from app.models.scene import Scene
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
-    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest
+    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, SceneTypographyBulkUpdate, ProjectUpdate
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
+from app.services.edit_tracker import track_project_edit, track_scene_edit
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
@@ -79,10 +80,10 @@ def create_project(
 
     name = data.name or _name_from_url(data.blog_url)
     template_id = validate_template_id(data.template)
-    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(data.video_style)
@@ -111,6 +112,37 @@ def create_project(
     db.commit()
     db.refresh(project)
     return _inject_custom_theme(project)
+
+
+@router.patch("/{project_id}/update-project", response_model=ProjectOut)
+def update_project(
+    project_id: int,
+    data: ProjectUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+
+    update_data = data.model_dump(exclude_none=True)
+
+    for field, value in update_data.items():
+        old_value = getattr(project, field)
+
+        track_project_edit(
+            db,
+            project_id=project.id,
+            field_name=field,
+            old_value=old_value,
+            new_value=value,
+            is_ai_assisted=False,
+        )
+
+        setattr(project, field, value)
+
+    db.commit()
+    db.refresh(project)
+    return project
+
 
 
 def _apply_logo_to_project(
@@ -169,18 +201,26 @@ def create_projects_bulk(
     if not items:
         raise HTTPException(status_code=400, detail="At least one project is required.")
     needed = len(items)
+    if user.plan == PlanTier.FREE and needed > 1:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "upgrade_required_bulk",
+                "message": "Bulk upload of multiple videos requires a paid plan. Upgrade to create more than one video at a time.",
+            },
+        )
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
             status_code=403,
-            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade or buy more credits.",
+            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade your plan or buy more credits.",
         )
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         for data in items:
             tid = getattr(data, "template", None) or ""
             if tid and str(tid).strip().startswith("custom_"):
                 raise HTTPException(
                     status_code=403,
-                    detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+                    detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
                 )
     logo_indices: list[int] = []
     if logo_indices_json:
@@ -311,10 +351,10 @@ def create_project_from_upload(
     # ── Create project ────────────────────────────────────
     project_name = name or _name_from_files(files)
     template_id = validate_template_id(template)
-    if is_custom_template(template_id) and user.plan != PlanTier.PRO:
+    if is_custom_template(template_id) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="Custom templates require a Pro subscription. Upgrade to use your custom theme.",
+            detail="Custom templates require a Pro or Standard subscription. Upgrade to use your custom theme.",
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
@@ -638,6 +678,14 @@ def delete_asset(
     return {"detail": "Asset deleted"}
 
 
+MANUAL_TRACKED_FIELDS = {
+    "title",
+    "display_text",
+    "remotion_code",
+    "narration_text",
+}
+
+
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneOut)
 def update_scene(
     project_id: int,
@@ -663,6 +711,21 @@ def update_scene(
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
+        if key not in MANUAL_TRACKED_FIELDS:
+            continue
+
+        old_value = getattr(scene, key)
+
+        track_scene_edit(
+            db,
+            project_id=project.id,
+            scene_id=scene.id,
+            field_name=key,
+            old_value=old_value,
+            new_value=value,
+            is_ai_assisted=False,
+        )
+
         setattr(scene, key, value)
 
     db.commit()
@@ -681,6 +744,110 @@ def update_scene(
         print(f"[PROJECTS] Warning: Failed to write remotion data after scene update: {e}")
 
     return scene
+
+@router.put("/{project_id}/bulk-update-scenes", response_model=list[SceneOut])
+def bulk_update_scene_typography(
+    project_id: int,
+    data: SceneTypographyBulkUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update titleFontSize and descriptionFontSize for all scenes in a project."""
+    from app.models.scene import Scene
+    from app.services.remotion import write_remotion_data
+    import json
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scenes = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+
+    for scene in scenes:
+        if not scene.remotion_code:
+            continue
+        try:
+            descriptor = json.loads(scene.remotion_code)
+        except Exception:
+            continue
+
+        layout_props = descriptor.get("layoutProps", {}) or {}
+
+        if data.title_font_size is not None:
+            layout_props["titleFontSize"] = data.title_font_size
+        if data.description_font_size is not None:
+            layout_props["descriptionFontSize"] = data.description_font_size
+
+        descriptor["layoutProps"] = layout_props
+        track_scene_edit(
+                        db,
+                        project_id=project.id,
+                        scene_id=scene.id,
+                        field_name="remotion_code",
+                        old_value=scene.remotion_code,
+                        new_value=json.dumps(descriptor),
+                        is_ai_assisted=False,
+                    )
+        scene.remotion_code = json.dumps(descriptor)
+
+    db.commit()
+
+    # Refresh and sync remotion workspace once after all updates
+    for scene in scenes:
+        db.refresh(scene)
+
+    try:
+        write_remotion_data(project, scenes, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to write remotion data after bulk typography update: {e}")
+
+    return scenes
+
+
+@router.delete("/{project_id}/scenes/{scene_id}", status_code=204)
+def delete_scene(
+    project_id: int,
+    scene_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a scene and renumber remaining scenes. Rebuilds Remotion workspace."""
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    db.delete(scene)
+    db.commit()
+
+    remaining = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id)
+        .order_by(Scene.order)
+        .all()
+    )
+    for i, s in enumerate(remaining, 1):
+        s.order = i
+    db.commit()
+    for s in remaining:
+        db.refresh(s)
+
+    try:
+        rebuild_workspace(project, remaining, db)
+    except Exception as e:
+        print(f"[PROJECTS] Warning: Failed to rebuild workspace after scene delete for project {project_id}: {e}")
+
+    return None
 
 
 @router.post("/{project_id}/scenes/{scene_id}/generate-image")
@@ -705,10 +872,10 @@ def generate_scene_image(
     )
     from app.services.template_service import get_fallback_layout
 
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         raise HTTPException(
             status_code=403,
-            detail="AI image generation is available on the Pro plan. Upgrade to unlock.",
+            detail="AI image generation is available on the Pro or Standard plan. Upgrade to unlock.",
         )
 
     project = _get_user_project(project_id, user.id, db)
@@ -1008,11 +1175,11 @@ async def regenerate_scene(
     project = _get_user_project(project_id, user.id, db)
     
     # Check usage limits
-    if user.plan != PlanTier.PRO:
+    if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         if project.ai_assisted_editing_count >= 3:
             raise HTTPException(
                 status_code=403,
-                detail="AI editing limit reached (3 uses per project). Upgrade to Pro for unlimited AI edits."
+                detail="AI editing limit reached (3 uses per project). Upgrade to Pro or Standard for unlimited AI edits."
             )
     
     scene = (
@@ -1023,13 +1190,16 @@ async def regenerate_scene(
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
     
-    # Determine layout mode: __keep__ = preserve current, None/empty = let AI choose, else = specific layout
+    old_visual_description = scene.visual_description
+    old_display_text = getattr(scene, "display_text", None)
+    old_narration_text = scene.narration_text
+    old_remotion_code = scene.remotion_code
+    
     keep_layout = layout == "__keep__"
     normalized_layout = None
     if layout and not keep_layout:
         valid_layouts = get_valid_layouts(project.template)
-        # Custom templates use hyphenated arrangements (e.g. "split-left"),
-        # built-in templates use underscored layout IDs (e.g. "text_narration").
+
         if is_custom_template(project.template):
             normalized_layout = layout.strip().lower().replace(" ", "-")
         else:
@@ -1040,21 +1210,18 @@ async def regenerate_scene(
                 detail=f"Invalid layout '{layout}'. Valid layouts: {', '.join(sorted(valid_layouts))}"
             )
     
-    # Handle image upload if provided
     image_filename = None
     if image:
-        # Validate file type
+        
         allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
         if image.content_type not in allowed_types:
             raise HTTPException(status_code=400, detail="Image must be PNG, JPEG, or WebP.")
         
-        # Read file content
         MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
         file_bytes = image.file.read()
         if len(file_bytes) > MAX_IMAGE_SIZE:
             raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 5 MB.")
         
-        # Save locally
         image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project_id}/images")
         os.makedirs(image_dir, exist_ok=True)
         
@@ -1065,7 +1232,6 @@ async def regenerate_scene(
         with open(local_path, "wb") as f:
             f.write(file_bytes)
         
-        # Upload to R2 if configured
         r2_key_val = None
         r2_url_val = None
         if r2_storage.is_r2_configured():
@@ -1075,7 +1241,6 @@ async def regenerate_scene(
             except Exception as e:
                 print(f"[REGENERATE] R2 upload failed for {image_filename}: {e}")
         
-        # Create Asset record
         asset = Asset(
             project_id=project_id,
             asset_type=AssetType.IMAGE,
@@ -1088,24 +1253,32 @@ async def regenerate_scene(
         db.add(asset)
         db.flush()
     
-    # Parse description for removal instructions (only if description is provided)
     description_lower = (description or "").lower()
     remove_image = any(phrase in description_lower for phrase in [
         "remove image", "no image", "don't show image", "hide image",
         "without image", "no picture", "remove picture"
     ])
     hide_narration = any(phrase in description_lower for phrase in [
-        "no narration", "don't show narration", "hide narration",
-        "without narration", "remove narration", "no text",
-        "don't display narration", "visualization only"
+        "no display text", "don't show text", "hide text",
+        "without texts", "remove texts", "no text",
+        "don't display text", "visualization only"
     ])
 
-    # Use the provided narration_text form field as DISPLAY TEXT for the scene.
-    # Voiceover continues to be driven from scene.narration_text.
     if hide_narration:
         new_display_text = ""
     elif narration_text and narration_text.strip():
         new_display_text = narration_text.strip()
+        scene.narration_text = narration_text.strip()
+        track_scene_edit(
+                        db,
+                        project_id=project_id,
+                        scene_id=scene.id,
+                        field_name="narration_text",
+                        old_value=old_narration_text,
+                        new_value=scene.narration_text,
+                        is_ai_assisted=True,
+                        user_instruction=narration_text,
+                    )
     else:
         # Prefer existing display_text when present; otherwise fall back to narration_text.
         new_display_text = getattr(scene, "display_text", None) or (scene.narration_text or "")
@@ -1220,18 +1393,69 @@ async def regenerate_scene(
             print(f"[REGENERATE] RESULT: layoutConfig → arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}")
         else:
             print(f"[REGENERATE] RESULT: legacy → layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
-
+        
         scene.visual_description = new_visual_description
+        track_scene_edit(
+                        db,
+                        project_id=project_id,
+                        scene_id=scene.id,
+                        field_name="visual_description",
+                        old_value=old_visual_description,
+                        new_value=new_visual_description,
+                        is_ai_assisted=True,
+                        user_instruction=description,
+                    )
+        
         # Update display_text only; narration_text remains the narration script.
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
+            track_scene_edit(
+                            db,
+                            project_id=project_id,
+                            scene_id=scene.id,
+                            field_name="display_text",
+                            old_value=old_display_text,
+                            new_value=new_display_text,
+                            is_ai_assisted=True,
+                            user_instruction=narration_text,
+                        )
         scene.remotion_code = json.dumps(descriptor)
+        track_scene_edit(
+                        db,
+                        project_id=project_id,
+                        scene_id=scene.id,
+                        field_name="remotion_code",
+                        old_value=old_remotion_code,
+                        new_value=scene.remotion_code,
+                        is_ai_assisted=True,
+                        user_instruction=description,
+                    )
         db.commit()
     else:
         # Keep layout: no AI layout call — just preserve existing descriptor
         scene.visual_description = new_visual_description
+        track_scene_edit(
+                        db,
+                        project_id=project_id,
+                        scene_id=scene.id,
+                        field_name="visual_description",
+                        old_value=old_visual_description,
+                        new_value=new_visual_description,
+                        is_ai_assisted=True,
+                        user_instruction=description,
+                    )
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
+            track_scene_edit(
+                            db,
+                            project_id=project_id,
+                            scene_id=scene.id,
+                            field_name="display_text",
+                            old_value=old_display_text,
+                            new_value=new_display_text,
+                            is_ai_assisted=True,
+                            user_instruction=narration_text,
+                        )
         db.commit()
 
     # Regenerate voiceover only if requested
@@ -1251,13 +1475,24 @@ async def regenerate_scene(
         db.commit()
 
         generate_voiceover(scene, db, use_expanded=False)
+        
+        track_scene_edit(
+                        db,
+                        project_id=project.id,
+                        scene_id=scene.id,
+                        field_name="voiceover",
+                        old_value=None, 
+                        new_value="regenerated",
+                        is_ai_assisted=True,
+                        user_instruction="Regenerated voiceover via API",
+                    )
 
         scene.narration_text = original_narration
         db.commit()
 
     # Increment usage count only when AI was actually used
     used_ai = needs_layout_regen or should_regenerate_voiceover
-    if used_ai and user.plan != PlanTier.PRO:
+    if used_ai and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         project.ai_assisted_editing_count += 1
 
     db.commit()

@@ -95,7 +95,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             <feDisplacementMap in="SourceGraphic" in2="w" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
       <div
@@ -210,26 +210,26 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             />
           </g>
 
-          {/* Center number */}
+          {/* Center number — scale from ring center using translate→scale→untranslate */}
           <text
             x={ringCX}
-            y={ringCY + (p ? 20 : 24)}
+            y={ringCY}
             textAnchor="middle"
             dominantBaseline="middle"
             fill={urgencyRed}
-            fontSize={p ? 90 : 116}
+            fontSize={currentCount > 0 ? (p ? 90 : 116) : (p ? 58 : 74)}
             fontWeight={800}
             fontFamily="'Comic Sans MS', 'Segoe Print', cursive"
             filter="url(#ink)"
-            transform={`scale(${numScale}) translate(${ringCX * (1 - numScale)}, ${ringCY * (1 - numScale)})`}
+            transform={`translate(${ringCX}, ${ringCY}) scale(${numScale}) translate(${-ringCX}, ${-ringCY})`}
           >
             {currentCount > 0 ? currentCount : "GO!"}
           </text>
 
-          {/* Sub-count label: "seconds" */}
+          {/* Sub-count label: "seconds" — sits below center number */}
           <text
             x={ringCX}
-            y={ringCY + (p ? 66 : 82)}
+            y={ringCY + (p ? 58 : 72)}
             textAnchor="middle"
             fill={textColor}
             fontSize={p ? 18 : 22}

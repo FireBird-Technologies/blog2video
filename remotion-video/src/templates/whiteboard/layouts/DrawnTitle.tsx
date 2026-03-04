@@ -1,3 +1,4 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
@@ -21,17 +22,14 @@ const InkDefs: React.FC<{ id?: string }> = ({ id = "ink" }) => (
   </defs>
 );
 
-
 const BrokenGround: React.FC<{ color: string; p: boolean }> = ({ color, p }) => {
   return (
     <svg
       style={{
         position: "absolute",
-        // Positioned slightly above the container base
-        bottom: p ? "7.5%" : "10%", 
+        bottom: p ? "12%" : "10%", 
         left: 0,
         width: "100%",
-        // Height needs to be taller to accommodate the broken fragments
         height: 60,
         overflow: "visible",
       }}
@@ -39,41 +37,23 @@ const BrokenGround: React.FC<{ color: string; p: boolean }> = ({ color, p }) => 
       preserveAspectRatio="none"
     >
       <filter id="brokenGroundInk" x="-10%" y="-10%" width="120%" height="120%">
-        {/* We use a multi-octave noise to create chaotic, unpredictable breakage */}
-        <feTurbulence 
-          type="fractalNoise" 
-          baseFrequency="0.1 0.08" // Higher vertical frequency breaks the line
-          numOctaves="4" 
-          seed="25" 
-          result="crackNoise" 
-        />
-        {/* High scale physically displaces and shatters the path geometry */}
-        <feDisplacementMap 
-          in="SourceGraphic" 
-          in2="crackNoise" 
-          scale="14" // This is the 'breaking' force
-          xChannelSelector="R" 
-          yChannelSelector="G" 
-        />
+        <feTurbulence type="fractalNoise" baseFrequency="0.1 0.08" numOctaves="4" seed="25" result="crackNoise" />
+        <feDisplacementMap in="SourceGraphic" in2="crackNoise" scale="14" xChannelSelector="R" yChannelSelector="G" />
       </filter>
-
-      {/* The thick, marker-style base stroke */}
       <path
         d="M -50,30 Q 250,34 500,30 Q 750,26 1050,30"
         fill="none"
         stroke={color}
-        strokeWidth="16" // HIGH STROKE
+        strokeWidth="16"
         strokeLinecap="round"
-        strokeOpacity="0.4" // Heavy ink marker bleed
+        strokeOpacity="0.4"
         filter="url(#brokenGroundInk)"
       />
-
-      {/* The darker 'core' line for definition */}
       <path
         d="M -50,30 Q 250,34 500,30 Q 750,26 1050,30"
         fill="none"
         stroke={color}
-        strokeWidth="6" 
+        strokeWidth="6"
         strokeLinecap="round"
         strokeOpacity="0.8"
         filter="url(#brokenGroundInk)"
@@ -139,10 +119,18 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           <feComponentTransfer><feFuncA type="linear" slope="0.055" /></feComponentTransfer>
           <feComposite in2="SourceGraphic" operator="over" />
         </filter>
-        <rect width="100%" height="100%" filter="url(#grain)" fill="white" />
+        <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
+        
+        {/* Decorative corner cross-hatches for portrait */}
+        {p && (
+          <g stroke={textColor} strokeWidth="2" strokeOpacity="0.15" filter="url(#ink)">
+            <path d="M40,60 L80,100 M80,60 L40,100" />
+            <path d="M880,880 L920,920 M920,880 L880,920" transform="translate(40, -40)" />
+          </g>
+        )}
       </svg>
 
-      {/* TEXT LAYER: Lower z-index than stickman */}
+      {/* Main Content Area */}
       <div
         style={{
           position: "absolute",
@@ -150,18 +138,19 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: p ? "flex-start" : "center",
           textAlign: "center",
-          padding: p ? "0 10%" : "0 14%",
-          zIndex: 10, 
+          padding: p ? "18% 10% 0 10%" : "0 14%",
+          zIndex: 10,
         }}
       >
+        {/* Title */}
         <div
           style={{
             color: textColor,
             fontWeight: 700,
-            lineHeight: 1.05,
-            fontSize: titleFontSize ?? (p ? 80 : 114),
+            lineHeight: 1.1,
+            fontSize: titleFontSize ?? (p ? 76 : 114),
             letterSpacing: "0.01em",
             filter: "url(#ink)",
           }}
@@ -169,8 +158,16 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           {visibleTitle}
         </div>
 
+        {/* Animated Underline */}
         <svg
-          style={{ width: p ? 440 : 720, maxWidth: "90%", height: 14, marginTop: p ? 14 : 20, overflow: "visible" }}
+          style={{ 
+            width: p ? 380 : 720, 
+            maxWidth: "90%", 
+            height: 14, 
+            marginTop: p ? 30 : 20, 
+            marginBottom: p ? 20 : 0, 
+            overflow: "visible" 
+          }}
           viewBox="0 0 720 14"
           preserveAspectRatio="none"
         >
@@ -201,14 +198,15 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           />
         </svg>
 
+        {/* Narration Text */}
         <div
           style={{
-            marginTop: p ? 18 : 26,
+            marginTop: p ? 30 : 26,
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 30 : 36),
+            fontSize: descriptionFontSize ?? (p ? 34 : 36),
             fontWeight: 500,
             maxWidth: p ? "100%" : "76%",
-            lineHeight: 1.35,
+            lineHeight: 1.45,
             filter: "url(#ink)",
           }}
         >
@@ -216,20 +214,19 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
         </div>
       </div>
 
+      {/* Background/Foreground Grounds */}
       <BrokenGround color={textColor} p={p} />
 
-      {/* STICK FIGURE LAYER: Higher z-index + Left-to-Right movement */}
+      {/* STICK FIGURE: Larger and more prominent in portrait */}
       <svg
-       style={{
+        style={{
           position: "absolute",
-          // ADJUSTED: Raised the container slightly to align the 
-          // feet/legs with the core of the high ground stroke.
-          bottom: p ? "8.5%" : "11.5%", 
-          width: p ? "20%" : "13%",
+          bottom: p ? "12.5%" : "11.5%", 
+          width: p ? "32%" : "13%",
           height: "auto",
           pointerEvents: "none",
-          zIndex: 100, // Above text layer
-          overflow: "visible", 
+          zIndex: 100,
+          overflow: "visible",
         }}
         viewBox="0 0 100 124"
         fill="none"
@@ -239,65 +236,46 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           <feDisplacementMap in="SourceGraphic" in2="w" scale="2.2" />
         </filter>
 
-       {(() => {
+        {(() => {
           const speed = 0.9;
           const cycle = frame * 0.22 * speed;
-
-          // 1. Vertical Bobbing
           const bob = Math.sin(cycle * 2) * 3; 
-          
-          // 2. Movement (Left to Right)
-          const walkX = interpolate(frame, [0, 300], [-20, 120]);
+          const walkX = interpolate(frame, [0, 300], [p ? -40 : -20, p ? 140 : 120]);
 
-          // 3. Large Step Leg Logic
           const getLegPoints = (phaseOffset: number) => {
-            const p = cycle + phaseOffset;
-            // Increased swing from 22 to 35 for larger steps
-            const thighRotation = Math.sin(p) * 32;
-            // Increased knee bend to match the larger stride
-            const kneeRotation = Math.max(0, Math.sin(p - Math.PI / 2)) * 40;
+            const ph = cycle + phaseOffset;
+            const thighRotation = Math.sin(ph) * 32;
+            const kneeRotation = Math.max(0, Math.sin(ph - Math.PI / 2)) * 40;
             return { thighRotation, kneeRotation };
           };
 
           const legL = getLegPoints(0);
           const legR = getLegPoints(Math.PI);
-
-          // 4. Arms (Same opacity, dark/solid)
-          const armSwing = Math.sin(cycle) * 30; // Slightly larger arm swing to match legs
+          const armSwing = Math.sin(cycle) * 30;
 
           return (
-            <g
-              filter="url(#inkFig)"
-              transform={`translate(${walkX}, ${bob})`}
-            >
-              {/* HEAD */}
+            <g filter="url(#inkFig)" transform={`translate(${walkX}, ${bob})`}>
               <circle cx="50" cy="22" r="14" stroke={textColor} strokeWidth="4.5" fill="none" />
-
-              {/* BODY */}
               <line x1="50" y1="38" x2="52" y2="72" stroke={textColor} strokeWidth="4.5" />
-
-              {/* BACK ARM (Full opacity, dark) */}
+              {/* Back Arm */}
               <g transform={`rotate(${-armSwing} 50 48)`}>
                 <line x1="50" y1="48" x2="55" y2="68" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />
                 <line x1="55" y1="68" x2="70" y2="82" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />
               </g>
-
-              {/* LEGS */}
+              {/* Legs */}
               <g transform={`rotate(${legR.thighRotation} 52 72)`}>
                 <line x1="52" y1="72" x2="52" y2="92" stroke={textColor} strokeWidth="4.5" />
                 <g transform={`translate(52, 92) rotate(${legR.kneeRotation})`}>
                   <line x1="0" y1="0" x2="8" y2="22" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />
                 </g>
               </g>
-
               <g transform={`rotate(${legL.thighRotation} 52 72)`}>
                 <line x1="52" y1="72" x2="52" y2="92" stroke={textColor} strokeWidth="4.5" />
                 <g transform={`translate(52, 92) rotate(${legL.kneeRotation})`}>
                   <line x1="0" y1="0" x2="8" y2="22" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />
                 </g>
               </g>
-
-              {/* FRONT ARM (Full opacity, dark) */}
+              {/* Front Arm */}
               <g transform={`rotate(${armSwing} 50 48)`}>
                 <line x1="50" y1="48" x2="55" y2="68" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />
                 <line x1="55" y1="68" x2="70" y2="82" stroke={textColor} strokeWidth="4.5" strokeLinecap="round" />

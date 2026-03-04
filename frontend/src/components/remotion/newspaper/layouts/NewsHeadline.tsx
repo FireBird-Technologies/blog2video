@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
   Img,
+  staticFile,
 } from "remotion";
 import type { BlogLayoutProps } from "../types";
 
@@ -44,6 +45,7 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const disperseStart = durationInFrames - DISPERSE_DURATION;
+  const vintageUrl = staticFile("vintage-news.avif");
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
@@ -102,7 +104,7 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
               position: "absolute",
               inset: 0,
               clipPath: shard.clip,
-              backgroundImage: `url("/vintage-news.avif")`,
+              backgroundImage: `url("${vintageUrl}")`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               transform: `translate(${tx}px, ${ty}px) rotate(${rotate}deg) scale(${scale})`,
@@ -173,6 +175,50 @@ export const NewsHeadline: React.FC<
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <ShatterBackground bgColor={bgColor} />
+      {/* Vintage newspaper texture — staticFile for render */}
+      <img
+        src={staticFile("vintage-news.avif")}
+        alt=""
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+          opacity: 0.2,
+          filter: "grayscale(75%) contrast(1.08)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Newspaper grain overlay — zIndex 1 so it stays behind content (zIndex 2) */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)",
+          backgroundSize: "3px 3px",
+          opacity: 0.4,
+          pointerEvents: "none",
+          mixBlendMode: "multiply",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Single Tilted Image Card */}
 
       {imageUrl && (
         <div
