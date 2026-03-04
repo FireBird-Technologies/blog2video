@@ -513,34 +513,34 @@ export default function ProjectView() {
   const [videoLoading, setVideoLoading] = useState(false);
 
   // Fetch video as blob when project is done — ensures full load, no CORS
-  // useEffect(() => {
-  //   if (project?.status !== "done" || !projectId) {
-  //     if (videoBlobUrl) {
-  //       window.URL.revokeObjectURL(videoBlobUrl);
-  //       setVideoBlobUrl(null);
-  //     }
-  //     return;
-  //   }
-  //   let revoked = false;
-  //   setVideoLoading(true);
-  //   fetchVideoBlob(projectId)
-  //     .then((url) => {
-  //       if (!revoked) {
-  //         setVideoBlobUrl(url);
-  //       } else {
-  //         window.URL.revokeObjectURL(url);
-  //       }
-  //     })
-  //     .catch(() => {
-  //       if (!revoked) setVideoBlobUrl(null);
-  //     })
-  //     .finally(() => {
-  //       if (!revoked) setVideoLoading(false);
-  //     });
-  //   return () => {
-  //     revoked = true;
-  //   };
-  // }, [project?.status, projectId]);
+  useEffect(() => {
+    if (project?.status !== "done" || !projectId) {
+      if (videoBlobUrl) {
+        window.URL.revokeObjectURL(videoBlobUrl);
+        setVideoBlobUrl(null);
+      }
+      return;
+    }
+    let revoked = false;
+    setVideoLoading(true);
+    fetchVideoBlob(projectId)
+      .then((url) => {
+        if (!revoked) {
+          setVideoBlobUrl(url);
+        } else {
+          window.URL.revokeObjectURL(url);
+        }
+      })
+      .catch(() => {
+        if (!revoked) setVideoBlobUrl(null);
+      })
+      .finally(() => {
+        if (!revoked) setVideoLoading(false);
+      });
+    return () => {
+      revoked = true;
+    };
+  }, [project?.status, projectId]);
 
   // Revoke blob URL on unmount
   useEffect(() => {
@@ -552,58 +552,54 @@ export default function ProjectView() {
   }, [videoBlobUrl]);
 
  // Auto-download once render finishes
-// useEffect(() => {
-//   // 1. Only run if rendered is true and we haven't auto-downloaded yet
-//   if (!autoDownloadRef.current || !rendered || !project) return;
+useEffect(() => {
+  // 1. Only run if rendered is true and we haven't auto-downloaded yet
+  if (!autoDownloadRef.current || !rendered || !project) return;
 
-//   console.log("autoDownload triggered", autoDownloadRef.current);
+  const tryAutoDownload = async () => {
+    let currentProject = project;
+    let attempts = 0;
+    const maxAttempts = 6;
 
-//   const tryAutoDownload = async () => {
+    while (attempts < maxAttempts) {
+      // 2. Check if we actually have the URL yet
+      if (currentProject.r2_video_url) {
+        try {
+          // IMPORTANT: Use the native link method, NOT the axios-based downloadVideo
+          const safeName = currentProject.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+          const cacheBuster = `?v=${new Date().getTime()}`;
+          const finalUrl = currentProject.r2_video_url + cacheBuster;
 
-//     console.log("Function called!")
-//     let currentProject = project;
-//     let attempts = 0;
-//     const maxAttempts = 6;
-
-//     while (attempts < maxAttempts) {
-//       // 2. Check if we actually have the URL yet
-//       if (currentProject.r2_video_url) {
-//         try {
-//           // IMPORTANT: Use the native link method, NOT the axios-based downloadVideo
-//           const safeName = currentProject.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
-//           const cacheBuster = `?v=${new Date().getTime()}`;
-//           const finalUrl = currentProject.r2_video_url + cacheBuster;
-
-//           const link = document.createElement("a");
-//           link.href = finalUrl;
-//           link.setAttribute("download", `${safeName}.mp4`);
-//           // Use target _blank to handle cases where download attribute is ignored
-//           link.target = "_blank"; 
+          const link = document.createElement("a");
+          link.href = finalUrl;
+          link.setAttribute("download", `${safeName}.mp4`);
+          // Use target _blank to handle cases where download attribute is ignored
+          link.target = "_blank"; 
           
-//           document.body.appendChild(link);
-//           link.click();
-//           document.body.removeChild(link);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
 
-//           autoDownloadRef.current = false;
-//           return;
-//         } catch (err) {
-//           console.error("Auto-download trigger failed", err);
-//         }
-//       }
+          autoDownloadRef.current = false;
+          return;
+        } catch (err) {
+          console.error("Auto-download trigger failed", err);
+        }
+      }
 
-//       attempts++;
-//       if (attempts < maxAttempts) {
-//         await new Promise((r) => setTimeout(r, 2000));
-//         const updated = await loadProject(); 
-//         if (updated) currentProject = updated;
-//       }
-//     }
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const updated = await loadProject(); 
+        if (updated) currentProject = updated;
+      }
+    }
 
-//     autoDownloadRef.current = false; 
-//   };
+    autoDownloadRef.current = false; 
+  };
 
-//   // tryAutoDownload();
-// }, [rendered, project?.r2_video_url]); 
+  tryAutoDownload();
+}, [rendered, project?.r2_video_url]); 
 
   const loadProject = useCallback(async () => {
     try {
@@ -768,9 +764,6 @@ export default function ProjectView() {
     }
 
     const res = RENDER_RESOLUTION;
-    // Reset render state so auto-download triggers when we flip rendered -> true again
-    setRendered(false);
-    autoDownloadRef.current = false;
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
@@ -781,7 +774,6 @@ export default function ProjectView() {
 
     const startRenderAndPoll = async (res: string) => {
       try {
-        console.log("rendering started")
         await renderVideo(projectId, res, forceReRender);
       } catch (err: any) {
         // If this is a retry, keep going; otherwise show error
@@ -869,14 +861,12 @@ export default function ProjectView() {
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
-            console.log("rendering completed")
 
             // Also open the video URL directly in a new tab as a fallback
             // in case the blob download is blocked by popup settings
             const freshProject = await loadProject();
             const directUrl = freshProject?.r2_video_url;
             if (directUrl) {
-              console.log("downloading")
               window.open(directUrl, "_blank", "noopener,noreferrer");
             }
           }
@@ -1541,7 +1531,7 @@ export default function ProjectView() {
               </div>
               <div className="flex items-center gap-2">
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
-                {/* {hasStudioAccess ? (
+                {hasStudioAccess ? (
                   <button
                     onClick={handleOpenStudio}
                     disabled={downloadingStudio}
@@ -1587,7 +1577,7 @@ export default function ProjectView() {
                     </svg>
                     Studio
                   </button>
-                )} */}
+                )}
 
                 {/* Download MP4 */}
                 {!rendered ? (
@@ -1732,13 +1722,13 @@ export default function ProjectView() {
 
   return (
     <div className="space-y-6">
-      {/* <UpgradeModal
+      <UpgradeModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature="Remotion Studio"
         projectId={projectId}
         onPurchased={() => loadProject()}
-      /> */}
+      />
 
       {/* Download warning — show before starting download when video is already rendered */}
       {showDownloadWarning && ReactDOM.createPortal(

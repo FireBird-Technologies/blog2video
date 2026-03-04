@@ -69,15 +69,14 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           flexDirection: hasImage && !p ? "row" : "column",
           alignItems: hasImage && !p ? "stretch" : "center",
           justifyContent: "center",
-          gap: hasImage ? (p ? 40 : 28) : 0, // Increased gap for portrait
-          padding: p ? "18% 10%" : "6% 7%", // Added more top padding for portrait
+          gap: hasImage ? (p ? 20 : 28) : 0,
+          padding: p ? "8% 8%" : "6% 7%",
         }}
       >
         <div
           style={{
             flex: hasImage && !p ? "1 1 56%" : "none",
             width: hasImage && p ? "100%" : "auto",
-            zIndex: 2,
           }}
         >
           {/* Title with clip reveal */}
@@ -144,25 +143,12 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             />
           </svg>
 
-          {/* Portrait extra: Hand-drawn separator line */}
-          {p && (
-            <svg width="100%" height="40" style={{ marginTop: 20, opacity: doodleOp * 0.4 }}>
-              <path 
-                d="M 10,20 Q 50,10 100,20 T 200,20 T 300,20" 
-                fill="none" 
-                stroke={textColor} 
-                strokeWidth="2" 
-                strokeDasharray="10 15"
-              />
-            </svg>
-          )}
-
           {/* Body text with clip reveal */}
           <div
             style={{
-              marginTop: p ? 10 : 22,
-              fontSize: descriptionFontSize ?? (p ? 34 : 40),
-              lineHeight: 1.3,
+              marginTop: 22,
+              fontSize: descriptionFontSize ?? (p ? 30 : 40),
+              lineHeight: 1.25,
               maxWidth: p ? "100%" : 820,
               position: "relative",
               color: textColor,
@@ -187,15 +173,12 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             style={{
               flex: p ? "none" : "0 0 36%",
               width: p ? "100%" : "auto",
-              height: p ? 500 : "auto", // Specific height for portrait
-              minHeight: p ? 350 : 420,
+              minHeight: p ? 280 : 420,
               border: "4px solid rgba(0,0,0,0.45)",
               borderRadius: 16,
               overflow: "hidden",
               backgroundColor: "rgba(255,255,255,0.7)",
               boxShadow: "0 8px 26px rgba(0,0,0,0.14)",
-              position: "relative",
-              zIndex: 2,
             }}
           >
             <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -203,23 +186,13 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
         )}
       </div>
 
-      {/* Background filler for Portrait: Big Rough Circle/Splatter */}
-      {p && (
-        <svg
-          style={{ position: "absolute", top: "45%", right: "-10%", width: "60%", opacity: 0.1, pointerEvents: "none" }}
-          viewBox="0 0 200 200"
-        >
-          <circle cx="100" cy="100" r="80" fill={accentColor} filter="url(#inkDoodle)" />
-        </svg>
-      )}
-
-      {/* Decorative marker doodles */}
+      {/* Decorative marker doodles — bottom left corner */}
       <svg
         style={{
           position: "absolute",
-          bottom: p ? 40 : 80,
-          left: p ? 20 : 50,
-          width: p ? "45%" : "22%",
+          bottom: 80,
+          left: 50,
+          width: p ? "30%" : "22%",
           height: "auto",
           pointerEvents: "none",
         }}
@@ -253,20 +226,6 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             strokeDasharray={doodleDash}
             strokeDashoffset={doodleOff}
           />
-          
-          {/* Portrait extra: "Notes" text doodle */}
-          {p && (
-            <text 
-              x="20" y="40" 
-              fill={textColor} 
-              fontSize="24" 
-              opacity={doodleOp * 0.3} 
-              style={{ fontWeight: "bold", transform: "rotate(-5deg)" }}
-            >
-              IMPORTANT!
-            </text>
-          )}
-
           {/* Arrow */}
           <path
             d="M150,160 Q210,140 240,150"
@@ -300,7 +259,8 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           {/* Stars */}
           <path d="M30,100 L32,88 L40,96 L28,92 L44,90 Z" stroke={accentColor} strokeWidth="2.5" fill="none" strokeDasharray={doodleDash} strokeDashoffset={doodleOff} />
           <path d="M240,80 L242,70 L248,78 L238,74 L252,72 Z" stroke={textColor} strokeWidth="2" fill="none" strokeDasharray={doodleDash} strokeDashoffset={doodleOff} />
-          
+          {/* Stars cluster */}
+
           {/* Star 3 */}
           <path
             d="M120,90 L122,80 L130,88 L118,84 L134,82 Z"
@@ -342,17 +302,6 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           />
         </g>
       </svg>
-      
-      {/* Top Right Portrait Doodle Cluster */}
-      {p && (
-        <svg
-          style={{ position: "absolute", top: 40, right: 30, width: "20%", height: "auto", opacity: doodleOp }}
-          viewBox="0 0 100 100"
-        >
-           <circle cx="50" cy="50" r="30" stroke={accentColor} strokeWidth="2" fill="none" strokeDasharray="5 5" />
-           <path d="M40,40 L60,60 M60,40 L40,60" stroke={textColor} strokeWidth="2" />
-        </svg>
-      )}
     </AbsoluteFill>
   );
 };
