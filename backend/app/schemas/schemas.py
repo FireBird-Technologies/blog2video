@@ -23,6 +23,11 @@ class ProjectCreate(BaseModel):
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
 
 
+class ProjectUpdate(BaseModel):
+    accent_color: Optional[str] = None
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
+
 class SceneOut(BaseModel):
     id: int
     project_id: int
@@ -164,6 +169,10 @@ class ProjectListOut(BaseModel):
 
 
 # ─── Scene Update ──────────────────────────────────────────
+
+class SceneTypographyBulkUpdate(BaseModel):
+    title_font_size: Optional[int] = None
+    description_font_size: Optional[int] = None
 
 class SceneUpdate(BaseModel):
     title: Optional[str] = None

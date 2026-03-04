@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import ReactDOM from "react-dom";
+import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   getProject,
@@ -26,6 +27,8 @@ import {
   Project,
   Scene,
   BACKEND_URL,
+  bulkUpdateSceneTypography,
+  updateProject
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -40,7 +43,7 @@ import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
 
-type Tab = "script" | "scenes" | "images" | "audio";
+type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
@@ -321,6 +324,29 @@ export default function ProjectView() {
   const [logoSize, setLogoSize] = useState<number>(100);
   const [logoOpacity, setLogoOpacity] = useState<number>(0.9);
 
+  const [globalTitleSize, setGlobalTitleSize] = useState(60);
+  const [globalDescSize, setGlobalDescSize] = useState(32);
+  const [savingGlobalTypography, setSavingGlobalTypography] = useState(false);
+
+  const [settingsAccentColor, setSettingsAccentColor] = useState("#7C3AED");
+  const [settingsBgColor, setSettingsBgColor] = useState("#FFFFFF");
+  const [settingsTextColor, setSettingsTextColor] = useState("#000000");
+  const [savingColors, setSavingColors] = useState(false);
+
+
+  useEffect(() => {
+    if (project) {
+      setLogoPosition(project.logo_position || "bottom_right");
+      setLogoSize(typeof project.logo_size === "number" ? project.logo_size : 100);
+      setLogoOpacity(project.logo_opacity ?? 0.9);
+      // ADD THESE:
+      setSettingsAccentColor(project.accent_color || "#7C3AED");
+      setSettingsBgColor(project.bg_color || "#FFFFFF");
+      setSettingsTextColor(project.text_color || "#000000");
+    }
+  }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
+      project?.accent_color, project?.bg_color, project?.text_color]);
+
   useEffect(() => {
     if (project) {
       setLogoPosition(project.logo_position || "bottom_right");
@@ -341,6 +367,7 @@ export default function ProjectView() {
 
   // Render state
   const [rendering, setRendering] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
   const [saving, setSaving] = useState(false); // "Saving to cloud" after render completes
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -487,34 +514,34 @@ export default function ProjectView() {
   const [videoLoading, setVideoLoading] = useState(false);
 
   // Fetch video as blob when project is done — ensures full load, no CORS
-  useEffect(() => {
-    if (project?.status !== "done" || !projectId) {
-      if (videoBlobUrl) {
-        window.URL.revokeObjectURL(videoBlobUrl);
-        setVideoBlobUrl(null);
-      }
-      return;
-    }
-    let revoked = false;
-    setVideoLoading(true);
-    fetchVideoBlob(projectId)
-      .then((url) => {
-        if (!revoked) {
-          setVideoBlobUrl(url);
-        } else {
-          window.URL.revokeObjectURL(url);
-        }
-      })
-      .catch(() => {
-        if (!revoked) setVideoBlobUrl(null);
-      })
-      .finally(() => {
-        if (!revoked) setVideoLoading(false);
-      });
-    return () => {
-      revoked = true;
-    };
-  }, [project?.status, projectId]);
+  // useEffect(() => {
+  //   if (project?.status !== "done" || !projectId) {
+  //     if (videoBlobUrl) {
+  //       window.URL.revokeObjectURL(videoBlobUrl);
+  //       setVideoBlobUrl(null);
+  //     }
+  //     return;
+  //   }
+  //   let revoked = false;
+  //   setVideoLoading(true);
+  //   fetchVideoBlob(projectId)
+  //     .then((url) => {
+  //       if (!revoked) {
+  //         setVideoBlobUrl(url);
+  //       } else {
+  //         window.URL.revokeObjectURL(url);
+  //       }
+  //     })
+  //     .catch(() => {
+  //       if (!revoked) setVideoBlobUrl(null);
+  //     })
+  //     .finally(() => {
+  //       if (!revoked) setVideoLoading(false);
+  //     });
+  //   return () => {
+  //     revoked = true;
+  //   };
+  // }, [project?.status, projectId]);
 
   // Revoke blob URL on unmount
   useEffect(() => {
@@ -525,34 +552,59 @@ export default function ProjectView() {
     };
   }, [videoBlobUrl]);
 
-  // Auto-download once render finishes (with retry in case R2 upload is still in progress)
-  useEffect(() => {
-    if (!autoDownloadRef.current || !rendered || !project || downloading) return;
-    autoDownloadRef.current = false;
+ // Auto-download once render finishes
+// useEffect(() => {
+//   // 1. Only run if rendered is true and we haven't auto-downloaded yet
+//   if (!autoDownloadRef.current || !rendered || !project) return;
 
-    const safeName =
-      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+//   console.log("autoDownload triggered", autoDownloadRef.current);
 
-    let attempts = 0;
-    const maxAttempts = 6; // ~12 seconds of retrying
+//   const tryAutoDownload = async () => {
 
-    const tryDownload = async () => {
-      while (attempts < maxAttempts) {
-        try {
-          await downloadVideo(projectId, `${safeName}.mp4`);
-          return; // success
-        } catch {
-          attempts++;
-          if (attempts < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 2000));
-            // Refresh project to pick up r2_video_url
-            await loadProject();
-          }
-        }
-      }
-    };
-    tryDownload();
-  }, [rendered]); // eslint-disable-line react-hooks/exhaustive-deps
+//     console.log("Function called!")
+//     let currentProject = project;
+//     let attempts = 0;
+//     const maxAttempts = 6;
+
+//     while (attempts < maxAttempts) {
+//       // 2. Check if we actually have the URL yet
+//       if (currentProject.r2_video_url) {
+//         try {
+//           // IMPORTANT: Use the native link method, NOT the axios-based downloadVideo
+//           const safeName = currentProject.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+//           const cacheBuster = `?v=${new Date().getTime()}`;
+//           const finalUrl = currentProject.r2_video_url + cacheBuster;
+
+//           const link = document.createElement("a");
+//           link.href = finalUrl;
+//           link.setAttribute("download", `${safeName}.mp4`);
+//           // Use target _blank to handle cases where download attribute is ignored
+//           link.target = "_blank"; 
+          
+//           document.body.appendChild(link);
+//           link.click();
+//           document.body.removeChild(link);
+
+//           autoDownloadRef.current = false;
+//           return;
+//         } catch (err) {
+//           console.error("Auto-download trigger failed", err);
+//         }
+//       }
+
+//       attempts++;
+//       if (attempts < maxAttempts) {
+//         await new Promise((r) => setTimeout(r, 2000));
+//         const updated = await loadProject(); 
+//         if (updated) currentProject = updated;
+//       }
+//     }
+
+//     autoDownloadRef.current = false; 
+//   };
+
+//   // tryAutoDownload();
+// }, [rendered, project?.r2_video_url]); 
 
   const loadProject = useCallback(async () => {
     try {
@@ -721,6 +773,9 @@ export default function ProjectView() {
     }
 
     const res = RENDER_RESOLUTION;
+    // Reset render state so auto-download triggers when we flip rendered -> true again
+    setRendered(false);
+    autoDownloadRef.current = false;
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
@@ -731,6 +786,7 @@ export default function ProjectView() {
 
     const startRenderAndPoll = async (res: string) => {
       try {
+        console.log("rendering started")
         await renderVideo(projectId, res, forceReRender);
         onRenderStarted?.();
       } catch (err: any) {
@@ -820,12 +876,14 @@ export default function ProjectView() {
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
+            console.log("rendering completed")
 
             // Also open the video URL directly in a new tab as a fallback
             // in case the blob download is blocked by popup settings
             const freshProject = await loadProject();
             const directUrl = freshProject?.r2_video_url;
             if (directUrl) {
+              console.log("downloading")
               window.open(directUrl, "_blank", "noopener,noreferrer");
             }
           }
@@ -839,34 +897,68 @@ export default function ProjectView() {
   };
 
   const handleDownload = async () => {
-    if (!project) return;
+    if (!project || !project.r2_video_url) {
+      showError("Video URL not found. Please wait for rendering to finish.");
+      return;
+    }
+
     setDownloading(true);
     setHasError(false);
-    const safeName =
-      project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
 
-    // Retry a few times in case R2 upload is still finishing
-    let attempts = 0;
-    const maxAttempts = 4;
-    while (attempts < maxAttempts) {
-      try {
-        await downloadVideo(projectId, `${safeName}.mp4`);
-        setDownloading(false);
-        return;
-      } catch (err: any) {
-        attempts++;
-        const status = err?.response?.status;
-        // 202 = still processing, 404 = not ready yet — retry
-        if ((status === 202 || status === 404) && attempts < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 2000));
-          await loadProject();
-          continue;
-        }
-        showError(getErrorMessage(err, "Download failed. try again or contact support if the issue persist.")); setHasError(true);
-        break;
-      }
+    try {
+      // 1. Generate the filename
+      const safeName = project.name?.replace(/\s+/g, "_").slice(0, 50) || "video";
+      
+      // 2. Use the R2 URL from your project object
+      // We add a timestamp to ensure the browser doesn't serve a cached old version
+      const cacheBuster = `?v=${new Date(project.updated_at).getTime()}`;
+      const finalUrl = project.r2_video_url + cacheBuster;
+
+      // 3. Trigger a Native Browser Download
+      // This bypasses Axios/Fetch and avoids the "Network Error" CORS block
+      const link = document.createElement("a");
+      link.href = finalUrl;
+      link.setAttribute("download", `${safeName}.mp4`);
+      
+      // For cross-origin downloads to work correctly with the 'download' attribute,
+      // the R2 bucket must have the correct CORS headers (see below).
+      link.target = "_blank"; 
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setDownloading(false);
+    } catch (err: any) {
+      console.error("Download trigger failed:", err);
+      showError("Could not start download. Try right-clicking the video and 'Save As'.");
+      setHasError(true);
+      setDownloading(false);
     }
-    setDownloading(false);
+  };
+
+
+  const handleCopyDownloadLink = async () => {
+    try {
+      if (!project?.r2_video_url) {
+        setCopyStatus("error");
+        return;
+      }
+
+      await navigator.clipboard.writeText(project.r2_video_url);
+      setCopyStatus("success");
+
+      setTimeout(() => {
+        setCopyStatus("idle");
+      }, 2500);
+    } catch (err) {
+      console.error("Copy failed", err);
+      setCopyStatus("error");
+
+      setTimeout(() => {
+        setCopyStatus("idle");
+      }, 2500);
+    }
   };
 
   const handleOpenStudio = async () => {
@@ -951,6 +1043,7 @@ export default function ProjectView() {
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
     { id: "scenes", label: "Scenes" },
+    { id: "settings", label: "Settings" },
   ];
 
   const pipelineComplete = ["generated", "rendering", "done"].includes(
@@ -1455,7 +1548,7 @@ export default function ProjectView() {
               </div>
               <div className="flex items-center gap-2">
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
-                {hasStudioAccess ? (
+                {/* {hasStudioAccess ? (
                   <button
                     onClick={handleOpenStudio}
                     disabled={downloadingStudio}
@@ -1501,7 +1594,7 @@ export default function ProjectView() {
                     </svg>
                     Studio
                   </button>
-                )}
+                )} */}
 
                 {/* Download MP4 */}
                 {!rendered ? (
@@ -1646,27 +1739,66 @@ export default function ProjectView() {
 
   return (
     <div className="space-y-6">
-      <UpgradeModal
+      {/* <UpgradeModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature="Remotion Studio"
         projectId={projectId}
         onPurchased={() => loadProject()}
-      />
+      /> */}
 
       {/* Download warning — show before starting download when video is already rendered */}
       {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowDownloadWarning(false); setRenderConfirmLoading(false); }} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
               {downloadWarningMode === "download"
-                ? "This link will download the video before changes applied (if any). To reflect the newest changes (if any), choose Re-render."
-                : "Changes made after rendering would require re-rendering of video, resulting in deduction of a video count."}
+                ? "This download may not include your most recent edits. To ensure all changes are reflected, please re-render the video before downloading."
+                : "Make sure You have made all the changes. Re-rendering of video will result in deduction of a video count."}
             </p>
+
+
+            {downloadWarningMode === "download" && (
+              <div className="mb-5 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Having trouble downloading? Copy the link and paste it into a new browser tab.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyDownloadLink}
+                    className={`flex items-center gap-1 text-xs font-medium transition ${
+                      copyStatus === "success"
+                        ? "text-green-600"
+                        : copyStatus === "error"
+                        ? "text-red-600"
+                        : "text-blue-600 hover:text-blue-700"
+                    }`}
+                  >
+                    {copyStatus === "success" ? (
+                      <>
+                        ✓ Copied
+                      </>
+                    ) : copyStatus === "error" ? (
+                      <>
+                        ⚠ Failed
+                      </>
+                    ) : (
+                      <>
+                        🔗 Copy 
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+
             <div className="flex gap-3">
               <button
                 type="button"
@@ -1897,13 +2029,15 @@ export default function ProjectView() {
               </p>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-baseline gap-4 mb-2">
-                  <h2 className="text-base font-medium text-gray-900">
-                    {project.name}
-                  </h2>
-                  <span className="text-xs text-gray-400">
-                    {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
-                  </span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-baseline gap-4">
+                    <h2 className="text-base font-medium text-gray-900">
+                      {project.name}
+                    </h2>
+                    <span className="text-xs text-gray-400">
+                      {project.scenes.length} scenes — {imageAssets.length} images. Drag to reorder.
+                    </span>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -2484,6 +2618,155 @@ export default function ProjectView() {
             )}
           </div>
         )}
+
+       {activeTab === "settings" && (
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
+            <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
+            <div className="glass-card p-6 flex flex-col gap-6">
+              <div>
+                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                  <span>Title font size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalTitleSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={20}
+                  max={200}
+                  step={1}
+                  value={globalTitleSize}
+                  onChange={(e) => setGlobalTitleSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                  <span>Display text size</span>
+                  <span className="text-purple-600 font-semibold tabular-nums">{globalDescSize}</span>
+                </label>
+                <input
+                  type="range"
+                  min={12}
+                  max={80}
+                  step={1}
+                  value={globalDescSize}
+                  onChange={(e) => setGlobalDescSize(Number(e.target.value))}
+                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
+                />
+              </div>
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingGlobalTypography}
+                  onClick={async () => {
+                    setSavingGlobalTypography(true);
+                    try {
+                      await bulkUpdateSceneTypography(project.id, {
+                        title_font_size: globalTitleSize,
+                        description_font_size: globalDescSize,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to update typography."));
+                    } finally {
+                      setSavingGlobalTypography(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingGlobalTypography ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Applying…
+                    </>
+                  ) : (
+                    "Apply to all Scenes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Colors</h2>
+            <p className="text-xs text-gray-400 mb-5">Theme colors applied across all scenes.</p>
+            <div className="glass-card p-6 flex flex-col gap-5">
+              {(
+                [
+                  { label: "Accent color", value: settingsAccentColor, setter: setSettingsAccentColor, hint: "Buttons, highlights, and brand color" },
+                  { label: "Text color", value: settingsTextColor, setter: setSettingsTextColor, hint: "Primary on-screen text" },
+                  { label: "Background color", value: settingsBgColor, setter: setSettingsBgColor, hint: "Scene background" },
+                ] as const
+              ).map(({ label, value, setter, hint }) => (
+                <div key={label} className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-700">{label}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div
+                      className="w-8 h-8 rounded-lg border border-gray-200 shadow-sm cursor-pointer overflow-hidden"
+                      style={{ backgroundColor: value }}
+                      onClick={() => (document.getElementById(`color-input-${label}`) as HTMLInputElement)?.click()}
+                    >
+                      <input
+                        id={`color-input-${label}`}
+                        type="color"
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        className="opacity-0 w-full h-full cursor-pointer"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) setter(v);
+                      }}
+                      className="w-24 px-2 py-1.5 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300 bg-white"
+                      placeholder="#000000"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingColors}
+                  onClick={async () => {
+                    setSavingColors(true);
+                    try {
+                      await updateProject(project.id, {
+                        accent_color: settingsAccentColor,
+                        bg_color: settingsBgColor,
+                        text_color: settingsTextColor,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save colors."));
+                    } finally {
+                      setSavingColors(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingColors ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save colors"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
         {activeTab === "images" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
