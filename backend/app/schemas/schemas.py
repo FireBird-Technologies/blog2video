@@ -219,6 +219,7 @@ class RenderResponse(BaseModel):
 class CustomVoiceCreate(BaseModel):
     voice_id: str
     source: str  # "prompt" | "form"
+    name: Optional[str] = None  # user-provided name; if missing, backend uses "Generated N"
     prompt_text: Optional[str] = None
     response: Optional[dict] = None  # full API response, stored as JSON
     form_gender: Optional[str] = None
@@ -257,6 +258,7 @@ class SavedVoiceCreate(BaseModel):
     preview_url: Optional[str] = None
     audio_base64: Optional[str] = None
     source: Optional[str] = "custom"  # "custom" | "prebuilt"
+    plan: Optional[str] = None  # "free" | "paid" for prebuilt (ElevenLabs)
     gender: Optional[str] = None
     accent: Optional[str] = None
     description: Optional[str] = None
@@ -270,6 +272,7 @@ class SavedVoiceOut(BaseModel):
     preview_url: Optional[str] = None
     audio_base64: Optional[str] = None
     source: str = "custom"
+    plan: Optional[str] = None
     gender: Optional[str] = None
     accent: Optional[str] = None
     description: Optional[str] = None

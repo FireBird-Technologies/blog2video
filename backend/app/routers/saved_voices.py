@@ -31,14 +31,32 @@ def create_saved_voice(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Save a voice for the current user (from My Voices add flow). Optionally link to a custom_voice."""
+    """Save a voice for the current user (from My Voices add flow). Optionally link to a custom_voice.
+    When linking to a custom_voice, use its preview_url instead of storing audio_base64.
+    """
+    preview_url = (data.preview_url or "").strip() or None
+    audio_base64 = data.audio_base64
+    voice_id = data.voice_id.strip()
+    custom = None
+    if data.custom_voice_id:
+        custom = (
+            db.query(CustomVoice)
+            .filter(CustomVoice.id == data.custom_voice_id, CustomVoice.user_id == user.id)
+            .first()
+        )
+        if custom:
+            voice_id = custom.voice_id  # use permanent voice_id for TTS
+            if custom.preview_url:
+                preview_url = custom.preview_url
+                audio_base64 = None  # prefer preview URL from custom voice
     voice = SavedVoice(
         user_id=user.id,
-        voice_id=data.voice_id.strip(),
+        voice_id=voice_id,
         name=(data.name or "").strip() or "My voice",
-        preview_url=(data.preview_url or "").strip() or None,
-        audio_base64=data.audio_base64 or None,
+        preview_url=preview_url,
+        audio_base64=audio_base64 if not preview_url else None,  # store preview URL instead of base64 when we have it
         source=(data.source or "custom").strip() or "custom",
+        plan=(data.plan or "").strip() or None,
         gender=(data.gender or "").strip() or None,
         accent=(data.accent or "").strip() or None,
         description=(data.description or "").strip() or None,
@@ -80,13 +98,13 @@ def create_custom_voice(
     if not settings.ELEVENLABS_API_KEY:
         raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
     count = db.query(func.count(CustomVoice.id)).filter(CustomVoice.user_id == user.id).scalar() or 0
-    name = f"Generated {count + 1}"
+    name = (data.name or "").strip() or f"Generated {count + 1}"
     description = _custom_voice_description(data)
     generated_voice_id = (data.voice_id or "").strip()
     if not generated_voice_id:
         raise HTTPException(status_code=400, detail="voice_id (generated_voice_id from preview) is required")
     try:
-        permanent_voice_id = create_voice_from_preview(
+        permanent_voice_id, preview_url_from_api = create_voice_from_preview(
             voice_name=name,
             voice_description=description,
             generated_voice_id=generated_voice_id,
@@ -97,6 +115,8 @@ def create_custom_voice(
             status_code=502,
             detail="Failed to add voice to library. The preview may have expired; try designing again.",
         ) from e
+    # Prefer preview URL from ElevenLabs response instead of storing base64
+    preview_url = preview_url_from_api or (data.preview_url or "").strip() or None
     response_json = json.dumps(data.response) if data.response is not None else None
     custom = CustomVoice(
         user_id=user.id,
@@ -110,8 +130,8 @@ def create_custom_voice(
         form_persona=(data.form_persona or "").strip() or None,
         form_speed=(data.form_speed or "").strip() or None,
         form_accent=(data.form_accent or "").strip() or None,
-        preview_url=(data.preview_url or "").strip() or None,
-        audio_base64=data.audio_base64 or None,
+        preview_url=preview_url,
+        audio_base64=None,  # use preview_url from API instead of base64
     )
     db.add(custom)
     db.commit()
@@ -135,10 +155,16 @@ def delete_saved_voice(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a saved voice. Only the owner can delete."""
+    """Delete a saved voice. Only the owner can delete. At least one voice must remain."""
     voice = db.query(SavedVoice).filter(SavedVoice.id == voice_id, SavedVoice.user_id == user.id).first()
     if not voice:
         raise HTTPException(status_code=404, detail="Saved voice not found")
+    count = db.query(SavedVoice).filter(SavedVoice.user_id == user.id).count()
+    if count <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one voice must remain in your list. Add more voices before removing this one.",
+        )
     db.delete(voice)
     db.commit()
     return {"ok": True}

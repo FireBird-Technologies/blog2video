@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import {
-  getVoices,
+  getPrebuiltVoices,
   getMyVoices,
+  getCustomVoices,
   saveVoice,
   deleteSavedVoice,
   createCustomVoice,
@@ -12,11 +13,13 @@ import {
   type VoiceDesignPreview,
   type VoiceDesignResponse,
   type SavedVoiceFromAPI,
+  type CustomVoiceFromAPI,
 } from "../api/client";
 import VoiceItem, { getMyVoiceDisplayName, subtitleForSavedVoice, subtitleFromElevenLabs } from "../components/VoiceItem";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal } from "../contexts/ErrorModalContext";
 
 const VOICE_GENDERS = ["female", "male", "neutral"];
 const VOICE_AGE_RANGES = ["child", "teen", "young", "middle-aged", "elderly"];
@@ -24,9 +27,11 @@ const VOICE_PERSONAS = ["professional", "friendly", "calm", "warm", "confident",
 const VOICE_SPEEDS = ["slow", "medium", "fast"];
 const VOICE_ACCENTS = ["American", "British", "Australian", "Indian", "Irish", "Southern US", "neutral"];
 
-/** All + 3 voice-type category tabs. Full voice list available to everyone; tabs just filter the view. */
+/** All + 3 voice-type category tabs + Custom voice. Prebuilt tabs filter the list; Custom voice shows creation UI. */
 const PREBUILT_TABS = ["All", "Professional", "Warm & calm", "Expressive"] as const;
 type PrebuiltTabValue = (typeof PREBUILT_TABS)[number];
+const VOICE_SECTION_TABS = [...PREBUILT_TABS, "Custom voice"] as const;
+type VoiceSectionTab = (typeof VOICE_SECTION_TABS)[number];
 
 const VOICE_TYPE_KEYWORDS: Record<Exclude<PrebuiltTabValue, "All">, string[]> = {
   Professional: [
@@ -65,8 +70,11 @@ function getVoiceType(voice: ElevenLabsVoice): Exclude<PrebuiltTabValue, "All"> 
 /** Local display type for a saved voice (id can be number from API). */
 export type SavedVoice = SavedVoiceFromAPI;
 
+const ONE_VOICE_REQUIRED_MSG = "At least one voice must remain in your list. Add more voices before removing this one.";
+
 export default function MyVoices() {
   const { user } = useAuth();
+  const { showError } = useErrorModal();
   const isPro = user?.plan === "pro" || user?.plan === "standard";
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
@@ -74,6 +82,8 @@ export default function MyVoices() {
   const [error, setError] = useState<string | null>(null);
   const [myVoices, setMyVoices] = useState<SavedVoiceFromAPI[]>([]);
   const [myVoicesLoaded, setMyVoicesLoaded] = useState(false);
+  const [customVoicesList, setCustomVoicesList] = useState<CustomVoiceFromAPI[]>([]);
+  const [customVoicesListLoaded, setCustomVoicesListLoaded] = useState(false);
   const playingId = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   /** Tracks which voice/preview is playing so we can show pause icon. */
@@ -100,12 +110,29 @@ export default function MyVoices() {
 
   const [showDesignModal, setShowDesignModal] = useState(false);
   const [hasAddedVoiceThisSession, setHasAddedVoiceThisSession] = useState(false);
-  const [prebuiltTab, setPrebuiltTab] = useState<PrebuiltTabValue>("All");
+  const [prebuiltTab, setPrebuiltTab] = useState<VoiceSectionTab>("All");
+  /** When user clicks Save on a generated preview, we show this modal to collect the voice name. */
+  const [saveNameModal, setSaveNameModal] = useState<{
+    preview: VoiceDesignPreview;
+    source: "form" | "prompt";
+    formFields: { gender?: string; age?: string; persona?: string; speed?: string; accent?: string } | null;
+    promptText: string | null;
+    designResponse: VoiceDesignResponse | null;
+  } | null>(null);
+  const [saveNameInput, setSaveNameInput] = useState("");
   /** Create custom voice: exactly one method at a time — form or type. */
   const [createVoiceMode, setCreateVoiceMode] = useState<"form" | "prompt">("form");
   const [deleteVoiceTarget, setDeleteVoiceTarget] = useState<SavedVoiceFromAPI | null>(null);
   /** voice_id of the generated voice currently being saved (show loader on Save button). */
   const [savingVoiceId, setSavingVoiceId] = useState<string | null>(null);
+  /** Index of the preview the user selected (form mode). */
+  const [selectedPresetPreviewIndex, setSelectedPresetPreviewIndex] = useState(0);
+  /** Index of the preview the user selected (prompt mode). */
+  const [selectedCustomPreviewIndex, setSelectedCustomPreviewIndex] = useState(0);
+  /** voice_id of prebuilt voice currently being added (show spinner on + button). */
+  const [addingPrebuiltVoiceId, setAddingPrebuiltVoiceId] = useState<string | null>(null);
+  /** custom voice id (CustomVoice.id) currently being added to saved list. */
+  const [addingCustomVoiceId, setAddingCustomVoiceId] = useState<number | null>(null);
 
   useEffect(() => {
     loadVoices();
@@ -127,6 +154,29 @@ export default function MyVoices() {
   }, []);
 
   useEffect(() => {
+    const load = async () => {
+      setCustomVoicesListLoaded(false);
+      try {
+        const res = await getCustomVoices();
+        setCustomVoicesList(res.data ?? []);
+      } catch {
+        setCustomVoicesList([]);
+      } finally {
+        setCustomVoicesListLoaded(true);
+      }
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (prebuiltTab === "Custom voice") {
+      setAddingPrebuiltVoiceId(null);
+    } else {
+      setAddingCustomVoiceId(null);
+    }
+  }, [prebuiltTab]);
+
+  useEffect(() => {
     if (showDesignModal) {
       setHasAddedVoiceThisSession(false);
     } else {
@@ -138,10 +188,12 @@ export default function MyVoices() {
       setPresetPreviews([]);
       setPresetError(null);
       setLastPresetDesignResponse(null);
+      setSelectedPresetPreviewIndex(0);
       setCustomPrompt("");
       setCustomPreviews([]);
       setCustomError(null);
       setLastCustomDesignResponse(null);
+      setSelectedCustomPreviewIndex(0);
       setSavingVoiceId(null);
       setPlayingVoiceId(null);
       if (audioRef.current) {
@@ -155,13 +207,13 @@ export default function MyVoices() {
   const loadVoices = async () => {
     setError(null);
     try {
-      const res = await getVoices();
+      const res = await getPrebuiltVoices();
       setVoices(res.data.voices ?? []);
     } catch (err: unknown) {
       const message = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string }; status?: number } }).response?.data?.detail as string | undefined
         : "Failed to load voices";
-      setError(message || "Failed to load voices. Make sure ElevenLabs API key is configured.");
+      setError(message || "Failed to load prebuilt voices.");
       setVoices([]);
     } finally {
       setLoaded(true);
@@ -195,6 +247,8 @@ export default function MyVoices() {
   };
 
   const prebuiltVoicesByTab = useMemo(() => {
+    if (prebuiltTab === "Custom voice") return [];
+    // Backend returns only premade when premade_only=true
     if (prebuiltTab === "All") return voices;
     return voices.filter((v) => getVoiceType(v) === prebuiltTab);
   }, [voices, prebuiltTab]);
@@ -227,25 +281,47 @@ export default function MyVoices() {
     };
   };
 
-  const addExistingToMyVoices = async (voice: ElevenLabsVoice) => {
-    if (hasAddedVoiceThisSession || myVoices.some((v) => v.voice_id === voice.voice_id)) return;
+  const addExistingToMyVoices = (voice: ElevenLabsVoice) => {
+    if (myVoices.some((v) => v.voice_id === voice.voice_id)) return;
     const labels = voice.labels ?? {};
-    try {
-      const res = await saveVoice({
-        voice_id: voice.voice_id,
-        name: voice.name,
-        preview_url: voice.preview_url ?? undefined,
-        source: "prebuilt",
-        gender: labels.gender ? labels.gender.charAt(0).toUpperCase() + labels.gender.slice(1).toLowerCase() : undefined,
-        accent: labels.accent ? labels.accent.charAt(0).toUpperCase() + labels.accent.slice(1).toLowerCase() : undefined,
-        description: voice.description?.trim() || undefined,
+    const tempId = -Date.now();
+    const optimistic: SavedVoiceFromAPI = {
+      id: tempId,
+      voice_id: voice.voice_id,
+      name: voice.name,
+      preview_url: voice.preview_url ?? null,
+      source: "prebuilt",
+      plan: voice.plan ?? undefined,
+      gender: labels.gender ? labels.gender.charAt(0).toUpperCase() + labels.gender.slice(1).toLowerCase() : null,
+      accent: labels.accent ? labels.accent.charAt(0).toUpperCase() + labels.accent.slice(1).toLowerCase() : null,
+      description: voice.description?.trim() || null,
+      created_at: new Date().toISOString(),
+      custom_voice_id: null,
+    };
+    setMyVoices((prev) => [...prev, optimistic]);
+    setShowDesignModal(false);
+    setAddingPrebuiltVoiceId(voice.voice_id);
+    saveVoice({
+      voice_id: voice.voice_id,
+      name: voice.name,
+      preview_url: voice.preview_url ?? undefined,
+      source: "prebuilt",
+      plan: voice.plan ?? undefined,
+      gender: labels.gender ? labels.gender.charAt(0).toUpperCase() + labels.gender.slice(1).toLowerCase() : undefined,
+      accent: labels.accent ? labels.accent.charAt(0).toUpperCase() + labels.accent.slice(1).toLowerCase() : undefined,
+      description: voice.description?.trim() || undefined,
+    })
+      .then((res) => {
+        setMyVoices((prev) => prev.map((v) => (v.id === tempId ? res.data : v)));
+      })
+      .catch(() => {
+        setMyVoices((prev) => prev.filter((v) => v.id !== tempId));
+        setHasAddedVoiceThisSession(false);
+        showError("Could not add voice. Please try again.");
+      })
+      .finally(() => {
+        setAddingPrebuiltVoiceId(null);
       });
-      setMyVoices((prev) => [...prev, res.data]);
-      setHasAddedVoiceThisSession(true);
-      setShowDesignModal(false);
-    } catch (err) {
-      console.error("Failed to save voice:", err);
-    }
   };
 
   /** Save a generated (custom) voice: create custom_voice record (prompt/response or form), then add to saved_voices. */
@@ -254,7 +330,8 @@ export default function MyVoices() {
     preview: VoiceDesignPreview,
     formFields: { gender?: string; age?: string; persona?: string; speed?: string; accent?: string } | null,
     promptText: string | null,
-    designResponse: VoiceDesignResponse | null
+    designResponse: VoiceDesignResponse | null,
+    voiceName: string
   ) => {
     if (hasAddedVoiceThisSession || myVoices.some((v) => v.voice_id === preview.generated_voice_id)) return;
     setSavingVoiceId(preview.generated_voice_id);
@@ -262,6 +339,7 @@ export default function MyVoices() {
       const customRes = await createCustomVoice({
         voice_id: preview.generated_voice_id,
         source,
+        name: voiceName.trim() || undefined,
         prompt_text: promptText ?? undefined,
         response: designResponse ? (designResponse as unknown as Record<string, unknown>) : undefined,
         form_gender: formFields?.gender,
@@ -272,15 +350,19 @@ export default function MyVoices() {
         audio_base64: preview.audio_base_64 ?? undefined,
       });
       const savedRes = await saveVoice({
-        voice_id: preview.generated_voice_id,
-        name: customRes.data.name,
+        voice_id: customRes.data.voice_id,
+        name: voiceName.trim() || customRes.data.name,
+        preview_url: customRes.data.preview_url ?? undefined,
         audio_base64: preview.audio_base_64 ?? undefined,
         source: "custom",
         custom_voice_id: customRes.data.id,
       });
       setMyVoices((prev) => [...prev, savedRes.data]);
+      setCustomVoicesList((prev) => [customRes.data, ...prev]);
       setHasAddedVoiceThisSession(true);
       setShowDesignModal(false);
+      setSaveNameModal(null);
+      setSaveNameInput("");
     } catch (err) {
       console.error("Failed to save voice:", err);
     } finally {
@@ -288,16 +370,54 @@ export default function MyVoices() {
     }
   };
 
-  const removeFromMyVoices = async (id: number) => {
+  const addCustomVoiceToMyVoices = async (custom: CustomVoiceFromAPI) => {
+    if (myVoices.some((v) => v.custom_voice_id === custom.id || v.voice_id === custom.voice_id)) return;
+    if (!isPro) {
+      setShowUpgrade(true);
+      return;
+    }
+    setAddingCustomVoiceId(custom.id);
     try {
-      await deleteSavedVoice(id);
-      setMyVoices((prev) => prev.filter((v) => v.id !== id));
+      const savedRes = await saveVoice({
+        voice_id: custom.voice_id,
+        name: custom.name,
+        preview_url: custom.preview_url ?? undefined,
+        source: "custom",
+        custom_voice_id: custom.id,
+      });
+      setMyVoices((prev) => [...prev, savedRes.data]);
     } catch (err) {
-      console.error("Failed to delete voice:", err);
+      console.error("Failed to add custom voice to list:", err);
+      showError("Failed to add voice. Try again.");
+    } finally {
+      setAddingCustomVoiceId(null);
     }
   };
 
-  const customVoices = myVoices.filter((v) => v.source === "custom" || !!v.audio_base64);
+  const removeFromMyVoices = async (id: number) => {
+    if (myVoices.length <= 1) {
+      showError(ONE_VOICE_REQUIRED_MSG);
+      setDeleteVoiceTarget(null);
+      return;
+    }
+    const removed = myVoices.find((v) => v.id === id);
+    setMyVoices((prev) => prev.filter((v) => v.id !== id));
+    setDeleteVoiceTarget(null);
+    setError(null);
+    try {
+      await deleteSavedVoice(id);
+    } catch (err: unknown) {
+      if (removed) setMyVoices((prev) => [...prev, removed]);
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : null;
+      showError(message || "Could not remove voice. Please try again.");
+    }
+  };
+
+  /** Saved voices that are custom (for "My voices" strip and for resolving custom tab saved state). */
+  const customVoices = myVoices.filter((v) => v.source === "custom" || !!v.custom_voice_id || !!v.audio_base64);
 
   const playSavedPreview = (saved: SavedVoiceFromAPI) => {
     const id = saved.voice_id;
@@ -328,6 +448,35 @@ export default function MyVoices() {
     };
   };
 
+  const playCustomPreview = (custom: CustomVoiceFromAPI) => {
+    const id = custom.voice_id;
+    if (playingId.current === id && audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      playingId.current = null;
+      setPlayingVoiceId(null);
+      return;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const src = custom.audio_base64
+      ? `data:audio/mpeg;base64,${custom.audio_base64}`
+      : custom.preview_url;
+    if (!src) return;
+    playingId.current = id;
+    setPlayingVoiceId(id);
+    const audio = new Audio(src);
+    audioRef.current = audio;
+    audio.play().catch(() => {
+      playingId.current = null;
+      setPlayingVoiceId(null);
+    });
+    audio.onended = () => {
+      playingId.current = null;
+      setPlayingVoiceId(null);
+    };
+  };
+
   const handlePresetGenerate = async () => {
     setPresetError(null);
     setPresetPreviews([]);
@@ -343,6 +492,7 @@ export default function MyVoices() {
       setLastPresetDesignResponse(res.data);
       const previews = res.data.previews ?? [];
       setPresetPreviews(previews);
+      setSelectedPresetPreviewIndex(0);
       if (previews.length > 0) playDesignPreview(previews[0]);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
@@ -372,6 +522,7 @@ export default function MyVoices() {
       setLastCustomDesignResponse(res.data);
       const previews = res.data.previews ?? [];
       setCustomPreviews(previews);
+      setSelectedCustomPreviewIndex(0);
       if (previews.length > 0) playDesignPreview(previews[0]);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
@@ -400,7 +551,7 @@ export default function MyVoices() {
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
       </svg>
-      New voice
+      Create custom voice
     </button>
   );
 
@@ -414,6 +565,13 @@ export default function MyVoices() {
         Add custom or prebuilt voices. Saved voices appear in the Voice step when creating a video.
       </p>
 
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2 flex items-center justify-between gap-2">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-red-400 hover:text-red-600 shrink-0" aria-label="Dismiss">×</button>
+        </div>
+      )}
+
       {!myVoicesLoaded ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <span className="w-8 h-8 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
@@ -426,32 +584,24 @@ export default function MyVoices() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No custom voices yet</h3>
-          <p className="text-sm text-gray-400 mb-6 max-w-sm">
-            Create your first voice with our voice designer. Choose options or describe the voice
-            you want—then add it to use in your videos.
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No saved voices yet</h3>
+          <p className="text-sm text-gray-400 max-w-sm">
+            Use the Create custom voice button above to create a custom voice, or add a prebuilt voice from the tabs below.
           </p>
-          <button
-            type="button"
-            onClick={openDesignModalOrUpgrade}
-            className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
-          >
-            + New voice
-          </button>
         </div>
       ) : (
         <div>
           <div className="flex items-center justify-between gap-4 mb-2">
-            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">Custom voices</label>
+            <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">Saved voices</label>
           </div>
-          {customVoices.length > 0 ? (
-            <ul className="space-y-2 mb-6">
-              {customVoices.map((saved) => {
+          <ul className="space-y-2 mb-6">
+            {myVoices.map((saved) => {
                 const hasPreview = !!(saved.preview_url || saved.audio_base64);
                 const isPlaying = playingVoiceId === saved.voice_id;
                 const { displayName } = getMyVoiceDisplayName(saved.name);
+                const isAdding = typeof saved.id === "number" && saved.id < 0 && addingPrebuiltVoiceId === saved.voice_id;
                 return (
-                  <li key={saved.id} className="group">
+                  <li key={saved.id} className="group transition-all duration-200 ease-out">
                     <VoiceItem
                       name={displayName}
                       subtitle={subtitleForSavedVoice(saved)}
@@ -459,15 +609,20 @@ export default function MyVoices() {
                       isPlaying={isPlaying}
                       onPlay={() => playSavedPreview(saved)}
                       className="group"
+                      badge={isAdding ? (
+                        <span className="inline-flex h-5 min-w-[4rem] items-center justify-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                          Adding…
+                        </span>
+                      ) : undefined}
                       actions={
-                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               removeFromMyVoices(saved.id);
                             }}
-                            className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                             title="Remove from Voice step"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -478,9 +633,13 @@ export default function MyVoices() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (myVoices.length <= 1) {
+                                showError(ONE_VOICE_REQUIRED_MSG);
+                                return;
+                              }
                               setDeleteVoiceTarget(saved);
                             }}
-                            className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                             title="Delete voice"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -493,43 +652,148 @@ export default function MyVoices() {
                   </li>
                 );
               })}
-            </ul>
-          ) : (
-            <p className="text-[11px] text-gray-500 mb-6">No custom voices yet.</p>
-          )}
+          </ul>
         </div>
       )}
 
       <div>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">Prebuilt voices</label>
-        {!loaded ? (
-          <p className="text-[11px] text-gray-500">Loading voices…</p>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            {prebuiltTab === "Custom voice" ? "Custom voice" : "Prebuilt voices"}
+          </label>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {VOICE_SECTION_TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setPrebuiltTab(tab)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  prebuiltTab === tab ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+        {prebuiltTab === "Custom voice" ? (
+          <div className="space-y-4 pt-1">
+            {!customVoicesListLoaded ? (
+              <p className="text-[11px] text-gray-500 pt-1">Loading custom voices…</p>
+            ) : customVoicesList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl bg-gray-50/60 border border-gray-200/60 text-center">
+                <div className="w-12 h-12 mb-3 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">No custom voices yet</h3>
+                <p className="text-[11px] text-gray-500 max-w-[240px]">
+                  Use the Create custom voice button above to design and save a custom voice.
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-2 max-h-[280px] overflow-y-auto [scrollbar-gutter:stable]">
+                {customVoicesList.map((custom) => {
+                  const saved = myVoices.find((v) => v.custom_voice_id === custom.id || v.voice_id === custom.voice_id);
+                  const hasPreview = !!(custom.preview_url || custom.audio_base64);
+                  const isPlaying = playingVoiceId === custom.voice_id;
+                  const { displayName } = getMyVoiceDisplayName(custom.name);
+                  const isAdding = addingCustomVoiceId === custom.id;
+                  const subtitle = custom.form_gender || custom.form_accent
+                    ? [custom.form_gender, custom.form_accent].filter(Boolean).join(" • ") + " — Custom"
+                    : "Custom — My voice";
+                  return (
+                    <li key={custom.id} className="group">
+                      <VoiceItem
+                        name={displayName}
+                        subtitle={subtitle}
+                        hasPreview={hasPreview}
+                        isPlaying={isPlaying}
+                        onPlay={() => (saved ? playSavedPreview(saved) : playCustomPreview(custom))}
+                        isSelected={!!saved}
+                        className="group"
+                        badge={isAdding ? (
+                          <span className="inline-flex h-5 min-w-[4rem] items-center justify-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                            Adding…
+                          </span>
+                        ) : undefined}
+                        actions={
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {saved ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeFromMyVoices(saved.id);
+                                  }}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                  title="Remove from Voice step"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (myVoices.length <= 1) {
+                                      showError(ONE_VOICE_REQUIRED_MSG);
+                                      return;
+                                    }
+                                    setDeleteVoiceTarget(saved);
+                                  }}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                  title="Delete voice"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addCustomVoiceToMyVoices(custom);
+                                }}
+                                disabled={!!addingCustomVoiceId}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-purple-100 hover:text-purple-600 transition-colors disabled:opacity-60"
+                                title="Add to Voice step"
+                              >
+                                {isAdding ? (
+                                  <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin block" />
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M4 12h16" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        }
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : !loaded ? (
+          <p className="text-[11px] text-gray-500 pt-1">Loading voices…</p>
         ) : voices.length === 0 ? (
-          <p className="text-[11px] text-gray-500">No voices loaded. Check your API key.</p>
+          <p className="text-[11px] text-gray-500 pt-1">No prebuilt voices available.</p>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-2">
-            
-              <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
-                {PREBUILT_TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setPrebuiltTab(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                      prebuiltTab === tab ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <ul className="space-y-2 max-h-[320px] overflow-y-auto [scrollbar-gutter:stable]">
+            <ul className="space-y-2 max-h-[320px] overflow-y-auto [scrollbar-gutter:stable] pt-1">
               {prebuiltVoicesByTab.map((voice) => {
                 const saved = myVoices.find((v) => v.voice_id === voice.voice_id);
                 const isPlaying = playingVoiceId === voice.voice_id;
                 const { displayName } = getMyVoiceDisplayName(voice.name);
+                const isPremium = voice.plan === "paid";
                 return (
                   <li key={voice.voice_id} className="group">
                     <VoiceItem
@@ -540,8 +804,13 @@ export default function MyVoices() {
                       onPlay={() => playPreview(voice)}
                       isSelected={!!saved}
                       className="group"
+                      badge={isPremium ? (
+                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">
+                          Premium
+                        </span>
+                      ) : undefined}
                       actions={
-                        <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="shrink-0 flex items-center">
                           {saved ? (
                             <button
                               type="button"
@@ -549,7 +818,7 @@ export default function MyVoices() {
                                 e.stopPropagation();
                                 removeFromMyVoices(saved.id);
                               }}
-                              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                               title="Remove from Voice step"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -567,12 +836,17 @@ export default function MyVoices() {
                                 }
                                 addExistingToMyVoices(voice);
                               }}
-                              className="p-1 text-gray-300 hover:text-purple-600 transition-colors"
+                              disabled={!!addingPrebuiltVoiceId}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-purple-100 hover:text-purple-600 transition-colors disabled:opacity-60"
                               title="Add to Voice step"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M4 12h16" />
-                              </svg>
+                              {addingPrebuiltVoiceId === voice.voice_id ? (
+                                <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin block" />
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M4 12h16" />
+                                </svg>
+                              )}
                             </button>
                           )}
                         </div>
@@ -607,6 +881,53 @@ export default function MyVoices() {
         subtitle="Create and use custom voices in your videos. Upgrade to Pro or Standard to unlock."
       />
 
+      {saveNameModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-8">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setSaveNameModal(null); setSaveNameInput(""); }} />
+          <div className="relative w-full max-w-sm bg-white border border-gray-200/40 rounded-2xl shadow-xl p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Name your voice</h3>
+            <p className="text-[11px] text-gray-500 mb-3">Give this voice a name so you can find it later.</p>
+            <input
+              type="text"
+              value={saveNameInput}
+              onChange={(e) => setSaveNameInput(e.target.value)}
+              placeholder="e.g. Documentary narrator"
+              className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setSaveNameModal(null); setSaveNameInput(""); }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!saveNameModal) return;
+                  const name = saveNameInput.trim();
+                  if (!name) return;
+                  addGeneratedToMyVoices(
+                    saveNameModal.source,
+                    saveNameModal.preview,
+                    saveNameModal.formFields,
+                    saveNameModal.promptText,
+                    saveNameModal.designResponse,
+                    name
+                  );
+                }}
+                disabled={!saveNameInput.trim()}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                Save voice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDesignModal &&
         ReactDOM.createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
@@ -625,10 +946,6 @@ export default function MyVoices() {
                 </button>
               </div>
               <div className="space-y-5">
-                <div className="rounded-xl bg-purple-600 px-5 py-3 mb-1">
-                  <h2 className="text-base font-semibold text-white">Create your custom voice</h2>
-                </div>
-
                 {/* Choose one method only */}
                 <div>
                   <p className="text-[11px] text-gray-500 mb-2">Choose one way to create your voice:</p>
@@ -746,72 +1063,93 @@ export default function MyVoices() {
                       </select>
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (presetLoading) return;
-                        const first = presetPreviews[0];
-                        if (first && playingVoiceId === first.generated_voice_id) {
-                          playDesignPreview(first);
-                        } else if (first) {
-                          playDesignPreview(first);
-                        } else {
-                          handlePresetGenerate();
-                        }
-                      }}
-                      disabled={presetLoading}
-                      className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg shrink-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      title={presetLoading ? "Generating…" : presetPreviews[0] && playingVoiceId === presetPreviews[0]?.generated_voice_id ? "Pause" : "Play"}
-                    >
-                      {presetLoading ? (
-                        <span className="w-3.5 h-3.5 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-                      ) : presetPreviews[0] && playingVoiceId === presetPreviews[0].generated_voice_id ? (
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        presetPreviews[0] &&
-                        addGeneratedToMyVoices(
-                          "form",
-                          presetPreviews[0],
-                          {
-                            gender: presetGender || undefined,
-                            age: presetAge || undefined,
-                            persona: presetPersona || undefined,
-                            speed: presetSpeed || undefined,
-                            accent: presetAccent || undefined,
-                          },
-                          null,
-                          lastPresetDesignResponse
-                        )
-                      }
-                      disabled={
-                        presetPreviews.length === 0 ||
-                        myVoices.some((v) => v.voice_id === presetPreviews[0]?.generated_voice_id) ||
-                        savingVoiceId === presetPreviews[0]?.generated_voice_id
-                      }
-                      className="py-1.5 px-2 min-w-[3rem] text-[11px] font-medium rounded-lg border border-gray-200/60 text-purple-600 hover:bg-purple-50 hover:text-purple-700 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                    >
-                      {savingVoiceId === presetPreviews[0]?.generated_voice_id ? (
-                        <>
-                          <span className="w-3 h-3 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-                          Saving…
-                        </>
-                      ) : presetPreviews.length > 0 && myVoices.some((v) => v.voice_id === presetPreviews[0]?.generated_voice_id) ? (
-                        "Saved"
-                      ) : (
-                        "Save"
-                      )}
-                    </button>
+                  <div className="mt-4">
+                    {presetPreviews.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePresetGenerate()}
+                        disabled={presetLoading}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg flex items-center gap-2"
+                      >
+                        {presetLoading ? (
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : null}
+                        {presetLoading ? "Generating…" : "Generate previews"}
+                      </button>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-gray-500 mb-2">Choose a preview to save:</p>
+                        <ul className="space-y-2 mb-4">
+                          {presetPreviews.map((preview, idx) => {
+                            const isSelected = selectedPresetPreviewIndex === idx;
+                            const isPlaying = playingVoiceId === preview.generated_voice_id;
+                            return (
+                              <li
+                                key={preview.generated_voice_id}
+                                onClick={() => setSelectedPresetPreviewIndex(idx)}
+                                className={`flex items-center gap-3 p-2 rounded-xl border-2 cursor-pointer transition-all ${
+                                  isSelected ? "border-purple-500 bg-purple-50/60" : "border-gray-200/60 hover:border-purple-200"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); playDesignPreview(preview); }}
+                                  className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg shrink-0"
+                                  title={isPlaying ? "Pause" : "Play"}
+                                >
+                                  {isPlaying ? (
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                                  )}
+                                </button>
+                                <span className="text-sm font-medium text-gray-800">Preview {idx + 1}</span>
+                                {isSelected && (
+                                  <span className="ml-auto w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const selected = presetPreviews[selectedPresetPreviewIndex];
+                            if (!selected) return;
+                            setSaveNameModal({
+                              preview: selected,
+                              source: "form",
+                              formFields: {
+                                gender: presetGender || undefined,
+                                age: presetAge || undefined,
+                                persona: presetPersona || undefined,
+                                speed: presetSpeed || undefined,
+                                accent: presetAccent || undefined,
+                              },
+                              promptText: null,
+                              designResponse: lastPresetDesignResponse,
+                            });
+                            setSaveNameInput("");
+                          }}
+                          disabled={
+                            presetPreviews.length === 0 ||
+                            myVoices.some((v) => v.voice_id === (presetPreviews[selectedPresetPreviewIndex]?.generated_voice_id)) ||
+                            savingVoiceId === presetPreviews[selectedPresetPreviewIndex]?.generated_voice_id
+                          }
+                          className="py-1.5 px-3 text-[11px] font-medium rounded-lg border border-gray-200/60 text-purple-600 hover:bg-purple-50 hover:text-purple-700 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed"
+                        >
+                          {savingVoiceId === presetPreviews[selectedPresetPreviewIndex]?.generated_voice_id ? (
+                            <> <span className="w-3 h-3 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0 inline-block align-middle" /> Saving… </>
+                          ) : presetPreviews[selectedPresetPreviewIndex] && myVoices.some((v) => v.voice_id === presetPreviews[selectedPresetPreviewIndex]?.generated_voice_id) ? (
+                            "Saved"
+                          ) : (
+                            "Save"
+                          )}
+                        </button>
+                      </>
+                    )}
                   </div>
                   {presetError && <p className="mt-2 text-[11px] text-red-500">{presetError}</p>}
                 </div>
@@ -833,70 +1171,88 @@ export default function MyVoices() {
                     rows={2}
                     className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all resize-y"
                   />
-                  <div className="flex items-center justify-between gap-2 mt-2">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleCustomGenerate()}
+                      disabled={customLoading || customPrompt.trim().length < 20}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg flex items-center gap-2 shrink-0"
+                    >
+                      {customLoading ? (
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : null}
+                      {customLoading ? "Generating…" : "Generate previews"}
+                    </button>
+                    <span className="text-[11px] text-gray-400 shrink-0">{customPrompt.length} / 1000</span>
+                  </div>
+                  {customPreviews.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[11px] text-gray-500 mb-2">Choose a preview to save:</p>
+                      <ul className="space-y-2 mb-4">
+                        {customPreviews.map((preview, idx) => {
+                          const isSelected = selectedCustomPreviewIndex === idx;
+                          const isPlaying = playingVoiceId === preview.generated_voice_id;
+                          return (
+                            <li
+                              key={preview.generated_voice_id}
+                              onClick={() => setSelectedCustomPreviewIndex(idx)}
+                              className={`flex items-center gap-3 p-2 rounded-xl border-2 cursor-pointer transition-all ${
+                                isSelected ? "border-purple-500 bg-purple-50/60" : "border-gray-200/60 hover:border-purple-200"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); playDesignPreview(preview); }}
+                                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded-lg shrink-0"
+                                title={isPlaying ? "Pause" : "Play"}
+                              >
+                                {isPlaying ? (
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                                )}
+                              </button>
+                              <span className="text-sm font-medium text-gray-800">Preview {idx + 1}</span>
+                              {isSelected && (
+                                <span className="ml-auto w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
                       <button
                         type="button"
                         onClick={() => {
-                          if (customLoading || customPrompt.trim().length < 20) return;
-                          const first = customPreviews[0];
-                          if (first && playingVoiceId === first.generated_voice_id) {
-                            playDesignPreview(first);
-                          } else if (first) {
-                            playDesignPreview(first);
-                          } else {
-                            handleCustomGenerate();
-                          }
+                          const selected = customPreviews[selectedCustomPreviewIndex];
+                          if (!selected) return;
+                          setSaveNameModal({
+                            preview: selected,
+                            source: "prompt",
+                            formFields: null,
+                            promptText: customPrompt.trim() || null,
+                            designResponse: lastCustomDesignResponse,
+                          });
+                          setSaveNameInput("");
                         }}
-                        disabled={customLoading || customPrompt.trim().length < 20}
-                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg shrink-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                        title={customLoading ? "Generating…" : customPreviews[0] && playingVoiceId === customPreviews[0]?.generated_voice_id ? "Pause" : "Play"}
-                      >
-                        {customLoading ? (
-                          <span className="w-3.5 h-3.5 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-                        ) : customPreviews[0] && playingVoiceId === customPreviews[0].generated_voice_id ? (
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                          </svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          customPreviews[0] &&
-                          addGeneratedToMyVoices(
-                            "prompt",
-                            customPreviews[0],
-                            null,
-                            customPrompt.trim() || null,
-                            lastCustomDesignResponse
-                          )
-                        }
                         disabled={
                           customPreviews.length === 0 ||
-                          myVoices.some((v) => v.voice_id === customPreviews[0]?.generated_voice_id) ||
-                          savingVoiceId === customPreviews[0]?.generated_voice_id
+                          myVoices.some((v) => v.voice_id === (customPreviews[selectedCustomPreviewIndex]?.generated_voice_id)) ||
+                          savingVoiceId === customPreviews[selectedCustomPreviewIndex]?.generated_voice_id
                         }
-                        className="py-1.5 px-2 min-w-[3rem] text-[11px] font-medium rounded-lg border border-gray-200/60 text-purple-600 hover:bg-purple-50 hover:text-purple-700 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                        className="py-1.5 px-3 text-[11px] font-medium rounded-lg border border-gray-200/60 text-purple-600 hover:bg-purple-50 hover:text-purple-700 disabled:text-gray-400 disabled:border-gray-100 disabled:cursor-not-allowed"
                       >
-                        {savingVoiceId === customPreviews[0]?.generated_voice_id ? (
-                          <>
-                            <span className="w-3 h-3 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-                            Saving…
-                          </>
-                        ) : customPreviews.length > 0 && myVoices.some((v) => v.voice_id === customPreviews[0]?.generated_voice_id) ? (
+                        {savingVoiceId === customPreviews[selectedCustomPreviewIndex]?.generated_voice_id ? (
+                          <> <span className="w-3 h-3 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0 inline-block align-middle" /> Saving… </>
+                        ) : customPreviews[selectedCustomPreviewIndex] && myVoices.some((v) => v.voice_id === customPreviews[selectedCustomPreviewIndex]?.generated_voice_id) ? (
                           "Saved"
                         ) : (
                           "Save"
                         )}
                       </button>
                     </div>
-                    <span className="text-[11px] text-gray-400 shrink-0">{customPrompt.length} / 1000</span>
-                  </div>
+                  )}
                   {customError && <p className="mt-2 text-[11px] text-red-500">{customError}</p>}
                 </div>
                 )}

@@ -706,6 +706,7 @@ export interface ElevenLabsVoice {
   labels: Record<string, string>;
   category?: string;
   description?: string;
+  plan?: "free" | "paid";
 }
 
 export interface ListVoicesResponse {
@@ -714,6 +715,9 @@ export interface ListVoicesResponse {
 }
 
 export const getVoices = () => api.get<ListVoicesResponse>("/voices");
+
+export const getPrebuiltVoices = () =>
+  api.get<{ voices: ElevenLabsVoice[]; has_more: boolean }>("/voices/prebuilt");
 
 // ─── Voice design (preset + custom prompt) ───────────────────
 
@@ -752,6 +756,7 @@ export interface SavedVoiceFromAPI {
   preview_url?: string | null;
   audio_base64?: string | null;
   source: string;
+  plan?: string | null;  // "free" | "paid" for prebuilt (ElevenLabs)
   gender?: string | null;
   accent?: string | null;
   description?: string | null;
@@ -767,6 +772,7 @@ export const saveVoice = (payload: {
   preview_url?: string;
   audio_base64?: string;
   source?: string;
+  plan?: string;  // "free" | "paid" for prebuilt
   gender?: string;
   accent?: string;
   description?: string;
@@ -794,6 +800,7 @@ export interface CustomVoiceFromAPI {
 export const createCustomVoice = (payload: {
   voice_id: string;
   source: "prompt" | "form";
+  name?: string;
   prompt_text?: string;
   response?: Record<string, unknown>;
   form_gender?: string;

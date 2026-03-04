@@ -4,9 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getVoicePreviews, getMyVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI } from "../api/client";
+import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
-import UpgradeModal from "./UpgradeModal";
 import UpgradePlanModal from "./UpgradePlanModal";
 import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
@@ -272,6 +271,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
   const [myVoicesLoading, setMyVoicesLoading] = useState(true);
+  const [premiumTeaserVoices, setPremiumTeaserVoices] = useState<ElevenLabsVoice[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
   const [playingKey, setPlayingKey] = useState<string | null>(null);
@@ -316,6 +316,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .then((r) => setMyVoicesList(r.data ?? []))
       .catch(() => setMyVoicesList([]))
       .finally(() => setMyVoicesLoading(false));
+    getPrebuiltVoices()
+      .then((r: { data?: { voices?: ElevenLabsVoice[] } }) => {
+        const voices = r.data?.voices ?? [];
+        const paid = voices.filter((v) => v.plan === "paid");
+        setPremiumTeaserVoices(paid.slice(0, 2));
+      })
+      .catch(() => {});
   }, []);
 
   // Sync colors to the selected template when templates load.
@@ -404,6 +411,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (!src) return;
     audioRef.current?.pause();
     const audio = new Audio(src);
+    audio.onended = () => setPlayingKey(null);
+    audio.onerror = () => setPlayingKey(null);
+    audio.play().catch(() => setPlayingKey(null));
+    audioRef.current = audio;
+    setPlayingKey(key);
+  };
+
+  const playPremiumTeaser = (voice: ElevenLabsVoice) => {
+    const key = `premium_${voice.voice_id}`;
+    if (playingKey === key) {
+      audioRef.current?.pause();
+      setPlayingKey(null);
+      return;
+    }
+    if (!voice.preview_url) return;
+    audioRef.current?.pause();
+    const audio = new Audio(voice.preview_url);
     audio.onended = () => setPlayingKey(null);
     audio.onerror = () => setPlayingKey(null);
     audio.play().catch(() => setPlayingKey(null));
@@ -2193,127 +2217,98 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </label>
 
-      {/* My voices — below No voiceover, above premade voices. When empty, keep clickable so "Go to Voices" works. */}
-      <div className={voiceGender === "none" && myVoicesList.length > 0 ? "opacity-60 pointer-events-none" : ""}>
-        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-          My voices
-        </label>
-        {myVoicesLoading ? (
-          <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
-            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
-            <p className="text-[11px] text-gray-500">Loading your voices…</p>
-          </div>
-        ) : myVoicesList.length === 0 ? (
-          <div className="space-y-1">
-            <p className="text-[11px] text-gray-500">
-              No voices saved. Add voices in the Voices tab to use them here.
-            </p>
-            {!isPro && (
-              <button
-                type="button"
-                onClick={() => setShowUpgrade(true)}
-                className="text-[11px] text-purple-600 hover:text-purple-700 hover:underline"
-              >
-                Upgrade to paid plan to add video
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-[220px] overflow-y-auto">
-            {myVoicesList.map((saved) => {
-              const isSelected = customVoiceId === saved.voice_id;
-              const canSelect = isPro;
-              const hasPreview = !!(saved.preview_url || saved.audio_base64);
-              const myKey = `my_${saved.voice_id}`;
-              const isPlaying = playingKey === myKey;
-              const { displayName } = getMyVoiceDisplayName(saved.name);
-              return (
-                <VoiceItem
-                  key={saved.id}
-                  name={displayName}
-                  subtitle={subtitleForSavedVoice(saved)}
-                  hasPreview={hasPreview}
-                  isPlaying={isPlaying}
-                  onPlay={() => playMyVoice(saved)}
-                  disabled={false}
-                  isSelected={isSelected}
-                  onClick={() => {
-                    if (!canSelect) {
-                      setShowUpgrade(true);
-                      return;
-                    }
-                    setCustomVoiceId(isSelected ? "" : saved.voice_id);
-                  }}
-                  badge={
-                    !isPro ? (
-                      <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shrink-0">
-                        Pro
-                      </div>
-                    ) : null
-                  }
-                  actions={
-                    isSelected ? (
-                      <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    ) : null
-                  }
-                />
-              );
-            })}
-          </div>
-        )}
-      </div>
-
+      {/* Voices from user's saved list + premium teasers for free users */}
       <div className={voiceGender === "none" ? "opacity-60 pointer-events-none" : ""}>
         <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
-          Voice — select and play to preview
+          Voice — Select and Play to Preview
         </label>
-        <div className="space-y-2">
-          {voiceOptions.map(({ gender, accent, key }) => {
-            const preview = voicePreviews[key];
-            const playbackUrl = getPlaybackUrl(key);
-            const isDisabled = voiceGender === "none";
-            const isSelected = !customVoiceId && voiceGender === gender && voiceAccent === accent;
-            const isPlaying = playingKey === key;
-            const name = FALLBACK_VOICE_NAMES[key] || preview?.name || `${gender} ${accent}`;
-            const subtitle = formatVoiceSubtitle(
-              gender === "female" ? "Female" : "Male",
-              accent === "american" ? "American" : "British",
-              preview?.description || FALLBACK_VOICE_DESCS[key] || ""
-            );
-            return (
-              <VoiceItem
-                key={key}
-                name={name}
-                subtitle={subtitle}
-                hasPreview={!!playbackUrl}
-                isPlaying={isPlaying}
-                onPlay={() => playVoice(key, playbackUrl)}
-                disabled={isDisabled}
-                isSelected={isSelected}
-                onClick={() => {
-                  if (!isDisabled) {
-                    setVoiceGender(gender);
-                    setVoiceAccent(accent);
-                    setCustomVoiceId("");
-                  }
-                }}
-                actions={
-                  isSelected ? (
-                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  ) : null
-                }
-              />
-            );
-          })}
+        <div className="space-y-2 max-h-[320px] overflow-y-auto">
+          {myVoicesLoading ? (
+            <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
+              <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
+              <p className="text-[11px] text-gray-500">Loading your voices…</p>
+            </div>
+          ) : (
+            <>
+              {myVoicesList.map((saved) => {
+                const isSelected = customVoiceId === saved.voice_id;
+                const canSelect = isPro;
+                const hasPreview = !!(saved.preview_url || saved.audio_base64);
+                const myKey = `my_${saved.voice_id}`;
+                const isPlaying = playingKey === myKey;
+                const { displayName } = getMyVoiceDisplayName(saved.name);
+                const isCustom = !!saved.custom_voice_id;
+                return (
+                  <VoiceItem
+                    key={`saved_${saved.id}`}
+                    name={displayName}
+                    subtitle={subtitleForSavedVoice(saved)}
+                    hasPreview={hasPreview}
+                    isPlaying={isPlaying}
+                    onPlay={() => playMyVoice(saved)}
+                    disabled={false}
+                    isSelected={isSelected}
+                    onClick={() => {
+                      if (!canSelect) {
+                        setShowUpgrade(true);
+                        return;
+                      }
+                      setCustomVoiceId(isSelected ? "" : saved.voice_id);
+                    }}
+                    badge={
+                      isCustom ? (
+                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
+                      ) : saved.plan === "paid" ? (
+                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                      ) : null
+                    }
+                    actions={
+                      isSelected ? (
+                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      ) : null
+                    }
+                  />
+                );
+              })}
+              {!isPro && premiumTeaserVoices.map((voice) => {
+                const key = `premium_${voice.voice_id}`;
+                const isPlaying = playingKey === key;
+                const labels = voice.labels ?? {};
+                const subtitle = formatVoiceSubtitle(labels.gender, labels.accent, voice.description ?? "Premium voice");
+                return (
+                  <VoiceItem
+                    key={key}
+                    name={voice.name}
+                    subtitle={subtitle}
+                    hasPreview={!!voice.preview_url}
+                    isPlaying={isPlaying}
+                    onPlay={() => playPremiumTeaser(voice)}
+                    disabled={false}
+                    isSelected={false}
+                    onClick={() => setShowUpgrade(true)}
+                    badge={
+                      <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                    }
+                  />
+                );
+              })}
+            </>
+          )}
         </div>
+        {!myVoicesLoading && myVoicesList.length === 0 && (
+          <p className="text-[11px] text-gray-500 mt-2">
+            No voices saved. Add voices in the Voices tab to use them here.{" "}
+            {!isPro && (
+              <button type="button" onClick={() => setShowUpgrade(true)} className="text-purple-600 hover:underline">
+                Upgrade to add video
+              </button>
+            )}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 pt-1">
@@ -2494,132 +2489,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
             Voice — select and play to preview
           </label>
-          <div className="space-y-2">
-            {voiceOptions.map(({ gender, accent, key }) => {
-              const preview = voicePreviews[key];
-              const playbackUrl = getPlaybackUrl(key);
-              const isDisabled = rowVoiceGender === "none";
-              const isSelected = !rowCustomVoiceId && rowVoiceGender === gender && rowVoiceAccent === accent;
-              const isPlaying = playingKey === key;
-              const name = FALLBACK_VOICE_NAMES[key] || preview?.name || `${gender} ${accent}`;
-              const subtitle = formatVoiceSubtitle(
-                gender === "female" ? "Female" : "Male",
-                accent === "american" ? "American" : "British",
-                preview?.description || FALLBACK_VOICE_DESCS[key] || ""
-              );
-
-              const handleBulkVoiceClick = () => {
-                if (isDisabled) return;
-                const targetIndices = indexed.map(({ i }) => i);
-
-                if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
-                  setBulkApplyVoiceAll(false);
-                  setBulkVoiceGender((prev) => {
-                    const next = [...prev];
-                    next[activeIndex] = gender;
-                    return next;
-                  });
-                  setBulkVoiceAccent((prev) => {
-                    const next = [...prev];
-                    next[activeIndex] = accent;
-                    return next;
-                  });
-                  setBulkCustomVoiceId((prev) => {
-                    const next = [...prev];
-                    next[activeIndex] = "";
-                    return next;
-                  });
-                  return;
-                }
-
-                if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-                  setBulkVoiceGender((prev) => {
-                    const next = [...prev];
-                    targetIndices.forEach((idx) => { next[idx] = gender; });
-                    return next;
-                  });
-                  setBulkVoiceAccent((prev) => {
-                    const next = [...prev];
-                    targetIndices.forEach((idx) => { next[idx] = accent; });
-                    return next;
-                  });
-                  setBulkCustomVoiceId((prev) => {
-                    const next = [...prev];
-                    targetIndices.forEach((idx) => { next[idx] = ""; });
-                    return next;
-                  });
-                  return;
-                }
-
-                setBulkVoiceGender((prev) => {
-                  const next = [...prev];
-                  next[activeIndex] = gender;
-                  return next;
-                });
-                setBulkVoiceAccent((prev) => {
-                  const next = [...prev];
-                  next[activeIndex] = accent;
-                  return next;
-                });
-                setBulkCustomVoiceId((prev) => {
-                  const next = [...prev];
-                  next[activeIndex] = "";
-                  return next;
-                });
-              };
-
-              return (
-                <VoiceItem
-                  key={key}
-                  name={name}
-                  subtitle={subtitle}
-                  hasPreview={!!playbackUrl}
-                  isPlaying={isPlaying}
-                  onPlay={() => playVoice(key, playbackUrl)}
-                  disabled={isDisabled}
-                  isSelected={isSelected}
-                  onClick={handleBulkVoiceClick}
-                  actions={
-                    isSelected ? (
-                      <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    ) : null
-                  }
-                />
-              );
-            })}
-          </div>
-
-          {/* My voices — loaded from API; play for all, select only for Pro */}
-          <div className="relative mt-4">
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-              My voices
-            </label>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
             {myVoicesLoading ? (
               <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50/60 border border-gray-200/60">
                 <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" />
                 <p className="text-[11px] text-gray-500">Loading your voices…</p>
               </div>
-            ) : myVoicesList.length === 0 ? (
-          <div className="space-y-1">
-            <p className="text-[11px] text-gray-500">
-              No voices saved. Add voices in the Voices tab to use them here.
-            </p>
-            {!isPro && (
-              <button
-                type="button"
-                onClick={() => setShowUpgrade(true)}
-                className="text-[11px] text-purple-600 hover:text-purple-700 hover:underline"
-              >
-                Upgrade to paid plan to add video
-              </button>
-            )}
-          </div>
             ) : (
-              <div className="space-y-2 max-h-[220px] overflow-y-auto">
+              <>
                 {myVoicesList.map((saved) => {
                   const isSelectedBulk = rowCustomVoiceId === saved.voice_id;
                   const canSelectBulk = isPro;
@@ -2627,9 +2504,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   const myKey = `my_${saved.voice_id}`;
                   const isPlaying = playingKey === myKey;
                   const { displayName } = getMyVoiceDisplayName(saved.name);
+                  const isCustom = !!saved.custom_voice_id;
                   return (
                     <VoiceItem
-                      key={saved.id}
+                      key={`saved_${saved.id}`}
                       name={displayName}
                       subtitle={subtitleForSavedVoice(saved)}
                       hasPreview={hasPreview}
@@ -2637,50 +2515,82 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       onPlay={() => playMyVoice(saved)}
                       disabled={false}
                       isSelected={isSelectedBulk}
-                        onClick={() => {
-                          if (!canSelectBulk) {
-                            setShowUpgrade(true);
-                            return;
-                          }
-                          const value = isSelectedBulk ? "" : saved.voice_id;
-                          const targetIndices = indexed.map(({ i }) => i);
-                          if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-                            setBulkCustomVoiceId((prev) => {
-                              const next = [...prev];
-                              targetIndices.forEach((idx) => { next[idx] = value; });
-                              return next;
-                            });
-                          } else {
-                            setBulkApplyVoiceAll(false);
-                            setBulkCustomVoiceId((prev) => {
-                              const next = [...prev];
-                              next[activeIndex] = value;
-                              return next;
-                            });
-                          }
-                        }}
-                        badge={
-                          !isPro ? (
-                            <div className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shrink-0">
-                              Pro
-                            </div>
-                          ) : null
+                      onClick={() => {
+                        if (!canSelectBulk) {
+                          setShowUpgrade(true);
+                          return;
                         }
-                        actions={
-                          isSelectedBulk ? (
-                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          ) : null
+                        const value = isSelectedBulk ? "" : saved.voice_id;
+                        const targetIndices = indexed.map(({ i }) => i);
+                        if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                          setBulkCustomVoiceId((prev) => {
+                            const next = [...prev];
+                            targetIndices.forEach((idx) => { next[idx] = value; });
+                            return next;
+                          });
+                        } else {
+                          setBulkApplyVoiceAll(false);
+                          setBulkCustomVoiceId((prev) => {
+                            const next = [...prev];
+                            next[activeIndex] = value;
+                            return next;
+                          });
                         }
-                      />
-                    );
-                  })}
-              </div>
+                      }}
+                      badge={
+                        isCustom ? (
+                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Custom</span>
+                        ) : saved.plan === "paid" ? (
+                          <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                        ) : null
+                      }
+                      actions={
+                        isSelectedBulk ? (
+                          <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        ) : null
+                      }
+                    />
+                  );
+                })}
+                {!isPro && premiumTeaserVoices.map((voice) => {
+                  const key = `premium_${voice.voice_id}`;
+                  const isPlaying = playingKey === key;
+                  const labels = voice.labels ?? {};
+                  const subtitle = formatVoiceSubtitle(labels.gender, labels.accent, voice.description ?? "Premium voice");
+                  return (
+                    <VoiceItem
+                      key={key}
+                      name={voice.name}
+                      subtitle={subtitle}
+                      hasPreview={!!voice.preview_url}
+                      isPlaying={isPlaying}
+                      onPlay={() => playPremiumTeaser(voice)}
+                      disabled={false}
+                      isSelected={false}
+                      onClick={() => setShowUpgrade(true)}
+                      badge={
+                        <span className="inline-flex h-5 min-w-[4.5rem] items-center justify-center rounded-full bg-purple-600 px-2.5 py-0.5 text-[10px] font-semibold text-white">Premium</span>
+                      }
+                    />
+                  );
+                })}
+              </>
             )}
           </div>
+          {!myVoicesLoading && myVoicesList.length === 0 && (
+            <p className="text-[11px] text-gray-500 mt-2">
+              No voices saved. Add voices in the Voices tab to use them here.{" "}
+              {!isPro && (
+                <button type="button" onClick={() => setShowUpgrade(true)} className="text-purple-600 hover:underline">
+                  Upgrade to add video
+                </button>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -2743,12 +2653,26 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         }
       }}
     >
-      <StepIndicator current={step} total={3} />
-      {stepContentWrapper}
-      <UpgradeModal
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-xl min-h-[320px]">
+            <div className="flex flex-col items-center gap-4">
+              <span className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+              <p className="text-sm font-semibold text-gray-800">
+                {mode === "upload" ? "Extracting content..." : mode === "bulk" ? "Creating videos..." : "Creating your video..."}
+              </p>
+              <p className="text-xs text-gray-500">This may take a moment</p>
+            </div>
+          </div>
+        )}
+        <StepIndicator current={step} total={3} />
+        {stepContentWrapper}
+      </div>
+      <UpgradePlanModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
-        feature="Upgrade"
+        title="Upgrade to unlock"
+        subtitle="Unlock premium voices and more. Choose a plan below."
       />
       <UpgradePlanModal
         open={showCustomTemplateUpgrade}
@@ -2761,7 +2685,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   if (!asModal) {
     return (
-      <div>
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-2xl min-h-[400px]">
+            <div className="flex flex-col items-center gap-4">
+              <span className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+              <p className="text-sm font-semibold text-gray-800">
+                {mode === "upload" ? "Extracting content..." : mode === "bulk" ? "Creating videos..." : "Creating your video..."}
+              </p>
+              <p className="text-xs text-gray-500">This may take a moment</p>
+            </div>
+          </div>
+        )}
         <StepIndicator current={step} total={3} />
         <form
           onSubmit={handleSubmit}
@@ -2773,10 +2708,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         >
           <div className="min-h-[420px] flex flex-col">{stepContent}</div>
         </form>
-        <UpgradeModal
+        <UpgradePlanModal
           open={showUpgrade}
           onClose={() => setShowUpgrade(false)}
-          feature="Upgrade"
+          title="Upgrade to unlock"
+          subtitle="Unlock premium voices and more. Choose a plan below."
         />
         <UpgradePlanModal
           open={showCustomTemplateUpgrade}
