@@ -554,7 +554,7 @@ export default function Landing() {
               {
                 step: "4",
                 title: "Render & share",
-                desc: "Preview instantly, render to MP4, or open Remotion Studio for full creative control.",
+                desc: "Preview instantly, render to MP4 and download or share.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 ),
@@ -601,11 +601,11 @@ export default function Landing() {
                 desc: "Choose from 4 ElevenLabs voices: male or female, British or American. Natural narration that sounds like a professional documentary orator.",
                 tag: null,
               },
-              {
-                title: "Remotion Studio export",
-                desc: "Every frame is a React component. Open the full Remotion Studio to customize animations, timing, colors, and code — total creative control.",
-                tag: "Pro",
-              },
+              // {
+              //   title: "Remotion Studio export",
+              //   desc: "Every frame is a React component. Open the full Remotion Studio to customize animations, timing, colors, and code — total creative control.",
+              //   tag: "Pro",
+              // },
               {
                 title: "AI chat editor",
                 desc: "Tell the AI to rewrite a scene, change tone, add detail, or restructure. Your edits are applied instantly without re-generating the entire video.",
