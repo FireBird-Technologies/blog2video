@@ -180,6 +180,28 @@ def get_prompt(template_id: str) -> str:
     return _load_prompt(template_id)
 
 
+def get_layout_prompt(template_id: str) -> str:
+    """
+    Get layout_prompt.md content for one template.
+
+    - For built-in templates, tries backend/templates/<id>/layout_prompt.md first,
+      falling back to prompt.md when not present.
+    - For custom templates (custom_N), falls back to the generated prompt
+      (the full template prompt already contains the layout/arrangement catalog).
+    """
+    if is_custom_template(template_id):
+        # Custom templates do not have layout_prompt.md files on disk; use their full prompt.
+        return _get_custom_prompt(template_id)
+
+    layout_path = _TEMPLATES_DIR / template_id / "layout_prompt.md"
+    if layout_path.exists():
+        with open(layout_path, encoding="utf-8") as f:
+            return f.read()
+
+    # Fallback: use full prompt.md
+    return _load_prompt(template_id)
+
+
 def get_valid_layouts(template_id: str) -> set[str]:
     """Get the set of valid layout IDs for a template."""
     meta = _load_meta(template_id)
