@@ -83,6 +83,44 @@ class BlogToScript(dspy.Signature):
     - Aim for at least 70% of scenes to use structured visuals (not plain text)
 
     Output the scenes as a JSON array.
+
+    ═══ LAYOUT SUGGESTION (OPTIONAL, TEMPLATE-AWARE) ═══
+    - When layout_catalog is provided, use it to suggest a layout ID for each scene.
+    - Think about the **entire video** as a sequence — layout choices should feel like a deliberate visual journey, not random picks.
+
+    ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
+    - 6-7 scenes: use at least 5 distinct layouts. Max 2 scenes may share the same layout.
+    - 9-10 scenes (standard):    use at least 7 distinct layouts. Max 2 scenes may share the same layout.
+    - For any other length:    use at least ceil(total_scenes * 0.65) distinct layouts.
+    - These are MINIMUM targets — more variety is always better if the content supports it.
+
+    ═══ DISTRIBUTION RULES ═══
+    - NEVER place the same layout in consecutive scenes (scene N and scene N+1 must differ).
+    - When a layout must repeat, space it out: at least 3 scenes apart (e.g. scene 2 and scene 5, not scene 2 and scene 3).
+    - Spread visually heavy layouts (grids, charts, timelines) across the video — do not cluster them together.
+    - Spread visually light layouts (full-center, quote, body-text) across the video similarly.
+    - Think of the video in thirds: opening (scenes 0-2), middle (scenes 3-6), closing (scenes 7+). Each third should have its own visual identity.
+
+    ═══ PLANNING STEP (REQUIRED) ═══
+    - Before assigning layouts, write out a short plan:
+    1. List all available layouts from layout_catalog.
+    2. Group them by visual weight: heavy (data-rich) vs light (text/hero).
+    3. Sketch a layout sequence for all scenes that satisfies the diversity target and distribution rules.
+    4. Only then assign preferred_layout per scene.
+    - This planning happens in your reasoning — the final output is still just preferred_layout per scene.
+
+    ═══ TEMPLATE-SPECIFIC RULES ═══
+    - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix):
+    - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
+    - Follow the "Best for" / "When to Use" hints when deciding per scene.
+    - Hero/opening scenes should use the template's hero layout (e.g. hero_image, news_headline).
+    - For CUSTOM templates (universal layout engine):
+    - layout_catalog describes ARRANGEMENTS (e.g. full-center, split-left, grid-2x2).
+    - Suggest one arrangement name per scene.
+    - For each scene object in scenes_json, include a "preferred_layout" field (string):
+    - BUILT-IN: layout ID from the template's layout catalog.
+    - CUSTOM: arrangement name from the layout_catalog list.
+    - If unsure, leave preferred_layout as empty string "" for that scene.
     """
 
     blog_content: str = dspy.InputField(
@@ -99,26 +137,36 @@ class BlogToScript(dspy.Signature):
         "'storytelling' = narrative arc, emotional hooks, character/journey, story-driven. "
         "Write title, scene titles, narrations, and visual_description to match this style exactly."
     )
+    layout_catalog: str = dspy.InputField(
+        desc=(
+            "Optional: template-specific layout catalog text. Either layout IDs and short descriptions for "
+            "BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix), "
+            "or arrangement names and descriptions for CUSTOM templates. Use this ONLY to pick a suitable "
+            "preferred_layout per scene; do NOT copy it verbatim into narrations."
+        )
+    )
 
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
-        desc='JSON array of scene objects. Each object has keys: "title" (str), '
-        '"narration" (str — length by video_style: promotional 5-12 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
-        '"visual_description" (str), "suggested_images" (list of str), '
-        '"duration_seconds" (int). '
-        'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-        'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
-        'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
-        'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
-        'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
-        'Example with image: [{"title": "How AI is Changing Everything", '
-        '"narration": "Let\'s explore how AI transforms software development.", '
-        '"visual_description": "Hero banner image with title overlay and fade-in", '
-        '"suggested_images": ["hero.jpg"], "duration_seconds": 6}]. '
-        'Example without image: [{"title": "How AI is Changing Everything", '
-        '"narration": "Let\'s explore how AI transforms software development.", '
-        '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
-        '"suggested_images": [], "duration_seconds": 6}]'
+        desc=(
+            'JSON array of scene objects. Each object has keys: "title" (str), '
+            '"narration" (str — length by video_style: promotional 5-12 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
+            '"visual_description" (str), "suggested_images" (list of str), '
+            '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
+            'FIRST scene title must be the actual blog title (never "Hero Opening"), '
+            'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
+            'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
+            'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
+            'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
+            'Example with image: [{"title": "How AI is Changing Everything", '
+            '"narration": "Let\'s explore how AI transforms software development.", '
+            '"visual_description": "Hero banner image with title overlay and fade-in", '
+            '"suggested_images": ["hero.jpg"], "duration_seconds": 6, "preferred_layout": "hero_image"}]. '
+            'Example without image: [{"title": "How AI is Changing Everything", '
+            '"narration": "Let\'s explore how AI transforms software development.", '
+            '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
+            '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
+        )
     )
 
 
@@ -137,6 +185,7 @@ class ScriptGenerator:
         hero_image: str = "",
         aspect_ratio: str = "landscape",
         video_style: str = "explainer",
+        layout_catalog: str = "",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -152,6 +201,7 @@ class ScriptGenerator:
             hero_image=hero_image or "(no hero image available)",
             aspect_ratio=aspect_ratio or "landscape",
             video_style=(video_style or "explainer").strip().lower() or "explainer",
+            layout_catalog=layout_catalog or "",
         )
 
         # Parse the scenes JSON and apply style-specific limits
@@ -202,6 +252,8 @@ class ScriptGenerator:
                     "visual_description": scene.get("visual_description", ""),
                     "suggested_images": scene.get("suggested_images", []),
                     "duration_seconds": scene.get("duration_seconds", 10),
+                    # May be a layout ID (built-in templates) or an arrangement name (custom templates)
+                    "preferred_layout": (scene.get("preferred_layout") or "").strip() or None,
                 })
 
             return validated
