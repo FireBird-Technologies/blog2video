@@ -25,7 +25,6 @@ class CustomVoice(Base):
     form_speed: Mapped[str | None] = mapped_column(String(50), nullable=True)
     form_accent: Mapped[str | None] = mapped_column(String(100), nullable=True)
     preview_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    audio_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="custom_voices")

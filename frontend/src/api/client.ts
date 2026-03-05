@@ -783,7 +783,6 @@ export interface SavedVoiceFromAPI {
   voice_id: string;
   name: string;
   preview_url?: string | null;
-  audio_base64?: string | null;
   source: string;
   plan?: string | null;  // "free" | "paid" for prebuilt (ElevenLabs)
   gender?: string | null;
@@ -799,7 +798,6 @@ export const saveVoice = (payload: {
   voice_id: string;
   name: string;
   preview_url?: string;
-  audio_base64?: string;
   source?: string;
   plan?: string;  // "free" | "paid" for prebuilt
   gender?: string;
@@ -822,7 +820,6 @@ export interface CustomVoiceFromAPI {
   form_speed?: string | null;
   form_accent?: string | null;
   preview_url?: string | null;
-  audio_base64?: string | null;
   created_at: string;
 }
 
@@ -838,10 +835,20 @@ export const createCustomVoice = (payload: {
   form_speed?: string;
   form_accent?: string;
   preview_url?: string;
-  audio_base64?: string;
 }) => api.post<CustomVoiceFromAPI>("/voices/custom", payload);
 
 export const getCustomVoices = () => api.get<CustomVoiceFromAPI[]>("/voices/custom");
+
+export const getCustomVoicePreview = (customVoiceId: number) =>
+  api.get<{ preview_url: string | null; ready: boolean }>(`/voices/custom/${customVoiceId}/preview`);
+
+export const deleteCustomVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/custom/${id}`);
+
+export const createCustomVoiceClone = (formData: FormData) =>
+  api.post<CustomVoiceFromAPI>("/voices/clone", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
 
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);

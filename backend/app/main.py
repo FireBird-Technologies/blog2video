@@ -521,7 +521,7 @@ def design_voice_from_preset(body: dict):
     if speed:
         parts.append(f"Speaking speed: {speed}.")
     if accent:
-        parts.append(f"Accent or language: {accent}.")
+        parts.append(f"Accent of a person from country: {accent}.")
 
     description = " ".join(parts).strip() if parts else "A clear, neutral, professional voice."
     if len(description) < 20:

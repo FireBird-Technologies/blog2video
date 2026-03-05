@@ -14,7 +14,6 @@ class SavedVoice(Base):
     voice_id: Mapped[str] = mapped_column(String(100), nullable=False)  # ElevenLabs voice ID
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     preview_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    audio_base64: Mapped[str | None] = mapped_column(Text, nullable=True)  # optional inline preview
     source: Mapped[str] = mapped_column(String(20), default="custom")  # "custom" | "prebuilt"
     plan: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "free" | "paid" for prebuilt (ElevenLabs)
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
