@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   listProjects,
   createProject,
@@ -316,16 +316,19 @@ export default function Dashboard() {
     });
   };
 
-  // ─── Onboarding (0 projects) ───────────────────────────────
-  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || activeTab === "voices" || templatesRequested || voicesRequested))) {
+  // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
+  if (loaded && projects.length === 0 && searchParams.get("show_form") !== "0") {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
-          {/* Welcome header */}
+          {/* Welcome header: logo links to dashboard and dismisses form */}
           <div className="text-center mb-8">
-            <div className="w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
+            <Link
+              to="/dashboard?show_form=0"
+              className="inline-flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl text-white font-bold text-sm hover:opacity-90 transition-opacity"
+            >
               B2V
-            </div>
+            </Link>
             <h1 className="text-xl font-semibold text-gray-900 mb-2">
               Create your first video
             </h1>
@@ -582,6 +585,19 @@ export default function Dashboard() {
               </div>
             </div>
           ))
+        ) : projects.length === 0 ? (
+          // Empty state (same layout as My Templates, no center button)
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 mb-4 bg-purple-100 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
+            <p className="text-sm text-gray-400 max-w-sm">
+              Create your first video by pasting a blog URL or uploading documents. Use the &quot;+ New&quot; button above to get started.
+            </p>
+          </div>
         ) : (
           projects.map((project) => (
           <div
