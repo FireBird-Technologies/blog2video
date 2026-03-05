@@ -31,23 +31,9 @@ DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
 def _get_voice_id(project: Project) -> str | None:
-    """Pick an ElevenLabs voice ID based on project preferences.
-    Returns None if voice_gender is 'none' (no audio mode).
-    """
-    # No-audio mode
-    if getattr(project, "voice_gender", None) == "none":
-        return None
-
-    # Custom voice (Pro users paste their own ElevenLabs voice ID)
+    """Return ElevenLabs voice ID only if project has a custom_voice_id set; otherwise None."""
     custom = getattr(project, "custom_voice_id", None)
-    if custom:
-        return custom
-
-    key = (
-        getattr(project, "voice_gender", "male"),
-        getattr(project, "voice_accent", "american"),
-    )
-    return VOICE_MAP.get(key, DEFAULT_VOICE_ID)
+    return custom if custom else None
 
 
 def _get_audio_duration(filepath: str) -> float:
@@ -85,7 +71,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
     # Determine voice from project preferences
     project = db.query(Project).filter(Project.id == scene.project_id).first()
-    voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
+    voice_id = _get_voice_id(project) if project else None
 
     # Use narration_text directly (it should already be expanded if needed)
     voiceover_text = scene.narration_text

@@ -237,7 +237,6 @@ class CustomVoiceCreate(BaseModel):
     form_speed: Optional[str] = None
     form_accent: Optional[str] = None
     preview_url: Optional[str] = None
-    audio_base64: Optional[str] = None
 
 
 class CustomVoiceOut(BaseModel):
@@ -252,7 +251,6 @@ class CustomVoiceOut(BaseModel):
     form_speed: Optional[str] = None
     form_accent: Optional[str] = None
     preview_url: Optional[str] = None
-    audio_base64: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -265,7 +263,6 @@ class SavedVoiceCreate(BaseModel):
     voice_id: str
     name: str
     preview_url: Optional[str] = None
-    audio_base64: Optional[str] = None
     source: Optional[str] = "custom"  # "custom" | "prebuilt"
     plan: Optional[str] = None  # "free" | "paid" for prebuilt (ElevenLabs)
     gender: Optional[str] = None
@@ -279,7 +276,6 @@ class SavedVoiceOut(BaseModel):
     voice_id: str
     name: str
     preview_url: Optional[str] = None
-    audio_base64: Optional[str] = None
     source: str = "custom"
     plan: Optional[str] = None
     gender: Optional[str] = None

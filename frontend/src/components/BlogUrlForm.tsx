@@ -400,14 +400,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setPlayingKey(key);
   };
 
-  const playMyVoice = (saved: { voice_id: string; preview_url?: string | null; audio_base64?: string | null }) => {
+  const playMyVoice = (saved: { voice_id: string; preview_url?: string | null }) => {
     const key = `my_${saved.voice_id}`;
     if (playingKey === key) {
       audioRef.current?.pause();
       setPlayingKey(null);
       return;
     }
-    const src = saved.audio_base64 ? `data:audio/mpeg;base64,${saved.audio_base64}` : saved.preview_url;
+    const src = saved.preview_url;
     if (!src) return;
     audioRef.current?.pause();
     const audio = new Audio(src);
@@ -2239,8 +2239,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <>
               {myVoicesList.map((saved) => {
                 const isSelected = customVoiceId === saved.voice_id;
-                const canSelect = isPro;
-                const hasPreview = !!(saved.preview_url || saved.audio_base64);
+                const canSelect = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
+                const hasPreview = !!saved.preview_url;
                 const myKey = `my_${saved.voice_id}`;
                 const isPlaying = playingKey === myKey;
                 const { displayName } = getMyVoiceDisplayName(saved.name);
@@ -2330,12 +2330,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           ref={submitButtonRef}
           type="submit"
           disabled={loading}
-          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
               <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              {mode === "upload" ? "Extracting..." : mode === "bulk" ? "Creating..." : "Creating..."}
+              Generating
             </>
           ) : (
             "Generate Video"
@@ -2506,8 +2506,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <>
                 {myVoicesList.map((saved) => {
                   const isSelectedBulk = rowCustomVoiceId === saved.voice_id;
-                  const canSelectBulk = isPro;
-                  const hasPreview = !!(saved.preview_url || saved.audio_base64);
+                  const canSelectBulk = isPro || (saved.plan !== "paid" && !saved.custom_voice_id);
+                  const hasPreview = !!saved.preview_url;
                   const myKey = `my_${saved.voice_id}`;
                   const isPlaying = playingKey === myKey;
                   const { displayName } = getMyVoiceDisplayName(saved.name);
@@ -2612,12 +2612,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             ref={submitButtonRef}
             type="submit"
             disabled={loading || !onSubmitBulk}
-            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Creating…
+                Generating
               </>
             ) : (
               "Create all & generate"
@@ -2661,17 +2661,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       }}
     >
       <div className="relative">
-        {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-xl min-h-[320px]">
-            <div className="flex flex-col items-center gap-4">
-              <span className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-              <p className="text-sm font-semibold text-gray-800">
-                {mode === "upload" ? "Extracting content..." : mode === "bulk" ? "Creating videos..." : "Creating your video..."}
-              </p>
-              <p className="text-xs text-gray-500">This may take a moment</p>
-            </div>
-          </div>
-        )}
         <StepIndicator current={step} total={3} />
         {stepContentWrapper}
       </div>
@@ -2693,17 +2682,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   if (!asModal) {
     return (
       <div className="relative">
-        {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-2xl min-h-[400px]">
-            <div className="flex flex-col items-center gap-4">
-              <span className="w-10 h-10 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-              <p className="text-sm font-semibold text-gray-800">
-                {mode === "upload" ? "Extracting content..." : mode === "bulk" ? "Creating videos..." : "Creating your video..."}
-              </p>
-              <p className="text-xs text-gray-500">This may take a moment</p>
-            </div>
-          </div>
-        )}
         <StepIndicator current={step} total={3} />
         <form
           onSubmit={handleSubmit}

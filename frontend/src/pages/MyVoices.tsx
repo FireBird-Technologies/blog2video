@@ -4,9 +4,12 @@ import {
   getPrebuiltVoices,
   getMyVoices,
   getCustomVoices,
+  getCustomVoicePreview,
   saveVoice,
   deleteSavedVoice,
+  deleteCustomVoice,
   createCustomVoice,
+  createCustomVoiceClone,
   designVoiceFromPreset,
   designVoiceFromPrompt,
   type ElevenLabsVoice,
@@ -20,12 +23,12 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
+import { COUNTRIES } from "../data/countries";
 
 const VOICE_GENDERS = ["female", "male", "neutral"];
 const VOICE_AGE_RANGES = ["child", "teen", "young", "middle-aged", "elderly"];
 const VOICE_PERSONAS = ["professional", "friendly", "calm", "warm", "confident", "energetic"];
 const VOICE_SPEEDS = ["slow", "medium", "fast"];
-const VOICE_ACCENTS = ["American", "British", "Australian", "Indian", "Irish", "Southern US", "neutral"];
 
 /** All + 3 voice-type category tabs + Custom voice. Prebuilt tabs filter the list; Custom voice shows creation UI. */
 const PREBUILT_TABS = ["All", "Professional", "Warm & calm", "Expressive"] as const;
@@ -72,6 +75,11 @@ export type SavedVoice = SavedVoiceFromAPI;
 
 const ONE_VOICE_REQUIRED_MSG = "At least one voice must remain in your list. Add more voices before removing this one.";
 
+/** Saved voice is custom-made (not from prebuilt DB). Only these show the delete option. */
+function isCustomSavedVoice(s: SavedVoiceFromAPI): boolean {
+  return s.source === "custom" || !!s.custom_voice_id;
+}
+
 export default function MyVoices() {
   const { user } = useAuth();
   const { showError } = useErrorModal();
@@ -94,7 +102,7 @@ export default function MyVoices() {
   const [presetAge, setPresetAge] = useState("");
   const [presetPersona, setPresetPersona] = useState("");
   const [presetSpeed, setPresetSpeed] = useState("");
-  const [presetAccent, setPresetAccent] = useState("");
+  const [presetCountry, setPresetCountry] = useState("");
   const [presetLoading, setPresetLoading] = useState(false);
   const [presetPreviews, setPresetPreviews] = useState<VoiceDesignPreview[]>([]);
   const [presetError, setPresetError] = useState<string | null>(null);
@@ -111,18 +119,23 @@ export default function MyVoices() {
   const [showDesignModal, setShowDesignModal] = useState(false);
   const [hasAddedVoiceThisSession, setHasAddedVoiceThisSession] = useState(false);
   const [prebuiltTab, setPrebuiltTab] = useState<VoiceSectionTab>("All");
-  /** When user clicks Save on a generated preview, we show this modal to collect the voice name. */
-  const [saveNameModal, setSaveNameModal] = useState<{
-    preview: VoiceDesignPreview;
-    source: "form" | "prompt";
-    formFields: { gender?: string; age?: string; persona?: string; speed?: string; accent?: string } | null;
-    promptText: string | null;
-    designResponse: VoiceDesignResponse | null;
-  } | null>(null);
-  const [saveNameInput, setSaveNameInput] = useState("");
-  /** Create custom voice: exactly one method at a time — form or type. */
-  const [createVoiceMode, setCreateVoiceMode] = useState<"form" | "prompt">("form");
+  /** Create custom voice: exactly one method at a time — form, prompt, or clone. */
+  const [createVoiceMode, setCreateVoiceMode] = useState<"form" | "prompt" | "clone">("form");
+  /** Voice clone tab state */
+  const [cloneName, setCloneName] = useState("");
+  const [cloneFile, setCloneFile] = useState<File | null>(null);
+  const [removeBackgroundNoise, setRemoveBackgroundNoise] = useState(true);
+  const [cloneLoading, setCloneLoading] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  /** After clone is created, show preview; only add to custom voices when user clicks Save. */
+  const [clonePreviewResult, setClonePreviewResult] = useState<CustomVoiceFromAPI | null>(null);
+  /** True while saving the clone to custom voices (Save button loading). */
+  const [savingClonePreview, setSavingClonePreview] = useState(false);
+  /** Inline voice name for form/prompt (replaces save name popup). */
+  const [presetVoiceName, setPresetVoiceName] = useState("");
+  const [customPromptVoiceName, setCustomPromptVoiceName] = useState("");
   const [deleteVoiceTarget, setDeleteVoiceTarget] = useState<SavedVoiceFromAPI | null>(null);
+  const [deleteCustomVoiceTarget, setDeleteCustomVoiceTarget] = useState<CustomVoiceFromAPI | null>(null);
   /** voice_id of the generated voice currently being saved (show loader on Save button). */
   const [savingVoiceId, setSavingVoiceId] = useState<string | null>(null);
   /** Index of the preview the user selected (form mode). */
@@ -184,7 +197,7 @@ export default function MyVoices() {
       setPresetAge("");
       setPresetPersona("");
       setPresetSpeed("");
-      setPresetAccent("");
+      setPresetCountry("");
       setPresetPreviews([]);
       setPresetError(null);
       setLastPresetDesignResponse(null);
@@ -196,6 +209,15 @@ export default function MyVoices() {
       setSelectedCustomPreviewIndex(0);
       setSavingVoiceId(null);
       setPlayingVoiceId(null);
+      setCloneName("");
+      setCloneFile(null);
+      setRemoveBackgroundNoise(true);
+      setCloneLoading(false);
+      setCloneError(null);
+      setClonePreviewResult(null);
+      setSavingClonePreview(false);
+      setPresetVoiceName("");
+      setCustomPromptVoiceName("");
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -328,7 +350,7 @@ export default function MyVoices() {
   const addGeneratedToMyVoices = async (
     source: "form" | "prompt",
     preview: VoiceDesignPreview,
-    formFields: { gender?: string; age?: string; persona?: string; speed?: string; accent?: string } | null,
+    formFields: { gender?: string; age?: string; persona?: string; speed?: string; country?: string } | null,
     promptText: string | null,
     designResponse: VoiceDesignResponse | null,
     voiceName: string
@@ -346,14 +368,12 @@ export default function MyVoices() {
         form_age: formFields?.age,
         form_persona: formFields?.persona,
         form_speed: formFields?.speed,
-        form_accent: formFields?.accent,
-        audio_base64: preview.audio_base_64 ?? undefined,
+        form_accent: formFields?.country,
       });
       const savedRes = await saveVoice({
         voice_id: customRes.data.voice_id,
         name: voiceName.trim() || customRes.data.name,
         preview_url: customRes.data.preview_url ?? undefined,
-        audio_base64: preview.audio_base_64 ?? undefined,
         source: "custom",
         custom_voice_id: customRes.data.id,
       });
@@ -361,8 +381,6 @@ export default function MyVoices() {
       setCustomVoicesList((prev) => [customRes.data, ...prev]);
       setHasAddedVoiceThisSession(true);
       setShowDesignModal(false);
-      setSaveNameModal(null);
-      setSaveNameInput("");
     } catch (err) {
       console.error("Failed to save voice:", err);
     } finally {
@@ -417,7 +435,7 @@ export default function MyVoices() {
   };
 
   /** Saved voices that are custom (for "My voices" strip and for resolving custom tab saved state). */
-  const customVoices = myVoices.filter((v) => v.source === "custom" || !!v.custom_voice_id || !!v.audio_base64);
+  const customVoices = myVoices.filter((v) => v.source === "custom" || !!v.custom_voice_id);
 
   const playSavedPreview = (saved: SavedVoiceFromAPI) => {
     const id = saved.voice_id;
@@ -432,9 +450,7 @@ export default function MyVoices() {
     }
     playingId.current = id;
     setPlayingVoiceId(id);
-    const src = saved.audio_base64
-      ? `data:audio/mpeg;base64,${saved.audio_base64}`
-      : saved.preview_url;
+    const src = saved.preview_url;
     if (!src) return;
     const audio = new Audio(src);
     audioRef.current = audio;
@@ -448,7 +464,7 @@ export default function MyVoices() {
     };
   };
 
-  const playCustomPreview = (custom: CustomVoiceFromAPI) => {
+  const playCustomPreview = async (custom: CustomVoiceFromAPI) => {
     const id = custom.voice_id;
     if (playingId.current === id && audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
@@ -459,9 +475,25 @@ export default function MyVoices() {
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    const src = custom.audio_base64
-      ? `data:audio/mpeg;base64,${custom.audio_base64}`
-      : custom.preview_url;
+    let src: string | null = custom.preview_url ?? null;
+    if (!src && custom.id && custom.voice_id) {
+      try {
+        const res = await getCustomVoicePreview(custom.id);
+        const data = res.data;
+        if (data?.ready && data.preview_url) {
+          src = data.preview_url;
+          setCustomVoicesList((prev) =>
+            prev.map((c) => (c.id === custom.id ? { ...c, preview_url: data.preview_url } : c))
+          );
+        }
+      } catch {
+        // ignore
+      }
+      if (!src) {
+        showError("Preview not ready yet. Try again in a moment.");
+        return;
+      }
+    }
     if (!src) return;
     playingId.current = id;
     setPlayingVoiceId(id);
@@ -487,7 +519,7 @@ export default function MyVoices() {
         age: presetAge || undefined,
         persona: presetPersona || undefined,
         speed: presetSpeed || undefined,
-        accent: presetAccent || undefined,
+        accent: presetCountry || undefined,
       });
       setLastPresetDesignResponse(res.data);
       const previews = res.data.previews ?? [];
@@ -596,7 +628,7 @@ export default function MyVoices() {
           </div>
           <ul className="space-y-2 mb-6">
             {myVoices.map((saved) => {
-                const hasPreview = !!(saved.preview_url || saved.audio_base64);
+                const hasPreview = !!saved.preview_url;
                 const isPlaying = playingVoiceId === saved.voice_id;
                 const { displayName } = getMyVoiceDisplayName(saved.name);
                 const isAdding = typeof saved.id === "number" && saved.id < 0 && addingPrebuiltVoiceId === saved.voice_id;
@@ -629,23 +661,25 @@ export default function MyVoices() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
                             </svg>
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (myVoices.length <= 1) {
-                                showError(ONE_VOICE_REQUIRED_MSG);
-                                return;
-                              }
-                              setDeleteVoiceTarget(saved);
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            title="Delete voice"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          {isCustomSavedVoice(saved) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (myVoices.length <= 1) {
+                                  showError(ONE_VOICE_REQUIRED_MSG);
+                                  return;
+                                }
+                                setDeleteVoiceTarget(saved);
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                              title="Delete voice"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       }
                     />
@@ -696,7 +730,7 @@ export default function MyVoices() {
               <ul className="space-y-2 max-h-[280px] overflow-y-auto [scrollbar-gutter:stable]">
                 {customVoicesList.map((custom) => {
                   const saved = myVoices.find((v) => v.custom_voice_id === custom.id || v.voice_id === custom.voice_id);
-                  const hasPreview = !!(custom.preview_url || custom.audio_base64);
+                  const hasPreview = !!(custom.preview_url || custom.voice_id);
                   const isPlaying = playingVoiceId === custom.voice_id;
                   const { displayName } = getMyVoiceDisplayName(custom.name);
                   const isAdding = addingCustomVoiceId === custom.id;
@@ -773,6 +807,24 @@ export default function MyVoices() {
                                 )}
                               </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const savedWithThis = myVoices.find((v) => v.custom_voice_id === custom.id || v.voice_id === custom.voice_id);
+                                if (savedWithThis && myVoices.length <= 1) {
+                                  showError(ONE_VOICE_REQUIRED_MSG);
+                                  return;
+                                }
+                                setDeleteCustomVoiceTarget(custom);
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                              title="Delete custom voice"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         }
                       />
@@ -874,59 +926,34 @@ export default function MyVoices() {
         }}
       />
 
+      <ConfirmDeleteModal
+        open={deleteCustomVoiceTarget !== null}
+        onClose={() => setDeleteCustomVoiceTarget(null)}
+        title="Delete this custom voice?"
+        subtitle={deleteCustomVoiceTarget ? getMyVoiceDisplayName(deleteCustomVoiceTarget.name).displayName : undefined}
+        warningMessage="This custom voice will be removed from the Custom voices tab. If it was in your saved list, it will be removed from there too. This cannot be undone."
+        onConfirm={async () => {
+          if (deleteCustomVoiceTarget) {
+            const id = deleteCustomVoiceTarget.id;
+            try {
+              await deleteCustomVoice(id);
+              setCustomVoicesList((prev) => prev.filter((c) => c.id !== id));
+              setMyVoices((prev) => prev.filter((v) => v.custom_voice_id !== id));
+            } catch (err) {
+              console.error("Failed to delete custom voice:", err);
+              showError("Could not delete custom voice. Please try again.");
+            }
+            setDeleteCustomVoiceTarget(null);
+          }
+        }}
+      />
+
       <UpgradePlanModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         title="Update to a paid plan"
         subtitle="Create and use custom voices in your videos. Upgrade to Pro or Standard to unlock."
       />
-
-      {saveNameModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-8">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setSaveNameModal(null); setSaveNameInput(""); }} />
-          <div className="relative w-full max-w-sm bg-white border border-gray-200/40 rounded-2xl shadow-xl p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Name your voice</h3>
-            <p className="text-[11px] text-gray-500 mb-3">Give this voice a name so you can find it later.</p>
-            <input
-              type="text"
-              value={saveNameInput}
-              onChange={(e) => setSaveNameInput(e.target.value)}
-              placeholder="e.g. Documentary narrator"
-              className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent mb-4"
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => { setSaveNameModal(null); setSaveNameInput(""); }}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!saveNameModal) return;
-                  const name = saveNameInput.trim();
-                  if (!name) return;
-                  addGeneratedToMyVoices(
-                    saveNameModal.source,
-                    saveNameModal.preview,
-                    saveNameModal.formFields,
-                    saveNameModal.promptText,
-                    saveNameModal.designResponse,
-                    name
-                  );
-                }}
-                disabled={!saveNameInput.trim()}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors"
-              >
-                Save voice
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showDesignModal &&
         ReactDOM.createPortal(
@@ -972,6 +999,17 @@ export default function MyVoices() {
                     >
                       Describe in your own words
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreateVoiceMode("clone")}
+                      className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        createVoiceMode === "clone"
+                          ? "bg-white text-purple-600 shadow-sm"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      Voice clone
+                    </button>
                   </div>
                 </div>
 
@@ -985,6 +1023,18 @@ export default function MyVoices() {
                     Fill in the fields below; we’ll generate voice previews — play then add to custom voice.
                   </p>
                   <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                        Voice name
+                      </label>
+                      <input
+                        type="text"
+                        value={presetVoiceName}
+                        onChange={(e) => setPresetVoiceName(e.target.value)}
+                        placeholder="e.g. Documentary narrator"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
@@ -1049,16 +1099,16 @@ export default function MyVoices() {
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                        Accent / language <span className="text-gray-300 font-normal normal-case">(optional)</span>
+                        Country <span className="text-gray-300 font-normal normal-case">(optional)</span>
                       </label>
                       <select
-                        value={presetAccent}
-                        onChange={(e) => setPresetAccent(e.target.value)}
+                        value={presetCountry}
+                        onChange={(e) => setPresetCountry(e.target.value)}
                         className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
                       >
                         <option value=""> </option>
-                        {VOICE_ACCENTS.map((a) => (
-                          <option key={a} value={a}>{a}</option>
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.name}>{c.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1118,20 +1168,26 @@ export default function MyVoices() {
                           onClick={() => {
                             const selected = presetPreviews[selectedPresetPreviewIndex];
                             if (!selected) return;
-                            setSaveNameModal({
-                              preview: selected,
-                              source: "form",
-                              formFields: {
+                            const name = presetVoiceName.trim();
+                            if (!name) {
+                              setPresetError("Enter a voice name.");
+                              return;
+                            }
+                            setPresetError(null);
+                            addGeneratedToMyVoices(
+                              "form",
+                              selected,
+                              {
                                 gender: presetGender || undefined,
                                 age: presetAge || undefined,
                                 persona: presetPersona || undefined,
                                 speed: presetSpeed || undefined,
-                                accent: presetAccent || undefined,
+                                country: presetCountry || undefined,
                               },
-                              promptText: null,
-                              designResponse: lastPresetDesignResponse,
-                            });
-                            setSaveNameInput("");
+                              null,
+                              lastPresetDesignResponse,
+                              name
+                            );
                           }}
                           disabled={
                             presetPreviews.length === 0 ||
@@ -1164,6 +1220,18 @@ export default function MyVoices() {
                   <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed mb-2">
                     Describe the voice (20–1000 characters); we’ll generate previews — play then add to custom voice.
                   </p>
+                  <div className="mb-3">
+                    <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                      Voice name
+                    </label>
+                    <input
+                      type="text"
+                      value={customPromptVoiceName}
+                      onChange={(e) => setCustomPromptVoiceName(e.target.value)}
+                      placeholder="e.g. Documentary narrator"
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+                    />
+                  </div>
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
@@ -1227,14 +1295,20 @@ export default function MyVoices() {
                         onClick={() => {
                           const selected = customPreviews[selectedCustomPreviewIndex];
                           if (!selected) return;
-                          setSaveNameModal({
-                            preview: selected,
-                            source: "prompt",
-                            formFields: null,
-                            promptText: customPrompt.trim() || null,
-                            designResponse: lastCustomDesignResponse,
-                          });
-                          setSaveNameInput("");
+                          const name = customPromptVoiceName.trim();
+                          if (!name) {
+                            setCustomError("Enter a voice name.");
+                            return;
+                          }
+                          setCustomError(null);
+                          addGeneratedToMyVoices(
+                            "prompt",
+                            selected,
+                            null,
+                            customPrompt.trim() || null,
+                            lastCustomDesignResponse,
+                            name
+                          );
                         }}
                         disabled={
                           customPreviews.length === 0 ||
@@ -1254,6 +1328,216 @@ export default function MyVoices() {
                     </div>
                   )}
                   {customError && <p className="mt-2 text-[11px] text-red-500">{customError}</p>}
+                </div>
+                )}
+
+                {/* Voice clone — only when clone mode */}
+                {createVoiceMode === "clone" && (
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                    Voice clone
+                  </label>
+                  {clonePreviewResult ? (
+                    <>
+                      <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed mb-3">
+                        Preview your clone. Save to add it to your custom voices, or Discard to remove it.
+                      </p>
+                      <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-purple-200 bg-purple-50/40 mb-4">
+                        <button
+                          type="button"
+                          onClick={() => playCustomPreview(clonePreviewResult)}
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg shrink-0"
+                          title={playingVoiceId === clonePreviewResult.voice_id ? "Pause" : "Play"}
+                        >
+                          {playingVoiceId === clonePreviewResult.voice_id ? (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{clonePreviewResult.name || "Cloned voice"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!clonePreviewResult) return;
+                            try {
+                              await deleteCustomVoice(clonePreviewResult.id);
+                            } catch {
+                              showError("Could not discard clone. Try again.");
+                              return;
+                            }
+                            setClonePreviewResult(null);
+                          }}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-200/60 rounded-lg"
+                        >
+                          Discard
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingClonePreview}
+                          onClick={async () => {
+                            if (!clonePreviewResult || savingClonePreview) return;
+                            setSavingClonePreview(true);
+                            setCustomVoicesList((prev) => [clonePreviewResult, ...prev]);
+                            try {
+                              const savedRes = await saveVoice({
+                                voice_id: clonePreviewResult.voice_id,
+                                name: clonePreviewResult.name,
+                                preview_url: clonePreviewResult.preview_url ?? undefined,
+                                source: "custom",
+                                custom_voice_id: clonePreviewResult.id,
+                              });
+                              setMyVoices((prev) => [...prev, savedRes.data]);
+                              setHasAddedVoiceThisSession(true);
+                              setShowDesignModal(false);
+                              setClonePreviewResult(null);
+                            } catch (err) {
+                              console.error("Failed to add clone to list:", err);
+                              showError("Failed to save. Try again.");
+                            } finally {
+                              setSavingClonePreview(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:bg-purple-400 flex items-center gap-2"
+                        >
+                          {savingClonePreview ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : null}
+                          {savingClonePreview ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed mb-3">
+                        Upload an audio or video file (about 2 min). Record in a quiet space using a smartphone or professional microphone. Speak clearly and enunciate each word.
+                      </p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                            Voice name
+                          </label>
+                          <input
+                            type="text"
+                            value={cloneName}
+                            onChange={(e) => setCloneName(e.target.value)}
+                            placeholder="My cloned voice"
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                            Audio or video file
+                          </label>
+                          <div
+                            className={`mt-1 border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                              cloneFile ? "border-purple-200 bg-purple-50/40" : "border-gray-200/60 hover:border-gray-300"
+                            }`}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const f = e.dataTransfer.files?.[0];
+                              if (f && (f.type.startsWith("audio/") || f.type.startsWith("video/"))) setCloneFile(f);
+                              else if (f) setCloneError("Please use an audio or video file (e.g. mp3, wav, mp4).");
+                            }}
+                          >
+                            <input
+                              type="file"
+                              accept="audio/*,video/*,.mp3,.wav,.m4a,.mp4,.webm,.ogg,.mov"
+                              className="hidden"
+                              id="clone-file-input"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                setCloneError(null);
+                                if (f) setCloneFile(f);
+                              }}
+                            />
+                            {cloneFile ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <p className="text-sm font-medium text-gray-800">{cloneFile.name}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setCloneFile(null)}
+                                  className="text-[11px] text-purple-600 hover:text-purple-700 font-medium"
+                                >
+                                  Remove file
+                                </button>
+                              </div>
+                            ) : (
+                              <label htmlFor="clone-file-input" className="cursor-pointer flex flex-col items-center gap-2">
+                                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <span className="text-sm font-medium text-gray-700">Upload an audio or video file (about 2 min)</span>
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={removeBackgroundNoise}
+                            onChange={(e) => setRemoveBackgroundNoise(e.target.checked)}
+                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-[11px] text-gray-600">Remove background sound</span>
+                        </label>
+                      </div>
+                      {cloneError && <p className="mt-2 text-[11px] text-red-500">{cloneError}</p>}
+                      <div className="flex items-center justify-end gap-2 mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowDesignModal(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-200/60 rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!cloneName.trim() || !cloneFile || cloneLoading}
+                          onClick={async () => {
+                            if (!cloneName.trim() || !cloneFile) return;
+                            const MAX_MB = 50;
+                            if (cloneFile.size > MAX_MB * 1024 * 1024) {
+                              setCloneError(`File must be under ${MAX_MB}MB.`);
+                              return;
+                            }
+                            setCloneError(null);
+                            setCloneLoading(true);
+                            try {
+                              const formData = new FormData();
+                              formData.append("name", cloneName.trim());
+                              formData.append("remove_background_noise", removeBackgroundNoise ? "true" : "false");
+                              formData.append("file", cloneFile);
+                              const res = await createCustomVoiceClone(formData);
+                              const created = res.data;
+                              if (created) {
+                                setClonePreviewResult(created);
+                              }
+                            } catch (err: unknown) {
+                              const msg = err && typeof err === "object" && "response" in err
+                                ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+                                : null;
+                              showError(typeof msg === "string" ? msg : "Failed to create voice clone. Please try again.");
+                            } finally {
+                              setCloneLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg flex items-center gap-2"
+                        >
+                          {cloneLoading ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : null}
+                          {cloneLoading ? "Creating…" : "Create voice"}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
                 )}
 
