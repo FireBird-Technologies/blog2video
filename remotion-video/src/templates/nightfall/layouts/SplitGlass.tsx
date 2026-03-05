@@ -97,7 +97,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
         {title && (
           <h2
             style={{
-              fontSize: titleFontSize ?? (p ? 34 : 46),
+              fontSize: titleFontSize ?? (p ? 46 : 46),
               fontWeight: 700,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -154,7 +154,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   position: "absolute",
                   top: p ? 20 : 24,
                   left: p ? 24 : 28,
-                  fontSize: descriptionFontSize ?? (p ? 20 : 24),
+                  fontSize: descriptionFontSize ?? (p ? 24 : 24),
                   color: "rgba(226,232,240,0.45)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                   letterSpacing: "0.1em",
@@ -168,7 +168,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               {/* Content */}
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 28 : 32),
+                  fontSize: descriptionFontSize ?? (p ? 32 : 32),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -263,7 +263,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   position: "absolute",
                   top: p ? 20 : 24,
                   left: p ? 24 : 28,
-                  fontSize: descriptionFontSize ?? (p ? 20 : 24),
+                  fontSize: descriptionFontSize ?? (p ? 24 : 24),
                   color: accentColor,
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                   letterSpacing: "0.1em",
@@ -277,7 +277,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               {/* Content */}
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 28 : 32),
+                  fontSize: descriptionFontSize ?? (p ? 32 : 32),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

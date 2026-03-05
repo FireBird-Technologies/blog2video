@@ -14,7 +14,7 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("newspaper", "news_timeline"): {"landscape": "3:2", "portrait": "2:3"},
     # Card-style (fixed height) layouts: 3:2 / 2:3 fits most
     ("nightfall", "glass_narrative"): {"landscape": "3:2", "portrait": "2:3"},
-    ("nightfall", "glow_metric"): {"landscape": "3:2", "portrait": "2:3"},
+    ("nightfall", "glow_metric"): {"landscape": "3:2", "portrait": "3:4"},
     ("nightfall", "glass_stack"): {"landscape": "3:2", "portrait": "2:3"},
     ("gridcraft", "bento_compare"): {"landscape": "3:2", "portrait": "2:3"},
     ("gridcraft", "bento_features"): {"landscape": "3:2", "portrait": "2:3"},

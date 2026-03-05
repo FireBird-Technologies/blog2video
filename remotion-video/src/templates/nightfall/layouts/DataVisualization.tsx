@@ -117,7 +117,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
         {title && (
           <h2
             style={{
-              fontSize: titleFontSize ?? (p ? 34 : 46),
+              fontSize: titleFontSize ?? (p ? 46 : 46),
               fontWeight: 600,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

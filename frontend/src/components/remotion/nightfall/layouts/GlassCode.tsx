@@ -274,7 +274,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
               {title && (
                 <span
                   style={{
-                    fontSize: titleFontSize ?? (p ? 18 : 22),
+                    fontSize: titleFontSize ?? (p ? 22 : 22),
                     color: textColor,
                     opacity: 0.6,
                     fontFamily: "'Fira Code', monospace",
@@ -286,7 +286,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
               {codeLanguage && (
                 <span
                   style={{
-                    fontSize: p ? 11 : 12,
+                    fontSize: p ? 12 : 12,
                     color: accentColor,
                     fontFamily: "'Fira Code', monospace",
                     padding: "4px 10px",
@@ -306,7 +306,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
             {/* Copy indicator */}
             <div
               style={{
-                fontSize: p ? 11 : 12,
+                fontSize: p ? 12 : 12,
                 color: `${textColor}50`,
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               }}
@@ -349,7 +349,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                       marginRight: p ? 12 : 20,
                       minWidth: p ? 24 : 32,
                       textAlign: "right",
-                      fontSize: p ? 12 : 14,
+                      fontSize: p ? 14 : 14,
                       fontWeight: 500,
                     }}
                   >
@@ -377,7 +377,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                         marginLeft: 4,
                         color: accentColor,
                         fontWeight: 700,
-                        fontSize: descriptionFontSize ?? (p ? 16 : 20),
+                        fontSize: descriptionFontSize ?? (p ? 20 : 20),
                       }}
                     >
                       |
