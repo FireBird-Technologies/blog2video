@@ -1,3 +1,4 @@
+import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps, WhiteboardStatItem } from "../types";
@@ -63,6 +64,22 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
             <circle cx="90%" cy="15%" r="40" strokeDasharray="15 10" />
             <path d="M 85%,85% L 92%,92% M 92%,85% L 85%,92%" />
             <path d="M 10%,80% C 15%,75% 25%,85% 30%,80%" strokeWidth="6" />
+            
+            {/* PORTRAIT-ONLY EXTRA STROKES */}
+            {p && (
+              <>
+                {/* Arrow pointing to the chart */}
+                <path d="M 15%,25% Q 10%,35% 15%,45%" strokeWidth="4" markerEnd="url(#arrowhead)" />
+                {/* Highlight circle around the first bar area */}
+                <ellipse cx="50%" cy="55%" rx="45%" ry="25%" strokeWidth="2" strokeDasharray="20 10" opacity="0.3" />
+                {/* Zig-zag at bottom */}
+                <path d="M 40%,95% L 45%,92% L 50%,95% L 55%,92% L 60%,95%" strokeWidth="3" />
+                {/* Underline for the title area */}
+                <path d="M 20%,18% Q 50%,21% 80%,17%" strokeWidth="6" opacity="0.6" />
+                {/* Top left star/burst */}
+                <path d="M 5%,5% L 10%,10% M 10%,5% L 5%,10% M 7.5%,3% L 7.5%,12% M 3%,7.5% L 12%,7.5%" strokeWidth="3" />
+              </>
+            )}
         </g>
       </svg>
 
@@ -75,21 +92,22 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center", 
           textAlign: "center",     
-          padding: p ? "10% 8%" : "8% 10%",
-          gap: p ? 32 : 48,
+          padding: p ? "12% 8%" : "8% 10%",
+          gap: p ? 40 : 48,
         }}
       >
         {/* Title block */}
-        <div style={{ opacity: titleOp, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ opacity: titleOp, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
           <div
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 58 : 72),
+              fontSize: titleFontSize ?? (p ? 54 : 72),
               lineHeight: 1.1,
               marginBottom: 16,
               filter: "url(#ink)",
               maxWidth: 800,
+              transform: p ? "rotate(-1deg)" : "none",
             }}
           >
             {title}
@@ -97,10 +115,11 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 26 : 30),
+              fontSize: descriptionFontSize ?? (p ? 24 : 30),
               opacity: 0.9,
-              maxWidth: p ? "100%" : 640,
+              maxWidth: p ? "90%" : 640,
               filter: "url(#ink)",
+              fontStyle: p ? "italic" : "normal",
             }}
           >
             {narration}
@@ -114,7 +133,11 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
             maxWidth: p ? "100%" : 800,
             display: "flex",
             flexDirection: "column",
-            gap: p ? 16 : 20,
+            gap: p ? 24 : 20,
+            padding: p ? "20px" : "0",
+            backgroundColor: p ? "rgba(255,255,255,0.4)" : "transparent",
+            borderRadius: p ? "20px" : "0",
+            border: p ? `2px dashed ${accentColor}44` : "none",
           }}
         >
           {stats.slice(0, maxItems).map((item, i) => {
@@ -131,17 +154,18 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                 key={i}
                 style={{
                   opacity: interpolate(frame, [delay, delay + 8], [0, 1], { extrapolateRight: "clamp" }),
+                  transform: p ? `translateX(${interpolate(barProgress, [0, 1], [-20, 0])}px)` : "none",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ display: "flex", flexDirection: p ? "column" : "row", alignItems: p ? "flex-start" : "center", gap: p ? 4 : 16 }}>
                   {/* Label */}
                   <span
                     style={{
                       flexShrink: 0,
                       color: textColor,
-                      fontSize: p ? 18 : 22,
-                      fontWeight: 600,
-                      minWidth: p ? 80 : 120,
+                      fontSize: p ? 20 : 22,
+                      fontWeight: 700,
+                      minWidth: p ? "auto" : 120,
                       textAlign: "left",
                       filter: "url(#ink)",
                     }}
@@ -149,51 +173,54 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                     {item.label}
                   </span>
 
-                  {/* Bar track */}
-                  <div
-                    style={{
-                      flex: 1,
-                      height: p ? 28 : 36,
-                      borderRadius: 8,
-                      backgroundColor: "rgba(0,0,0,0.06)",
-                      overflow: "hidden",
-                      border: `3px solid ${accentColor}`,
-                      position: "relative",
-                      transform: `rotate(${(i % 2 === 0 ? 0.5 : -0.5)}deg)`,
-                    }}
-                  >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%" }}>
+                    {/* Bar track */}
                     <div
                       style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: `${barWidthPct * 100}%`,
-                        backgroundColor: accentColor,
-                        opacity: 0.15,
+                        flex: 1,
+                        height: p ? 32 : 36,
+                        borderRadius: p ? 4 : 8,
+                        backgroundColor: "rgba(0,0,0,0.06)",
+                        overflow: "hidden",
+                        border: `${p ? 4 : 3}px solid ${accentColor}`,
+                        position: "relative",
+                        transform: `rotate(${(i % 2 === 0 ? 0.7 : -0.7)}deg)`,
                       }}
-                    />
-                    <div
-                      style={{
-                        width: `${barWidthPct * 100}%`,
-                        height: "100%",
-                        backgroundColor: accentColor,
-                      }}
-                    />
-                  </div>
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: `${barWidthPct * 100}%`,
+                          backgroundColor: accentColor,
+                          opacity: 0.15,
+                        }}
+                      />
+                      <div
+                        style={{
+                          width: `${barWidthPct * 100}%`,
+                          height: "100%",
+                          backgroundColor: accentColor,
+                        }}
+                      />
+                    </div>
 
-                  {/* Value */}
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      color: accentColor,
-                      fontSize: p ? 20 : 26,
-                      fontWeight: 800,
-                      minWidth: 50,
-                      textAlign: "right",
-                      filter: "url(#ink)",
-                    }}
-                  >
-                    {item.value}%
-                  </span>
+                    {/* Value */}
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        color: accentColor,
+                        fontSize: p ? 22 : 26,
+                        fontWeight: 800,
+                        minWidth: 55,
+                        textAlign: "right",
+                        filter: "url(#ink)",
+                        transform: p ? "scale(1.1)" : "none",
+                      }}
+                    >
+                      {item.value}%
+                    </span>
+                  </div>
                 </div>
               </div>
             );

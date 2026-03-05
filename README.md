@@ -102,7 +102,6 @@ cd remotion-video
 npm install
 ```
 
-Remotion Studio is launched from the app when you click "Launch Studio" on a project.
 
 ### 5. Stripe Webhook (for local dev)
 
@@ -120,8 +119,7 @@ Copy the webhook signing secret to `STRIPE_WEBHOOK_SECRET` in `.env`.
 4. **Generate Script** -- DSPy creates a multi-scene video script from the content
 5. **Generate Scenes** -- DSPy generates Remotion component code for each scene + ElevenLabs voiceover
 6. **Edit via Chat** -- Use the AI chatbot to refine the script with natural language (reflexion-based QA)
-7. **Launch Studio** -- Open Remotion Studio to preview, tweak, and render the final video
-8. **Upgrade** -- Hit your free video limit? Upgrade to Pro via Stripe Checkout
+7. **Upgrade** -- Hit your free video limit? Upgrade to Pro via Stripe Checkout
 
 ## Environment Variables
 
@@ -197,7 +195,6 @@ Copy the webhook signing secret to `STRIPE_WEBHOOK_SECRET` in `.env`.
 | POST | `/api/projects/{id}/generate-scenes` | Yes | Generate Remotion code + voiceover |
 | PUT | `/api/projects/{id}/scenes/{sid}` | Yes | Update a scene manually |
 | POST | `/api/projects/{id}/chat` | Yes | Chat-based script editing |
-| POST | `/api/projects/{id}/launch-studio` | Yes | Launch Remotion Studio |
 | POST | `/api/projects/{id}/render` | Yes | Render video via CLI |
 
 ## Tech Stack

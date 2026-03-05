@@ -3,10 +3,30 @@ import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
 /**
- * SpeechBubbleDialogue
- * Stick figures hold & wave their thought bubbles above their heads,
- * giving an advocating / presenting feel.
+ * Scribble Decor: Random hand-drawn shapes to fill portrait white space
  */
+const BackgroundScribbles: React.FC<{ color: string }> = ({ color }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [20, 50], [0, 0.15], { extrapolateRight: "clamp" });
+
+  return (
+    <AbsoluteFill style={{ opacity, pointerEvents: "none" }}>
+      <svg width="100%" height="100%" viewBox="0 0 400 800" fill="none" filter="url(#ink)">
+        {/* Top Right Swirl */}
+        <path d="M320,50 Q380,80 340,120 Q300,160 360,190" stroke={color} strokeWidth="3" strokeLinecap="round" />
+        {/* Mid Left "Math" Doodle */}
+        <path d="M40,200 L80,200 M60,180 L60,220 M100,190 Q120,230 100,250" stroke={color} strokeWidth="2.5" />
+        {/* Bottom Left Star-ish */}
+        <path d="M50,650 L70,680 L40,670 L80,670 L50,680 Z" stroke={color} strokeWidth="2" />
+        {/* Bottom Right Circles */}
+        <circle cx="330" cy="720" r="15" stroke={color} strokeWidth="2" strokeDasharray="5 3" />
+        <circle cx="350" cy="740" r="8" stroke={color} strokeWidth="1.5" />
+        {/* Top Left Wavy Line */}
+        <path d="M30,40 Q60,20 90,40 T150,40" stroke={color} strokeWidth="2" />
+      </svg>
+    </AbsoluteFill>
+  );
+};
 
 // ─── Stick figure ────────────────────────────────────────────────────────────
 function StickFigure({
@@ -18,6 +38,7 @@ function StickFigure({
   bubbleBottomY,
   bubbleWidth,
   bubbleSway,
+  portrait, // Receive portrait state for thicker lines
 }: {
   cx: number;
   dash: number;
@@ -27,10 +48,10 @@ function StickFigure({
   bubbleBottomY: number;
   bubbleWidth: number;
   bubbleSway: number;
+  portrait: boolean;
 }) {
   const frame = useCurrentFrame();
 
-  // ── Existing Phase Timings ─────────────────────────────────────────────────
   const walkProgress = interpolate(frame, [0, 25], [isRight ? 60 : -60, 0], {
     extrapolateRight: "clamp",
   });
@@ -38,7 +59,6 @@ function StickFigure({
   const isGreeting = frame >= 25 && frame < 55;
   const isPresenting = frame >= 55;
 
-  // ── Existing Motion Helpers ────────────────────────────────────────────────
   const walkCycle = Math.sin(frame * 0.4);
   const bob = isWalking
     ? Math.abs(Math.cos(frame * 0.4)) * 10
@@ -47,42 +67,31 @@ function StickFigure({
   const currentCX = cx + walkProgress;
   const presentLean = isPresenting ? Math.sin(frame * 0.07) * 3 : 0;
 
-  // ── Body Coordinates ───────────────────────────────────────────────────────
   const headY = 60 - bob;
   const bodyStartY = 88 - bob;
   const bodyEndY = 188 - bob;
   const armBaseY = 114 - bob;
   const shoulderX = currentCX + presentLean * 0.3;
 
-  // ── Elbow Logic (Inverse Kinematics) ───────────────────────────────────────
   const getArmPath = (targetX: number, targetY: number, bendRight: boolean) => {
     const upperArmLen = 42;
     const foreArmLen = 42;
-    
     const dx = targetX - shoulderX;
     const dy = targetY - armBaseY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    // Ensure we don't divide by zero or try to reach too far
     const d = Math.min(dist, upperArmLen + foreArmLen - 1);
-    
-    // Law of Cosines to find angle of the elbow
     const cosAngle = (upperArmLen ** 2 + d ** 2 - foreArmLen ** 2) / (2 * upperArmLen * d);
     const angleToTarget = Math.atan2(dy, dx);
     const elbowAngle = angleToTarget + (bendRight ? 1 : -1) * Math.acos(Math.max(-1, Math.min(1, cosAngle)));
-
     const ex = shoulderX + Math.cos(elbowAngle) * upperArmLen;
     const ey = armBaseY + Math.sin(elbowAngle) * upperArmLen;
-
     return `M${shoulderX},${armBaseY} L${ex},${ey} L${targetX},${targetY}`;
   };
 
-  // ── Hand Position Logic ────────────────────────────────────────────────────
   let leftArmPath: string;
   let rightArmPath: string;
 
   if (isWalking) {
-    // Keep your original walking swing
     const lx = currentCX - walkCycle * 25;
     const ly = armBaseY + 40;
     const rx = currentCX + walkCycle * 25;
@@ -90,7 +99,6 @@ function StickFigure({
     leftArmPath = `M${shoulderX},${armBaseY} L${lx},${ly}`;
     rightArmPath = `M${shoulderX},${armBaseY} L${rx},${ry}`;
   } else if (isGreeting) {
-    // Keep your original greeting wave
     const wave = Math.sin(frame * 0.3);
     if ((isRight ? "left" : "right") === "left") {
       leftArmPath = `M${shoulderX},${armBaseY} L${currentCX - 45},${armBaseY - 30 + wave * 20}`;
@@ -100,23 +108,18 @@ function StickFigure({
       rightArmPath = `M${shoulderX},${armBaseY} L${currentCX + 45},${armBaseY - 30 + wave * 20}`;
     }
   } else {
-    // ── PRESENTING: Use Elbows ───────────────────────────────────────────────
     const halfGrip = bubbleWidth * 0.38;
     const gripY = bubbleBottomY - bob + 6;
     const effortL = Math.sin(frame * 0.13 + 1.2) * 2.5;
     const effortR = Math.sin(frame * 0.11 + 0.4) * 2.5;
-
     const lx = currentCX + bubbleSway - halfGrip + effortL + presentLean;
     const ly = gripY + effortL;
     const rx = currentCX + bubbleSway + halfGrip + effortR + presentLean;
     const ry = gripY + effortR;
-
-    // "bendRight" is true for the right arm so elbows point outwards
     leftArmPath = getArmPath(lx, ly, false);
     rightArmPath = getArmPath(rx, ry, true);
   }
 
-  // ── Legs (Original) ────────────────────────────────────────────────────────
   let leftLegX: number, rightLegX: number, legY2: number;
   if (isWalking) {
     leftLegX = currentCX - walkCycle * 20;
@@ -142,18 +145,14 @@ function StickFigure({
 
   return (
     <g strokeLinecap="round" strokeLinejoin="round">
-      {renderLimbs(9, 0.18)}
-      {renderLimbs(4.5, undefined)}
+      {/* Dynamic stroke width: thicker for portrait */}
+      {renderLimbs(portrait ? 12 : 9, 0.18)}
+      {renderLimbs(portrait ? 6 : 4.5, undefined)}
     </g>
   );
 }
 
-// ─── Dynamic bubble height estimator ─────────────────────────────────────────
-function estimateBubbleHeight(
-  text: string,
-  fontSize: number,
-  innerW: number
-): number {
+function estimateBubbleHeight(text: string, fontSize: number, innerW: number): number {
   const charsPerLine = Math.floor(innerW / (fontSize * 0.56));
   const words = text.split(" ");
   let lines = 1;
@@ -169,7 +168,6 @@ function estimateBubbleHeight(
   return Math.max(72, lines * (fontSize * 1.45) + 32);
 }
 
-// ─── Speech bubble ────────────────────────────────────────────────────────────
 interface BubbleProps {
   anchorX: number;
   topY: number;
@@ -179,10 +177,9 @@ interface BubbleProps {
   fill?: string;
   progress: number;
   fontSize: number;
-  /** Live horizontal sway offset – bubble moves with the figure's hands */
   swayX?: number;
-  /** Live vertical nudge – tiny up/down from "being held" */
   swayY?: number;
+  portrait: boolean;
 }
 
 function SpeechBubble({
@@ -196,6 +193,7 @@ function SpeechBubble({
   fontSize,
   swayX = 0,
   swayY = 0,
+  portrait,
 }: BubbleProps) {
   const innerW = 210;
   const hContent = estimateBubbleHeight(text, fontSize, innerW);
@@ -224,7 +222,6 @@ function SpeechBubble({
   const dash = 900;
   const off = dash * (1 - progress);
   const filterId = `inkB_${side}`;
-
   const visChars = Math.floor(text.length * progress);
   const visText = text.slice(0, visChars);
 
@@ -232,83 +229,21 @@ function SpeechBubble({
     <>
       <defs>
         <filter id={filterId} x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.035 0.02"
-            numOctaves="4"
-            seed={side === "left" ? 7 : 11}
-            result="w"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="w"
-            scale="2.5"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
+          <feTurbulence type="fractalNoise" baseFrequency="0.035 0.02" numOctaves="4" seed={side === "left" ? 7 : 11} result="w" />
+          <feDisplacementMap in="SourceGraphic" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </defs>
-
       <g opacity={progress > 0 ? 1 : 0}>
         <g filter={`url(#${filterId})`}>
-          {/* Bleed */}
-          <path
-            d={bPath}
-            fill={fill}
-            stroke={textColor}
-            strokeWidth={8}
-            strokeOpacity={0.18}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-          {/* Core border */}
-          <path
-            d={bPath}
-            fill={fill}
-            stroke={textColor}
-            strokeWidth={3.5}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            strokeDasharray={dash}
-            strokeDashoffset={off}
-          />
-          <path
-            d={tailPath}
-            fill={fill}
-            stroke={textColor}
-            strokeWidth={3.5}
-            strokeLinejoin="round"
-          />
+          {/* Dynamic stroke width: thicker for portrait */}
+          <path d={bPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 11 : 8} strokeOpacity={0.18} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={bPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dash} strokeDashoffset={off} />
+          <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
-        <foreignObject
-          x={bX + 14}
-          y={tY + 10}
-          width={innerW}
-          height={hContent - 16}
-          opacity={Math.min(progress * 2.5, 1)}
-        >
-          <div
-            style={{
-              color: textColor,
-              fontSize,
-              fontWeight: 600,
-              fontFamily:
-                "'Comic Sans MS', 'Segoe Print', cursive",
-              lineHeight: 1.45,
-              textAlign: "center",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "100%",
-              height: "100%",
-              boxSizing: "border-box",
-              wordBreak: "break-word",
-            }}
-          >
+        <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
+          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Comic Sans MS', 'Segoe Print', cursive", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
-            {visChars < text.length && (
-              <span style={{ opacity: 0.35 }}>|</span>
-            )}
+            {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
         </foreignObject>
       </g>
@@ -316,7 +251,6 @@ function SpeechBubble({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   title,
   narration,
@@ -334,30 +268,18 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const p = aspectRatio === "portrait";
 
   const figDash = 500;
-  const figOff =
-    figDash *
-    (1 - interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp" }));
+  const figOff = figDash * (1 - interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp" }));
 
-  const leftBubbleProgress = interpolate(frame, [45, 70], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const rightBubbleProgress = interpolate(frame, [72, 100], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const titleOp = interpolate(frame, [85, 105], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const labelOp = interpolate(frame, [25, 35], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const leftBubbleProgress = interpolate(frame, [45, 70], [0, 1], { extrapolateRight: "clamp" });
+  const rightBubbleProgress = interpolate(frame, [72, 100], [0, 1], { extrapolateRight: "clamp" });
+  const titleOp = interpolate(frame, [85, 105], [0, 1], { extrapolateRight: "clamp" });
+  const labelOp = interpolate(frame, [25, 35], [0, 1], { extrapolateRight: "clamp" });
 
   const svgW = 700;
   const groundY = 308;
   const labelY = groundY + 28;
-
   const leftCX = 240;
   const rightCX = 460;
-
   const fontSize = p ? 17 : 21;
 
   const leftBH = estimateBubbleHeight(leftThought, fontSize, 210);
@@ -368,279 +290,75 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const leftBubbleTopY = figHeadTopY - leftBH - tailH - bubbleGap;
   const rightBubbleTopY = figHeadTopY - rightBH - tailH - bubbleGap;
 
-  // ── Sway / wave animation ──────────────────────────────────────────────────
-  // Only kicks in once figures are presenting (frame >= 55).
-  // Each figure has an independent but natural-feeling sway.
-  const presentProgress = interpolate(frame, [55, 75], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const presentProgress = interpolate(frame, [55, 75], [0, 1], { extrapolateRight: "clamp" });
+  const leftSwayRaw = Math.sin(frame * 0.065) * 9 + Math.sin(frame * 0.031) * 4;
+  const leftSwayY = Math.sin(frame * 0.09 + 0.5) * 4 + Math.cos(frame * 0.04) * 2;
+  const rightSwayRaw = Math.sin(frame * 0.078 + Math.PI * 0.6) * 8 + Math.sin(frame * 0.041 + 1) * 3.5;
+  const rightSwayY = Math.sin(frame * 0.11 + 2) * 3.5 + Math.cos(frame * 0.05 + 0.8) * 2.5;
 
-  // Left figure: slower, wider sway (more emphatic)
-  const leftSwayRaw =
-    Math.sin(frame * 0.065) * 9 + Math.sin(frame * 0.031) * 4;
-  const leftSwayY =
-    Math.sin(frame * 0.09 + 0.5) * 4 + Math.cos(frame * 0.04) * 2;
-
-  // Right figure: slightly faster, responds a little differently
-  const rightSwayRaw =
-    Math.sin(frame * 0.078 + Math.PI * 0.6) * 8 +
-    Math.sin(frame * 0.041 + 1) * 3.5;
-  const rightSwayY =
-    Math.sin(frame * 0.11 + 2) * 3.5 + Math.cos(frame * 0.05 + 0.8) * 2.5;
-
-  // Ease in after presenting phase starts
   const leftSway = leftSwayRaw * presentProgress;
   const rightSway = rightSwayRaw * presentProgress;
   const leftSwayYFinal = leftSwayY * presentProgress;
   const rightSwayYFinal = rightSwayY * presentProgress;
 
-  // Bubble width (bW = innerW + 28 = 238)
   const bubbleWidth = 238;
-
   const leftSpeaker = stats?.[0]?.label ?? "Person A";
   const rightSpeaker = stats?.[1]?.label ?? "Person B";
 
   return (
-    <AbsoluteFill
-      style={{
-        overflow: "hidden",
-        fontFamily:
-          "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
-      }}
-    >
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
       <WhiteboardBackground bgColor={bgColor} />
-      <svg
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-        }}
-        aria-hidden
-      >
+      {p && <BackgroundScribbles color={textColor} />}
+
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
         <defs>
           <filter id="grain">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.68"
-              numOctaves="4"
-              stitchTiles="stitch"
-            />
+            <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" stitchTiles="stitch" />
             <feColorMatrix type="saturate" values="0" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.055" />
-            </feComponentTransfer>
+            <feComponentTransfer><feFuncA type="linear" slope="0.055" /></feComponentTransfer>
             <feComposite in2="SourceGraphic" operator="over" />
           </filter>
           <filter id="ink" x="-4%" y="-4%" width="108%" height="108%">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.038"
-              numOctaves="5"
-              seed="31"
-              result="w"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="w"
-              scale="2.8"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
+            <feTurbulence type="fractalNoise" baseFrequency="0.038" numOctaves="5" seed="31" result="w" />
+            <feDisplacementMap in="SourceGraphic" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
         <rect width="100%" height="100%" filter="url(#grain)" fill="none" />
       </svg>
 
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: p ? 14 : 18,
-          padding: p ? "4% 4%" : "3% 7%",
-        }}
-      >
-        <svg
-          viewBox={`0 0 ${svgW} ${labelY + 10}`}
-          style={{
-            width: p ? "96%" : "80%",
-            maxWidth: 880,
-            height: "auto",
-            overflow: "visible",
-          }}
-          fill="none"
-        >
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: p ? 14 : 18, padding: p ? "4% 4%" : "12% 7% 3% 7%" }}> {/* Landscape padding: 12% top */}
+        <svg viewBox={`0 0 ${svgW} ${labelY + 10}`} style={{ width: p ? "96%" : "80%", maxWidth: 880, height: "auto", overflow: "visible" }} fill="none">
           <defs>
-            <filter
-              id="inkFigs"
-              x="-4%"
-              y="-4%"
-              width="108%"
-              height="108%"
-            >
-              <feTurbulence
-                type="fractalNoise"
-                baseFrequency="0.04"
-                numOctaves="4"
-                seed="29"
-                result="w"
-              />
-              <feDisplacementMap
-                in="SourceGraphic"
-                in2="w"
-                scale="2.8"
-                xChannelSelector="R"
-                yChannelSelector="G"
-              />
+            <filter id="inkFigs" x="-4%" y="-4%" width="108%" height="108%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="29" result="w" />
+              <feDisplacementMap in="SourceGraphic" in2="w" scale="2.8" xChannelSelector="R" yChannelSelector="G" />
             </filter>
           </defs>
 
-          {/* Ground line */}
           <g filter="url(#inkFigs)">
-            <line
-              x1={20}
-              y1={groundY}
-              x2={680}
-              y2={groundY - 2}
-              stroke={textColor}
-              strokeWidth={6}
-              strokeOpacity={0.18}
-              strokeLinecap="round"
-            />
-            <line
-              x1={20}
-              y1={groundY}
-              x2={680}
-              y2={groundY - 2}
-              stroke={textColor}
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
+            {/* Thicker ground line for portrait */}
+            <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={p ? 9 : 6} strokeOpacity={0.18} strokeLinecap="round" />
+            <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={p ? 4.5 : 3} strokeLinecap="round" />
           </g>
 
-          {/* ── Speech bubbles (rendered first so figures appear in front) ── */}
-          <SpeechBubble
-            anchorX={leftCX}
-            topY={leftBubbleTopY}
-            side="right"
-            text={leftThought}
-            textColor={textColor}
-            progress={leftBubbleProgress}
-            fontSize={fontSize}
-            swayX={leftSway}
-            swayY={leftSwayYFinal}
-          />
-          <SpeechBubble
-            anchorX={rightCX}
-            topY={rightBubbleTopY}
-            side="left"
-            text={rightThought}
-            textColor={accentColor}
-            progress={rightBubbleProgress}
-            fontSize={fontSize}
-            swayX={rightSway}
-            swayY={rightSwayYFinal}
-          />
+          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} />
+          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} />
 
-          {/* ── Stick figures (on top so they visually "hold" bubble) ── */}
-          <StickFigure
-            cx={leftCX}
-            dash={figDash}
-            offset={figOff}
-            stroke={textColor}
-            isRight={false}
-            bubbleBottomY={leftBubbleTopY + leftBH + leftSwayYFinal}
-            bubbleWidth={bubbleWidth}
-            bubbleSway={leftSway}
-          />
-          <StickFigure
-            cx={rightCX}
-            dash={figDash}
-            offset={figOff}
-            stroke={accentColor}
-            isRight={true}
-            bubbleBottomY={rightBubbleTopY + rightBH + rightSwayYFinal}
-            bubbleWidth={bubbleWidth}
-            bubbleSway={rightSway}
-          />
+          <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} bubbleBottomY={leftBubbleTopY + leftBH + leftSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={leftSway} portrait={p} />
+          <StickFigure cx={rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={true} bubbleBottomY={rightBubbleTopY + rightBH + rightSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={rightSway} portrait={p} />
 
-          {/* Speaker labels */}
-          <text
-            x={leftCX}
-            y={labelY}
-            textAnchor="middle"
-            fill={textColor}
-            fontSize={18}
-            fontFamily="'Comic Sans MS', cursive"
-            fontWeight="700"
-            opacity={labelOp}
-          >
-            {leftSpeaker}
-          </text>
-          <text
-            x={rightCX}
-            y={labelY}
-            textAnchor="middle"
-            fill={accentColor}
-            fontSize={18}
-            fontFamily="'Comic Sans MS', cursive"
-            fontWeight="700"
-            opacity={labelOp}
-          >
-            {rightSpeaker}
-          </text>
+          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
+          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
 
-          {/* Anticipation dots */}
           {[0, 1, 2].map((dot) => {
-            const dotOp = interpolate(
-              frame,
-              [60 + dot * 4, 68 + dot * 4],
-              [0, 1],
-              { extrapolateRight: "clamp" }
-            );
-            return (
-              <circle
-                key={dot}
-                cx={svgW / 2 - 22 + dot * 22}
-                cy={160}
-                r={7}
-                fill={textColor}
-                fillOpacity={dotOp * 0.45}
-              />
-            );
+            const dotOp = interpolate(frame, [60 + dot * 4, 68 + dot * 4], [0, 1], { extrapolateRight: "clamp" });
+            return <circle key={dot} cx={svgW / 2 - 22 + dot * 22} cy={160} r={7} fill={textColor} fillOpacity={dotOp * 0.45} />;
           })}
         </svg>
 
         <div style={{ textAlign: "center", opacity: titleOp }}>
-          <div
-            style={{
-              color: textColor,
-              fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 42 : 54),
-              lineHeight: 1.1,
-              filter: "url(#ink)",
-            }}
-          >
-            {title}
-          </div>
-          {narration && (
-            <div
-              style={{
-                marginTop: 8,
-                color: textColor,
-                fontSize: descriptionFontSize ?? (p ? 22 : 26),
-                opacity: 0.88,
-                filter: "url(#ink)",
-              }}
-            >
-              {narration}
-            </div>
-          )}
+          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 42 : 54), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
+          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 22 : 26), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
         </div>
       </div>
     </AbsoluteFill>
