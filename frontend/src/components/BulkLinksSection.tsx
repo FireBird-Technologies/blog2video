@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 type BulkRow = { url: string };
 type AspectRatio = "landscape" | "portrait";
@@ -22,6 +22,28 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
   onAddRow,
   onRemoveRow,
 }) => {
+  const [errors, setErrors] = useState<(string | null)[]>([]);
+
+  const setErrorForIndex = (index: number, message: string | null) => {
+    setErrors((prev) => {
+      const next = [...prev];
+      next[index] = message;
+      return next;
+    });
+  };
+
+  const validateUrl = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/\s/.test(trimmed)) {
+      return "Enter a valid link (e.g. example.com, https://example.com).";
+    }
+    if (!trimmed.includes(".")) {
+      return "Enter a valid link (e.g. example.com, https://example.com).";
+    }
+    return null;
+  };
+
   return (
     <div>
       <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
@@ -39,13 +61,29 @@ export const BulkLinksSection: React.FC<BulkLinksSectionProps> = ({
             <div key={i} className="flex items-center gap-2">
 
               {/* URL Input */}
-              <input
-                type="url"
-                value={row.url}
-                onChange={(e) => onChangeUrl(i, e.target.value)}
-                placeholder={`URL ${i + 1}`}
-                className="flex-1 max-w-[75%] min-w-0 px-3 py-2 bg-white/80 border border-gray-200/60 rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
-              />
+              <div className="flex-1 max-w-[75%] min-w-0">
+                <input
+                  type="url"
+                  value={row.url}
+                  onChange={(e) => {
+                    onChangeUrl(i, e.target.value);
+                    setErrorForIndex(i, null);
+                  }}
+                  onBlur={(e) => {
+                    const msg = validateUrl(e.target.value);
+                    setErrorForIndex(i, msg);
+                  }}
+                  placeholder={`URL ${i + 1}`}
+                  className={`w-full px-3 py-2 bg-white/80 border rounded-lg text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 ${
+                    errors[i] ? "border-red-400" : "border-gray-200/60"
+                  }`}
+                />
+                {errors[i] && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors[i]}
+                  </p>
+                )}
+              </div>
 
               {/* Format Toggle */}
               <div className="flex items-center">
