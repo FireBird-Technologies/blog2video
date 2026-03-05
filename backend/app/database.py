@@ -134,6 +134,7 @@ def _migrate_sqlite(eng) -> None:
             "remotion_code": "TEXT",
             "voiceover_path": "VARCHAR(512)",
             "duration_seconds": "REAL DEFAULT 10.0",
+            "preferred_layout": "VARCHAR(64)",
         }
         with eng.begin() as conn:
             for col_name, col_def in scene_migrations.items():
