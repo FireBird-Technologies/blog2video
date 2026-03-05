@@ -273,6 +273,8 @@ def init_db():
         ChatMessage,
         CustomTemplate,
         Project,
+        CustomVoice,
+        SavedVoice,
         Scene,
         Subscription,
         SubscriptionPlan,
