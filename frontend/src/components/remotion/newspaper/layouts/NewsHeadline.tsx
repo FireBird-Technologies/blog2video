@@ -108,7 +108,7 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
               backgroundSize: "cover",
               backgroundPosition: "center",
               transform: `translate(${tx}px, ${ty}px) rotate(${rotate}deg) scale(${scale})`,
-              opacity,
+              opacity: 0.2,
               willChange: "transform, opacity",
             }}
           />
@@ -121,7 +121,6 @@ const ShatterBackground: React.FC<{ bgColor: string }> = ({ bgColor }) => {
 /* ───────────────────────────────────────── */
 /* MAIN COMPONENT                           */
 /* ───────────────────────────────────────── */
-
 export const NewsHeadline: React.FC<
   BlogLayoutProps & {
     imageUrl?: string;
@@ -158,150 +157,118 @@ export const NewsHeadline: React.FC<
   );
 
   const contentOpacity = fadeIn * fadeOut;
-
   const cat = category ?? stats?.[0]?.label ?? "News";
 
   const words = title.split(" ");
-  const defaultHighlights = [
-    words[0],
-    words[Math.floor(words.length / 2)],
-    words[words.length - 1],
-  ];
   const highlights =
     highlightWords && highlightWords.length
       ? highlightWords
-      : defaultHighlights;
+      : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
       <ShatterBackground bgColor={bgColor} />
-      {/* Vintage newspaper texture — staticFile for render */}
+      
+      {/* Background Overlays */}
       <img
         src={staticFile("vintage-news.avif")}
         alt=""
-        aria-hidden
         style={{
           position: "absolute",
           inset: 0,
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          objectPosition: "center",
-          opacity: 0.2,
+          opacity: 0.12,
           filter: "grayscale(75%) contrast(1.08)",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
-          pointerEvents: "none",
           zIndex: 1,
         }}
       />
 
-      {/* Newspaper grain overlay — zIndex 1 so it stays behind content (zIndex 2) */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)",
-          backgroundSize: "3px 3px",
-          opacity: 0.4,
-          pointerEvents: "none",
-          mixBlendMode: "multiply",
-          zIndex: 1,
-        }}
-      />
-
-      {/* Single Tilted Image Card */}
-
+      {/* Tilted Newspaper Cutout Image Card */}
       {imageUrl && (
         <div
           style={{
             position: "absolute",
-            top: p ? 160 : 250,
-            right: p ? 100 : 180,
-            width: p ? 380 : 540,
-            height: p ? 300 : 440,
-            transform: "rotate(-16deg)",
+            // Portrait: Center Top | Landscape: Right Side
+            top: p ? "15%" : "25%",
+            right: p ? "auto" : "10%",
+            left: p ? "50%" : "auto",
+            width: p ? "80%" : "40%",
+            height: p ? "35%" : "50%",
+            // ✅ physical styling: white paper background and padding
+            background: "#fff",
+            padding: "10px 10px 30px 10px", // extra bottom padding for 'pasted' look
+            
+            transform: p 
+              ? "translateX(-50%) rotate(-4deg)" 
+              : "rotate(-16deg)",
             opacity: contentOpacity,
             zIndex: 5,
+            
+            // ✅ Shadow: softer, more spread out, like paper lifted off the page
+            boxShadow: "5px 10px 30px rgba(0,0,0,0.15)",
+
+            // ✅ Cutout Effect: jagged edges mimicking a hand-torn cutout
+            clipPath: "polygon(2% 0%, 98% 1%, 100% 98%, 95% 100%, 50% 98%, 2% 100%, 0% 50%)",
           }}
         >
-          {/* Image Layer */}
-          <Img
-            src={imageUrl}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-
-              /* Soft dissolve blur in/out */
-              filter: `
-                blur(${interpolate(frame, [0, 20], [10, 2], {
-                  extrapolateRight: "clamp",
-                })}px)
-                grayscale(100%)
-                contrast(115%)
-                brightness(92%)
-              `,
-
-              /* Feathered edge dissolve */
-              WebkitMaskImage:
-                "radial-gradient(circle at center, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)",
-              maskImage:
-                "radial-gradient(circle at center, rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%)",
-            }}
-          />
-
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: `
-                linear-gradient(
-                  to bottom,
-                  rgba(231, 224, 202, 0.25),
-                  rgba(233, 210, 148, 0.35)
-                )
-              `,
-              mixBlendMode: "multiply",
-              pointerEvents: "none",
-            }}
-          />
+          <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+                // ✅ Dissolve animation combined with newsprint filter
+                filter: `
+                  blur(${interpolate(frame, [0, 20], [10, 0], { extrapolateRight: "clamp" })}px)
+                  grayscale(20%) 
+                  sepia(25%) 
+                  contrast(120%) 
+                  brightness(95%)
+                `,
+              }}
+            />
+          </div>
+          {/* Subtle Halftone Overlay for maximum realism */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'radial-gradient(#000 1px, transparent 0)',
+            backgroundSize: '3px 3px',
+            opacity: 0.03,
+            pointerEvents: 'none'
+          }} />
         </div>
       )}
 
-      {/* CONTENT */}
+      {/* CONTENT CONTAINER */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          padding: p ? "8% 7%" : "7% 10%",
+          // Portrait stacks content at bottom, Landscape centers it
+          justifyContent: p ? "flex-end" : "center",
+          padding: p ? "0 10% 15% 10%" : "7% 10%",
           zIndex: 10,
           opacity: contentOpacity,
         }}
       >
         {/* CATEGORY */}
-        <div style={{ marginBottom: 30 }}>
+        <div style={{ marginBottom: p ? 20 : 30 }}>
           <div
             style={{
               display: "inline-block",
-              fontSize: p ? 20 : 24,
+              fontSize: p ? 28 : 24, // Larger for portrait
               fontWeight: 800,
-              letterSpacing: "0.12em",
+              letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: textColor,
-              borderBottom: `3px solid ${textColor}`,
+              borderBottom: `4px solid ${textColor}`,
               paddingBottom: 6,
             }}
           >
@@ -313,10 +280,11 @@ export const NewsHeadline: React.FC<
         <div
           style={{
             fontFamily: H_FONT,
-            fontSize: titleFontSize ?? (p ? 62 : 86),
+            // Drastically increased portrait size for mobile impact
+            fontSize: titleFontSize ?? (p ? 90 : 86), 
             fontWeight: 800,
-            lineHeight: 1.05,
-            marginBottom: 36,
+            lineHeight: 1.0,
+            marginBottom: p ? 40 : 36,
             maxWidth: p ? "100%" : "60%",
           }}
         >
@@ -327,32 +295,23 @@ export const NewsHeadline: React.FC<
             );
 
             return (
-              <span
-                key={i}
-                style={{
-                  position: "relative",
-                  display: "inline-block",
-                  marginRight: "6px",
-                }}
-              >
+              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: "12px" }}>
                 {isHighlight && (
                   <span
                     style={{
                       position: "absolute",
-                      left: 0,
-                      right: 0,
-                      bottom: "15%",
-                      height: "55%",
+                      left: "-2%",
+                      right: "-2%",
+                      bottom: "10%",
+                      height: "60%",
                       backgroundColor: accentColor,
-                      opacity: 0.35,
-                      borderRadius: 4,
+                      opacity: 0.4,
+                      borderRadius: 2,
                       zIndex: -1,
                     }}
                   />
                 )}
-                <span style={{ position: "relative", zIndex: 1 }}>
-                  {word}
-                </span>
+                <span style={{ position: "relative", zIndex: 1 }}>{word}</span>
               </span>
             );
           })}
@@ -362,11 +321,12 @@ export const NewsHeadline: React.FC<
         {narration && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 26 : 32),
+              fontSize: descriptionFontSize ?? (p ? 38 : 32), // Larger for portrait
               fontWeight: 600,
               color: textColor,
-              lineHeight: 1.6,
-              maxWidth: "70%",
+              lineHeight: 1.4,
+              maxWidth: p ? "100%" : "70%",
+              opacity: 0.9,
             }}
           >
             {narration}
