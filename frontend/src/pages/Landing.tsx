@@ -752,7 +752,7 @@ export default function Landing() {
 
       {/* ─── Footer ─── */}
     <footer className="py-4 border-t border-gray-100">
-      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between">
+      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between mb-2 mt-2">
         
         {/* Left Side - Logo */}
         <div className="flex items-center gap-2 text-gray-400 text-xs">
@@ -783,12 +783,6 @@ export default function Landing() {
               FireBirdTech
             </a>
           </div>
-
-          {/* Powered By - Smaller */}
-          <p className="text-[10px] text-gray-400">
-            Powered by DSPy, Remotion, and ElevenLabs
-          </p>
-
         </div>
 
       </div>
