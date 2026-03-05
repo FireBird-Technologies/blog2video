@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=w3Vq8KhDzPU" target="_blank">
+  <a href="https://youtu.be/u8hrAUpLO0E" target="_blank">
     ▶ Watch Product Demo
   </a>
 </p>
