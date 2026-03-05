@@ -222,6 +222,17 @@ function deriveNameFromUrl(url: string): string {
   }
 }
 
+/** Returns true if the trimmed string has any whitespace in the middle (not just at start/end). */
+function hasSpacesInMiddle(s: string): boolean {
+  const t = s.trim();
+  return t.length > 0 && /\s/.test(t);
+}
+
+/** Treat as a link only if it contains a dot (e.g. example.com). Rejects single words or plain sentences. */
+function containsDot(s: string): boolean {
+  return s.trim().includes(".");
+}
+
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
@@ -238,7 +249,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-
+  /** URL validation error for single-link mode (shown only after blur). */
+  const [urlError, setUrlError] = useState<string | null>(null);
   // Bulk: rows (url); per-row name, template, voice, format, logo
   const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
@@ -478,7 +490,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
-    mode === "url" ? !!urls[0]?.trim() : mode === "upload" ? docFiles.length > 0 : bulkRows.some((r) => r.url.trim());
+    mode === "url"
+      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0])
+      : mode === "upload"
+        ? docFiles.length > 0
+        : bulkRows.some((r) => r.url.trim()) &&
+          bulkRows.every(
+            (r) =>
+              !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
+          );
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
@@ -817,18 +837,47 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               type="url"
               required={i === 0}
               value={url}
-              onChange={(e) =>
-                setUrls((prev) => prev.map((u, idx) => (idx === i ? e.target.value : u)))
-              }
+              onChange={(e) => {
+                const next = e.target.value;
+                setUrls((prev) => prev.map((u, idx) => (idx === i ? next : u)));
+                if (i === 0) {
+                  setUrlError(null);
+                }
+              }}
+              onBlur={(e) => {
+                if (i !== 0) return;
+                const value = e.target.value;
+                const trimmed = value.trim();
+                if (!trimmed) {
+                  setUrlError(null);
+                  return;
+                }
+                if (hasSpacesInMiddle(value)) {
+                  setUrlError("Enter a valid link (e.g. example.com, https://example.com).");
+                } else if (!containsDot(value)) {
+                  setUrlError("Enter a valid link (e.g. example.com, https://example.com).");
+                } else {
+                  setUrlError(null);
+                }
+              }}
               placeholder={
                 i === 0
                   ? "https://yourblog.com/your-article..."
                   : `URL ${i + 1} (optional)`
               }
-              className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2"
+              className={`w-full px-4 py-2.5 bg-white/80 border rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2 ${
+                i === 0 && urlError && urls[0]?.trim()
+                  ? "border-red-400"
+                  : "border-gray-200/60"
+              }`}
               autoFocus={i === 0}
             />
           ))}
+          {urlError && urls[0]?.trim() && (
+            <p className="text-xs text-red-500 mt-1">
+              {urlError}
+            </p>
+          )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
             Use a paywall-free link for best results.
           </p>
@@ -1041,12 +1090,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       )}
       </div>
 
-      {/* Next — always at bottom for consistent UI in Link and Upload */}
+      {/* Next — always visible; gray when disabled (invalid/empty URL) */}
       <button
         type="button"
         onClick={goNext}
         disabled={!canGoNext1}
-        className="w-full mb-3 py-3 mt-auto bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 flex-shrink-0"
+        className={`w-full mb-3 py-3 mt-auto text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 flex-shrink-0 ${
+          canGoNext1
+            ? "bg-purple-600 hover:bg-purple-700 text-white"
+            : "bg-gray-200 text-gray-500 cursor-not-allowed"
+        }`}
       >
         Go to step 2
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
