@@ -38,7 +38,7 @@ from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id
+from app.services.template_service import validate_template_id, get_layout_prompt
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -192,6 +192,13 @@ async def _generate_script(project: Project, db: Session):
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
     hero_image = image_paths[0] if image_paths else ""
 
+    # Determine template and load its layout prompt (layout-only catalog).
+    template_id = validate_template_id(project.template if project.template else "default")
+    try:
+        layout_catalog = get_layout_prompt(template_id)
+    except Exception:
+        layout_catalog = ""
+
     generator = ScriptGenerator()
     result = await generator.generate(
         blog_content=project.blog_content,
@@ -199,6 +206,7 @@ async def _generate_script(project: Project, db: Session):
         hero_image=hero_image,
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
         video_style=getattr(project, "video_style", "explainer") or "explainer",
+        layout_catalog=layout_catalog,
     )
 
     project.name = result["title"]
@@ -208,7 +216,6 @@ async def _generate_script(project: Project, db: Session):
     db.flush()
 
     # Template-aware display text generation
-    template_id = validate_template_id(project.template if project.template else "default")
     video_style = getattr(project, "video_style", None) or "explainer"
     scenes_raw: list[dict] = result["scenes"]
 
@@ -224,6 +231,7 @@ async def _generate_script(project: Project, db: Session):
             visual_description=scene_data["visual_description"],
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
+            preferred_layout=scene_data.get("preferred_layout"),
         )
         db.add(scene)
 
@@ -247,6 +255,7 @@ async def _generate_scenes(project: Project, db: Session):
             "title": s.title,
             "narration": s.narration_text,
             "visual_description": s.visual_description,
+            "preferred_layout": getattr(s, "preferred_layout", None),
         }
         for s in scenes
     ]
