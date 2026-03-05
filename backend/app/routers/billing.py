@@ -569,6 +569,8 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
     customer_id = subscription_data.get("customer")
     status = subscription_data.get("status")
     stripe_sub_id = subscription_data.get("id")
+    cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
+    cancel_at_ts = subscription_data.get("cancel_at")  # Unix timestamp when it will cancel, if set
 
     user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
     if user:
@@ -600,6 +602,17 @@ def _handle_subscription_updated(subscription_data: dict, db: Session):
                 sub.current_period_start = datetime.utcfromtimestamp(period_start)
             if period_end:
                 sub.current_period_end = datetime.utcfromtimestamp(period_end)
+
+            if status in ("active", "trialing"):
+                if cancel_at_period_end:
+                    
+                    if cancel_at_ts:
+                        sub.canceled_at = datetime.utcfromtimestamp(cancel_at_ts)
+                    elif sub.current_period_end:
+                        sub.canceled_at = sub.current_period_end
+                else:
+                    
+                    sub.canceled_at = None
 
         db.commit()
 
