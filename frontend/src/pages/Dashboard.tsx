@@ -21,6 +21,7 @@ import UpgradePlanModal from "../components/UpgradePlanModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
+import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
@@ -71,8 +72,9 @@ export default function Dashboard() {
   }, [searchParams]);
   const isPro = user?.plan === "pro" || user?.plan === "standard";
   const templatesRequested = searchParams.get("tab") === "templates";
-  const [activeTab, setActiveTab] = useState<"projects" | "templates">(
-    templatesRequested ? "templates" : "projects"
+  const voicesRequested = searchParams.get("tab") === "voices";
+  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
+    voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
 
   useEffect(() => {
@@ -155,11 +157,11 @@ export default function Dashboard() {
       }
     };
   }, [bulkPendingIds.join(",")]);
-  // Deep-link to templates tab via ?tab=templates (reacts to param changes)
+  // Deep-link to templates/voices tab via ?tab= (reacts to param changes)
   useEffect(() => {
-    if (searchParams.get("tab") === "templates") {
-      setActiveTab("templates");
-    }
+    const tab = searchParams.get("tab");
+    if (tab === "templates") setActiveTab("templates");
+    else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
 
   const loadProjects = async () => {
@@ -315,7 +317,7 @@ export default function Dashboard() {
   };
 
   // ─── Onboarding (0 projects) ───────────────────────────────
-  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || templatesRequested))) {
+  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || activeTab === "voices" || templatesRequested || voicesRequested))) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
@@ -387,7 +389,7 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        {(["projects", "templates"] as const).map((tab) => (
+        {(["projects", "templates", "voices"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -397,7 +399,7 @@ export default function Dashboard() {
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "projects" ? "Projects" : "My Templates"}
+            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : "Voices"}
           </button>
         ))}
       </div>
@@ -405,6 +407,8 @@ export default function Dashboard() {
       {/* ─── My Templates tab ────────────────────────────────── */}
       {activeTab === "templates" ? (
         <CustomTemplates />
+      ) : activeTab === "voices" ? (
+        <MyVoices />
       ) : (
       <>
       {/* Header */}

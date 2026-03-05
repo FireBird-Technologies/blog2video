@@ -31,23 +31,9 @@ DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
 def _get_voice_id(project: Project) -> str | None:
-    """Pick an ElevenLabs voice ID based on project preferences.
-    Returns None if voice_gender is 'none' (no audio mode).
-    """
-    # No-audio mode
-    if getattr(project, "voice_gender", None) == "none":
-        return None
-
-    # Custom voice (Pro users paste their own ElevenLabs voice ID)
+    """Return ElevenLabs voice ID only if project has a custom_voice_id set; otherwise None."""
     custom = getattr(project, "custom_voice_id", None)
-    if custom:
-        return custom
-
-    key = (
-        getattr(project, "voice_gender", "male"),
-        getattr(project, "voice_accent", "american"),
-    )
-    return VOICE_MAP.get(key, DEFAULT_VOICE_ID)
+    return custom if custom else None
 
 
 def _get_audio_duration(filepath: str) -> float:
@@ -85,7 +71,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
     # Determine voice from project preferences
     project = db.query(Project).filter(Project.id == scene.project_id).first()
-    voice_id = _get_voice_id(project) if project else DEFAULT_VOICE_ID
+    voice_id = _get_voice_id(project) if project else None
 
     # Use narration_text directly (it should already be expanded if needed)
     voiceover_text = scene.narration_text
@@ -112,68 +98,83 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     filename = f"scene_{scene.order}.mp3"
     output_path = os.path.join(audio_dir, filename)
 
-    # Retry loop for connection issues
+    def _try_tts(vid: str) -> None:
+        """Run TTS with given voice_id; writes to output_path and updates scene. Raises on failure."""
+        audio_generator = client.text_to_speech.convert(
+            text=voiceover_text,
+            voice_id=vid,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128",
+            voice_settings={
+                "stability": 0.75,
+                "similarity_boost": 0.85,
+                "style": 0.0,
+                "use_speaker_boost": True,
+            },
+        )
+        with open(output_path, "wb") as f:
+            for chunk in audio_generator:
+                f.write(chunk)
+        audio_duration = _get_audio_duration(output_path)
+        scene.duration_seconds = round(audio_duration + DURATION_PAD, 1)
+        scene.voiceover_path = output_path
+        db.commit()
+        r2_key_val = None
+        r2_url_val = None
+        if r2_storage.is_r2_configured():
+            try:
+                uid = scene.project.user_id
+                r2_url_val = r2_storage.upload_project_audio(
+                    uid, scene.project_id, output_path, filename
+                )
+                r2_key_val = r2_storage.audio_key(uid, scene.project_id, filename)
+            except Exception as e:
+                print(f"[VOICEOVER] R2 upload failed for {filename}: {e}")
+        asset = Asset(
+            project_id=scene.project_id,
+            asset_type=AssetType.AUDIO,
+            original_url=None,
+            local_path=output_path,
+            filename=filename,
+            r2_key=r2_key_val,
+            r2_url=r2_url_val,
+        )
+        db.add(asset)
+        db.commit()
+        print(f"[VOICEOVER] Scene {scene.order}: audio={audio_duration:.1f}s, scene={scene.duration_seconds}s")
+
+    def _is_voice_not_found(err: Exception) -> bool:
+        s = str(err).lower()
+        return "voice_not_found" in s or ("404" in s and "voice" in s)
+
     last_error = None
+    used_custom = bool(project and getattr(project, "custom_voice_id", None))
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            audio_generator = client.text_to_speech.convert(
-                text=voiceover_text,
-                voice_id=voice_id,
-                model_id="eleven_multilingual_v2",
-                output_format="mp3_44100_128",
-                voice_settings={
-                    "stability": 0.75,           # Higher = more consistent across generations
-                    "similarity_boost": 0.85,    # Higher = closer to original voice
-                    "style": 0.0,                # 0 = no style exaggeration
-                    "use_speaker_boost": True,
-                },
-            )
-
-            with open(output_path, "wb") as f:
-                for chunk in audio_generator:
-                    f.write(chunk)
-
-            # Measure audio duration and set scene duration = audio + pad
-            audio_duration = _get_audio_duration(output_path)
-            scene.duration_seconds = round(audio_duration + DURATION_PAD, 1)
-
-            # Success -- update DB
-            scene.voiceover_path = output_path
-            db.commit()
-
-            # Upload to R2 if configured
-            r2_key_val = None
-            r2_url_val = None
-            if r2_storage.is_r2_configured():
-                try:
-                    uid = scene.project.user_id
-                    r2_url_val = r2_storage.upload_project_audio(
-                        uid, scene.project_id, output_path, filename
-                    )
-                    r2_key_val = r2_storage.audio_key(uid, scene.project_id, filename)
-                except Exception as e:
-                    print(f"[VOICEOVER] R2 upload failed for {filename}: {e}")
-
-            asset = Asset(
-                project_id=scene.project_id,
-                asset_type=AssetType.AUDIO,
-                original_url=None,
-                local_path=output_path,
-                filename=filename,
-                r2_key=r2_key_val,
-                r2_url=r2_url_val,
-            )
-            db.add(asset)
-            db.commit()
-
-            print(f"[VOICEOVER] Scene {scene.order}: audio={audio_duration:.1f}s, scene={scene.duration_seconds}s")
+            _try_tts(voice_id)
             return output_path
-
         except Exception as e:
             last_error = e
             print(f"[VOICEOVER] Scene {scene.order} attempt {attempt}/{MAX_RETRIES} failed: {e}")
             if attempt < MAX_RETRIES:
-                time.sleep(RETRY_DELAY * attempt)  # Exponential-ish backoff
+                time.sleep(RETRY_DELAY * attempt)
+
+    # If custom voice was not found (404), retry once with premade fallback
+    if last_error and used_custom and _is_voice_not_found(last_error):
+        fallback_id = DEFAULT_VOICE_ID
+        if project:
+            key = (
+                getattr(project, "voice_gender", "male"),
+                getattr(project, "voice_accent", "american"),
+            )
+            fallback_id = VOICE_MAP.get(key, DEFAULT_VOICE_ID)
+        print(f"[VOICEOVER] Scene {scene.order}: custom voice not found, falling back to premade ({fallback_id})")
+        try:
+            _try_tts(fallback_id)
+            return output_path
+        except Exception as fallback_err:
+            print(f"[VOICEOVER] Scene {scene.order} fallback TTS failed: {fallback_err}")
+            raise fallback_err from last_error
 
     raise last_error  # type: ignore
 
