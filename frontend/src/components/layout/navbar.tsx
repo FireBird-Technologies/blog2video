@@ -1,15 +1,25 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   if (!user) return null;
+
+  const goToDashboard = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate("/dashboard?show_form=0", { replace: false });
+  };
 
   return (
     <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link to="/dashboard" className="flex items-center gap-2.5">
+        <Link
+          to="/dashboard?show_form=0"
+          onClick={goToDashboard}
+          className="flex items-center gap-2.5 cursor-pointer"
+        >
           <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-[11px]">
             B2V
           </div>
