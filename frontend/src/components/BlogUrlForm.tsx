@@ -221,16 +221,15 @@ function deriveNameFromUrl(url: string): string {
   }
 }
 
-/** Returns true if the string is a non-empty http/https URL. */
-function isValidUrl(s: string): boolean {
+/** Returns true if the trimmed string has any whitespace in the middle (not just at start/end). */
+function hasSpacesInMiddle(s: string): boolean {
   const t = s.trim();
-  if (!t) return false;
-  try {
-    const u = new URL(t);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
+  return t.length > 0 && /\s/.test(t);
+}
+
+/** Treat as a link only if it contains a dot (e.g. example.com). Rejects single words or plain sentences. */
+function containsDot(s: string): boolean {
+  return s.trim().includes(".");
 }
 
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
@@ -249,7 +248,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docError, setDocError] = useState<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-
+  /** URL validation error for single-link mode (shown only after blur). */
+  const [urlError, setUrlError] = useState<string | null>(null);
   // Bulk: rows (url); per-row name, template, voice, format, logo
   const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
@@ -440,11 +440,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
     mode === "url"
-      ? !!urls[0]?.trim() && isValidUrl(urls[0].trim())
+      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0])
       : mode === "upload"
         ? docFiles.length > 0
         : bulkRows.some((r) => r.url.trim()) &&
-          bulkRows.every((r) => !r.url.trim() || isValidUrl(r.url.trim()));
+          bulkRows.every(
+            (r) =>
+              !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
+          );
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
@@ -755,14 +758,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           onRemoveRow={removeBulkRow}
         />
         {(() => {
-          const invalidUrl = bulkRows.some((r) => r.url.trim() && !isValidUrl(r.url.trim()));
-          if (invalidUrl) {
-            return (
-              <p className="text-xs text-red-500 mt-2">
-                Please enter valid URLs for all links (e.g. https://example.com).
-              </p>
-            );
-          }
           const seen = new Set<string>();
           const hasDupes = bulkRows.some((r) => {
             const t = r.url.trim();
@@ -791,25 +786,45 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               type="url"
               required={i === 0}
               value={url}
-              onChange={(e) =>
-                setUrls((prev) => prev.map((u, idx) => (idx === i ? e.target.value : u)))
-              }
+              onChange={(e) => {
+                const next = e.target.value;
+                setUrls((prev) => prev.map((u, idx) => (idx === i ? next : u)));
+                if (i === 0) {
+                  setUrlError(null);
+                }
+              }}
+              onBlur={(e) => {
+                if (i !== 0) return;
+                const value = e.target.value;
+                const trimmed = value.trim();
+                if (!trimmed) {
+                  setUrlError(null);
+                  return;
+                }
+                if (hasSpacesInMiddle(value)) {
+                  setUrlError("Enter a valid link (e.g. example.com, https://example.com).");
+                } else if (!containsDot(value)) {
+                  setUrlError("Enter a valid link (e.g. example.com, https://example.com).");
+                } else {
+                  setUrlError(null);
+                }
+              }}
               placeholder={
                 i === 0
                   ? "https://yourblog.com/your-article..."
                   : `URL ${i + 1} (optional)`
               }
               className={`w-full px-4 py-2.5 bg-white/80 border rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all mb-2 ${
-                i === 0 && urls[0]?.trim() && !isValidUrl(urls[0].trim())
+                i === 0 && urlError && urls[0]?.trim()
                   ? "border-red-400"
                   : "border-gray-200/60"
               }`}
               autoFocus={i === 0}
             />
           ))}
-          {urls[0]?.trim() && !isValidUrl(urls[0].trim()) && (
+          {urlError && urls[0]?.trim() && (
             <p className="text-xs text-red-500 mt-1">
-              Please enter a valid URL (e.g. https://example.com).
+              {urlError}
             </p>
           )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
