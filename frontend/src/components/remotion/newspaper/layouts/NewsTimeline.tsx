@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -29,87 +29,42 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   const p = aspectRatio === "portrait";
   const items = stats.slice(0, 5);
 
-  // --- 1. Camera & Continuous Zoom ---
-  // Initial straighten: 0 to 75 frames
+  // --- Animation Constants ---
   const cameraRotateX = interpolate(frame, [0, 75], [12, 0], { extrapolateRight: "clamp" });
   const cameraRotateY = interpolate(frame, [0, 75], [-18, 0], { extrapolateRight: "clamp" });
-
-  // Multi-stage Zoom: Quick zoom in (0-30), then a very slow zoom out until the end
-  const cameraScale = interpolate(
-    frame,
-    [0, 30, durationInFrames],
-    [1.1, 1.25, 0.95], 
-    { extrapolateRight: "clamp" }
-  );
-
-  const bgZoom = interpolate(frame, [0, durationInFrames], [1, 1.1], {
-    extrapolateRight: "clamp",
-  });
-
-  // --- 2. Exit Animation (The Fold & Vanish) ---
+  const cameraScale = interpolate(frame, [0, 30, durationInFrames], [1.1, 1.25, 0.95], { extrapolateRight: "clamp" });
+  const bgZoom = interpolate(frame, [0, durationInFrames], [1, 1.1], { extrapolateRight: "clamp" });
   const EXIT_START = durationInFrames - 25;
-  const flipProgress = spring({
-    frame: frame - EXIT_START,
-    fps,
-    config: { stiffness: 40, damping: 12 },
-  });
-
-  // Motion Blur logic: Blur increases as the flip reaches the midpoint
+  const flipProgress = spring({ frame: frame - EXIT_START, fps, config: { stiffness: 40, damping: 12 } });
   const motionBlur = interpolate(flipProgress, [0, 0.5, 1], [0, 15, 0]);
   const exitRotateY = interpolate(flipProgress, [0, 1], [0, -100]);
   const exitTranslateX = interpolate(flipProgress, [0, 1], [0, -1200]);
   const exitOpacity = interpolate(flipProgress, [0.4, 0.9], [1, 0], { extrapolateLeft: "clamp" });
-
-  // --- 3. Internal Content Timings ---
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
   const ruleW = interpolate(frame, [4, 20], [0, 100], { extrapolateRight: "clamp" });
   const spineH = interpolate(frame, [12, 12 + items.length * 14 + 10], [0, 100], { extrapolateRight: "clamp" });
   const ITEM_START = 18;
   const ITEM_STEP = 14;
-
-  const imageSpring = spring({
-    frame: frame - 10,
-    fps,
-    config: { damping: 12 },
-  });
+  const imageSpring = spring({ frame: frame - 10, fps, config: { damping: 12 } });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#000", perspective: "2000px" }}>
-      {/* 3D Camera & Exit Wrapper */}
       <div
         style={{
           width: "100%",
           height: "100%",
           transformOrigin: "left center",
-          transform: `
-            translateX(${exitTranslateX}px) 
-            rotateY(${exitRotateY}deg) 
-            scale(${cameraScale}) 
-            rotateX(${cameraRotateX}deg) 
-            rotateY(${cameraRotateY}deg)
-          `,
+          transform: `translateX(${exitTranslateX}px) rotateY(${exitRotateY}deg) scale(${cameraScale}) rotateX(${cameraRotateX}deg) rotateY(${cameraRotateY}deg)`,
           filter: `blur(${motionBlur}px)`,
           opacity: exitOpacity,
           transformStyle: "preserve-3d",
         }}
       >
         <NewsBackground bgColor={bgColor} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.45, zIndex: 2 }} />
 
-        {/* bgColor tint overlay — mirrors NewsHeadline behaviour */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: bgColor,
-            opacity: 0.45,
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
-
-        {/* Vintage texture */}
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")} 
           alt=""
           style={{
             position: "absolute",
@@ -124,51 +79,6 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           }}
         />
 
-        {/* Newspaper Cutout Image */}
-        {imageUrl && (
-          <div
-            style={{
-              position: "absolute",
-              // Adjusted positioning: reduced 'right' and 'bottom' to move it toward center
-              bottom: p ? "15%" : "18%", 
-              right: p ? "9%" : "12%",
-              // Increased dimensions
-              width: p ? 380 : 620, 
-              height: p ? 300 : 440,
-              background: "#fff",
-              padding: "12px 12px 40px 12px",
-              boxShadow: "15px 20px 40px rgba(0,0,0,0.4), inset 0 0 10px rgba(0,0,0,0.05)",
-              // Adjusted rotation to be subtler since the image is larger
-              transform: `rotate(${interpolate(imageSpring, [0, 1], [3, -3])}deg) scale(${imageSpring}) translateZ(50px)`,
-              opacity: imageSpring,
-              zIndex: 10,
-              clipPath: "polygon(2% 0%, 98% 1%, 100% 98%, 95% 100%, 50% 98%, 2% 100%, 0% 50%)",
-            }}
-          >
-            <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
-              <Img
-                src={imageUrl}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  filter: "contrast(1.1) grayscale(30%)",
-                }}
-              />
-            </div>
-            {/* Halftone texture overlay */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: 'radial-gradient(#000 1px, transparent 0)',
-              backgroundSize: '4px 4px',
-              opacity: 0.03,
-              pointerEvents: 'none'
-            }} />
-          </div>
-        )}
-
-        
         {/* Content Layer */}
         <div
           style={{
@@ -176,105 +86,133 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
             inset: 0,
             display: "flex",
             flexDirection: "column",
-            padding: p ? "8% 6%" : "6% 10%",
-            zIndex: 2,
+            justifyContent: "flex-start",
+            padding: p ? "12% 8%" : "5% 8%",
+            zIndex: 5,
             transform: "translateZ(20px)",
           }}
         >
-          {/* Header */}
-          <div style={{ opacity: titleOp, marginBottom: p ? 30 : 50 }}>
+          {/* 1. HEADER */}
+          <div style={{ opacity: titleOp, marginBottom: p ? 30 : 40 }}>
             <h1
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 50 : 72),
+                fontSize: titleFontSize ?? (p ? 72 : 80),
                 fontWeight: 900,
                 color: textColor,
                 margin: 0,
                 textTransform: "uppercase",
-                letterSpacing: "-0.02em",
+                lineHeight: 1.0,
+                letterSpacing: "-0.03em",
               }}
             >
               {title}
             </h1>
-            <div style={{ height: 4, background: textColor, width: `${ruleW}%`, marginTop: 10 }} />
+            <div style={{ height: p ? 8 : 6, background: textColor, width: `${ruleW}%`, marginTop: 15 }} />
           </div>
 
-          {/* Timeline Container */}
-          <div style={{ flex: 1, display: "flex", position: "relative" }}>
-            <div
-              style={{
-                width: 3,
-                background: `${textColor}15`,
-                marginRight: p ? 25 : 40,
-                position: "relative",
-              }}
-            >
+          {/* 2. BODY SECTION (Layout depends on Aspect Ratio) */}
+          <div style={{ 
+            display: "flex", 
+            flexDirection: p ? "column" : "row", 
+            flex: 1, 
+            gap: 50,
+            alignItems: p ? "stretch" : "center" 
+          }}>
+            
+            {/* NEWSPAPER IMAGE CUTOUT */}
+            {imageUrl && (
               <div
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  width: "100%",
-                  height: `${spineH}%`,
-                  background: accentColor,
-                  boxShadow: `0 0 10px ${accentColor}66`,
+                  position: "relative",
+                  width: p ? "100%" : "45%",
+                  height: p ? 360 : 500,
+                  background: "#fff",
+                  padding: "10px 10px 40px 10px",
+                  boxShadow: "10px 15px 40px rgba(0,0,0,0.2)",
+                  // Rotation logic: Subtle for portrait, tilted for landscape
+                  transform: p 
+                    ? `rotate(${interpolate(imageSpring, [0, 1], [-1, 1.5])}deg) scale(${imageSpring})`
+                    : `rotate(${interpolate(imageSpring, [0, 1], [-4, -1])}deg) scale(${imageSpring})`,
+                  opacity: imageSpring,
+                  clipPath: "polygon(0% 2%, 98% 0%, 100% 95%, 96% 100%, 50% 97%, 4% 100%, 0% 50%)",
+                  zIndex: 10
                 }}
-              />
-            </div>
+              >
+                <div style={{ width: "100%", height: "100%", overflow: "hidden", border: "1px solid #ddd" }}>
+                  <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "contrast(1.1) grayscale(30%) sepia(15%)" }} />
+                </div>
+              </div>
+            )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: p ? 20 : 30 }}>
-              {items.map((item, i) => {
-                const start = ITEM_START + i * ITEM_STEP;
-                const itemSpring = spring({ frame: frame - start, fps, config: { stiffness: 100 } });
-                const isLatest = i === items.length - 1;
+            {/* TIMELINE ITEMS */}
+            <div style={{ flex: 1, display: "flex", position: "relative" }}>
+              <div style={{ width: 4, background: `${textColor}15`, marginRight: p ? 25 : 30, position: "relative" }}>
+                <div style={{ position: "absolute", top: 0, width: "100%", height: `${spineH}%`, background: accentColor }} />
+              </div>
 
-                return (
-                  <div key={i} style={{ 
-                    display: "flex", 
-                    alignItems: "flex-start", 
-                    gap: 20, 
-                    opacity: interpolate(itemSpring, [0, 1], [0, 1]),
-                    transform: `translateX(${interpolate(itemSpring, [0, 1], [-20, 0])}px)`
-                  }}>
-                    <div style={{
-                      minWidth: p ? 80 : 110,
-                      fontFamily: B_FONT,
-                      fontSize: 18,
-                      fontWeight: 900,
-                      color: isLatest ? accentColor : textColor,
-                      padding: "4px 8px",
-                      border: `1px solid ${isLatest ? accentColor : 'transparent'}`,
-                      textAlign: 'center'
+              <div style={{ display: "flex", flexDirection: "column", gap: p ? 30 : 25, width: "100%", justifyContent: 'center' }}>
+                {items.map((item, i) => {
+                  const start = ITEM_START + i * ITEM_STEP;
+                  const itemSpring = spring({ frame: frame - start, fps, config: { stiffness: 100 } });
+                  const isLatest = i === items.length - 1;
+
+                  return (
+                    <div key={i} style={{ 
+                      display: "flex", 
+                      alignItems: "flex-start", 
+                      gap: 20, 
+                      opacity: interpolate(itemSpring, [0, 1], [0, 1]),
+                      transform: `translateX(${interpolate(itemSpring, [0, 1], [-20, 0])}px)`
                     }}>
-                      {item.value}
+                      <div style={{
+                        minWidth: p ? 110 : 100,
+                        fontFamily: B_FONT,
+                        fontSize: p ? 30 : 26,
+                        fontWeight: 900,
+                        color: isLatest ? accentColor : textColor,
+                        padding: "4px 8px",
+                        border: `2px solid ${isLatest ? accentColor : textColor + '20'}`,
+                        textAlign: 'center',
+                      }}>
+                        {item.value}
+                      </div>
+                      <div style={{
+                        fontFamily: B_FONT,
+                        fontSize: descriptionFontSize ?? (p ? 32 : 28), 
+                        color: textColor,
+                        fontWeight: isLatest ? 700 : 400,
+                        maxWidth: "100%",
+                        lineHeight: 1.25,
+                      }}>
+                        {item.label}
+                      </div>
                     </div>
-                    <div style={{
-                      fontFamily: B_FONT,
-                      fontSize: descriptionFontSize ?? (p ? 20 : 28),
-                      color: textColor,
-                      fontWeight: isLatest ? 700 : 400,
-                      maxWidth: "60%",
-                      lineHeight: 1.3,
-                    }}>
-                      {item.label}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Narration/Footer */}
+          {/* 4. NARRATION (BOTTOM) */}
           {narration && (
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: 20,
+                // Calculation: Uses custom descriptionFontSize if provided, otherwise falls back to your defaults, then subtracts 7
+                fontSize: (descriptionFontSize ?? (p ? 45 : 32)) - 7,
                 fontStyle: "italic",
                 color: textColor,
-                opacity: interpolate(frame, [80, 100], [0, 0.7], { extrapolateLeft: "clamp" }),
-                marginTop: 20,
-                borderTop: `1px solid ${textColor}22`,
-                paddingTop: 15
+                opacity: interpolate(frame, [80, 100], [0, 0.75], {
+                  extrapolateLeft: "clamp",
+                }),
+                marginTop: 30,
+                borderTop: `2px solid ${textColor}15`,
+                paddingTop: 20,
+                lineHeight: 1.4,
+                width: p ? "100%" : "60%",
+                // Keeps the layout balanced: left-aligned for portrait, right-aligned for landscape
+                alignSelf: p ? "flex-start" : "flex-end",
               }}
             >
               "{narration}"

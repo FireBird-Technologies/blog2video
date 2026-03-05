@@ -530,7 +530,7 @@ export default function Landing() {
               {
                 step: "1",
                 title: "Paste URL",
-                desc: "Drop any blog URL. We extract text, images, code blocks — everything.",
+                desc: "Drop any blog URL, public link, or PDF. You can also paste multiple links at once to spin up several videos in one go.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                 ),
@@ -594,6 +594,11 @@ export default function Landing() {
               {
                 title: "Rich visual scenes — not just text",
                 desc: "Code blocks with syntax highlighting, animated bullet lists, flow diagrams, comparison layouts, big-number metrics. Every scene is tailored to its content.",
+                tag: null,
+              },
+              {
+                title: "Works with URLs, PDFs & bulk links",
+                desc: "Start from blog posts, public links, or uploaded PDFs. Paste multiple URLs at once to batch-generate several videos in a single run.",
                 tag: null,
               },
               {
@@ -747,7 +752,7 @@ export default function Landing() {
 
       {/* ─── Footer ─── */}
     <footer className="py-4 border-t border-gray-100">
-      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between">
+      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between mb-2 mt-2">
         
         {/* Left Side - Logo */}
         <div className="flex items-center gap-2 text-gray-400 text-xs">
@@ -778,12 +783,6 @@ export default function Landing() {
               FireBirdTech
             </a>
           </div>
-
-          {/* Powered By - Smaller */}
-          <p className="text-[10px] text-gray-400">
-            Powered by DSPy, Remotion, and ElevenLabs
-          </p>
-
         </div>
 
       </div>

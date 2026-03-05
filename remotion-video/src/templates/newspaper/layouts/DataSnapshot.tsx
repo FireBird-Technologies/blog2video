@@ -27,7 +27,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const items = stats.slice(0, 4);
 
-  // --- 3D Camera & Exit Logic ---
+  // --- 3D Camera & Exit Logic (Unchanged) ---
   const EXIT_START = durationInFrames - 25;
   const exitSpring = spring({
     frame: frame - EXIT_START,
@@ -35,30 +35,26 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
     config: { stiffness: 60, damping: 15 },
   });
 
-  // Entrance: Zoom in from far away
   const entranceZoom = interpolate(frame, [0, 40], [0.8, 1], { extrapolateRight: "clamp" });
-  // Exit: Tilt back and shrink
   const exitZoom = interpolate(exitSpring, [0, 1], [1, 0.85]);
   const exitRotateX = interpolate(exitSpring, [0, 1], [0, 12]);
   const exitOpacity = interpolate(exitSpring, [0.4, 1], [1, 0]);
-
-  // Combined scale for the wrapper
   const currentScale = entranceZoom * exitZoom;
 
-  // --- Shard Logic (Intact) ---
+  // --- Shard Logic (Optimized for Portrait Space) ---
   const shardProgress = interpolate(frame, [0, durationInFrames / 2], [0, 1], { extrapolateRight: "clamp" });
   const shardBreak = interpolate(frame, [durationInFrames * 0.8, durationInFrames], [0, 1], { extrapolateRight: "clamp" });
 
-  const leftX = -width / 2 * (1 - shardProgress) - 50 * shardBreak;
-  const rightX = width / 2 + width / 2 * (1 - shardProgress) + 50 * shardBreak;
+  // In portrait, we want the shards to overlap slightly more to reduce white space
+  const shardWidth = p ? width * 0.7 : width / 2;
+  const leftX = -shardWidth * (1 - shardProgress) - 50 * shardBreak;
+  const rightX = width + (shardWidth * (1 - shardProgress)) + 50 * shardBreak;
 
-  // Header/Text Animations
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
   const ruleW = interpolate(frame, [4, 20], [0, 100], { extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
-      {/* 3D Camera Wrapper */}
       <div style={{
         width: "100%",
         height: "100%",
@@ -68,17 +64,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
       }}>
         <NewsBackground bgColor={bgColor} />
 
-        {/* bgColor tint overlay — mirrors NewsHeadline behaviour */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: bgColor,
-            opacity: 0.45,
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.45, zIndex: 2, pointerEvents: "none" }} />
 
         {/* Left shard */}
         <img
@@ -88,7 +74,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             position: "absolute",
             top: 0,
             left: leftX,
-            width: width / 2,
+            width: shardWidth,
             height: height,
             objectFit: "cover",
             opacity: 0.35,
@@ -97,15 +83,15 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           }}
         />
 
-        {/* Right shard (using your existing anchor logic) */}
+        {/* Right shard */}
         <img
           src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
             top: 0,
-            right: rightX,
-            width: width / 2,
+            right: width - rightX, // Corrected right anchor logic
+            width: shardWidth,
             height: height,
             objectFit: "cover",
             opacity: 0.35,
@@ -114,17 +100,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           }}
         />
 
-        {/* Gradient overlay */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)", zIndex: 2 }} />
 
         {/* Content Container */}
         <div
@@ -133,10 +109,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             inset: 0,
             display: "flex",
             flexDirection: "column",
-            padding: p ? "7% 6%" : "6% 9%",
-            gap: p ? 24 : 32,
+            padding: p ? "12% 8%" : "6% 9%",
+            gap: p ? 30 : 32,
             zIndex: 3,
-            transform: "translateZ(50px)", // Adds depth to the cards
+            transform: "translateZ(50px)",
           }}
         >
           {/* Header */}
@@ -144,25 +120,28 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 42 : 54),
+                fontSize: titleFontSize ?? (p ? 110 : 90),
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,
                 marginBottom: 10,
+                textTransform: p ? "uppercase" : "none",
+                letterSpacing: p ? "-0.02em" : "normal",
               }}
             >
               {title}
             </div>
-            <div style={{ height: 2, background: textColor, opacity: 0.12, width: `${ruleW}%` }} />
+            <div style={{ height: p ? 4 : 2, background: textColor, opacity: 0.15, width: `${ruleW}%` }} />
           </div>
 
-          {/* Cards Grid */}
+          {/* Cards Grid / Stack */}
           <div
             style={{
               flex: 1,
               display: "flex",
-              flexWrap: "wrap",
-              gap: p ? 16 : 22,
+              flexDirection: p ? "column" : "row",
+              flexWrap: p ? "nowrap" : "wrap",
+              gap: p ? 20 : 22,
               alignContent: "flex-start",
             }}
           >
@@ -176,23 +155,40 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 <div
                   key={i}
                   style={{
-                    width: p ? "calc(50% - 8px)" : items.length <= 2 ? "calc(50% - 11px)" : "calc(25% - 17px)",
+                    width: p ? "100%" : items.length <= 2 ? "calc(50% - 11px)" : "calc(25% - 17px)",
                     opacity: cardOp,
-                    transform: `translateY(${cardY}px) translateZ(${i * 10}px)`, // Staggered depth
-                    backgroundColor: "rgba(255,255,255,0.7)",
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    borderRadius: 8,
-                    padding: p ? "16px 18px" : "20px 22px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                    transform: `translateY(${cardY}px) translateZ(${i * 10}px)`,
+                    backgroundColor: "rgba(255,255,255,0.85)",
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    borderRadius: p ? 12 : 8,
+                    padding: p ? "24px 28px" : "20px 22px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
                   }}
                 >
-                  <div style={{ fontFamily: H_FONT, fontSize: p ? 46 : 58, fontWeight: 800, color: textColor, lineHeight: 1, marginBottom: 10 }}>
+                  <div style={{ 
+                    fontFamily: H_FONT, 
+                    fontSize: p ? 64 : 58, 
+                    fontWeight: 900, 
+                    color: textColor, 
+                    lineHeight: 1, 
+                    marginBottom: p ? 14 : 10 
+                  }}>
                     {item.value}
                   </div>
 
-                  <div style={{ height: 4, background: accentColor, borderRadius: 2, width: `${ulW}%`, marginBottom: 10 }} />
+                  <div style={{ height: p ? 6 : 4, background: accentColor, borderRadius: 3, width: `${ulW}%`, marginBottom: p ? 14 : 10 }} />
 
-                  <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 15 : 17), fontWeight: 500, color: textColor, opacity: 0.75, lineHeight: 1.3 }}>
+                  <div style={{ 
+                    fontFamily: B_FONT, 
+                    fontSize: descriptionFontSize ?? (p ? 34 : 35), 
+                    fontWeight: 600, 
+                    color: textColor, 
+                    opacity: 0.8, 
+                    lineHeight: 1.2 
+                  }}>
                     {item.label}
                   </div>
                 </div>
@@ -205,11 +201,13 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 15 : 17),
+                fontSize: descriptionFontSize ?? (p ? 34 : 35),
                 fontWeight: 500,
                 color: textColor,
-                opacity: interpolate(frame, [60, 76], [0, 0.6], { extrapolateRight: "clamp" }),
+                opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),
                 lineHeight: 1.4,
+                paddingTop: p ? 10 : 0,
+                borderTop: p ? `1px solid ${textColor}15` : "none",
               }}
             >
               {narration}
