@@ -3,11 +3,9 @@ title: Blog2Video
 emoji: 🎬
 colorFrom: blue
 colorTo: purple
-colorFrom: blue
-colorTo: purple
 sdk: docker
 app_port: 7860
-short_description: Convert blog posts to AI explainer videos (DSPy, Remotion)
+pinned: false
 ---
 
 <p align="center">
