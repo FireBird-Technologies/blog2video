@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User, PlanTier
 from app.auth import create_access_token, get_current_user
+from app.services.voice_seed import ensure_free_voices_for_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -104,6 +105,8 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(user)
+
+    ensure_free_voices_for_user(db, user.id)
 
     token = create_access_token(user.id)
 

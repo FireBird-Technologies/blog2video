@@ -415,6 +415,7 @@ export default function ProjectView() {
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
+  const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
@@ -759,11 +760,15 @@ export default function ProjectView() {
   // Resolution is always 1080p
   const RENDER_RESOLUTION = "1080p";
 
-  const handleRender = async (forceReRender = false) => {
+  const handleRender = async (
+    forceReRender = false,
+    onRenderStarted?: () => void
+  ) => {
     // If already rendered and available in R2, skip straight to download (unless forcing re-render)
     if (!forceReRender && project?.r2_video_url) {
       setRendered(true);
       setRendering(false);
+      onRenderStarted?.();
       return;
     }
 
@@ -783,7 +788,9 @@ export default function ProjectView() {
       try {
         console.log("rendering started")
         await renderVideo(projectId, res, forceReRender);
+        onRenderStarted?.();
       } catch (err: any) {
+        onRenderStarted?.();
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
           showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
@@ -1795,22 +1802,36 @@ export default function ProjectView() {
             <div className="flex gap-3">
               <button
                 type="button"
+                disabled={downloadWarningMode === "render" && renderConfirmLoading}
                 onClick={() => {
-                  setShowDownloadWarning(false);
                   if (downloadWarningMode === "render") {
                     setHasError(false);
-                    handleRender();
+                    setRenderConfirmLoading(true);
+                    handleRender(false, () => {
+                      setShowDownloadWarning(false);
+                      setRenderConfirmLoading(false);
+                    });
                   } else {
+                    setShowDownloadWarning(false);
                     handleDownload();
                   }
                 }}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="flex-1 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
               >
-                {downloadWarningMode === "render" ? "Render & download" : "Download"}
+                {downloadWarningMode === "render" && renderConfirmLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Starting…
+                  </>
+                ) : downloadWarningMode === "render" ? (
+                  "Render & download"
+                ) : (
+                  "Download"
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => setShowDownloadWarning(false)}
+                onClick={() => { setShowDownloadWarning(false); setRenderConfirmLoading(false); }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
@@ -1824,7 +1845,7 @@ export default function ProjectView() {
       {/* Re-render warning — deducts video count; continue only if user has new changes */}
       {showReRenderWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowReRenderWarning(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowReRenderWarning(false); setRenderConfirmLoading(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
             <p className="text-sm text-gray-600 mb-6">
@@ -1833,18 +1854,29 @@ export default function ProjectView() {
             <div className="flex gap-3">
               <button
                 type="button"
+                disabled={renderConfirmLoading}
                 onClick={() => {
-                  setShowReRenderWarning(false);
                   setHasError(false);
-                  handleRender(true);
+                  setRenderConfirmLoading(true);
+                  handleRender(true, () => {
+                    setShowReRenderWarning(false);
+                    setRenderConfirmLoading(false);
+                  });
                 }}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                className="flex-1 px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
               >
-                Re-render
+                {renderConfirmLoading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Starting…
+                  </>
+                ) : (
+                  "Re-render"
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => setShowReRenderWarning(false)}
+                onClick={() => { setShowReRenderWarning(false); setRenderConfirmLoading(false); }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
