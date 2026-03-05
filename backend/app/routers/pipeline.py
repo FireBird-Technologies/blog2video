@@ -199,7 +199,6 @@ async def _generate_script(project: Project, db: Session):
     except Exception:
         layout_catalog = ""
 
-    print("This is the layout catalog", layout_catalog)
     generator = ScriptGenerator()
     result = await generator.generate(
         blog_content=project.blog_content,
