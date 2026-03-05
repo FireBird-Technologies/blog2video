@@ -126,10 +126,10 @@ export default function Contact() {
             <p>
               Email:{" "}
               <a
-                href="mailto:blog2video@fbt"
+                href="mailto:arslan@firebird-technologies.com"
                 className="text-purple-600 hover:text-purple-700 underline"
               >
-                blog2video@firebird-technologies.com
+                arslan@firebird-technologies.com
               </a>
             </p>
           </div>
