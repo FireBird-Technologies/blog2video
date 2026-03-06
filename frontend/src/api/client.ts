@@ -365,6 +365,46 @@ export interface SaveTemplateSourceResponse {
 export const saveTemplateSourceDefaults = (payload: SaveTemplateSourceRequest) =>
   api.post<SaveTemplateSourceResponse>("/template-studio/save-source", payload);
 
+export interface ProposeTemplateAiEditRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+}
+
+export interface StartTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  preview_files: string[];
+}
+
+export interface TemplateAiPreviewSessionRequest {
+  session_id: string;
+}
+
+export interface ApplyTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  updated_files: string[];
+}
+
+export interface DiscardTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+}
+
+export const startTemplateAiPreview = (payload: ProposeTemplateAiEditRequest) =>
+  api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview", payload);
+
+export const applyTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<ApplyTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-apply", payload);
+
+export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<DiscardTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-discard", payload);
+
 export interface VoicePreview {
   voice_id: string;
   name: string;

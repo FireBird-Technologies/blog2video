@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
@@ -16,19 +16,35 @@ import type { NightfallLayoutProps } from "../types";
  * - Language badge styling
  */
 
-export const GlassCode: React.FC<NightfallLayoutProps> = ({
-  title,
-  accentColor,
-  textColor,
-  codeLines = [],
-  codeLanguage = "",
-  aspectRatio,
-  titleFontSize,
-  descriptionFontSize,
-}) => {
+export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
+  const {
+    title,
+    accentColor,
+    textColor,
+    codeLines,
+    codeLanguage = "",
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+  } = props ?? {};
+
   const frame = useCurrentFrame();
+  const { height: compHeight } = useVideoConfig();
   const fps = 30;
   const p = aspectRatio === "portrait";
+
+  // Portrait: code box height 240vh; below 600px composition height → grey bg
+  const HEIGHT_BREAKPOINT = 600;
+  const useGreyBg = compHeight < HEIGHT_BREAKPOINT;
+
+  // Defensive defaults for colors (can be undefined from layoutProps spread)
+  const safeAccentColor = accentColor && typeof accentColor === "string" ? accentColor : "#818CF8";
+  const safeTextColor = textColor && typeof textColor === "string" ? textColor : "#E2E8F0";
+
+  // Guard against null, undefined, or non-array (e.g. from project layoutProps)
+  const safeCodeLines: string[] = Array.isArray(codeLines)
+    ? codeLines.map((l) => (typeof l === "string" ? l : String(l ?? "")))
+    : [];
 
   // Card entrance
   const cardY = spring({
@@ -44,11 +60,12 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
-  // Code lines reveal progress
+  // Code lines reveal progress (guard: empty array would give [20,20] input range → division by zero)
+  const lineCount = Math.max(1, safeCodeLines.length);
   const linesRevealed = interpolate(
     frame,
-    [20, 20 + Math.min(codeLines.length * 10, 80)],
-    [0, codeLines.length],
+    [20, 20 + Math.min(lineCount * 10, 80)],
+    [0, lineCount],
     { extrapolateRight: "clamp" }
   );
 
@@ -57,9 +74,10 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
 
   // Syntax highlighting helper (enhanced)
   const getTokenColor = (token: string, context: { inString?: boolean; inComment?: boolean } = {}): string => {
+    if (token == null || typeof token !== "string") return safeTextColor;
     // Comments (highest priority)
     if (token.startsWith("//") || token.startsWith("/*") || token.startsWith("*") || context.inComment) {
-      return `${textColor}60`;
+      return `${safeTextColor}60`;
     }
     // Strings
     if (/^["'`]/.test(token) || context.inString) {
@@ -76,7 +94,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
       "default", "do", "with", "in", "of", "instanceof", "typeof", "void", "delete"
     ];
     if (keywords.includes(token.toLowerCase())) {
-      return accentColor;
+      return safeAccentColor;
     }
     // Numbers (including decimals and hex)
     if (/^\d+\.?\d*$/.test(token) || /^0x[\da-f]+$/i.test(token) || /^0b[01]+$/i.test(token)) {
@@ -88,9 +106,9 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
     }
     // Operators and punctuation
     if (/^[+\-*/%=<>!&|^~?:,;.()[\]{}]$/.test(token)) {
-      return `${textColor}80`;
+      return `${safeTextColor}80`;
     }
-    return textColor;
+    return safeTextColor;
   };
 
   // Tokenize a line of code
@@ -177,7 +195,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
           tokens.push({ text: currentToken, color: getTokenColor(currentToken, { inString, inComment }) });
           currentToken = "";
         }
-        tokens.push({ text: char, color: textColor });
+        tokens.push({ text: char, color: safeTextColor });
       } else if (/[+\-*/%=<>!&|^~?:,;.()[\]{}]/.test(char)) {
         // Operators and punctuation
         if (currentToken) {
@@ -215,9 +233,13 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
       >
         <div
           style={{
-            ...glassCardStyle(accentColor, 0.12),
-            width: p ? "98%" : "75%",
-            maxWidth: 1000,
+            ...glassCardStyle(safeAccentColor, 0.12),
+            display: "flex",
+            flexDirection: "column",
+            width: p ? "98%" : "95%",
+            maxWidth: 1200,
+            height: p ? "200vh" : "auto",
+            minHeight: p ? 240 : 500,
             overflow: "hidden",
             opacity: cardOpacity,
             transform: `translateY(${(1 - cardY) * 40}px)`,
@@ -275,7 +297,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                 <span
                   style={{
                     fontSize: titleFontSize ?? (p ? 18 : 22),
-                    color: textColor,
+                    color: safeTextColor,
                     opacity: 0.6,
                     fontFamily: "'Fira Code', monospace",
                   }}
@@ -287,12 +309,12 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                 <span
                   style={{
                     fontSize: p ? 11 : 12,
-                    color: accentColor,
+                    color: safeAccentColor,
                     fontFamily: "'Fira Code', monospace",
                     padding: "4px 10px",
                     borderRadius: 6,
-                    backgroundColor: `${accentColor}25`,
-                    border: `1px solid ${accentColor}40`,
+                    backgroundColor: `${safeAccentColor}25`,
+                    border: `1px solid ${safeAccentColor}40`,
                     fontWeight: 600,
                     textTransform: "uppercase",
                     letterSpacing: 0.5,
@@ -307,7 +329,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
             <div
               style={{
                 fontSize: p ? 11 : 12,
-                color: `${textColor}50`,
+                color: `${safeTextColor}50`,
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
               }}
             >
@@ -315,18 +337,20 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
             </div>
           </div>
 
-          {/* Code Content */}
+          {/* Code Content — grey when composition height below breakpoint */}
           <div
             style={{
               padding: p ? "20px 16px" : "24px 28px",
               fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               fontSize: descriptionFontSize ?? 22,
               lineHeight: 1.85,
-              backgroundColor: "rgba(0, 0, 0, 0.2)",
-              minHeight: p ? 200 : 300,
+              backgroundColor: useGreyBg ? "rgba(75, 85, 99, 0.4)" : "rgba(0, 0, 0, 0.2)",
+              minHeight: p ? 240 : 300,
+              flex: 1,
+              overflow: "auto",
             }}
           >
-            {codeLines.map((line, i) => {
+            {safeCodeLines.map((line, i) => {
               const isRevealed = i < Math.floor(linesRevealed);
               const isCurrentLine = i === Math.floor(linesRevealed);
               
@@ -335,39 +359,50 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                   key={i}
                   style={{
                     color: isRevealed ? "#E2E8F0" : "rgba(255,255,255,0.15)",
-                    whiteSpace: "pre",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
                     opacity: isRevealed ? 1 : 0.3,
                     transition: "opacity 0.2s",
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: "flex-start",
+                    gap: 0,
                   }}
                 >
                   {/* Line number */}
                   <span
                     style={{
-                      color: isRevealed ? `${accentColor}60` : "rgba(255,255,255,0.2)",
+                      color: isRevealed ? `${safeAccentColor}60` : "rgba(255,255,255,0.2)",
                       marginRight: p ? 12 : 20,
                       minWidth: p ? 24 : 32,
                       textAlign: "right",
                       fontSize: p ? 12 : 14,
                       fontWeight: 500,
+                      flexShrink: 0,
                     }}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
 
-                  {/* Code line with syntax highlighting */}
-                  <span style={{ flex: 1 }}>
-                    {tokenizeLine(line).map((token, tokenIdx) => (
-                      <span
-                        key={tokenIdx}
-                        style={{
-                          color: isRevealed ? token.color : `${token.color}30`,
-                        }}
-                      >
-                        {token.text}
-                      </span>
-                    ))}
+                  {/* Code line with syntax highlighting — minWidth 0 so flex child can shrink and wrap */}
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    {(() => {
+                      try {
+                        const tokens = tokenizeLine(typeof line === "string" ? line : String(line ?? ""));
+                        return tokens.map((token, tokenIdx) => (
+                          <span
+                            key={tokenIdx}
+                            style={{
+                              color: isRevealed ? token.color : `${token.color}30`,
+                            }}
+                          >
+                            {token.text}
+                          </span>
+                        ));
+                      } catch {
+                        return <span style={{ color: safeTextColor }}>{String(line ?? "")}</span>;
+                      }
+                    })()}
                   </span>
 
                   {/* Blinking cursor on current line */}
@@ -375,7 +410,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = ({
                     <span
                       style={{
                         marginLeft: 4,
-                        color: accentColor,
+                        color: safeAccentColor,
                         fontWeight: 700,
                         fontSize: descriptionFontSize ?? (p ? 16 : 20),
                       }}
