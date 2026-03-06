@@ -22,6 +22,134 @@
     "rapid_points",
     "closer"
   ],
+  "layout_prop_schema": {
+    "impact_title": {
+      "label": "Impact Title",
+      "defaults": {
+        "titleFontSize": { "portrait": 64, "landscape": 100 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 22 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 240, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Subtitle Font Size", "type": "number", "responsive": true, "min": 12, "max": 160, "step": 1 }
+      ]
+    },
+    "statement": {
+      "label": "Statement",
+      "defaults": {
+        "titleFontSize": { "portrait": 42, "landscape": 56 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 24 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Headline Size", "type": "number", "responsive": true, "min": 20, "max": 240, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Size", "type": "number", "responsive": true, "min": 12, "max": 160, "step": 1 }
+      ]
+    },
+    "word_punch": {
+      "label": "Word Punch",
+      "defaults": {
+        "titleFontSize": { "portrait": 96, "landscape": 140 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Word Size", "type": "number", "responsive": true, "min": 24, "max": 280, "step": 1 }
+      ]
+    },
+    "cascade_list": {
+      "label": "Cascade List",
+      "defaults": {
+        "titleFontSize": { "portrait": 18, "landscape": 28 },
+        "descriptionFontSize": { "portrait": 20, "landscape": 30 },
+        "items": ["First point", "Second point", "Third point"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 12, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Item Size", "type": "number", "responsive": true, "min": 12, "max": 180, "step": 1 },
+        { "key": "items", "label": "Items", "type": "string_array", "maxItems": 10 }
+      ]
+    },
+    "stat_stage": {
+      "label": "Stat Stage",
+      "defaults": {
+        "titleFontSize": { "portrait": 80, "landscape": 120 },
+        "descriptionFontSize": { "portrait": 11, "landscape": 14 },
+        "metrics": [
+          { "value": "93", "label": "Retention", "suffix": "%" },
+          { "value": "4.1", "label": "NPS", "suffix": "x" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Headline Size", "type": "number", "responsive": true, "min": 20, "max": 260, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Label Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" },
+            { "key": "suffix", "label": "Suffix" }
+          ]
+        }
+      ]
+    },
+    "versus": {
+      "label": "Versus",
+      "defaults": {
+        "titleFontSize": { "portrait": 28, "landscape": 40 },
+        "descriptionFontSize": { "portrait": 12, "landscape": 16 },
+        "leftLabel": "Option A",
+        "rightLabel": "Option B",
+        "leftDescription": "Argument for A",
+        "rightDescription": "Argument for B"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 14, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Description Size", "type": "number", "responsive": true, "min": 10, "max": 140, "step": 1 },
+        { "key": "leftLabel", "label": "Left Label", "type": "string" },
+        { "key": "rightLabel", "label": "Right Label", "type": "string" },
+        { "key": "leftDescription", "label": "Left Description", "type": "text" },
+        { "key": "rightDescription", "label": "Right Description", "type": "text" }
+      ]
+    },
+    "spotlight_image": {
+      "label": "Spotlight Image",
+      "defaults": {
+        "titleFontSize": { "portrait": 52, "landscape": 72 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 24 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 20, "max": 240, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Caption Size", "type": "number", "responsive": true, "min": 12, "max": 160, "step": 1 }
+      ]
+    },
+    "rapid_points": {
+      "label": "Rapid Points",
+      "defaults": {
+        "titleFontSize": { "portrait": 32, "landscape": 52 },
+        "phrases": ["Fast", "Focused", "Fearless"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Phrase Size", "type": "number", "responsive": true, "min": 14, "max": 240, "step": 1 },
+        { "key": "phrases", "label": "Phrases", "type": "string_array", "maxItems": 12 }
+      ]
+    },
+    "closer": {
+      "label": "Closer",
+      "defaults": {
+        "titleFontSize": { "portrait": 28, "landscape": 42 },
+        "descriptionFontSize": { "portrait": 12, "landscape": 16 },
+        "highlightPhrase": "Your move.",
+        "cta": "Start now"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Headline Size", "type": "number", "responsive": true, "min": 14, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "CTA Size", "type": "number", "responsive": true, "min": 10, "max": 140, "step": 1 },
+        { "key": "highlightPhrase", "label": "Highlight Phrase", "type": "string" },
+        { "key": "cta", "label": "Call To Action", "type": "string" }
+      ]
+    }
+  },
   "layouts_without_image": [],
   "features": [
     "Oversized kinetic typography with spring-slam animations",

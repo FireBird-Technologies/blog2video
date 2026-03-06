@@ -23,6 +23,198 @@
     "glass_image",
     "data_visualization"
   ],
+  "layout_prop_schema": {
+    "cinematic_title": {
+      "label": "Cinematic Title",
+      "defaults": {
+        "titleFontSize": { "portrait": 88, "landscape": 140 },
+        "descriptionFontSize": { "portrait": 26, "landscape": 36 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Subtitle Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 }
+      ]
+    },
+    "glass_narrative": {
+      "label": "Glass Narrative",
+      "defaults": {
+        "titleFontSize": { "portrait": 40, "landscape": 52 },
+        "descriptionFontSize": { "portrait": 25, "landscape": 25 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 }
+      ]
+    },
+    "glow_metric": {
+      "label": "Glow Metric",
+      "defaults": {
+        "titleFontSize": { "portrait": 28, "landscape": 36 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 20 },
+        "metrics": [
+          { "value": "97", "label": "Accuracy", "suffix": "%" },
+          { "value": "3.2", "label": "Lift", "suffix": "x" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" },
+            { "key": "suffix", "label": "Suffix" }
+          ]
+        }
+      ]
+    },
+    "glass_code": {
+      "label": "Glass Code",
+      "defaults": {
+        "titleFontSize": { "portrait": 18, "landscape": 22 },
+        "descriptionFontSize": { "portrait": 22, "landscape": 22 },
+        "codeLanguage": "typescript",
+        "codeLines": ["const result = await fetchData();", "console.log(result);"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Header Font Size", "type": "number", "responsive": true, "min": 14, "max": 160, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Code Font Size", "type": "number", "responsive": true, "min": 10, "max": 100, "step": 1 },
+        { "key": "codeLanguage", "label": "Language", "type": "string" },
+        { "key": "codeLines", "label": "Code Lines", "type": "string_array", "maxItems": 20 }
+      ]
+    },
+    "kinetic_insight": {
+      "label": "Kinetic Insight",
+      "defaults": {
+        "titleFontSize": { "portrait": 80, "landscape": 120 },
+        "descriptionFontSize": { "portrait": 60, "landscape": 72 },
+        "quote": "Complexity is the enemy of execution.",
+        "highlightWord": "execution"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Primary Font Size", "type": "number", "responsive": true, "min": 20, "max": 260, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Secondary Font Size", "type": "number", "responsive": true, "min": 12, "max": 220, "step": 1 },
+        { "key": "quote", "label": "Quote", "type": "text" },
+        { "key": "highlightWord", "label": "Highlight Word", "type": "string" }
+      ]
+    },
+    "glass_stack": {
+      "label": "Glass Stack",
+      "defaults": {
+        "titleFontSize": { "portrait": 34, "landscape": 42 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 18 },
+        "items": ["Item one", "Item two", "Item three"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Item Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
+        { "key": "items", "label": "Items", "type": "string_array", "maxItems": 8 }
+      ]
+    },
+    "split_glass": {
+      "label": "Split Glass",
+      "defaults": {
+        "titleFontSize": { "portrait": 34, "landscape": 46 },
+        "descriptionFontSize": { "portrait": 20, "landscape": 24 },
+        "leftLabel": "Left",
+        "rightLabel": "Right",
+        "leftDescription": "Left-hand context",
+        "rightDescription": "Right-hand context"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Label Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Description Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
+        { "key": "leftLabel", "label": "Left Label", "type": "string" },
+        { "key": "rightLabel", "label": "Right Label", "type": "string" },
+        { "key": "leftDescription", "label": "Left Description", "type": "text" },
+        { "key": "rightDescription", "label": "Right Description", "type": "text" }
+      ]
+    },
+    "chapter_break": {
+      "label": "Chapter Break",
+      "defaults": {
+        "titleFontSize": { "portrait": 36, "landscape": 46 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 24 },
+        "subtitle": "A new section begins",
+        "chapterNumber": "02"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Subtitle Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
+        { "key": "subtitle", "label": "Subtitle", "type": "string" },
+        { "key": "chapterNumber", "label": "Chapter Number", "type": "string" }
+      ]
+    },
+    "glass_image": {
+      "label": "Glass Image",
+      "defaults": {
+        "titleFontSize": { "portrait": 48, "landscape": 64 },
+        "descriptionFontSize": { "portrait": 28, "landscape": 28 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Caption Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 }
+      ]
+    },
+    "data_visualization": {
+      "label": "Data Visualization",
+      "defaults": {
+        "titleFontSize": { "portrait": 34, "landscape": 46 },
+        "descriptionFontSize": { "portrait": 25, "landscape": 25 },
+        "barChartRows": [
+          { "label": "Q1", "value": "18" },
+          { "label": "Q2", "value": "24" }
+        ],
+        "lineChartLabels": ["Jan", "Feb", "Mar"],
+        "lineChartDatasets": [
+          { "label": "Series A", "valuesStr": "10, 14, 18" }
+        ],
+        "pieChartRows": [
+          { "label": "Segment A", "value": "45" },
+          { "label": "Segment B", "value": "55" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 20, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
+        {
+          "key": "barChartRows",
+          "label": "Bar Chart Rows",
+          "type": "object_array",
+          "maxItems": 12,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value" }
+          ]
+        },
+        { "key": "lineChartLabels", "label": "Line Chart Labels", "type": "string_array", "maxItems": 12 },
+        {
+          "key": "lineChartDatasets",
+          "label": "Line Chart Series",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            { "key": "label", "label": "Series" },
+            { "key": "valuesStr", "label": "Values (comma-separated)" }
+          ]
+        },
+        {
+          "key": "pieChartRows",
+          "label": "Pie Chart Rows",
+          "type": "object_array",
+          "maxItems": 12,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value" }
+          ]
+        }
+      ]
+    }
+  },
   "layouts_without_image": [
     "split_glass",
     "glass_code",

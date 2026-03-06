@@ -286,10 +286,84 @@ export interface TemplateMeta {
   description: string;
   styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
   preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+}
+
+export type LayoutPropFieldType =
+  | "string"
+  | "text"
+  | "number"
+  | "color"
+  | "select"
+  | "string_array"
+  | "object_array";
+
+export interface LayoutPropSubField {
+  key: string;
+  label: string;
+  placeholder?: string;
+}
+
+export interface LayoutPropField {
+  key: string;
+  label: string;
+  type: LayoutPropFieldType;
+  responsive?: boolean;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  maxItems?: number;
+  options?: Array<{ label: string; value: string }>;
+  subFields?: LayoutPropSubField[];
+}
+
+export interface LayoutSceneDefaults {
+  title?: string;
+  narration?: string;
+  durationSeconds?: number;
+}
+
+export interface LayoutPropSchema {
+  label?: string;
+  description?: string;
+  defaults?: Record<string, unknown>;
+  scene_defaults?: LayoutSceneDefaults;
+  fields: LayoutPropField[];
 }
 
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
+
+export interface AspectValue {
+  portrait: number;
+  landscape: number;
+}
+
+export interface SaveTemplateSourceRequest {
+  template_id: string;
+  layout_id: string;
+  title_font_size?: AspectValue;
+  description_font_size?: AspectValue;
+}
+
+export interface SaveTemplateSourceResponse {
+  ok: boolean;
+  updated_file: string;
+  updated_files?: string[];
+  updated_meta_file?: string | null;
+  layout_id: string;
+  template_id: string;
+  changes_applied: number;
+}
+
+export const saveTemplateSourceDefaults = (payload: SaveTemplateSourceRequest) =>
+  api.post<SaveTemplateSourceResponse>("/template-studio/save-source", payload);
 
 export interface VoicePreview {
   voice_id: string;
