@@ -8,6 +8,7 @@ import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
+import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,14 @@ function AppRoutes() {
               <main className="max-w-7xl mx-auto px-6 py-8">
                 <Subscription />
               </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/template-studio-editing-feature"
+          element={
+            <ProtectedRoute>
+              <TemplateStudio />
             </ProtectedRoute>
           }
         />

@@ -22,6 +22,165 @@
     "fact_check",
     "news_timeline"
   ],
+  "layout_prop_schema": {
+    "news_headline": {
+      "label": "News Headline",
+      "defaults": {
+        "titleFontSize": { "portrait": 48, "landscape": 64 },
+        "descriptionFontSize": { "portrait": 19, "landscape": 23 },
+        "category": "Technology",
+        "leftThought": "breakthrough, launch",
+        "stats": [
+          { "value": "By Staff Reporter", "label": "" },
+          { "value": "March 2026", "label": "" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Headline Size", "type": "number", "responsive": true, "min": 18, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Subhead Size", "type": "number", "responsive": true, "min": 10, "max": 140, "step": 1 },
+        { "key": "category", "label": "Category", "type": "string" },
+        { "key": "leftThought", "label": "Highlight Words (comma-separated)", "type": "string" },
+        {
+          "key": "stats",
+          "label": "Byline Rows",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label (optional)" }
+          ]
+        }
+      ]
+    },
+    "article_lead": {
+      "label": "Article Lead",
+      "defaults": {
+        "titleFontSize": { "portrait": 14, "landscape": 16 },
+        "descriptionFontSize": { "portrait": 20, "landscape": 24 },
+        "stats": [
+          { "value": "72", "label": "Key stat" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Meta Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Lead Size", "type": "number", "responsive": true, "min": 10, "max": 160, "step": 1 },
+        {
+          "key": "stats",
+          "label": "Pull Stat",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Caption" }
+          ]
+        }
+      ]
+    },
+    "pull_quote": {
+      "label": "Pull Quote",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 38 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 19 },
+        "stats": [
+          { "label": "The Editorial Desk", "value": "" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Quote Size", "type": "number", "responsive": true, "min": 14, "max": 200, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Source Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "stats",
+          "label": "Source Row",
+          "type": "object_array",
+          "maxItems": 1,
+          "subFields": [
+            { "key": "label", "label": "Source" },
+            { "key": "value", "label": "Value (optional)" }
+          ]
+        }
+      ]
+    },
+    "data_snapshot": {
+      "label": "Data Snapshot",
+      "defaults": {
+        "titleFontSize": { "portrait": 38, "landscape": 50 },
+        "descriptionFontSize": { "portrait": 14, "landscape": 16 },
+        "stats": [
+          { "value": "48%", "label": "Increase" },
+          { "value": "2.1M", "label": "Readers" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 14, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Card Label Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "stats",
+          "label": "Key Figures",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" }
+          ]
+        }
+      ]
+    },
+    "fact_check": {
+      "label": "Fact Check",
+      "defaults": {
+        "titleFontSize": { "portrait": 36, "landscape": 48 },
+        "descriptionFontSize": { "portrait": 22, "landscape": 24 },
+        "leftThought": "Claim being made",
+        "rightThought": "Evidence-based correction",
+        "stats": [
+          { "label": "Claimed", "value": "" },
+          { "label": "Facts", "value": "" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 14, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Panel Text Size", "type": "number", "responsive": true, "min": 10, "max": 140, "step": 1 },
+        { "key": "leftThought", "label": "Claimed", "type": "text" },
+        { "key": "rightThought", "label": "Facts", "type": "text" },
+        {
+          "key": "stats",
+          "label": "Column Labels",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value (optional)" }
+          ]
+        }
+      ]
+    },
+    "news_timeline": {
+      "label": "News Timeline",
+      "defaults": {
+        "titleFontSize": { "portrait": 36, "landscape": 48 },
+        "descriptionFontSize": { "portrait": 15, "landscape": 18 },
+        "stats": [
+          { "value": "Jan 2025", "label": "Event begins" },
+          { "value": "Jul 2025", "label": "Milestone reached" },
+          { "value": "Jan 2026", "label": "Outcome announced" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 14, "max": 220, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Timeline Text Size", "type": "number", "responsive": true, "min": 10, "max": 140, "step": 1 },
+        {
+          "key": "stats",
+          "label": "Timeline Events",
+          "type": "object_array",
+          "maxItems": 8,
+          "subFields": [
+            { "key": "value", "label": "Date" },
+            { "key": "label", "label": "Description" }
+          ]
+        }
+      ]
+    }
+  },
   "layouts_without_image": ["pull_quote", "data_snapshot"],
   "features": [
     "News headline hero with category and byline",
