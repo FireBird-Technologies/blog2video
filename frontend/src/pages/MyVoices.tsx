@@ -715,7 +715,7 @@ export default function MyVoices() {
             {!customVoicesListLoaded ? (
               <p className="text-[11px] text-gray-500 pt-1">Loading custom voices…</p>
             ) : customVoicesList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl bg-gray-50/60 border border-gray-200/60 text-center">
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                 <div className="w-12 h-12 mb-3 bg-purple-100 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />

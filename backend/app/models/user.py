@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 from sqlalchemy import String, Enum, DateTime, Integer, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
 
 
@@ -53,3 +53,41 @@ class User(Base):
     @property
     def can_create_video(self) -> bool:
         return self.videos_used_this_period < self.video_limit
+
+
+    def sync_video_limit_bonus(self, db: Session) -> bool:
+    
+        from app.models.subscription import Subscription, SubscriptionStatus, SubscriptionPlan
+
+        now = datetime.utcnow()
+        per_video_plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+        if not per_video_plan:
+            return False
+
+        active_credits = (
+            db.query(Subscription)
+            .filter(
+                Subscription.user_id == self.id,
+                Subscription.plan_id == per_video_plan.id,
+                Subscription.status == SubscriptionStatus.COMPLETED,
+                (
+                    (Subscription.current_period_end == None) |
+                    (Subscription.current_period_end > now)
+                ),
+            )
+            .count()
+        )
+
+        current_bonus = self.video_limit_bonus or 0
+
+        if self.plan != PlanTier.FREE and current_bonus > active_credits:
+            print(
+                f"[USER] sync_video_limit_bonus: user {self.id} "
+                f"video_limit_bonus {current_bonus} → {active_credits} "
+                f"(expired credits dropped)"
+            )
+            self.video_limit_bonus = active_credits
+            db.commit()
+            return True
+
+        return False
