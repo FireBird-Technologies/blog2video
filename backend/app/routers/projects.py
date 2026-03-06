@@ -69,6 +69,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
+    user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
