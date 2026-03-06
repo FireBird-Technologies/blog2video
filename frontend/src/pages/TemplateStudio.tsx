@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { Player } from "@remotion/player";
 import {
+  applyTemplateAiPreview,
+  discardTemplateAiPreview,
   getTemplates,
+  startTemplateAiPreview,
   saveTemplateSourceDefaults,
   type LayoutPropField,
   type LayoutPropSchema,
@@ -78,6 +81,7 @@ const IconLink    = () => <Icon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7
 const IconDroplet = () => <Icon d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />;
 const IconReset   = () => <Icon d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />;
 const IconSliders = () => <Icon d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />;
+const IconWand    = () => <Icon d="M15 4V2M15 6v2M21 10h-2M7 10H5M18.3 6.7l-1.4-1.4M11.1 13.9l-7 7 1.4 1.4 7-7M11.7 6.7l1.4-1.4M18.9 13.9l1.4 1.4" />;
 const IconSave    = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -229,6 +233,14 @@ export default function TemplateStudio() {
   const [fetchedImageUrl, setFetchedImageUrl]   = useState<string>("");
   const [imageFetching, setImageFetching]       = useState(false);
   const [imageError, setImageError]             = useState<string>("");
+  const [aiInstruction, setAiInstruction]       = useState("");
+  const [aiLoading, setAiLoading]               = useState(false);
+  const [aiApplying, setAiApplying]             = useState(false);
+  const [aiDiscarding, setAiDiscarding]         = useState(false);
+  const [aiError, setAiError]                   = useState("");
+  const [aiStatus, setAiStatus]                 = useState("");
+  const [aiPreviewSessionId, setAiPreviewSessionId] = useState("");
+  const previewSelectionRef = useRef("");
 
   useEffect(() => {
     let mounted = true;
@@ -419,6 +431,103 @@ export default function TemplateStudio() {
       setSavingSource(false);
     }
   };
+
+  const handleGenerateAiEdit = async () => {
+    if (!selectedTemplateId || !selectedLayout) return;
+    if (!aiInstruction.trim()) {
+      setAiError("Add an instruction for Gemini first.");
+      setAiStatus("");
+      return;
+    }
+    try {
+      setAiLoading(true);
+      setAiError("");
+      setAiStatus("");
+      const result = await startTemplateAiPreview({
+        template_id: selectedTemplateId,
+        layout_id: selectedLayout,
+        instruction: aiInstruction.trim(),
+      });
+      setAiPreviewSessionId(result.data.session_id);
+      setAiStatus("Preview is now using AI-generated code. Review the scene and apply or discard.");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to start AI preview.";
+      setAiError(String(msg || "Failed to start AI preview."));
+      setAiStatus("");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAiEdit = async () => {
+    if (!aiPreviewSessionId) return;
+    try {
+      setAiApplying(true);
+      setAiError("");
+      setAiStatus("");
+      const result = await applyTemplateAiPreview({
+        session_id: aiPreviewSessionId,
+      });
+      const updated = result.data.updated_files.join(", ");
+      setAiStatus(`Applied AI edit to: ${updated}`);
+      setAiPreviewSessionId("");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to apply AI preview.";
+      setAiError(String(msg || "Failed to apply AI edit."));
+      setAiStatus("");
+    } finally {
+      setAiApplying(false);
+    }
+  };
+
+  const handleDiscardAiEdit = async () => {
+    if (!aiPreviewSessionId) return;
+    try {
+      setAiDiscarding(true);
+      setAiError("");
+      setAiStatus("");
+      await discardTemplateAiPreview({ session_id: aiPreviewSessionId });
+      setAiPreviewSessionId("");
+      setAiStatus("Discarded AI preview and restored original component files.");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to discard AI preview.";
+      setAiError(String(msg || "Failed to discard AI preview."));
+      setAiStatus("");
+    } finally {
+      setAiDiscarding(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (!aiPreviewSessionId) return;
+      void discardTemplateAiPreview({ session_id: aiPreviewSessionId }).catch(() => undefined);
+    };
+  }, [aiPreviewSessionId]);
+
+  useEffect(() => {
+    const key = `${selectedTemplateId}::${selectedLayout}`;
+    if (!previewSelectionRef.current) {
+      previewSelectionRef.current = key;
+      return;
+    }
+    if (previewSelectionRef.current !== key && aiPreviewSessionId) {
+      const sessionId = aiPreviewSessionId;
+      setAiPreviewSessionId("");
+      setAiStatus("Selection changed. Previous AI preview was discarded and originals were restored.");
+      void discardTemplateAiPreview({ session_id: sessionId }).catch(() => undefined);
+    }
+    previewSelectionRef.current = key;
+  }, [selectedTemplateId, selectedLayout, aiPreviewSessionId]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1043,6 +1152,109 @@ export default function TemplateStudio() {
                     </p>
                   </div>
                 </div>
+
+                <PanelSection icon={<IconWand />} label="AI Edit (Gemini)">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <textarea
+                      className="studio-input"
+                      placeholder="Describe the edit, e.g. 'move title higher, make subtitle lighter, and reduce box border thickness.'"
+                      value={aiInstruction}
+                      onChange={(e) => setAiInstruction(e.target.value)}
+                      rows={4}
+                      style={{
+                        width: "100%",
+                        border: `1px solid ${T.border}`,
+                        background: "#fff",
+                        borderRadius: "10px",
+                        padding: "10px 12px",
+                        fontSize: "12px",
+                        color: T.text,
+                        fontFamily: "Geist Mono, monospace",
+                        resize: "vertical",
+                        lineHeight: "1.5",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="reset-btn"
+                      disabled={aiLoading || aiApplying || aiDiscarding || !aiInstruction.trim()}
+                      onClick={handleGenerateAiEdit}
+                      style={{
+                        background: T.accent,
+                        borderColor: T.accent,
+                        color: "#fff",
+                        opacity: aiLoading || aiApplying || aiDiscarding || !aiInstruction.trim() ? 0.65 : 1,
+                      }}
+                    >
+                      <IconWand />
+                      {aiLoading ? "Generating Preview…" : "Generate AI Preview"}
+                    </button>
+
+                    {aiPreviewSessionId && (
+                      <>
+                        <label style={{ fontSize: "10px", color: T.accent, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                          Preview Session
+                        </label>
+                        <div style={{
+                          border: `1px solid ${T.border}`,
+                          background: T.surfaceAlt,
+                          borderRadius: "10px",
+                          padding: "9px 10px",
+                          fontSize: "10px",
+                          color: T.textSub,
+                          fontFamily: "Geist Mono, monospace",
+                          wordBreak: "break-all",
+                        }}>
+                          {aiPreviewSessionId}
+                        </div>
+                        <button
+                          type="button"
+                          className="reset-btn"
+                          disabled={aiApplying || aiDiscarding}
+                          onClick={handleApplyAiEdit}
+                          style={{
+                            background: "#111827",
+                            borderColor: "#111827",
+                            color: "#fff",
+                            opacity: aiApplying || aiDiscarding ? 0.7 : 1,
+                          }}
+                        >
+                          <IconSave />
+                          {aiApplying ? "Applying…" : "Apply Preview to Files"}
+                        </button>
+                        <button
+                          type="button"
+                          className="reset-btn"
+                          disabled={aiDiscarding || aiApplying}
+                          onClick={handleDiscardAiEdit}
+                          style={{
+                            background: "#fff",
+                            borderColor: T.border,
+                            color: T.textSub,
+                            opacity: aiDiscarding || aiApplying ? 0.7 : 1,
+                          }}
+                        >
+                          <IconReset />
+                          {aiDiscarding ? "Discarding…" : "Discard Preview"}
+                        </button>
+                      </>
+                    )}
+
+                    <p style={{
+                      margin: 0,
+                      fontSize: "10.5px",
+                      color: aiError ? "#7f1d1d" : aiStatus ? "#14532d" : T.textSub,
+                      background: aiError ? "#fee2e2" : aiStatus ? "#dcfce7" : T.surfaceAlt,
+                      border: `1px solid ${aiError ? "#fecaca" : aiStatus ? "#bbf7d0" : T.border}`,
+                      borderRadius: "9px",
+                      padding: "9px 10px",
+                      lineHeight: "1.5",
+                      wordBreak: "break-word",
+                    }}>
+                      {aiError || aiStatus || "Generate preview, inspect result in the scene, then apply or discard."}
+                    </p>
+                  </div>
+                </PanelSection>
               </aside>
 
             </div>
