@@ -10,6 +10,7 @@ import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
+import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -89,7 +90,9 @@ function AppRoutes() {
           path="/template-studio-editing-feature"
           element={
             <ProtectedRoute>
-              <TemplateStudio />
+              <PasswordProtectedRoute redirectTo="/">
+                <TemplateStudio />
+              </PasswordProtectedRoute>
             </ProtectedRoute>
           }
         />
