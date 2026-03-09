@@ -10,6 +10,8 @@ import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
 import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
+import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
+import CustomPreviewPortrait from "./templatePreviews/portrait/CustomPreviewPortrait";
 // import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
 
 type TemplateId = "nightfall" | /* "gridcraft" | */ "spotlight" | /* "default" | */ /* "matrix" | */ "whiteboard" | /* "newspaper" | */ "custom";
@@ -57,7 +59,7 @@ const TEMPLATES: TemplateInfo[] = [
     id: "whiteboard",
     name: "Whiteboard",
     description: "Hand-drawn marker animations on a cream canvas. Stick figures and story-beat layouts ideal for educational content.",
-    hasPortrait: false,
+    hasPortrait: true,
   },
   // {
   //   id: "newspaper",
@@ -69,7 +71,7 @@ const TEMPLATES: TemplateInfo[] = [
     id: "custom",
     name: "Custom",
     description: "Design your own template from any website URL. Set your brand colors, typography, and animation style — fully yours.",
-    hasPortrait: false,
+    hasPortrait: true,
   },
 ];
 
@@ -109,6 +111,8 @@ const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
   spotlight: SpotlightPreviewPortrait,
+  whiteboard: WhiteboardPreviewPortrait,
+  custom: () => <CustomPreviewPortrait theme={SAMPLE_CUSTOM_THEME} name="Your Brand" />,
   // gridcraft: GridcraftPreviewPortrait,
 };
 
@@ -341,6 +345,9 @@ export default function FullTemplateShowcase() {
               {t.name}
             </button>
           ))}
+          <span className="px-4 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-400 cursor-default select-none border border-dashed border-gray-300">
+            100+ more
+          </span>
         </div>
 
         {/* Two-column: description left, preview right */}
