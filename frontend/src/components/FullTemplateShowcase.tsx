@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CustomTemplateTheme } from "../api/client";
-import DefaultPreview from "./templatePreviews/DefaultPreview";
+// import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 // import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
@@ -12,7 +12,7 @@ import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPrevi
 import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
 // import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
 
-type TemplateId = "default" | "nightfall" | /* "gridcraft" | */ "spotlight" | /* "matrix" | */ "whiteboard" | /* "newspaper" | */ "custom";
+type TemplateId = "nightfall" | /* "gridcraft" | */ "spotlight" | /* "default" | */ /* "matrix" | */ "whiteboard" | /* "newspaper" | */ "custom";
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -41,12 +41,12 @@ const TEMPLATES: TemplateInfo[] = [
   //   description: "Warm bento-style editorial layouts. Cards, metrics, and clear hierarchy — perfect for comparisons and data-driven stories.",
   //   hasPortrait: true,
   // },
-  {
-    id: "default",
-    name: "Default",
-    description: "Clean geometric explainer style with a purple accent. Versatile layout with hero images, bullet lists, code blocks, and metrics.",
-    hasPortrait: false,
-  },
+  // {
+  //   id: "default",
+  //   name: "Default",
+  //   description: "Clean geometric explainer style with a purple accent. Versatile layout with hero images, bullet lists, code blocks, and metrics.",
+  //   hasPortrait: false,
+  // },
   // {
   //   id: "matrix",
   //   name: "Matrix",
@@ -96,8 +96,8 @@ const SAMPLE_CUSTOM_THEME: CustomTemplateTheme = {
 };
 
 const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
-  default: DefaultPreview,
   nightfall: NightfallPreview,
+  // default: DefaultPreview,
   // gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
   // matrix: MatrixPreview,
@@ -153,9 +153,6 @@ export default function FullTemplateShowcase() {
               {t.name}
             </button>
           ))}
-          <span className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100/80 text-gray-400 border border-dashed border-gray-300 cursor-default">
-            +3 more
-          </span>
         </div>
 
         {/* Two-column: description left, preview right */}
