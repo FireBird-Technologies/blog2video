@@ -377,10 +377,17 @@ export interface StartTemplateAiPreviewResponse {
   template_id: string;
   layout_id: string;
   preview_files: string[];
+  versions?: string[];
+  active_version_id?: string;
 }
 
 export interface TemplateAiPreviewSessionRequest {
   session_id: string;
+}
+
+export interface SwitchTemplateAiPreviewRequest {
+  session_id: string;
+  version: string;
 }
 
 export interface ApplyTemplateAiPreviewResponse {
@@ -396,14 +403,37 @@ export interface DiscardTemplateAiPreviewResponse {
   session_id: string;
 }
 
+export interface ListTemplateAiVersionsRequest {
+  template_id: string;
+  layout_id: string;
+}
+
+export interface ListTemplateAiVersionsResponse {
+  ok: boolean;
+  session_id: string | null;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string | null;
+}
+
 export const startTemplateAiPreview = (payload: ProposeTemplateAiEditRequest) =>
   api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview", payload);
 
 export const applyTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
   api.post<ApplyTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-apply", payload);
 
+export const switchTemplateAiPreviewVersion = (payload: SwitchTemplateAiPreviewRequest) =>
+  api.post<{ ok: boolean; session_id: string; version: string }>(
+    "/template-studio/ai-edit/preview-switch",
+    payload
+  );
+
 export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
   api.post<DiscardTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-discard", payload);
+
+export const getTemplateAiVersions = (payload: ListTemplateAiVersionsRequest) =>
+  api.post<ListTemplateAiVersionsResponse>("/template-studio/ai-edit/versions", payload);
 
 export interface VoicePreview {
   voice_id: string;
