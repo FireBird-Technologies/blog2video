@@ -54,6 +54,36 @@ class AiEditVersionsRequest(BaseModel):
     layout_id: str
 
 
+# ─── Prop definition shared by rebuild and create ─────────────────────────────
+
+SUPPORTED_PROP_TYPES = {
+    "string", "number", "boolean", "color", "imageUrl",
+    "string_array", "object_array", "text",
+}
+
+
+class PropDef(BaseModel):
+    name: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z][a-zA-Z0-9_]*$")
+    type: str
+    description: str = Field(default="", max_length=400)
+    default: str | None = None
+
+
+class AiLayoutRebuildRequest(BaseModel):
+    template_id: str
+    layout_id: str
+    instruction: str = Field(min_length=5, max_length=6000)
+    extra_props: list[PropDef] = Field(default_factory=list, max_length=20)
+
+
+class AiLayoutCreateRequest(BaseModel):
+    template_id: str
+    base_layout_id: str
+    new_layout_id: str = Field(min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    layout_description: str = Field(min_length=10, max_length=2000)
+    props: list[PropDef] = Field(default_factory=list, max_length=30)
+
+
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
 _FRONTEND_REMOTION_DIR = _ROOT / "frontend" / "src" / "components" / "remotion"
 _REMOTION_VIDEO_DIR = _ROOT / "remotion-video" / "src" / "templates"
@@ -422,6 +452,10 @@ def _sync_versions_meta(session: dict) -> None:
         "versions": session.get("versions") or [],
         "active_version_id": session.get("active_version_id"),
     }
+    for key in ("session_type", "meta_path", "prompt_path", "created_files",
+                "index_frontend_path", "index_remotion_path", "types_frontend_path", "types_remotion_path", "config_path"):
+        if session.get(key) is not None:
+            meta[key] = session[key]
     import json
 
     (version_dir / "meta.json").write_text(
@@ -483,6 +517,25 @@ def _cleanup_session(session: dict, restore_original: bool) -> None:
                 content = original_file.read_text(encoding="utf-8")
                 frontend_path.write_text(content, encoding="utf-8")
                 remotion_path.write_text(content, encoding="utf-8")
+            # Restore meta and prompt for rebuild/create sessions
+            meta_orig = vd / "meta_original.json"
+            prompt_orig = vd / "prompt_original.md"
+            meta_path_str = session.get("meta_path")
+            prompt_path_str = session.get("prompt_path")
+            if meta_path_str and meta_orig.exists():
+                Path(meta_path_str).write_text(meta_orig.read_text(encoding="utf-8"), encoding="utf-8")
+            if prompt_path_str and prompt_orig.exists():
+                Path(prompt_path_str).write_text(prompt_orig.read_text(encoding="utf-8"), encoding="utf-8")
+            # Restore registry files for create sessions
+            for key in ("index_frontend_path", "index_remotion_path", "types_frontend_path", "types_remotion_path", "config_path"):
+                orig_path = vd / f"{key}_original"
+                if orig_path.exists() and session.get(key):
+                    Path(session[key]).write_text(orig_path.read_text(encoding="utf-8"), encoding="utf-8")
+            # Delete created files for create sessions (paths are absolute)
+            for path_str in session.get("created_files") or []:
+                p = Path(path_str)
+                if p.exists():
+                    p.unlink(missing_ok=True)
         else:
             frontend_path.write_text(session["frontend_original"], encoding="utf-8")
             remotion_path.write_text(session["remotion_original"], encoding="utf-8")
@@ -727,12 +780,24 @@ def preview_ai_edit(payload: AiEditProposeRequest, user: User = Depends(get_curr
 
 def _write_version_to_targets(user: User, session: dict, version: str) -> None:
     """Copy a version file to frontend and remotion targets and mark it active."""
+    version_dir = Path(session["version_dir"])
     version_file = _get_version_file(session, version)
     content = version_file.read_text(encoding="utf-8")
     frontend_path = Path(session["frontend_path"])
     remotion_path = Path(session["remotion_path"])
     frontend_path.write_text(content, encoding="utf-8")
     remotion_path.write_text(content, encoding="utf-8")
+    # For rebuild sessions, also write meta and prompt
+    meta_path_str = session.get("meta_path")
+    prompt_path_str = session.get("prompt_path")
+    if meta_path_str:
+        meta_v = version_dir / (f"{version}_meta.json" if version != "original" else "meta_original.json")
+        if meta_v.exists():
+            Path(meta_path_str).write_text(meta_v.read_text(encoding="utf-8"), encoding="utf-8")
+    if prompt_path_str:
+        prompt_v = version_dir / (f"{version}_prompt.md" if version != "original" else "prompt_original.md")
+        if prompt_v.exists():
+            Path(prompt_path_str).write_text(prompt_v.read_text(encoding="utf-8"), encoding="utf-8")
     versions = session.get("versions") or []
     if version not in versions:
         versions.append(version)
@@ -774,12 +839,14 @@ def apply_ai_preview(payload: AiEditSessionActionRequest, user: User = Depends(g
     active_version = session.get("active_version_id")
     if not active_version:
         raise HTTPException(status_code=400, detail="No active version to apply.")
-    version_file = _get_version_file(session, active_version)
-    content = version_file.read_text(encoding="utf-8")
     frontend_path = Path(session["frontend_path"])
     remotion_path = Path(session["remotion_path"])
-    frontend_path.write_text(content, encoding="utf-8")
-    remotion_path.write_text(content, encoding="utf-8")
+    # For create sessions, files are already written; just drop session
+    if session.get("session_type") != "create":
+        version_file = _get_version_file(session, active_version)
+        content = version_file.read_text(encoding="utf-8")
+        frontend_path.write_text(content, encoding="utf-8")
+        remotion_path.write_text(content, encoding="utf-8")
     _drop_session(session, restore_original=False)
     return {
         "ok": True,
@@ -808,7 +875,8 @@ def list_ai_versions(payload: AiEditVersionsRequest, user: User = Depends(get_cu
         raise HTTPException(status_code=400, detail="AI template editing supports built-in templates only.")
 
     version_dir = _version_dir_for(user, template_id, layout_id)
-    if not version_dir.exists():
+    create_version_dir = _version_dir_for(user, template_id, f"_create_{layout_id}")
+    if not version_dir.exists() and not create_version_dir.exists():
         return {
             "ok": True,
             "session_id": None,
@@ -817,6 +885,8 @@ def list_ai_versions(payload: AiEditVersionsRequest, user: User = Depends(get_cu
             "versions": [],
             "active_version_id": None,
         }
+    if not version_dir.exists():
+        version_dir = create_version_dir
 
     versions, active = _load_versions_meta(version_dir)
     if not versions:
@@ -839,6 +909,25 @@ def list_ai_versions(payload: AiEditVersionsRequest, user: User = Depends(get_cu
         else:
             original_content = frontend_target.read_text(encoding="utf-8")
 
+        meta_path_str = str(_TEMPLATES_META_DIR / template_id / "meta.json")
+        prompt_path_str = str(_TEMPLATES_META_DIR / template_id / "prompt.md")
+        session_type = "edit"
+        if (version_dir / "meta_original.json").exists():
+            session_type = "rebuild"
+
+        meta_json = version_dir / "meta.json"
+        extra = {}
+        if meta_json.exists():
+            import json as _json
+            try:
+                data = _json.loads(meta_json.read_text(encoding="utf-8"))
+                for key in ("session_type", "meta_path", "prompt_path", "created_files",
+                            "index_frontend_path", "index_remotion_path", "types_frontend_path", "types_remotion_path", "config_path"):
+                    if key in data:
+                        extra[key] = data[key]
+            except Exception:
+                pass
+
         session_id = f"ai-{uuid.uuid4().hex}"
         session = {
             "session_id": session_id,
@@ -853,6 +942,10 @@ def list_ai_versions(payload: AiEditVersionsRequest, user: User = Depends(get_cu
             "frontend_original": original_content,
             "remotion_original": original_content,
             "created_at": int(time.time()),
+            "session_type": extra.get("session_type", session_type),
+            "meta_path": extra.get("meta_path", meta_path_str if session_type == "rebuild" else None),
+            "prompt_path": extra.get("prompt_path", prompt_path_str if session_type == "rebuild" else None),
+            **{k: extra[k] for k in ("created_files", "index_frontend_path", "index_remotion_path", "types_frontend_path", "types_remotion_path", "config_path") if k in extra},
         }
         _save_session(session)
 
@@ -863,4 +956,646 @@ def list_ai_versions(payload: AiEditVersionsRequest, user: User = Depends(get_cu
         "layout_id": layout_id,
         "versions": versions,
         "active_version_id": active,
+    }
+
+
+# ─── Layout rebuild / create helpers ─────────────────────────────────────────
+
+
+def _load_meta_json(template_id: str) -> tuple[dict, Path]:
+    """Load meta.json for a built-in template. Returns (data, path)."""
+    import json as _json
+    meta_path = _TEMPLATES_META_DIR / template_id / "meta.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail=f"meta.json not found for template '{template_id}'.")
+    data = _json.loads(meta_path.read_text(encoding="utf-8"))
+    return data, meta_path
+
+
+def _write_meta_json(data: dict, meta_path: Path) -> None:
+    import json as _json
+    meta_path.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _load_prompt_md(template_id: str) -> tuple[str, Path]:
+    prompt_path = _TEMPLATES_META_DIR / template_id / "prompt.md"
+    if not prompt_path.exists():
+        raise HTTPException(status_code=404, detail=f"prompt.md not found for template '{template_id}'.")
+    return prompt_path.read_text(encoding="utf-8"), prompt_path
+
+
+def _extract_prompt_layout_section(prompt_text: str, layout_id: str) -> str:
+    """Extract the ## layout_id section from prompt.md. Returns empty string if not found."""
+    pattern = re.compile(
+        rf"^##\s+{re.escape(layout_id)}\b.*?(?=^##\s|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    m = pattern.search(prompt_text)
+    return m.group(0).rstrip() if m else ""
+
+
+def _replace_prompt_layout_section(prompt_text: str, layout_id: str, new_section: str) -> str:
+    """Replace the ## layout_id section in prompt.md with new_section. Appends if missing."""
+    pattern = re.compile(
+        rf"(^##\s+{re.escape(layout_id)}\b.*?)(?=^##\s|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    replacement = new_section.rstrip() + "\n\n---\n\n"
+    updated, n = pattern.subn(replacement, prompt_text)
+    if n == 0:
+        updated = prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n"
+    return updated
+
+
+def _validate_prop_types(props: list[PropDef]) -> None:
+    for p in props:
+        if p.type not in SUPPORTED_PROP_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Prop '{p.name}' has unsupported type '{p.type}'. "
+                       f"Supported: {', '.join(sorted(SUPPORTED_PROP_TYPES))}",
+            )
+
+
+def _validate_prop_names_no_collision(
+    extra_props: list[PropDef],
+    existing_fields: list[dict],
+) -> None:
+    existing_keys = {f["key"] for f in existing_fields}
+    reserved = {"children", "key", "ref"}
+    for p in extra_props:
+        if p.name in reserved:
+            raise HTTPException(status_code=400, detail=f"Prop name '{p.name}' is reserved.")
+        if p.name in existing_keys:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Prop '{p.name}' already exists in the layout schema.",
+            )
+
+
+def _props_to_schema_fields(props: list[PropDef]) -> list[dict]:
+    type_map = {
+        "string": "string", "text": "text", "color": "color", "imageUrl": "string",
+        "number": "number", "boolean": "boolean",
+        "string_array": "string_array", "object_array": "object_array",
+    }
+    fields = []
+    for p in props:
+        field: dict = {"key": p.name, "label": p.name.replace("_", " ").title(), "type": type_map.get(p.type, "string")}
+        if p.description:
+            field["description"] = p.description
+        if p.type == "number":
+            field["min"] = 0
+            field["max"] = 500
+            field["step"] = 1
+        if p.type == "object_array":
+            # Add label/value subFields so UI shows both inputs; layouts render both
+            field["subFields"] = [{"key": "label", "label": "Label"}, {"key": "value", "label": "Value"}]
+            field["maxItems"] = 10
+        fields.append(field)
+    return fields
+
+
+def _props_to_defaults(props: list[PropDef]) -> dict:
+    import json as _json
+    defaults: dict = {}
+    for p in props:
+        if p.default is None or (isinstance(p.default, str) and not p.default.strip()):
+            continue
+        raw = p.default.strip() if isinstance(p.default, str) else p.default
+        if p.type == "number":
+            try:
+                defaults[p.name] = int(raw)
+            except ValueError:
+                try:
+                    defaults[p.name] = float(raw)
+                except ValueError:
+                    defaults[p.name] = raw
+        elif p.type == "boolean":
+            defaults[p.name] = str(raw).lower() in {"true", "1", "yes"}
+        elif p.type == "string_array":
+            # Comma-separated -> list of strings
+            parts = [s.strip() for s in str(raw).split(",") if s.strip()]
+            defaults[p.name] = parts
+        elif p.type == "object_array":
+            # JSON array, or "label: value" pairs, or comma-separated values (label = "Label N", value = item)
+            s = str(raw).strip()
+            if s.startswith("["):
+                try:
+                    defaults[p.name] = _json.loads(s)
+                except _json.JSONDecodeError:
+                    defaults[p.name] = [{"label": s, "value": s}]
+            else:
+                parts = [x.strip() for x in s.split(",") if x.strip()]
+                result = []
+                for i, part in enumerate(parts):
+                    if ":" in part:
+                        lbl, _, val = part.partition(":")
+                        result.append({"label": lbl.strip(), "value": val.strip()})
+                    else:
+                        result.append({"label": f"Label {i + 1}", "value": part})
+                defaults[p.name] = result
+        else:
+            defaults[p.name] = raw
+    return defaults
+
+
+def _build_prop_schema_entry(
+    label: str,
+    existing_fields: list[dict],
+    existing_defaults: dict,
+    extra_props: list[PropDef],
+    preserve_keys: dict | None = None,
+) -> dict:
+    """Build schema entry. preserve_keys: extra keys to keep (e.g. scene_defaults)."""
+    merged_fields = existing_fields + _props_to_schema_fields(extra_props)
+    merged_defaults = {**existing_defaults, **_props_to_defaults(extra_props)}
+    out: dict = {"label": label, "defaults": merged_defaults, "fields": merged_fields}
+    if preserve_keys:
+        for k, v in preserve_keys.items():
+            if k not in out:
+                out[k] = v
+    return out
+
+
+# Props that are UI/typography settings, not content — exclude from prompt.md (DSPy does not set these)
+_PROMPT_EXCLUDE_PROPS = frozenset({"titleFontSize", "descriptionFontSize"})
+
+
+def _build_prompt_section(layout_id: str, description: str, props: list[PropDef]) -> str:
+    """Build prompt.md section for a layout. Excludes titleFontSize, descriptionFontSize (not set by DSPy)."""
+    lines = [f"## {layout_id}"]
+    lines.append(f"**Visual:** {description.strip()}")
+    lines.append("")
+    content_props = [p for p in props if p.name not in _PROMPT_EXCLUDE_PROPS]
+    if content_props:
+        prop_lines = []
+        for p in content_props:
+            desc = f" — {p.description}" if p.description else ""
+            default_hint = f" (default: {p.default})" if p.default else ""
+            prop_lines.append(f"  - `{p.name}` ({p.type}){desc}{default_hint}")
+        lines.append("**Props:**")
+        lines.extend(prop_lines)
+    lines.append("")
+    lines.append(f"**When to Use:** Use `{layout_id}` when content fits this layout style.")
+    return "\n".join(lines)
+
+
+def _build_rebuild_gemini_prompt(
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    current_tsx: str,
+    all_props: list[dict],
+) -> str:
+    props_desc = "\n".join(
+        f"  - {f['key']} ({f.get('type', 'string')}): {f.get('description', f.get('label', ''))}"
+        for f in all_props
+    )
+    return (
+        "You are rebuilding a React TSX layout component used in a Remotion video template system.\n"
+        "Return ONLY the full updated TSX file contents — no markdown fences, explanations, or extra text.\n\n"
+        f"Template ID: {template_id}\n"
+        f"Layout ID: {layout_id}\n\n"
+        "CRITICAL: You MUST preserve rendering of `title` and `narration` props. Never remove or break them.\n"
+        "The component receives title and narration from the scene; they must remain visible in the output.\n\n"
+        "User instruction:\n"
+        f"{instruction}\n\n"
+        "The component must accept EXACTLY these props (add TypeScript destructuring for each):\n"
+        f"{props_desc}\n\n"
+        "Always destructure props using: `const {{ title, narration, accentColor, bgColor, textColor, aspectRatio, "
+        "titleFontSize, descriptionFontSize, stats, ...extra }} = props;`\n"
+        "then access extra props like `extra.myProp`.\n\n"
+        "For object_array props (items with label and value): render BOTH — e.g. show item.label as caption and item.value as main text.\n\n"
+        "Current TSX (use as starting point, preserve animation/style approach and title/narration display):\n"
+        f"{current_tsx}"
+    )
+
+
+def _build_create_gemini_prompt(
+    template_id: str,
+    new_layout_id: str,
+    layout_description: str,
+    props: list[PropDef],
+    base_tsx: str,
+    base_layout_id: str,
+    reference_tsvs: list[tuple[str, str]],
+) -> str:
+    props_desc = "\n".join(
+        f"  - {p.name} ({p.type}): {p.description}"
+        for p in props
+    )
+    ref_examples = ""
+    for ref_id, ref_tsx in reference_tsvs[:2]:
+        ref_examples += f"\n--- Reference layout: {ref_id} ---\n{ref_tsx[:2000]}\n"
+
+    pascal_name = _snake_to_pascal(new_layout_id)
+    return (
+        "You are creating a brand-new React TSX layout component for a Remotion video template system.\n"
+        "Return ONLY the full TSX file contents — no markdown fences, explanations, or extra text.\n\n"
+        f"Template ID: {template_id}\n"
+        f"New layout ID: {new_layout_id}\n"
+        f"Component export name: {pascal_name}\n\n"
+        f"Layout description: {layout_description}\n\n"
+        "The component must accept these custom props (in addition to the base BlogLayoutProps):\n"
+        f"{props_desc}\n\n"
+        "Destructure all props from the shared layout props type. Use destructuring:\n"
+        f"export const {pascal_name} = ({{ title, narration, accentColor, bgColor, textColor, aspectRatio, "
+        "titleFontSize, descriptionFontSize, stats, imageUrl, ...extra }}: LayoutProps) => {{\n"
+        "  // access custom props via extra.propName\n}}\n\n"
+        "For object_array props (items with label and value): render BOTH — show item.label as caption and item.value as main text.\n\n"
+        f"Base your visual style on this existing layout ({base_layout_id}) — "
+        "keep the same color palette, font choices, and animation approach:\n"
+        f"{base_tsx[:3000]}\n"
+        f"{ref_examples}"
+        "\nIMPORTANT: Import from 'remotion' (AbsoluteFill, useCurrentFrame, interpolate, Img, etc.). "
+        "Do NOT import from any other path. Use the same animation patterns as the base layout."
+    )
+
+
+def _read_layout_tsx(template_id: str, layout_id: str) -> str | None:
+    """Read the frontend TSX for a layout, returning None if not found."""
+    frontend_target, _ = _resolve_target_files(template_id, layout_id)
+    if frontend_target.exists():
+        return frontend_target.read_text(encoding="utf-8")
+    return None
+
+
+def _register_layout_in_index(
+    index_path: Path,
+    layout_id: str,
+    component_name: str,
+    file_stem: str,
+    registry_name: str,
+    layout_type_name: str,
+) -> None:
+    """Add an import and registry entry to a layouts/index.ts file."""
+    if not index_path.exists():
+        raise HTTPException(status_code=500, detail=f"Index file not found: {index_path}")
+    content = index_path.read_text(encoding="utf-8")
+    if component_name in content:
+        return
+
+    # Insert import after last import line
+    last_import = max(
+        (i for i, line in enumerate(content.splitlines()) if line.startswith("import ")),
+        default=-1,
+    )
+    lines = content.splitlines(keepends=True)
+    new_import = f'import {{ {component_name} }} from "./{file_stem}";\n'
+    lines.insert(last_import + 1, new_import)
+
+    # Add to LayoutType union
+    content2 = "".join(lines)
+    type_pattern = re.compile(rf'(export type {layout_type_name}\s*=\s*(?:[^\n]+\n)*\s+\|\s+"[^"]+";)', re.MULTILINE)
+    m = type_pattern.search(content2)
+    if m:
+        old_type = m.group(0)
+        # Add new member before the semicolon at the end
+        new_type = re.sub(r';$', f'\n  | "{layout_id}";', old_type.rstrip())
+        content2 = content2.replace(old_type, new_type)
+
+    # Add registry entry before closing brace of the registry const
+    registry_pattern = re.compile(
+        rf'(export const {registry_name}.*?=\s*{{[^}}]*?)(}};)',
+        re.DOTALL,
+    )
+    m2 = registry_pattern.search(content2)
+    if m2:
+        new_entry = f"  {layout_id}: {component_name},\n"
+        content2 = content2[: m2.start(2)] + new_entry + content2[m2.start(2):]
+
+    index_path.write_text(content2, encoding="utf-8")
+
+
+def _register_layout_type_in_types_ts(template_dir: Path, layout_id: str, layout_type_name: str) -> None:
+    """Add layout_id to the LayoutType union in types.ts (or wherever it's defined)."""
+    types_path = template_dir / "types.ts"
+    if not types_path.exists():
+        return
+    content = types_path.read_text(encoding="utf-8")
+    if f'"{layout_id}"' in content:
+        return
+    # Match union type ending with semicolon
+    pattern = re.compile(
+        rf'(export type {layout_type_name}\s*=(?:[^;]+\|)*[^;]+)(;)',
+        re.DOTALL,
+    )
+    m = pattern.search(content)
+    if m:
+        updated = content[:m.start(2)] + f'\n  | "{layout_id}"' + content[m.start(2):]
+        types_path.write_text(updated, encoding="utf-8")
+
+
+def _register_layout_in_template_config(layout_id: str, template_id: str) -> None:
+    """Add layout_id to the template's validLayouts Set in templateConfig.tsx."""
+    config_path = (_FRONTEND_REMOTION_DIR / "templateConfig.tsx").resolve()
+    if not config_path.exists():
+        return
+    content = config_path.read_text(encoding="utf-8")
+    if f'"{layout_id}"' in content:
+        return
+    # Find the set literal for this template e.g. NEWSPAPER_LAYOUTS = new Set([...])
+    upper_id = template_id.upper()
+    pattern = re.compile(
+        rf'(const {upper_id}_LAYOUTS\s*=\s*new Set\(\[)(.*?)(\]\))',
+        re.DOTALL,
+    )
+    m = pattern.search(content)
+    if m:
+        new_content = content[:m.start(2)] + m.group(2) + f'  "{layout_id}",\n' + content[m.start(3):]
+        config_path.write_text(new_content, encoding="utf-8")
+
+
+@router.post("/ai-layout/rebuild")
+def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_current_user)):
+    import json as _json
+
+    template_id = (payload.template_id or "").strip().lower()
+    layout_id = (payload.layout_id or "").strip().lower()
+    if not template_id or template_id.startswith("custom_"):
+        raise HTTPException(status_code=400, detail="Layout rebuild supports built-in templates only.")
+
+    _validate_prop_types(payload.extra_props)
+
+    # Load current state
+    meta, meta_path = _load_meta_json(template_id)
+    schema = meta.get("layout_prop_schema", {}).get(layout_id)
+    if schema is None:
+        raise HTTPException(status_code=404, detail=f"Layout '{layout_id}' not found in meta.json.")
+
+    existing_fields: list[dict] = schema.get("fields", [])
+    existing_defaults: dict = schema.get("defaults", {})
+    existing_label: str = schema.get("label", layout_id.replace("_", " ").title())
+    preserve_keys = {k: v for k, v in schema.items() if k not in ("label", "defaults", "fields")}
+
+    _validate_prop_names_no_collision(payload.extra_props, existing_fields)
+
+    frontend_target, remotion_target = _resolve_target_files(template_id, layout_id)
+    if not frontend_target.exists():
+        raise HTTPException(status_code=404, detail=f"Layout TSX not found: {frontend_target.name}")
+
+    current_tsx = frontend_target.read_text(encoding="utf-8")
+    prompt_text, prompt_path = _load_prompt_md(template_id)
+
+    all_fields = existing_fields + _props_to_schema_fields(payload.extra_props)
+    gemini_prompt = _build_rebuild_gemini_prompt(
+        template_id, layout_id, payload.instruction, current_tsx, all_fields
+    )
+    new_tsx = _call_gemini_code_edit(
+        instruction=gemini_prompt,
+        current_code=current_tsx,
+        template_id=template_id,
+        layout_id=layout_id,
+    )
+
+    content = new_tsx.rstrip() + "\n"
+    new_schema = _build_prop_schema_entry(
+        existing_label, existing_fields, existing_defaults, payload.extra_props,
+        preserve_keys=preserve_keys if preserve_keys else None,
+    )
+    meta.setdefault("layout_prop_schema", {})[layout_id] = new_schema
+    all_props_for_prompt = [
+        PropDef(name=f["key"], type=f.get("type", "string"), description=f.get("description", f.get("label", "")))
+        for f in all_fields
+    ]
+    existing_section = _extract_prompt_layout_section(prompt_text, layout_id)
+    new_section = _build_prompt_section(
+        layout_id,
+        existing_section.split("\n")[1].replace("**Visual:**", "").strip() if existing_section else payload.instruction,
+        all_props_for_prompt,
+    )
+    updated_prompt = _replace_prompt_layout_section(prompt_text, layout_id, new_section)
+
+    # Versioning: create or reuse session
+    version_dir = _version_dir_for(user, template_id, layout_id)
+    version_dir.mkdir(parents=True, exist_ok=True)
+
+    session = _get_user_layout_session(user, template_id, layout_id)
+    # Save originals on first rebuild (or when upgrading from code-only session)
+    if not (version_dir / "meta_original.json").exists():
+        (version_dir / "original.tsx").write_text(current_tsx, encoding="utf-8")
+        (version_dir / "meta_original.json").write_text(
+            meta_path.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        (version_dir / "prompt_original.md").write_text(prompt_text, encoding="utf-8")
+    # Use v1 for first rebuild; append for subsequent rebuilds (ignore code-only versions)
+    if session is None or not session.get("meta_path"):
+        first_version_id = "v1"
+        versions = ["original", "v1"]
+    else:
+        first_version_id = _next_version_id(session)
+        versions = list(session.get("versions") or [])
+        if first_version_id not in versions:
+            versions.append(first_version_id)
+
+    (version_dir / f"{first_version_id}.tsx").write_text(content, encoding="utf-8")
+    (version_dir / f"{first_version_id}_meta.json").write_text(
+        _json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    (version_dir / f"{first_version_id}_prompt.md").write_text(updated_prompt, encoding="utf-8")
+
+    frontend_target.write_text(content, encoding="utf-8")
+    remotion_target.write_text(content, encoding="utf-8")
+    _write_meta_json(meta, meta_path)
+    prompt_path.write_text(updated_prompt, encoding="utf-8")
+
+    session_id = session["session_id"] if session else f"ai-{uuid.uuid4().hex}"
+    active = first_version_id
+
+    new_session = {
+        "session_id": session_id,
+        "user_id": user.id,
+        "template_id": template_id,
+        "layout_id": layout_id,
+        "frontend_path": str(frontend_target),
+        "remotion_path": str(remotion_target),
+        "version_dir": str(version_dir),
+        "versions": versions,
+        "active_version_id": active,
+        "session_type": "rebuild",
+        "meta_path": str(meta_path),
+        "prompt_path": str(prompt_path),
+        "created_at": int(time.time()),
+    }
+    _sync_versions_meta(new_session)
+    _save_session(new_session)
+
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "template_id": template_id,
+        "layout_id": layout_id,
+        "versions": versions,
+        "active_version_id": active,
+        "updated_files": [
+            frontend_target.relative_to(_ROOT).as_posix(),
+            remotion_target.relative_to(_ROOT).as_posix(),
+            meta_path.relative_to(_ROOT).as_posix(),
+            prompt_path.relative_to(_ROOT).as_posix(),
+        ],
+        "schema": new_schema,
+    }
+
+
+@router.post("/ai-layout/create")
+def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_current_user)):
+    import json as _json
+
+    template_id = (payload.template_id or "").strip().lower()
+    new_layout_id = (payload.new_layout_id or "").strip().lower()
+    base_layout_id = (payload.base_layout_id or "").strip().lower()
+
+    if not template_id or template_id.startswith("custom_"):
+        raise HTTPException(status_code=400, detail="Layout creation supports built-in templates only.")
+
+    _validate_prop_types(payload.props)
+
+    meta, meta_path = _load_meta_json(template_id)
+    existing_ids = set(meta.get("valid_layouts", []))
+    if new_layout_id in existing_ids:
+        raise HTTPException(status_code=400, detail=f"Layout ID '{new_layout_id}' already exists in this template.")
+
+    if base_layout_id not in existing_ids:
+        raise HTTPException(status_code=400, detail=f"Base layout '{base_layout_id}' not found in template.")
+
+    # Resolve paths before any modification
+    frontend_layout_dir = _FRONTEND_REMOTION_DIR / template_id / "layouts"
+    remotion_layout_dir = _REMOTION_VIDEO_DIR / template_id / "layouts"
+    frontend_index = frontend_layout_dir / "index.ts"
+    remotion_index = remotion_layout_dir / "index.ts"
+    types_frontend = frontend_layout_dir.parent / "types.ts"
+    types_remotion = remotion_layout_dir.parent / "types.ts"
+    config_path = (_FRONTEND_REMOTION_DIR / "templateConfig.tsx").resolve()
+    prompt_text, prompt_path = _load_prompt_md(template_id)
+
+    # Versioning: save originals before any modification
+    version_dir = _version_dir_for(user, template_id, f"_create_{new_layout_id}")
+    version_dir.mkdir(parents=True, exist_ok=True)
+    (version_dir / "meta_original.json").write_text(meta_path.read_text(encoding="utf-8"), encoding="utf-8")
+    (version_dir / "prompt_original.md").write_text(prompt_text, encoding="utf-8")
+    if frontend_index.exists():
+        (version_dir / "index_frontend_path_original").write_text(frontend_index.read_text(encoding="utf-8"), encoding="utf-8")
+    if remotion_index.exists():
+        (version_dir / "index_remotion_path_original").write_text(remotion_index.read_text(encoding="utf-8"), encoding="utf-8")
+    if types_frontend.exists():
+        (version_dir / "types_frontend_path_original").write_text(types_frontend.read_text(encoding="utf-8"), encoding="utf-8")
+    if types_remotion.exists():
+        (version_dir / "types_remotion_path_original").write_text(types_remotion.read_text(encoding="utf-8"), encoding="utf-8")
+    if config_path.exists():
+        (version_dir / "config_path_original").write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    # Read base TSX
+    base_tsx = _read_layout_tsx(template_id, base_layout_id) or ""
+
+    # Gather a couple of reference layouts for style context
+    other_ids = [lid for lid in list(existing_ids)[:4] if lid != base_layout_id][:2]
+    reference_tsvs = [
+        (lid, _read_layout_tsx(template_id, lid) or "")
+        for lid in other_ids
+    ]
+
+    gemini_prompt = _build_create_gemini_prompt(
+        template_id, new_layout_id, payload.layout_description,
+        payload.props, base_tsx, base_layout_id, reference_tsvs,
+    )
+    new_tsx = _call_gemini_code_edit(
+        instruction=gemini_prompt,
+        current_code=base_tsx,
+        template_id=template_id,
+        layout_id=new_layout_id,
+    )
+
+    pascal_name = _snake_to_pascal(new_layout_id)
+    file_stem = pascal_name
+    content = new_tsx.rstrip() + "\n"
+
+    frontend_file = frontend_layout_dir / f"{file_stem}.tsx"
+    remotion_file = remotion_layout_dir / f"{file_stem}.tsx"
+    frontend_file.write_text(content, encoding="utf-8")
+    remotion_file.write_text(content, encoding="utf-8")
+    (version_dir / "v1.tsx").write_text(content, encoding="utf-8")
+
+    # Determine layout type name for registration
+    upper_id = template_id.upper()
+    registry_name = f"{upper_id}_LAYOUT_REGISTRY"
+    layout_type_name = _snake_to_pascal(template_id) + "LayoutType"
+
+    if frontend_index.exists():
+        idx_content = frontend_index.read_text(encoding="utf-8")
+        type_m = re.search(r"export type (\w+LayoutType)", idx_content)
+        if type_m:
+            layout_type_name = type_m.group(1)
+        registry_m = re.search(r"export const (\w+_LAYOUT_REGISTRY)", idx_content)
+        if registry_m:
+            registry_name = registry_m.group(1)
+
+    for index_path in [frontend_index, remotion_index]:
+        if index_path.exists():
+            _register_layout_in_index(index_path, new_layout_id, pascal_name, file_stem, registry_name, layout_type_name)
+
+    _register_layout_type_in_types_ts(frontend_layout_dir.parent, new_layout_id, layout_type_name)
+    if types_remotion.exists():
+        _register_layout_type_in_types_ts(remotion_layout_dir.parent, new_layout_id, layout_type_name)
+
+    _register_layout_in_template_config(new_layout_id, template_id)
+
+    new_schema = _build_prop_schema_entry(
+        _snake_to_pascal(new_layout_id).replace("_", " "),
+        [],
+        {},
+        payload.props,
+    )
+    meta.setdefault("layout_prop_schema", {})[new_layout_id] = new_schema
+    valid_layouts = meta.get("valid_layouts", [])
+    if isinstance(valid_layouts, list) and new_layout_id not in valid_layouts:
+        valid_layouts.append(new_layout_id)
+        meta["valid_layouts"] = valid_layouts
+    _write_meta_json(meta, meta_path)
+
+    new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
+    prompt_path.write_text(prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n", encoding="utf-8")
+
+    session_id = f"ai-{uuid.uuid4().hex}"
+    created_files = [str(frontend_file), str(remotion_file)]
+    session = {
+        "session_id": session_id,
+        "user_id": user.id,
+        "template_id": template_id,
+        "layout_id": new_layout_id,
+        "frontend_path": str(frontend_file),
+        "remotion_path": str(remotion_file),
+        "version_dir": str(version_dir),
+        "versions": ["v1"],
+        "active_version_id": "v1",
+        "session_type": "create",
+        "meta_path": str(meta_path),
+        "prompt_path": str(prompt_path),
+        "created_files": created_files,
+        "index_frontend_path": str(frontend_index),
+        "index_remotion_path": str(remotion_index),
+        "types_frontend_path": str(types_frontend),
+        "types_remotion_path": str(types_remotion),
+        "config_path": str(config_path),
+        "created_at": int(time.time()),
+    }
+    _sync_versions_meta(session)
+    _save_session(session)
+
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "template_id": template_id,
+        "new_layout_id": new_layout_id,
+        "versions": ["v1"],
+        "active_version_id": "v1",
+        "created_files": [
+            frontend_file.relative_to(_ROOT).as_posix(),
+            remotion_file.relative_to(_ROOT).as_posix(),
+            meta_path.relative_to(_ROOT).as_posix(),
+            prompt_path.relative_to(_ROOT).as_posix(),
+        ],
+        "schema": new_schema,
     }
