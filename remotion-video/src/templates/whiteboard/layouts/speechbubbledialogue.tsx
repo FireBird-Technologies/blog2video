@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -241,7 +241,7 @@ function SpeechBubble({
           <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
         <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
-          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Comic Sans MS', 'Segoe Print', cursive", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
+          <div style={{ color: textColor, fontSize: fontSize, fontWeight: 600, fontFamily: "'Comic Sans MS', 'Segoe Print', cursive", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
             {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
@@ -265,7 +265,9 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   stats,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   const figDash = 500;
   const figOff = figDash * (1 - interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp" }));
@@ -327,7 +329,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
       </svg>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: p ? 14 : 18, padding: p ? "4% 4%" : "12% 7% 3% 7%" }}> {/* Landscape padding: 12% top */}
-        <svg viewBox={`0 0 ${svgW} ${labelY + 10}`} style={{ width: p ? "96%" : "80%", maxWidth: 880, height: "auto", overflow: "visible" }} fill="none">
+        <svg viewBox={`0 0 ${svgW} ${labelY + 10}`} style={{ width: p ? "96%" : "80%", maxWidth: 880 * scale, height: "auto", overflow: "visible" }} fill="none">
           <defs>
             <filter id="inkFigs" x="-4%" y="-4%" width="108%" height="108%">
               <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="29" result="w" />
@@ -357,8 +359,8 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
         </svg>
 
         <div style={{ textAlign: "center", opacity: titleOp }}>
-          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 42 : 54), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
-          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 22 : 26), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
+          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 42 * scale : 54 * scale), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
+          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 22 * scale : 26 * scale), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
         </div>
       </div>
     </AbsoluteFill>

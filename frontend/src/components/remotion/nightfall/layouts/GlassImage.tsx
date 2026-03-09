@@ -20,6 +20,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   narration,
   imageUrl,
   accentColor,
+  bgColor,
   textColor,
   aspectRatio,
   titleFontSize,
@@ -83,7 +84,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground drift={false} />
+      <DarkBackground drift={false} bgColor={bgColor} />
       
       {imageUrl ? (
         <>
