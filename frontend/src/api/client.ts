@@ -9,7 +9,14 @@ import type { VideoStyleId } from "../constants/videoStyles";
 
 // In production, VITE_BACKEND_URL points to the Cloud Run backend.
 // In local dev it's empty — Vite proxy handles /api and /media routing.
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+const viteEnv =
+  typeof import.meta !== "undefined" ? import.meta.env : undefined;
+const processEnv =
+  typeof globalThis !== "undefined" && "process" in globalThis
+    ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    : undefined;
+
+export const BACKEND_URL = viteEnv?.VITE_BACKEND_URL || processEnv?.VITE_BACKEND_URL || "";
 
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
