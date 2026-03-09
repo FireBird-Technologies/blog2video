@@ -1234,14 +1234,14 @@ export default function TemplateStudio() {
 
                   {aiPreviewSessionId && (
                     <>
-                      <div style={{
+                      {/* <div style={{
                         border: `1px solid ${T.border}`, background: T.surfaceAlt,
                         borderRadius: "8px", padding: "8px 10px",
                         fontSize: "10px", color: T.textSub, wordBreak: "break-all", fontFamily: FONT,
                       }}>
                         <span style={{ color: T.textMuted, fontWeight: 500 }}>Session: </span>
                         {aiPreviewSessionId}
-                      </div>
+                      </div> */}
                       <div>
                         <FieldLabel>Compare versions</FieldLabel>
                         <div style={{
