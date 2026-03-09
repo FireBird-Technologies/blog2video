@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import VoiceItem, { formatVoiceSubtitle } from "./VoiceItem";
 
 const FEATURED_VOICES = [
@@ -47,17 +47,6 @@ export default function VoiceShowcaseSection() {
   const [customMode, setCustomMode] = useState<CustomMode>("clone");
   const [promptText, setPromptText] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Auto-play Rachel on mount
-  useEffect(() => {
-    const v = FEATURED_VOICES[0];
-    const audio = new Audio(v.previewUrl);
-    audio.addEventListener("ended", () => setPlayingId(null));
-    audio.play().catch(() => {});
-    audioRef.current = audio;
-    setPlayingId(v.id);
-    return () => { audio.pause(); };
-  }, []);
 
   function handlePlay(voiceId: string, previewUrl: string) {
     if (playingId === voiceId) {
