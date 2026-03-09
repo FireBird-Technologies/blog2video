@@ -20,6 +20,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
   const {
     title,
     accentColor,
+    bgColor,
     textColor,
     codeLines,
     codeLanguage = "",
@@ -218,7 +219,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground />
+      <DarkBackground bgColor={bgColor} />
       
       <div
         style={{

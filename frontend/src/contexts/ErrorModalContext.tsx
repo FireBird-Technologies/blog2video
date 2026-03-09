@@ -47,9 +47,18 @@ export function getErrorMessage(
   fallback = DEFAULT_ERROR_MESSAGE
 ): string {
   if (err && typeof err === "object" && "response" in err) {
-    const res = (err as { response?: { data?: { detail?: string } } }).response;
+    const res = (err as { response?: { data?: { detail?: string | { message?: string } } } }).response;
     const detail = res?.data?.detail;
     if (typeof detail === "string" && detail.trim()) return detail;
+    if (
+      detail &&
+      typeof detail === "object" &&
+      "message" in detail &&
+      typeof detail.message === "string" &&
+      detail.message.trim()
+    ) {
+      return detail.message;
+    }
   }
   return fallback;
 }

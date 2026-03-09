@@ -28,9 +28,10 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const isServer = typeof window === "undefined";
   const [user, setUser] = useState<UserInfo | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isServer);
   const userRef = useRef<UserInfo | null>(null);
 
   // Keep ref in sync so beforeunload handler can read latest value

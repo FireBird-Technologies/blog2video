@@ -19,6 +19,8 @@ export default function CustomTemplates() {
   const [editTarget, setEditTarget] = useState<CustomTemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomTemplateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteImpactCount, setDeleteImpactCount] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTemplates();
@@ -48,12 +50,31 @@ export default function CustomTemplates() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteCustomTemplate(deleteTarget.id);
+      await deleteCustomTemplate(deleteTarget.id, deleteImpactCount != null);
       setTemplates((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setDeleteTarget(null);
+      setDeleteImpactCount(null);
     } catch (err) {
-      console.error("Failed to delete template:", err);
+      const detail = (err as {
+        response?: { data?: { detail?: string | { code?: string; message?: string; project_count?: number } } };
+      })?.response?.data?.detail;
+      if (
+        detail &&
+        typeof detail === "object" &&
+        detail.code === "template_in_use"
+      ) {
+        setDeleteImpactCount(typeof detail.project_count === "number" ? detail.project_count : 0);
+        setDeleteError(detail.message || null);
+      } else {
+        console.error("Failed to delete template:", err);
+        setDeleteError(
+          typeof detail === "string"
+            ? detail
+            : "Failed to delete template. Please try again."
+        );
+      }
     } finally {
       setDeleting(false);
     }
@@ -155,7 +176,11 @@ export default function CustomTemplates() {
                       Edit
                     </button>
                     <button
-                      onClick={() => setDeleteTarget(tpl)}
+                      onClick={() => {
+                        setDeleteTarget(tpl);
+                        setDeleteImpactCount(null);
+                        setDeleteError(null);
+                      }}
                       className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                     >
                       Delete
@@ -188,15 +213,40 @@ export default function CustomTemplates() {
       {/* Delete confirmation */}
       {deleteTarget && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setDeleteTarget(null);
+              setDeleteImpactCount(null);
+              setDeleteError(null);
+            }}
+          />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Template</h3>
             <p className="text-sm text-gray-500 mb-5">
-              Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.
+              {deleteImpactCount == null ? (
+                <>
+                  Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  <strong>{deleteTarget.name}</strong> is currently used by {deleteImpactCount} project{deleteImpactCount === 1 ? "" : "s"}.
+                  Deleting it will keep previews visible, but those projects will be blocked from future render and re-render actions.
+                </>
+              )}
             </p>
+            {deleteError && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {deleteError}
+              </div>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteImpactCount(null);
+                  setDeleteError(null);
+                }}
                 className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -206,7 +256,7 @@ export default function CustomTemplates() {
                 disabled={deleting}
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-200 text-white text-sm font-medium rounded-xl transition-colors"
               >
-                {deleting ? "Deleting..." : "Delete"}
+                {deleting ? "Deleting..." : deleteImpactCount == null ? "Delete" : "Delete Anyway"}
               </button>
             </div>
           </div>
