@@ -99,6 +99,7 @@ class ProjectOut(BaseModel):
     video_style: str = "explainer"
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
+    custom_template_missing: bool = False
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
