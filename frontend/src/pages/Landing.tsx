@@ -5,7 +5,8 @@ import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import TemplateShowcaseSection from "../components/TemplateShowcaseSection";
+import FullTemplateShowcase from "../components/FullTemplateShowcase";
+import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PublicFooter from "../components/public/PublicFooter";
@@ -391,7 +392,14 @@ export default function Landing() {
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
-          <TemplateShowcaseSection />
+          <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Voice showcase ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <VoiceShowcaseSection />
         </div>
       </section>
 
@@ -610,9 +618,14 @@ export default function Landing() {
                 tag: null,
               },
               {
-                title: "Documentary-quality voiceover",
-                desc: "Choose from 4 ElevenLabs voices: male or female, British or American. Natural narration that sounds like a professional documentary orator.",
-                tag: null,
+                title: "Custom voice & voice cloning",
+                desc: "Choose from 4 prebuilt documentary-quality voices, design a custom voice from a prompt, or clone your own by uploading a sample. Your content, your voice.",
+                tag: "Pro",
+              },
+              {
+                title: "Custom templates from any website",
+                desc: "Paste a URL and we extract its brand — colors, fonts, and style — into a fully custom video template. Your brand identity, every frame.",
+                tag: "Pro",
               },
               // {
               //   title: "Remotion Studio export",

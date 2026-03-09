@@ -1,3 +1,13 @@
+---
+title: Blog2Video
+emoji: 🎬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 <p align="center">
   <img src="frontend/public/Banner.PNG" alt="Blog2Video Banner" />
 </p>

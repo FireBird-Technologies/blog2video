@@ -126,6 +126,7 @@ export interface Project {
   video_style?: VideoStyleId;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  custom_template_missing?: boolean;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -600,11 +601,10 @@ export const launchStudio = (id: number) =>
 
 export const renderVideo = (
   id: number,
-  resolution: string = "1080p",
   forceReRender = false
 ) =>
   api.post(
-    `/projects/${id}/render?resolution=${resolution}&force_render=${forceReRender}`
+    `/projects/${id}/render?force_render=${forceReRender}`
   );
 
 export interface RenderStatus {
@@ -727,10 +727,137 @@ export const updateCustomTemplate = (
   data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
-export const deleteCustomTemplate = (id: number) =>
-  api.delete(`/custom-templates/${id}`);
+export const deleteCustomTemplate = (id: number, force = false) =>
+  api.delete(`/custom-templates/${id}${force ? "?force=true" : ""}`);
 
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
+
+// ─── ElevenLabs voices (default / available) ─────────────────
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  preview_url: string | null;
+  labels: Record<string, string>;
+  category?: string;
+  description?: string;
+  plan?: "free" | "paid";
+}
+
+export interface ListVoicesResponse {
+  voices: ElevenLabsVoice[];
+  has_more: boolean;
+}
+
+export const getVoices = () => api.get<ListVoicesResponse>("/voices");
+
+export const getPrebuiltVoices = () =>
+  api.get<{ voices: ElevenLabsVoice[]; has_more: boolean }>("/voices/prebuilt");
+
+// ─── Voice design (preset + custom prompt) ───────────────────
+
+export interface VoiceDesignPreview {
+  generated_voice_id: string;
+  audio_base_64: string;
+  media_type?: string;
+  duration_secs?: number;
+}
+
+export interface VoiceDesignResponse {
+  previews: VoiceDesignPreview[];
+  text?: string;
+}
+
+export interface DesignFromPresetPayload {
+  gender?: string;
+  age?: string;
+  persona?: string;
+  speed?: string;
+  accent?: string;
+}
+
+export const designVoiceFromPreset = (payload: DesignFromPresetPayload) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-preset", payload);
+
+export const designVoiceFromPrompt = (payload: { prompt: string }) =>
+  api.post<VoiceDesignResponse>("/voices/design-from-prompt", payload);
+
+// ─── Saved voices (user's My Voices, persisted in DB) ─────────
+
+export interface SavedVoiceFromAPI {
+  id: number;
+  voice_id: string;
+  name: string;
+  preview_url?: string | null;
+  source: string;
+  plan?: string | null;  // "free" | "paid" for prebuilt (ElevenLabs)
+  gender?: string | null;
+  accent?: string | null;
+  description?: string | null;
+  created_at: string;
+  custom_voice_id?: number | null;
+}
+
+export const getMyVoices = () => api.get<SavedVoiceFromAPI[]>("/voices/saved");
+
+export const saveVoice = (payload: {
+  voice_id: string;
+  name: string;
+  preview_url?: string;
+  source?: string;
+  plan?: string;  // "free" | "paid" for prebuilt
+  gender?: string;
+  accent?: string;
+  description?: string;
+  custom_voice_id?: number;
+}) => api.post<SavedVoiceFromAPI>("/voices/saved", payload);
+
+// ─── Custom voices (creation records: prompt/response/form) ─────
+
+export interface CustomVoiceFromAPI {
+  id: number;
+  name: string;
+  voice_id: string;
+  source: string;
+  prompt_text?: string | null;
+  form_gender?: string | null;
+  form_age?: string | null;
+  form_persona?: string | null;
+  form_speed?: string | null;
+  form_accent?: string | null;
+  preview_url?: string | null;
+  created_at: string;
+}
+
+export const createCustomVoice = (payload: {
+  voice_id: string;
+  source: "prompt" | "form";
+  name?: string;
+  prompt_text?: string;
+  response?: Record<string, unknown>;
+  form_gender?: string;
+  form_age?: string;
+  form_persona?: string;
+  form_speed?: string;
+  form_accent?: string;
+  preview_url?: string;
+}) => api.post<CustomVoiceFromAPI>("/voices/custom", payload);
+
+export const getCustomVoices = () => api.get<CustomVoiceFromAPI[]>("/voices/custom");
+
+export const getCustomVoicePreview = (customVoiceId: number) =>
+  api.get<{ preview_url: string | null; ready: boolean }>(`/voices/custom/${customVoiceId}/preview`);
+
+export const deleteCustomVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/custom/${id}`);
+
+export const createCustomVoiceClone = (formData: FormData) =>
+  api.post<CustomVoiceFromAPI>("/voices/clone", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteSavedVoice = (id: number) =>
+  api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
 
 export default api;

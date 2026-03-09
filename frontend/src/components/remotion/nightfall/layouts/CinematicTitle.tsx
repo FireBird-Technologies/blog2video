@@ -18,6 +18,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   narration,
   textColor,
   accentColor,
+  bgColor,
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
@@ -103,7 +104,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
 
       {/* ── Background: dark first, then image reveals after intro ── */}
-      <DarkBackground />
+      <DarkBackground bgColor={bgColor} />
 
       {/* ── Hero image: appears AFTER intro text (frame 70+), full-bleed with lighter overlay ── */}
       {imageUrl && (

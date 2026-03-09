@@ -1,21 +1,27 @@
 import os
 import asyncio
+import logging
 import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+
+# Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("app").setLevel(logging.INFO)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db, SessionLocal
 from app.models.user import User, PlanTier
+from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, saved_voices
 
 
 # ─── Scheduled cleanup for stale data (free + paid tiers) ────
@@ -175,6 +181,54 @@ async def _periodic_paid_tier_cleanup():
             db.close()
 
 
+from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
+
+
+def _ensure_prebuilt_voices_seeded() -> None:
+    """If prebuilt_voices is empty, fetch premade voices from ElevenLabs and insert. Rachel, Bill, Alice, Daniel = free; others = paid."""
+    import json
+    db = SessionLocal()
+    try:
+        if db.query(PrebuiltVoice).count() > 0:
+            return
+        if not settings.ELEVENLABS_API_KEY:
+            print("[STARTUP] ELEVENLABS_API_KEY not set; skipping prebuilt voices seed")
+            return
+        from elevenlabs import ElevenLabs
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        try:
+            voices_response = client.voices.get_all(show_legacy=True)
+        except TypeError:
+            voices_response = client.voices.get_all()
+        for v in voices_response.voices:
+            voice_id = getattr(v, "voice_id", None) or getattr(v, "id", None)
+            if not voice_id:
+                continue
+            category = getattr(v, "category", None)
+            if category != "premade" and voice_id not in KNOWN_PREMADE_VOICE_IDS:
+                continue
+            labels = getattr(v, "labels", None) or {}
+            plan = "free" if voice_id in KNOWN_PREMADE_VOICE_IDS else "paid"
+            row = PrebuiltVoice(
+                voice_id=voice_id,
+                name=getattr(v, "name", None) or "",
+                preview_url=getattr(v, "preview_url", None),
+                labels=json.dumps(labels) if isinstance(labels, dict) else "{}",
+                description=(getattr(v, "description", None) or "") or None,
+                plan=plan,
+            )
+            db.add(row)
+        db.commit()
+        print("[STARTUP] Prebuilt voices seeded successfully")
+    except Exception as e:
+        print(f"[STARTUP] Prebuilt voices seed failed: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB, start background tasks."""
@@ -185,6 +239,7 @@ async def lifespan(app: FastAPI):
         print("[STARTUP] Initializing database...")
         init_db()
         print("[STARTUP] Database initialized successfully")
+        _ensure_prebuilt_voices_seeded()
     except Exception as e:
         print(f"[STARTUP] Database initialization failed: {e}")
         import traceback
@@ -262,6 +317,7 @@ app.include_router(pipeline.router)
 app.include_router(chat.router)
 app.include_router(contact.router)
 app.include_router(custom_templates.router)
+app.include_router(saved_voices.router)
 
 
 @app.get("/api/health")
@@ -363,6 +419,144 @@ async def get_voice_previews():
     except Exception as e:
         print(f"[VOICES] Failed to fetch previews: {e}")
         return {}
+
+
+@app.get("/api/voices/prebuilt")
+def list_prebuilt_voices():
+    """Return prebuilt voices from the database only (no ElevenLabs API call). Each voice includes plan: 'free' | 'paid'."""
+    import json
+    db = SessionLocal()
+    try:
+        rows = db.query(PrebuiltVoice).order_by(PrebuiltVoice.name).all()
+        out = []
+        for r in rows:
+            try:
+                labels = json.loads(r.labels) if r.labels else {}
+            except (json.JSONDecodeError, TypeError):
+                labels = {}
+            out.append({
+                "voice_id": r.voice_id,
+                "name": r.name,
+                "preview_url": r.preview_url,
+                "labels": labels,
+                "description": r.description or "",
+                "plan": r.plan,
+            })
+        return {"voices": out, "has_more": False}
+    finally:
+        db.close()
+
+
+@app.get("/api/voices")
+def list_voices(show_legacy: bool = True, premade_only: bool = False):
+    """Return voices. premade_only=True: from DB (prebuilt_voices). Otherwise: from ElevenLabs API."""
+    import json
+    from fastapi import HTTPException
+
+    if premade_only:
+        return list_prebuilt_voices()
+
+    if not settings.ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
+    try:
+        from elevenlabs import ElevenLabs
+        client = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
+        try:
+            voices_response = client.voices.get_all(show_legacy=show_legacy)
+        except TypeError:
+            voices_response = client.voices.get_all()
+        out = []
+        for v in voices_response.voices:
+            item = {
+                "voice_id": getattr(v, "voice_id", None) or getattr(v, "id", None),
+                "name": getattr(v, "name", None) or "",
+                "preview_url": getattr(v, "preview_url", None),
+                "labels": getattr(v, "labels", None) or {},
+                "category": getattr(v, "category", None),
+                "description": getattr(v, "description", None) or "",
+            }
+            if item["voice_id"]:
+                out.append(item)
+        return {"voices": out, "has_more": getattr(voices_response, "has_more", False)}
+    except Exception as e:
+        print(f"[VOICES] list voices failed: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch voices from ElevenLabs")
+
+
+def _call_elevenlabs_voice_design(voice_description: str) -> dict:
+    """Call ElevenLabs text-to-voice design API. Returns JSON with previews (audio_base_64, etc.)."""
+    import requests as _req
+    url = "https://api.elevenlabs.io/v1/text-to-voice/design"
+    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY, "Content-Type": "application/json"}
+    body = {
+        "voice_description": voice_description,
+        "auto_generate_text": True,
+    }
+    resp = _req.post(url, json=body, headers=headers, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.post("/api/voices/design-from-preset")
+def design_voice_from_preset(body: dict):
+    """Build a voice description from options (gender, age, persona, speed, accent) and return previews."""
+    from fastapi import HTTPException
+
+    if not settings.ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
+
+    gender = (body.get("gender") or "").strip()
+    age = (body.get("age") or "").strip()
+    persona = (body.get("persona") or "").strip()
+    speed = (body.get("speed") or "").strip()
+    accent = (body.get("accent") or "").strip()
+
+    parts = []
+    if gender:
+        parts.append(f"A {gender} voice.")
+    if age:
+        parts.append(f"Voice age: {age}.")
+    if persona:
+        parts.append(f"Persona: {persona}.")
+    if speed:
+        parts.append(f"Speaking speed: {speed}.")
+    if accent:
+        parts.append(f"Accent of a person from country: {accent}.")
+
+    description = " ".join(parts).strip() if parts else "A clear, neutral, professional voice."
+    if len(description) < 20:
+        description = "A clear, neutral, professional voice suitable for narration and explainers."
+    if len(description) > 1000:
+        description = description[:997] + "..."
+
+    try:
+        data = _call_elevenlabs_voice_design(description)
+        return data
+    except Exception as e:
+        print(f"[VOICES] design-from-preset failed: {e}")
+        raise HTTPException(status_code=502, detail="Voice design failed. Try a different description.")
+
+
+@app.post("/api/voices/design-from-prompt")
+def design_voice_from_prompt(body: dict):
+    """Generate voice previews from a custom text description (20–1000 characters)."""
+    from fastapi import HTTPException
+
+    if not settings.ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
+
+    prompt = (body.get("prompt") or body.get("voice_description") or "").strip()
+    if len(prompt) < 20:
+        raise HTTPException(status_code=400, detail="Prompt must be at least 20 characters.")
+    if len(prompt) > 1000:
+        prompt = prompt[:1000]
+
+    try:
+        data = _call_elevenlabs_voice_design(prompt)
+        return data
+    except Exception as e:
+        print(f"[VOICES] design-from-prompt failed: {e}")
+        raise HTTPException(status_code=502, detail="Voice design failed. Try a different prompt.")
 
 
 @app.get("/api/voices/preview-audio")

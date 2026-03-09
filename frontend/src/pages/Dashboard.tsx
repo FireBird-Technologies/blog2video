@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   listProjects,
   createProject,
@@ -21,6 +21,7 @@ import UpgradePlanModal from "../components/UpgradePlanModal";
 import StatusBadge from "../components/StatusBadge";
 import { setPendingUpload } from "../stores/pendingUpload";
 import CustomTemplates from "./CustomTemplates";
+import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
@@ -71,8 +72,9 @@ export default function Dashboard() {
   }, [searchParams]);
   const isPro = user?.plan === "pro" || user?.plan === "standard";
   const templatesRequested = searchParams.get("tab") === "templates";
-  const [activeTab, setActiveTab] = useState<"projects" | "templates">(
-    templatesRequested ? "templates" : "projects"
+  const voicesRequested = searchParams.get("tab") === "voices";
+  const [activeTab, setActiveTab] = useState<"projects" | "templates" | "voices">(
+    voicesRequested ? "voices" : templatesRequested ? "templates" : "projects"
   );
 
   useEffect(() => {
@@ -155,11 +157,11 @@ export default function Dashboard() {
       }
     };
   }, [bulkPendingIds.join(",")]);
-  // Deep-link to templates tab via ?tab=templates (reacts to param changes)
+  // Deep-link to templates/voices tab via ?tab= (reacts to param changes)
   useEffect(() => {
-    if (searchParams.get("tab") === "templates") {
-      setActiveTab("templates");
-    }
+    const tab = searchParams.get("tab");
+    if (tab === "templates") setActiveTab("templates");
+    else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
 
   const loadProjects = async () => {
@@ -314,16 +316,19 @@ export default function Dashboard() {
     });
   };
 
-  // ─── Onboarding (0 projects) ───────────────────────────────
-  if (loaded && projects.length === 0 && !(isPro && (activeTab === "templates" || templatesRequested))) {
+  // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
+  if (loaded && projects.length === 0 && searchParams.get("show_form") !== "0") {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
-          {/* Welcome header */}
+          {/* Welcome header: logo links to dashboard and dismisses form */}
           <div className="text-center mb-8">
-            <div className="w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm">
+            <Link
+              to="/dashboard?show_form=0"
+              className="inline-flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-purple-600 rounded-2xl text-white font-bold text-sm hover:opacity-90 transition-opacity"
+            >
               B2V
-            </div>
+            </Link>
             <h1 className="text-xl font-semibold text-gray-900 mb-2">
               Create your first video
             </h1>
@@ -387,7 +392,7 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
-        {(["projects", "templates"] as const).map((tab) => (
+        {(["projects", "templates", "voices"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -397,7 +402,7 @@ export default function Dashboard() {
                 : "text-gray-400 hover:text-gray-600"
             }`}
           >
-            {tab === "projects" ? "Projects" : "My Templates"}
+            {tab === "projects" ? "Projects" : tab === "templates" ? "My Templates" : "Voices"}
           </button>
         ))}
       </div>
@@ -405,6 +410,8 @@ export default function Dashboard() {
       {/* ─── My Templates tab ────────────────────────────────── */}
       {activeTab === "templates" ? (
         <CustomTemplates />
+      ) : activeTab === "voices" ? (
+        <MyVoices />
       ) : (
       <>
       {/* Header */}
@@ -578,6 +585,19 @@ export default function Dashboard() {
               </div>
             </div>
           ))
+        ) : projects.length === 0 ? (
+          // Empty state (same layout as My Templates, no center button)
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 mb-4 bg-purple-100 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
+            <p className="text-sm text-gray-400 max-w-sm">
+              Create your first video by pasting a blog URL or uploading documents. Use the &quot;+ New&quot; button above to get started.
+            </p>
+          </div>
         ) : (
           projects.map((project) => (
           <div

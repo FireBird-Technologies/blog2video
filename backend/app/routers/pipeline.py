@@ -38,7 +38,7 @@ from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id
+from app.services.template_service import validate_template_id, get_layout_prompt, is_custom_template, _load_custom_template_data
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -192,6 +192,13 @@ async def _generate_script(project: Project, db: Session):
     image_paths = [a.local_path for a in project.assets if a.asset_type.value == "image"]
     hero_image = image_paths[0] if image_paths else ""
 
+    # Determine template and load its layout prompt (layout-only catalog).
+    template_id = validate_template_id(project.template if project.template else "default")
+    try:
+        layout_catalog = get_layout_prompt(template_id)
+    except Exception:
+        layout_catalog = ""
+
     generator = ScriptGenerator()
     result = await generator.generate(
         blog_content=project.blog_content,
@@ -199,6 +206,7 @@ async def _generate_script(project: Project, db: Session):
         hero_image=hero_image,
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
         video_style=getattr(project, "video_style", "explainer") or "explainer",
+        layout_catalog=layout_catalog,
     )
 
     project.name = result["title"]
@@ -208,7 +216,6 @@ async def _generate_script(project: Project, db: Session):
     db.flush()
 
     # Template-aware display text generation
-    template_id = validate_template_id(project.template if project.template else "default")
     video_style = getattr(project, "video_style", None) or "explainer"
     scenes_raw: list[dict] = result["scenes"]
 
@@ -224,6 +231,7 @@ async def _generate_script(project: Project, db: Session):
             visual_description=scene_data["visual_description"],
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
+            preferred_layout=scene_data.get("preferred_layout"),
         )
         db.add(scene)
 
@@ -247,6 +255,7 @@ async def _generate_scenes(project: Project, db: Session):
             "title": s.title,
             "narration": s.narration_text,
             "visual_description": s.visual_description,
+            "preferred_layout": getattr(s, "preferred_layout", None),
         }
         for s in scenes
     ]
@@ -492,13 +501,14 @@ async def render_video_endpoint(
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
+    Whiteboard and newspaper templates render at 720p; all others at 1080p.
+    Workspace rebuild runs in a thread so the server stays responsive.
     When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
 
-    # Always render at 1080p
-    resolution = "1080p"
+    # Render at 720p for whiteboard (stickman) and newspaper templates
+    resolution = "720p" if project.template in ("whiteboard", "newspaper") else "1080p"
 
     # Already rendered and available in R2 — skip re-render unless force_render (re-render with latest changes)
     if project.r2_video_url and not force_render:
@@ -507,6 +517,12 @@ async def render_video_endpoint(
             "progress": 100,
             "r2_video_url": project.r2_video_url,
         }
+
+    if is_custom_template(project.template) and _load_custom_template_data(project.template) is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+        )
 
     # Re-render: deduct a video count (same as creating a new video)
     if force_render:
