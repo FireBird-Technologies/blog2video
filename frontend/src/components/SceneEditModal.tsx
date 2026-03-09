@@ -264,6 +264,10 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
       maxItems: 2,
     },
   ],
+  drawn_title: [
+    { key: "stats", label: "Key figures", type: "object_array",
+      subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 6 },
+  ],
   // Newspaper template
   news_headline: [
     { key: "category", label: "Section / category", type: "string", placeholder: "e.g. Politics, Technology" },
@@ -526,6 +530,42 @@ export default function SceneEditModal({
         .catch(() => showError("Failed to load layouts"));
     }
   }, [open, project.id, layouts]);
+
+  // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
+  useEffect(() => {
+    if (!open || !layouts?.layout_prop_schema) return;
+    let layoutId: string | null = null;
+    try {
+      if (scene.remotion_code) {
+        const desc = JSON.parse(scene.remotion_code);
+        layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+      }
+    } catch { /* ignore */ }
+    if (!layoutId) return;
+    const schema = layouts.layout_prop_schema[layoutId];
+    if (!schema?.defaults && !schema?.fields?.length) return;
+    const aspectRatio = project.aspect_ratio || "landscape";
+    const isPortrait = aspectRatio === "portrait";
+    setEditableLayoutProps((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      const fieldKeys = new Set((schema.fields ?? []).map((f) => f.key));
+      const defaults = schema.defaults ?? {};
+      for (const key of fieldKeys) {
+        if (key in next) continue;
+        const def = defaults[key];
+        if (def !== undefined && def !== null) {
+          if (typeof def === "object" && !Array.isArray(def) && "portrait" in def && "landscape" in def) {
+            next[key] = isPortrait ? (def as { portrait: unknown }).portrait : (def as { landscape: unknown }).landscape;
+          } else {
+            next[key] = def;
+          }
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [open, layouts?.layout_prop_schema, scene.remotion_code, project.aspect_ratio]);
 
   useEffect(() => {
     if (!layoutOpen) return;
@@ -853,16 +893,26 @@ export default function SceneEditModal({
                 />
               </div>
 
-              {/* ── Layout content fields (dynamic per layout type) ── */}
+              {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
                 const layoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                return currentLayoutId && layoutFields && (
+                const knownKeys = new Set((layoutFields ?? []).map((f) => f.key));
+                const extraKeys =
+                  currentLayoutId && editableLayoutProps
+                    ? Object.keys(editableLayoutProps).filter((key) => !knownKeys.has(key))
+                    : [];
+                if (!currentLayoutId || (!layoutFields && extraKeys.length === 0)) return null;
+                const humanLabel = (key: string) =>
+                  key
+                    .replace(/[_-]+/g, " ")
+                    .replace(/\b\w/g, (m) => m.toUpperCase());
+                return (
                 <div>
                   <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                     Layout content
                   </h4>
                   <div className="space-y-4">
-                    {layoutFields.map((field) => {
+                    {layoutFields?.map((field) => {
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
                       if (field.type === "string") {
@@ -1005,6 +1055,28 @@ export default function SceneEditModal({
                       }
                       return null;
                     })}
+                    {extraKeys.length > 0 && (
+                      <div className="space-y-3">
+                        {extraKeys.map((key) => (
+                          <div key={key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                              {humanLabel(key)}
+                            </label>
+                            <input
+                              type="text"
+                              value={String(editableLayoutProps[key] ?? "")}
+                              onChange={(e) =>
+                                setEditableLayoutProps((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

@@ -13,6 +13,10 @@ import {
   type StartTemplateAiPreviewResponse,
   getTemplateAiVersions,
   type ListTemplateAiVersionsResponse,
+  rebuildTemplateLayout,
+  createTemplateLayout,
+  type PropDef,
+  SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
@@ -502,6 +506,177 @@ function SceneSettingsModal({
   );
 }
 
+function PropDefRow({
+  prop,
+  onChange,
+  onRemove,
+}: {
+  prop: PropDef;
+  onChange: (p: PropDef) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${T.border}`,
+        borderRadius: "8px",
+        padding: "10px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        background: T.surfaceAlt,
+        position: "relative",
+      }}
+    >
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={onRemove}
+        style={{
+          position: "absolute",
+          top: "-15px",
+          right: "-12px",
+          padding: "4px 7px",
+          border: "none",
+          borderRadius: "6px",
+          background: "#fee2e2",
+          color: "#dc2626",
+          fontSize: "11px",
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
+
+      {/* Name */}
+      <input
+        className="studio-input"
+        placeholder="prop_name"
+        value={prop.name}
+        onChange={(e) =>
+          onChange({
+            ...prop,
+            name: e.target.value.replace(/[^a-zA-Z0-9_]/g, ""),
+          })
+        }
+        style={{ ...inputBase, padding: "6px 8px", fontSize: "12px" }}
+      />
+
+      {/* Type */}
+      <select
+        className="studio-input"
+        value={prop.type}
+        onChange={(e) => onChange({ ...prop, type: e.target.value })}
+        style={{ ...inputBase, padding: "6px 8px", fontSize: "12px" }}
+      >
+        {SUPPORTED_PROP_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
+
+      {/* Description */}
+      <input
+        className="studio-input"
+        placeholder="Description (optional)"
+        value={prop.description}
+        onChange={(e) => onChange({ ...prop, description: e.target.value })}
+        style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+      />
+
+      {/* Default value */}
+      {prop.type === "boolean" ? (
+        <select
+          className="studio-input"
+          value={
+            prop.default === "true" ||
+            prop.default === "1" ||
+            prop.default === "yes"
+              ? "true"
+              : "false"
+          }
+          onChange={(e) => onChange({ ...prop, default: e.target.value })}
+          style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+        >
+          <option value="false">false</option>
+          <option value="true">true</option>
+        </select>
+      ) : prop.type === "number" ? (
+        <input
+          type="number"
+          className="studio-input"
+          placeholder="Default (optional)"
+          value={prop.default ?? ""}
+          onChange={(e) =>
+            onChange({ ...prop, default: e.target.value || undefined })
+          }
+          style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+        />
+      ) : prop.type === "string_array" ? (
+        <input
+          className="studio-input"
+          placeholder="Comma-separated, e.g. 1,2,3"
+          value={prop.default ?? ""}
+          onChange={(e) =>
+            onChange({ ...prop, default: e.target.value || undefined })
+          }
+          style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+        />
+      ) : prop.type === "object_array" ? (
+        <input
+          className="studio-input"
+          placeholder="Jan:100, Feb:200 or JSON"
+          value={prop.default ?? ""}
+          onChange={(e) =>
+            onChange({ ...prop, default: e.target.value || undefined })
+          }
+          style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+        />
+      ) : prop.type === "color" ? (
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <input
+            type="color"
+            value={
+              prop.default && /^#[0-9A-Fa-f]{6}$/.test(prop.default)
+                ? prop.default
+                : "#9333ea"
+            }
+            onChange={(e) => onChange({ ...prop, default: e.target.value })}
+            style={{
+              width: 36,
+              height: 28,
+              padding: 2,
+              border: `1px solid ${T.border}`,
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          />
+          <input
+            className="studio-input"
+            placeholder="#hex or color name"
+            value={prop.default ?? ""}
+            onChange={(e) =>
+              onChange({ ...prop, default: e.target.value || undefined })
+            }
+            style={{ ...inputBase, flex: 1, padding: "6px 8px", fontSize: "11px" }}
+          />
+        </div>
+      ) : (
+        <input
+          className="studio-input"
+          placeholder="Default (optional)"
+          value={prop.default ?? ""}
+          onChange={(e) =>
+            onChange({ ...prop, default: e.target.value || undefined })
+          }
+          style={{ ...inputBase, padding: "6px 8px", fontSize: "11px" }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function TemplateStudio() {
   const [templates, setTemplates]             = useState<TemplateMeta[]>([]);
@@ -535,6 +710,23 @@ export default function TemplateStudio() {
   const [aiPreviewVersion, setAiPreviewVersion]     = useState<string | null>(null);
   const [aiSwitchingVersion, setAiSwitchingVersion] = useState(false);
   const previewSelectionRef = useRef("");
+
+  // ── Rebuild mode state ──────────────────────────────────────────────────────
+  const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
+  const [rebuildProps, setRebuildProps] = useState<PropDef[]>([]);
+  const [rebuildLoading, setRebuildLoading] = useState(false);
+  const [rebuildError, setRebuildError]     = useState("");
+  const [rebuildStatus, setRebuildStatus]   = useState("");
+
+  // ── New layout tab state ────────────────────────────────────────────────────
+  const [rightTab, setRightTab]           = useState<"edit" | "new-layout">("edit");
+  const [newLayoutId, setNewLayoutId]     = useState("");
+  const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
+  const [newLayoutDesc, setNewLayoutDesc] = useState("");
+  const [newLayoutProps, setNewLayoutProps] = useState<PropDef[]>([]);
+  const [newLayoutLoading, setNewLayoutLoading] = useState(false);
+  const [newLayoutError, setNewLayoutError]     = useState("");
+  const [newLayoutStatus, setNewLayoutStatus]   = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -762,11 +954,84 @@ export default function TemplateStudio() {
       setAiPreviewVersions([]);
       setAiPreviewVersion(null);
       setAiStatus("Discarded AI preview. Original files restored.");
+      // Refresh templates (discard may have removed a created layout)
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+      // If current layout was removed from selected template, pick another
+      const tpl = refreshed.data.find((t) => normalizeTemplateId(t.id) === selectedTemplateId);
+      const layoutIds = new Set(tpl?.valid_layouts ?? []);
+      if (selectedLayout && !layoutIds.has(selectedLayout)) {
+        setSelectedLayout(tpl?.valid_layouts?.[0] ?? refreshed.data[0]?.valid_layouts?.[0] ?? "");
+      }
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail : "Failed to discard.";
       setAiError(String(msg || "Failed to discard.")); setAiStatus("");
     } finally { setAiDiscarding(false); }
+  };
+
+  // ── Rebuild handler ────────────────────────────────────────────────────────
+  const handleRebuildLayout = async () => {
+    if (!selectedTemplateId || !selectedLayout || !aiInstruction.trim()) {
+      setRebuildError("Select a layout and provide an instruction.");
+      return;
+    }
+    try {
+      setRebuildLoading(true); setRebuildError(""); setRebuildStatus("");
+      const result = await rebuildTemplateLayout({
+        template_id: selectedTemplateId,
+        layout_id: selectedLayout,
+        instruction: aiInstruction.trim(),
+        extra_props: rebuildProps,
+      });
+      const data = result.data;
+      setAiPreviewSessionId(data.session_id);
+      setAiPreviewVersions(data.versions ?? ["original", "v1"]);
+      setAiPreviewVersion(data.active_version_id ?? "v1");
+      setAiStatus("Rebuild complete. Switch versions to compare, then apply or discard.");
+      setRebuildStatus(`Rebuilt ${data.layout_id}. Updated: ${data.updated_files?.join(", ") ?? ""}`);
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Rebuild failed.";
+      setRebuildError(String(msg || "Rebuild failed."));
+    } finally { setRebuildLoading(false); }
+  };
+
+  // ── New layout handler ─────────────────────────────────────────────────────
+  const handleCreateLayout = async () => {
+    if (!selectedTemplateId || !newLayoutId.trim() || !newBaseLayoutId || !newLayoutDesc.trim()) {
+      setNewLayoutError("Fill in all required fields.");
+      return;
+    }
+    try {
+      setNewLayoutLoading(true); setNewLayoutError(""); setNewLayoutStatus("");
+      const result = await createTemplateLayout({
+        template_id: selectedTemplateId,
+        base_layout_id: newBaseLayoutId,
+        new_layout_id: newLayoutId.trim(),
+        layout_description: newLayoutDesc.trim(),
+        props: newLayoutProps,
+      });
+      const data = result.data;
+      setAiPreviewSessionId(data.session_id);
+      setAiPreviewVersions(data.versions ?? ["v1"]);
+      setAiPreviewVersion(data.active_version_id ?? "v1");
+      setAiStatus("New layout created. Apply to keep or discard to revert.");
+      setNewLayoutStatus(`Created '${data.new_layout_id}'. Files: ${data.created_files?.join(", ") ?? ""}`);
+      const refreshed = await getTemplates();
+      setTemplates(refreshed.data);
+      setSelectedLayout(data.new_layout_id);
+      setRightTab("edit");
+      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutProps([]);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Create failed.";
+      setNewLayoutError(String(msg || "Create failed."));
+    } finally { setNewLayoutLoading(false); }
   };
 
   // Restore existing AI versions for the selected template/layout on change or refresh.
@@ -1193,55 +1458,134 @@ export default function TemplateStudio() {
                 </div>
               </section>
 
-              {/* ══ RIGHT: AI Edit ══ */}
-              <aside className="glass-card" style={{ padding: "16px", overflowY: "auto", maxHeight: "calc(100vh - 80px)" }}>
+              {/* ══ RIGHT: AI panel (tabbed) ══ */}
+              <aside className="glass-card" style={{ padding: "0", overflowY: "auto", maxHeight: "calc(100vh - 80px)", display: "flex", flexDirection: "column" }}>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
-                  <span style={{ color: T.accentMid }}><IconWand /></span>
-                  <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: T.textSub, fontFamily: FONT }}>
-                    AI Edit
-                  </span>
-                  <span style={{
-                    marginLeft: "auto", fontSize: "9px", padding: "1px 7px",
-                    background: T.accentLight, color: T.accent,
-                    borderRadius: "100px", border: `1px solid ${T.accentMid}33`,
-                    fontWeight: 600, letterSpacing: "0.06em", fontFamily: FONT,
-                  }}>
-                    GEMINI
-                  </span>
+                {/* Tab bar */}
+                <div style={{
+                  display: "flex", borderBottom: `1px solid ${T.border}`,
+                  background: T.surfaceAlt, borderRadius: "12px 12px 0 0", flexShrink: 0,
+                }}>
+                  {(["edit", "new-layout"] as const).map((tab) => {
+                    const label = tab === "edit" ? "Edit" : "New Layout";
+                    const isActive = rightTab === tab;
+                    return (
+                      <button
+                        key={tab} type="button"
+                        onClick={() => setRightTab(tab)}
+                        style={{
+                          flex: 1, padding: "10px 8px", border: "none",
+                          borderBottom: isActive ? `2px solid ${T.accent}` : "2px solid transparent",
+                          background: "transparent",
+                          fontSize: "11px", fontWeight: isActive ? 700 : 500, fontFamily: FONT,
+                          color: isActive ? T.accent : T.textSub,
+                          cursor: "pointer", transition: "all 0.13s",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {/* ── Tab: AI Edit ── */}
+                {rightTab === "edit" && (
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+
+                  {/* Mode toggle — matches BlogUrlForm tab style */}
+                  <div>
+                    <FieldLabel>Mode</FieldLabel>
+                    <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit mt-1">
+                      {(["code-only", "rebuild"] as const).map((m) => {
+                        const label = m === "code-only" ? "Edit Layout" : "Rebuild layout";
+                        const isActive = aiMode === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => { setAiMode(m); setRebuildError(""); setRebuildStatus(""); }}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              isActive ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div>
                     <FieldLabel>Instruction</FieldLabel>
                     <textarea
                       className="studio-input"
-                      placeholder="Describe the edit — e.g. 'move the title higher, make the subtitle lighter, reduce border thickness.'"
+                      placeholder={aiMode === "code-only"
+                        ? "Describe the edit — e.g. 'move the title higher, make the subtitle lighter.'"
+                        : "Describe the rebuild — e.g. 'Add a progress bar and highlight color support.'"}
                       value={aiInstruction}
                       onChange={(e) => setAiInstruction(e.target.value)}
-                      rows={14}
+                      rows={aiMode === "rebuild" ? 6 : 9}
                       style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.6", background: T.surfaceAlt }}
                     />
                   </div>
 
-                  <button type="button" className="btn-primary"
-                    disabled={aiLoading || aiApplying || aiDiscarding || !aiInstruction.trim()}
-                    onClick={handleGenerateAiEdit}
-                  >
-                    <IconWand />
-                    {aiLoading ? "Generating preview…" : "Generate"}
-                  </button>
+                  {/* Rebuild: extra props editor */}
+                  {aiMode === "rebuild" && (
+                    <div>
+                      <FieldLabel>Extra props to add</FieldLabel>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                        {rebuildProps.map((p, i) => (
+                          <PropDefRow
+                            key={i} prop={p}
+                            onChange={(updated) => setRebuildProps((prev) => prev.map((x, j) => j === i ? updated : x))}
+                            onRemove={() => setRebuildProps((prev) => prev.filter((_, j) => j !== i))}
+                          />
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setRebuildProps((prev) => [...prev, { name: "", type: "string", description: "" }])}
+                          style={{
+                            padding: "6px 10px", border: `1px dashed ${T.border}`, borderRadius: "8px",
+                            background: "transparent", color: T.textSub, fontSize: "11px", fontFamily: FONT,
+                            cursor: "pointer",
+                          }}
+                        >
+                          + Add prop
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {aiMode === "code-only" ? (
+                    <button type="button" className="btn-primary"
+                      disabled={aiLoading || aiApplying || aiDiscarding || !aiInstruction.trim()}
+                      onClick={handleGenerateAiEdit}
+                    >
+                      <IconWand />
+                      {aiLoading ? "Generating preview…" : "Generate"}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn-primary"
+                      disabled={rebuildLoading || !aiInstruction.trim()}
+                      onClick={handleRebuildLayout}
+                    >
+                      <IconWand />
+                      {rebuildLoading ? "Rebuilding…" : "Rebuild layout"}
+                    </button>
+                  )}
+
+                  {aiMode === "rebuild" && rebuildError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
+                    }}>
+                      {rebuildError}
+                    </div>
+                  )}
 
                   {aiPreviewSessionId && (
                     <>
-                      {/* <div style={{
-                        border: `1px solid ${T.border}`, background: T.surfaceAlt,
-                        borderRadius: "8px", padding: "8px 10px",
-                        fontSize: "10px", color: T.textSub, wordBreak: "break-all", fontFamily: FONT,
-                      }}>
-                        <span style={{ color: T.textMuted, fontWeight: 500 }}>Session: </span>
-                        {aiPreviewSessionId}
-                      </div> */}
                       <div>
                         <FieldLabel>Compare versions</FieldLabel>
                         <div style={{
@@ -1305,20 +1649,102 @@ export default function TemplateStudio() {
                     </>
                   )}
 
-                  <div style={{
-                    padding: "10px 12px", borderRadius: "8px",
-                    background: aiError ? "#fee2e2" : aiStatus ? "#dcfce7" : T.surfaceAlt,
-                    border: `1px solid ${aiError ? "#fecaca" : aiStatus ? "#bbf7d0" : T.border}`,
-                  }}>
-                    <p style={{
-                      margin: 0, fontSize: "11px", fontFamily: FONT,
-                      color: aiError ? "#7f1d1d" : aiStatus ? "#14532d" : T.textMuted,
-                      lineHeight: "1.6", wordBreak: "break-word",
+                  {aiError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
                     }}>
-                      {aiError || aiStatus || "Generate a preview, inspect the scene, then apply or discard."}
+                      {aiError}
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {/* ── Tab: New Layout ── */}
+                {rightTab === "new-layout" && (
+                <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+
+                  <div className="left-section">
+                    <StudioDropdown
+                      sectionLabel="Base layout"
+                      value={newBaseLayoutId}
+                      onChange={setNewBaseLayoutId}
+                      options={[{ value: "", label: "— select —" }, ...layoutOptions]}
+                    />
+                    <p style={{ margin: "6px 0 0", fontSize: "10px", color: T.textMuted, fontFamily: FONT, lineHeight: "1.5" }}>
+                      Style reference for the new layout. The generated component will match this layout&apos;s visuals and animations.
                     </p>
                   </div>
+
+                  <div>
+                    <FieldLabel>New layout ID (snake_case)</FieldLabel>
+                    <input
+                      className="studio-input"
+                      placeholder="e.g. breaking_news"
+                      value={newLayoutId}
+                      onChange={(e) => setNewLayoutId(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                      style={{ ...inputBase, background: T.surfaceAlt }}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Layout description</FieldLabel>
+                    <textarea
+                      className="studio-input"
+                      placeholder="Describe the visual style and purpose of this layout…"
+                      value={newLayoutDesc}
+                      onChange={(e) => setNewLayoutDesc(e.target.value)}
+                      rows={4}
+                      style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.6", background: T.surfaceAlt }}
+                    />
+                  </div>
+
+                  <div>
+                    <FieldLabel>Props</FieldLabel>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                      {newLayoutProps.map((p, i) => (
+                        <PropDefRow
+                          key={i} prop={p}
+                          onChange={(updated) => setNewLayoutProps((prev) => prev.map((x, j) => j === i ? updated : x))}
+                          onRemove={() => setNewLayoutProps((prev) => prev.filter((_, j) => j !== i))}
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setNewLayoutProps((prev) => [...prev, { name: "", type: "string", description: "" }])}
+                        style={{
+                          padding: "6px 10px", border: `1px dashed ${T.border}`, borderRadius: "8px",
+                          background: "transparent", color: T.textSub, fontSize: "11px", fontFamily: FONT,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Add prop
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button" className="btn-primary"
+                    disabled={newLayoutLoading || !newLayoutId.trim() || !newBaseLayoutId || !newLayoutDesc.trim()}
+                    onClick={handleCreateLayout}
+                  >
+                    <IconWand />
+                    {newLayoutLoading ? "Creating…" : "Create layout"}
+                  </button>
+
+                  {newLayoutError && (
+                    <div style={{
+                      padding: "8px 10px", borderRadius: "6px",
+                      background: "#fee2e2", border: "1px solid #fecaca",
+                      fontSize: "11px", fontFamily: FONT, color: "#dc2626",
+                    }}>
+                      {newLayoutError}
+                    </div>
+                  )}
                 </div>
+                )}
+
               </aside>
             </div>
           )}

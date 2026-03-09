@@ -435,6 +435,70 @@ export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionReques
 export const getTemplateAiVersions = (payload: ListTemplateAiVersionsRequest) =>
   api.post<ListTemplateAiVersionsResponse>("/template-studio/ai-edit/versions", payload);
 
+// ─── Layout rebuild / create ──────────────────────────────────────────────────
+
+export interface PropDef {
+  name: string;
+  type: string;
+  description: string;
+  default?: string;
+}
+
+export const SUPPORTED_PROP_TYPES = [
+  "string",
+  "text",
+  "number",
+  "boolean",
+  "color",
+  "imageUrl",
+  "string_array",
+  "object_array",
+] as const;
+export type PropType = typeof SUPPORTED_PROP_TYPES[number];
+
+export interface RebuildLayoutRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+}
+
+export interface RebuildLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  updated_files: string[];
+  schema: object;
+}
+
+export const rebuildTemplateLayout = (payload: RebuildLayoutRequest) =>
+  api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild", payload);
+
+export interface CreateLayoutRequest {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+}
+
+export interface CreateLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  new_layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  created_files: string[];
+  schema: object;
+}
+
+export const createTemplateLayout = (payload: CreateLayoutRequest) =>
+  api.post<CreateLayoutResponse>("/template-studio/ai-layout/create", payload);
+
 export interface VoicePreview {
   voice_id: string;
   name: string;
@@ -684,10 +748,18 @@ export const generateSceneImage = (
     `/projects/${projectId}/scenes/${sceneId}/generate-image`
   );
 
+export interface LayoutPropSchemaEntry {
+  label?: string;
+  defaults?: Record<string, unknown>;
+  fields?: Array<{ key: string; label?: string; type?: string }>;
+  scene_defaults?: { title?: string; narration?: string };
+}
+
 export interface LayoutInfo {
   layouts: string[];
   layout_names: Record<string, string>;
   layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
 }
 
 export const getValidLayouts = (projectId: number) =>
