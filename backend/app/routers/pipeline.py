@@ -38,7 +38,7 @@ from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id, get_layout_prompt
+from app.services.template_service import validate_template_id, get_layout_prompt, is_custom_template, _load_custom_template_data
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -501,13 +501,14 @@ async def render_video_endpoint(
 ):
     """Kick off async video render. Poll /render-status for progress.
 
-    All videos render at 1080p. Workspace rebuild runs in a thread so the server stays responsive.
+    Whiteboard and newspaper templates render at 720p; all others at 1080p.
+    Workspace rebuild runs in a thread so the server stays responsive.
     When force_render=True, re-render even if already rendered (rebuilds workspace with latest DB data).
     """
     project = _get_project(project_id, user.id, db)
 
-    # Always render at 1080p
-    resolution = "1080p"
+    # Render at 720p for whiteboard (stickman) and newspaper templates
+    resolution = "720p" if project.template in ("whiteboard", "newspaper") else "1080p"
 
     # Already rendered and available in R2 — skip re-render unless force_render (re-render with latest changes)
     if project.r2_video_url and not force_render:
@@ -516,6 +517,12 @@ async def render_video_endpoint(
             "progress": 100,
             "r2_video_url": project.r2_video_url,
         }
+
+    if is_custom_template(project.template) and _load_custom_template_data(project.template) is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+        )
 
     # Re-render: deduct a video count (same as creating a new video)
     if force_render:

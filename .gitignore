@@ -29,6 +29,10 @@ remotion-video/src/components/generated/
 *.swp
 *.swo
 
+# Local only
+CLAUDE.md
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
