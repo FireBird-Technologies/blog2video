@@ -8,7 +8,11 @@ import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
+import BlogPostPage from "./pages/BlogPostPage";
 import Navbar from "./components/layout/navbar";
+import MarketingPageView from "./pages/MarketingPageView";
+import NotFoundPage from "./pages/NotFoundPage";
+import { marketingPages } from "./content/siteContent";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -52,6 +56,10 @@ function AppRoutes() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
+        <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        {marketingPages.map((page) => (
+          <Route key={page.path} path={page.path} element={<MarketingPageView />} />
+        ))}
 
         {/* Protected */}
         <Route
@@ -86,7 +94,7 @@ function AppRoutes() {
         />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );

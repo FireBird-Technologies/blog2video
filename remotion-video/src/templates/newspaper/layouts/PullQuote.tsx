@@ -20,6 +20,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = width / 1920;
   const source = stats?.[0]?.label ?? "";
 
   // --- Continuous Motion Logic (Unchanged) ---
@@ -144,7 +145,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Quote Mark */}
               <div style={{
                 fontFamily: H_FONT,
-                fontSize: p ? 140 : 120, // Huge quote marks for portrait impact
+                fontSize: p ? 140 * scale : 120 * scale,
                 lineHeight: 0.5,
                 color: accentColor,
                 opacity: quoteMarkOp,
@@ -158,7 +159,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Main Quote Text */}
               <div style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 58 : 64), // Adjusted for readability on mobile
+                fontSize: titleFontSize ?? (p ? 58 * scale : 64 * scale),
                 fontWeight: 600,
                 lineHeight: 1.25,
                 color: textColor,
@@ -183,7 +184,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               <div style={{ opacity: attrOp }}>
                 <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 32 : 36), 
+                    fontSize: descriptionFontSize ?? (p ? 32 * scale : 36 * scale),
                     fontWeight: 800, 
                     color: textColor, 
                     marginBottom: 8,
@@ -195,7 +196,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 {source && (
                   <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: p ? 18 : 18, 
+                    fontSize: (p ? 18 : 18) * scale,
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: sourceOp * 0.7 

@@ -5,13 +5,14 @@ All users can create/edit/delete custom templates. Pro required to use them in p
 
 import json
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_current_user
 from app.models.user import User
 from app.models.custom_template import CustomTemplate
+from app.models.project import Project
 from app.services.custom_prompt_builder import build_custom_prompt
 from app.services.template_service import invalidate_custom_template_cache
 
@@ -268,11 +269,29 @@ def update_custom_template(
 @router.delete("/{template_id}")
 def delete_custom_template(
     template_id: int,
+    force: bool = Query(False),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Delete a custom template."""
     tpl = _get_user_template(template_id, user.id, db)
+    project_count = (
+        db.query(Project)
+        .filter(
+            Project.user_id == user.id,
+            Project.template == f"custom_{template_id}",
+        )
+        .count()
+    )
+    if project_count > 0 and not force:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "template_in_use",
+                "project_count": project_count,
+                "message": "This template is used by existing projects. Deleting it will block future renders and re-renders for those projects.",
+            },
+        )
     db.delete(tpl)
     db.commit()
     invalidate_custom_template_cache(f"custom_{template_id}")

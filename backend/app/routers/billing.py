@@ -2,7 +2,7 @@
 Stripe billing router: checkout sessions, customer portal, webhooks.
 Supports both Pro subscription ($50/mo) and per-video purchase ($5).
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -73,6 +73,101 @@ def list_plans(db: Session = Depends(get_db)):
         .all()
     )
     return plans
+
+
+# ─── Helpers ──────────────────────────────────────────────
+
+def _count_active_per_video_credits(user_id: int, db: Session) -> int:
+    """
+    Count per-video Subscription records for a user that are COMPLETED and
+    not yet expired (current_period_end is in the future or not set).
+
+    These are the only credits that should contribute to video_limit_bonus.
+    Free grants given manually (directly setting video_limit_bonus in the DB)
+    are NOT represented here, so they are excluded by this count.
+    """
+    now = datetime.utcnow()
+    per_video_plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+    if not per_video_plan:
+        return 0
+
+    return (
+        db.query(Subscription)
+        .filter(
+            Subscription.user_id == user_id,
+            Subscription.plan_id == per_video_plan.id,
+            Subscription.status == SubscriptionStatus.COMPLETED,
+            # Credit is valid if expiry hasn't been set yet OR hasn't passed
+            (
+                (Subscription.current_period_end == None) |
+                (Subscription.current_period_end > now)
+            ),
+        )
+        .count()
+    )
+
+
+def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
+    """
+    Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
+
+    Free grants are consumed first in the usage hierarchy. When a user upgrades
+    to a paid plan, free grants are stripped from video_limit_bonus, and any
+    videos already used are charged against those grants first — so usage that
+    came from free grants disappears along with the grants themselves.
+
+    Formula
+    -------
+        paid_credits      = count of non-expired per-video Subscription rows
+        free_grants       = old_bonus - paid_credits          (≥ 0)
+        usage_from_grants = min(videos_used_this_period, free_grants)
+        new_videos_used   = max(0, videos_used_this_period - usage_from_grants)
+        new_bonus         = paid_credits
+
+    Example
+    -------
+        video_limit_bonus = 4  (2 free grants + 2 paid credits)
+        videos_used_this_period = 2
+        Subscribes to Standard (30 videos/month).
+
+        free_grants       = 4 - 2 = 2
+        usage_from_grants = min(2, 2) = 2   ← both used videos came from grants
+        new_videos_used   = max(0, 2 - 2) = 0
+        new_bonus         = 2
+
+        Result: 30 (plan) + 2 (paid credits) = 32 total, 0 used.
+
+    Another example
+    ---------------
+        video_limit_bonus = 4  (2 free grants + 2 paid credits)
+        videos_used_this_period = 3   ← 2 from grants, 1 from paid credit
+        Subscribes to Standard (30 videos/month).
+
+        free_grants       = 2
+        usage_from_grants = min(3, 2) = 2
+        new_videos_used   = max(0, 3 - 2) = 1
+        new_bonus         = 2
+
+        Result: 30 + 2 = 32 total, 1 used (the 1 video charged against paid credit).
+    """
+    old_bonus = getattr(user, "video_limit_bonus", 0) or 0
+    videos_used = user.videos_used_this_period or 0
+    paid_credits = _count_active_per_video_credits(user.id, db)
+
+    free_grants = max(0, old_bonus - paid_credits)
+    usage_from_grants = min(videos_used, free_grants)
+    new_videos_used = max(0, videos_used - usage_from_grants)
+
+    user.video_limit_bonus = paid_credits
+    user.videos_used_this_period = new_videos_used
+
+    print(
+        f"[BILLING] Recalculated video_limit_bonus for user {user.id}: "
+        f"old_bonus={old_bonus} (free_grants={free_grants}, paid_credits={paid_credits}), "
+        f"videos_used {videos_used} → {new_videos_used} "
+        f"({usage_from_grants} absorbed by free grants), "
+        f"new video_limit_bonus={paid_credits}"
+    )
 
 
 # ─── Pro / Standard Subscription Checkout ─────────────────
@@ -476,7 +571,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 # ─── Webhook handlers ─────────────────────────────────────
 
 def _handle_checkout_completed(session: dict, db: Session):
-    """Handle successful checkout — either Pro subscription or per-video purchase."""
     customer_id = session.get("customer")
     metadata = session.get("metadata", {})
     checkout_type = metadata.get("type", "pro_subscription")
@@ -487,6 +581,10 @@ def _handle_checkout_completed(session: dict, db: Session):
         project_id = metadata.get("project_id")
         user_id = metadata.get("user_id")
         plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
+
+        # Per-video credits expire 1 month from purchase
+        now = datetime.utcnow()
+        credit_expiry = now + timedelta(days=30)
 
         if project_id:
             # Unlock studio for the specific project
@@ -503,11 +601,14 @@ def _handle_checkout_completed(session: dict, db: Session):
                         project_id=int(project_id),
                         amount_paid_cents=plan.price_cents,
                         videos_used=1,
+                        current_period_start=now,
+                        current_period_end=credit_expiry,
                     )
                     db.add(sub)
 
                 db.commit()
-                print(f"[BILLING] Per-video purchase: unlocked studio for project {project_id}")
+                print(f"[BILLING] Per-video purchase: unlocked studio for project {project_id}, "
+                    f"credit expires {credit_expiry.date()}")
         elif user_id:
             # No project — this is a video credit purchase (from Pricing page)
             user = db.query(User).filter(User.id == int(user_id)).first()
@@ -522,13 +623,19 @@ def _handle_checkout_completed(session: dict, db: Session):
                         stripe_checkout_session_id=session_id,
                         amount_paid_cents=plan.price_cents,
                         videos_used=0,
+                        current_period_start=now,
+                        current_period_end=credit_expiry,
                     )
                     db.add(sub)
 
                 db.commit()
-                print(f"[BILLING] Per-video credit purchased for user {user_id}")
+                print(
+                    f"[BILLING] Per-video credit purchased for user {user_id}, "
+                    f"expires {credit_expiry.date()}, "
+                    f"new video_limit_bonus={user.video_limit_bonus}"
+                )
     else:
-        # Pro or Standard subscription checkout
+        # ── Pro or Standard subscription checkout ───────────────────────────
         subscription_id = session.get("subscription")
         user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
         if user:
@@ -542,6 +649,12 @@ def _handle_checkout_completed(session: dict, db: Session):
             user.stripe_subscription_id = subscription_id
             user.videos_used_this_period = 0
             user.period_start = datetime.utcnow()
+
+            # Strip free grants from video_limit_bonus — only keep paid per-video
+            # credits that haven't expired. Adjust videos_used_this_period to
+            # account for any removed free grants so the user doesn't gain
+            # phantom headroom from credits they didn't pay for.
+            _recalculate_video_limit_bonus(user, db)
 
             plan = db.query(SubscriptionPlan).filter_by(slug=plan_slug).first()
             if plan:
@@ -639,7 +752,10 @@ def _handle_subscription_deleted(subscription_data: dict, db: Session):
 
 
 def _handle_invoice_paid(invoice: dict, db: Session):
-    """Reset usage counter on new billing period."""
+    """Reset usage counter on new billing period.
+    Also recalculates video_limit_bonus so that any per-video credits that
+    have since expired are dropped from the bonus count.
+    """
     customer_id = invoice.get("customer")
     stripe_sub_id = invoice.get("subscription")
 
@@ -647,6 +763,17 @@ def _handle_invoice_paid(invoice: dict, db: Session):
     if user:
         user.videos_used_this_period = 0
         user.period_start = datetime.utcnow()
+
+        # Recount non-expired per-video credits so expired ones fall off naturally.
+        # We do a clean recalc here rather than just stripping — the period reset
+        # means videos_used is already 0, so no delta adjustment is needed.
+        new_bonus = _count_active_per_video_credits(user.id, db)
+        if user.video_limit_bonus != new_bonus:
+            print(
+                f"[BILLING] invoice.paid: recalculated video_limit_bonus for user {user.id}: "
+                f"{user.video_limit_bonus} → {new_bonus} (expired credits dropped)"
+            )
+        user.video_limit_bonus = new_bonus
 
         # Reset usage on the Subscription record too
         if stripe_sub_id:

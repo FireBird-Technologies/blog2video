@@ -8,6 +8,7 @@ R2 key structure:
     {prefix}users/{user_id}/projects/{project_id}/images/{filename}
     {prefix}users/{user_id}/projects/{project_id}/audio/{filename}
     {prefix}users/{user_id}/projects/{project_id}/output/video.mp4
+    {prefix}users/{user_id}/voices/{voice_id}/preview.mp3
 
     Set R2_KEY_PREFIX in .env (e.g. "dev") to namespace local uploads
     away from production data. In production leave it empty.
@@ -102,6 +103,11 @@ def user_prefix(user_id: int) -> str:
     return f"{_prefix()}users/{user_id}/"
 
 
+def voice_preview_key(user_id: int, voice_id: str) -> str:
+    """R2 object key for a custom voice preview (cloned voice TTS clip)."""
+    return f"{_prefix()}users/{user_id}/voices/{voice_id}/preview.mp3"
+
+
 # ─── Public URL ───────────────────────────────────────────────
 
 
@@ -164,6 +170,49 @@ def upload_file(local_path: str, key: str, content_type: Optional[str] = None) -
     return url
 
 
+def upload_bytes(key: str, body: bytes, content_type: Optional[str] = None) -> str:
+    """
+    Upload in-memory bytes to R2.
+
+    Args:
+        key: The R2 object key.
+        body: Raw bytes to upload.
+        content_type: Optional MIME type (default application/octet-stream).
+
+    Returns:
+        The public URL of the uploaded object, or "" if R2 not configured.
+    """
+    if not is_r2_configured():
+        print("[R2] Skipping upload — R2 not configured")
+        return ""
+
+    ct = content_type or "application/octet-stream"
+    extra_args: dict = {"ContentType": ct}
+    if ct.startswith("video/"):
+        extra_args["CacheControl"] = "public, max-age=86400"
+    elif ct.startswith("image/"):
+        extra_args["CacheControl"] = "public, max-age=604800"
+    elif ct.startswith("audio/"):
+        extra_args["CacheControl"] = "public, max-age=604800"
+
+    client = _get_client()
+    client.put_object(
+        Bucket=settings.R2_BUCKET_NAME,
+        Key=key,
+        Body=body,
+        **extra_args,
+    )
+    url = public_url(key)
+    print(f"[R2] Uploaded {key} ({ct})")
+    return url
+
+
+def upload_voice_preview(user_id: int, voice_id: str, audio_bytes: bytes) -> str:
+    """Upload a voice preview (TTS clip) to R2. Returns the public URL or ""."""
+    key = voice_preview_key(user_id, voice_id)
+    return upload_bytes(key, audio_bytes, content_type="audio/mpeg")
+
+
 def upload_project_image(user_id: int, project_id: int, local_path: str, filename: str) -> str:
     """Upload a project image to R2. Returns the public URL."""
     key = image_key(user_id, project_id, filename)
@@ -216,6 +265,12 @@ def generate_presigned_url(key: str, expires_in: int = 3600) -> str:
 
 
 # ─── Delete ───────────────────────────────────────────────────
+
+
+def delete_voice_preview(user_id: int, voice_id: str) -> bool:
+    """Delete the R2 object for a voice preview. Returns True if deleted or already absent."""
+    key = voice_preview_key(user_id, voice_id)
+    return delete_object(key)
 
 
 def delete_object(key: str) -> bool:

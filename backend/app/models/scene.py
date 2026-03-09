@@ -18,6 +18,8 @@ class Scene(Base):
     remotion_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     voiceover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     duration_seconds: Mapped[float] = mapped_column(Float, default=10.0)
+    # Optional hint for template_scene_gen: layout ID or arrangement name suggested by script generator.
+    preferred_layout: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

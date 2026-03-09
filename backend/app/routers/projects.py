@@ -33,8 +33,10 @@ def _inject_custom_theme(project: Project) -> Project:
     if is_custom_template(project.template):
         data = _load_custom_template_data(project.template)
         project.custom_theme = data["theme"] if data else None
+        project.custom_template_missing = data is None
     else:
         project.custom_theme = None
+        project.custom_template_missing = False
     return project
 
 # ─── Constants ────────────────────────────────────────────
@@ -69,6 +71,7 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     """Create a new project from a blog URL. Counts against video limit."""
+    user.sync_video_limit_bonus(db)
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -774,14 +777,21 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        layout_props = descriptor.get("layoutProps", {}) or {}
-
-        if data.title_font_size is not None:
-            layout_props["titleFontSize"] = data.title_font_size
-        if data.description_font_size is not None:
-            layout_props["descriptionFontSize"] = data.description_font_size
-
-        descriptor["layoutProps"] = layout_props
+        # Custom templates use layoutConfig; built-in templates use layoutProps
+        if "layoutConfig" in descriptor:
+            layout_config = descriptor.get("layoutConfig", {}) or {}
+            if data.title_font_size is not None:
+                layout_config["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_config["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutConfig"] = layout_config
+        else:
+            layout_props = descriptor.get("layoutProps", {}) or {}
+            if data.title_font_size is not None:
+                layout_props["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_props["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutProps"] = layout_props
         track_scene_edit(
                         db,
                         project_id=project.id,

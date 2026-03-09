@@ -868,6 +868,7 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
 
     npx = shutil.which("npx") or "npx"
     cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
+    print(f"[RENDER] project={project.id} template={project.template} resolution={resolution} aspect_ratio={aspect_ratio}")
 
     _render_progress[project.id] = {
         "progress": 0,
