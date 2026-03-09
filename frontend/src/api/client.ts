@@ -119,6 +119,7 @@ export interface Project {
   video_style?: VideoStyleId;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  custom_template_missing?: boolean;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -720,8 +721,8 @@ export const updateCustomTemplate = (
   data: { name?: string; theme?: CustomTemplateTheme; supported_video_style?: VideoStyleId }
 ) => api.put<CustomTemplateItem>(`/custom-templates/${id}`, data);
 
-export const deleteCustomTemplate = (id: number) =>
-  api.delete(`/custom-templates/${id}`);
+export const deleteCustomTemplate = (id: number, force = false) =>
+  api.delete(`/custom-templates/${id}${force ? "?force=true" : ""}`);
 
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });

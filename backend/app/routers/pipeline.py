@@ -38,7 +38,7 @@ from app.services import r2_storage
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id, get_layout_prompt
+from app.services.template_service import validate_template_id, get_layout_prompt, is_custom_template, _load_custom_template_data
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -516,6 +516,12 @@ async def render_video_endpoint(
             "progress": 100,
             "r2_video_url": project.r2_video_url,
         }
+
+    if is_custom_template(project.template) and _load_custom_template_data(project.template) is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+        )
 
     # Re-render: deduct a video count (same as creating a new video)
     if force_render:

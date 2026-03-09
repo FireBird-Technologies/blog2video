@@ -33,8 +33,10 @@ def _inject_custom_theme(project: Project) -> Project:
     if is_custom_template(project.template):
         data = _load_custom_template_data(project.template)
         project.custom_theme = data["theme"] if data else None
+        project.custom_template_missing = data is None
     else:
         project.custom_theme = None
+        project.custom_template_missing = False
     return project
 
 # ─── Constants ────────────────────────────────────────────
