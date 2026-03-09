@@ -19,6 +19,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
   title,
   imageUrl,
   accentColor,
+  bgColor,
   textColor,
   metrics = [],
   aspectRatio,
@@ -97,7 +98,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground />
+      <DarkBackground bgColor={bgColor} />
       
       <div
         style={{
