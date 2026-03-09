@@ -594,11 +594,10 @@ export const launchStudio = (id: number) =>
 
 export const renderVideo = (
   id: number,
-  resolution: string = "1080p",
   forceReRender = false
 ) =>
   api.post(
-    `/projects/${id}/render?resolution=${resolution}&force_render=${forceReRender}`
+    `/projects/${id}/render?force_render=${forceReRender}`
   );
 
 export interface RenderStatus {
