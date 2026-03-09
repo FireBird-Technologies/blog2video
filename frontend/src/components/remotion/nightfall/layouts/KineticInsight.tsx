@@ -19,6 +19,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
   narration,
   highlightWord,
   accentColor,
+  bgColor,
   textColor,
   aspectRatio,
   titleFontSize,
@@ -51,7 +52,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground drift={false} />
+      <DarkBackground drift={false} bgColor={bgColor} />
 
       {/* Animated background accents */}
       <div

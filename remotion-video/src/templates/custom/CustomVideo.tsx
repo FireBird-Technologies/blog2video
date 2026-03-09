@@ -190,7 +190,15 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   const theme: CustomTheme = data.theme
-    ? data.theme
+    ? {
+        ...data.theme,
+        colors: {
+          ...data.theme.colors,
+          accent: data.accentColor || data.theme.colors.accent,
+          bg: data.bgColor || data.theme.colors.bg,
+          text: data.textColor || data.theme.colors.text,
+        },
+      }
     : {
         ...FALLBACK_THEME,
         colors: {

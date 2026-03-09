@@ -7,10 +7,13 @@ from app.models.subscription import SubscriptionPlan, Subscription
 from app.models.custom_template import CustomTemplate
 from app.models.Project_edit_history import ProjectEditHistory
 from app.models.scene_edit_history import SceneEditHistory
+from app.models.saved_voice import SavedVoice
+from app.models.custom_voice import CustomVoice
+from app.models.prebuilt_voice import PrebuiltVoice
 
 __all__ = [
     
     "User", "Project", "Scene", "Asset", "ChatMessage",
-    "SubscriptionPlan", "Subscription", "CustomTemplate",
+    "SubscriptionPlan", "Subscription", "CustomTemplate", "SavedVoice", "CustomVoice", "PrebuiltVoice",
     "ProjectEditHistory", "SceneEditHistory"
 ]

@@ -18,6 +18,7 @@ import type { NightfallLayoutProps } from "../types";
 export const SplitGlass: React.FC<NightfallLayoutProps> = ({
   title,
   accentColor,
+  bgColor,
   textColor,
   leftLabel = "Before",
   rightLabel = "After",
@@ -82,7 +83,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground />
+      <DarkBackground bgColor={bgColor} />
       
       <div
         style={{

@@ -134,6 +134,7 @@ def _migrate_sqlite(eng) -> None:
             "remotion_code": "TEXT",
             "voiceover_path": "VARCHAR(512)",
             "duration_seconds": "REAL DEFAULT 10.0",
+            "preferred_layout": "VARCHAR(64)",
         }
         with eng.begin() as conn:
             for col_name, col_def in scene_migrations.items():
@@ -260,6 +261,65 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE project_edit_history ADD COLUMN {col_name} {col_def}")
                     )
 
+    # ─── Prebuilt voices table ──────────────────────────────────────
+    if "prebuilt_voices" in insp.get_table_names():
+        pb_cols = {c["name"] for c in insp.get_columns("prebuilt_voices")}
+        pb_migrations = {
+            "preview_url": "VARCHAR(2048)",
+            "labels": "TEXT DEFAULT '{}'",
+            "description": "TEXT",
+            "plan": "VARCHAR(20) DEFAULT 'paid'",
+            "created_at": "DATETIME",
+            "updated_at": "DATETIME",
+        }
+        with eng.begin() as conn:
+            for col_name, col_def in pb_migrations.items():
+                if col_name not in pb_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE prebuilt_voices ADD COLUMN {col_name} {col_def}")
+                    )
+
+    # ─── Custom voices table ────────────────────────────────────────
+    if "custom_voices" in insp.get_table_names():
+        cv_cols = {c["name"] for c in insp.get_columns("custom_voices")}
+        cv_migrations = {
+            "prompt_text": "TEXT",
+            "response_json": "TEXT",
+            "form_gender": "VARCHAR(50)",
+            "form_age": "VARCHAR(50)",
+            "form_persona": "VARCHAR(100)",
+            "form_speed": "VARCHAR(50)",
+            "form_accent": "VARCHAR(100)",
+            "preview_url": "VARCHAR(2048)",
+            "created_at": "DATETIME",
+        }
+        with eng.begin() as conn:
+            for col_name, col_def in cv_migrations.items():
+                if col_name not in cv_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE custom_voices ADD COLUMN {col_name} {col_def}")
+                    )
+
+    # ─── Saved voices table ─────────────────────────────────────────
+    if "saved_voices" in insp.get_table_names():
+        sv_cols = {c["name"] for c in insp.get_columns("saved_voices")}
+        sv_migrations = {
+            "preview_url": "VARCHAR(2048)",
+            "source": "VARCHAR(20) DEFAULT 'custom'",
+            "plan": "VARCHAR(20)",
+            "gender": "VARCHAR(20)",
+            "accent": "VARCHAR(50)",
+            "description": "TEXT",
+            "created_at": "DATETIME",
+            "custom_voice_id": "INTEGER",
+        }
+        with eng.begin() as conn:
+            for col_name, col_def in sv_migrations.items():
+                if col_name not in sv_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE saved_voices ADD COLUMN {col_name} {col_def}")
+                    )
+
 
 def init_db():
     """
@@ -273,13 +333,16 @@ def init_db():
         ChatMessage,
         CustomTemplate,
         Project,
+        CustomVoice,
+        SavedVoice,
         Scene,
         Subscription,
         SubscriptionPlan,
         User,
         ProjectEditHistory,
         SceneEditHistory,
-
+        # Ensure SQLite creates the prebuilt_voices table in dev/local.
+        PrebuiltVoice,
     )
     from app.models.subscription import seed_plans
 
