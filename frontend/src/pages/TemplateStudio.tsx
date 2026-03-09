@@ -97,6 +97,7 @@ const IconDroplet = ({ size }: { size?: number } = {}) => <Svg d="M12 2.69l5.66 
 const IconReset   = ({ size }: { size?: number } = {}) => <Svg d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" size={size} />;
 const IconSliders = ({ size }: { size?: number } = {}) => <Svg d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" size={size} />;
 const IconWand    = ({ size }: { size?: number } = {}) => <Svg d="M15 4V2M15 6v2M21 10h-2M7 10H5M18.3 6.7l-1.4-1.4M11.1 13.9l-7 7 1.4 1.4 7-7M11.7 6.7l1.4-1.4M18.9 13.9l1.4 1.4" size={size} />;
+const IconImage   = ({ size }: { size?: number } = {}) => <Svg d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14l3.5-3.5 3 3 4-4 3.5 3.5z" size={size} />;
 const IconClock   = ({ size }: { size?: number } = {}) => <Svg d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zM12 6v6l4 2" size={size} />;
 const IconSave    = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -306,6 +307,83 @@ function Collapsible({ label, defaultOpen = false, children }: { label: string; 
         <div style={{ padding: "12px", borderTop: `1px solid ${T.border}`, background: T.surface }}>
           {children}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Image attach row (for AI layout editing) ──────────────────────────────────
+function ImageAttachRow({
+  image,
+  onImageChange,
+  label = "Reference image",
+}: {
+  image: { base64: string; mimeType: string } | null;
+  onImageChange: (img: { base64: string; mimeType: string } | null) => void;
+  label?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = reader.result as string;
+      const [prefix, b64] = data.split(",");
+      const mime = prefix?.match(/data:(.+);base64/)?.[1] || "image/jpeg";
+      if (b64) onImageChange({ base64: b64, mimeType: mime });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <FieldLabel>{label}</FieldLabel>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        onChange={handleFile}
+        style={{ display: "none" }}
+      />
+      {image ? (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px", background: T.surfaceAlt, borderRadius: "8px",
+          border: `1px solid ${T.border}`,
+        }}>
+          <img
+            src={`data:${image.mimeType};base64,${image.base64}`}
+            alt="Reference"
+            style={{ width: 48, height: 48, objectFit: "cover", borderRadius: "6px" }}
+          />
+          <span style={{ fontSize: "11px", color: T.textSub, fontFamily: FONT, flex: 1 }}>Attached</span>
+          <button
+            type="button"
+            onClick={() => onImageChange(null)}
+            style={{
+              padding: "4px 8px", fontSize: "11px", fontFamily: FONT,
+              background: "transparent", border: `1px solid ${T.border}`,
+              borderRadius: "6px", color: T.textSub, cursor: "pointer",
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          style={{
+            display: "flex", alignItems: "center", gap: "6px",
+            padding: "8px 12px", fontSize: "11px", fontFamily: FONT,
+            background: T.surfaceAlt, border: `1px dashed ${T.border}`,
+            borderRadius: "8px", color: T.textSub, cursor: "pointer",
+          }}
+        >
+          <IconImage size={14} />
+          Attach image (optional)
+        </button>
       )}
     </div>
   );
@@ -700,6 +778,7 @@ export default function TemplateStudio() {
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
   const [aiInstruction, setAiInstruction]     = useState("");
+  const [aiLayoutImage, setAiLayoutImage]     = useState<{ base64: string; mimeType: string } | null>(null);
   const [aiLoading, setAiLoading]             = useState(false);
   const [aiApplying, setAiApplying]           = useState(false);
   const [aiDiscarding, setAiDiscarding]       = useState(false);
@@ -723,6 +802,7 @@ export default function TemplateStudio() {
   const [newLayoutId, setNewLayoutId]     = useState("");
   const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
   const [newLayoutDesc, setNewLayoutDesc] = useState("");
+  const [newLayoutImage, setNewLayoutImage] = useState<{ base64: string; mimeType: string } | null>(null);
   const [newLayoutProps, setNewLayoutProps] = useState<PropDef[]>([]);
   const [newLayoutLoading, setNewLayoutLoading] = useState(false);
   const [newLayoutError, setNewLayoutError]     = useState("");
@@ -898,7 +978,10 @@ export default function TemplateStudio() {
     try {
       setAiLoading(true); setAiError(""); setAiStatus("");
       const result = await startTemplateAiPreview({
-        template_id: selectedTemplateId, layout_id: selectedLayout, instruction: aiInstruction.trim(),
+        template_id: selectedTemplateId,
+        layout_id: selectedLayout,
+        instruction: aiInstruction.trim(),
+        ...(aiLayoutImage ? { image_base64: aiLayoutImage.base64, image_mime_type: aiLayoutImage.mimeType } : {}),
       });
       const data = result.data as StartTemplateAiPreviewResponse;
       setAiPreviewSessionId(data.session_id);
@@ -983,6 +1066,7 @@ export default function TemplateStudio() {
         layout_id: selectedLayout,
         instruction: aiInstruction.trim(),
         extra_props: rebuildProps,
+        ...(aiLayoutImage ? { image_base64: aiLayoutImage.base64, image_mime_type: aiLayoutImage.mimeType } : {}),
       });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
@@ -1014,6 +1098,7 @@ export default function TemplateStudio() {
         new_layout_id: newLayoutId.trim(),
         layout_description: newLayoutDesc.trim(),
         props: newLayoutProps,
+        ...(newLayoutImage ? { image_base64: newLayoutImage.base64, image_mime_type: newLayoutImage.mimeType } : {}),
       });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
@@ -1025,7 +1110,7 @@ export default function TemplateStudio() {
       setTemplates(refreshed.data);
       setSelectedLayout(data.new_layout_id);
       setRightTab("edit");
-      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutProps([]);
+      setNewLayoutId(""); setNewLayoutDesc(""); setNewLayoutImage(null); setNewLayoutProps([]);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -1529,6 +1614,12 @@ export default function TemplateStudio() {
                     />
                   </div>
 
+                  <ImageAttachRow
+                    image={aiLayoutImage}
+                    onImageChange={setAiLayoutImage}
+                    label="Reference image (optional)"
+                  />
+
                   {/* Rebuild: extra props editor */}
                   {aiMode === "rebuild" && (
                     <div>
@@ -1699,6 +1790,12 @@ export default function TemplateStudio() {
                       style={{ ...inputBase, resize: "vertical" as const, lineHeight: "1.6", background: T.surfaceAlt }}
                     />
                   </div>
+
+                  <ImageAttachRow
+                    image={newLayoutImage}
+                    onImageChange={setNewLayoutImage}
+                    label="Reference image (optional)"
+                  />
 
                   <div>
                     <FieldLabel>Props</FieldLabel>

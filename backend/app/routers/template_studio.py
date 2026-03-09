@@ -1,3 +1,4 @@
+import base64
 import re
 import shutil
 import subprocess
@@ -32,6 +33,8 @@ class AiEditProposeRequest(BaseModel):
     template_id: str
     layout_id: str
     instruction: str = Field(min_length=5, max_length=6000)
+    image_base64: str | None = None
+    image_mime_type: str | None = None
 
 
 class AiEditApplyRequest(BaseModel):
@@ -74,6 +77,8 @@ class AiLayoutRebuildRequest(BaseModel):
     layout_id: str
     instruction: str = Field(min_length=5, max_length=6000)
     extra_props: list[PropDef] = Field(default_factory=list, max_length=20)
+    image_base64: str | None = None
+    image_mime_type: str | None = None
 
 
 class AiLayoutCreateRequest(BaseModel):
@@ -82,6 +87,8 @@ class AiLayoutCreateRequest(BaseModel):
     new_layout_id: str = Field(min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
     layout_description: str = Field(min_length=10, max_length=2000)
     props: list[PropDef] = Field(default_factory=list, max_length=30)
+    image_base64: str | None = None
+    image_mime_type: str | None = None
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -289,12 +296,21 @@ def _extract_code_from_model_output(text: str) -> str:
     return content
 
 
-def _call_gemini_code_edit(instruction: str, current_code: str, template_id: str, layout_id: str) -> str:
+def _call_gemini_code_edit(
+    instruction: str,
+    current_code: str,
+    template_id: str,
+    layout_id: str,
+    *,
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
     api_key = (settings.GEMINI_API_KEY or "").strip()
     if not api_key:
         raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
     try:
         from google import genai
+        from google.genai import types
     except Exception as e:  # pragma: no cover
         raise HTTPException(
             status_code=500,
@@ -304,6 +320,10 @@ def _call_gemini_code_edit(instruction: str, current_code: str, template_id: str
     model_name = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
     client = genai.Client(api_key=api_key)
 
+    image_note = (
+        "\n\nThe user attached a reference image above — use it to guide the layout design."
+        if (image_base64 and image_mime_type) else ""
+    )
     prompt = (
         "You are editing a React TSX component file used in a video template system.\n"
         "Return ONLY the full updated file contents for this single component.\n"
@@ -311,13 +331,27 @@ def _call_gemini_code_edit(instruction: str, current_code: str, template_id: str
         f"Template ID: {template_id}\n"
         f"Layout ID: {layout_id}\n\n"
         "User instruction:\n"
-        f"{instruction}\n\n"
+        f"{instruction}{image_note}\n\n"
         "Current file content:\n"
         f"{current_code}"
     )
+
+    if image_base64 and image_mime_type:
+        try:
+            image_bytes = base64.b64decode(image_base64)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image_base64.")
+        mime = (image_mime_type or "image/jpeg").strip().lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+            mime = "image/jpeg"
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime)
+        contents = [image_part, prompt]
+    else:
+        contents = prompt
+
     response = client.models.generate_content(
         model=model_name,
-        contents=prompt,
+        contents=contents,
     )
     text = getattr(response, "text", "") or ""
     code = _extract_code_from_model_output(text)
@@ -526,6 +560,13 @@ def _cleanup_session(session: dict, restore_original: bool) -> None:
                 Path(meta_path_str).write_text(meta_orig.read_text(encoding="utf-8"), encoding="utf-8")
             if prompt_path_str and prompt_orig.exists():
                 Path(prompt_path_str).write_text(prompt_orig.read_text(encoding="utf-8"), encoding="utf-8")
+            # Restore layout_prompt.md if we saved it (create/rebuild)
+            layout_prompt_orig = vd / "layout_prompt_original.md"
+            if layout_prompt_orig.exists():
+                template_id = session.get("template_id")
+                if template_id:
+                    layout_prompt_path = _TEMPLATES_META_DIR / template_id / "layout_prompt.md"
+                    layout_prompt_path.write_text(layout_prompt_orig.read_text(encoding="utf-8"), encoding="utf-8")
             # Restore registry files for create sessions
             for key in ("index_frontend_path", "index_remotion_path", "types_frontend_path", "types_remotion_path", "config_path"):
                 orig_path = vd / f"{key}_original"
@@ -673,6 +714,8 @@ def propose_ai_edit(payload: AiEditProposeRequest, _: User = Depends(get_current
         current_code=original_code,
         template_id=template_id,
         layout_id=layout_id,
+        image_base64=payload.image_base64,
+        image_mime_type=payload.image_mime_type,
     )
     return {
         "ok": True,
@@ -740,6 +783,8 @@ def preview_ai_edit(payload: AiEditProposeRequest, user: User = Depends(get_curr
         current_code=current_code,
         template_id=template_id,
         layout_id=layout_id,
+        image_base64=payload.image_base64,
+        image_mime_type=payload.image_mime_type,
     )
 
     if session is None:
@@ -982,6 +1027,40 @@ def _load_prompt_md(template_id: str) -> tuple[str, Path]:
     if not prompt_path.exists():
         raise HTTPException(status_code=404, detail=f"prompt.md not found for template '{template_id}'.")
     return prompt_path.read_text(encoding="utf-8"), prompt_path
+
+
+def _load_layout_prompt_md(template_id: str) -> tuple[str | None, Path]:
+    """Load layout_prompt.md if it exists. Returns (content, path); content is None if missing."""
+    layout_prompt_path = _TEMPLATES_META_DIR / template_id / "layout_prompt.md"
+    if not layout_prompt_path.exists():
+        return None, layout_prompt_path
+    return layout_prompt_path.read_text(encoding="utf-8"), layout_prompt_path
+
+
+def _add_or_update_layout_in_layout_prompt(content: str, layout_id: str, description: str) -> str:
+    """
+    Add or update a layout entry in layout_prompt.md content.
+    Format: - `layout_id`  
+      - **Best for**: description
+    """
+    desc_one_line = description.strip().split("\n")[0].strip()
+    entry_block = f"- `{layout_id}`  \n  - **Best for**: {desc_one_line}\n"
+    # Match existing entry: - `layout_id`  followed by indented lines until next - ` or section
+    pattern = re.compile(
+        rf"^(- `{re.escape(layout_id)}`\s*\n(?:  - .*\n)*)",
+        re.MULTILINE,
+    )
+    m = pattern.search(content)
+    if m:
+        return content[: m.start(1)] + entry_block + content[m.end(1) :]
+    # Insert before "Variety rules" or similar top-level section (line starting with word:)
+    insert_pattern = re.compile(r"\n\n(Variety rules|Global variety|Usage rules)[:\s]", re.MULTILINE | re.IGNORECASE)
+    insert_m = insert_pattern.search(content)
+    if insert_m:
+        insert_pos = insert_m.start()
+        return content[:insert_pos] + "\n" + entry_block + "\n" + content[insert_pos:]
+    # Fallback: append before trailing newlines
+    return content.rstrip() + "\n\n" + entry_block + "\n"
 
 
 def _extract_prompt_layout_section(prompt_text: str, layout_id: str) -> str:
@@ -1347,6 +1426,8 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
         current_code=current_tsx,
         template_id=template_id,
         layout_id=layout_id,
+        image_base64=payload.image_base64,
+        image_mime_type=payload.image_mime_type,
     )
 
     content = new_tsx.rstrip() + "\n"
@@ -1380,6 +1461,9 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
             encoding="utf-8",
         )
         (version_dir / "prompt_original.md").write_text(prompt_text, encoding="utf-8")
+        layout_prompt_content, layout_prompt_path = _load_layout_prompt_md(template_id)
+        if layout_prompt_content is not None:
+            (version_dir / "layout_prompt_original.md").write_text(layout_prompt_content, encoding="utf-8")
     # Use v1 for first rebuild; append for subsequent rebuilds (ignore code-only versions)
     if session is None or not session.get("meta_path"):
         first_version_id = "v1"
@@ -1402,6 +1486,19 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
     _write_meta_json(meta, meta_path)
     prompt_path.write_text(updated_prompt, encoding="utf-8")
 
+    # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
+    layout_prompt_content, layout_prompt_path = _load_layout_prompt_md(template_id)
+    if layout_prompt_content is not None:
+        rebuild_description = (
+            existing_section.split("\n")[1].replace("**Visual:**", "").strip()
+            if existing_section
+            else payload.instruction
+        )
+        updated_layout_prompt = _add_or_update_layout_in_layout_prompt(
+            layout_prompt_content, layout_id, rebuild_description
+        )
+        layout_prompt_path.write_text(updated_layout_prompt, encoding="utf-8")
+
     session_id = session["session_id"] if session else f"ai-{uuid.uuid4().hex}"
     active = first_version_id
 
@@ -1423,6 +1520,15 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
     _sync_versions_meta(new_session)
     _save_session(new_session)
 
+    updated_files_list = [
+        frontend_target.relative_to(_ROOT).as_posix(),
+        remotion_target.relative_to(_ROOT).as_posix(),
+        meta_path.relative_to(_ROOT).as_posix(),
+        prompt_path.relative_to(_ROOT).as_posix(),
+    ]
+    if layout_prompt_content is not None:
+        updated_files_list.append(layout_prompt_path.relative_to(_ROOT).as_posix())
+
     return {
         "ok": True,
         "session_id": session_id,
@@ -1430,12 +1536,7 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
         "layout_id": layout_id,
         "versions": versions,
         "active_version_id": active,
-        "updated_files": [
-            frontend_target.relative_to(_ROOT).as_posix(),
-            remotion_target.relative_to(_ROOT).as_posix(),
-            meta_path.relative_to(_ROOT).as_posix(),
-            prompt_path.relative_to(_ROOT).as_posix(),
-        ],
+        "updated_files": updated_files_list,
         "schema": new_schema,
     }
 
@@ -1476,6 +1577,9 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     version_dir.mkdir(parents=True, exist_ok=True)
     (version_dir / "meta_original.json").write_text(meta_path.read_text(encoding="utf-8"), encoding="utf-8")
     (version_dir / "prompt_original.md").write_text(prompt_text, encoding="utf-8")
+    layout_prompt_content, layout_prompt_path = _load_layout_prompt_md(template_id)
+    if layout_prompt_content is not None:
+        (version_dir / "layout_prompt_original.md").write_text(layout_prompt_content, encoding="utf-8")
     if frontend_index.exists():
         (version_dir / "index_frontend_path_original").write_text(frontend_index.read_text(encoding="utf-8"), encoding="utf-8")
     if remotion_index.exists():
@@ -1506,6 +1610,8 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         current_code=base_tsx,
         template_id=template_id,
         layout_id=new_layout_id,
+        image_base64=payload.image_base64,
+        image_mime_type=payload.image_mime_type,
     )
 
     pascal_name = _snake_to_pascal(new_layout_id)
@@ -1558,6 +1664,13 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
     prompt_path.write_text(prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n", encoding="utf-8")
 
+    # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
+    if layout_prompt_content is not None:
+        updated_layout_prompt = _add_or_update_layout_in_layout_prompt(
+            layout_prompt_content, new_layout_id, payload.layout_description
+        )
+        layout_prompt_path.write_text(updated_layout_prompt, encoding="utf-8")
+
     session_id = f"ai-{uuid.uuid4().hex}"
     created_files = [str(frontend_file), str(remotion_file)]
     session = {
@@ -1584,6 +1697,15 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     _sync_versions_meta(session)
     _save_session(session)
 
+    created_files_list = [
+        frontend_file.relative_to(_ROOT).as_posix(),
+        remotion_file.relative_to(_ROOT).as_posix(),
+        meta_path.relative_to(_ROOT).as_posix(),
+        prompt_path.relative_to(_ROOT).as_posix(),
+    ]
+    if layout_prompt_content is not None:
+        created_files_list.append(layout_prompt_path.relative_to(_ROOT).as_posix())
+
     return {
         "ok": True,
         "session_id": session_id,
@@ -1591,11 +1713,6 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         "new_layout_id": new_layout_id,
         "versions": ["v1"],
         "active_version_id": "v1",
-        "created_files": [
-            frontend_file.relative_to(_ROOT).as_posix(),
-            remotion_file.relative_to(_ROOT).as_posix(),
-            meta_path.relative_to(_ROOT).as_posix(),
-            prompt_path.relative_to(_ROOT).as_posix(),
-        ],
+        "created_files": created_files_list,
         "schema": new_schema,
     }

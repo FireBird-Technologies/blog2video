@@ -377,6 +377,8 @@ export interface ProposeTemplateAiEditRequest {
   template_id: string;
   layout_id: string;
   instruction: string;
+  image_base64?: string | null;
+  image_mime_type?: string | null;
 }
 
 export interface StartTemplateAiPreviewResponse {
@@ -469,6 +471,8 @@ export interface RebuildLayoutRequest {
   layout_id: string;
   instruction: string;
   extra_props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
 }
 
 export interface RebuildLayoutResponse {
@@ -491,6 +495,8 @@ export interface CreateLayoutRequest {
   new_layout_id: string;
   layout_description: string;
   props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
 }
 
 export interface CreateLayoutResponse {
