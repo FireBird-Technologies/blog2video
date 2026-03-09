@@ -761,8 +761,6 @@ export default function ProjectView() {
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
 
-  // Resolution is always 1080p
-  const RENDER_RESOLUTION = "1080p";
 
   const handleRender = async (
     forceReRender = false,
@@ -785,7 +783,6 @@ export default function ProjectView() {
       return;
     }
 
-    const res = RENDER_RESOLUTION;
     // Reset render state so auto-download triggers when we flip rendered -> true again
     setRendered(false);
     autoDownloadRef.current = false;
@@ -797,10 +794,10 @@ export default function ProjectView() {
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
 
-    const startRenderAndPoll = async (res: string) => {
+    const startRenderAndPoll = async () => {
       try {
         console.log("rendering started")
-        await renderVideo(projectId, res, forceReRender);
+        await renderVideo(projectId, forceReRender);
         onRenderStarted?.();
       } catch (err: any) {
         onRenderStarted?.();
@@ -857,7 +854,7 @@ export default function ProjectView() {
               // Keep the current progress visible — user shouldn't see a reset
               // Small delay before retrying
               await new Promise((r) => setTimeout(r, 3000));
-              startRenderAndPoll(res);
+              startRenderAndPoll();
             } else {
               showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
               setRendering(false);
@@ -917,7 +914,7 @@ export default function ProjectView() {
       }, 10_000); // Poll every 10 seconds
     };
 
-    startRenderAndPoll(res);
+    startRenderAndPoll();
   };
 
   const handleDownload = async () => {
