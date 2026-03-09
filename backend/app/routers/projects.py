@@ -777,14 +777,21 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        layout_props = descriptor.get("layoutProps", {}) or {}
-
-        if data.title_font_size is not None:
-            layout_props["titleFontSize"] = data.title_font_size
-        if data.description_font_size is not None:
-            layout_props["descriptionFontSize"] = data.description_font_size
-
-        descriptor["layoutProps"] = layout_props
+        # Custom templates use layoutConfig; built-in templates use layoutProps
+        if "layoutConfig" in descriptor:
+            layout_config = descriptor.get("layoutConfig", {}) or {}
+            if data.title_font_size is not None:
+                layout_config["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_config["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutConfig"] = layout_config
+        else:
+            layout_props = descriptor.get("layoutProps", {}) or {}
+            if data.title_font_size is not None:
+                layout_props["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_props["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutProps"] = layout_props
         track_scene_edit(
                         db,
                         project_id=project.id,
