@@ -1,5 +1,6 @@
 import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -294,7 +295,66 @@ def _call_gemini_code_edit(instruction: str, current_code: str, template_id: str
         raise HTTPException(status_code=502, detail="Gemini returned empty code output.")
     if "export" not in code:
         raise HTTPException(status_code=502, detail="Gemini output does not look like a component file.")
+    _validate_tsx_or_raise(code, template_id, layout_id)
     return code
+
+
+def _validate_tsx_or_raise(code: str, template_id: str, layout_id: str) -> None:
+    """
+    Run a lightweight TypeScript/TSX syntax check on generated code.
+    If tsc is not available, validation is skipped.
+    """
+    tmp_dir = _AI_TMP_DIR / "validate"
+    try:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+
+    safe_template = (template_id or "").strip().lower().replace("/", "_")
+    safe_layout = (layout_id or "").strip().lower().replace("/", "_")
+    tmp_path = tmp_dir / f"{safe_template}__{safe_layout}__preview.tsx"
+    try:
+        try:
+            tmp_path.write_text(code, encoding="utf-8")
+        except Exception:
+            return
+
+        # Use --noResolve so we only validate syntax/TSX shape and local types,
+        # and do not fail just because imports can't be resolved from this temp path.
+        cmd = ["npx", "tsc", "--noEmit", "--jsx", "react-jsx", "--noResolve", str(tmp_path)]
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=40,
+            )
+        except Exception:
+            # If tsc or node is not available, don't block the flow.
+            return
+
+        if result.returncode != 0:
+            # Don't persist or activate this version if TypeScript reports errors.
+            msg = (result.stderr or result.stdout or "").strip()
+            # Truncate very long outputs.
+            if len(msg) > 4000:
+                msg = msg[:4000] + "\n... (truncated)"
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini produced invalid TSX code; TypeScript reported errors:\n{msg}",
+            )
+    finally:
+        # Best-effort cleanup of the temporary validation file and directory.
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            # Remove validate dir if empty.
+            if tmp_dir.exists() and not any(tmp_dir.iterdir()):
+                tmp_dir.rmdir()
+        except Exception:
+            # Non-fatal; leave artifacts if filesystem permissions block cleanup.
+            pass
 
 
 def _get_session(session_id: str) -> dict | None:
