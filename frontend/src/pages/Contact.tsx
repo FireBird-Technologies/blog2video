@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { sendEnterpriseContact } from "../api/client";
-import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/solid";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
+import Seo from "../components/seo/Seo";
+import { contactSchema } from "../seo/schema";
 
 
 export default function Contact() {
-  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -50,29 +52,13 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      {/* Nav — match Pricing page for logged-out visitors */}
-      {!user && (
-        <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                B2V
-              </div>
-              <span className="text-xl font-semibold text-gray-900">
-                Blog2Video
-              </span>
-            </a>
-            <div className="flex items-center gap-6">
-              <a
-                href="/"
-                className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
-              >
-                Home
-              </a>
-            </div>
-          </div>
-        </nav>
-      )}
+      <Seo
+        title="Contact"
+        description="Talk to Blog2Video about support, enterprise use cases, custom deployments, and team workflows."
+        path="/contact"
+        schema={contactSchema()}
+      />
+      <PublicHeader />
 
       <div className="max-w-4xl mx-auto px-6 py-16">
         <header className="mb-10">
@@ -274,6 +260,8 @@ export default function Contact() {
         </div>,
         document.body
       )}
+
+      <PublicFooter />
     </div>
   );
 }

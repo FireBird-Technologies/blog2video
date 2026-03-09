@@ -637,6 +637,7 @@ class TemplateSceneGenerator:
                     visual_description=scenes_data[i]["visual_description"],
                     scene_index=i,
                     total_scenes=total,
+                    preferred_layout=scenes_data[i].get("preferred_layout"),
                 )
                 for i in batch_indices
             ]

@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -33,7 +33,9 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   stats,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   const startCount = parseInt(stats?.[0]?.value ?? "5", 10) || 5;
   const clampedStart = Math.min(Math.max(startCount, 2), 9);
@@ -117,7 +119,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 48 : 60),
+              fontSize: titleFontSize ?? (p ? 48 * scale : 60 * scale),
               lineHeight: 1.1,
               textAlign: "center",
               filter: "url(#ink)",
@@ -130,7 +132,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
         {/* Timer ring + number */}
         <svg
           viewBox={`0 0 ${ringCX * 2} ${ringCY * 2}`}
-          style={{ width: p ? "60%" : "38%", maxWidth: p ? 320 : 440, height: "auto", overflow: "visible" }}
+          style={{ width: p ? "60%" : "38%", maxWidth: p ? 320 * scale : 440 * scale, height: "auto", overflow: "visible" }}
           fill="none"
         >
           {/* Track ring (background) */}
@@ -217,7 +219,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             textAnchor="middle"
             dominantBaseline="middle"
             fill={urgencyRed}
-            fontSize={currentCount > 0 ? (p ? 90 : 116) : (p ? 58 : 74)}
+            fontSize={(currentCount > 0 ? (p ? 90 : 116) : (p ? 58 : 74)) * scale}
             fontWeight={800}
             fontFamily="'Comic Sans MS', 'Segoe Print', cursive"
             filter="url(#ink)"
@@ -232,7 +234,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             y={ringCY + (p ? 58 : 72)}
             textAnchor="middle"
             fill={textColor}
-            fontSize={p ? 18 : 22}
+            fontSize={(p ? 18 : 22) * scale}
             fontFamily="'Comic Sans MS', cursive"
             fillOpacity={0.55}
           >
@@ -264,7 +266,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 26 : 32),
+              fontSize: descriptionFontSize ?? (p ? 26 * scale : 32 * scale),
               fontWeight: 600,
               textAlign: "center",
               opacity: 0.85,

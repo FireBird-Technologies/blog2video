@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
+import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
-import TemplateShowcaseSection from "../components/TemplateShowcaseSection";
+import FullTemplateShowcase from "../components/FullTemplateShowcase";
+import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
+import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import LandingResourceSection from "../components/public/LandingResourceSection";
+import PublicFooter from "../components/public/PublicFooter";
+import Seo from "../components/seo/Seo";
+import { homepageSchema } from "../seo/schema";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -108,6 +114,12 @@ export default function Landing() {
 
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
+      <Seo
+        title="Turn Blog Posts Into Videos"
+        description="Turn blog posts, articles, PDFs, and documents into narrated videos with templates, voiceover, scene editing, and cross-channel distribution workflows."
+        path="/"
+        schema={homepageSchema()}
+      />
       {/* ─── Nav ─── */}
       <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
@@ -199,13 +211,10 @@ export default function Landing() {
           </p>
 
           <div className="flex flex-col items-center gap-4">
-            <GoogleLogin
+            <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
-              size="large"
-              shape="pill"
               text="continue_with"
-              theme="outline"
               width="300"
             />
             <p className="text-xs text-gray-400">
@@ -383,7 +392,14 @@ export default function Landing() {
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
-          <TemplateShowcaseSection />
+          <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Voice showcase ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <VoiceShowcaseSection />
         </div>
       </section>
 
@@ -602,9 +618,14 @@ export default function Landing() {
                 tag: null,
               },
               {
-                title: "Documentary-quality voiceover",
-                desc: "Choose from 4 ElevenLabs voices: male or female, British or American. Natural narration that sounds like a professional documentary orator.",
-                tag: null,
+                title: "Custom voice & voice cloning",
+                desc: "Choose from 4 prebuilt documentary-quality voices, design a custom voice from a prompt, or clone your own by uploading a sample. Your content, your voice.",
+                tag: "Pro",
+              },
+              {
+                title: "Custom templates from any website",
+                desc: "Paste a URL and we extract its brand — colors, fonts, and style — into a fully custom video template. Your brand identity, every frame.",
+                tag: "Pro",
               },
               // {
               //   title: "Remotion Studio export",
@@ -726,6 +747,8 @@ export default function Landing() {
         </div>
       </section>
 
+      <LandingResourceSection />
+
       {/* ─── CTA ─── */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
@@ -737,56 +760,17 @@ export default function Landing() {
             writing into engaging video content — in minutes, not hours.
           </p>
           <div className="flex justify-center">
-            <GoogleLogin
+            <GoogleAuthButton
               onSuccess={handleGoogleSuccess}
               onError={() => showError("Google sign-in failed")}
-              size="large"
-              shape="pill"
               text="continue_with"
-              theme="outline"
               width="300"
             />
           </div>
         </div>
       </section>
 
-      {/* ─── Footer ─── */}
-    <footer className="py-4 border-t border-gray-100">
-      <div className="max-w-6xl mx-auto px-6 flex items-start justify-between mb-2 mt-2">
-        
-        {/* Left Side - Logo */}
-        <div className="flex items-center gap-2 text-gray-400 text-xs">
-          <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">
-            B2V
-          </div>
-          <span>Blog2Video</span>
-        </div>
-
-        {/* Right Side - Company Credit + Powered By */}
-        <div className="flex flex-col items-end gap-1">
-          
-          {/* Made By */}
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span>Made by</span>
-
-            <a
-              href="https://firebird-technologies.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-gray-500 font-medium hover:text-purple-600 transition duration-200"
-            >
-              <img
-                src="/Logo-Firebird.webp"
-                alt="Firebird Technologies Logo"
-                className="h-5 object-contain"
-              />
-              FireBirdTech
-            </a>
-          </div>
-        </div>
-
-      </div>
-    </footer>
+      <PublicFooter />
     </div>
   );
 }

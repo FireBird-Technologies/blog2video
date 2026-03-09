@@ -21,6 +21,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
   subtitle,
   textColor,
   accentColor,
+  bgColor,
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
@@ -76,7 +77,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground drift={false} />
+      <DarkBackground drift={false} bgColor={bgColor} />
 
       {/* Decorative corner frames */}
       <div

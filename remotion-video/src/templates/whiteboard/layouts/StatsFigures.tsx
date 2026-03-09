@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps, WhiteboardStatItem } from "../types";
 
@@ -106,7 +106,9 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   stats: statsProp,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
   const stats = statsProp?.length ? statsProp : DEFAULT_STATS;
 
   const mainStats = stats.slice(0, 5);
@@ -175,7 +177,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 72 : 70), // Increased for Portrait
+              fontSize: titleFontSize ?? (p ? 72 * scale : 70 * scale),
               lineHeight: 1.1,
               marginBottom: 16,
               textAlign: "center",
@@ -187,9 +189,9 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 32 : 30), // Increased for Portrait
+              fontSize: descriptionFontSize ?? (p ? 32 * scale : 30 * scale),
               opacity: 0.9,
-              maxWidth: p ? "95%" : 750,
+              maxWidth: p ? "95%" : 750 * scale,
               textAlign: "center",
               margin: "0 auto",
             }}
@@ -243,7 +245,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                 <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 1} />
                 <span style={{ 
                   color: accentColor, 
-                  fontSize: p ? 58 : 42, // Much larger values
+                  fontSize: p ? 58 * scale : 42 * scale,
                   fontWeight: 900,
                   lineHeight: 1
                 }}>
@@ -251,7 +253,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                 </span>
                 <div style={{ 
                   color: textColor, 
-                  fontSize: p ? 28 : 20, // Much larger labels
+                  fontSize: p ? 28 * scale : 20 * scale,
                   fontWeight: 700, 
                   marginTop: p ? 10 : 4,
                   textTransform: p ? "uppercase" : "none", // Added punch for portrait
@@ -292,8 +294,8 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
             }}
           >
             <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 20} />
-            <div style={{ fontSize: 28, fontWeight: 800, color: accentColor }}>{item.value}</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: textColor }}>{item.label}</div>
+            <div style={{ fontSize: 28 * scale, fontWeight: 800, color: accentColor }}>{item.value}</div>
+            <div style={{ fontSize: 16 * scale, fontWeight: 600, color: textColor }}>{item.label}</div>
           </div>
         );
       })}
