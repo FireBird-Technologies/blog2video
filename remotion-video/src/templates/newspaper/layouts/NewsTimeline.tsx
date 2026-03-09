@@ -25,8 +25,9 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
   imageUrl,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, fps } = useVideoConfig();
+  const { durationInFrames, fps, width } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = width / 1920;
   const items = stats.slice(0, 5);
 
   // --- Animation Constants ---
@@ -97,7 +98,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
             <h1
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 72 : 80),
+                fontSize: titleFontSize ?? (p ? 72 * scale : 80 * scale),
                 fontWeight: 900,
                 color: textColor,
                 margin: 0,
@@ -126,7 +127,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                 style={{
                   position: "relative",
                   width: p ? "100%" : "45%",
-                  height: p ? 360 : 500,
+                  height: p ? 360 * scale : 500 * scale,
                   background: "#fff",
                   padding: "10px 10px 40px 10px",
                   boxShadow: "10px 15px 40px rgba(0,0,0,0.2)",
@@ -168,7 +169,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                       <div style={{
                         minWidth: p ? 110 : 100,
                         fontFamily: B_FONT,
-                        fontSize: p ? 30 : 26,
+                        fontSize: p ? 30 * scale : 26 * scale,
                         fontWeight: 900,
                         color: isLatest ? accentColor : textColor,
                         padding: "4px 8px",
@@ -179,7 +180,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                       </div>
                       <div style={{
                         fontFamily: B_FONT,
-                        fontSize: descriptionFontSize ?? (p ? 32 : 28), 
+                        fontSize: descriptionFontSize ?? (p ? 32 * scale : 28 * scale),
                         color: textColor,
                         fontWeight: isLatest ? 700 : 400,
                         maxWidth: "100%",
@@ -200,7 +201,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
               style={{
                 fontFamily: B_FONT,
                 // Calculation: Uses custom descriptionFontSize if provided, otherwise falls back to your defaults, then subtracts 7
-                fontSize: (descriptionFontSize ?? (p ? 45 : 32)) - 7,
+                fontSize: ((descriptionFontSize ?? (p ? 45 : 32)) - 7) * scale,
                 fontStyle: "italic",
                 color: textColor,
                 opacity: interpolate(frame, [80, 100], [0, 0.75], {
