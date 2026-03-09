@@ -6,9 +6,13 @@ import {
   getTemplates,
   startTemplateAiPreview,
   saveTemplateSourceDefaults,
+  switchTemplateAiPreviewVersion,
   type LayoutPropField,
   type LayoutPropSchema,
   type TemplateMeta,
+  type StartTemplateAiPreviewResponse,
+  getTemplateAiVersions,
+  type ListTemplateAiVersionsResponse,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
@@ -527,6 +531,9 @@ export default function TemplateStudio() {
   const [aiError, setAiError]                 = useState("");
   const [aiStatus, setAiStatus]               = useState("");
   const [aiPreviewSessionId, setAiPreviewSessionId] = useState("");
+  const [aiPreviewVersions, setAiPreviewVersions]   = useState<string[]>([]);
+  const [aiPreviewVersion, setAiPreviewVersion]     = useState<string | null>(null);
+  const [aiSwitchingVersion, setAiSwitchingVersion] = useState(false);
   const previewSelectionRef = useRef("");
 
   useEffect(() => {
@@ -701,8 +708,12 @@ export default function TemplateStudio() {
       const result = await startTemplateAiPreview({
         template_id: selectedTemplateId, layout_id: selectedLayout, instruction: aiInstruction.trim(),
       });
-      setAiPreviewSessionId(result.data.session_id);
-      setAiStatus("Preview is using AI-generated code. Review the scene and apply or discard.");
+      const data = result.data as StartTemplateAiPreviewResponse;
+      setAiPreviewSessionId(data.session_id);
+      const versions = data.versions && data.versions.length ? data.versions : ["original", "v1"];
+      setAiPreviewVersions(versions);
+      setAiPreviewVersion(data.active_version_id ?? versions[versions.length - 1] ?? null);
+      setAiStatus("Preview is using AI-generated code. Switch versions to compare, then apply or discard.");
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
@@ -718,11 +729,28 @@ export default function TemplateStudio() {
       const result = await applyTemplateAiPreview({ session_id: aiPreviewSessionId });
       setAiStatus(`Applied to: ${result.data.updated_files.join(", ")}`);
       setAiPreviewSessionId("");
+      setAiPreviewVersions([]);
+      setAiPreviewVersion(null);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
         ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail : "Failed to apply.";
       setAiError(String(msg || "Failed to apply.")); setAiStatus("");
     } finally { setAiApplying(false); }
+  };
+
+  const handleSwitchAiPreviewVersion = async (version: string) => {
+    if (!aiPreviewSessionId || aiSwitchingVersion) return;
+    if (aiPreviewVersion === version) return;
+    try {
+      setAiSwitchingVersion(true); setAiError("");
+      await switchTemplateAiPreviewVersion({ session_id: aiPreviewSessionId, version });
+      setAiPreviewVersion(version);
+      setAiStatus(`Showing ${version} version. Preview will update.`);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail : "Failed to switch.";
+      setAiError(String(msg || "Failed to switch version."));
+    } finally { setAiSwitchingVersion(false); }
   };
 
   const handleDiscardAiEdit = async () => {
@@ -731,6 +759,8 @@ export default function TemplateStudio() {
       setAiDiscarding(true); setAiError(""); setAiStatus("");
       await discardTemplateAiPreview({ session_id: aiPreviewSessionId });
       setAiPreviewSessionId("");
+      setAiPreviewVersions([]);
+      setAiPreviewVersion(null);
       setAiStatus("Discarded AI preview. Original files restored.");
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "response" in err
@@ -739,26 +769,43 @@ export default function TemplateStudio() {
     } finally { setAiDiscarding(false); }
   };
 
-  // Cleanup AI preview on unmount
+  // Restore existing AI versions for the selected template/layout on change or refresh.
   useEffect(() => {
-    return () => {
-      if (!aiPreviewSessionId) return;
-      void discardTemplateAiPreview({ session_id: aiPreviewSessionId }).catch(() => undefined);
-    };
-  }, [aiPreviewSessionId]);
-
-  // Discard preview when template/layout selection changes
-  useEffect(() => {
-    const key = `${selectedTemplateId}::${selectedLayout}`;
-    if (!previewSelectionRef.current) { previewSelectionRef.current = key; return; }
-    if (previewSelectionRef.current !== key && aiPreviewSessionId) {
-      const sid = aiPreviewSessionId;
+    if (!selectedTemplateId || !selectedLayout) {
       setAiPreviewSessionId("");
-      setAiStatus("Selection changed. Previous AI preview discarded.");
-      void discardTemplateAiPreview({ session_id: sid }).catch(() => undefined);
+      setAiPreviewVersions([]);
+      setAiPreviewVersion(null);
+      return;
     }
-    previewSelectionRef.current = key;
-  }, [selectedTemplateId, selectedLayout, aiPreviewSessionId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getTemplateAiVersions({
+          template_id: selectedTemplateId,
+          layout_id: selectedLayout,
+        });
+        if (cancelled) return;
+        const data = res.data as ListTemplateAiVersionsResponse;
+        if (!data.ok || !data.versions.length || !data.session_id) {
+          setAiPreviewSessionId("");
+          setAiPreviewVersions([]);
+          setAiPreviewVersion(null);
+          return;
+        }
+        setAiPreviewSessionId(data.session_id);
+        setAiPreviewVersions(data.versions);
+        setAiPreviewVersion(
+          data.active_version_id ?? data.versions[data.versions.length - 1] ?? null,
+        );
+      } catch {
+        if (cancelled) return;
+        // On failure, just leave AI preview state untouched for this selection.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTemplateId, selectedLayout]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -1194,6 +1241,42 @@ export default function TemplateStudio() {
                       }}>
                         <span style={{ color: T.textMuted, fontWeight: 500 }}>Session: </span>
                         {aiPreviewSessionId}
+                      </div>
+                      <div>
+                        <FieldLabel>Compare versions</FieldLabel>
+                        <div style={{
+                          display: "flex", gap: "4px", marginTop: "4px",
+                          background: T.surfaceAlt, border: `1px solid ${T.border}`,
+                          borderRadius: "8px", padding: "2px",
+                        }}>
+                          {aiPreviewVersions.map((ver) => {
+                            const isActive = aiPreviewVersion === ver;
+                            const label =
+                              ver === "original"
+                                ? "Original"
+                                : ver.startsWith("v")
+                                  ? `Version ${ver.slice(1)}`
+                                  : ver;
+                            return (
+                              <button
+                                key={ver}
+                                type="button"
+                                disabled={aiSwitchingVersion || aiApplying || aiDiscarding}
+                                onClick={() => handleSwitchAiPreviewVersion(ver)}
+                                style={{
+                                  flex: 1, padding: "6px 10px", border: "none", borderRadius: "6px",
+                                  fontSize: "11px", fontWeight: 500, fontFamily: FONT,
+                                  cursor: aiSwitchingVersion || aiApplying || aiDiscarding ? "not-allowed" : "pointer",
+                                  background: isActive ? T.accent : "transparent",
+                                  color: isActive ? "#fff" : T.textSub,
+                                  opacity: aiSwitchingVersion || aiApplying || aiDiscarding ? 0.6 : 1,
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         <button
