@@ -79,7 +79,15 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
   let currentFrame = 0;
 
   const theme: CustomTheme = rawTheme
-    ? rawTheme
+    ? {
+        ...rawTheme,
+        colors: {
+          ...rawTheme.colors,
+          accent: accentColor || rawTheme.colors.accent,
+          bg: bgColor || rawTheme.colors.bg,
+          text: textColor || rawTheme.colors.text,
+        },
+      }
     : {
         ...FALLBACK_THEME,
         colors: {

@@ -436,6 +436,10 @@ export default function ProjectView() {
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const missingCustomTemplate = Boolean(
+    project?.custom_template_missing ||
+    ((project?.template || "").startsWith("custom_") && !project?.custom_theme)
+  );
   const tabsGuideSeenKey = user ? `${TABS_GUIDE_SEEN_KEY}_${user.id}` : TABS_GUIDE_SEEN_KEY;
   const [runProjectTour, setRunProjectTour] = useState(false);
   const [tabsTourStepIndex, setTabsTourStepIndex] = useState(0);
@@ -757,13 +761,20 @@ export default function ProjectView() {
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
 
-  // Resolution is always 1080p
-  const RENDER_RESOLUTION = "1080p";
 
   const handleRender = async (
     forceReRender = false,
     onRenderStarted?: () => void
   ) => {
+    if (missingCustomTemplate) {
+      onRenderStarted?.();
+      showError(
+        "You can't render this video because its custom template has been deleted."
+      );
+      setRendering(false);
+      return;
+    }
+
     // If already rendered and available in R2, skip straight to download (unless forcing re-render)
     if (!forceReRender && project?.r2_video_url) {
       setRendered(true);
@@ -772,7 +783,6 @@ export default function ProjectView() {
       return;
     }
 
-    const res = RENDER_RESOLUTION;
     // Reset render state so auto-download triggers when we flip rendered -> true again
     setRendered(false);
     autoDownloadRef.current = false;
@@ -784,13 +794,24 @@ export default function ProjectView() {
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
 
-    const startRenderAndPoll = async (res: string) => {
+    const startRenderAndPoll = async () => {
       try {
         console.log("rendering started")
-        await renderVideo(projectId, res, forceReRender);
+        await renderVideo(projectId, forceReRender);
         onRenderStarted?.();
       } catch (err: any) {
         onRenderStarted?.();
+        const message = getErrorMessage(err, "");
+        if (
+          err?.response?.status === 409 &&
+          message.toLowerCase().includes("deleted custom template")
+        ) {
+          showError(message);
+          setHasError(true);
+          setRendering(false);
+          stopRenderPolling();
+          return;
+        }
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
           showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
@@ -833,7 +854,7 @@ export default function ProjectView() {
               // Keep the current progress visible — user shouldn't see a reset
               // Small delay before retrying
               await new Promise((r) => setTimeout(r, 3000));
-              startRenderAndPoll(res);
+              startRenderAndPoll();
             } else {
               showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
               setRendering(false);
@@ -893,7 +914,7 @@ export default function ProjectView() {
       }, 10_000); // Poll every 10 seconds
     };
 
-    startRenderAndPoll(res);
+    startRenderAndPoll();
   };
 
   const handleDownload = async () => {
@@ -1600,12 +1621,19 @@ export default function ProjectView() {
                 {!rendered ? (
                   <button
                     onClick={() => {
+                      if (missingCustomTemplate) {
+                        showError("You can't render this video because its custom template has been deleted.");
+                        return;
+                      }
                       setHasError(false);
                       setDownloadWarningMode("render");
                       setShowDownloadWarning(true);
                     }}
+                    disabled={missingCustomTemplate}
                     className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                      hasError
+                      missingCustomTemplate
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : hasError
                         ? "bg-orange-500 hover:bg-orange-600"
                         : "bg-purple-600 hover:bg-purple-700"
                     }`}
@@ -1656,8 +1684,14 @@ export default function ProjectView() {
 
                     {/* Re-render — re-create video with latest changes (deducts video count) */}
                     <button
-                      onClick={() => setShowReRenderWarning(true)}
-                      disabled={rendering}
+                      onClick={() => {
+                        if (missingCustomTemplate) {
+                          showError("You can't re-render this video because its custom template has been deleted.");
+                          return;
+                        }
+                        setShowReRenderWarning(true);
+                      }}
+                      disabled={rendering || missingCustomTemplate}
                       className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1690,6 +1724,11 @@ export default function ProjectView() {
             <div className="flex flex-1 min-h-0">
               {/* Video preview — always shows live preview when scenes exist */}
               <div className="flex-1 flex flex-col min-w-0 min-h-0">
+                {missingCustomTemplate && (
+                  <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    This project's custom template has been deleted. You can't render or re-render this video because the template no longer exists.
+                  </div>
+                )}
                 {project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
                     <div
