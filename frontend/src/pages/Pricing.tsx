@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
+import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
+import Seo from "../components/seo/Seo";
+import { pricingSchema } from "../seo/schema";
 
 export default function Pricing() {
   const { user, login } = useAuth();
@@ -80,29 +85,13 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Nav — only shown for logged-out users (logged-in users get AppNavbar) */}
-      {!user && (
-        <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-          <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                B2V
-              </div>
-              <span className="text-xl font-semibold text-gray-900">
-                Blog2Video
-              </span>
-            </a>
-            <div className="flex items-center gap-6">
-              <a
-                href="/"
-                className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
-              >
-                Home
-              </a>
-            </div>
-          </div>
-        </nav>
-      )}
+      <Seo
+        title="Pricing"
+        description="Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans."
+        path="/pricing"
+        schema={pricingSchema()}
+      />
+      <PublicHeader />
 
       {/* Pricing header */}
       <div className="relative overflow-hidden">
@@ -207,13 +196,10 @@ export default function Pricing() {
               </button>
             ) : (
               <div className="flex justify-center">
-                <GoogleLogin
+                <GoogleAuthButton
                   onSuccess={handleGoogleSuccess}
                   onError={() => showError("Google sign-in failed")}
-                  size="large"
-                  shape="pill"
                   text="signup_with"
-                  theme="outline"
                   width="190"
                 />
               </div>
@@ -261,13 +247,10 @@ export default function Pricing() {
               </button>
             ) : (
               <div className="flex justify-center">
-                <GoogleLogin
+                <GoogleAuthButton
                   onSuccess={handleGoogleSuccess}
                   onError={() => showError("Google sign-in failed")}
-                  size="large"
-                  shape="pill"
                   text="continue_with"
-                  theme="outline"
                   width="190"
                 />
               </div>
@@ -352,13 +335,10 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleLogin
+                <GoogleAuthButton
                   onSuccess={handleGoogleSuccess}
                   onError={() => showError("Google sign-in failed")}
-                  size="large"
-                  shape="pill"
                   text="continue_with"
-                  theme="outline"
                   width="190"
                 />
               </div>
@@ -451,13 +431,10 @@ export default function Pricing() {
               )
             ) : (
               <div className="flex justify-center">
-                <GoogleLogin
+                <GoogleAuthButton
                   onSuccess={handleGoogleSuccess}
                   onError={() => showError("Google sign-in failed")}
-                  size="large"
-                  shape="pill"
                   text="continue_with"
-                  theme="outline"
                   width="190"
                 />
               </div>
@@ -676,18 +653,7 @@ export default function Pricing() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="py-10 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-purple-600 rounded flex items-center justify-center text-white text-[10px] font-bold">
-              B2V
-            </div>
-            Blog2Video
-          </div>
-          <p>Powered by DSPy, Remotion, and ElevenLabs</p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

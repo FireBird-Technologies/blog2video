@@ -47,9 +47,17 @@ interface Props {
 
 const MAX_UPLOAD_FILES = 5;
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+const viteEnv =
+  typeof import.meta !== "undefined" ? import.meta.env : undefined;
+const processEnv =
+  typeof globalThis !== "undefined" && "process" in globalThis
+    ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    : undefined;
 
 const MAX_BULK_LINKS = (() => {
-  const raw = import.meta.env.VITE_MAX_BULK_LINKS as string | undefined;
+  const raw = (viteEnv?.VITE_MAX_BULK_LINKS || processEnv?.VITE_MAX_BULK_LINKS) as
+    | string
+    | undefined;
   const parsed = raw ? parseInt(raw, 10) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 })();
