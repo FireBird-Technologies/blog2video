@@ -125,7 +125,7 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
               fontWeight: 600,
               textAlign: "center",
               lineHeight: 1.4,
-              fontFamily: "'Comic Sans MS', 'Segoe Print', cursive",
+              fontFamily: "'Patrick Hand', system-ui, sans-serif",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -225,7 +225,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   }
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
       <WhiteboardBackground bgColor={bgColor} />
 
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>

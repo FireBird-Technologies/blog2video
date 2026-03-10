@@ -41,7 +41,8 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+        fontFamily: "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px"
       }}
     >
       <WhiteboardBackground bgColor={bgColor} />

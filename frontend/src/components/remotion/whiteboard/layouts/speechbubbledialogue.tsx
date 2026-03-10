@@ -241,7 +241,7 @@ function SpeechBubble({
           <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
         <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
-          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Comic Sans MS', 'Segoe Print', cursive", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
+          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
             {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
@@ -306,7 +306,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const rightSpeaker = stats?.[1]?.label ?? "Person B";
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
       <WhiteboardBackground bgColor={bgColor} />
       {p && <BackgroundScribbles color={textColor} />}
 
@@ -347,8 +347,8 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
           <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} bubbleBottomY={leftBubbleTopY + leftBH + leftSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={leftSway} portrait={p} />
           <StickFigure cx={rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={true} bubbleBottomY={rightBubbleTopY + rightBH + rightSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={rightSway} portrait={p} />
 
-          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
-          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
+          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily="'Patrick Hand', system-ui, sans-serif" fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
+          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily="'Patrick Hand', system-ui, sans-serif" fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
 
           {[0, 1, 2].map((dot) => {
             const dotOp = interpolate(frame, [60 + dot * 4, 68 + dot * 4], [0, 1], { extrapolateRight: "clamp" });
