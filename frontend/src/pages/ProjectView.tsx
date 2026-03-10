@@ -35,7 +35,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
+import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -435,6 +435,7 @@ export default function ProjectView() {
   const [generateErrorSceneId, setGenerateErrorSceneId] = useState<number | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
+  const [layoutPropSchema, setLayoutPropSchema] = useState<Record<string, { defaults?: Record<string, unknown> }> | null>(null);
   const navigate = useNavigate();
   const missingCustomTemplate = Boolean(
     project?.custom_template_missing ||
@@ -621,6 +622,7 @@ export default function ProjectView() {
       // Fetch layout image-support info (non-blocking)
       getValidLayouts(projectId).then((lr) => {
         setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+        setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
       }).catch(() => {/* ignore */});
       return res.data;
     } catch {
@@ -2307,14 +2309,17 @@ export default function ProjectView() {
                                 {/* Typography — font size sliders with live preview and debounced save */}
                                 {scene.remotion_code && project && (() => {
                                   try {
-                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
-                                    const layoutId = desc.layout ?? "text_narration";
+                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string }; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
+                                    const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
-                                    const aspectRatio = project.aspect_ratio ?? "16:9";
-                                    const defaults = getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const aspectRatio = project.aspect_ratio ?? "landscape";
+                                    const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
+                                    const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
                                     const override = sceneFontOverrides[scene.id];
-                                    const titleFontSize = override?.title ?? desc.layoutProps?.titleFontSize ?? defaults.title;
-                                    const descFontSize = override?.desc ?? desc.layoutProps?.descriptionFontSize ?? defaults.desc;
+                                    const storedTitle = desc.layoutConfig?.titleFontSize ?? desc.layoutProps?.titleFontSize;
+                                    const storedDesc = desc.layoutConfig?.descriptionFontSize ?? desc.layoutProps?.descriptionFontSize;
+                                    const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
+                                    const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
                                     const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
                                     const descClamped = Math.min(80, Math.max(12, Number(descFontSize) || defaults.desc));
 

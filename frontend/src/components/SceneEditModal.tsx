@@ -112,6 +112,36 @@ export function getDefaultFontSizes(
   return { title, desc };
 }
 
+/** Get default font sizes from layout_prop_schema (meta.json) when available. */
+export function getDefaultFontSizesFromSchema(
+  layoutPropSchema: Record<string, { defaults?: Record<string, unknown> }> | undefined,
+  layoutId: string | null,
+  aspectRatio: string
+): { title: number; desc: number } | null {
+  if (!layoutId || !layoutPropSchema) return null;
+  const schema = layoutPropSchema[layoutId];
+  const defaults = schema?.defaults;
+  if (!defaults) return null;
+  const isPortrait = aspectRatio === "portrait";
+  const resolve = (val: unknown): number | null => {
+    if (typeof val === "number" && !isNaN(val)) return val;
+    if (val && typeof val === "object" && !Array.isArray(val) && "portrait" in val && "landscape" in val) {
+      const v = val as { portrait: unknown; landscape: unknown };
+      const n = isPortrait ? v.portrait : v.landscape;
+      return typeof n === "number" && !isNaN(n) ? n : null;
+    }
+    return null;
+  };
+  const title = resolve(defaults.titleFontSize);
+  const desc = resolve(defaults.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  const hardcoded = getDefaultFontSizes("", layoutId, aspectRatio);
+  return {
+    title: title ?? hardcoded.title,
+    desc: desc ?? hardcoded.desc,
+  };
+}
+
 // ─── Layout text field definitions ──────────────────────────
 type FieldType = "string" | "text" | "string_array" | "object_array";
 
@@ -311,6 +341,15 @@ function getLayoutFields(template: string, layoutId: string | null): FieldDef[] 
   return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[layoutId] ?? LAYOUT_TEXT_FIELDS[layoutId];
 }
 
+/** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
+const HIDDEN_LAYOUT_PROP_KEYS = new Set([
+  "hideImage",
+  "assignedImage",
+  "imageUrl",
+  "titleFontSize",
+  "descriptionFontSize",
+]);
+
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
   value: string;
@@ -428,11 +467,17 @@ export default function SceneEditModal({
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
 
-  const defaultFontSizes = getDefaultFontSizes(
-    project.template || "default",
-    currentLayoutId,
-    project.aspect_ratio || "landscape"
-  );
+  const defaultFontSizes =
+    getDefaultFontSizesFromSchema(
+      layouts?.layout_prop_schema,
+      currentLayoutId,
+      project.aspect_ratio || "landscape"
+    ) ??
+    getDefaultFontSizes(
+      project.template || "default",
+      currentLayoutId,
+      project.aspect_ratio || "landscape"
+    );
 
   const aiHasChanges =
     description.trim().length > 0 ||
@@ -511,7 +556,12 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableLayoutProps(lpCopy);
-    const defaults = getDefaultFontSizes(
+    const schemaDefaults = getDefaultFontSizesFromSchema(
+      layouts?.layout_prop_schema,
+      layoutId,
+      project.aspect_ratio || "landscape"
+    );
+    const defaults = schemaDefaults ?? getDefaultFontSizes(
       project.template || "default",
       layoutId,
       project.aspect_ratio || "landscape"
@@ -520,7 +570,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio]);
+  }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -895,13 +945,16 @@ export default function SceneEditModal({
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
-                const layoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                const knownKeys = new Set((layoutFields ?? []).map((f) => f.key));
+                const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
+                const layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+                const knownKeys = new Set(layoutFields.map((f) => f.key));
                 const extraKeys =
                   currentLayoutId && editableLayoutProps
-                    ? Object.keys(editableLayoutProps).filter((key) => !knownKeys.has(key))
+                    ? Object.keys(editableLayoutProps).filter(
+                        (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+                      )
                     : [];
-                if (!currentLayoutId || (!layoutFields && extraKeys.length === 0)) return null;
+                if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
                 const humanLabel = (key: string) =>
                   key
                     .replace(/[_-]+/g, " ")
