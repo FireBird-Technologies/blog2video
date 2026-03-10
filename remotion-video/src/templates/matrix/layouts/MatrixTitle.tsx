@@ -48,14 +48,29 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   });
 
   const hasImage = !!imageUrl;
-  const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const imageScale = spring({
-    frame: frame - 10,
+
+  // --- Image entrance animation ---
+  const imageDelay = 20; // Start image animation at this frame
+  const imageEntranceProgress = spring({
+    frame: frame - imageDelay,
     fps,
-    config: { damping: 20, stiffness: 80 },
+    config: {
+      damping: 18,
+      stiffness: 120,
+      mass: 1.2,
+    },
   });
+
+  const imageScaleValue = interpolate(imageEntranceProgress, [0, 1], [0.7, 1]); // Scales from 70% to 100%
+  const imageOpacityValue = interpolate(imageEntranceProgress, [0, 1], [0, 1]); // Fades in
+  const imageInitialYOffset = p ? 150 : 80; // Starting Y position for slide-in (more for portrait)
+  const imageAnimatedTranslateY = interpolate(imageEntranceProgress, [0, 1], [imageInitialYOffset, 0]);
+  const imageRotateXValue = interpolate(imageEntranceProgress, [0, 1], [p ? 45 : 25, 0]); // Rotates from an angle (more for portrait)
+
+  // Additional static offset for portrait mode to move image upwards
+  const imageFinalYPortraitOffset = -70;
+  const combinedImageTranslateY = imageAnimatedTranslateY + (p ? imageFinalYPortraitOffset : 0);
+  // --- End Image entrance animation ---
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -81,9 +96,16 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               height: p ? 220 : 360,
               borderRadius: 0,
               overflow: "hidden",
-              opacity: imageOpacity,
-              transform: `scale(${imageScale})`,
               border: `1px solid ${accent}33`,
+              // Apply combined image animation styles
+              opacity: imageOpacityValue,
+              transform: `
+                perspective(1000px)
+                rotateX(${imageRotateXValue}deg)
+                scale(${imageScaleValue})
+                translateY(${combinedImageTranslateY}px)
+              `,
+              transformOrigin: 'center center', // Ensures rotation and scaling are from the center
             }}
           >
             <Img
@@ -104,7 +126,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
         >
           <h1
             style={{
-              fontSize: titleFontSize ?? (p ? 72 : 110),
+              fontSize: titleFontSize ?? (p ? 128 : 110),
               fontWeight: 700,
               color: accent,
               fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -151,7 +173,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
           {narration && (
             <p
               style={{
-                fontSize: descriptionFontSize ?? (p ? 20 : 24),
+                fontSize: descriptionFontSize ?? (p ? 52 : 53),
                 fontWeight: 400,
                 color: `${accent}88`,
                 fontFamily: "'Fira Code', 'Courier New', monospace",

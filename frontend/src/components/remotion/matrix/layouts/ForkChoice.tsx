@@ -70,29 +70,29 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
       {hasImage && (
         <div
           style={{
-            flex: p ? "none" : "0 0 38%",
+            flex: p ? "none" : "0 0 50%", // Set left panel to 50% width
             width: p ? "100%" : "auto",
-            height: p ? 280 : "100%",
-            padding: p ? "8% 8% 0" : "8% 0 0 8%",
+            height: p ? 280 : "100%", // Set left panel to 100% height
+            padding: p ? "8% 8% 0" : "0", // Remove padding to ensure image fills
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             opacity: imageOpacity,
             transform: `scale(${imageScale})`,
-            backgroundColor: "#000000",
+            // backgroundColor: "#000000", // Removed as image should fill completely
           }}
         >
           <div
             style={{
               width: "100%",
               height: "100%",
-              overflow: "hidden",
+              overflow: "hidden", // Ensures nothing bleeds out
               border: `1px solid ${accent}33`,
             }}
           >
             <Img
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }} // Image fills 100% of its container
             />
           </div>
         </div>
@@ -100,7 +100,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
 
       <div
         style={{
-          flex: 1,
+          flex: 1, // This panel will take the remaining 50% width
           display: "flex",
           flexDirection: p ? "column" : "row",
           minWidth: 0,
