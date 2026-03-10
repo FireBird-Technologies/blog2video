@@ -26,29 +26,80 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
   const hasImage = !!imageUrl;
 
   const displayText = narration || title;
+
+  // --- Animation Timings ---
+  // contentOverallStartFrame acts as the general start point for the scene's main elements
+  const contentOverallStartFrame = 5;
+
+  // Image animation: slides from top with a bounce
+  const imageStartFrame = contentOverallStartFrame;
+  const imageEntryDuration = 30;
+  const imageEntryProgress = spring({
+    frame: frame - imageStartFrame,
+    fps,
+    config: { damping: 6, stiffness: 120, mass: 1 }, // Bounce configuration
+    durationInFrames: imageEntryDuration,
+  });
+
+  const imageTranslateY = interpolate(imageEntryProgress, [0, 1], [-150, 0]); // Always slide from top
+  const imageOpacity = interpolate(imageEntryProgress, [0, 1], [0, 1]);
+  const imageScaleEffect = interpolate(imageEntryProgress, [0, 1], [0.9, 1]);
+
+  // Glitch effect: flash between image and text appearing
+  // Starts slightly before the image fully settles, for a smooth transition
+  const glitchStartFrame = imageStartFrame + imageEntryDuration - 8;
+  const glitchDuration = 10; // A quick flash duration
+  const glitchProgress = spring({
+    frame: frame - glitchStartFrame,
+    fps,
+    config: { damping: 10, stiffness: 200, mass: 0.5 },
+    durationInFrames: glitchDuration,
+  });
+
+  const glitchOpacity = interpolate(glitchProgress, [0, 0.5, 1], [0, 1, 0]); // Flash in and out
+  const glitchBrightness = interpolate(glitchProgress, [0, 0.5, 1], [1, 2, 1]);
+  const glitchContrast = interpolate(glitchProgress, [0, 0.5, 1], [1, 1.5, 1]);
+  const glitchHueRotate = interpolate(glitchProgress, [0, 0.5, 1], [0, 30, 0]); // Slight color shift
+  const glitchScaleX = interpolate(glitchProgress, [0, 0.5, 1], [1, 1.02, 1]); // Slight horizontal stretch
+  // Introduce a slight, deterministic horizontal wiggle for the glitch
+  const glitchTranslateX = interpolate(glitchProgress, [0, 0.25, 0.75, 1], [0, 5, -5, 0]);
+
+  // Text container animation: slams in from the left with an overshoot (like a punch)
+  // Text entry starts as the glitch effect is fading out
+  const textStartFrame = glitchStartFrame + glitchDuration - 5;
+  const textEntryDuration = 25;
+  const textEntryProgress = spring({
+    frame: frame - textStartFrame,
+    fps,
+    config: { damping: 8, stiffness: 180, mass: 1, overshootClamping: false }, // Punch/overshoot config
+    durationInFrames: textEntryDuration,
+  });
+
+  const textTranslateX = interpolate(textEntryProgress, [0, 1], [-200, 0]); // Slam from left
+  const textOpacity = interpolate(textEntryProgress, [0, 1], [0, 1]);
+
+  // Typing animation: begins after the text container has largely settled
+  const typingStartFrame = textStartFrame + textEntryDuration - 5;
+  const typingFrame = frame - typingStartFrame;
+
   const charsToShow = Math.min(
-    Math.floor(frame * 1.8),
+    Math.max(0, Math.floor(typingFrame * 1.8)),
     displayText.length
   );
   const visibleText = displayText.slice(0, charsToShow);
   const isTyping = charsToShow < displayText.length;
-  const cursorVisible = isTyping || frame % 30 < 15;
+  const cursorVisible =
+    (isTyping && typingFrame > 0) || (typingFrame > 0 && charsToShow === displayText.length && frame % 30 < 15);
 
   const words = visibleText.split(" ");
-
-  const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const imageScale = spring({
-    frame: frame - 10,
-    fps,
-    config: { damping: 20, stiffness: 80 },
-  });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} />
 
+      {/* Main content block (Image + Text Wrapper) */}
+      {/* The overall content block itself no longer has an entrance animation, 
+          as image and text now have their specific entrance animations. */}
       <div
         style={{
           position: "absolute",
@@ -58,7 +109,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           padding: p ? "10% 8%" : "0 8%",
-          gap: hasImage ? (p ? 30 : 60) : 0,
+          gap: hasImage ? (p ? 50 : 60) : 0,
         }}
       >
         {hasImage && (
@@ -69,7 +120,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               height: p ? 240 : 400,
               overflow: "hidden",
               opacity: imageOpacity,
-              transform: `scale(${imageScale})`,
+              transform: `translateY(${imageTranslateY}px) scale(${imageScaleEffect})`, // Image animated from top with bounce
               border: `1px solid ${accent}33`,
               position: "relative",
             }}
@@ -90,11 +141,18 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
           </div>
         )}
 
-        <div style={{ width: hasImage && !p ? "58%" : "85%", maxWidth: 1000 }}>
+        <div
+          style={{
+            width: hasImage && !p ? "58%" : "85%",
+            maxWidth: 1000,
+            opacity: textOpacity, // Text animated with punch from left
+            transform: `translateX(${textTranslateX}px)`,
+          }}
+        >
           {/* Prompt prefix */}
           <span
             style={{
-              fontSize: titleFontSize ?? (p ? 36 : 48),
+              fontSize: titleFontSize ?? (p ? 68 : 48),
               fontWeight: 700,
               color: accent,
               fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -114,7 +172,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               <span
                 key={wi}
                 style={{
-                  fontSize: titleFontSize ?? (p ? 36 : 48),
+                  fontSize: titleFontSize ?? (p ? 68 : 48),
                   fontWeight: isHighlight ? 700 : 400,
                   color: isHighlight ? "#FFFFFF" : accent,
                   fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -133,7 +191,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
           {cursorVisible && (
             <span
               style={{
-                fontSize: titleFontSize ?? (p ? 36 : 48),
+                fontSize: titleFontSize ?? (p ? 68 : 48),
                 fontWeight: 400,
                 color: accent,
                 fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -145,6 +203,17 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
           )}
         </div>
       </div>
+
+      {/* Glitch Effect Overlay */}
+      <AbsoluteFill
+        style={{
+          backgroundColor: accent, // Flash color
+          opacity: glitchOpacity,
+          transform: `scaleX(${glitchScaleX}) translateX(${glitchTranslateX}px)`,
+          filter: `brightness(${glitchBrightness}) contrast(${glitchContrast}) hue-rotate(${glitchHueRotate}deg)`,
+          pointerEvents: "none", // Ensure it doesn't block interactions
+        }}
+      />
     </AbsoluteFill>
   );
 };

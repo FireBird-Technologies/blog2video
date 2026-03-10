@@ -97,7 +97,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 58 : 80),
+                fontSize: titleFontSize ?? (p ? 66 : 80),
                 fontWeight: 700,
                 color: accent,
                 fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -113,7 +113,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 20 : 26),
+                  fontSize: descriptionFontSize ?? (p ? 45 : 37),
                   fontWeight: 400,
                   color: `${accent}88`,
                   fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -159,7 +159,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 24 : 32),
+              fontSize: titleFontSize ?? (p ? 66 : 80),
               fontWeight: 700,
               color: accent,
               fontFamily: "'Fira Code', 'Courier New', monospace",
@@ -171,7 +171,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontSize: p ? 14 : 18,
+                fontSize: descriptionFontSize ?? (p ? 45 : 37),
                 color: `${accent}88`,
                 fontFamily: "'Fira Code', 'Courier New', monospace",
                 marginTop: 6,
