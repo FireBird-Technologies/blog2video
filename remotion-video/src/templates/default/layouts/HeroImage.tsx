@@ -1,80 +1,127 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 import { AnimatedImage } from "./AnimatedImage";
 
-export const HeroImage: React.FC<SceneLayoutProps> = ({
-  title,
-  imageUrl,
-  accentColor,
-  bgColor,
-  textColor,
-  aspectRatio,
-  titleFontSize,
-}) => {
+export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
+  const {
+    title,
+    narration,
+    imageUrl,
+    accentColor,
+    bgColor,
+    textColor,
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+    ...extra
+  } = props;
   const frame = useCurrentFrame();
   const fps = 30;
-  const p = aspectRatio === "portrait";
-  const isLight = bgColor === "#FFFFFF" || bgColor === "#ffffff";
+  const { durationInFrames, width, height } = useVideoConfig();
+  const isPortrait = height > width;
 
-  // Image: smooth spring-driven zoom-in reveal
-  const imgSpring = spring({
+  const hasImage = !!imageUrl; // Determine if an image URL is provided
+
+  // Content entrance animation for both halves (opacity and scale)
+  const contentEntranceDelay = 10;
+  const contentSpringVal = spring({
+    frame: frame - contentEntranceDelay,
+    fps,
+    config: { damping: 40, stiffness: 80, mass: 1 },
+  });
+  const contentOpacity = interpolate(contentSpringVal, [0, 1], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const contentScale = interpolate(contentSpringVal, [0, 1], [0.98, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  // Background image subtle zoom (applies only to the image within its half)
+  const bgSpring = spring({
     frame,
     fps,
-    config: { damping: 30, stiffness: 60, mass: 1.2 },
+    config: { damping: 200, stiffness: 100 },
   });
-  const imgOpacity = interpolate(imgSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-  const imgScale = interpolate(imgSpring, [0, 1], [1.1, 1.0], {
-    extrapolateRight: "clamp",
-  });
+  const bgScale = interpolate(bgSpring, [0, 1], [1.1, 1]);
 
-  // Title: spring entrance with slide up
-  const titleSpring = spring({
-    frame: frame - 12,
+  // Vanish animation for both sections moving apart and fading out
+  const vanishDurationFrames = 30;
+  const vanishStartFrame = durationInFrames - vanishDurationFrames;
+
+  const vanishSpringVal = spring({
+    frame: frame - vanishStartFrame,
     fps,
-    config: { damping: 20, stiffness: 80, mass: 1 },
+    config: { damping: 40, stiffness: 80, mass: 1 },
+    durationInFrames: vanishDurationFrames,
   });
-  const titleOpacity = interpolate(titleSpring, [0, 1], [0, 1], {
+
+  // Calculate transforms for the two halves to move apart
+  // Image half moves up (portrait) or left (landscape)
+  const imageHalfTranslate = hasImage ? interpolate(
+    vanishSpringVal,
+    [0, 1],
+    [0, isPortrait ? -height / 2 : -width / 2],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }
+  ) : 0; // If no image, it doesn't move
+
+  // Content half moves down (portrait) or right (landscape)
+  const contentHalfTranslate = hasImage ? interpolate(
+    vanishSpringVal,
+    [0, 1],
+    [0, isPortrait ? height / 2 : width / 2],
+    {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }
+  ) : 0; // If no image, it doesn't move
+
+  // Opacity and scale for the items *within* the halves as they vanish
+  const vanishItemOpacity = interpolate(vanishSpringVal, [0, 1], [1, 0], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const titleY = interpolate(titleSpring, [0, 1], [35, 0], {
+  const vanishItemScale = interpolate(vanishSpringVal, [0, 1], [1, 0.8], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Accent bar animation
-  const barWidth = interpolate(frame, [25, 50], [0, p ? 80 : 120], {
-    extrapolateRight: "clamp",
-  });
-
-  /* ───── PORTRAIT: shrunk image card + big title below ───── */
-  if (p) {
-    return (
-      <AbsoluteFill
-        style={{
-          backgroundColor: bgColor,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "80px 50px",
-          gap: 40,
-          overflow: "hidden",
-        }}
-      >
-        {/* Shrunk image card */}
-        {imageUrl && (
-          <div
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor || "#F0F0F0",
+        display: "flex",
+        // If an image exists, split the screen. Otherwise, use column direction as there's only one main content block.
+        flexDirection: hasImage ? (isPortrait ? "column" : "row") : "column",
+        overflow: "hidden", // Hide parts of the sections that move out
+      }}
+    >
+      {/* Upper (portrait) / Left (landscape) Half: Image (only renders if imageUrl exists) */}
+      {hasImage && (
+        <div
+          style={{
+            flex: 1, // Takes 50% width or height
+            position: "relative", // Needed for AbsoluteFill children to position correctly
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            // Overall transform combines entrance scale with exit translateX/Y
+            transform: `${
+              isPortrait ? `translateY(${imageHalfTranslate}px)` : `translateX(${imageHalfTranslate}px)`
+            } scale(${contentScale})`,
+            // Overall opacity for the section's entrance
+            opacity: contentOpacity,
+          }}
+        >
+          {/* The image itself gets the background scale and its own vanish opacity/scale */}
+          <AbsoluteFill
             style={{
-              width: "85%",
-              maxHeight: 650,
-              borderRadius: 20,
-              overflow: "hidden",
-              opacity: imgOpacity,
-              transform: `scale(${imgScale})`,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-              border: `2px solid ${accentColor}25`,
-              flexShrink: 0,
+              transform: `scale(${bgScale * vanishItemScale})`,
+              opacity: vanishItemOpacity,
             }}
           >
             <AnimatedImage
@@ -85,123 +132,79 @@ export const HeroImage: React.FC<SceneLayoutProps> = ({
                 objectFit: "cover",
               }}
             />
-          </div>
-        )}
+          </AbsoluteFill>
 
-        {/* Title area */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            opacity: titleOpacity,
-            transform: `translateY(${titleY}px)`,
-          }}
-        >
-          {/* Accent bar */}
-          <div
+          {/* Gradient Overlay for the image half */}
+          <AbsoluteFill
             style={{
-              width: barWidth,
-              height: 4,
-              backgroundColor: accentColor,
-              borderRadius: 3,
-              marginBottom: 24,
+              background:
+                "linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%, rgba(200, 230, 255, 0.15) 100%)",
+              opacity: vanishItemOpacity, // Gradient also vanishes
             }}
           />
+        </div>
+      )}
 
+      {/* Lower (portrait) / Right (landscape) Half: Content (Title & Narration) */}
+      <div
+        style={{
+          flex: 1, // Always takes up available space (either 50% or 100% if no image)
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "80px", // Padding around the content
+          // Overall transform combines entrance scale with exit translateX/Y
+          transform: `${
+            isPortrait ? `translateY(${contentHalfTranslate}px)` : `translateX(${contentHalfTranslate}px)`
+          } scale(${contentScale})`,
+          // Overall opacity for the section's entrance
+          opacity: contentOpacity,
+        }}
+      >
+        {/* Content wrapper for text, gets vanish opacity/scale, no card background */}
+        <div
+          style={{
+            textAlign: "center",
+            maxWidth: "90%", // Max width for text block
+            // The transform and opacity for vanishing apply directly to this content block
+            transform: `scale(${vanishItemScale})`,
+            opacity: vanishItemOpacity,
+          }}
+        >
           <h1
             style={{
-              color: textColor,
-              fontSize: titleFontSize ?? 48,
-              fontWeight: 800,
               fontFamily: "Inter, system-ui, sans-serif",
-              lineHeight: 1.25,
+              fontSize: titleFontSize ?? 76,
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: textColor || "black",
               margin: 0,
-              textAlign: "center",
-              maxWidth: 900,
+              padding: 0,
+              textTransform: "uppercase",
+              textShadow: "none",
+              whiteSpace: "pre-wrap",
             }}
           >
             {title}
           </h1>
 
-          {/* Accent underline */}
-          <div
-            style={{
-              width: 60,
-              height: 4,
-              backgroundColor: accentColor,
-              borderRadius: 2,
-              marginTop: 28,
-            }}
-          />
+          {narration && (
+            <p
+              style={{
+                fontFamily: "Inter, system-ui, sans-serif",
+                fontSize: descriptionFontSize ?? 40,
+                fontWeight: 400,
+                lineHeight: 1.4,
+                color: textColor || "black",
+                margin: "30px auto 0 auto",
+                maxWidth: "40ch", // Keep description max-width for readability
+                textShadow: "none",
+              }}
+            >
+              {narration}
+            </p>
+          )}
         </div>
-      </AbsoluteFill>
-    );
-  }
-
-  /* ───── LANDSCAPE: full-screen hero image background ───── */
-  return (
-    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
-      {imageUrl && (
-        <AnimatedImage
-          src={imageUrl}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: imgOpacity * 0.55,
-            transform: `scale(${imgScale})`,
-          }}
-        />
-      )}
-
-      {/* Gradient overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: isLight
-            ? "linear-gradient(to top, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%)"
-            : "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.1) 100%)",
-        }}
-      />
-
-      {/* Title overlay — bottom-center */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 100,
-          left: 120,
-          right: 120,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          opacity: titleOpacity,
-          transform: `translateY(${titleY}px)`,
-        }}
-      >
-        <div
-          style={{
-            width: barWidth,
-            height: 5,
-            backgroundColor: accentColor,
-            borderRadius: 3,
-            marginBottom: 20,
-          }}
-        />
-        <h1
-          style={{
-            color: textColor,
-            fontSize: titleFontSize ?? 64,
-            fontWeight: 800,
-            fontFamily: "Inter, system-ui, sans-serif",
-            lineHeight: 1.15,
-            margin: 0,
-            textShadow: isLight ? "none" : "0 2px 20px rgba(0,0,0,0.5)",
-          }}
-        >
-          {title}
-        </h1>
       </div>
     </AbsoluteFill>
   );

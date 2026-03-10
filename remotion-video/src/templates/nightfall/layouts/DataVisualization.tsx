@@ -270,7 +270,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
             >
               <p
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 38 : 30),
+                  fontSize: descriptionFontSize ?? (p ? 40 : 36),
                   color: "rgba(226,232,240,0.8)",
                   opacity: 0.9,
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

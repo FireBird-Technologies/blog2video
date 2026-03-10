@@ -107,66 +107,40 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
   const secondaryMetricLabelFontSize = effectiveDescriptionFontSize * (p ? (13 / 18) : (14 / 20)); // From 13px/18px in P, 14px/20px in L
 
 
-  // OUTRO ANIMATION: Portrait Mode - Sections swap, merge, and vanish
-  // Outro animation timing is now relative to the actual scene duration.
+  // OUTRO ANIMATION: Portrait Mode - Sections move left and right
   const OUTRO_DURATION_FRAMES = 60; // The total duration of the outro animation
   const OUTRO_START_FRAME = durationInFrames - OUTRO_DURATION_FRAMES; 
-  const SWAP_MIDPOINT_FRAME = durationInFrames - (OUTRO_DURATION_FRAMES / 2); // Vertical swap completes
-  const VANISH_END_FRAME = durationInFrames; // Sections are fully merged, scaled down, and vanished
 
-  let portraitImageOutroTranslateY = 0; // in % relative to its own height
-  let portraitMetricsOutroTranslateY = 0; // in % relative to its own height
-  let portraitSectionOutroScale = 1;
-  let portraitSectionOutroOpacity = 1;
+  let portraitImageOutroTranslateX = 0; // in % relative to its own width
+  let portraitMetricsOutroTranslateX = 0; // in % relative to its own width
 
   if (p) {
-    // Phase 1: Vertical Swap
-    // Progress from 0 to 1 as sections swap positions
-    const swapProgress = interpolate(
+    const outroProgress = interpolate(
       frame,
-      [OUTRO_START_FRAME, SWAP_MIDPOINT_FRAME],
+      [OUTRO_START_FRAME, durationInFrames], // From start of outro to end of video
       [0, 1],
       { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
     );
 
-    // Phase 2: Merge, Scale, and Vanish
-    // Progress from 0 to 1 as sections merge, shrink, and fade out
-    const vanishProgress = interpolate(
-      frame,
-      [SWAP_MIDPOINT_FRAME, VANISH_END_FRAME],
-      [0, 1],
-      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-    );
-
-    // Calculate total Y translation for image section
-    // Moves down by 100% of its own height (to swap), then an additional 50% of its own height (to merge)
-    portraitImageOutroTranslateY = swapProgress * 100 + vanishProgress * 50;
+    // Image section (top) moves left. 150% to ensure it's fully off-screen.
+    portraitImageOutroTranslateX = outroProgress * -150; 
     
-    // Calculate total Y translation for metrics section
-    // Moves up by -100% of its own height (to swap), then an additional -50% of its own height (to merge)
-    portraitMetricsOutroTranslateY = swapProgress * -100 + vanishProgress * -50;
-
-    // Calculate scale and opacity for merging and vanishing
-    portraitSectionOutroScale = interpolate(vanishProgress, [0, 1], [1, 0.2], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
-    portraitSectionOutroOpacity = interpolate(vanishProgress, [0, 1], [1, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
+    // Metrics section (bottom) moves right. 150% to ensure it's fully off-screen.
+    portraitMetricsOutroTranslateX = outroProgress * 150;
   }
 
   // Combine image section entrance animations with portrait outro animations
-  const combinedImageOpacity = p ? imageOpacity * portraitSectionOutroOpacity : imageOpacity;
+  // Outro for image section only affects translateX. Opacity and scale remain from entrance.
+  const combinedImageOpacity = imageOpacity; // No outro specific opacity
   const combinedImageTransform = p
-    ? `translateY(${portraitImageOutroTranslateY}%) scale(${imageScale * portraitSectionOutroScale})`
+    ? `translateX(${portraitImageOutroTranslateX}%) scale(${imageScale})` // Use translateX
     : `scale(${imageScale})`;
 
   // Combine metrics section default state with portrait outro animations
-  const combinedMetricsOpacity = p ? portraitSectionOutroOpacity : 1;
+  // Outro for metrics section only affects translateX. Opacity and scale are 1.
+  const combinedMetricsOpacity = 1; // No outro specific opacity
   const combinedMetricsTransform = p
-    ? `translateY(${portraitMetricsOutroTranslateY}%) scale(${portraitSectionOutroScale})`
+    ? `translateX(${portraitMetricsOutroTranslateX}%)` // Use translateX
     : "";
 
   return (
