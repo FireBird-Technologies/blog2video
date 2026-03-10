@@ -127,7 +127,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   ];
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
       <WhiteboardBackground bgColor={bgColor} />
       
       {/* Background Scribbles */}

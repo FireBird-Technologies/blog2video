@@ -825,15 +825,18 @@ export default function TemplateStudio() {
         if (!mounted) return;
         const items = response.data;
         setTemplates(items);
-        const first = items[0];
-        if (first) {
-          const templateId  = normalizeTemplateId(first.id);
-          const firstLayout = first.hero_layout || first.valid_layouts?.[0] || Object.keys(first.layout_prop_schema ?? {})[0] || "";
+        // Prefer Nightfall as the default template when available.
+        const preferred =
+          items.find((tpl) => normalizeTemplateId(tpl.id) === "nightfall") ||
+          items[0];
+        if (preferred) {
+          const templateId  = normalizeTemplateId(preferred.id);
+          const firstLayout = preferred.hero_layout || preferred.valid_layouts?.[0] || Object.keys(preferred.layout_prop_schema ?? {})[0] || "";
           setSelectedTemplateId(templateId);
           setSelectedLayout(firstLayout);
-          setAccentColor(first.preview_colors?.accent || "#9333ea");
-          setBgColor(first.preview_colors?.bg         || "#ffffff");
-          setTextColor(first.preview_colors?.text     || "#111827");
+          setAccentColor(preferred.preview_colors?.accent || "#9333ea");
+          setBgColor(preferred.preview_colors?.bg         || "#ffffff");
+          setTextColor(preferred.preview_colors?.text     || "#111827");
         } else {
           setError("No templates were found.");
         }
