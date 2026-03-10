@@ -321,7 +321,7 @@ export const NewsHeadline: React.FC<
         {narration && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 38 : 32), // Larger for portrait
+              fontSize: descriptionFontSize ?? (p ? 46 : 44), // Larger for portrait
               fontWeight: 600,
               color: textColor,
               lineHeight: 1.4,

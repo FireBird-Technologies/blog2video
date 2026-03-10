@@ -179,7 +179,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                       </div>
                       <div style={{
                         fontFamily: B_FONT,
-                        fontSize: descriptionFontSize ?? (p ? 32 : 28), 
+                        fontSize: descriptionFontSize ?? (p ? 48 : 37), 
                         color: textColor,
                         fontWeight: isLatest ? 700 : 400,
                         maxWidth: "100%",
@@ -200,7 +200,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
               style={{
                 fontFamily: B_FONT,
                 // Calculation: Uses custom descriptionFontSize if provided, otherwise falls back to your defaults, then subtracts 7
-                fontSize: (descriptionFontSize ?? (p ? 45 : 32)) - 7,
+                fontSize: (descriptionFontSize ?? (p ? 48 : 37)) - 7,
                 fontStyle: "italic",
                 color: textColor,
                 opacity: interpolate(frame, [80, 100], [0, 0.75], {

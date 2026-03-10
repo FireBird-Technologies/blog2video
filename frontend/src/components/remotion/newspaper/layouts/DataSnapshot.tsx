@@ -183,7 +183,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
                   <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 34 : 35), 
+                    fontSize: descriptionFontSize ?? (p ? 38 : 35), 
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: 0.8, 
@@ -201,7 +201,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 34 : 35),
+                fontSize: descriptionFontSize ?? (p ? 38 : 35),
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),
