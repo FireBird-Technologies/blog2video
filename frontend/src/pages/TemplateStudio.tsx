@@ -876,6 +876,11 @@ export default function TemplateStudio() {
   const config      = useMemo(() => getTemplateConfig(selectedTemplateId || "default"), [selectedTemplateId]);
   const Composition = config.component as unknown as ComponentType<Record<string, unknown>>;
   const isPortrait  = aspectRatio === "portrait";
+  const layoutSupportsImage = useMemo(() => {
+    if (!selectedTemplate || !selectedLayout) return false;
+    const noImage = selectedTemplate.layouts_without_image ?? [];
+    return !noImage.includes(selectedLayout);
+  }, [selectedTemplate, selectedLayout]);
 
   useEffect(() => {
     const url = imageUrl.trim();
@@ -910,19 +915,44 @@ export default function TemplateStudio() {
     return next;
   }, [schema, layoutProps, isPortrait]);
 
-  const inputProps = useMemo(() => ({
-    scenes: [{
-      id: 1, order: 1, title, narration,
-      layout: selectedLayout || config.heroLayout,
-      layoutProps: resolvedLayoutProps, durationSeconds,
-      imageUrl: fetchedImageUrl || (imageFetching ? undefined : "https://placehold.co/1920x1080/faf5ff/c084fc?text=No+Image"),
-      voiceoverUrl: undefined,
-    }],
-    accentColor, bgColor, textColor,
-    logo: null, logoPosition: "bottom_right", logoOpacity: 0.9, logoSize: 100, aspectRatio,
-  }), [
-    title, narration, selectedLayout, config.heroLayout, resolvedLayoutProps, durationSeconds,
-    fetchedImageUrl, imageFetching, accentColor, bgColor, textColor, aspectRatio,
+  const inputProps = useMemo(() => {
+    const effectiveImageUrl =
+      layoutSupportsImage && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+    return {
+      scenes: [{
+        id: 1,
+        order: 1,
+        title,
+        narration,
+        layout: selectedLayout || config.heroLayout,
+        layoutProps: resolvedLayoutProps,
+        durationSeconds,
+        imageUrl: effectiveImageUrl,
+        voiceoverUrl: undefined,
+      }],
+      accentColor,
+      bgColor,
+      textColor,
+      logo: null,
+      logoPosition: "bottom_right",
+      logoOpacity: 0.9,
+      logoSize: 100,
+      aspectRatio,
+    };
+  }, [
+    title,
+    narration,
+    selectedLayout,
+    config.heroLayout,
+    resolvedLayoutProps,
+    durationSeconds,
+    layoutSupportsImage,
+    fetchedImageUrl,
+    imageFetching,
+    accentColor,
+    bgColor,
+    textColor,
+    aspectRatio,
   ]);
 
   const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
@@ -1407,6 +1437,20 @@ export default function TemplateStudio() {
                     onChange={setSelectedLayout}
                     options={layoutOptions}
                   />
+                  {selectedLayout && (
+                    <p
+                      style={{
+                        marginTop: "6px",
+                        fontSize: "10px",
+                        color: layoutSupportsImage ? T.textSub : T.textMuted,
+                        fontFamily: FONT,
+                      }}
+                    >
+                      {layoutSupportsImage
+                        ? "This layout supports images. Use the Edit Modal to add an image and make it appear in the layout."
+                        : "This layout does not render scene images."}
+                    </p>
+                  )}
                 </div>
 
                 {/* Format — aspect ratio only */}

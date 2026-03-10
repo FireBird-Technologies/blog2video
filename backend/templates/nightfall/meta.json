@@ -68,7 +68,7 @@
           "landscape": 63
         },
         "descriptionFontSize": {
-          "portrait": 34,
+          "portrait": 43,
           "landscape": 36
         }
       },
@@ -270,7 +270,7 @@
           "landscape": 71
         },
         "descriptionFontSize": {
-          "portrait": 56,
+          "portrait": 44,
           "landscape": 40
         },
         "items": [
@@ -314,7 +314,7 @@
           "landscape": 61
         },
         "descriptionFontSize": {
-          "portrait": 33,
+          "portrait": 35,
           "landscape": 28
         },
         "leftLabel": "Left",
@@ -412,11 +412,11 @@
       "label": "Glass Image",
       "defaults": {
         "titleFontSize": {
-          "portrait": 62,
+          "portrait": 78,
           "landscape": 64
         },
         "descriptionFontSize": {
-          "portrait": 36,
+          "portrait": 42,
           "landscape": 35
         }
       },
@@ -449,8 +449,8 @@
           "landscape": 61
         },
         "descriptionFontSize": {
-          "portrait": 38,
-          "landscape": 30
+          "portrait": 40,
+          "landscape": 36
         },
         "barChartRows": [
           {

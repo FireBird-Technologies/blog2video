@@ -4,7 +4,7 @@ Layout catalog for Geometric Explainer (default)
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `default` template. Pick the layout that best matches each scene's narration and visual intent, and **spread usage across the video** (aim for 5–7 different layouts in a 7-scene video, never more than 2–3 uses of the same layout unless the content truly demands it).
 
 - `hero_image`  
-  - **Best for**: Scene 0 hero. Full-bleed image with title overlay and gradient scrim. Always use this for the opening when a hero image exists.
+  - **Best for**: ** A full-screen background image is overlaid with a prominent, semi-transparent purple-to-blue gradient. Large, uppercase title text is centered on top, with optional smaller narration text below.
 
 - `text_narration`  
   - **Best for**: Simple explanatory beats when no structured visual fits. Single text card with geometric decorations.  
@@ -14,7 +14,7 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
   - **Best for**: Code snippets, API calls, CLI commands, configuration. Dark terminal-style card with syntax-highlighted code.
 
 - `bullet_list`  
-  - **Best for**: Features, benefits, steps, takeaways. Numbered pills with short text, staggered vertically.
+  - **Best for**: ** An animated, numbered list where each point slides in. Each item features a circular number, a main point in a colored, pill-shaped container, and an optional description underneath.
 
 - `flow_diagram`  
   - **Best for**: Pipelines, workflows, architectures, data flows. Boxes connected by arrows in a horizontal flow.

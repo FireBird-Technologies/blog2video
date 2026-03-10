@@ -19,9 +19,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   imageUrl,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, width: videoWidth } = useVideoConfig();
+  const { durationInFrames } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
 
   const pullVal = stats?.[0]?.value ?? "";
   const pullCap = stats?.[0]?.label ?? "";
@@ -58,6 +57,61 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
   const dropChar = narration[0] ?? "";
 
+  // --- Custom Logic for User Instructions ---
+  const isLandscapeWithImage = !p && imageUrl;
+  const isPortraitWithImage = p && imageUrl; // Helper for portrait + image
+  const isPortraitWithoutImage = p && !imageUrl;
+
+  let actualTitleMarginBottom: string | number;
+  let bodyContentAreaMarginTop: string | number = 0; // New variable for vertical spacing
+
+  if (isPortraitWithImage) {
+    // In portrait format with an image, adjust spacing:
+    // 1. Give title a smaller bottom margin to bring it slightly closer to the image's conceptual space.
+    actualTitleMarginBottom = 20; 
+    // 2. Add a top margin to the narration/body content area to push it down,
+    //    creating a clear gap between the absolutely positioned image and the text section.
+    //    The image is positioned around 25% top and 25% height, ending at 50%.
+    //    This margin pushes the narration to start well below the image.
+    bodyContentAreaMarginTop = "20vh"; // Pushes content down by 20% of viewport height
+  } else {
+    // Original logic for titleMarginBottom when no image in portrait or landscape
+    actualTitleMarginBottom = isPortraitWithoutImage ? 50 : (p ? "40%" : 50);
+    bodyContentAreaMarginTop = 0; // Default to no extra margin
+  }
+
+  const bodyContentAreaFlexDirection = isPortraitWithoutImage ? "column" : (p ? "column-reverse" : "row");
+  const bodyContentAreaJustifyContent = isPortraitWithoutImage ? "flex-start" : (p ? "flex-start" : "space-between");
+
+  const narrationWidth = p ? "100%" : "52%";
+
+  // Stats Box Styling
+  const statsContainerStyles: React.CSSProperties = {
+    opacity: pullOp,
+    transform: `translateX(${pullSlide}px) translateZ(30px)`,
+    fontFamily: B_FONT,
+    color: textColor,
+    // Default styles for flex item or portrait mode
+    width: p ? "100%" : "30%",
+    borderLeft: `${p ? 12 : 8}px solid ${accentColor}`,
+    paddingLeft: 25,
+    alignSelf: p ? "flex-start" : "center", // Only applies if it's a flex item
+  };
+
+  if (isLandscapeWithImage) {
+    // Landscape with image: Stats move to the bottom, become absolutely positioned
+    statsContainerStyles.position = "absolute";
+    statsContainerStyles.bottom = "6%";
+    statsContainerStyles.right = "8%";
+    statsContainerStyles.width = "30%";
+    statsContainerStyles.borderLeft = "none";
+    statsContainerStyles.borderTop = `8px solid ${accentColor}`;
+    statsContainerStyles.paddingTop = 25;
+    statsContainerStyles.paddingLeft = 0;
+    delete statsContainerStyles.alignSelf; // Not a flex item anymore
+  }
+
+
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
       <div style={{
@@ -77,7 +131,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             style={{
               position: "absolute",
               // Portrait: Centered Middle | Landscape: Anchored Right
-              top: p ? "32%" : "20%",
+              top: p ? "25%" : "20%", // Modified for portrait: "a bit at top"
               right: p ? "auto" : "6%",
               left: p ? "50%" : "auto",
               width: p ? "88%" : "38%",
@@ -120,12 +174,12 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           }}
         >
           {/* 1. HEADER - Bold & Large */}
-          <div style={{ marginBottom: p ? "40%" : 50, width: p ? "100%" : "55%" }}>
+          <div style={{ marginBottom: actualTitleMarginBottom, width: p ? "100%" : "55%" }}>
             <div style={{ height: p ? 12 : 8, background: textColor, width: `${ruleW}%`, marginBottom: 20 }} />
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: titleFontSize ?? (p ? 72 * scale : 85 * scale),
+                fontSize: titleFontSize ?? (p ? 72 : 85), // Massive Defaults
                 fontWeight: 900,
                 letterSpacing: "-0.02em",
                 textTransform: "uppercase",
@@ -138,27 +192,26 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             </div>
           </div>
 
-          {/* 2. BODY CONTENT AREA */}
+          {/* 2. BODY CONTENT AREA (Narration and Stats) */}
           <div
             style={{
               flex: 1,
               display: "flex",
-              flexDirection: p ? "column-reverse" : "row", // Flip portrait to put text at bottom
+              flexDirection: bodyContentAreaFlexDirection,
               gap: p ? 30 : 60,
               alignItems: p ? "stretch" : "center",
-              justifyContent: p ? "flex-start" : "space-between"
+              justifyContent: bodyContentAreaJustifyContent,
+              marginTop: bodyContentAreaMarginTop, // Apply dynamic margin here
             }}
           >
             {/* NARRATION TEXT */}
             <div style={{ 
-              width: p ? "100%" : "52%", 
-              // Landscape: narration stays left, avoiding right-side image
-              // Portrait: narration pushed to bottom via column-reverse
+              width: narrationWidth, 
             }}>
               <div
                 style={{
                   fontFamily: B_FONT,
-                  fontSize: descriptionFontSize ?? (p ? 38 * scale : 32 * scale),
+                  fontSize: descriptionFontSize ?? (p ? 38 : 32),
                   fontWeight: 500,
                   color: textColor,
                   lineHeight: 1.45,
@@ -168,7 +221,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   style={{
                     float: "left",
                     fontFamily: H_FONT,
-                    fontSize: p ? 130 * scale : 110 * scale,
+                    fontSize: p ? 130 : 110,
                     fontWeight: 800,
                     lineHeight: 0.7,
                     marginRight: 15,
@@ -192,21 +245,12 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             </div>
 
             {/* PULL STAT (Right side in Landscape / Top of bottom section in Portrait) */}
-            {pullVal && (
-              <div
-                style={{
-                  width: p ? "100%" : "30%",
-                  opacity: pullOp,
-                  transform: `translateX(${pullSlide}px) translateZ(30px)`,
-                  borderLeft: `${p ? 12 : 8}px solid ${accentColor}`,
-                  paddingLeft: 25,
-                  alignSelf: p ? "flex-start" : "center",
-                }}
-              >
+            {pullVal && !isLandscapeWithImage && ( // Render here IF NOT Landscape with Image
+              <div style={statsContainerStyles}>
                 <div
                   style={{
                     fontFamily: H_FONT,
-                    fontSize: p ? 90 * scale : 80 * scale,
+                    fontSize: p ? 90 : 80,
                     fontWeight: 800,
                     color: textColor,
                     lineHeight: 1,
@@ -219,7 +263,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   <div
                     style={{
                       fontFamily: B_FONT,
-                      fontSize: (p ? 24 : 18) * scale,
+                      fontSize: p ? 24 : 18,
                       fontWeight: 700,
                       color: textColor,
                       opacity: 0.7,
@@ -233,6 +277,40 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               </div>
             )}
           </div>
+
+          {/* PULL STAT (Only for Landscape with Image, positioned at bottom) */}
+          {pullVal && isLandscapeWithImage && (
+            <div style={statsContainerStyles}>
+              <div
+                style={{
+                  fontFamily: H_FONT,
+                  fontSize: p ? 90 : 80, // p is false here, so 80
+                  fontWeight: 800,
+                  color: textColor,
+                  lineHeight: 1,
+                  marginBottom: 5,
+                }}
+              >
+                {displayVal}
+              </div>
+              {pullCap && (
+                <div
+                  style={{
+                    fontFamily: B_FONT,
+                    fontSize: p ? 24 : 18, // p is false here, so 18
+                    fontWeight: 700,
+                    color: textColor,
+                    opacity: 0.7,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em"
+                  }}
+                >
+                  {pullCap}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </AbsoluteFill>

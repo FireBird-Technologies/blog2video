@@ -846,6 +846,8 @@ def preview_ai_edit(payload: AiEditProposeRequest, user: User = Depends(get_curr
         )
     else:
         version_dir = Path(session["version_dir"])
+        # The tmp folder may have been cleaned up between requests; recreate if needed.
+        version_dir.mkdir(parents=True, exist_ok=True)
         new_version_id = _next_version_id(session)
         content = proposed_code.rstrip() + "\n"
         (version_dir / f"{new_version_id}.tsx").write_text(content, encoding="utf-8")
