@@ -264,7 +264,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   opacity: narrationOpacity,
                   transform: `translateY(${narrationY}px)`,
                   // Adjust font size for narration based on portrait, image presence
-                  fontSize: descriptionFontSize ?? (p ? 34 : 36), 
+                  fontSize: descriptionFontSize ?? (p ? 43 : 36), 
                   lineHeight: 1.8,
                   color: "rgba(226,232,240,0.8)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

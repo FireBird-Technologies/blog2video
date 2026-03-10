@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, staticFile } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -25,7 +25,6 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, width, height, fps } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = width / 1920;
   const items = stats.slice(0, 4);
 
   // --- 3D Camera & Exit Logic (Unchanged) ---
@@ -69,7 +68,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Left shard */}
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",
@@ -86,7 +85,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Right shard */}
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",
@@ -121,7 +120,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 110 * scale : 90 * scale),
+                fontSize: titleFontSize ?? (p ? 110 : 90),
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,
@@ -171,7 +170,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 >
                   <div style={{ 
                     fontFamily: H_FONT, 
-                    fontSize: p ? 64 * scale : 58 * scale,
+                    fontSize: p ? 64 : 58, 
                     fontWeight: 900, 
                     color: textColor, 
                     lineHeight: 1, 
@@ -184,10 +183,10 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
                   <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 34 * scale : 35 * scale),
-                    fontWeight: 600,
-                    color: textColor,
-                    opacity: 0.8,
+                    fontSize: descriptionFontSize ?? (p ? 38 : 35), 
+                    fontWeight: 600, 
+                    color: textColor, 
+                    opacity: 0.8, 
                     lineHeight: 1.2 
                   }}>
                     {item.label}
@@ -202,7 +201,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 34 * scale : 35 * scale),
+                fontSize: descriptionFontSize ?? (p ? 38 : 35),
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),

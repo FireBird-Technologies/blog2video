@@ -216,7 +216,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   position: "absolute",
                   top: p ? 20 : 24,
                   left: p ? 24 : 28,
-                  fontSize: descriptionFontSize ?? (p ? 33 : 28),
+                  fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   color: "rgba(226,232,240,0.45)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                   letterSpacing: "0.1em",
@@ -230,7 +230,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               {/* Content */}
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 33 : 28),
+                  fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -328,7 +328,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   position: "absolute",
                   top: p ? 20 : 24,
                   left: p ? 24 : 28,
-                  fontSize: descriptionFontSize ?? (p ? 33 : 28),
+                  fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   color: accentColor,
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                   letterSpacing: "0.1em",
@@ -342,7 +342,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               {/* Content */}
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 33 : 28),
+                  fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

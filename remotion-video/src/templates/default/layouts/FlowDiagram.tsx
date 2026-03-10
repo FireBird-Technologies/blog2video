@@ -24,6 +24,19 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  const underlineSpring = spring({
+    frame: frame - 15, // Start animation after title appears
+    fps,
+    config: { damping: 18, stiffness: 80, mass: 1 },
+  });
+
+  const underlineWidth = interpolate(underlineSpring, [0, 1], [0, 100], {
+    extrapolateRight: "clamp",
+  });
+  const underlineOpacity = interpolate(underlineSpring, [0, 0.5], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
@@ -36,20 +49,44 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
         overflow: "hidden",
       }}
     >
-      <h2
+      <div
         style={{
-          color: textColor,
-          fontSize: titleFontSize ?? (p ? 36 : 46),
-          fontWeight: 700,
-          fontFamily: "Inter, sans-serif",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          position: "relative", // Needed for absolute positioning of underline
+          marginBottom: p ? 72 : 100, // Increased gap between title and steps
           opacity: titleOp,
-          marginTop: 0,
-          marginBottom: p ? 36 : 50,
-          textAlign: "center",
         }}
       >
-        {title}
-      </h2>
+        <h2
+          style={{
+            color: textColor,
+            fontSize: titleFontSize ?? (p ? 50 : 51),
+            fontWeight: 700,
+            fontFamily: "Inter, sans-serif",
+            marginTop: 0,
+            marginBottom: 0, // Reset margin since parent div handles spacing
+            textAlign: "center",
+            lineHeight: 1.1,
+          }}
+        >
+          {title}
+        </h2>
+        <div
+          style={{
+            position: "absolute",
+            bottom: p ? -10 : -15, // Adjust position relative to title
+            left: "50%",
+            transform: `translateX(-50%)`,
+            width: `${underlineWidth}%`, // Animated width
+            height: p ? 8 : 12,
+            backgroundColor: accentColor,
+            borderRadius: 4,
+            opacity: underlineOpacity, // Animated opacity
+          }}
+        />
+      </div>
       <div
         style={{
           display: "flex",
@@ -98,23 +135,31 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                   transform: `scale(${scale})`,
                   opacity: op,
                   textAlign: "center",
-                  maxWidth: p ? "100%" : 220,
+                  // Removed maxWidth to allow the pill to adjust its width based on content
+                  // The parent `steps` container with `flexWrap: "wrap"` and `maxWidth: "100%"` will handle overall layout.
                 }}
               >
                 <span
                   style={{
-                    fontSize: descriptionFontSize ?? (p ? 20 : 24),
+                    fontSize: descriptionFontSize ?? (p ? 35 : 27),
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
                     fontFamily: "Inter, sans-serif",
+                    // Added wordBreak and hyphens to better handle long content without overflowing
+                    wordBreak: "break-word",
+                    hyphens: "auto",
                   }}
                 >
                   {step}
                 </span>
               </div>
-              {!isLast && (
-                p ? (
-                  <svg width="20" height="32" style={{ opacity: arrowOp, flexShrink: 0 }}>
+              {!isLast &&
+                (p ? (
+                  <svg
+                    width="20"
+                    height="32"
+                    style={{ opacity: arrowOp, flexShrink: 0 }}
+                  >
                     <path
                       d="M10 0 L10 24 M4 18 L10 24 L16 18"
                       stroke={accentColor}
@@ -123,7 +168,11 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                     />
                   </svg>
                 ) : (
-                  <svg width="32" height="20" style={{ opacity: arrowOp, flexShrink: 0 }}>
+                  <svg
+                    width="32"
+                    height="20"
+                    style={{ opacity: arrowOp, flexShrink: 0 }}
+                  >
                     <path
                       d="M0 10 L24 10 M18 4 L24 10 L18 16"
                       stroke={accentColor}
@@ -131,8 +180,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                       fill="none"
                     />
                   </svg>
-                )
-              )}
+                ))}
             </div>
           );
         })}
