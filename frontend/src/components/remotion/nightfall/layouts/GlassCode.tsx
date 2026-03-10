@@ -297,7 +297,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
               {title && (
                 <span
                   style={{
-                    fontSize: titleFontSize ?? (p ? 18 : 22),
+                    fontSize: titleFontSize ?? (p ? 51 : 55),
                     color: safeTextColor,
                     opacity: 0.6,
                     fontFamily: "'Fira Code', monospace",
@@ -413,7 +413,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
                         marginLeft: 4,
                         color: safeAccentColor,
                         fontWeight: 700,
-                        fontSize: descriptionFontSize ?? (p ? 16 : 20),
+                        fontSize: descriptionFontSize ?? (p ? 51 : 40),
                       }}
                     >
                       |

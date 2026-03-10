@@ -294,10 +294,278 @@ export interface TemplateMeta {
   description: string;
   styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
   preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+}
+
+export type LayoutPropFieldType =
+  | "string"
+  | "text"
+  | "number"
+  | "color"
+  | "select"
+  | "string_array"
+  | "object_array";
+
+export interface LayoutPropSubField {
+  key: string;
+  label: string;
+  placeholder?: string;
+}
+
+export interface LayoutPropField {
+  key: string;
+  label: string;
+  type: LayoutPropFieldType;
+  responsive?: boolean;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  maxItems?: number;
+  options?: Array<{ label: string; value: string }>;
+  subFields?: LayoutPropSubField[];
+}
+
+export interface LayoutSceneDefaults {
+  title?: string;
+  narration?: string;
+  durationSeconds?: number;
+}
+
+export interface LayoutPropSchema {
+  label?: string;
+  description?: string;
+  defaults?: Record<string, unknown>;
+  scene_defaults?: LayoutSceneDefaults;
+  fields: LayoutPropField[];
 }
 
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
+
+export interface AspectValue {
+  portrait: number;
+  landscape: number;
+}
+
+export interface SaveTemplateSourceRequest {
+  template_id: string;
+  layout_id: string;
+  title_font_size?: AspectValue;
+  description_font_size?: AspectValue;
+}
+
+export interface SaveTemplateSourceResponse {
+  ok: boolean;
+  updated_file: string;
+  updated_files?: string[];
+  updated_meta_file?: string | null;
+  layout_id: string;
+  template_id: string;
+  changes_applied: number;
+}
+
+export const saveTemplateSourceDefaults = (payload: SaveTemplateSourceRequest) =>
+  api.post<SaveTemplateSourceResponse>("/template-studio/save-source", payload);
+
+export interface ProposeTemplateAiEditRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+}
+
+export interface StartTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  preview_files: string[];
+  versions?: string[];
+  active_version_id?: string;
+}
+
+export interface TemplateAiPreviewSessionRequest {
+  session_id: string;
+}
+
+export interface SwitchTemplateAiPreviewRequest {
+  session_id: string;
+  version: string;
+}
+
+export interface ApplyTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  updated_files: string[];
+}
+
+export interface DiscardTemplateAiPreviewResponse {
+  ok: boolean;
+  session_id: string;
+}
+
+export interface ListTemplateAiVersionsRequest {
+  template_id: string;
+  layout_id: string;
+}
+
+export interface ListTemplateAiVersionsResponse {
+  ok: boolean;
+  session_id: string | null;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string | null;
+}
+
+export const startTemplateAiPreview = (payload: ProposeTemplateAiEditRequest) =>
+  api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview", payload);
+
+export const startTemplateAiPreviewFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("image", payload.image);
+  return api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export const applyTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<ApplyTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-apply", payload);
+
+export const switchTemplateAiPreviewVersion = (payload: SwitchTemplateAiPreviewRequest) =>
+  api.post<{ ok: boolean; session_id: string; version: string }>(
+    "/template-studio/ai-edit/preview-switch",
+    payload
+  );
+
+export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
+  api.post<DiscardTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-discard", payload);
+
+export const getTemplateAiVersions = (payload: ListTemplateAiVersionsRequest) =>
+  api.post<ListTemplateAiVersionsResponse>("/template-studio/ai-edit/versions", payload);
+
+// ─── Layout rebuild / create ──────────────────────────────────────────────────
+
+export interface PropDef {
+  name: string;
+  type: string;
+  description: string;
+  default?: string;
+}
+
+export const SUPPORTED_PROP_TYPES = [
+  "string",
+  "text",
+  "number",
+  "boolean",
+  "color",
+  "imageUrl",
+  "string_array",
+  "object_array",
+] as const;
+export type PropType = typeof SUPPORTED_PROP_TYPES[number];
+
+export interface RebuildLayoutRequest {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+}
+
+export interface RebuildLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  updated_files: string[];
+  schema: object;
+}
+
+export const rebuildTemplateLayout = (payload: RebuildLayoutRequest) =>
+  api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild", payload);
+
+export const rebuildTemplateLayoutFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("extra_props_json", JSON.stringify(payload.extra_props || []));
+  formData.append("image", payload.image);
+  return api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+export interface CreateLayoutRequest {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+  image_base64?: string | null;
+  image_mime_type?: string | null;
+}
+
+export interface CreateLayoutResponse {
+  ok: boolean;
+  session_id: string;
+  template_id: string;
+  new_layout_id: string;
+  versions: string[];
+  active_version_id: string;
+  created_files: string[];
+  schema: object;
+}
+
+export const createTemplateLayout = (payload: CreateLayoutRequest) =>
+  api.post<CreateLayoutResponse>("/template-studio/ai-layout/create", payload);
+
+export const createTemplateLayoutFile = (payload: {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("base_layout_id", payload.base_layout_id);
+  formData.append("new_layout_id", payload.new_layout_id);
+  formData.append("layout_description", payload.layout_description);
+  formData.append("props_json", JSON.stringify(payload.props || []));
+  formData.append("image", payload.image);
+  return api.post<CreateLayoutResponse>("/template-studio/ai-layout/create-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export interface VoicePreview {
   voice_id: string;
@@ -548,10 +816,18 @@ export const generateSceneImage = (
     `/projects/${projectId}/scenes/${sceneId}/generate-image`
   );
 
+export interface LayoutPropSchemaEntry {
+  label?: string;
+  defaults?: Record<string, unknown>;
+  fields?: Array<{ key: string; label?: string; type?: string }>;
+  scene_defaults?: { title?: string; narration?: string };
+}
+
 export interface LayoutInfo {
   layouts: string[];
   layout_names: Record<string, string>;
   layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchemaEntry>;
 }
 
 export const getValidLayouts = (projectId: number) =>
