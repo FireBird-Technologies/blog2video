@@ -2309,7 +2309,15 @@ export default function ProjectView() {
                                 {/* Typography — font size sliders with live preview and debounced save */}
                                 {scene.remotion_code && project && (() => {
                                   try {
-                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string }; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
+                                    const desc = JSON.parse(scene.remotion_code) as {
+                                      layout?: string;
+                                      layoutConfig?: {
+                                        arrangement?: string;
+                                        titleFontSize?: number;
+                                        descriptionFontSize?: number;
+                                      };
+                                      layoutProps?: { titleFontSize?: number; descriptionFontSize?: number };
+                                    };
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
                                     const aspectRatio = project.aspect_ratio ?? "landscape";
