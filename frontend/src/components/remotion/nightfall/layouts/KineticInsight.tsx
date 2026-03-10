@@ -91,7 +91,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
             position: "absolute",
             top: p ? "15%" : "20%",
             left: p ? "10%" : "15%",
-            fontSize: titleFontSize ?? (p ? 80 : 120),
+            fontSize: titleFontSize ?? (p ? 169 : 112),
             color: accentColor,
             opacity: quoteOpacity * 0.25,
             fontFamily: "Georgia, serif",
@@ -154,7 +154,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
               <span
                 key={i}
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 60 : 72),
+                  fontSize: descriptionFontSize ?? (p ? 83 : 92),
                   fontWeight: 700,
                   color: isHighlight ? accentColor : textColor,
                   opacity: wordOpacity,
@@ -187,7 +187,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
             position: "absolute",
             bottom: p ? "15%" : "20%",
             right: p ? "10%" : "15%",
-            fontSize: titleFontSize ?? (p ? 80 : 120),
+            fontSize: titleFontSize ?? (p ? 169 : 112),
             color: accentColor,
             opacity: interpolate(
               frame,

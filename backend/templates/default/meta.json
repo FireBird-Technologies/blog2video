@@ -23,6 +23,164 @@
     "image_caption",
     "timeline"
   ],
+  "layout_prop_schema": {
+    "hero_image": {
+      "label": "Hero Image",
+      "defaults": {
+        "titleFontSize": { "portrait": 40, "landscape": 54 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 }
+      ]
+    },
+    "text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": { "portrait": 34, "landscape": 44 },
+        "descriptionFontSize": { "portrait": 20, "landscape": 23 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Description Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 }
+      ]
+    },
+    "code_block": {
+      "label": "Code Block",
+      "defaults": {
+        "titleFontSize": { "portrait": 26, "landscape": 36 },
+        "codeLanguage": "python",
+        "codeLines": ["def hello_world():", "    print('Hello, world!')"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "codeLanguage", "label": "Language", "type": "string" },
+        { "key": "codeLines", "label": "Code Lines", "type": "string_array", "maxItems": 16 }
+      ]
+    },
+    "bullet_list": {
+      "label": "Bullet List",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 40 },
+        "descriptionFontSize": { "portrait": 18, "landscape": 22 },
+        "bullets": ["Point one", "Point two", "Point three"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        { "key": "bullets", "label": "Bullets", "type": "string_array", "maxItems": 6 }
+      ]
+    },
+    "flow_diagram": {
+      "label": "Flow Diagram",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 38 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 20 },
+        "steps": ["Step 1", "Step 2", "Step 3"]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        { "key": "steps", "label": "Steps", "type": "string_array", "maxItems": 5 }
+      ]
+    },
+    "comparison": {
+      "label": "Comparison",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 38 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 20 },
+        "leftLabel": "Option A",
+        "rightLabel": "Option B",
+        "leftDescription": "Pros and context for option A",
+        "rightDescription": "Pros and context for option B"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        { "key": "leftLabel", "label": "Left Label", "type": "string" },
+        { "key": "rightLabel", "label": "Right Label", "type": "string" },
+        { "key": "leftDescription", "label": "Left Description", "type": "text" },
+        { "key": "rightDescription", "label": "Right Description", "type": "text" }
+      ]
+    },
+    "metric": {
+      "label": "Metric",
+      "defaults": {
+        "titleFontSize": { "portrait": 18, "landscape": 22 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 20 },
+        "metrics": [
+          { "value": "72", "label": "Conversion", "suffix": "%" },
+          { "value": "4.2", "label": "ROI", "suffix": "x" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" },
+            { "key": "suffix", "label": "Suffix" }
+          ]
+        }
+      ]
+    },
+    "quote_callout": {
+      "label": "Quote Callout",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 38 },
+        "descriptionFontSize": { "portrait": 16, "landscape": 20 },
+        "quote": "A concise insight worth highlighting.",
+        "quoteAuthor": "Author Name"
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        { "key": "quote", "label": "Quote", "type": "text" },
+        { "key": "quoteAuthor", "label": "Author", "type": "string" }
+      ]
+    },
+    "image_caption": {
+      "label": "Image Caption",
+      "defaults": {
+        "titleFontSize": { "portrait": 26, "landscape": 32 },
+        "descriptionFontSize": { "portrait": 17, "landscape": 20 }
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Caption Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 }
+      ]
+    },
+    "timeline": {
+      "label": "Timeline",
+      "defaults": {
+        "titleFontSize": { "portrait": 30, "landscape": 38 },
+        "descriptionFontSize": { "portrait": 14, "landscape": 16 },
+        "timelineItems": [
+          { "label": "Phase 1", "description": "Kickoff and discovery" },
+          { "label": "Phase 2", "description": "Implementation" },
+          { "label": "Phase 3", "description": "Launch" }
+        ]
+      },
+      "fields": [
+        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 180, "step": 1 },
+        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 120, "step": 1 },
+        {
+          "key": "timelineItems",
+          "label": "Timeline Items",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "description", "label": "Description" }
+          ]
+        }
+      ]
+    }
+  },
   "layouts_without_image": [
     "text_narration",
     "code_block",

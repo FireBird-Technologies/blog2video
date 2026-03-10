@@ -21,7 +21,7 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -1100,15 +1100,19 @@ def get_project_layouts(
     
     # Convert layout IDs to human-readable names
     layout_names = {}
+    meta = get_meta(project.template)
+    schema = meta.get("layout_prop_schema", {}) if meta else {}
     for layout_id in valid_layouts:
-        # Convert snake_case to Title Case
-        name = layout_id.replace("_", " ").title()
+        # Prefer schema label, fallback to Title Case
+        layout_schema = schema.get(layout_id, {})
+        name = layout_schema.get("label") or layout_id.replace("_", " ").title()
         layout_names[layout_id] = name
     
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
         "layouts_without_image": sorted(list(no_image_layouts)),
+        "layout_prop_schema": schema,
     }
 
 

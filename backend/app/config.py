@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     FIRECRAWL_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
+    GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
+    # Used automatically when an image is attached (vision-guided layout editing).
+    GEMINI_CODE_MODEL_WITH_IMAGE: str = "gemini-2.5-pro"
 
     # AI image generation: set IMAGE_PROVIDER ("openai" | "gemini") and DSPY_IMAGE_LM in env
     IMAGE_PROVIDER: str = os.environ.get("IMAGE_PROVIDER", "openai")
