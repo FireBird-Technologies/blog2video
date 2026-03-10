@@ -65,10 +65,10 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 76,
-          "landscape": 62
+          "landscape": 63
         },
         "descriptionFontSize": {
-          "portrait": 38,
+          "portrait": 34,
           "landscape": 36
         }
       },

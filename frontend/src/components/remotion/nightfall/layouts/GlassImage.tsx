@@ -226,7 +226,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {/* Title */}
           <h2
             style={{
-              fontSize: titleFontSize ?? 38,
+              fontSize: titleFontSize ?? (p ? 62 : 64),
               fontWeight: 700,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
