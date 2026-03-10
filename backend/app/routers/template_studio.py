@@ -1112,26 +1112,92 @@ def _add_or_update_layout_in_layout_prompt(content: str, layout_id: str, descrip
 
 
 def _extract_prompt_layout_section(prompt_text: str, layout_id: str) -> str:
-    """Extract the ## layout_id section from prompt.md. Returns empty string if not found."""
-    pattern = re.compile(
-        rf"^##\s+{re.escape(layout_id)}\b.*?(?=^##\s|\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    m = pattern.search(prompt_text)
-    return m.group(0).rstrip() if m else ""
+    """
+    Extract the markdown block for a layout from prompt.md.
+    Uses '---' separators to avoid accidentally capturing non-layout sections.
+    Returns empty string if not found.
+    """
+    blocks = _split_prompt_md_blocks(prompt_text)
+    for b in blocks:
+        header = _first_nonempty_line(b)
+        if header.strip().lower() == f"## {layout_id}".lower():
+            return b.rstrip()
+    return ""
 
 
 def _replace_prompt_layout_section(prompt_text: str, layout_id: str, new_section: str) -> str:
-    """Replace the ## layout_id section in prompt.md with new_section. Appends if missing."""
-    pattern = re.compile(
-        rf"(^##\s+{re.escape(layout_id)}\b.*?)(?=^##\s|\Z)",
-        re.MULTILINE | re.DOTALL,
-    )
-    replacement = new_section.rstrip() + "\n\n---\n\n"
-    updated, n = pattern.subn(replacement, prompt_text)
-    if n == 0:
-        updated = prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n"
-    return updated
+    """
+    Replace or insert a layout markdown block in prompt.md using '---' block boundaries.
+    This avoids overwriting sections like '# Scene Flow Rules' that come after the catalog.
+    """
+    new_block = new_section.strip()
+    if not new_block.lower().startswith(f"## {layout_id}".lower()):
+        new_block = f"## {layout_id}\n" + new_block.lstrip()
+
+    blocks = _split_prompt_md_blocks(prompt_text)
+    # Try replace in-place.
+    for i, b in enumerate(blocks):
+        header = _first_nonempty_line(b).strip()
+        if header.lower() == f"## {layout_id}".lower():
+            blocks[i] = new_block
+            return _join_prompt_md_blocks(blocks)
+
+    # Not found: insert into the Layout Catalog section (before scene flow / rules blocks).
+    insert_at = len(blocks)
+    layout_catalog_idx = None
+    for i, b in enumerate(blocks):
+        h = _first_nonempty_line(b).strip()
+        if h.lower() == "# layout catalog":
+            layout_catalog_idx = i
+            continue
+        if layout_catalog_idx is not None and i > layout_catalog_idx:
+            # Insert before the first top-level heading after the catalog.
+            if h.startswith("# ") and h.lower() != "# layout catalog":
+                insert_at = i
+                break
+    # Additional safety: even if we didn't see an explicit "# Layout Catalog",
+    # prefer to insert before common post-catalog sections.
+    post_headers = {
+        "# scene flow rules",
+        "# content extraction rules",
+        "# variety rules",
+        "# scene flow",
+    }
+    for i, b in enumerate(blocks):
+        h = _first_nonempty_line(b).strip().lower()
+        if h in post_headers:
+            insert_at = min(insert_at, i)
+            break
+
+    if layout_catalog_idx is not None or insert_at < len(blocks):
+        blocks.insert(insert_at, new_block)
+    else:
+        # Fallback: append.
+        blocks.append(new_block)
+    return _join_prompt_md_blocks(blocks)
+
+
+_PROMPT_SPLIT_RE = re.compile(r"\n\s*---\s*\n")
+
+
+def _split_prompt_md_blocks(prompt_text: str) -> list[str]:
+    text = (prompt_text or "").strip()
+    if not text:
+        return []
+    # Preserve order; normalize whitespace within blocks by trimming edges only.
+    parts = _PROMPT_SPLIT_RE.split(text)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _join_prompt_md_blocks(blocks: list[str]) -> str:
+    return ("\n\n---\n\n".join(b.strip() for b in blocks if b and b.strip()).rstrip() + "\n")
+
+
+def _first_nonempty_line(block: str) -> str:
+    for line in (block or "").splitlines():
+        if line.strip():
+            return line
+    return ""
 
 
 def _validate_prop_types(props: list[PropDef]) -> None:
@@ -1266,6 +1332,114 @@ def _build_prompt_section(layout_id: str, description: str, props: list[PropDef]
     lines.append("")
     lines.append(f"**When to Use:** Use `{layout_id}` when content fits this layout style.")
     return "\n".join(lines)
+
+
+def _extract_visual_from_prompt_section(section_md: str) -> str:
+    """
+    Given a prompt.md section, extract the one-line **Visual:** description.
+    Returns empty string if not found.
+    """
+    if not section_md:
+        return ""
+    for line in section_md.splitlines():
+        s = line.strip()
+        if s.lower().startswith("**visual:**"):
+            return s.split(":", 1)[1].strip()
+    return ""
+
+
+def _call_gemini_layout_doc_section(
+    *,
+    template_id: str,
+    layout_id: str,
+    instruction: str,
+    tsx: str,
+    props: list[PropDef],
+    image_base64: str | None = None,
+    image_mime_type: str | None = None,
+) -> str:
+    """
+    Generate a high-quality prompt.md section for a layout from the final TSX + schema props.
+    Returns markdown starting with '## {layout_id}'.
+    """
+    api_key = (settings.GEMINI_API_KEY or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="GEMINI_API_KEY is not configured.")
+    try:
+        from google import genai
+        from google.genai import types
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini requires google-genai package: {e}",
+        )
+
+    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
+    image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
+    model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
+    client = genai.Client(api_key=api_key)
+
+    content_props = [p for p in props if p.name not in _PROMPT_EXCLUDE_PROPS]
+    props_desc = "\n".join(
+        f"- `{p.name}` ({p.type}){(' — ' + p.description.strip()) if p.description else ''}"
+        for p in content_props
+    ) or "- (none)"
+
+    system_prompt = (
+        "You write documentation sections for a video template layout catalog (prompt.md).\n"
+        "Output MUST be markdown ONLY, and MUST start with a header line exactly:\n"
+        f"## {layout_id}\n\n"
+        "Do not wrap in code fences. Do not add any extra sections outside this layout.\n"
+        "Be concise but specific. Use the TSX to infer the visual design.\n\n"
+        "Required structure inside the section:\n"
+        f"## {layout_id}\n"
+        "**Visual:** <1-2 sentences describing what the layout looks like>\n"
+        "\n"
+        "**Props:**\n"
+        "  - `<prop>` (<type>) — <how it affects visuals/content> (include only the important ones)\n"
+        "\n"
+        f"**When to Use:** <1-2 sentences, include `{layout_id}`>\n"
+        "\n"
+        "**Avoid When:** <1 sentence>\n"
+        "\n"
+        "**Notes:** <1-3 bullets with any constraints like image support, long text behavior, etc.>\n"
+    )
+
+    user_prompt = (
+        f"Template ID: {template_id}\n"
+        f"Layout ID: {layout_id}\n\n"
+        "User instruction (intent):\n"
+        f"{instruction.strip()}\n\n"
+        "Known props (name, type, description):\n"
+        f"{props_desc}\n\n"
+        "Final TSX implementation (source of truth for visuals/behavior):\n"
+        f"{tsx.strip()[:12000]}"
+    )
+
+    prompt_part = types.Part.from_text(text=system_prompt + "\n\n" + user_prompt)
+    parts: list = []
+    if image_base64 and image_mime_type:
+        try:
+            image_bytes = base64.b64decode(image_base64)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image_base64.")
+        mime = (image_mime_type or "image/jpeg").strip().lower()
+        if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+            mime = "image/jpeg"
+        parts.append(types.Part.from_bytes(data=image_bytes, mime_type=mime))
+    parts.append(prompt_part)
+
+    response = client.models.generate_content(
+        model=model_name,
+        contents=[types.Content(role="user", parts=parts)],
+    )
+    text = (getattr(response, "text", "") or "").strip()
+    if not text:
+        raise HTTPException(status_code=502, detail="Gemini returned empty prompt.md section.")
+    # Normalize: ensure it starts with the correct header.
+    if not text.lstrip().startswith(f"## {layout_id}"):
+        text = f"## {layout_id}\n" + text.lstrip().lstrip("#").lstrip()
+    return text.rstrip()
 
 
 def _build_rebuild_gemini_prompt(
@@ -1503,12 +1677,20 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
         PropDef(name=f["key"], type=f.get("type", "string"), description=f.get("description", f.get("label", "")))
         for f in all_fields
     ]
-    existing_section = _extract_prompt_layout_section(prompt_text, layout_id)
-    new_section = _build_prompt_section(
-        layout_id,
-        existing_section.split("\n")[1].replace("**Visual:**", "").strip() if existing_section else payload.instruction,
-        all_props_for_prompt,
-    )
+    # Build a richer prompt.md section using Gemini, based on the final TSX + props.
+    # Fallback to simple section generation if Gemini fails for any reason.
+    try:
+        new_section = _call_gemini_layout_doc_section(
+            template_id=template_id,
+            layout_id=layout_id,
+            instruction=payload.instruction,
+            tsx=content,
+            props=all_props_for_prompt,
+            image_base64=payload.image_base64,
+            image_mime_type=payload.image_mime_type,
+        )
+    except HTTPException:
+        new_section = _build_prompt_section(layout_id, payload.instruction, all_props_for_prompt)
     updated_prompt = _replace_prompt_layout_section(prompt_text, layout_id, new_section)
 
     # Versioning: create or reuse session
@@ -1552,11 +1734,7 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
     # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
     layout_prompt_content, layout_prompt_path = _load_layout_prompt_md(template_id)
     if layout_prompt_content is not None:
-        rebuild_description = (
-            existing_section.split("\n")[1].replace("**Visual:**", "").strip()
-            if existing_section
-            else payload.instruction
-        )
+        rebuild_description = _extract_visual_from_prompt_section(new_section) or payload.instruction
         updated_layout_prompt = _add_or_update_layout_in_layout_prompt(
             layout_prompt_content, layout_id, rebuild_description
         )
@@ -1723,12 +1901,27 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
     _write_meta_json(meta, meta_path)
 
     new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
+    # Generate a richer prompt.md section using Gemini based on the final TSX + props.
+    # Fallback to the simple section if Gemini fails.
+    try:
+        new_section = _call_gemini_layout_doc_section(
+            template_id=template_id,
+            layout_id=new_layout_id,
+            instruction=payload.layout_description,
+            tsx=content,
+            props=payload.props,
+            image_base64=payload.image_base64,
+            image_mime_type=payload.image_mime_type,
+        )
+    except HTTPException:
+        new_section = _build_prompt_section(new_layout_id, payload.layout_description, payload.props)
     prompt_path.write_text(prompt_text.rstrip() + f"\n\n---\n\n{new_section.rstrip()}\n", encoding="utf-8")
 
     # Update layout_prompt.md if it exists (pipeline uses it for layout catalog)
     if layout_prompt_content is not None:
+        best_for = _extract_visual_from_prompt_section(new_section) or payload.layout_description
         updated_layout_prompt = _add_or_update_layout_in_layout_prompt(
-            layout_prompt_content, new_layout_id, payload.layout_description
+            layout_prompt_content, new_layout_id, best_for
         )
         layout_prompt_path.write_text(updated_layout_prompt, encoding="utf-8")
 
