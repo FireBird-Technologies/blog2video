@@ -30,7 +30,7 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
 const BG     = "#F7F3E8";
 const TEXT   = "#1a1209";
 const ACCENT = "#0a0a0a";
-const FONT   = "'Comic Sans MS','Segoe Print','Bradley Hand',cursive";
+const FONT   = "'Patrick Hand', system-ui, sans-serif";
 
 /* ─── ANIMATION TIMER ────────────────────────────────────── 
    Returns 0→1 over `ms` milliseconds. Resets when `active` flips true. */
