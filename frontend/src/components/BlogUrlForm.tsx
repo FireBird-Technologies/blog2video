@@ -363,6 +363,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {});
   }, []);
 
+  // Prefer Nightfall as the initial built-in template when templates load.
+  useEffect(() => {
+    if (templates.length === 0) return;
+    // Don't override if the user already selected a non-default, non-custom template.
+    if (template !== "default" && !template.startsWith("custom_")) return;
+    const preferred =
+      templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "whiteboard");
+    if (preferred) {
+      setTemplate(preferred.id);
+      if (preferred.preview_colors) {
+        setAccentColor(preferred.preview_colors.accent);
+        setBgColor(preferred.preview_colors.bg);
+        setTextColor(preferred.preview_colors.text);
+      }
+    }
+  }, [templates]);
+
   // Sync colors to the selected template when templates load.
   useEffect(() => {
     if (templates.length === 0) return;
