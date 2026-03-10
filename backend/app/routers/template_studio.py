@@ -113,6 +113,32 @@ def _replace_static_expr(source: str, key: str, portrait: int, landscape: int) -
     return replaced, count
 
 
+def _replace_nested_has_image_expr(source: str, key: str, portrait: int, landscape: int) -> tuple[str, int]:
+    """
+    Replace nested fallbacks like:
+      key ?? (p ? (hasImage ? 40 : 36) : 46)
+      key ?? (p ? (hasImage ? 22 : 25) : (hasImage ? 26 : 25))
+    with:
+      key ?? (p ? portrait : landscape)
+    """
+    # portrait: (hasImage ? A : B), landscape: (hasImage ? C : D)
+    pattern_both = re.compile(
+        rf"{key}\s*\?\?\s*\(\s*p\s*\?\s*"
+        rf"\(\s*hasImage\s*\?\s*\d+\s*:\s*\d+\s*\)\s*:\s*"
+        rf"\(\s*hasImage\s*\?\s*\d+\s*:\s*\d+\s*\)\s*\)",
+    )
+    replaced, count = pattern_both.subn(f"{key} ?? (p ? {portrait} : {landscape})", source)
+
+    # portrait: (hasImage ? A : B), landscape: N
+    pattern_land_num = re.compile(
+        rf"{key}\s*\?\?\s*\(\s*p\s*\?\s*"
+        rf"\(\s*hasImage\s*\?\s*\d+\s*:\s*\d+\s*\)\s*:\s*"
+        rf"\d+\s*\)",
+    )
+    replaced, count2 = pattern_land_num.subn(f"{key} ?? (p ? {portrait} : {landscape})", replaced)
+    return replaced, count + count2
+
+
 def _replace_stick_figure_title(source: str, portrait: int, landscape: int) -> tuple[str, int]:
     pattern = re.compile(r"titleFontSize\s*\?\?\s*\d+")
     replacements = 0
@@ -246,6 +272,13 @@ def _apply_font_updates_to_content(
             title_font_size.landscape,
         )
         if count == 0:
+            updated, count = _replace_nested_has_image_expr(
+                content,
+                "titleFontSize",
+                title_font_size.portrait,
+                title_font_size.landscape,
+            )
+        if count == 0:
             updated, count = _replace_static_expr(
                 content,
                 "titleFontSize",
@@ -268,6 +301,13 @@ def _apply_font_updates_to_content(
             description_font_size.portrait,
             description_font_size.landscape,
         )
+        if count == 0:
+            updated, count = _replace_nested_has_image_expr(
+                content,
+                "descriptionFontSize",
+                description_font_size.portrait,
+                description_font_size.landscape,
+            )
         if count == 0:
             updated, count = _replace_static_expr(
                 content,

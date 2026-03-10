@@ -164,7 +164,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
           {hasImage && !p && (
             <h2
               style={{
-                fontSize: titleFontSize ?? (p ? 76 : 62), // Default for landscape with image
+                fontSize: titleFontSize ?? (p ? 76 : 63), // Default for landscape with image
                 fontWeight: 700,
                 color: textColor,
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -264,7 +264,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   opacity: narrationOpacity,
                   transform: `translateY(${narrationY}px)`,
                   // Adjust font size for narration based on portrait, image presence
-                  fontSize: descriptionFontSize ?? (p ? (hasImage ? 22 : 25) : (hasImage ? 26 : 25)), 
+                  fontSize: descriptionFontSize ?? (p ? 34 : 36), 
                   lineHeight: 1.8,
                   color: "rgba(226,232,240,0.8)",
                   fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
