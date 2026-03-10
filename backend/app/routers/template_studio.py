@@ -1,4 +1,5 @@
 import base64
+import json
 import re
 import shutil
 import subprocess
@@ -7,7 +8,7 @@ import uuid
 from pathlib import Path
 from threading import Lock
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import get_current_user
@@ -317,13 +318,19 @@ def _call_gemini_code_edit(
             detail=f"Gemini code edit requires google-genai package: {e}",
         )
 
-    model_name = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
+    default_model = (getattr(settings, "GEMINI_CODE_MODEL", "") or "gemini-2.5-flash").strip()
+    image_model = (getattr(settings, "GEMINI_CODE_MODEL_WITH_IMAGE", "") or "").strip()
+    model_name = image_model if (image_base64 and image_mime_type and image_model) else default_model
     client = genai.Client(api_key=api_key)
 
-    image_note = (
-        "\n\nThe user attached a reference image above — use it to guide the layout design."
-        if (image_base64 and image_mime_type) else ""
-    )
+    image_note = ""
+    if image_base64 and image_mime_type:
+        image_note = (
+            "\n\nThe user attached a reference image above.\n"
+            "- Use it as the primary source of truth for spatial layout, hierarchy, and visual motifs.\n"
+            "- Silently inspect the image first; do NOT output analysis text.\n"
+            "- Then implement the TSX to match the image as closely as possible.\n"
+        )
     prompt = (
         "You are editing a React TSX component file used in a video template system.\n"
         "Return ONLY the full updated file contents for this single component.\n"
@@ -336,6 +343,7 @@ def _call_gemini_code_edit(
         f"{current_code}"
     )
 
+    prompt_part = types.Part.from_text(text=prompt)
     if image_base64 and image_mime_type:
         try:
             image_bytes = base64.b64decode(image_base64)
@@ -345,9 +353,9 @@ def _call_gemini_code_edit(
         if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
             mime = "image/jpeg"
         image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime)
-        contents = [image_part, prompt]
+        contents = [types.Content(role="user", parts=[image_part, prompt_part])]
     else:
-        contents = prompt
+        contents = [types.Content(role="user", parts=[prompt_part])]
 
     response = client.models.generate_content(
         model=model_name,
@@ -1246,8 +1254,7 @@ def _build_rebuild_gemini_prompt(
         "titleFontSize, descriptionFontSize, stats, ...extra }} = props;`\n"
         "then access extra props like `extra.myProp`.\n\n"
         "For object_array props (items with label and value): render BOTH — e.g. show item.label as caption and item.value as main text.\n\n"
-        "Current TSX (use as starting point, preserve animation/style approach and title/narration display):\n"
-        f"{current_tsx}"
+        "Use the current file content provided below as the starting point.\n"
     )
 
 
@@ -1266,7 +1273,9 @@ def _build_create_gemini_prompt(
     )
     ref_examples = ""
     for ref_id, ref_tsx in reference_tsvs[:2]:
-        ref_examples += f"\n--- Reference layout: {ref_id} ---\n{ref_tsx[:2000]}\n"
+        snippet = (ref_tsx or "").strip()
+        if snippet:
+            ref_examples += f"\n--- Reference layout: {ref_id} (snippet) ---\n{snippet[:1200]}\n"
 
     pascal_name = _snake_to_pascal(new_layout_id)
     return (
@@ -1284,12 +1293,28 @@ def _build_create_gemini_prompt(
         "  // access custom props via extra.propName\n}}\n\n"
         "For object_array props (items with label and value): render BOTH — show item.label as caption and item.value as main text.\n\n"
         f"Base your visual style on this existing layout ({base_layout_id}) — "
-        "keep the same color palette, font choices, and animation approach:\n"
-        f"{base_tsx[:3000]}\n"
+        "keep the same color palette, font choices, and animation approach.\n"
+        "Use the current file content provided below as the style reference.\n"
         f"{ref_examples}"
         "\nIMPORTANT: Import from 'remotion' (AbsoluteFill, useCurrentFrame, interpolate, Img, etc.). "
         "Do NOT import from any other path. Use the same animation patterns as the base layout."
     )
+
+
+def _file_to_image_parts(image: UploadFile | None) -> tuple[str | None, str | None]:
+    """Return (image_base64, image_mime_type) from an uploaded file, or (None, None)."""
+    if not image:
+        return None, None
+    try:
+        data = image.file.read()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to read uploaded image.")
+    if not data:
+        return None, None
+    mime = (image.content_type or "image/jpeg").strip().lower()
+    if mime not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+        mime = "image/jpeg"
+    return base64.b64encode(data).decode("utf-8"), mime
 
 
 def _read_layout_tsx(template_id: str, layout_id: str) -> str | None:
@@ -1388,8 +1413,6 @@ def _register_layout_in_template_config(layout_id: str, template_id: str) -> Non
 
 @router.post("/ai-layout/rebuild")
 def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_current_user)):
-    import json as _json
-
     template_id = (payload.template_id or "").strip().lower()
     layout_id = (payload.layout_id or "").strip().lower()
     if not template_id or template_id.startswith("custom_"):
@@ -1476,7 +1499,7 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
 
     (version_dir / f"{first_version_id}.tsx").write_text(content, encoding="utf-8")
     (version_dir / f"{first_version_id}_meta.json").write_text(
-        _json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
+        json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     (version_dir / f"{first_version_id}_prompt.md").write_text(updated_prompt, encoding="utf-8")
@@ -1543,8 +1566,6 @@ def rebuild_layout(payload: AiLayoutRebuildRequest, user: User = Depends(get_cur
 
 @router.post("/ai-layout/create")
 def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_current_user)):
-    import json as _json
-
     template_id = (payload.template_id or "").strip().lower()
     new_layout_id = (payload.new_layout_id or "").strip().lower()
     base_layout_id = (payload.base_layout_id or "").strip().lower()
@@ -1716,3 +1737,76 @@ def create_layout(payload: AiLayoutCreateRequest, user: User = Depends(get_curre
         "created_files": created_files_list,
         "schema": new_schema,
     }
+
+
+@router.post("/ai-edit/preview-file")
+def preview_ai_edit_file(
+    template_id: str = Form(...),
+    layout_id: str = Form(...),
+    instruction: str = Form(...),
+    image: UploadFile | None = File(default=None),
+    user: User = Depends(get_current_user),
+):
+    b64, mime = _file_to_image_parts(image)
+    payload = AiEditProposeRequest(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        image_base64=b64,
+        image_mime_type=mime,
+    )
+    return preview_ai_edit(payload, user=user)
+
+
+@router.post("/ai-layout/rebuild-file")
+def rebuild_layout_file(
+    template_id: str = Form(...),
+    layout_id: str = Form(...),
+    instruction: str = Form(...),
+    extra_props_json: str = Form("[]"),
+    image: UploadFile | None = File(default=None),
+    user: User = Depends(get_current_user),
+):
+    try:
+        extra_props_raw = json.loads(extra_props_json or "[]")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid extra_props_json (must be JSON array).")
+    extra_props = [PropDef(**p) for p in (extra_props_raw or [])]
+    b64, mime = _file_to_image_parts(image)
+    payload = AiLayoutRebuildRequest(
+        template_id=template_id,
+        layout_id=layout_id,
+        instruction=instruction,
+        extra_props=extra_props,
+        image_base64=b64,
+        image_mime_type=mime,
+    )
+    return rebuild_layout(payload, user=user)
+
+
+@router.post("/ai-layout/create-file")
+def create_layout_file(
+    template_id: str = Form(...),
+    base_layout_id: str = Form(...),
+    new_layout_id: str = Form(...),
+    layout_description: str = Form(...),
+    props_json: str = Form("[]"),
+    image: UploadFile | None = File(default=None),
+    user: User = Depends(get_current_user),
+):
+    try:
+        props_raw = json.loads(props_json or "[]")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid props_json (must be JSON array).")
+    props = [PropDef(**p) for p in (props_raw or [])]
+    b64, mime = _file_to_image_parts(image)
+    payload = AiLayoutCreateRequest(
+        template_id=template_id,
+        base_layout_id=base_layout_id,
+        new_layout_id=new_layout_id,
+        layout_description=layout_description,
+        props=props,
+        image_base64=b64,
+        image_mime_type=mime,
+    )
+    return create_layout(payload, user=user)
