@@ -430,6 +430,22 @@ export interface ListTemplateAiVersionsResponse {
 export const startTemplateAiPreview = (payload: ProposeTemplateAiEditRequest) =>
   api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview", payload);
 
+export const startTemplateAiPreviewFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("image", payload.image);
+  return api.post<StartTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export const applyTemplateAiPreview = (payload: TemplateAiPreviewSessionRequest) =>
   api.post<ApplyTemplateAiPreviewResponse>("/template-studio/ai-edit/preview-apply", payload);
 
@@ -489,6 +505,24 @@ export interface RebuildLayoutResponse {
 export const rebuildTemplateLayout = (payload: RebuildLayoutRequest) =>
   api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild", payload);
 
+export const rebuildTemplateLayoutFile = (payload: {
+  template_id: string;
+  layout_id: string;
+  instruction: string;
+  extra_props: PropDef[];
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("layout_id", payload.layout_id);
+  formData.append("instruction", payload.instruction);
+  formData.append("extra_props_json", JSON.stringify(payload.extra_props || []));
+  formData.append("image", payload.image);
+  return api.post<RebuildLayoutResponse>("/template-studio/ai-layout/rebuild-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
 export interface CreateLayoutRequest {
   template_id: string;
   base_layout_id: string;
@@ -512,6 +546,26 @@ export interface CreateLayoutResponse {
 
 export const createTemplateLayout = (payload: CreateLayoutRequest) =>
   api.post<CreateLayoutResponse>("/template-studio/ai-layout/create", payload);
+
+export const createTemplateLayoutFile = (payload: {
+  template_id: string;
+  base_layout_id: string;
+  new_layout_id: string;
+  layout_description: string;
+  props: PropDef[];
+  image: File;
+}) => {
+  const formData = new FormData();
+  formData.append("template_id", payload.template_id);
+  formData.append("base_layout_id", payload.base_layout_id);
+  formData.append("new_layout_id", payload.new_layout_id);
+  formData.append("layout_description", payload.layout_description);
+  formData.append("props_json", JSON.stringify(payload.props || []));
+  formData.append("image", payload.image);
+  return api.post<CreateLayoutResponse>("/template-studio/ai-layout/create-file", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export interface VoicePreview {
   voice_id: string;

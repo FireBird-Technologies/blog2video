@@ -5,6 +5,7 @@ import {
   discardTemplateAiPreview,
   getTemplates,
   startTemplateAiPreview,
+  startTemplateAiPreviewFile,
   saveTemplateSourceDefaults,
   switchTemplateAiPreviewVersion,
   type LayoutPropField,
@@ -14,7 +15,9 @@ import {
   getTemplateAiVersions,
   type ListTemplateAiVersionsResponse,
   rebuildTemplateLayout,
+  rebuildTemplateLayoutFile,
   createTemplateLayout,
+  createTemplateLayoutFile,
   type PropDef,
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
@@ -318,22 +321,27 @@ function ImageAttachRow({
   onImageChange,
   label = "Reference image",
 }: {
-  image: { base64: string; mimeType: string } | null;
-  onImageChange: (img: { base64: string; mimeType: string } | null) => void;
+  image: File | null;
+  onImageChange: (img: File | null) => void;
   label?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!image) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(image);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const data = reader.result as string;
-      const [prefix, b64] = data.split(",");
-      const mime = prefix?.match(/data:(.+);base64/)?.[1] || "image/jpeg";
-      if (b64) onImageChange({ base64: b64, mimeType: mime });
-    };
-    reader.readAsDataURL(file);
+    onImageChange(file);
     e.target.value = "";
   };
   return (
@@ -353,7 +361,7 @@ function ImageAttachRow({
           border: `1px solid ${T.border}`,
         }}>
           <img
-            src={`data:${image.mimeType};base64,${image.base64}`}
+            src={previewUrl || ""}
             alt="Reference"
             style={{ width: 48, height: 48, objectFit: "cover", borderRadius: "6px" }}
           />
@@ -778,7 +786,7 @@ export default function TemplateStudio() {
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
   const [aiInstruction, setAiInstruction]     = useState("");
-  const [aiLayoutImage, setAiLayoutImage]     = useState<{ base64: string; mimeType: string } | null>(null);
+  const [aiLayoutImage, setAiLayoutImage]     = useState<File | null>(null);
   const [aiLoading, setAiLoading]             = useState(false);
   const [aiApplying, setAiApplying]           = useState(false);
   const [aiDiscarding, setAiDiscarding]       = useState(false);
@@ -802,7 +810,7 @@ export default function TemplateStudio() {
   const [newLayoutId, setNewLayoutId]     = useState("");
   const [newBaseLayoutId, setNewBaseLayoutId] = useState("");
   const [newLayoutDesc, setNewLayoutDesc] = useState("");
-  const [newLayoutImage, setNewLayoutImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [newLayoutImage, setNewLayoutImage] = useState<File | null>(null);
   const [newLayoutProps, setNewLayoutProps] = useState<PropDef[]>([]);
   const [newLayoutLoading, setNewLayoutLoading] = useState(false);
   const [newLayoutError, setNewLayoutError]     = useState("");
@@ -977,12 +985,18 @@ export default function TemplateStudio() {
     if (!aiInstruction.trim()) { setAiError("Add an instruction first."); setAiStatus(""); return; }
     try {
       setAiLoading(true); setAiError(""); setAiStatus("");
-      const result = await startTemplateAiPreview({
-        template_id: selectedTemplateId,
-        layout_id: selectedLayout,
-        instruction: aiInstruction.trim(),
-        ...(aiLayoutImage ? { image_base64: aiLayoutImage.base64, image_mime_type: aiLayoutImage.mimeType } : {}),
-      });
+      const result = aiLayoutImage
+        ? await startTemplateAiPreviewFile({
+            template_id: selectedTemplateId,
+            layout_id: selectedLayout,
+            instruction: aiInstruction.trim(),
+            image: aiLayoutImage,
+          })
+        : await startTemplateAiPreview({
+            template_id: selectedTemplateId,
+            layout_id: selectedLayout,
+            instruction: aiInstruction.trim(),
+          });
       const data = result.data as StartTemplateAiPreviewResponse;
       setAiPreviewSessionId(data.session_id);
       const versions = data.versions && data.versions.length ? data.versions : ["original", "v1"];
@@ -1061,13 +1075,20 @@ export default function TemplateStudio() {
     }
     try {
       setRebuildLoading(true); setRebuildError(""); setRebuildStatus("");
-      const result = await rebuildTemplateLayout({
-        template_id: selectedTemplateId,
-        layout_id: selectedLayout,
-        instruction: aiInstruction.trim(),
-        extra_props: rebuildProps,
-        ...(aiLayoutImage ? { image_base64: aiLayoutImage.base64, image_mime_type: aiLayoutImage.mimeType } : {}),
-      });
+      const result = aiLayoutImage
+        ? await rebuildTemplateLayoutFile({
+            template_id: selectedTemplateId,
+            layout_id: selectedLayout,
+            instruction: aiInstruction.trim(),
+            extra_props: rebuildProps,
+            image: aiLayoutImage,
+          })
+        : await rebuildTemplateLayout({
+            template_id: selectedTemplateId,
+            layout_id: selectedLayout,
+            instruction: aiInstruction.trim(),
+            extra_props: rebuildProps,
+          });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
       setAiPreviewVersions(data.versions ?? ["original", "v1"]);
@@ -1092,14 +1113,22 @@ export default function TemplateStudio() {
     }
     try {
       setNewLayoutLoading(true); setNewLayoutError(""); setNewLayoutStatus("");
-      const result = await createTemplateLayout({
-        template_id: selectedTemplateId,
-        base_layout_id: newBaseLayoutId,
-        new_layout_id: newLayoutId.trim(),
-        layout_description: newLayoutDesc.trim(),
-        props: newLayoutProps,
-        ...(newLayoutImage ? { image_base64: newLayoutImage.base64, image_mime_type: newLayoutImage.mimeType } : {}),
-      });
+      const result = newLayoutImage
+        ? await createTemplateLayoutFile({
+            template_id: selectedTemplateId,
+            base_layout_id: newBaseLayoutId,
+            new_layout_id: newLayoutId.trim(),
+            layout_description: newLayoutDesc.trim(),
+            props: newLayoutProps,
+            image: newLayoutImage,
+          })
+        : await createTemplateLayout({
+            template_id: selectedTemplateId,
+            base_layout_id: newBaseLayoutId,
+            new_layout_id: newLayoutId.trim(),
+            layout_description: newLayoutDesc.trim(),
+            props: newLayoutProps,
+          });
       const data = result.data;
       setAiPreviewSessionId(data.session_id);
       setAiPreviewVersions(data.versions ?? ["v1"]);
@@ -1680,7 +1709,10 @@ export default function TemplateStudio() {
                       <div>
                         <FieldLabel>Compare versions</FieldLabel>
                         <div style={{
-                          display: "flex", gap: "4px", marginTop: "4px",
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "4px",
+                          marginTop: "4px",
                           background: T.surfaceAlt, border: `1px solid ${T.border}`,
                           borderRadius: "8px", padding: "2px",
                         }}>
@@ -1699,12 +1731,16 @@ export default function TemplateStudio() {
                                 disabled={aiSwitchingVersion || aiApplying || aiDiscarding}
                                 onClick={() => handleSwitchAiPreviewVersion(ver)}
                                 style={{
-                                  flex: 1, padding: "6px 10px", border: "none", borderRadius: "6px",
+                                  flex: "0 0 auto",
+                                  padding: "6px 10px",
+                                  border: "none",
+                                  borderRadius: "6px",
                                   fontSize: "11px", fontWeight: 500, fontFamily: FONT,
                                   cursor: aiSwitchingVersion || aiApplying || aiDiscarding ? "not-allowed" : "pointer",
                                   background: isActive ? T.accent : "transparent",
                                   color: isActive ? "#fff" : T.textSub,
                                   opacity: aiSwitchingVersion || aiApplying || aiDiscarding ? 0.6 : 1,
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 {label}
