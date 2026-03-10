@@ -131,6 +131,7 @@ export const blogPosts: BlogPost[] = [
         paragraphs: [
           "Teams often over-index on how polished the first output looks and under-index on what publishing repeatedly will feel like. The winning tool is the one that fits your actual process, asset library, and review cycle, because compounding value comes from repetition rather than one flashy launch.",
           "If your team already publishes articles, newsletters, or product docs, the strongest platform is the one that extends that workflow. It should reduce adaptation time, support templates, and make approval easy for content, product, and brand stakeholders.",
+          "That is where a programmatic video workflow becomes a different category from prompt-first tools. Instead of generating one-off creative experiments, a programmatic system is built to translate a library of structured content into repeatable, brand-consistent outputs at scale.",
         ],
         bullets: [
           "Check how reusable the templates are across multiple posts.",
@@ -824,6 +825,379 @@ export const blogPosts: BlogPost[] = [
       { channel: "substack", title: "Design systems note", angle: "Talk about templates as publishing leverage." },
       { channel: "medium", title: "Why template choice affects trust", angle: "Lead with communication clarity." },
       { channel: "video", title: "Template comparison demo", angle: "Show one topic in multiple template styles." },
+    ],
+  },
+  {
+    slug: "how-to-repurpose-blog-content-into-videos",
+    title: "How To Repurpose Blog Content Into Videos",
+    description:
+      "A practical content-repurposing workflow for turning published blog content into videos, shorts, and reusable distribution assets.",
+    category: "Repurposing",
+    heroImage: "/blog/blog-cover-repurpose-blog-content.png",
+    heroImageAlt:
+      "Editorial illustration of a blog content library branching into long-form videos, short clips, and distribution channels.",
+    publishedAt: "2026-03-10",
+    readTime: "9 min read",
+    heroEyebrow: "Repurposing guide",
+    heroTitle: "Repurpose blog content by treating every article like a media asset",
+    heroDescription:
+      "The most efficient content systems do not ask each blog post to perform once. They turn every strong article into a source for video, social, newsletter, and search-led reuse.",
+    primaryKeyword: "repurpose blog content",
+    keywordVariant: "repurpose blog posts as videos",
+    relatedPaths: ["/blog-to-video", "/bulk-blog-to-video", "/distribution-flywheel"],
+    sections: [
+      {
+        heading: "Start with posts that have proven signal",
+        paragraphs: [
+          "The best repurposing candidates are articles that already attract traffic, earn replies, or consistently explain a problem well. You do not need to repurpose everything at once. You need to identify the pieces that already carry audience value and can support a second format without extra research.",
+          "This is why repurposing often outperforms starting from zero. The topic has already been stress-tested by readers, and the structure is already visible on the page.",
+        ],
+        bullets: [
+          "Pick posts with evergreen intent rather than short-lived news spikes.",
+          "Look for articles with clear subheads and strong examples.",
+          "Prioritize posts tied to products, services, or recurring audience pain points.",
+        ],
+      },
+      {
+        heading: "Match each output to a job",
+        paragraphs: [
+          "Repurposing works best when each format has a distinct role. The article captures search, the long video deepens trust, the short clip expands reach, and the newsletter or Medium version reframes the same idea for a different context.",
+          "If you expect one format to do every job, the system becomes inefficient. If you let each format do one clear job, the same article can support an entire distribution loop.",
+        ],
+      },
+      {
+        heading: "Build a repeatable article-to-video workflow",
+        paragraphs: [
+          "The practical goal is not infinite reuse. It is reliable reuse. That means turning the article into a first-draft video quickly, preserving the original structure, and then using templates or editorial defaults to reduce production time on every new post.",
+          "Once that workflow exists, repurposing becomes operational instead of aspirational. The archive stops behaving like dead inventory and starts behaving like a media library.",
+        ],
+        bullets: [
+          "Use the article outline as the first scene sequence.",
+          "Keep proof points, charts, quotes, or examples visible in the video.",
+          "Create one teaser or short clip from the strongest moment in the long-form piece.",
+        ],
+      },
+      {
+        heading: "Measure repurposing by compounding value",
+        paragraphs: [
+          "A repurposed video should increase the lifetime value of the original article, not distract from it. Watch whether the topic earns more internal-link clicks, assisted conversions, newsletter engagement, or branded search after the extra formats go live.",
+          "That is the strategic point of repurposing: one idea earns more attention without requiring a full new research cycle.",
+        ],
+      },
+    ],
+    faq: faq("repurpose blog content", "turning one article into multiple assets"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical repurposing guide", angle: "Capture the high-fit content repurposing keyword." },
+      { channel: "substack", title: "Behind-the-scenes systems note", angle: "Explain how one article becomes multiple outputs." },
+      { channel: "medium", title: "Why most repurposing advice stays too vague", angle: "Lead with a practical systems framing." },
+      { channel: "video", title: "Repurposing workflow explainer", angle: "Show one post branching into multiple formats." },
+    ],
+  },
+  {
+    slug: "blog-to-youtube-strategy-for-written-first-creators",
+    title: "Blog To YouTube Strategy for Written-First Creators",
+    description:
+      "A search-first strategy for turning blog posts into YouTube videos without treating YouTube as a separate content engine.",
+    category: "Distribution",
+    heroImage: "/blog/blog-cover-blog-to-youtube-strategy.png",
+    heroImageAlt:
+      "Editorial illustration of a blog post transforming into a YouTube channel workflow with search and video feedback loops.",
+    publishedAt: "2026-03-10",
+    readTime: "9 min read",
+    heroEyebrow: "YouTube strategy",
+    heroTitle: "Use your blog to build YouTube momentum instead of starting from a blank video calendar",
+    heroDescription:
+      "Written-first creators already have ideas, structure, and proof. A strong blog-to-YouTube strategy turns that library into a repeatable channel without splitting your thinking across two separate systems.",
+    primaryKeyword: "blog to YouTube",
+    keywordVariant: "turn blog into YouTube content",
+    relatedPaths: ["/blog-to-youtube-video", "/blog-to-shorts", "/for-technical-bloggers"],
+    sections: [
+      {
+        heading: "Let the blog choose the YouTube topics",
+        paragraphs: [
+          "The easiest way to build a YouTube channel from writing is to start with posts that already perform in search or solve a recurring audience problem. That gives you topic selection based on real demand instead of guesswork.",
+          "For written-first creators, the blog archive is often a stronger editorial calendar than a brainstorm board because it reflects actual audience need and hard-won explanation quality.",
+        ],
+      },
+      {
+        heading: "Adapt the format, not the core idea",
+        paragraphs: [
+          "A blog post and a YouTube video should not be identical, but they should share the same core argument. The blog can hold more depth and skimmable detail. The video should surface the main pain point faster, sequence the lesson more tightly, and make the proof easier to consume on screen.",
+          "That adaptation is where written-first creators usually win. They already have stronger material than many video-only creators. They just need a better conversion workflow into the format.",
+        ],
+        bullets: [
+          "Hook the viewer with the problem before restating the full article premise.",
+          "Use one scene per key section instead of narrating every paragraph.",
+          "Point the video audience back to the article for deeper detail and links.",
+        ],
+      },
+      {
+        heading: "Use YouTube and search as one system",
+        paragraphs: [
+          "The real upside of a blog-to-YouTube strategy is not simply video reach. It is the flywheel between search and discovery. The blog catches high-intent queries, the video widens awareness, and both reinforce topical authority around the same subject cluster.",
+          "This is especially strong for educational, technical, and product-led content where trust grows when people see the same idea explained clearly in multiple formats.",
+        ],
+      },
+      {
+        heading: "Create a repeatable publishing stack",
+        paragraphs: [
+          "The strongest setup is usually article, long-form video, and one short-form teaser. That gives one idea three surfaces with distinct functions while keeping the editorial overhead manageable.",
+          "Once this stack is repeatable, YouTube stops feeling like a second full-time job and starts behaving like an extension of the written system you already know how to run.",
+        ],
+      },
+    ],
+    faq: faq("blog to YouTube", "using written content to build video distribution"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical blog-to-YouTube strategy", angle: "Capture crossover search intent between blogging and YouTube." },
+      { channel: "substack", title: "Audience-building note", angle: "Explain why writers should not treat YouTube as separate work." },
+      { channel: "medium", title: "Why writers should turn blogs into channels", angle: "Lead with the multi-format leverage argument." },
+      { channel: "video", title: "Blog-to-YouTube walkthrough", angle: "Show a written post becoming a publishable YouTube explainer." },
+    ],
+  },
+  {
+    slug: "ai-video-generator-for-bloggers-buying-guide",
+    title: "AI Video Generator for Bloggers: What To Look For",
+    description:
+      "A blogger-focused buying guide for choosing an AI video generator that preserves article quality, structure, and brand fit.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-ai-video-generator-bloggers.png",
+    heroImageAlt:
+      "Editorial illustration of a blogger evaluating AI video generation tools with article previews, templates, and publishing outputs.",
+    publishedAt: "2026-03-10",
+    readTime: "10 min read",
+    heroEyebrow: "Buying guide",
+    heroTitle: "The best AI video generator for bloggers starts from the post, not the prompt",
+    heroDescription:
+      "Bloggers do not need novelty generators. They need systems that turn proven written content into videos without stripping away the structure that made the article effective.",
+    primaryKeyword: "AI video generator for bloggers",
+    keywordVariant: "best ai tool for bloggers",
+    relatedPaths: ["/ai-video-generator-for-bloggers", "/blog-to-video", "/measurement-playbook"],
+    sections: [
+      {
+        heading: "Bloggers have a different evaluation standard",
+        paragraphs: [
+          "Most tool roundups treat video generation as a blank-canvas problem. Bloggers usually have the opposite need: they already own the source material and want to transform it efficiently without destroying the original logic.",
+          "That changes the buying criteria. You should care less about visual novelty alone and more about whether the product can preserve argument, structure, examples, and editorial control.",
+          "For Blog2Video specifically, the use case is different because the platform is built around programmatic video generation from existing written assets. The goal is not making isolated AI clips. It is turning a repeatable content workflow into a repeatable video workflow.",
+        ],
+      },
+      {
+        heading: "Look for source fidelity first",
+        paragraphs: [
+          "If your articles contain strong subheads, examples, comparisons, or code, the video workflow should keep those assets useful. Otherwise the output may look polished but fail to carry the lesson that made the post worth publishing.",
+          "Source fidelity is especially important for technical bloggers, educators, and founder-led brands whose authority depends on clarity and substance.",
+        ],
+        bullets: [
+          "Can the tool start from a real article or URL?",
+          "Can you adjust scenes without regenerating everything?",
+          "Can the output maintain proof points instead of replacing them with generic stock visuals?",
+        ],
+      },
+      {
+        heading: "Assess the publishing workflow, not just the demo",
+        paragraphs: [
+          "A single attractive output does not tell you what repeated publishing will feel like. The better question is whether the tool helps you turn an archive into a reliable video pipeline that fits how bloggers actually work.",
+          "That means looking at template reuse, revision speed, voiceover controls, editing flexibility, and whether the workflow can support YouTube, embeds, and short-form cuts from the same source.",
+          "A programmatic product should also make the archive feel operational. If you publish often, the real advantage is not one polished demo but a structured system that can keep producing video from your content base without quality collapsing.",
+        ],
+      },
+      {
+        heading: "Choose the tool that compounds the blog",
+        paragraphs: [
+          "The right AI video generator should increase the value of your written library over time. It should help every strong post earn more reach, not force you to reinvent every idea as a fresh creative production project.",
+          "For bloggers, that compounding effect is the real benchmark. The tool is good if it helps the archive travel farther while keeping the original thinking intact.",
+        ],
+      },
+    ],
+    faq: faq("AI video generator for bloggers", "evaluating blogger-friendly video tools"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical blogger buying guide", angle: "Capture tool-evaluation traffic from high-intent bloggers." },
+      { channel: "substack", title: "Opinionated tool criteria note", angle: "Explain why prompt-first tools miss what bloggers need." },
+      { channel: "medium", title: "What most AI video reviews ignore about blogging", angle: "Lead with the fidelity and workflow gap." },
+      { channel: "video", title: "Blogger tool-evaluation explainer", angle: "Walk through the decision criteria visually." },
+    ],
+  },
+  {
+    slug: "how-to-create-a-narrated-video-from-a-blog-post",
+    title: "How To Create a Narrated Video From a Blog Post",
+    description:
+      "A step-by-step guide to turning a blog post into a narrated video that sounds intentional instead of auto-generated.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-narrated-video-blog-post.png",
+    heroImageAlt:
+      "Editorial illustration of a blog post being converted into a narrated video timeline with waveform and scene cards.",
+    publishedAt: "2026-03-10",
+    readTime: "8 min read",
+    heroEyebrow: "Narration workflow",
+    heroTitle: "A narrated video works best when the voice follows the article's logic",
+    heroDescription:
+      "Narration should make a strong post easier to absorb, not flatten it into generic summary copy. The best workflow keeps the original structure visible and uses voice to guide the viewer through it.",
+    primaryKeyword: "narrated video from blog post",
+    keywordVariant: "turn article into narrated video",
+    relatedPaths: ["/blog-to-video", "/article-to-video", "/ai-scene-editor"],
+    sections: [
+      {
+        heading: "Start with an article that already sounds clear",
+        paragraphs: [
+          "If the post is structurally messy, narration will expose that quickly. The cleanest narrated videos start from articles that already explain one idea clearly, use useful transitions, and move through a logical sequence without unnecessary detours.",
+          "That does not mean the article must be read word for word. It means the writing already contains the logic the narration should follow.",
+        ],
+      },
+      {
+        heading: "Write for listening, not just reading",
+        paragraphs: [
+          "A narrated video usually needs tighter sentence rhythm than an article. Readers can pause or skim. Listeners cannot. That means narration should use shorter transitions, cleaner emphasis, and fewer side explanations that slow the spoken flow.",
+          "The aim is not to remove substance. It is to make the same substance easier to process linearly.",
+        ],
+        bullets: [
+          "Lead with the core problem early.",
+          "Shorten long clauses that work better on the page than out loud.",
+          "Use visual scenes to carry detail that would otherwise clutter the narration.",
+        ],
+      },
+      {
+        heading: "Pair narration with proof on screen",
+        paragraphs: [
+          "Narration becomes stronger when the viewer can see the evidence at the same time. Quotes, screenshots, charts, code, and process diagrams all reduce the need for over-explaining in voice.",
+          "This is especially important for educational or technical content where the audience needs more than a pleasant voice. They need to understand what the narration is referring to at each moment.",
+        ],
+      },
+      {
+        heading: "Edit the voice track for intent",
+        paragraphs: [
+          "Whether you use AI voiceover or recorded narration, the last step is editorial. Pacing, emphasis, and scene changes should all support the original promise of the article.",
+          "A narrated video feels good when the viewer senses that the voice was chosen to clarify the content, not just to fill silence between visuals.",
+        ],
+      },
+    ],
+    faq: faq("narrated video from blog post", "turning written content into voice-led explainers"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical narration workflow post", angle: "Capture search intent around narrated article-to-video creation." },
+      { channel: "substack", title: "Narration editing note", angle: "Explain why spoken flow differs from reading flow." },
+      { channel: "medium", title: "Why narrated repurposing often sounds robotic", angle: "Lead with the editorial problem and fix." },
+      { channel: "video", title: "Narrated blog-to-video demo", angle: "Show a written post becoming a voice-led explainer." },
+    ],
+  },
+  {
+    slug: "how-to-use-ai-voiceover-for-blog-content",
+    title: "How To Use AI Voiceover for Blog Content",
+    description:
+      "Best practices for using AI voiceover on blog content without making the final video sound flat, generic, or misaligned with the article.",
+    category: "Voiceover",
+    heroImage: "/blog/blog-cover-ai-voiceover-blog-content.png",
+    heroImageAlt:
+      "Editorial illustration of AI voiceover controls, waveform panels, and a blog article being voiced into a polished video.",
+    publishedAt: "2026-03-10",
+    readTime: "8 min read",
+    heroEyebrow: "Voiceover guide",
+    heroTitle: "AI voiceover helps blog content travel farther when it still sounds authored",
+    heroDescription:
+      "Voiceover should support the article's meaning and tone, not overwrite it with generic delivery. The right workflow treats AI voice as an editorial layer, not a shortcut that replaces judgment.",
+    primaryKeyword: "AI voiceover for blog content",
+    keywordVariant: "ai voiceover for blog posts",
+    relatedPaths: ["/blog-to-video", "/ai-video-generator-for-bloggers", "/custom-branded-video-templates"],
+    sections: [
+      {
+        heading: "Choose voice based on content type",
+        paragraphs: [
+          "Not every article wants the same voice. A founder essay, product walkthrough, and technical tutorial all benefit from different pacing and tone. The best AI voiceover workflow begins by matching delivery to the kind of trust the content needs to build.",
+          "This matters because audiences can tolerate synthetic speech when it sounds intentional. They reject it faster when it feels pasted on top of the content without editorial fit.",
+        ],
+      },
+      {
+        heading: "Rewrite the script for spoken clarity",
+        paragraphs: [
+          "Blog copy often needs light adaptation before voiceover. Sentence rhythm, emphasis, and transitions that work fine in text can feel stiff when spoken. Tightening the script before generation improves the output more than endlessly swapping voices after the fact.",
+          "That adjustment layer is what makes AI voiceover usable for serious content rather than just novelty demos.",
+        ],
+        bullets: [
+          "Break up long sentences before generating the voice track.",
+          "Mark places where emphasis should fall naturally.",
+          "Trim repetitive phrasing that reads fine but sounds robotic aloud.",
+        ],
+      },
+      {
+        heading: "Use visuals to keep the voice concise",
+        paragraphs: [
+          "A common mistake is forcing the voiceover to carry every detail from the article. Strong visuals let the narration stay lighter and more natural because screenshots, charts, code, or scene text can carry part of the explanation.",
+          "When visuals and voice divide the work cleanly, AI voiceover feels more credible and less strained.",
+        ],
+      },
+      {
+        heading: "Treat final delivery as a brand decision",
+        paragraphs: [
+          "The chosen voice becomes part of how the audience perceives the content. Across repeated videos, that tone starts to shape brand familiarity, perceived quality, and how serious the material feels.",
+          "For that reason, voiceover should be treated like a publishing standard. Once it works, keep it consistent enough that the audience begins to recognize it.",
+        ],
+      },
+    ],
+    faq: faq("AI voiceover for blog content", "using synthetic narration for article repurposing"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical voiceover guide", angle: "Capture high-fit voiceover workflow intent from written-first creators." },
+      { channel: "substack", title: "Editorial voice note", angle: "Explain how spoken delivery affects trust." },
+      { channel: "medium", title: "Why AI voiceover often sounds generic", angle: "Lead with practical fixes rather than hype." },
+      { channel: "video", title: "Voiceover optimization demo", angle: "Show script edits and voice choices side by side." },
+    ],
+  },
+  {
+    slug: "automated-video-from-url-guide",
+    title: "Automated Video From URL: The Fastest Way To Repurpose Published Content",
+    description:
+      "How to turn a live webpage or published article into an automated video workflow without rebuilding the content manually.",
+    category: "Automation",
+    heroImage: "/blog/blog-cover-automated-video-from-url.png",
+    heroImageAlt:
+      "Editorial illustration of a live URL being ingested into an automated video workflow with extracted scenes and rendered output.",
+    publishedAt: "2026-03-10",
+    readTime: "8 min read",
+    heroEyebrow: "URL workflow",
+    heroTitle: "Automated video from URL works best when the page already has structure",
+    heroDescription:
+      "The fastest repurposing workflows start from what is already published. A good URL-to-video process extracts structure, images, and core ideas from the page so you can edit from a draft instead of rebuilding everything by hand.",
+    primaryKeyword: "automated video from URL",
+    keywordVariant: "turn live webpage into video",
+    relatedPaths: ["/url-to-video", "/blog-to-video", "/for-medium-writers"],
+    sections: [
+      {
+        heading: "Why URL-first workflows are so efficient",
+        paragraphs: [
+          "If the article is already live, most of the hard work is already done. The page contains structure, copy, and often supporting visuals, which means automation can accelerate the first draft dramatically compared with blank-canvas video creation.",
+          "That speed matters because it lowers the threshold for regular repurposing. Teams are far more likely to publish consistently when a live page can become a draft in minutes.",
+        ],
+      },
+      {
+        heading: "Automation only works if the page is usable",
+        paragraphs: [
+          "The better the source page, the stronger the automated output. Pages with clean headings, clear arguments, and useful visual assets generate far better first drafts than pages that are cluttered or structurally weak.",
+          "This is why URL-first automation is a repurposing tactic, not a magic fix for weak content. It amplifies what is already there.",
+        ],
+        bullets: [
+          "Use pages with strong section hierarchy and readable copy.",
+          "Prefer published assets with screenshots, charts, or images worth reusing.",
+          "Expect to edit the final structure rather than accept raw extraction as finished output.",
+        ],
+      },
+      {
+        heading: "Review the draft like an editor",
+        paragraphs: [
+          "The fastest workflow is not fully hands-off. It is lightly supervised. Once the URL has been turned into scenes, the next job is tightening sequence, adjusting emphasis, and making sure the draft reflects the point of the original page accurately.",
+          "That editorial review is what turns automation from convenient into trustworthy.",
+        ],
+      },
+      {
+        heading: "Use URL automation to unlock the archive",
+        paragraphs: [
+          "URL-first repurposing becomes especially powerful when you have a large archive of articles, landing pages, or newsletters that already exist publicly. It creates a practical route to turn that backlog into video inventory without re-entering everything manually.",
+          "For written-first teams, that is one of the highest-leverage automation opportunities available.",
+        ],
+      },
+    ],
+    faq: faq("automated video from URL", "URL-first repurposing workflows"),
+    distributionPlan: [
+      { channel: "site", title: "Canonical URL automation guide", angle: "Capture searchers looking for live-page-to-video automation." },
+      { channel: "substack", title: "Automation workflow note", angle: "Explain why published pages make better starting points than prompts." },
+      { channel: "medium", title: "The real promise of URL-to-video tools", angle: "Lead with the speed-to-draft advantage." },
+      { channel: "video", title: "URL-to-video walkthrough", angle: "Show a live page becoming an editable scene draft." },
     ],
   },
 ];
