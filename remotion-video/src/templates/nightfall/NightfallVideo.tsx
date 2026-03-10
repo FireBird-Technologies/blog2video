@@ -12,6 +12,40 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
+/** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
+function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...lp };
+  if (Array.isArray(out.barChartRows)) {
+    const rows = out.barChartRows as { label?: string; value?: string }[];
+    out.barChart = {
+      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+    };
+    delete out.barChartRows;
+  }
+  if (Array.isArray(out.pieChartRows)) {
+    const rows = out.pieChartRows as { label?: string; value?: string }[];
+    out.pieChart = {
+      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+      values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+    };
+    delete out.pieChartRows;
+  }
+  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
+    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
+      label: (d && d.label != null ? String(d.label) : "") as string,
+      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+        .split(",")
+        .map((s) => Number(s.trim()) || 0),
+    }));
+    out.lineChart = { labels, datasets };
+    delete out.lineChartLabels;
+    delete out.lineChartDatasets;
+  }
+  return out;
+}
+
 // ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
@@ -178,9 +212,13 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        const rawLayoutProps = scene.layout === "data_visualization"
+          ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
+          : scene.layoutProps;
+
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: NightfallLayoutProps = {
-          ...scene.layoutProps,
+          ...rawLayoutProps,
           title: scene.title,
           narration: scene.narration,
           accentColor: data.accentColor || "#818CF8",
