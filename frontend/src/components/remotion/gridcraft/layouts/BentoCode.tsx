@@ -11,10 +11,11 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig(); // Destructure width and height
-  const isPortrait = height > width; // Determine if it's portrait mode
+  const { fps, width } = useVideoConfig();
+  const p = aspectRatio === "portrait";
 
   const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 16 } });
 
@@ -54,7 +55,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   let gridTemplateRowsStyle: string;
   let overallContainerHeightStyle: string;
 
-  if (isPortrait) {
+  if (p) {
     // For "2fr 1fr" columns, total 3 fractional units.
     // The width for the 1fr column (right side) is (effectiveContainerWidth - gap) / 3.
     const rightColumnWidth = (effectiveContainerWidth - gap) / 3;
@@ -98,7 +99,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
            border: "1px solid rgba(255,255,255,0.1)",
            padding: 32,
            fontFamily: FONT_FAMILY.MONO,
-           fontSize: descriptionFontSize ?? 27,
+           fontSize: descriptionFontSize ?? (p ? 27 : 27),
            lineHeight: 1.8,
            color: "#E2E8F0",
            overflow: "hidden", // Important for containing the typing lines
@@ -125,7 +126,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
             opacity: interpolate(badgeSpring, [0, 1], [0, 1]),
         }}
       >
-          <div style={{ fontSize: titleFontSize ?? 37, fontWeight: 700 }}>{title || "Code"}</div>
+          <div style={{ fontSize: titleFontSize ?? (p ? 37 : 37), fontWeight: 700 }}>{title || "Code"}</div>
       </div>
 
       {/* Description (Details Card) */}

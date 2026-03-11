@@ -25,6 +25,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, width, height, fps } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = width / 1920;
   const items = stats.slice(0, 4);
 
   // --- 3D Camera & Exit Logic (Unchanged) ---
@@ -120,7 +121,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 110 : 90),
+                fontSize: titleFontSize ?? (p ? 110 * scale : 90 * scale),
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,
@@ -170,7 +171,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 >
                   <div style={{ 
                     fontFamily: H_FONT, 
-                    fontSize: p ? 64 : 58, 
+                    fontSize: p ? 64 * scale : 58 * scale,
                     fontWeight: 900, 
                     color: textColor, 
                     lineHeight: 1, 
@@ -183,7 +184,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
                   <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 38 : 35), 
+                    fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: 0.8, 

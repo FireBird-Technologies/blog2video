@@ -19,8 +19,9 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   imageUrl,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   const pullVal = stats?.[0]?.value ?? "";
   const pullCap = stats?.[0]?.label ?? "";
@@ -179,7 +180,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: titleFontSize ?? (p ? 72 : 85), // Massive Defaults
+                fontSize: titleFontSize ?? (p ? 72 * scale : 85 * scale), // Massive Defaults
                 fontWeight: 900,
                 letterSpacing: "-0.02em",
                 textTransform: "uppercase",
@@ -211,7 +212,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div
                 style={{
                   fontFamily: B_FONT,
-                  fontSize: descriptionFontSize ?? (p ? 38 : 32),
+                  fontSize: descriptionFontSize ?? (p ? 38 * scale : 32 * scale),
                   fontWeight: 500,
                   color: textColor,
                   lineHeight: 1.45,
@@ -221,7 +222,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   style={{
                     float: "left",
                     fontFamily: H_FONT,
-                    fontSize: p ? 130 : 110,
+                    fontSize: p ? 130 * scale : 110 * scale,
                     fontWeight: 800,
                     lineHeight: 0.7,
                     marginRight: 15,
@@ -250,7 +251,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <div
                   style={{
                     fontFamily: H_FONT,
-                    fontSize: p ? 90 : 80,
+                    fontSize: p ? 90 * scale : 80 * scale,
                     fontWeight: 800,
                     color: textColor,
                     lineHeight: 1,
@@ -263,7 +264,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   <div
                     style={{
                       fontFamily: B_FONT,
-                      fontSize: p ? 24 : 18,
+                      fontSize: (p ? 24 : 18) * scale,
                       fontWeight: 700,
                       color: textColor,
                       opacity: 0.7,
