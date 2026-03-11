@@ -102,7 +102,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 94 : 140),
+              fontSize: titleFontSize ?? (p ? 131 : 120),
               fontWeight: 900,
               color: textColor || "#FFFFFF",
               letterSpacing: "-0.05em",
@@ -134,7 +134,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
           >
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 18 : 22),
+                fontSize: descriptionFontSize ?? (p ? 31 : 29),
                 fontWeight: 700,
                 color: textColor || "#FFFFFF",
                 letterSpacing: "0.12em",
@@ -147,7 +147,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
             {(narration || (metrics && metrics.length > 1)) && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 14 : 18),
+                  fontSize: descriptionFontSize ?? (p ? 31 : 29),
                   color: "#666666",
                   marginTop: 4,
                   fontFamily: "Arial, sans-serif",

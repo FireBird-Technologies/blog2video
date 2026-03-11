@@ -84,7 +84,7 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
             <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 38 : 62),
+                fontSize: titleFontSize ?? (p ? 96 : 90),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 letterSpacing: "-0.025em",
