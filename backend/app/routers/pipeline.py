@@ -344,7 +344,7 @@ async def _generate_scenes(project: Project, db: Session):
         user = db.query(User).filter(User.id == project.user_id).first()
         if user:
             
-            project_url = f"{settings.FRONTEND_URL}/projects/{project.id}"
+            project_url = f"{settings.FRONTEND_URL}/project/{project.id}"
             email_service.send_preview_ready_email(
                 user_email=user.email,
                 user_name=user.name,

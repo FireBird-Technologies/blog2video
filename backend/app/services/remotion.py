@@ -1010,7 +1010,7 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                                 from app.models.user import User
                                 user = db.query(User).filter(User.id == project.user_id).first()
                                 if user:
-                                    dashboard_url = f"{settings.FRONTEND_URL}/projects/{project_id}"
+                                    dashboard_url = f"{settings.FRONTEND_URL}/project/{project_id}"
                                     email_service.send_download_ready_email(
                                         user_email=user.email,
                                         user_name=user.name,

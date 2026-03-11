@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -48,7 +48,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const quoteMarkOp = interpolate(frame, [6, 20], [0, 1], { extrapolateRight: "clamp" });
   
   const words = title.split(" ");
-  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp" });
+  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
   const visWords = Math.floor(words.length * wordProgress);
 
   const attrOp = interpolate(frame, [50, 64], [0, 1], { extrapolateRight: "clamp" });
@@ -80,7 +80,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
         {/* Shards: Width adjusted for aspect ratio */}
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
@@ -96,7 +96,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
         />
 
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
