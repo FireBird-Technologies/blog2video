@@ -2,7 +2,9 @@
   "id": "matrix",
   "name": "Matrix",
   "description": "Digital rain on a black void. Green monospace text decodes from random characters, numbers count up through cipher noise, and data streams in like intercepted transmissions. Terminal aesthetic with glitch effects. Fast, cryptic, cyberpunk.",
-  "styles": ["promotional"],
+  "styles": [
+    "promotional"
+  ],
   "preview_colors": {
     "accent": "#00FF41",
     "bg": "#000000",
@@ -26,67 +28,183 @@
     "matrix_title": {
       "label": "Matrix Title",
       "defaults": {
-        "titleFontSize": { "portrait": 72, "landscape": 110 },
-        "descriptionFontSize": { "portrait": 24, "landscape": 30 }
+        "titleFontSize": {
+          "portrait": 128,
+          "landscape": 110
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 53
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 20, "max": 280, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Subtitle Size", "type": "number", "responsive": true, "min": 10, "max": 180, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 280,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtitle Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 180,
+          "step": 1
+        }
       ]
     },
     "terminal_text": {
       "label": "Terminal Text",
       "defaults": {
-        "titleFontSize": { "portrait": 36, "landscape": 48 },
-        "descriptionFontSize": { "portrait": 18, "landscape": 22 }
+        "titleFontSize": {
+          "portrait": 53,
+          "landscape": 48
+        },
+        "descriptionFontSize": {
+          "portrait": 57,
+          "landscape": 22
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Header Size", "type": "number", "responsive": true, "min": 14, "max": 240, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Body Size", "type": "number", "responsive": true, "min": 10, "max": 160, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Header Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 160,
+          "step": 1
+        }
       ]
     },
     "glitch_punch": {
       "label": "Glitch Punch",
       "defaults": {
-        "titleFontSize": { "portrait": 100, "landscape": 150 }
+        "titleFontSize": {
+          "portrait": 100,
+          "landscape": 150
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Glitch Word Size", "type": "number", "responsive": true, "min": 24, "max": 320, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Glitch Word Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 320,
+          "step": 1
+        }
       ]
     },
     "data_stream": {
       "label": "Data Stream",
       "defaults": {
-        "titleFontSize": { "portrait": 42, "landscape": 62 },
-        "descriptionFontSize": { "portrait": 18, "landscape": 24 }
+        "titleFontSize": {
+          "portrait": 42,
+          "landscape": 68
+        },
+        "descriptionFontSize": {
+          "portrait": 59,
+          "landscape": 67
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Primary Size", "type": "number", "responsive": true, "min": 14, "max": 260, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Secondary Size", "type": "number", "responsive": true, "min": 10, "max": 180, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Primary Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 260,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Secondary Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 180,
+          "step": 1
+        }
       ]
     },
     "cipher_metric": {
       "label": "Cipher Metric",
       "defaults": {
-        "titleFontSize": { "portrait": 90, "landscape": 130 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 22 },
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 130
+        },
+        "descriptionFontSize": {
+          "portrait": 16,
+          "landscape": 22
+        },
         "metrics": [
-          { "value": "99.2", "label": "Integrity", "suffix": "%" },
-          { "value": "12", "label": "Nodes", "suffix": "k" }
+          {
+            "value": "99.2",
+            "label": "Integrity",
+            "suffix": "%"
+          },
+          {
+            "value": "12",
+            "label": "Nodes",
+            "suffix": "k"
+          }
         ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Metric Size", "type": "number", "responsive": true, "min": 20, "max": 300, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Label Size", "type": "number", "responsive": true, "min": 10, "max": 160, "step": 1 },
+        {
+          "key": "titleFontSize",
+          "label": "Metric Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 300,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 160,
+          "step": 1
+        },
         {
           "key": "metrics",
           "label": "Metrics",
           "type": "object_array",
           "maxItems": 5,
           "subFields": [
-            { "key": "value", "label": "Value" },
-            { "key": "label", "label": "Label" },
-            { "key": "suffix", "label": "Suffix" }
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
           ]
         }
       ]
@@ -94,59 +212,180 @@
     "fork_choice": {
       "label": "Fork Choice",
       "defaults": {
-        "titleFontSize": { "portrait": 30, "landscape": 44 },
-        "descriptionFontSize": { "portrait": 14, "landscape": 20 },
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 30
+        },
         "leftLabel": "Red Pill",
         "rightLabel": "Blue Pill",
         "leftDescription": "Face reality and transform",
         "rightDescription": "Stay comfortable and unchanged"
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Label Size", "type": "number", "responsive": true, "min": 14, "max": 240, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Description Size", "type": "number", "responsive": true, "min": 10, "max": 160, "step": 1 },
-        { "key": "leftLabel", "label": "Left Label", "type": "string" },
-        { "key": "rightLabel", "label": "Right Label", "type": "string" },
-        { "key": "leftDescription", "label": "Left Description", "type": "text" },
-        { "key": "rightDescription", "label": "Right Description", "type": "text" }
+        {
+          "key": "titleFontSize",
+          "label": "Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Description",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Description",
+          "type": "text"
+        }
       ]
     },
     "matrix_image": {
       "label": "Matrix Image",
       "defaults": {
-        "titleFontSize": { "portrait": 58, "landscape": 80 },
-        "descriptionFontSize": { "portrait": 24, "landscape": 32 }
+        "titleFontSize": {
+          "portrait": 66,
+          "landscape": 80
+        },
+        "descriptionFontSize": {
+          "portrait": 45,
+          "landscape": 37
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Title Size", "type": "number", "responsive": true, "min": 20, "max": 280, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Caption Size", "type": "number", "responsive": true, "min": 10, "max": 180, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 280,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Caption Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 180,
+          "step": 1
+        }
       ]
     },
     "transmission": {
       "label": "Transmission",
       "defaults": {
-        "titleFontSize": { "portrait": 34, "landscape": 56 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 24 },
-        "phrases": ["Incoming signal", "Packet received", "Decrypt complete"]
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 24
+        },
+        "phrases": [
+          "Incoming signal",
+          "Packet received",
+          "Decrypt complete"
+        ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Header Size", "type": "number", "responsive": true, "min": 14, "max": 260, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Body Size", "type": "number", "responsive": true, "min": 10, "max": 180, "step": 1 },
-        { "key": "phrases", "label": "Phrases", "type": "string_array", "maxItems": 12 }
+        {
+          "key": "titleFontSize",
+          "label": "Header Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 260,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "phrases",
+          "label": "Phrases",
+          "type": "string_array",
+          "maxItems": 12
+        }
       ]
     },
     "awakening": {
       "label": "Awakening",
       "defaults": {
-        "titleFontSize": { "portrait": 32, "landscape": 46 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 24 },
+        "titleFontSize": {
+          "portrait": 40,
+          "landscape": 46
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 24
+        },
         "highlightPhrase": "Wake up.",
         "cta": "Follow the signal"
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Headline Size", "type": "number", "responsive": true, "min": 14, "max": 240, "step": 1 },
-        { "key": "descriptionFontSize", "label": "CTA Size", "type": "number", "responsive": true, "min": 10, "max": 180, "step": 1 },
-        { "key": "highlightPhrase", "label": "Highlight Phrase", "type": "string" },
-        { "key": "cta", "label": "Call To Action", "type": "string" }
+        {
+          "key": "titleFontSize",
+          "label": "Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "CTA Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Highlight Phrase",
+          "type": "string"
+        },
+        {
+          "key": "cta",
+          "label": "Call To Action",
+          "type": "string"
+        }
       ]
     }
   },

@@ -1006,8 +1006,11 @@ export default function TemplateStudio() {
         if (isResponsiveValue(descValue))  defaults.descriptionFontSize = descValue;
         return { ...tpl, layout_prop_schema: { ...s, [selectedLayout]: { ...ls, defaults } } };
       }));
-    } catch {
-      setSaveMessage("Failed to save source defaults.");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        : "Failed to save source defaults.";
+      setSaveMessage(String(msg || "Failed to save source defaults."));
     } finally {
       setSavingSource(false);
     }
