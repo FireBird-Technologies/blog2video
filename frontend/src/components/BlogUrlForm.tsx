@@ -363,21 +363,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {});
   }, []);
 
+  // Preferred built-in template (Nightfall when available) for single and bulk flows.
+  const preferredTemplateId =
+    templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
+    "default";
+
   // Prefer Nightfall as the initial built-in template when templates load.
   useEffect(() => {
     if (templates.length === 0) return;
-    // Don't override if the user already selected a non-default, non-custom template.
-    if (template !== "default" && !template.startsWith("custom_")) return;
     const preferred =
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
-      setTemplate(preferred.id);
-      if (preferred.preview_colors) {
-        setAccentColor(preferred.preview_colors.accent);
-        setBgColor(preferred.preview_colors.bg);
-        setTextColor(preferred.preview_colors.text);
+      // Single/upload flow: set template if still default or custom placeholder.
+      if (template === "default" || template.startsWith("custom_")) {
+        setTemplate(preferred.id);
+        if (preferred.preview_colors) {
+          setAccentColor(preferred.preview_colors.accent);
+          setBgColor(preferred.preview_colors.bg);
+          setTextColor(preferred.preview_colors.text);
+        }
       }
+      // Multi-link (bulk) flow: set any "default" slots to preferred so step 2 shows Nightfall.
+      setBulkTemplates((prev) =>
+        prev.map((t) => (t === "default" ? preferred.id : t))
+      );
     }
   }, [templates]);
 
@@ -556,7 +567,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       if (mode === "bulk") {
         const n = bulkRows.length;
         setBulkNames((prev) => resizeTo(prev, n, ""));
-        setBulkTemplates((prev) => resizeTo(prev, n, "default"));
+        setBulkTemplates((prev) => resizeTo(prev, n, preferredTemplateId));
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
@@ -588,7 +599,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (bulkRows.length >= MAX_BULK_LINKS) return;
     setBulkRows((prev) => [...prev, { url: "" }]);
     setBulkNames((prev) => [...prev, ""]);
-    setBulkTemplates((prev) => [...prev, "default"]);
+    setBulkTemplates((prev) => [...prev, preferredTemplateId]);
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
@@ -712,7 +723,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
       setBulkRows([{ url: "" }]);
       setBulkNames([""]);
-      setBulkTemplates(["default"]);
+      setBulkTemplates([preferredTemplateId]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);

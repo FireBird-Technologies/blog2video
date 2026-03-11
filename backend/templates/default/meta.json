@@ -31,11 +31,11 @@
       "label": "Hero Image",
       "defaults": {
         "titleFontSize": {
-          "portrait": 101,
+          "portrait": 92,
           "landscape": 76
         },
         "descriptionFontSize": {
-          "portrait": 62,
+          "portrait": 52,
           "landscape": 40
         }
       },
@@ -150,7 +150,7 @@
           "landscape": 60
         },
         "descriptionFontSize": {
-          "portrait": 34,
+          "portrait": 37,
           "landscape": 29
         },
         "bullets": [
@@ -160,20 +160,20 @@
         ],
         "points": [
           {
-            "label": "{   \"point1\"",
-            "value": "\"Iran and the US have had decades of political tension.\""
+            "label": "point1",
+            "value": "Iran and the US have had decades of political tension."
           },
           {
-            "label": "\"point2\"",
-            "value": "\"The conflict often involves sanctions and diplomatic disputes.\""
+            "label": "point2",
+            "value": "The conflict often involves sanctions and diplomatic disputes."
           },
           {
-            "label": "\"point3\"",
-            "value": "\"Regional security and nuclear concerns play a major role.\""
+            "label": "point3",
+            "value": "Regional security and nuclear concerns play a major role."
           },
           {
-            "label": "\"point4\"",
-            "value": "\"Global powers closely monitor developments between the two countries.\" }"
+            "label": "point4",
+            "value": "Global powers closely monitor developments between the two countries."
           }
         ]
       },
@@ -391,8 +391,8 @@
       "label": "Quote Callout",
       "defaults": {
         "titleFontSize": {
-          "portrait": 59,
-          "landscape": 56
+          "portrait": 54,
+          "landscape": 49
         },
         "descriptionFontSize": {
           "portrait": 30,
@@ -469,12 +469,12 @@
       "label": "Timeline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 67
+          "portrait": 85,
+          "landscape": 74
         },
         "descriptionFontSize": {
-          "portrait": 41,
-          "landscape": 31
+          "portrait": 40,
+          "landscape": 30
         },
         "timelineItems": [
           {
@@ -532,11 +532,9 @@
   "layouts_without_image": [
     "text_narration",
     "code_block",
-    "bullet_list",
     "flow_diagram",
     "comparison",
     "metric",
-    "quote_callout",
-    "timeline"
+    "quote_callout"
   ]
 }

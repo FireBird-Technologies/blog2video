@@ -1,4 +1,11 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import {
+  AbsoluteFill,
+  interpolate,
+  useCurrentFrame,
+  spring,
+  Easing,
+} from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Metric: React.FC<SceneLayoutProps> = ({
@@ -13,58 +20,32 @@ export const Metric: React.FC<SceneLayoutProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
-  const p = aspectRatio === "portrait";
+  const isPortrait = aspectRatio === "portrait";
 
-  const titleSpring = spring({
-    frame: frame - 3,
-    fps,
-    config: { damping: 22, stiffness: 90, mass: 1 },
-  });
-  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
+  // Data Handling
+  const mainMetric = metrics[0] || { value: "0", label: "", suffix: "%" };
+  const numericValue = parseFloat(mainMetric.value.replace(/[^0-9.-]/g, "")) || 0;
+
+  // Animations
+  const entrance = spring({ frame, fps, config: { damping: 20, stiffness: 100 } });
+  
+  // Count-up animation with easing for a smoother "landing"
+  const animatedNum = interpolate(frame, [20, 70], [0, numericValue], {
     extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
   });
 
-  const mainMetric = metrics[0];
-  const numericValue = mainMetric ? parseFloat(mainMetric.value.replace(/[^0-9.-]/g, "")) || 0 : 0;
-  const animatedNum = Math.floor(
-    interpolate(frame, [10, 50], [0, numericValue], {
-      extrapolateRight: "clamp",
-    })
-  );
-
-  // Define circle properties
-  const circleSize = p ? 320 : 320; // Diameter of the circle (Increased for portrait)
-  const strokeWidth = p ? 20 : 20; // Increased for portrait
+  // Gauge Properties
+  const circleSize = isPortrait ? 380 : 340;
+  const strokeWidth = 16;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  // Animation for the stroke
-  const strokeFillPercentage = interpolate(frame, [10, 50], [0, Math.min(numericValue, 100)], {
+  // Stroke Fill Logic
+  const fillProgress = interpolate(frame, [20, 70], [0, Math.min(numericValue, 100)], {
     extrapolateRight: "clamp",
   });
-  const strokeDashoffset = circumference * (1 - strokeFillPercentage / 100);
-
-  // Spring for the circle's initial scale and opacity
-  const circleScaleSpring = spring({
-    frame: frame - 5,
-    fps,
-    config: { damping: 20, stiffness: 80, mass: 1 },
-  });
-  const circleScale = interpolate(circleScaleSpring, [0, 1], [0.8, 1], {
-    extrapolateRight: "clamp",
-  });
-  const circleOpacity = interpolate(circleScaleSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
-  const subSpring = spring({
-    frame: frame - 35,
-    fps,
-    config: { damping: 20, stiffness: 80, mass: 1 },
-  });
-  const subOp = interpolate(subSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const strokeDashoffset = circumference * (1 - fillProgress / 100);
 
   return (
     <AbsoluteFill
@@ -74,168 +55,166 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0 50px",
-        overflow: "hidden",
+        fontFamily: "'Roboto Slab', serif",
       }}
     >
-      <h3
-        style={{
-          color: textColor,
-          fontSize: titleFontSize ?? (p ? 45 : 46),
-          fontWeight: 500,
-          fontFamily: "Inter, sans-serif",
-          opacity: titleOp * 0.6,
-          marginTop: 0,
-          marginBottom: p ? 20 : 24,
-          textTransform: "uppercase",
-          letterSpacing: 4,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </h3>
+      {/* BACKGROUND DECORATION */}
+      <div style={{
+        position: 'absolute',
+        width: circleSize * 1.5,
+        height: circleSize * 1.5,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${accentColor}15 0%, transparent 70%)`,
+        opacity: interpolate(entrance, [0, 1], [0, 1]),
+      }} />
 
-      {mainMetric && (
-        <div // New wrapper for the main metric circle and its label
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            marginTop: p ? 20 : 30, // Space after title
-            // marginBottom is handled by secondary metrics' marginTop
-          }}
+      {/* HEADER */}
+      <div style={{
+        opacity: interpolate(entrance, [0, 1], [0, 0.6]),
+        transform: `translateY(${interpolate(entrance, [0, 1], [-20, 0])}px)`,
+        textAlign: "center",
+        marginBottom: 40,
+        zIndex: 2,
+      }}>
+        <h3 style={{
+          color: textColor,
+          fontSize: titleFontSize ?? (isPortrait ? 40 : 32),
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 8,
+          margin: 0,
+        }}>
+          {title}
+        </h3>
+      </div>
+
+      {/* MAIN GAUGE SECTION */}
+      <div style={{
+        position: "relative",
+        width: circleSize,
+        height: circleSize,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: entrance,
+        transform: `scale(${entrance})`,
+      }}>
+        <svg
+          width={circleSize}
+          height={circleSize}
+          viewBox={`0 0 ${circleSize} ${circleSize}`}
+          style={{ position: "absolute", transform: "rotate(-90deg)" }}
         >
-          <div // This div now contains only the circle SVG and the numeric value
-            style={{
-              position: "relative",
-              width: circleSize,
-              height: circleSize,
-              // Removed marginBottom from here
-              opacity: circleOpacity,
-              transform: `scale(${circleScale})`,
-            }}
-          >
-            <svg
-              width={circleSize}
-              height={circleSize}
-              viewBox={`0 0 ${circleSize} ${circleSize}`}
-              style={{ position: "absolute", top: 0, left: 0 }}
-            >
-              {/* Background circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                fill="transparent"
-                stroke={`${textColor}20`}
-                strokeWidth={strokeWidth}
-              />
-              {/* Animated circle */}
-              <circle
-                cx={circleSize / 2}
-                cy={circleSize / 2}
-                r={radius}
-                fill="transparent"
-                stroke={accentColor}
-                strokeWidth={strokeWidth}
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform={`rotate(-90 ${circleSize / 2} ${circleSize / 2})`}
-              />
-            </svg>
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: p ? 90 : 90,
-                  fontWeight: 800,
-                  fontFamily: "Inter, sans-serif",
-                  color: textColor,
-                  lineHeight: 1,
-                }}
-              >
-                {animatedNum}
-                <span style={{ color: accentColor, fontSize: p ? 65 : 65 }}>
-                  {mainMetric.suffix || "%"}
-                </span>
-              </div>
-              {/* Main metric label moved outside this div */}
-            </div>
+          {/* Outer Track */}
+          <circle
+            cx={circleSize / 2}
+            cy={circleSize / 2}
+            r={radius}
+            fill="none"
+            stroke={textColor}
+            strokeOpacity={0.1}
+            strokeWidth={strokeWidth}
+          />
+          {/* Animated Progress Arc */}
+          <circle
+            cx={circleSize / 2}
+            cy={circleSize / 2}
+            r={radius}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 10px ${accentColor}66)` }}
+          />
+        </svg>
+
+        {/* CENTER CONTENT */}
+        <div style={{
+          backgroundColor: "rgba(255, 255, 255, 0.03)",
+          backdropFilter: "blur(12px)",
+          borderRadius: "50%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+          // Modifications for dynamic sizing:
+          minWidth: circleSize * 0.8, // Minimum size to start as a circle
+          minHeight: circleSize * 0.8, // Minimum size
+          padding: 20, // Add padding around content
+          boxSizing: 'border-box', // Include padding in min-width/height
+          // Removed fixed width/height so it can grow based on content
+        }}>
+          <div style={{
+            fontSize: isPortrait ? 110 : 90,
+            fontWeight: 900,
+            color: textColor,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "baseline",
+          }}>
+            {Math.round(animatedNum)}
+            <span style={{ color: accentColor, fontSize: 40, marginLeft: 4 }}>
+              {mainMetric.suffix || "%"}
+            </span>
           </div>
-          {mainMetric.label && (
-            <p
-              style={{
-                color: textColor,
-                fontSize: descriptionFontSize ?? (p ? 35 : 31),
-                fontFamily: "Inter, sans-serif",
-                marginTop: p ? 15 : 20, // Space from the bottom of the circle
-                marginBottom: 0,
-                opacity: 0.8,
-                textAlign: "center",
-                maxWidth: "80%",
-                lineHeight: 1.2,
-              }}
-            >
-              {mainMetric.label}
-            </p>
-          )}
+        </div>
+      </div>
+
+      {/* MAIN LABEL - Moved outside the gauge */}
+      {mainMetric.label && (
+        <div style={{
+          textAlign: "center",
+          marginTop: 30, // Space from the gauge circle
+          marginBottom: 20, // Space before secondary metrics
+          opacity: interpolate(frame, [40, 60], [0, 1], { extrapolateLeft: "clamp" }),
+          zIndex: 2, // Ensure it's above background decorations
+        }}>
+          <p style={{
+            color: textColor,
+            fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28), // Changed to use descriptionFontSize
+            fontWeight: 500,
+            margin: 0,
+            lineHeight: 1.2,
+            maxWidth: isPortrait ? '80%' : '60%', // Control width for text wrapping
+            marginInline: 'auto', // Center the paragraph itself
+          }}>
+            {mainMetric.label}
+          </p>
         </div>
       )}
 
-      {/* Secondary metrics */}
+      {/* SECONDARY METRICS (GRID LAYOUT) */}
       {metrics.length > 1 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row", // Always row for secondary metrics
-            gap: p ? 30 : 60,
-            marginTop: p ? 30 : 40, // Space from main metric section (circle + label)
-            opacity: subOp,
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            width: "100%",
-            padding: p ? "0 20px" : "0 50px",
-          }}
-        >
+        <div style={{
+          display: "flex",
+          gap: isPortrait ? 40 : 80,
+          marginTop: 60, // Adjusted to account for new label placement
+          flexWrap: "wrap",
+          justifyContent: "center",
+          opacity: interpolate(frame, [50, 70], [0, 1], { extrapolateLeft: "clamp" }),
+        }}>
           {metrics.slice(1).map((m, i) => (
-            <div key={i} style={{ textAlign: "center", minWidth: p ? 80 : 100 }}>
-              <div
-                style={{
-                  fontSize:
-                    (i >= 0 && i <= 2)
-                      ? (descriptionFontSize ?? (p ? 35 : 31)) + 5
-                      : (descriptionFontSize ?? (p ? 35 : 31)),
-                  fontWeight: 700,
-                  color: accentColor,
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                {m.value}
-                {m.suffix && <span style={{ fontSize: p ? 20 : 25, marginLeft: 2 }}>{m.suffix}</span>}
+            <div key={i} style={{ textAlign: "center" }}>
+              <div style={{
+                fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28),
+                fontWeight: 800,
+                color: accentColor,
+                marginBottom: 4,
+              }}>
+                {m.value}{m.suffix}
               </div>
-              <div
-                style={{
-                  fontSize: descriptionFontSize ?? (p ? 35 : 31),
-                  color: textColor,
-                  opacity: 0.6,
-                  fontFamily: "Inter, sans-serif",
-                  marginTop: 4,
-                  lineHeight: 1.2,
-                }}
-              >
+              <div style={{
+                fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28),
+                color: textColor,
+                opacity: 0.6,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}>
                 {m.label}
               </div>
             </div>
@@ -243,16 +222,15 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         </div>
       )}
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          backgroundColor: accentColor,
-        }}
-      />
+      {/* PROGRESS BAR FOOTER */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        height: 6,
+        width: "100%",
+        background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`,
+        opacity: 0.5,
+      }} />
     </AbsoluteFill>
   );
 };
