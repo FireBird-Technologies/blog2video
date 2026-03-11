@@ -100,6 +100,7 @@ def create_project(
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+        font_family=data.font_family or None,
         animation_instructions=data.animation_instructions or None,
         logo_position=data.logo_position or "bottom_right",
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
@@ -126,7 +127,18 @@ def update_project(
 ):
     project = _get_user_project(project_id, user.id, db)
 
-    update_data = data.model_dump(exclude_none=True)
+    raw_data = data.model_dump()
+    fields_set = data.model_fields_set
+
+    update_data: dict[str, object] = {}
+    for field, value in raw_data.items():
+        if field not in fields_set:
+            continue
+        if field == "font_family":
+            update_data[field] = value  # allow nulling or changing
+        else:
+            if value is not None:
+                update_data[field] = value
 
     for field, value in update_data.items():
         old_value = getattr(project, field)
@@ -272,6 +284,7 @@ def create_projects_bulk(
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+            font_family=data.font_family or None,
             animation_instructions=data.animation_instructions or None,
             logo_position=data.logo_position or "bottom_right",
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,

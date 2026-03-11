@@ -14,6 +14,7 @@ class ProjectCreate(BaseModel):
     accent_color: Optional[str] = "#7C3AED"  # purple default
     bg_color: Optional[str] = "#FFFFFF"      # white default
     text_color: Optional[str] = "#000000"    # black default
+    font_family: Optional[str] = None        # optional font ID override
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"  # top_left, top_right, bottom_left, bottom_right
     logo_opacity: Optional[float] = 0.9  # 0.0 - 1.0
@@ -27,6 +28,7 @@ class ProjectUpdate(BaseModel):
     accent_color: Optional[str] = None
     bg_color: Optional[str] = None
     text_color: Optional[str] = None
+    font_family: Optional[str] = None
 
 class SceneOut(BaseModel):
     id: int
@@ -84,6 +86,7 @@ class ProjectOut(BaseModel):
     accent_color: str = "#7C3AED"
     bg_color: str = "#FFFFFF"
     text_color: str = "#000000"
+    font_family: Optional[str] = None
     animation_instructions: Optional[str] = None
     studio_unlocked: bool = False
     studio_port: Optional[int] = None
@@ -130,6 +133,7 @@ class BulkProjectItem(BaseModel):
     accent_color: Optional[str] = "#7C3AED"
     bg_color: Optional[str] = "#FFFFFF"
     text_color: Optional[str] = "#000000"
+    font_family: Optional[str] = None
     animation_instructions: Optional[str] = None
     logo_position: Optional[str] = "bottom_right"
     logo_opacity: Optional[float] = 0.9

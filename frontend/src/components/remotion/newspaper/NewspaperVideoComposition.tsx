@@ -25,6 +25,7 @@ export interface NewspaperVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const NewspaperVideoComposition: React.FC<
@@ -39,11 +40,12 @@ export const NewspaperVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
         // --- STABLE FRAME CALCULATION ---
         // Calculate the start frame by summing durations of all previous scenes
