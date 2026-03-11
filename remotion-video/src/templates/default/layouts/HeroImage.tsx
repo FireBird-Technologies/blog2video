@@ -25,7 +25,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const { durationInFrames, width, height } = useVideoConfig();
-  const isPortrait = height > width;
+  const isPortrait = aspectRatio === "portrait";
   const hasImage = !!imageUrl;
 
   // --- ENTRANCE ANIMATIONS ---
