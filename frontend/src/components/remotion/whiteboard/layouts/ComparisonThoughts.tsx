@@ -61,9 +61,10 @@ interface ThoughtBubbleProps {
   bubbleOp: number;
   isPortrait: boolean;
   index: number;
+  fontFamily?: string;
 }
 
-function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index }: ThoughtBubbleProps) {
+function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily }: ThoughtBubbleProps) {
   const fontSize = isPortrait ? 22 : 26;
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
@@ -124,7 +125,7 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
               fontWeight: 600,
               textAlign: "center",
               lineHeight: 1.4,
-              fontFamily: "'Patrick Hand', system-ui, sans-serif",
+              fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
               letterSpacing: "1.5px",
               display: "flex",
               alignItems: "center",
@@ -155,6 +156,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   descriptionFontSize,
   leftThought = "Option A",
   rightThought = "Option B",
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -223,7 +225,13 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   }
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Patrick Hand', system-ui, sans-serif",  letterSpacing: "1.5px" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
 
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
@@ -313,6 +321,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               bubbleOp={bubbleOp}
               isPortrait={p}
               index={0}
+              fontFamily={fontFamily}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={false} seed={2} />
@@ -369,6 +378,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               bubbleOp={bubbleOp}
               isPortrait={p}
               index={1}
+              fontFamily={fontFamily}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={true} seed={3} />

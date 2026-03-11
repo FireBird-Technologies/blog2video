@@ -37,6 +37,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
@@ -157,7 +158,12 @@ export const SpotlightVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#000000" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#000000",
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;

@@ -31,6 +31,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -76,7 +77,13 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   const urgencyRed = currentCount <= 2 ? `#e53e3e` : accentColor;
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
 
       {/* Paper grain + ink defs */}

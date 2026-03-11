@@ -12,6 +12,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -39,7 +40,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Patrick Hand', system-ui, sans-serif",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
         letterSpacing: "1.5px"
       }}
     >

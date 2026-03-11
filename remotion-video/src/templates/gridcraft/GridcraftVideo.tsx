@@ -39,6 +39,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
@@ -286,7 +287,12 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || COLORS.BG }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || COLORS.BG,
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       <Blobs />
       
       {data.scenes.map((scene, index) => {

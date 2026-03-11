@@ -28,6 +28,7 @@ export interface DefaultVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
@@ -40,12 +41,13 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.max(
           1,

@@ -37,6 +37,7 @@ interface VideoData {
   aspectRatio?: string;
   scenes: SceneData[];
   theme?: CustomTheme;
+  fontFamily?: string | null;
 }
 
 interface VideoProps {
@@ -228,7 +229,12 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: theme.colors.bg }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: theme.colors.bg,
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene) => {
         const durationFrames = Math.max(
           1,

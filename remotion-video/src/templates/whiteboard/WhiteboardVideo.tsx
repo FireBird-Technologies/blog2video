@@ -33,6 +33,7 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
@@ -114,7 +115,12 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#F7F3E8" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#F7F3E8",
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
         const startFrame = currentFrame;
@@ -133,6 +139,7 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111827",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: data.fontFamily || undefined,
         };
 
         return (
