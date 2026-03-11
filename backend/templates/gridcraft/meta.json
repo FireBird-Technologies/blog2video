@@ -34,7 +34,7 @@
           "landscape": 85
         },
         "descriptionFontSize": {
-          "portrait": 18,
+          "portrait": 30,
           "landscape": 28
         },
         "categoryFontSize": {
@@ -92,7 +92,7 @@
           "landscape": 40
         },
         "descriptionFontSize": {
-          "portrait": 28,
+          "portrait": 40,
           "landscape": 27
         },
         "features": [
