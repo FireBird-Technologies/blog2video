@@ -2,8 +2,6 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotio
 import { SpotlightBackground } from "../SpotlightBackground";
 import type { SpotlightLayoutProps } from "../types";
 
-const referenceImageUrl = "https://i.imgur.com/u7w5l0a.jpeg";
-
 /**
  * Statement — Sentence Drop
  *
@@ -14,7 +12,6 @@ const referenceImageUrl = "https://i.imgur.com/u7w5l0a.jpeg";
 export const Statement: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   imageUrl,
   highlightWord,
   accentColor,
@@ -64,26 +61,28 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           gap: p ? 30 : 60,
         }}
       >
-        <div
-          style={{
-            flex: p ? "none" : "0 0 38%",
-            width: p ? "80%" : "auto",
-            height: p ? 240 : 400,
-            borderRadius: 4,
-            overflow: "hidden",
-            opacity: imageOpacity,
-            transform: `scale(${imageScale})`,
-          }}
-        >
-          <Img
-            src={referenceImageUrl}
+        {imageUrl && (
+          <div
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
+              flex: p ? "none" : "0 0 38%",
+              width: p ? "80%" : "auto",
+              height: p ? 240 : 400,
+              borderRadius: 4,
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
             }}
-          />
-        </div>
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </div>
+        )}
 
         <div style={{ width: p ? "100%" : "58%" }}>
           {lines.map((line, i) => {

@@ -138,7 +138,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
             </div>
             {item.description && (
                 <div style={{
-                    fontSize: descriptionFontSize ?? (p ? 28 : 27),
+                    fontSize: descriptionFontSize ?? (p ? 40 : 27),
                     lineHeight: 1.4,
                     opacity: isAccent ? 0.9 : 0.7,
                     color: isAccent ? COLORS.WHITE : COLORS.MUTED
