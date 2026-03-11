@@ -53,6 +53,7 @@ export interface GridcraftVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const GridcraftVideoComposition: React.FC<
@@ -67,12 +68,13 @@ export const GridcraftVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || COLORS.BG }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor || COLORS.BG, fontFamily }}>
       <Blobs />
 
       {scenes.map((scene, index) => {

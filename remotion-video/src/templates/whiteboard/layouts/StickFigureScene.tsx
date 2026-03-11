@@ -11,6 +11,7 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -40,7 +41,7 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Patrick Hand', system-ui, sans-serif",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
         letterSpacing: "1.5px"
       }}
     >

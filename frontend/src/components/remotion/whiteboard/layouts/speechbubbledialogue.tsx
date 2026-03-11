@@ -180,6 +180,7 @@ interface BubbleProps {
   swayX?: number;
   swayY?: number;
   portrait: boolean;
+  fontFamily?: string;
 }
 
 function SpeechBubble({
@@ -194,6 +195,7 @@ function SpeechBubble({
   swayX = 0,
   swayY = 0,
   portrait,
+  fontFamily,
 }: BubbleProps) {
   const innerW = 210;
   const hContent = estimateBubbleHeight(text, fontSize, innerW);
@@ -241,7 +243,7 @@ function SpeechBubble({
           <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
         <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
-          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
+          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
             {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
@@ -262,6 +264,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   descriptionFontSize,
   leftThought = "Wait, did you know?",
   rightThought = "Tell me more!",
+  fontFamily,
   stats,
 }) => {
   const frame = useCurrentFrame();
@@ -306,7 +309,13 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const rightSpeaker = stats?.[1]?.label ?? "Person B";
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
       {p && <BackgroundScribbles color={textColor} />}
 
@@ -341,14 +350,14 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
             <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={p ? 4.5 : 3} strokeLinecap="round" />
           </g>
 
-          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} />
-          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} />
+          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} fontFamily={fontFamily} />
+          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} fontFamily={fontFamily} />
 
           <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} bubbleBottomY={leftBubbleTopY + leftBH + leftSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={leftSway} portrait={p} />
           <StickFigure cx={rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={true} bubbleBottomY={rightBubbleTopY + rightBH + rightSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={rightSway} portrait={p} />
 
-          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily="'Patrick Hand', system-ui, sans-serif" fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
-          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily="'Patrick Hand', system-ui, sans-serif" fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
+          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily={fontFamily ?? "'Patrick Hand', system-ui, sans-serif"} fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
+          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily={fontFamily ?? "'Patrick Hand', system-ui, sans-serif"} fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
 
           {[0, 1, 2].map((dot) => {
             const dotOp = interpolate(frame, [60 + dot * 4, 68 + dot * 4], [0, 1], { extrapolateRight: "clamp" });
