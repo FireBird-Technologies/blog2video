@@ -105,8 +105,8 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
       }}>
         
         {/* HEADER */}
-        <div style={{ opacity: headerOp, marginBottom: p ? 30 : 40 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+        <div style={{ opacity: headerOp, marginBottom: p ? 30 * scale : 40 * scale }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 * scale, marginBottom: 12 * scale }}>
              <svg width={30} height={30} viewBox="0 0 34 34" fill="none">
               <circle cx="14" cy="14" r="10" stroke={textColor} strokeWidth="3" />
               <line x1="22" y1="22" x2="31" y2="31" stroke={textColor} strokeWidth="3" strokeLinecap="round" />
@@ -123,7 +123,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
           flex: 1,
           display: "flex",
           flexDirection: p ? "column" : "row",
-          gap: p ? 25 : 40,
+          gap: p ? 25 * scale : 40 * scale,
           alignItems: "stretch",
         }}>
           
@@ -134,7 +134,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             display: "flex",
             flexDirection: "column"
           }}>
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor), padding: "4px 8px", marginBottom: 15 }}>
+            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor), padding: "4px 8px", marginBottom: 15 * scale }}>
               {leftLabel}
             </div>
             <div style={{ fontFamily: H_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.3, fontStyle: "italic" }}>
@@ -153,7 +153,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   transform: "rotate(-1deg)",
                   border: "1px solid #ddd"
                 }}>
-                  <Img src={imageUrl} style={{ width: "100%", height: 360, objectFit: "cover", filter: "sepia(0.2) grayscale(0.3)" }} />
+                  <Img src={imageUrl} style={{ width: "100%", height: 360 * scale, objectFit: "cover", filter: "sepia(0.2) grayscale(0.3)" }} />
                </div>
             </div>
           )}
@@ -168,7 +168,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             display: "flex",
             flexDirection: "column"
           }}>
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, padding: "4px 8px", marginBottom: 15 }}>
+            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, padding: "4px 8px", marginBottom: 15 * scale }}>
               {rightLabel}
             </div>
             <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.4 }}>
@@ -202,9 +202,9 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
         {narration && (
           <div style={{ 
             opacity: verdictOp, 
-            marginTop: p ? 20 : 40, 
-            paddingTop: 20, 
-            borderTop: `3px solid ${accentColor}`,
+            marginTop: p ? 20 * scale : 40 * scale,
+            paddingTop: 20 * scale,
+            borderTop: `${3 * scale}px solid ${accentColor}`,
             fontFamily: B_FONT, 
             fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale),
             fontWeight: 700,

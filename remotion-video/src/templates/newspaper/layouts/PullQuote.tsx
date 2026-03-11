@@ -126,19 +126,19 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
           <div style={{ 
             display: "flex", 
             flexDirection: "row", // Keep horizontal to maintain quote-bar relationship
-            gap: p ? 24 : 32, 
-            alignItems: "flex-start", 
-            maxWidth: p ? width * 0.9 : 1000, 
+            gap: p ? 24 * scale : 32 * scale,
+            alignItems: "flex-start",
+            maxWidth: p ? width * 0.9 : 1000 * scale,
             width: "100%" 
           }}>
             {/* Accent Bar */}
             <div style={{
-              width: p ? 10 : 8,
+              width: p ? 10 * scale : 8 * scale,
               flexShrink: 0,
               background: accentColor,
               alignSelf: "stretch",
               clipPath: `inset(0 0 ${100 - barH}% 0)`,
-              minHeight: p ? 120 : 80,
+              minHeight: p ? 120 * scale : 80 * scale,
               borderRadius: 4,
             }} />
 
@@ -152,7 +152,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 opacity: quoteMarkOp,
                 transform: `scale(${quoteMarkS})`,
                 transformOrigin: "left top",
-                marginBottom: p ? 20 : 15,
+                marginBottom: p ? 20 * scale : 15 * scale,
               }}>
                 &#8220;
               </div>
@@ -164,7 +164,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 fontWeight: 600,
                 lineHeight: 1.25,
                 color: textColor,
-                marginBottom: p ? 40 : 40,
+                marginBottom: 40 * scale,
                 letterSpacing: p ? "-0.02em" : "normal",
               }}>
                 {words.slice(0, visWords).join(" ")}
@@ -188,7 +188,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                     fontSize: descriptionFontSize ?? (p ? 32 * scale : 36 * scale),
                     fontWeight: 800, 
                     color: textColor, 
-                    marginBottom: 8,
+                    marginBottom: 8 * scale,
                     textTransform: "uppercase",
                     letterSpacing: "0.05em"
                 }}>
