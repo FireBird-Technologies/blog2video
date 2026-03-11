@@ -2,11 +2,14 @@
   "id": "default",
   "name": "Geometric Explainer",
   "description": "Modern tech-explainer with code blocks, animated metrics, flow diagrams, and bullet lists. Clean geometric aesthetic ideal for technical content.",
-  "styles": ["explainer", "storytelling"],
+  "styles": [
+    "explainer",
+    "storytelling"
+  ],
   "preview_colors": {
-    "accent": "#7C3AED",
-    "bg": "#FFFFFF",
-    "text": "#000000"
+    "accent": "#007AFF",
+    "bg": "#F5F5F7",
+    "text": "#1D1D1F"
   },
   "composition_id": "DefaultVideo",
   "hero_layout": "hero_image",
@@ -23,14 +26,515 @@
     "image_caption",
     "timeline"
   ],
+  "layout_prop_schema": {
+    "hero_image": {
+      "label": "Hero Image",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        }
+      ]
+    },
+    "text_narration": {
+      "label": "Text Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 102,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 47
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "code_block": {
+      "label": "Code Block",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 99,
+          "landscape": 77
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 38
+        },
+        "codeLanguage": "python",
+        "codeLines": [
+          "def hello_world():",
+          "    print('Hello, world!')"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "codeLanguage",
+          "label": "Language",
+          "type": "string"
+        },
+        {
+          "key": "codeLines",
+          "label": "Code Lines",
+          "type": "string_array",
+          "maxItems": 16
+        }
+      ]
+    },
+    "bullet_list": {
+      "label": "Bullet List",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 60
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 29
+        },
+        "bullets": [
+          "Point one",
+          "Point two",
+          "Point three"
+        ],
+        "points": [
+          {
+            "label": "point1",
+            "value": "Iran and the US have had decades of political tension."
+          },
+          {
+            "label": "point2",
+            "value": "The conflict often involves sanctions and diplomatic disputes."
+          },
+          {
+            "label": "point3",
+            "value": "Regional security and nuclear concerns play a major role."
+          },
+          {
+            "label": "point4",
+            "value": "Global powers closely monitor developments between the two countries."
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "bullets",
+          "label": "Bullets",
+          "type": "string_array",
+          "maxItems": 6
+        },
+        {
+          "key": "points",
+          "label": "Points",
+          "type": "object_array",
+          "description": "object array holding the points",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ],
+          "maxItems": 10
+        }
+      ]
+    },
+    "flow_diagram": {
+      "label": "Flow Diagram",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 51
+        },
+        "descriptionFontSize": {
+          "portrait": 35,
+          "landscape": 27
+        },
+        "steps": [
+          "Step 1",
+          "Step 2",
+          "Step 3"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "steps",
+          "label": "Steps",
+          "type": "string_array",
+          "maxItems": 5
+        }
+      ]
+    },
+    "comparison": {
+      "label": "Comparison",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 70,
+          "landscape": 78
+        },
+        "descriptionFontSize": {
+          "portrait": 43,
+          "landscape": 33
+        },
+        "leftLabel": "Option A",
+        "rightLabel": "Option B",
+        "leftDescription": "Pros and context for option A",
+        "rightDescription": "Pros and context for option B"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Description",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Description",
+          "type": "text"
+        }
+      ]
+    },
+    "metric": {
+      "label": "Metric",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 45,
+          "landscape": 46
+        },
+        "descriptionFontSize": {
+          "portrait": 35,
+          "landscape": 31
+        },
+        "metrics": [
+          {
+            "value": "72",
+            "label": "Conversion",
+            "suffix": "%"
+          },
+          {
+            "value": "4.2",
+            "label": "ROI",
+            "suffix": "x"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
+          ]
+        }
+      ]
+    },
+    "quote_callout": {
+      "label": "Quote Callout",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 49
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 26
+        },
+        "quote": "A concise insight worth highlighting.",
+        "quoteAuthor": "Author Name"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "quoteAuthor",
+          "label": "Author",
+          "type": "string"
+        }
+      ]
+    },
+    "image_caption": {
+      "label": "Image Caption",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 57,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 32
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Caption Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "timeline": {
+      "label": "Timeline",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 85,
+          "landscape": 74
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 30
+        },
+        "timelineItems": [
+          {
+            "label": "Phase 1",
+            "description": "Kickoff and discovery"
+          },
+          {
+            "label": "Phase 2",
+            "description": "Implementation"
+          },
+          {
+            "label": "Phase 3",
+            "description": "Launch"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "timelineItems",
+          "label": "Timeline Items",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "description",
+              "label": "Description"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "layouts_without_image": [
     "text_narration",
     "code_block",
-    "bullet_list",
     "flow_diagram",
     "comparison",
     "metric",
-    "quote_callout",
-    "timeline"
+    "quote_callout"
   ]
 }

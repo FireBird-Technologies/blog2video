@@ -18,6 +18,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   narration,
   textColor,
   accentColor,
+  bgColor,
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
@@ -103,7 +104,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
     <AbsoluteFill style={{ overflow: "hidden" }}>
 
       {/* ── Background: dark first, then image reveals after intro ── */}
-      <DarkBackground />
+      <DarkBackground bgColor={bgColor} />
 
       {/* ── Hero image: appears AFTER intro text (frame 70+), full-bleed with lighter overlay ── */}
       {imageUrl && (
@@ -194,7 +195,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         {/* Title — bright white text */}
         <h1
           style={{
-            fontSize: titleFontSize ?? (p ? 88 : 140),
+            fontSize: titleFontSize ?? (p ? 113 : 140),
             fontWeight: 800,
             color: "#FFFFFF",
             fontFamily: "'Playfair Display', Georgia, serif",
@@ -249,7 +250,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
         {narration && (
           <p
             style={{
-              fontSize: descriptionFontSize ?? (p ? 26 : 36),
+              fontSize: descriptionFontSize ?? (p ? 43 : 36),
               fontWeight: 400,
               color: "rgba(226,232,240,0.45)",
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

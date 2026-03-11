@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, staticFile } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -68,7 +68,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Left shard */}
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",
@@ -85,7 +85,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Right shard */}
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",
@@ -183,7 +183,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
                   <div style={{ 
                     fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 34 : 35), 
+                    fontSize: descriptionFontSize ?? (p ? 38 : 35), 
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: 0.8, 
@@ -201,7 +201,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 34 : 35),
+                fontSize: descriptionFontSize ?? (p ? 38 : 35),
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),

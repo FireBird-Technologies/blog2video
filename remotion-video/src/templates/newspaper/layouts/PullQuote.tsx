@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -35,11 +35,12 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   // --- Shard Logic: Optimized for Portrait Aspect Ratio ---
   // In portrait, we increase the width of the shards to ensure full coverage
   const shardWidthFactor = p ? 0.8 : 0.5; 
-  const leftShardX = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, -150]);
-  const leftShardRot = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, -8]);
+  // Modified: Shards now stick at position 0 and rotation 0 after colliding (motionProgress = 1)
+  const leftShardX = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, 0]);
+  const leftShardRot = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, 0]);
   
-  const rightShardX = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 150]);
-  const rightShardRot = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 8]);
+  const rightShardX = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 0]);
+  const rightShardRot = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 0]);
 
   // UI Animations
   const barH = interpolate(frame, [0, 18], [0, 100], { extrapolateRight: "clamp" });
@@ -79,7 +80,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
         {/* Shards: Width adjusted for aspect ratio */}
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",
@@ -95,7 +96,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
         />
 
         <img
-          src={staticFile("vintage-news.avif")}
+          src="/vintage-news.avif"
           alt=""
           style={{
             position: "absolute",

@@ -20,6 +20,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   narration,
   imageUrl,
   accentColor,
+  bgColor,
   textColor,
   aspectRatio,
   titleFontSize,
@@ -83,7 +84,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground drift={false} />
+      <DarkBackground drift={false} bgColor={bgColor} />
       
       {imageUrl ? (
         <>
@@ -172,7 +173,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
         >
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 48 : 64),
+              fontSize: titleFontSize ?? (p ? 78 : 64),
               opacity: 0.2,
               color: textColor,
             }}
@@ -225,7 +226,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {/* Title */}
           <h2
             style={{
-              fontSize: titleFontSize ?? 38,
+              fontSize: titleFontSize ?? (p ? 78 : 64),
               fontWeight: 700,
               color: textColor,
               fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
@@ -240,7 +241,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           {narration && (
             <p
               style={{
-                fontSize: descriptionFontSize ?? 28,
+                fontSize: descriptionFontSize ?? (p ? 42 : 35),
                 color: "rgba(226,232,240,0.45)",
                 fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
                 lineHeight: 1.6,

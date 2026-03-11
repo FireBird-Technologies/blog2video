@@ -47,9 +47,17 @@ interface Props {
 
 const MAX_UPLOAD_FILES = 5;
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+const viteEnv =
+  typeof import.meta !== "undefined" ? import.meta.env : undefined;
+const processEnv =
+  typeof globalThis !== "undefined" && "process" in globalThis
+    ? (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    : undefined;
 
 const MAX_BULK_LINKS = (() => {
-  const raw = import.meta.env.VITE_MAX_BULK_LINKS as string | undefined;
+  const raw = (viteEnv?.VITE_MAX_BULK_LINKS || processEnv?.VITE_MAX_BULK_LINKS) as
+    | string
+    | undefined;
   const parsed = raw ? parseInt(raw, 10) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 })();
@@ -233,6 +241,24 @@ function containsDot(s: string): boolean {
   return s.trim().includes(".");
 }
 
+const FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".odt", ".odp", ".ods", ".txt", ".rtf", ".csv"];
+
+/** Returns the matched file extension if the URL ends with a document extension, else null. */
+function getFileExtension(s: string): string | null {
+  const trimmed = s.trim().toLowerCase();
+  // Check the raw input first (covers "hello.pdf", "example.com/file.pdf", etc.)
+  const directMatch = FILE_EXTENSIONS.find((ext) => trimmed.endsWith(ext));
+  if (directMatch) return directMatch;
+  // Also check the pathname of a parsed URL (handles query strings, e.g. site.com/doc.pdf?v=1)
+  try {
+    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    const path = url.pathname.toLowerCase();
+    return FILE_EXTENSIONS.find((ext) => path.endsWith(ext)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
@@ -336,6 +362,35 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       })
       .catch(() => {});
   }, []);
+
+  // Preferred built-in template (Nightfall when available) for single and bulk flows.
+  const preferredTemplateId =
+    templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
+    "default";
+
+  // Prefer Nightfall as the initial built-in template when templates load.
+  useEffect(() => {
+    if (templates.length === 0) return;
+    const preferred =
+      templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "whiteboard");
+    if (preferred) {
+      // Single/upload flow: set template if still default or custom placeholder.
+      if (template === "default" || template.startsWith("custom_")) {
+        setTemplate(preferred.id);
+        if (preferred.preview_colors) {
+          setAccentColor(preferred.preview_colors.accent);
+          setBgColor(preferred.preview_colors.bg);
+          setTextColor(preferred.preview_colors.text);
+        }
+      }
+      // Multi-link (bulk) flow: set any "default" slots to preferred so step 2 shows Nightfall.
+      setBulkTemplates((prev) =>
+        prev.map((t) => (t === "default" ? preferred.id : t))
+      );
+    }
+  }, [templates]);
 
   // Sync colors to the selected template when templates load.
   useEffect(() => {
@@ -487,25 +542,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // ─── File-extension URL detection ────────────────────────────
+  const urlFileExt = mode === "url" ? getFileExtension(urls[0] ?? "") : null;
+  const bulkFileExtRows = mode === "bulk"
+    ? bulkRows.map((r) => getFileExtension(r.url))
+    : [];
+  const hasBulkFileExt = bulkFileExtRows.some(Boolean);
+
   // ─── Navigation ──────────────────────────────────────────────
   // Step order: 1 = Project (URL/Upload/Bulk), 2 = Template, 3 = Voice
   const canGoNext1 =
     mode === "url"
-      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0])
+      ? !!urls[0]?.trim() && !hasSpacesInMiddle(urls[0]) && containsDot(urls[0]) && !urlFileExt
       : mode === "upload"
         ? docFiles.length > 0
         : bulkRows.some((r) => r.url.trim()) &&
           bulkRows.every(
             (r) =>
               !r.url.trim() || (!hasSpacesInMiddle(r.url) && containsDot(r.url))
-          );
+          ) && !hasBulkFileExt;
 
   const goNext = () => {
     if (step === 1 && canGoNext1) {
       if (mode === "bulk") {
         const n = bulkRows.length;
         setBulkNames((prev) => resizeTo(prev, n, ""));
-        setBulkTemplates((prev) => resizeTo(prev, n, "default"));
+        setBulkTemplates((prev) => resizeTo(prev, n, preferredTemplateId));
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
@@ -537,7 +599,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (bulkRows.length >= MAX_BULK_LINKS) return;
     setBulkRows((prev) => [...prev, { url: "" }]);
     setBulkNames((prev) => [...prev, ""]);
-    setBulkTemplates((prev) => [...prev, "default"]);
+    setBulkTemplates((prev) => [...prev, preferredTemplateId]);
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
@@ -661,7 +723,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
       setBulkRows([{ url: "" }]);
       setBulkNames([""]);
-      setBulkTemplates(["default"]);
+      setBulkTemplates([preferredTemplateId]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
@@ -823,6 +885,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           ) : null;
         })()}
+        {hasBulkFileExt && (
+          <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-purple-50 border border-purple-200/60">
+            <svg className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
+            </svg>
+            <p className="text-[11px] text-purple-700 leading-relaxed">
+              {bulkFileExtRows.map((ext, i) => ext ? (
+                <span key={i}>Row {i + 1} has a <span className="font-semibold">{ext.toUpperCase()}</span> file link. </span>
+              ) : null)}
+              Please use the <span className="font-semibold">Upload</span> tab to upload files directly instead of linking to them.
+            </p>
+          </div>
+        )}
       </>)}
 
       {/* URL input */}
@@ -877,6 +952,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <p className="text-xs text-red-500 mt-1">
               {urlError}
             </p>
+          )}
+          {urlFileExt && urls[0]?.trim() && (
+            <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-purple-50 border border-purple-200/60">
+              <svg className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
+              </svg>
+              <p className="text-[11px] text-purple-700 leading-relaxed">
+                <span className="font-semibold">{urlFileExt.toUpperCase()} files</span> can't be processed as a URL. Please use the{" "}
+                <span className="font-semibold">Upload</span> tab above to upload this file directly.
+              </p>
+            </div>
           )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
             Use a paywall-free link for best results.
@@ -2264,6 +2350,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   const step3Voice = (
     <div className="space-y-5">
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-50/60 border border-purple-200/50">
+        <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+        </svg>
+        <p className="text-[11px] text-purple-600 leading-relaxed">
+          The video will be narrated in the <span className="font-semibold">language of the content</span>.
+        </p>
+      </div>
       <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
         <input
           type="checkbox"

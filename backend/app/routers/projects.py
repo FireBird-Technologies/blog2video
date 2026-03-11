@@ -21,7 +21,7 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -33,8 +33,10 @@ def _inject_custom_theme(project: Project) -> Project:
     if is_custom_template(project.template):
         data = _load_custom_template_data(project.template)
         project.custom_theme = data["theme"] if data else None
+        project.custom_template_missing = data is None
     else:
         project.custom_theme = None
+        project.custom_template_missing = False
     return project
 
 # ─── Constants ────────────────────────────────────────────
@@ -775,14 +777,21 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        layout_props = descriptor.get("layoutProps", {}) or {}
-
-        if data.title_font_size is not None:
-            layout_props["titleFontSize"] = data.title_font_size
-        if data.description_font_size is not None:
-            layout_props["descriptionFontSize"] = data.description_font_size
-
-        descriptor["layoutProps"] = layout_props
+        # Custom templates use layoutConfig; built-in templates use layoutProps
+        if "layoutConfig" in descriptor:
+            layout_config = descriptor.get("layoutConfig", {}) or {}
+            if data.title_font_size is not None:
+                layout_config["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_config["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutConfig"] = layout_config
+        else:
+            layout_props = descriptor.get("layoutProps", {}) or {}
+            if data.title_font_size is not None:
+                layout_props["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_props["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutProps"] = layout_props
         track_scene_edit(
                         db,
                         project_id=project.id,
@@ -1091,15 +1100,19 @@ def get_project_layouts(
     
     # Convert layout IDs to human-readable names
     layout_names = {}
+    meta = get_meta(project.template)
+    schema = meta.get("layout_prop_schema", {}) if meta else {}
     for layout_id in valid_layouts:
-        # Convert snake_case to Title Case
-        name = layout_id.replace("_", " ").title()
+        # Prefer schema label, fallback to Title Case
+        layout_schema = schema.get(layout_id, {})
+        name = layout_schema.get("label") or layout_id.replace("_", " ").title()
         layout_names[layout_id] = name
     
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
         "layouts_without_image": sorted(list(no_image_layouts)),
+        "layout_prop_schema": schema,
     }
 
 

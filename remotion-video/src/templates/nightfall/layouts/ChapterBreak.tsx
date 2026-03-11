@@ -21,6 +21,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
   subtitle,
   textColor,
   accentColor,
+  bgColor,
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
@@ -76,7 +77,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <DarkBackground drift={false} />
+      <DarkBackground drift={false} bgColor={bgColor} />
 
       {/* Decorative corner frames */}
       <div
@@ -147,7 +148,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Chapter label */}
         <div
           style={{
-            fontSize: descriptionFontSize ?? (p ? 18 : 24),
+            fontSize: descriptionFontSize ?? (p ? 18 : 40),
             fontWeight: 600,
             color: textColor,
             opacity: titleOpacity * 0.6,
@@ -163,7 +164,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Giant chapter number */}
         <div
           style={{
-            fontSize: p ? 160 : 200,
+            fontSize: p ? 200 : 280, // Increased size
             fontWeight: 200,
             color: "rgba(226,232,240,0.9)",
             opacity: numOpacity,
@@ -232,7 +233,7 @@ export const ChapterBreak: React.FC<NightfallLayoutProps> = ({
         {/* Title/Subtitle */}
         <h2
           style={{
-            fontSize: titleFontSize ?? (p ? 36 : 46),
+            fontSize: titleFontSize ?? (p ? 36 : 55),
             fontWeight: 500,
             color: textColor,
             fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",

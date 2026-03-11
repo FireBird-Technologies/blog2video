@@ -65,6 +65,7 @@ export interface Project {
   logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  custom_template_missing?: boolean;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -179,4 +180,3 @@ export interface RenderStatus {
   time_remaining: string | null;
   r2_video_url: string | null;
 }
-
