@@ -125,6 +125,7 @@ export const NewsHeadline: React.FC<
   BlogLayoutProps & {
     imageUrl?: string;
     highlightWords?: string[];
+    leftThought?: string;
   }
 > = ({
   title = "Breaking News Headline Goes Here",
@@ -139,6 +140,7 @@ export const NewsHeadline: React.FC<
   stats,
   category,
   imageUrl,
+  leftThought,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -159,11 +161,18 @@ export const NewsHeadline: React.FC<
   const contentOpacity = fadeIn * fadeOut;
   const cat = category ?? stats?.[0]?.label ?? "News";
 
+  // Derive highlight words from explicit leftThought when provided.
+  // leftThought comes from layoutProps.leftThought and represents the
+  // words that should be emphasized in the headline.
+  const leftThoughtFromProps = leftThought && leftThought.trim().length > 0 ? leftThought : undefined;
+
   const words = title.split(" ");
   const highlights =
     highlightWords && highlightWords.length
       ? highlightWords
-      : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
+      : leftThoughtFromProps
+        ? leftThoughtFromProps.split(/[,\u2013\u2014\-]/).join(" ").split(/\s+/).filter(Boolean)
+        : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
@@ -258,22 +267,43 @@ export const NewsHeadline: React.FC<
           opacity: contentOpacity,
         }}
       >
-        {/* CATEGORY */}
-        <div style={{ marginBottom: p ? 20 : 30 }}>
+        {/* CATEGORY + AUTHOR (from stats) */}
+        <div style={{ marginBottom: p ? 20 : 30, display: "flex", flexDirection: "column", gap: 6 }}>
           <div
             style={{
               display: "inline-block",
-              fontSize: p ? 28 : 24, // Larger for portrait
+              fontSize: p ? 28 : 24,
               fontWeight: 800,
               letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: textColor,
               borderBottom: `4px solid ${textColor}`,
               paddingBottom: 6,
+              alignSelf: "flex-start",
             }}
           >
             {cat}
           </div>
+          {Array.isArray(stats) && stats.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                fontFamily: B_FONT,
+                fontSize: p ? 20 : 16,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#555",
+              }}
+            >
+              {stats.map((s, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 700 }}>{s.value}</span>
+                  {s.label && <span style={{ opacity: 0.8 }}>{s.label}</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* TITLE */}

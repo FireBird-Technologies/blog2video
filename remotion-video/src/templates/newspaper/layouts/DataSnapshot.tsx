@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
@@ -68,7 +68,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Left shard */}
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
@@ -85,7 +85,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
         {/* Right shard */}
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",

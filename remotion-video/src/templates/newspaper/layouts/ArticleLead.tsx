@@ -36,7 +36,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   const dropCapOp = interpolate(frame, [10, 26], [0, 1], { extrapolateRight: "clamp" });
   const dropCapY = interpolate(frame, [10, 26], [16, 0], { extrapolateRight: "clamp" });
 
-  const bodyProgress = interpolate(frame, [20, 74], [0, 1], { extrapolateRight: "clamp" });
+  const bodyProgress = interpolate(frame, [20, 74], [0, 1], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
   const visChars = Math.floor(narration.length * bodyProgress);
   const visText = narration.slice(0, visChars);
   const showCursor = visChars < narration.length;
