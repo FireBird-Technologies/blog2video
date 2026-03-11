@@ -9,6 +9,7 @@ import {
   delayRender,
 } from "remotion";
 import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -192,12 +193,13 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: data.bgColor || "#FFFFFF",
-        fontFamily: data.fontFamily || undefined,
+        fontFamily: resolvedFontFamily || undefined,
       }}
     >
       {data.scenes.map((scene, index) => {

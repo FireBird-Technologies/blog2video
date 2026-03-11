@@ -30,6 +30,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats: statsProp,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
