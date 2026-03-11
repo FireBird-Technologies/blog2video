@@ -31,6 +31,7 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
@@ -103,7 +104,12 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FAFAF8" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#FAFAF8",
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene) => {
         const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
         const startFrame = currentFrame;

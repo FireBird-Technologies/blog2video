@@ -71,6 +71,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
@@ -199,7 +200,12 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#0A0A1A" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#0A0A1A",
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;

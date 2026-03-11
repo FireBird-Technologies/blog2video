@@ -25,6 +25,7 @@ export interface SpotlightVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const SpotlightVideoComposition: React.FC<
@@ -39,12 +40,13 @@ export const SpotlightVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;

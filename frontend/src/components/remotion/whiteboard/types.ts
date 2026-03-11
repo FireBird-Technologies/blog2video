@@ -27,4 +27,5 @@ export interface WhiteboardLayoutProps {
   stats?: WhiteboardStatItem[];
   leftThought?: string;
   rightThought?: string;
+  fontFamily?: string;
 }

@@ -37,10 +37,11 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
@@ -193,7 +194,12 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#FFFFFF",
+        fontFamily: data.fontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.max(
           1,

@@ -59,6 +59,7 @@ export interface NightfallVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const NightfallVideoComposition: React.FC<
@@ -73,12 +74,13 @@ export const NightfallVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#0A0A1A" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#0A0A1A", fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;

@@ -111,6 +111,7 @@ export interface Project {
   accent_color: string;
   bg_color: string;
   text_color: string;
+  font_family?: string | null;
   animation_instructions: string | null;
   studio_unlocked: boolean;
   studio_port: number | null;
@@ -779,7 +780,7 @@ export const bulkUpdateSceneTypography = (
 
 export const updateProject = (
   projectId: number,
-  data: { accent_color?: string; bg_color?: string; text_color?: string }
+  data: { accent_color?: string; bg_color?: string; text_color?: string; font_family?: string | null }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
 export const updateScene = (

@@ -22,6 +22,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   descriptionFontSize: descPropSize,
   stats: statsProp,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -48,7 +49,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Patrick Hand', system-ui, sans-serif",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
         letterSpacing: "1.5px"
       }}
     >
