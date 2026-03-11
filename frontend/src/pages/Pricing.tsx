@@ -168,6 +168,7 @@ export default function Pricing() {
                 "ElevenLabs voiceover",
                 "Remotion video preview",
                 "Render & download MP4",
+                "Custom video templates",
               ].map((f) => (
                 <li
                   key={f}
@@ -177,7 +178,7 @@ export default function Pricing() {
                   {f}
                 </li>
               ))}
-              {["Unlimited AI edit & image generation"].map((f) => (
+              {["Unlimited AI edit & image generation", "Premium voiceover + cloning"].map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-2.5 text-sm text-gray-300"
@@ -226,6 +227,8 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
+                "Custom video templates",
+                "Premium voiceover + cloning",
                 "Buy as many as you need",
               ].map((f) => (
                 <li
@@ -296,6 +299,8 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
+                "Custom video templates",
+                "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
                 <li
@@ -399,6 +404,8 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
+                "Custom video templates",
+                "Premium voiceover + cloning",
                 "Priority support",
               ].map((f) => (
                 <li
@@ -460,9 +467,12 @@ export default function Pricing() {
                 "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
+                "Custom video templates",
+                "Premium voiceover + cloning",
                 "Custom integrations",
                 "Dedicated support",
                 "SSO & enterprise security",
+                "On-prem deployment available",
                 "Custom pricing",
               ].map((f) => (
                 <li
@@ -534,7 +544,10 @@ export default function Pricing() {
                 { feature: "Video preview", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Render & download MP4", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Unlimited AI edit & image generation", free: false, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Custom video templates", free: true, perVideo: true, standard: true, pro: true, customized: true },
+                { feature: "Premium voiceover + cloning", free: false, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "Priority support", free: false, perVideo: false, standard: true, pro: true, customized: true },
+                { feature: "On-prem deployment", free: false, perVideo: false, standard: false, pro: false, customized: true },
               ].map((row, i) => (
                 <tr
                   key={row.feature}

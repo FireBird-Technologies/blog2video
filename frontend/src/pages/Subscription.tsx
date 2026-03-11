@@ -415,7 +415,9 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
               <li className="flex items-start gap-2 text-gray-300"><CrossMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2 text-gray-300"><CrossMark />Premium voiceover + cloning</li>
             </ul>
             {!isPaid && billing?.plan === "free" ? (
               <div className="py-2 text-center text-xs font-medium text-purple-500 bg-purple-50 rounded-lg">
@@ -442,6 +444,8 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
             </ul>
             <button
               onClick={async () => {
@@ -497,6 +501,8 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
             {isStandard ? (
@@ -558,6 +564,8 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
             {user?.plan === "pro" ? (
@@ -590,8 +598,11 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
               <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+              <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Custom integrations</li>
               <li className="flex items-start gap-2"><CheckMark />Dedicated support</li>
+              <li className="flex items-start gap-2"><CheckMark />On-prem deployment available</li>
               <li className="flex items-start gap-2"><CheckMark />Custom pricing</li>
             </ul>
             <button
