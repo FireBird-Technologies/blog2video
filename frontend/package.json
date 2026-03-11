@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && npm run seo:build",
     "preview": "vite preview",
-    "seo:build": "tsx scripts/build-seo.ts"
+    "seo:build": "npx tsx scripts/build-seo.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
