@@ -19,8 +19,10 @@ router = APIRouter(prefix="/api/template-studio", tags=["template-studio"])
 
 
 class AspectValue(BaseModel):
-    portrait: int = Field(ge=12, le=240)
-    landscape: int = Field(ge=12, le=240)
+    # Template metadata currently allows values as low as 10 and as high as 320.
+    # Keep save-source validation aligned so valid editor values don't get rejected.
+    portrait: int = Field(ge=1, le=400)
+    landscape: int = Field(ge=1, le=400)
 
 
 class SaveSourceRequest(BaseModel):

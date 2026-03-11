@@ -70,4 +70,5 @@ export interface GridcraftLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  categoryFontSize?: number;
 }
