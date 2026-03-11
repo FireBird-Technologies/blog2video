@@ -48,7 +48,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
         ? narration.split(/[.!?]+/).filter((s) => s.trim())
         : [title];
 
-  const holdFrames = 36;
+  const holdFrames = 60;
   const currentIdx = Math.floor(frame / holdFrames) % displayPhrases.length;
 
   // Calculate the frame relative to the start of the current phrase's activation

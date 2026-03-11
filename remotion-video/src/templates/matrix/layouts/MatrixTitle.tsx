@@ -31,7 +31,8 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   const accent = accentColor || "#00FF41";
 
   const titleChars = title.split("");
-  const decodeFramesPerChar = 3;
+  // Speed up decode for longer titles so animation completes in time
+  const decodeFramesPerChar = titleChars.length > 30 ? 2 : 3;
   const totalDecodeFrames = titleChars.length * decodeFramesPerChar + 10;
 
   const subtitleOpacity = interpolate(

@@ -1,8 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import type { SpotlightLayoutProps } from "../types";
 
-const referenceImageUrl = "https://i.postimg.cc/BvY2w4v6/suburban-house.jpg";
-
 /**
  * CascadeList — Stacking Items
  *
@@ -13,6 +11,7 @@ const referenceImageUrl = "https://i.postimg.cc/BvY2w4v6/suburban-house.jpg";
 export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   title,
   items,
+  imageUrl,
   accentColor,
   textColor,
   aspectRatio,
@@ -42,16 +41,20 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <AbsoluteFill>
-        <Img
-          src={referenceImageUrl}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: bgOpacity,
-            transform: `scale(${bgScale})`,
-          }}
-        />
+        {imageUrl ? (
+          <Img
+            src={imageUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: bgOpacity,
+              transform: `scale(${bgScale})`,
+            }}
+          />
+        ) : (
+          <AbsoluteFill style={{ backgroundColor: "#111111" }} />
+        )}
         <AbsoluteFill style={{ backgroundColor: "rgba(0, 0, 0, 0.45)" }} />
       </AbsoluteFill>
 
