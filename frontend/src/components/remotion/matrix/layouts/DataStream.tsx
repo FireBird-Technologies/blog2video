@@ -27,8 +27,8 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   const hasImage = !!imageUrl;
 
   const displayItems = items || [title];
-  const framesPerLine = 25; // Duration for one full line to appear word by word
-  const framesPerWord = 3;  // Delay between words in a line
+  const framesPerLine = 40; // Duration for one full line to appear word by word
+  const framesPerWord = 4;  // Delay between words in a line
   const initialImageDelay = 0; // Image starts immediately
   const imageAnimationDuration = 60; // How long image takes to fully animate in (2 seconds)
   const textAnimationDelayAfterImage = 15; // Delay before text starts animating after image is done
@@ -56,6 +56,14 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   );
 
 
+  const itemCount = displayItems.length;
+  const baseFontSize = p ? 56 : 64;
+  const scaledFontSize = Math.max(
+    p ? 24 : 28,
+    Math.min(baseFontSize, Math.floor(baseFontSize * (4 / Math.max(itemCount, 4))))
+  );
+  const computedFontSize = descriptionFontSize ?? scaledFontSize;
+
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} />
@@ -64,16 +72,15 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
         <div
           style={{
             position: "absolute",
-            top: p ? "8%" : "5%", // Upper portion positioning for image
+            top: p ? "4%" : "3%",
             left: "50%",
-            transform: `translateX(calc(-50% + ${imageTranslateX}px)) scale(${imageScale})`, // Center horizontally + drift + scale
-            width: p ? "70%" : "50%",
-            maxWidth: p ? 500 : 700,
-            height: "auto", // Allow height to adjust based on aspect ratio
+            transform: `translateX(calc(-50% + ${imageTranslateX}px)) scale(${imageScale})`,
+            width: p ? "60%" : "35%",
+            maxWidth: p ? 400 : 500,
+            height: "auto",
             opacity: imageOpacity,
             filter: `blur(${imageBlur}px)`,
             zIndex: 10,
-            paddingBottom: p ? 0 : 30, // Breathing room below image in landscape
           }}
         >
           <Img
@@ -81,9 +88,9 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
             style={{
               width: "100%",
               height: "auto",
-              maxHeight: p ? 400 : 500, // Limit image height
-              objectFit: "contain", // Use 'contain' to ensure full image is visible
-              borderRadius: 8, // Soft edges for the image container
+              maxHeight: p ? 260 : 300,
+              objectFit: "contain",
+              borderRadius: 8,
             }}
           />
         </div>
@@ -93,30 +100,31 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
       <div
         style={{
           position: "absolute",
-          top: hasImage ? (p ? "40%" : "60%") : "50%", // Adjust text vertical position based on image presence and aspect ratio
+          top: hasImage ? (p ? "38%" : "42%") : "50%",
+          bottom: "4%",
           left: "50%",
-          transform: `translateX(-50%)`, // Center horizontally
-          width: p ? "85%" : "80%",
-          maxWidth: p ? 600 : 1000,
+          transform: `translateX(-50%)`,
+          width: p ? "90%" : "85%",
+          maxWidth: p ? 640 : 1100,
           display: "flex",
           flexDirection: "column",
-          gap: p ? 12 : 20,
-          paddingTop: hasImage ? 0 : (p ? "8%" : "0"), // Adjust padding if no image
-          paddingBottom: p ? "8%" : "0", // Add bottom padding for breathing room if portrait
+          justifyContent: "center",
+          gap: p ? 8 : 14,
           zIndex: 20,
+          overflow: "hidden",
         }}
       >
         {displayItems.map((item, i) => {
           const lineAppearStartFrame = textStartFrame + (i * framesPerLine);
 
+          const lineEnd = lineAppearStartFrame + framesPerLine;
           const lineOpacity = interpolate(
             frame,
-            [lineAppearStartFrame, lineAppearStartFrame + framesPerLine, lineAppearStartFrame + framesPerLine + 30], // Animation stages
-            [0, 1, (i < currentLineIdx) ? 0.3 : 1], // Fade in, then dim if previous line
+            [lineAppearStartFrame, lineAppearStartFrame + 20, lineEnd, lineEnd + 30],
+            [0, 1, 1, (i < currentLineIdx) ? 0.3 : 1],
             { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
           );
 
-          // Split the item into words, preserving spaces so spacing is maintained
           const words = item.split(/(\s+)/);
 
           return (
@@ -124,33 +132,36 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
               key={i}
               style={{
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: p ? 10 : 16,
-                opacity: lineOpacity, // Apply dimming to the entire line container
-                filter: `drop-shadow(0 0 8px ${accent}66)`, // Text shadow
+                opacity: lineOpacity,
+                filter: `drop-shadow(0 0 8px ${accent}66)`,
               }}
             >
               <span
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 59 : 67),
+                  fontSize: computedFontSize,
                   fontWeight: 700,
                   color: accent,
                   fontFamily: "'Fira Code', 'Courier New', monospace",
+                  lineHeight: 1.4,
                   minWidth: p ? 70 : 90,
-                  whiteSpace: "nowrap", // Prevent "> 01" from wrapping
+                  whiteSpace: "nowrap",
                 }}
               >
                 {">"} {String(i + 1).padStart(2, "0")}
               </span>
               <span
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 59 : 67),
+                  fontSize: computedFontSize,
                   fontWeight: 400,
                   color: accent,
                   fontFamily: "'Fira Code', 'Courier New', monospace",
                   letterSpacing: "0.01em",
-                  display: "flex", // Enable flex for word rendering
-                  flexWrap: "wrap", // Allow words to wrap
+                  lineHeight: 1.4,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
                 }}
               >
                 {words.map((word, wordIdx) => {
@@ -161,8 +172,8 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                     frame: frame - wordAppearFrame,
                     fps,
                     config: {
-                      damping: 18,
-                      stiffness: 180,
+                      damping: 22,
+                      stiffness: 120,
                       mass: 1,
                     },
                     from: 0,
@@ -175,7 +186,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                       return <span key={`${i}-${wordIdx}-space`}>{word}</span>;
                   }
 
-                  const translateY = interpolate(wordSpring, [0, 1], [50, 0]); // Rises from bottom
+                  const translateY = interpolate(wordSpring, [0, 1], [30, 0]); // Rises from bottom
                   const wordOpacity = interpolate(wordSpring, [0, 1], [0, 1]); // Fades in
 
                   return (
@@ -183,7 +194,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                       key={`${i}-${wordIdx}`}
                       style={{
                         display: 'inline-block', // Important for translateY on individual words
-                        transform: `translateY(${wordIsShown ? translateY : 50}px)`, // Keep hidden words off-screen
+                        transform: `translateY(${wordIsShown ? translateY : 30}px)`, // Keep hidden words off-screen
                         opacity: wordIsShown ? wordOpacity : 0, // Keep hidden words invisible
                         marginRight: '0.25em', // Add a consistent space after each word
                       }}

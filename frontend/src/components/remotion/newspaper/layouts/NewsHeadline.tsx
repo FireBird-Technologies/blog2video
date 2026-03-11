@@ -143,8 +143,9 @@ export const NewsHeadline: React.FC<
   leftThought,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   /* 🎬 Unified Fade In / Fade Out */
   const fadeIn = interpolate(frame, [0, 20], [0, 1], {
@@ -272,7 +273,7 @@ export const NewsHeadline: React.FC<
           <div
             style={{
               display: "inline-block",
-              fontSize: p ? 28 : 24,
+              fontSize: (p ? 28 : 24) * scale, // Larger for portrait
               fontWeight: 800,
               letterSpacing: "0.15em",
               textTransform: "uppercase",
@@ -311,7 +312,7 @@ export const NewsHeadline: React.FC<
           style={{
             fontFamily: H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 90 : 86), 
+            fontSize: titleFontSize ?? (p ? 90 * scale : 86 * scale),
             fontWeight: 800,
             lineHeight: 1.0,
             marginBottom: p ? 40 : 36,
@@ -351,7 +352,7 @@ export const NewsHeadline: React.FC<
         {narration && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 46 : 44), // Larger for portrait
+              fontSize: descriptionFontSize ?? (p ? 46 * scale : 44 * scale), // Larger for portrait
               fontWeight: 600,
               color: textColor,
               lineHeight: 1.4,
