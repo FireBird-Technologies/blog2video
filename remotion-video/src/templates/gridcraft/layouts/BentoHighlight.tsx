@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -19,24 +19,59 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames, width } = useVideoConfig();
 
-  const spr = (d: number) => spring({ frame: Math.max(0, frame - d), fps, config: { damping: 14, stiffness: 110 } });
+  // Responsive flag based on video width, assuming 'p' implies a smaller width or aspect ratio
+  const p = width < 1000;
 
-  const scale1 = interpolate(spr(0), [0, 1], [0.95, 1]);
-  const op1 = interpolate(spr(0), [0, 1], [0, 1]);
+  // Helper for spring animations, allowing custom config
+  const spr = (d: number, config?: Parameters<typeof spring>[2]) => spring({
+    frame: Math.max(0, frame - d),
+    fps,
+    config: { damping: 14, stiffness: 110, ...config }, // Default config, allowing override
+  });
+
+  // --- Overall Layout Fade Out ---
+  const fadeOutStartFrame = durationInFrames - fps * 1.5; // Start fade out 1.5 seconds before end
+  const layoutOpacity = interpolate(
+    frame,
+    [fadeOutStartFrame, durationInFrames],
+    [1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // --- Main Highlight Box Animation (existing, using for timing base) ---
+  const mainBoxInStart = 0;
+  const mainBoxInEnd = 30; // Roughly when it settles
+  const scale1 = interpolate(spr(mainBoxInStart), [0, 1], [0.95, 1]);
+  const op1 = interpolate(spr(mainBoxInStart), [0, 1], [0, 1]);
 
   // Resolve content
   const primaryText = mainPoint || title || "Highlight Key Feature Here";
-  const facts = (supportingFacts && supportingFacts.length > 0) 
-    ? supportingFacts 
+  const facts = (supportingFacts && supportingFacts.length > 0)
+    ? supportingFacts
     : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
   const hasImage = !!imageUrl;
 
   // Facts text size follows display/description text size
-  const factFontSize = descriptionFontSize ?? 16;
+  const factFontSize = descriptionFontSize ?? (p ? 47 : 28);
   const factLabelSize = Math.round(factFontSize * 0.6);
+
+  // --- Title Word-by-Word Animation ---
+  const titleWords = primaryText.split(" ");
+  const titleWordStartDelay = mainBoxInEnd + 10; // Start title words after main box has appeared
+  const titleWordStagger = 4; // Frames between each word's animation start
+  const titleWordAnimationDuration = 30; // Frames for each word to animate in
+
+  // --- Subtitle Animation Timing ---
+  // Calculate when the last title word is mostly animated in
+  const lastTitleWordAnimEnd = titleWordStartDelay + (titleWords.length - 1) * titleWordStagger + titleWordAnimationDuration;
+  const subtitleInStart = lastTitleWordAnimEnd - 15; // Subtitle starts slightly before last word finishes
+
+  // --- Fact Card Animations Timing ---
+  const factCardInStart = lastTitleWordAnimEnd + 10; // Facts start after title/subtitle are mostly in
+  const factCardStagger = 15; // Stagger between fact cards
 
   return (
     <div
@@ -49,6 +84,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         fontFamily: FONT_FAMILY.SANS,
+        opacity: layoutOpacity, // Apply overall fade out here
       }}
     >
       {/* Main Highlight Box - with optional image */}
@@ -95,38 +131,73 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
           }}>
             Main Point
           </div>
+          {/* Animated Main Title (word by word from top) */}
           <div style={{
-            fontSize: titleFontSize ?? 38,
+            fontSize: titleFontSize ?? (p ? 50 : 52),
             fontWeight: 700,
             lineHeight: 1.3,
             color: textColor || COLORS.DARK,
             maxWidth: "90%",
+            display: "flex", // Make it a flex container to align words
+            flexWrap: "wrap", // Allow words to wrap
+            overflow: "hidden", // Hide overflow during animation
           }}>
-            {primaryText}
+            {titleWords.map((word, i) => {
+              const wordAnimDelay = titleWordStartDelay + i * titleWordStagger;
+              // Gentle ease-in config for word animations
+              const wordProgress = spr(wordAnimDelay, { damping: 20, stiffness: 100 });
+              const wordOpacity = interpolate(wordProgress, [0, 1], [0, 1]);
+              const wordTranslateY = interpolate(wordProgress, [0, 1], [-20, 0]); // Fade from top
+
+              return (
+                <span
+                  key={i}
+                  style={{
+                    display: "inline-block", // Important for transform
+                    opacity: wordOpacity,
+                    transform: `translateY(${wordTranslateY}px)`,
+                    marginRight: "0.4em", // Space between words
+                  }}
+                >
+                  {word}
+                </span>
+              );
+            })}
           </div>
+          {/* Animated Subtitle (Body Text) fading in softly */}
           {subtitle && (
-            <div style={{ fontSize: descriptionFontSize ?? 22, color: COLORS.MUTED, marginTop: 12 }}>{subtitle}</div>
+            <div style={{
+              fontSize: descriptionFontSize ?? (p ? 47 : 28),
+              color: COLORS.MUTED,
+              marginTop: 12,
+              // Soft fade in after title words finish
+              opacity: interpolate(spr(subtitleInStart, { damping: 20, stiffness: 100 }), [0, 1], [0, 1]),
+            }}>{subtitle}</div>
           )}
         </div>
       </div>
 
       {/* Supporting Facts - Render up to 2 dynamically */}
       {facts.slice(0, 2).map((fact, i) => {
-         const delay = 6 + i * 4;
-         const s = interpolate(spr(delay), [0, 1], [0.9, 1]);
-         const o = interpolate(spr(delay), [0, 1], [0, 1]);
+         const factAnimDelay = factCardInStart + i * factCardStagger;
+         // Gentle ease-out config for fact card animations
+         const progress = spr(factAnimDelay, { damping: 18, stiffness: 100 });
+         const factOpacity = interpolate(progress, [0, 1], [0, 1]);
+         // Fact 1 slides from left (-100), Fact 2 slides from right (100)
+         const translateX = interpolate(progress, [0, 1], [i === 0 ? -100 : 100, 0], { easing: Easing.out(Easing.ease) });
+
          const isAccent = i === 1;
 
          return (
-             <div key={i} style={{ 
-                 ...glass(isAccent), 
+             <div key={i} style={{
+                 ...glass(isAccent),
                  backgroundColor: isAccent ? (accentColor || COLORS.ACCENT) : undefined,
                  padding: 24,
                  display: "flex",
                  flexDirection: "column",
                  justifyContent: "center",
-                 transform: `scale(${s})`,
-                 opacity: o,
+                 transform: `translateX(${translateX}px)`, // Apply slide animation
+                 opacity: factOpacity,
              }}>
                  <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase" }}>
                      Fact {i + 1}

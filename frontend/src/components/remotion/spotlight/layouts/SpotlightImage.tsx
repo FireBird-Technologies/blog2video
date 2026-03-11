@@ -84,7 +84,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 62 : 84),
+                fontSize: titleFontSize ?? (p ? 91 : 72),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 fontFamily: "'Arial Black', sans-serif",
@@ -99,7 +99,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 22 : 28),
+                  fontSize: descriptionFontSize ?? (p ? 39 : 37),
                   fontWeight: 400,
                   color: "rgba(255,255,255,0.75)",
                   fontFamily: "Arial, sans-serif",
@@ -155,7 +155,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 28 : 36),
+              fontSize: titleFontSize ?? (p ? 91 : 72),
               fontWeight: 700,
               color: textColor || "#FFFFFF",
               fontFamily: "'Arial Black', sans-serif",
@@ -167,7 +167,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontSize: p ? 16 : 20,
+                fontSize: descriptionFontSize ?? (p ? 39 : 37),
                 color: "rgba(255,255,255,0.85)",
                 fontFamily: "Arial, sans-serif",
                 marginTop: 8,

@@ -2,6 +2,8 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotio
 import { SpotlightBackground } from "../SpotlightBackground";
 import type { SpotlightLayoutProps } from "../types";
 
+const referenceImageUrl = "https://i.imgur.com/u7w5l0a.jpeg";
+
 /**
  * Statement — Sentence Drop
  *
@@ -12,6 +14,7 @@ import type { SpotlightLayoutProps } from "../types";
 export const Statement: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   imageUrl,
   highlightWord,
   accentColor,
@@ -23,7 +26,6 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
 
   const lines = narration
     ? narration.split(/(?<=\.)\s+|(?<=\n)/).filter((l) => l.trim())
@@ -55,37 +57,35 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: hasImage && !p ? "row" : "column",
+          flexDirection: p ? "column" : "row",
           alignItems: "center",
           justifyContent: "center",
           padding: p ? "10% 8%" : "0 8%",
-          gap: hasImage ? (p ? 30 : 60) : 0,
+          gap: p ? 30 : 60,
         }}
       >
-        {hasImage && (
-          <div
+        <div
+          style={{
+            flex: p ? "none" : "0 0 38%",
+            width: p ? "80%" : "auto",
+            height: p ? 240 : 400,
+            borderRadius: 4,
+            overflow: "hidden",
+            opacity: imageOpacity,
+            transform: `scale(${imageScale})`,
+          }}
+        >
+          <Img
+            src={referenceImageUrl}
             style={{
-              flex: p ? "none" : "0 0 38%",
-              width: p ? "80%" : "auto",
-              height: p ? 240 : 400,
-              borderRadius: 4,
-              overflow: "hidden",
-              opacity: imageOpacity,
-              transform: `scale(${imageScale})`,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
             }}
-          >
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          </div>
-        )}
+          />
+        </div>
 
-        <div style={{ width: hasImage && !p ? "58%" : "100%" }}>
+        <div style={{ width: p ? "100%" : "58%" }}>
           {lines.map((line, i) => {
             const lineSpring = spring({
               frame: frame - i * 8,
@@ -103,6 +103,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                   opacity: lineSpring,
                   lineHeight: 1.15,
                   marginBottom: 4,
+                  textAlign: p ? "center" : "left",
                 }}
               >
                 {words.map((word, wi) => {

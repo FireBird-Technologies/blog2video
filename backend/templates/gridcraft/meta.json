@@ -2,7 +2,10 @@
   "id": "gridcraft",
   "name": "Gridcraft",
   "description": "Bento grid layouts with editorial typography and data clarity. Spatial content arrangement with accent-pop cells. SaaS landing page in motion.",
-  "styles": ["promotional", "storytelling"],
+  "styles": [
+    "promotional",
+    "storytelling"
+  ],
   "preview_colors": {
     "accent": "#F97316",
     "bg": "#FAFAFA",
@@ -26,40 +29,122 @@
     "bento_hero": {
       "label": "Bento Hero",
       "defaults": {
-        "titleFontSize": { "portrait": 72, "landscape": 84 },
-        "descriptionFontSize": { "portrait": 18, "landscape": 18 },
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 85
+        },
+        "descriptionFontSize": {
+          "portrait": 18,
+          "landscape": 28
+        },
+        "categoryFontSize": {
+          "portrait": 24,
+          "landscape": 28
+        },
         "tagline": "Ship faster with less friction",
         "category": "Product"
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 220, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
-        { "key": "tagline", "label": "Tagline", "type": "string" },
-        { "key": "category", "label": "Category", "type": "string" }
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "categoryFontSize",
+          "label": "Category Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "tagline",
+          "label": "Tagline",
+          "type": "string"
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "string"
+        }
       ]
     },
     "bento_features": {
       "label": "Bento Features",
       "defaults": {
-        "titleFontSize": { "portrait": 24, "landscape": 24 },
-        "descriptionFontSize": { "portrait": 14, "landscape": 14 },
+        "titleFontSize": {
+          "portrait": 41,
+          "landscape": 40
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 27
+        },
         "features": [
-          { "icon": "⚡", "label": "Fast Setup", "description": "Go live in minutes" },
-          { "icon": "🧠", "label": "Smart Logic", "description": "Automate key decisions" }
+          {
+            "icon": "⚡",
+            "label": "Fast Setup",
+            "description": "Go live in minutes"
+          },
+          {
+            "icon": "🧠",
+            "label": "Smart Logic",
+            "description": "Automate key decisions"
+          }
         ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Feature Title Size", "type": "number", "responsive": true, "min": 14, "max": 180, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Feature Body Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "titleFontSize",
+          "label": "Feature Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Feature Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "features",
           "label": "Features",
           "type": "object_array",
           "maxItems": 8,
           "subFields": [
-            { "key": "icon", "label": "Icon" },
-            { "key": "label", "label": "Label" },
-            { "key": "description", "label": "Description" }
+            {
+              "key": "icon",
+              "label": "Icon"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "description",
+              "label": "Description"
+            }
           ]
         }
       ]
@@ -67,52 +152,147 @@
     "bento_highlight": {
       "label": "Bento Highlight",
       "defaults": {
-        "titleFontSize": { "portrait": 32, "landscape": 38 },
-        "descriptionFontSize": { "portrait": 18, "landscape": 18 },
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 52
+        },
+        "descriptionFontSize": {
+          "portrait": 47,
+          "landscape": 28
+        },
         "subtitle": "Why this matters",
         "mainPoint": "A single insight can reframe your roadmap.",
-        "supportingFacts": ["Faster iteration", "Lower cost", "Better outcomes"]
+        "supportingFacts": [
+          "Faster iteration",
+          "Lower cost",
+          "Better outcomes"
+        ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Title Font Size", "type": "number", "responsive": true, "min": 18, "max": 220, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Body Font Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 },
-        { "key": "subtitle", "label": "Subtitle", "type": "string" },
-        { "key": "mainPoint", "label": "Main Point", "type": "text" },
-        { "key": "supportingFacts", "label": "Supporting Facts", "type": "string_array", "maxItems": 8 }
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "string"
+        },
+        {
+          "key": "mainPoint",
+          "label": "Main Point",
+          "type": "text"
+        },
+        {
+          "key": "supportingFacts",
+          "label": "Supporting Facts",
+          "type": "string_array",
+          "maxItems": 8
+        }
       ]
     },
     "editorial_body": {
       "label": "Editorial Body",
       "defaults": {
-        "titleFontSize": { "portrait": 36, "landscape": 42 },
-        "descriptionFontSize": { "portrait": 18, "landscape": 18 }
+        "titleFontSize": {
+          "portrait": 65,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 37,
+          "landscape": 38
+        }
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Heading Size", "type": "number", "responsive": true, "min": 18, "max": 220, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Body Size", "type": "number", "responsive": true, "min": 12, "max": 140, "step": 1 }
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 140,
+          "step": 1
+        }
       ]
     },
     "kpi_grid": {
       "label": "KPI Grid",
       "defaults": {
-        "titleFontSize": { "portrait": 24, "landscape": 24 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 16 },
+        "titleFontSize": {
+          "portrait": 57,
+          "landscape": 75
+        },
+        "descriptionFontSize": {
+          "portrait": 45,
+          "landscape": 39
+        },
         "dataPoints": [
-          { "label": "Growth", "value": "42%" },
-          { "label": "CAC", "value": "$18" }
+          {
+            "label": "Growth",
+            "value": "42%"
+          },
+          {
+            "label": "CAC",
+            "value": "$18"
+          }
         ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Metric Title Size", "type": "number", "responsive": true, "min": 14, "max": 180, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Metric Body Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "titleFontSize",
+          "label": "Metric Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Metric Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "dataPoints",
           "label": "Data Points",
           "type": "object_array",
           "maxItems": 8,
           "subFields": [
-            { "key": "label", "label": "Label" },
-            { "key": "value", "label": "Value" }
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
           ]
         }
       ]
@@ -120,8 +300,14 @@
     "bento_compare": {
       "label": "Bento Compare",
       "defaults": {
-        "titleFontSize": { "portrait": 24, "landscape": 28 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 16 },
+        "titleFontSize": {
+          "portrait": 49,
+          "landscape": 49
+        },
+        "descriptionFontSize": {
+          "portrait": 29,
+          "landscape": 35
+        },
         "leftLabel": "Before",
         "rightLabel": "After",
         "leftDescription": "Slow, manual process",
@@ -129,73 +315,217 @@
         "verdict": "After wins"
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Label Font Size", "type": "number", "responsive": true, "min": 14, "max": 180, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Description Font Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
-        { "key": "leftLabel", "label": "Left Label", "type": "string" },
-        { "key": "rightLabel", "label": "Right Label", "type": "string" },
-        { "key": "leftDescription", "label": "Left Description", "type": "text" },
-        { "key": "rightDescription", "label": "Right Description", "type": "text" },
-        { "key": "verdict", "label": "Verdict", "type": "string" }
+        {
+          "key": "titleFontSize",
+          "label": "Label Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Description",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Description",
+          "type": "text"
+        },
+        {
+          "key": "verdict",
+          "label": "Verdict",
+          "type": "string"
+        }
       ]
     },
     "bento_code": {
       "label": "Bento Code",
       "defaults": {
-        "titleFontSize": { "portrait": 24, "landscape": 28 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 16 },
+        "titleFontSize": {
+          "portrait": 39,
+          "landscape": 37
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 27
+        },
         "codeLanguage": "javascript",
-        "codeLines": ["const launch = true;", "if (launch) deploy();"]
+        "codeLines": [
+          "const launch = true;",
+          "if (launch) deploy();"
+        ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Header Size", "type": "number", "responsive": true, "min": 14, "max": 180, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Code Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
-        { "key": "codeLanguage", "label": "Language", "type": "string" },
-        { "key": "codeLines", "label": "Code Lines", "type": "string_array", "maxItems": 20 }
+        {
+          "key": "titleFontSize",
+          "label": "Header Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Code Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "codeLanguage",
+          "label": "Language",
+          "type": "string"
+        },
+        {
+          "key": "codeLines",
+          "label": "Code Lines",
+          "type": "string_array",
+          "maxItems": 20
+        }
       ]
     },
     "pull_quote": {
       "label": "Pull Quote",
       "defaults": {
-        "titleFontSize": { "portrait": 42, "landscape": 50 },
-        "descriptionFontSize": { "portrait": 16, "landscape": 16 },
+        "titleFontSize": {
+          "portrait": 49,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 29
+        },
         "quote": "Good design is obvious. Great design is transparent.",
         "attribution": "Joe Sparano",
         "highlightPhrase": "Great design"
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Quote Size", "type": "number", "responsive": true, "min": 18, "max": 220, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Attribution Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
-        { "key": "quote", "label": "Quote", "type": "text" },
-        { "key": "attribution", "label": "Attribution", "type": "string" },
-        { "key": "highlightPhrase", "label": "Highlight Phrase", "type": "string" }
+        {
+          "key": "titleFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Attribution Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string"
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Highlight Phrase",
+          "type": "string"
+        }
       ]
     },
     "bento_steps": {
       "label": "Bento Steps",
       "defaults": {
-        "titleFontSize": { "portrait": 18, "landscape": 22 },
-        "descriptionFontSize": { "portrait": 13, "landscape": 13 },
+        "titleFontSize": {
+          "portrait": 47,
+          "landscape": 42
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 22
+        },
         "steps": [
-          { "label": "Plan", "description": "Define objective and scope" },
-          { "label": "Build", "description": "Ship core functionality" },
-          { "label": "Scale", "description": "Automate and optimize" }
+          {
+            "label": "Plan",
+            "description": "Define objective and scope"
+          },
+          {
+            "label": "Build",
+            "description": "Ship core functionality"
+          },
+          {
+            "label": "Scale",
+            "description": "Automate and optimize"
+          }
         ]
       },
       "fields": [
-        { "key": "titleFontSize", "label": "Step Title Size", "type": "number", "responsive": true, "min": 12, "max": 160, "step": 1 },
-        { "key": "descriptionFontSize", "label": "Step Body Size", "type": "number", "responsive": true, "min": 10, "max": 120, "step": 1 },
+        {
+          "key": "titleFontSize",
+          "label": "Step Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Step Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "steps",
           "label": "Steps",
           "type": "object_array",
           "maxItems": 8,
           "subFields": [
-            { "key": "label", "label": "Label" },
-            { "key": "description", "label": "Description" }
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "description",
+              "label": "Description"
+            }
           ]
         }
       ]
     }
   },
-  "layouts_without_image": ["bento_code", "editorial_body"]
+  "layouts_without_image": [
+    "bento_code",
+    "editorial_body"
+  ]
 }
