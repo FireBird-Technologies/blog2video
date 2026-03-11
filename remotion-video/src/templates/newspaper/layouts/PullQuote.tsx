@@ -49,7 +49,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const quoteMarkOp = interpolate(frame, [6, 20], [0, 1], { extrapolateRight: "clamp" });
   
   const words = title.split(" ");
-  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp" });
+  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
   const visWords = Math.floor(words.length * wordProgress);
 
   const attrOp = interpolate(frame, [50, 64], [0, 1], { extrapolateRight: "clamp" });

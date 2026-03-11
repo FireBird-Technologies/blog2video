@@ -582,40 +582,40 @@ export default function SceneEditModal({
   }, [open, project.id, layouts]);
 
   // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
-  useEffect(() => {
-    if (!open || !layouts?.layout_prop_schema) return;
-    let layoutId: string | null = null;
-    try {
-      if (scene.remotion_code) {
-        const desc = JSON.parse(scene.remotion_code);
-        layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
-      }
-    } catch { /* ignore */ }
-    if (!layoutId) return;
-    const schema = layouts.layout_prop_schema[layoutId];
-    if (!schema?.defaults && !schema?.fields?.length) return;
-    const aspectRatio = project.aspect_ratio || "landscape";
-    const isPortrait = aspectRatio === "portrait";
-    setEditableLayoutProps((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      const fieldKeys = new Set((schema.fields ?? []).map((f) => f.key));
-      const defaults = schema.defaults ?? {};
-      for (const key of fieldKeys) {
-        if (key in next) continue;
-        const def = defaults[key];
-        if (def !== undefined && def !== null) {
-          if (typeof def === "object" && !Array.isArray(def) && "portrait" in def && "landscape" in def) {
-            next[key] = isPortrait ? (def as { portrait: unknown }).portrait : (def as { landscape: unknown }).landscape;
-          } else {
-            next[key] = def;
-          }
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [open, layouts?.layout_prop_schema, scene.remotion_code, project.aspect_ratio]);
+  // useEffect(() => {
+  //   if (!open || !layouts?.layout_prop_schema) return;
+  //   let layoutId: string | null = null;
+  //   try {
+  //     if (scene.remotion_code) {
+  //       const desc = JSON.parse(scene.remotion_code);
+  //       layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+  //     }
+  //   } catch { /* ignore */ }
+  //   if (!layoutId) return;
+  //   const schema = layouts.layout_prop_schema[layoutId];
+  //   if (!schema?.defaults && !schema?.fields?.length) return;
+  //   const aspectRatio = project.aspect_ratio || "landscape";
+  //   const isPortrait = aspectRatio === "portrait";
+  //   setEditableLayoutProps((prev) => {
+  //     const next = { ...prev };
+  //     let changed = false;
+  //     const fieldKeys = new Set((schema.fields ?? []).map((f) => f.key));
+  //     const defaults = schema.defaults ?? {};
+  //     for (const key of fieldKeys) {
+  //       if (key in next) continue;
+  //       const def = defaults[key];
+  //       if (def !== undefined && def !== null) {
+  //         if (typeof def === "object" && !Array.isArray(def) && "portrait" in def && "landscape" in def) {
+  //           next[key] = isPortrait ? (def as { portrait: unknown }).portrait : (def as { landscape: unknown }).landscape;
+  //         } else {
+  //           next[key] = def;
+  //         }
+  //         changed = true;
+  //       }
+  //     }
+  //     return changed ? next : prev;
+  //   });
+  // }, [open, layouts?.layout_prop_schema, scene.remotion_code, project.aspect_ratio]);
 
   useEffect(() => {
     if (!layoutOpen) return;
