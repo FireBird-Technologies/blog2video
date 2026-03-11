@@ -163,8 +163,6 @@ export const NewsHeadline: React.FC<
   const cat = category ?? stats?.[0]?.label ?? "News";
 
   // Derive highlight words from explicit leftThought when provided.
-  // leftThought comes from layoutProps.leftThought and represents the
-  // words that should be emphasized in the headline.
   const leftThoughtFromProps = leftThought && leftThought.trim().length > 0 ? leftThought : undefined;
 
   const words = title.split(" ");
@@ -269,7 +267,7 @@ export const NewsHeadline: React.FC<
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
-        <div style={{ marginBottom: p ? 20 : 30, display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ marginBottom: p ? 20 * scale : 30 * scale, display: "flex", flexDirection: "column", gap: 6 * scale }}>
           <div
             style={{
               display: "inline-block",
@@ -278,8 +276,8 @@ export const NewsHeadline: React.FC<
               letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: textColor,
-              borderBottom: `4px solid ${textColor}`,
-              paddingBottom: 6,
+              borderBottom: `${4 * scale}px solid ${textColor}`,
+              paddingBottom: 6 * scale,
               alignSelf: "flex-start",
             }}
           >
@@ -289,16 +287,16 @@ export const NewsHeadline: React.FC<
             <div
               style={{
                 display: "flex",
-                gap: 12,
+                gap: 12 * scale,
                 fontFamily: B_FONT,
-                fontSize: p ? 20 : 16,
+                fontSize: (p ? 20 : 16) * scale,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 color: "#555",
               }}
             >
               {stats.map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 * scale }}>
                   <span style={{ fontWeight: 700 }}>{s.value}</span>
                   {s.label && <span style={{ opacity: 0.8 }}>{s.label}</span>}
                 </div>
@@ -315,8 +313,8 @@ export const NewsHeadline: React.FC<
             fontSize: titleFontSize ?? (p ? 90 * scale : 86 * scale),
             fontWeight: 800,
             lineHeight: 1.0,
-            marginBottom: p ? 40 : 36,
-            maxWidth: p ? "100%" : "60%",
+            marginBottom: p ? 40 * scale : 36 * scale,
+            maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
           }}
         >
           {words.map((word, i) => {
@@ -326,7 +324,7 @@ export const NewsHeadline: React.FC<
             );
 
             return (
-              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: "12px" }}>
+              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: `${12 * scale}px` }}>
                 {isHighlight && (
                   <span
                     style={{
@@ -356,7 +354,7 @@ export const NewsHeadline: React.FC<
               fontWeight: 600,
               color: textColor,
               lineHeight: 1.4,
-              maxWidth: p ? "100%" : "70%",
+              maxWidth: p ? "100%" : (imageUrl ? "50%" : "70%"),
               opacity: 0.9,
             }}
           >

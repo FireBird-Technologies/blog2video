@@ -94,8 +94,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     color: textColor,
     // Default styles for flex item or portrait mode
     width: p ? "100%" : "30%",
-    borderLeft: `${p ? 12 : 8}px solid ${accentColor}`,
-    paddingLeft: 25,
+    borderLeft: `${(p ? 12 : 8) * scale}px solid ${accentColor}`,
+    paddingLeft: 25 * scale,
     alignSelf: p ? "flex-start" : "center", // Only applies if it's a flex item
   };
 
@@ -106,8 +106,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     statsContainerStyles.right = "8%";
     statsContainerStyles.width = "30%";
     statsContainerStyles.borderLeft = "none";
-    statsContainerStyles.borderTop = `8px solid ${accentColor}`;
-    statsContainerStyles.paddingTop = 25;
+    statsContainerStyles.borderTop = `${8 * scale}px solid ${accentColor}`;
+    statsContainerStyles.paddingTop = 25 * scale;
     statsContainerStyles.paddingLeft = 0;
     delete statsContainerStyles.alignSelf; // Not a flex item anymore
   }
@@ -176,7 +176,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
         >
           {/* 1. HEADER - Bold & Large */}
           <div style={{ marginBottom: actualTitleMarginBottom, width: p ? "100%" : "55%" }}>
-            <div style={{ height: p ? 12 : 8, background: textColor, width: `${ruleW}%`, marginBottom: 20 }} />
+            <div style={{ height: p ? 12 * scale : 8 * scale, background: textColor, width: `${ruleW}%`, marginBottom: 20 * scale }} />
             <div
               style={{
                 fontFamily: B_FONT,
@@ -199,7 +199,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               flex: 1,
               display: "flex",
               flexDirection: bodyContentAreaFlexDirection,
-              gap: p ? 30 : 60,
+              gap: p ? 30 * scale : 60 * scale,
               alignItems: p ? "stretch" : "center",
               justifyContent: bodyContentAreaJustifyContent,
               marginTop: bodyContentAreaMarginTop, // Apply dynamic margin here
@@ -225,8 +225,8 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                     fontSize: p ? 130 * scale : 110 * scale,
                     fontWeight: 800,
                     lineHeight: 0.7,
-                    marginRight: 15,
-                    marginTop: 5,
+                    marginRight: 15 * scale,
+                    marginTop: 5 * scale,
                     color: textColor,
                     opacity: dropCapOp,
                     transform: `translateY(${dropCapY}px)`,
@@ -255,7 +255,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                     fontWeight: 800,
                     color: textColor,
                     lineHeight: 1,
-                    marginBottom: 5,
+                    marginBottom: 5 * scale,
                   }}
                 >
                   {displayVal}
@@ -285,11 +285,11 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div
                 style={{
                   fontFamily: H_FONT,
-                  fontSize: p ? 90 : 80, // p is false here, so 80
+                  fontSize: p ? 90 * scale : 80 * scale,
                   fontWeight: 800,
                   color: textColor,
                   lineHeight: 1,
-                  marginBottom: 5,
+                  marginBottom: 5 * scale,
                 }}
               >
                 {displayVal}
@@ -298,7 +298,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <div
                   style={{
                     fontFamily: B_FONT,
-                    fontSize: p ? 24 : 18, // p is false here, so 18
+                    fontSize: (p ? 24 : 18) * scale,
                     fontWeight: 700,
                     color: textColor,
                     opacity: 0.7,
