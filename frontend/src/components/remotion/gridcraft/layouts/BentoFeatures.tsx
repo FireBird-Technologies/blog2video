@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
 
@@ -12,7 +12,7 @@ const DEFAULT_FEATURES = [
 
 export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   features,
-  dataPoints, 
+  dataPoints,
   highlightIndex = 0,
   imageUrl,
   textColor,
@@ -35,12 +35,16 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
           description: anyF.description
       };
   });
-  
-  const gridColumns = items.length === 4 ? "1fr 1fr" : "1fr 1fr 1fr";
-  const rows = items.length === 4 ? "1fr 1fr" : "1fr 1fr";
+
+  const p = aspectRatio === "portrait";
+
+  // Adjust grid layout based on portrait mode
+  // In portrait, cards should be stacked vertically (single column)
+  const gridColumns = p ? "1fr" : (items.length === 4 ? "1fr 1fr" : "1fr 1fr 1fr");
+  // In portrait, each item gets its own row with auto height
+  const gridRows = p ? `repeat(${items.length}, auto)` : (items.length === 4 ? "1fr 1fr" : "1fr 1fr");
 
   const hasImage = !!imageUrl;
-  const p = aspectRatio === "portrait";
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -55,7 +59,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        gap: hasImage ? (p ? 24 : 32) : 0,
+        gap: hasImage ? (p ? 24 : 32) : 0, // Gap between image and grid, or 0 if no image
         fontFamily: FONT_FAMILY.SANS,
       }}
     >
@@ -82,22 +86,34 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
         style={{
           display: "grid",
           gridTemplateColumns: gridColumns,
-          gridTemplateRows: rows,
-          gap: 20,
+          gridTemplateRows: gridRows,
+          gap: 20, // Gap between feature cards
           flex: hasImage && !p ? 1 : "none",
           width: hasImage && !p ? "auto" : "100%",
         }}
       >
       {items.slice(0, 6).map((item, i) => {
-        const delay = i * 4;
-        const s = spring({
+        const delay = i * 4; // Stagger for each card
+        const animationProgress = spring({
             frame: Math.max(0, frame - delay),
             fps,
             config: { damping: 15, stiffness: 120 },
         });
-        
-        const scale = interpolate(s, [0, 1], [0.85, 1]);
-        const op = interpolate(s, [0, 1], [0, 1]);
+
+        let cardScale = 1;
+        let cardOpacity = 1;
+        let cardTranslateY = 0;
+
+        if (p) { // Portrait mode animation: slide up from slightly below + fade in
+            cardOpacity = interpolate(animationProgress, [0, 1], [0, 1]);
+            cardTranslateY = interpolate(animationProgress, [0, 1], [40, 0], { // Slide up 40px
+                extrapolateLeft: "clamp",
+                easing: Easing.out(Easing.ease), // Ease-out motion
+            });
+        } else { // Landscape mode animation: fade in and scale up from 90%
+            cardScale = interpolate(animationProgress, [0, 1], [0.9, 1]); // Scale from 90% to 100%
+            cardOpacity = interpolate(animationProgress, [0, 1], [0, 1]); // Fade in
+        }
 
         // Highlight the item based on index
         const isAccent = i === highlightIndex;
@@ -111,20 +127,21 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
               flexDirection: "column",
               justifyContent: "center",
               padding: 24,
-              transform: `scale(${scale})`,
-              opacity: op,
+              // Apply combined transforms and opacity based on mode
+              transform: `scale(${cardScale}) translateY(${cardTranslateY}px)`,
+              opacity: cardOpacity,
             }}
           >
             {item.icon && <div style={{ fontSize: 36, marginBottom: 16 }}>{item.icon}</div>}
-            <div style={{ fontSize: titleFontSize ?? 28, fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK) }}>
+            <div style={{ fontSize: titleFontSize ?? (p ? 41 : 40), fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK) }}>
                 {item.label}
             </div>
             {item.description && (
-                <div style={{ 
-                    fontSize: descriptionFontSize ?? 18, 
+                <div style={{
+                    fontSize: descriptionFontSize ?? (p ? 28 : 27),
                     lineHeight: 1.4,
-                    opacity: isAccent ? 0.9 : 0.7, 
-                    color: isAccent ? COLORS.WHITE : COLORS.MUTED 
+                    opacity: isAccent ? 0.9 : 0.7,
+                    color: isAccent ? COLORS.WHITE : COLORS.MUTED
                 }}>
                     {item.description}
                 </div>
