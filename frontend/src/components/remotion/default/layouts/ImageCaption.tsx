@@ -189,7 +189,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
             color: textColor,
             fontSize: titleFontSize ?? (p ? 57 : 56),
             fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            fontFamily: "'Roboto Slab', serif",
             marginTop: 0,
             marginBottom: 16,
             lineHeight: 1.3,
@@ -201,7 +201,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           style={{
             color: textColor,
             fontSize: descriptionFontSize ?? (p ? 37 : 32),
-            fontFamily: "Inter, sans-serif",
+            fontFamily: "'Roboto Slab', serif",
             lineHeight: 1.6,
             opacity: 0.7,
             margin: 0,

@@ -66,7 +66,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
         {title && (
           <div
             style={{
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: "'Roboto Slab', serif",
               fontSize: titleFontSize ?? (p ? 99 : 77),
               color: "#ffffff",
               fontWeight: 'bold',
