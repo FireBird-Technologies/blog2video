@@ -111,7 +111,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             padding: p ? "12% 8%" : "6% 9%",
-            gap: p ? 30 : 32,
+            gap: p ? 30 * scale : 32 * scale,
             zIndex: 3,
             transform: "translateZ(50px)",
           }}
@@ -142,7 +142,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
               display: "flex",
               flexDirection: p ? "column" : "row",
               flexWrap: p ? "nowrap" : "wrap",
-              gap: p ? 20 : 22,
+              gap: p ? 20 * scale : 22 * scale,
               alignContent: "flex-start",
             }}
           >
@@ -162,7 +162,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                     backgroundColor: "rgba(255,255,255,0.85)",
                     border: "1px solid rgba(0,0,0,0.1)",
                     borderRadius: p ? 12 : 8,
-                    padding: p ? "24px 28px" : "20px 22px",
+                    padding: `${p ? 24 * scale : 20 * scale}px ${p ? 28 * scale : 22 * scale}px`,
                     boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
                     display: "flex",
                     flexDirection: "column",
@@ -175,7 +175,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                     fontWeight: 900, 
                     color: textColor, 
                     lineHeight: 1, 
-                    marginBottom: p ? 14 : 10 
+                    marginBottom: p ? 14 * scale : 10 * scale
                   }}>
                     {item.value}
                   </div>
@@ -202,12 +202,12 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 38 : 35),
+                fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),
                 lineHeight: 1.4,
-                paddingTop: p ? 10 : 0,
+                paddingTop: p ? 10 * scale : 0,
                 borderTop: p ? `1px solid ${textColor}15` : "none",
               }}
             >
