@@ -10,9 +10,11 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  aspectRatio,
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width } = useVideoConfig();
+  const p = aspectRatio === "portrait";
 
   const spr = spring({ frame, fps, config: { damping: 14 } });
   
