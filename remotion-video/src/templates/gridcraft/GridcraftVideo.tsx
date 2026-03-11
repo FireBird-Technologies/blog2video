@@ -9,6 +9,7 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { Blobs } from "./components/Blobs";
@@ -285,12 +286,13 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: data.bgColor || COLORS.BG,
-        fontFamily: data.fontFamily || undefined,
+        fontFamily: resolvedFontFamily || undefined,
       }}
     >
       <Blobs />

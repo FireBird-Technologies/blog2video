@@ -9,6 +9,7 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -198,12 +199,13 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: data.bgColor || "#0A0A1A",
-        fontFamily: data.fontFamily || undefined,
+        fontFamily: resolvedFontFamily || undefined,
       }}
     >
       {data.scenes.map((scene, index) => {
