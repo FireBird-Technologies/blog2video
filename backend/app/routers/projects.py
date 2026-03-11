@@ -75,7 +75,7 @@ def create_project(
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to Pro for 100 videos/month.",
+            detail=f"Video limit reached. Upgrade your subscription.",
         )
 
     if not data.blog_url:
@@ -215,7 +215,7 @@ def create_projects_bulk(
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
             status_code=403,
-            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade your plan or buy more credits.",
+            detail=f"Sorry, your video limit has been reached. Please upgrade your plan or buy more credits.",
         )
     if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         for data in items:
