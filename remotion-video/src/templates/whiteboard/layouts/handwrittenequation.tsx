@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -24,13 +24,15 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
   stats: statsProp,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   const steps = statsProp?.length ? statsProp : DEFAULT_STEPS;
   const maxSteps = Math.min(steps.length, 5);
   const displaySteps = steps.slice(0, maxSteps);
 
-  const baseDescSize = p ? 22 : 28;
+  const baseDescSize = (p ? 22 : 28) * scale;
   const finalDescSize = descPropSize ?? baseDescSize;
   const scaleF = finalDescSize / baseDescSize;
 
@@ -115,7 +117,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
           <div style={{
             color: textColor,
             fontWeight: 800,
-            fontSize: titleFontSize ?? (p ? 58 : 64),
+            fontSize: (titleFontSize ?? (p ? 58 : 64)) * scale,
             lineHeight: 1.1,
             filter: "url(#ink)",
           }}>
