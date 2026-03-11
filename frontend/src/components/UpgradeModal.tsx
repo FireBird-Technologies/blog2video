@@ -134,6 +134,8 @@ export default function UpgradeModal({
                 <ul className="space-y-1.5 mb-4">
                   {[
                     "Unlimited AI edit & image generation",
+                    "Custom video templates",
+                    "Premium voiceover + cloning",
                     "Download project files",
                     "No subscription needed",
                   ].map((f) => (
@@ -190,6 +192,8 @@ export default function UpgradeModal({
                 {[
                   "100 videos per month",
                   "Unlimited AI edit & image generation",
+                  "Custom video templates",
+                  "Premium voiceover + cloning",
                   "Priority support",
                 ].map((f) => (
                   <li
