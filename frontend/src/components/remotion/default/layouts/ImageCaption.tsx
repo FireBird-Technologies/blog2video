@@ -12,6 +12,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width: videoWidth, height: videoHeight } = useVideoConfig();
@@ -189,7 +190,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
             color: textColor,
             fontSize: titleFontSize ?? (p ? 57 : 56),
             fontWeight: 700,
-            fontFamily: "'Roboto Slab', serif",
+            fontFamily: fontFamily ?? "'Roboto Slab', serif",
             marginTop: 0,
             marginBottom: 16,
             lineHeight: 1.3,
@@ -201,7 +202,7 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
           style={{
             color: textColor,
             fontSize: descriptionFontSize ?? (p ? 37 : 32),
-            fontFamily: "'Roboto Slab', serif",
+            fontFamily: fontFamily ?? "'Roboto Slab', serif",
             lineHeight: 1.6,
             opacity: 0.7,
             margin: 0,

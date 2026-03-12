@@ -17,6 +17,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -55,7 +56,7 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "'Roboto Slab', serif",
+        fontFamily: fontFamily ?? "'Roboto Slab', serif",
       }}
     >
       {/* BACKGROUND DECORATION */}
