@@ -91,7 +91,11 @@ export default function Seo({
           id: schemaId,
           type: "application/ld+json",
         });
-      script.textContent = JSON.stringify(schema);
+      script.textContent = JSON.stringify(
+        Array.isArray(schema)
+          ? { "@context": "https://schema.org", "@graph": schema }
+          : schema
+      );
       if (!existingScript) document.head.appendChild(script);
     } else if (existingScript) {
       existingScript.remove();
