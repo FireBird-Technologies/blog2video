@@ -285,7 +285,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const labelY = groundY + 28;
   const leftCX = 240;
   const rightCX = 460;
-  const fontSize = p ? 17 : 21;
+  const fontSize = descriptionFontSize ?? (p ? 17 : 21);
 
   const leftBH = estimateBubbleHeight(leftThought, fontSize, 210);
   const rightBH = estimateBubbleHeight(rightThought, fontSize, 210);
