@@ -15,11 +15,7 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "react", "react-dom"],
-    "baseUrl": ".",
-    "paths": {
-      "@remotion-video/*": ["../remotion-video/src/*"]
-    }
+    "types": ["node", "react", "react-dom"]
   },
   "include": ["src"]
 }
