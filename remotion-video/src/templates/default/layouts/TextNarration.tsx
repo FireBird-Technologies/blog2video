@@ -43,6 +43,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
@@ -291,7 +292,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
             transform: `translateY(${titleY}px)`,
             margin: 0,
             marginBottom: 32,
-            fontFamily: "'Roboto Slab', serif",
+            fontFamily: fontFamily ?? "'Roboto Slab', serif",
             lineHeight: 1.1,
             whiteSpace: "pre-wrap",
           }}
@@ -305,7 +306,7 @@ export const TextNarration: React.FC<SceneLayoutProps> = ({
             lineHeight: 1.5,
             maxWidth: "45ch",
             margin: "0 auto",
-            fontFamily: "'Roboto Slab', serif",
+            fontFamily: fontFamily ?? "'Roboto Slab', serif",
             display: "flex", // Enable flexbox for character spacing and wrapping
             flexWrap: "wrap", // Allow text to wrap naturally
             justifyContent: "center", // Center the line of text

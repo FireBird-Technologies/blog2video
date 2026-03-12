@@ -20,6 +20,7 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     titleFontSize,
     descriptionFontSize,
     imageUrl,
+    fontFamily,
   } = props;
 
   const frame = useCurrentFrame();
@@ -57,7 +58,7 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     <AbsoluteFill
       style={{
         backgroundColor: bgColor || "#0a0a0a",
-        fontFamily: "'Roboto Slab', serif",
+        fontFamily: fontFamily ?? "'Roboto Slab', serif",
         overflow: "hidden",
         opacity: vanishOpacity,
         transform: `scale(${vanishScale})`,

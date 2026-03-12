@@ -67,6 +67,7 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           bgColor,
           textColor,
           aspectRatio,
+          fontFamily,
           ...scene.layoutProps,
         };
 

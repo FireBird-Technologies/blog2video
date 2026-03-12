@@ -156,7 +156,18 @@ interface FieldDef {
 
 const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   // Default template
-  bullet_list: [{ key: "bullets", label: "Bullet points", type: "string_array", maxItems: 6 }],
+  bullet_list: [
+    {
+      key: "points",
+      label: "Bullet points",
+      type: "object_array",
+      subFields: [
+        { key: "key", label: "Label" },
+        { key: "value", label: "Description" },
+      ],
+      maxItems: 6,
+    },
+  ],
   flow_diagram: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 5 }],
   comparison: [
     { key: "leftLabel", label: "Left label", type: "string" },
