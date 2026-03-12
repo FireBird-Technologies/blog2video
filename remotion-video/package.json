@@ -24,13 +24,13 @@
     "@fontsource/roboto-slab": "^5.1.0",
     "@fontsource/source-sans-3": "^5.2.9",
     "@fontsource/source-serif-4": "^5.2.9",
-    "@remotion/cli": "^4.0.0",
-    "@remotion/gif": "^4.0.419",
-    "@remotion/player": "^4.0.0",
-    "@remotion/shapes": "^4.0.419",
+    "@remotion/cli": "4.0.434",
+    "@remotion/gif": "4.0.434",
+    "@remotion/player": "4.0.434",
+    "@remotion/shapes": "4.0.434",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "remotion": "^4.0.0"
+    "remotion": "4.0.434"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
