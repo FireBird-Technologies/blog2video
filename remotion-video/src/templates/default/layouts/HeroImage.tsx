@@ -20,6 +20,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     aspectRatio,
     titleFontSize,
     descriptionFontSize,
+    fontFamily,
   } = props;
 
   const frame = useCurrentFrame();
@@ -180,7 +181,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         <div style={{ textAlign: "center", maxWidth: "90%", zIndex: 10 }}>
           <h1
             style={{
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               fontSize: titleFontSize ?? 76,
               fontWeight: 800,
               lineHeight: 1.1,
@@ -213,7 +214,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
           {narration && (
             <p
               style={{
-                fontFamily: "'Roboto Slab', serif",
+                fontFamily: fontFamily ?? "'Roboto Slab', serif",
                 fontSize: descriptionFontSize ?? 40,
                 fontWeight: 400,
                 lineHeight: 1.4,

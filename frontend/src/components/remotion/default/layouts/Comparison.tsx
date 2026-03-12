@@ -13,6 +13,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -119,7 +120,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           color: textColor,
           fontSize: titleFontSize ?? (p ? 70 : 78),
           fontWeight: 700,
-          fontFamily: "'Roboto Slab', serif",
+          fontFamily: fontFamily ?? "'Roboto Slab', serif",
           opacity: titleOp,
           marginTop: 0,
           marginBottom: p ? 28 : 40,
@@ -168,7 +169,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               fontSize: resolvedDescriptionFontSize,
               fontWeight: 600,
               color: textColor,
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               margin: 0,
               marginBottom: 12,
             }}
@@ -179,7 +180,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
             style={{
               fontSize: resolvedDescriptionFontSize,
               color: textColor,
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.6,
               opacity: 0.7,
               margin: 0,
@@ -241,7 +242,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               fontSize: resolvedDescriptionFontSize,
               fontWeight: 600,
               color: textColor,
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               margin: 0,
               marginBottom: 12,
             }}
@@ -252,7 +253,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
             style={{
               fontSize: resolvedDescriptionFontSize,
               color: textColor,
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.6,
               opacity: 0.7,
               margin: 0,

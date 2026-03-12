@@ -11,6 +11,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
     titleFontSize,
     descriptionFontSize,
     imageUrl, // New Prop
+    fontFamily,
     ...extra
   } = props;
 
@@ -33,7 +34,7 @@ export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (p
   const imageOpacity = interpolate(frame, [0, 15], [0, 1]);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: "'Roboto Slab', serif", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
       <div
         style={{
           display: "flex",

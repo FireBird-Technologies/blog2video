@@ -232,6 +232,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#000000",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (
