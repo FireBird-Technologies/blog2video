@@ -6,6 +6,7 @@ import {
   staticFile,
   CalculateMetadataFunction,
 } from "remotion";
+import "../../fonts/newspaper-defaults";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
@@ -36,7 +37,7 @@ interface VideoData {
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
@@ -131,6 +132,7 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

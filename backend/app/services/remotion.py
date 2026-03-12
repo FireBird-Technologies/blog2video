@@ -53,6 +53,8 @@ _SHARED_SRC_FILES = [
     "src/components/LogoOverlay.tsx",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
+    # Newspaper template default fonts (bundled, not in registry)
+    "src/fonts/newspaper-defaults.ts",
 ]
 
 
