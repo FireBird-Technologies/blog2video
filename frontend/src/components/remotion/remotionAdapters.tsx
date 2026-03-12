@@ -172,6 +172,47 @@ export const RemotionNightfallVideoComposition: React.FC<
   const FPS = 30;
   let currentFrame = 0;
 
+  const convertDataVizProps = (lp: Record<string, unknown>): Record<string, unknown> => {
+    const out = { ...lp };
+    if (Array.isArray(out.barChartRows)) {
+      const rows = out.barChartRows as { label?: string; value?: string }[];
+      out.barChart = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.barChartRows;
+    }
+    if (Array.isArray(out.pieChartRows)) {
+      const rows = out.pieChartRows as { label?: string; value?: string }[];
+      out.pieChart = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.pieChartRows;
+    }
+    if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
+      const labels = (out.lineChartLabels as string[]).map((l) =>
+        l != null ? String(l) : "",
+      );
+      const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map(
+        (d) => ({
+          label: (d && d.label != null ? String(d.label) : "") as string,
+          values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+            .split(",")
+            .map((s) => Number(s.trim()) || 0),
+        }),
+      );
+      out.lineChart = { labels, datasets };
+      delete out.lineChartLabels;
+      delete out.lineChartDatasets;
+    }
+    return out;
+  };
+
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#0A0A1A", fontFamily }}>
       {scenes.map((scene) => {
@@ -183,8 +224,13 @@ export const RemotionNightfallVideoComposition: React.FC<
           REMOTION_NIGHTFALL_LAYOUT_REGISTRY[scene.layout] ??
           REMOTION_NIGHTFALL_LAYOUT_REGISTRY.glass_narrative;
 
+        const rawLayoutProps =
+          scene.layout === "data_visualization"
+            ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
+            : scene.layoutProps;
+
         const layoutProps: RemotionNightfallLayoutProps = {
-          ...(scene.layoutProps as Record<string, unknown>),
+          ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           accentColor: accentColor || "#818CF8",
