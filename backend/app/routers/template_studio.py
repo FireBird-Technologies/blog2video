@@ -113,6 +113,15 @@ _AI_SESSION_LOCK = Lock()
 
 
 def _replace_responsive_expr(source: str, key: str, portrait: int, landscape: int) -> tuple[str, int]:
+    # Match both plain numbers and numbers with * scale: (p ? 90 : 86) or (p ? 90 * scale : 86 * scale)
+    pattern_scaled = re.compile(
+        rf"{key}\s*\?\?\s*\(p\s*\?\s*\d+\s*\*\s*scale\s*:\s*\d+\s*\*\s*scale\)"
+    )
+    replaced, count = pattern_scaled.subn(
+        f"{key} ?? (p ? {portrait} * scale : {landscape} * scale)", source
+    )
+    if count:
+        return replaced, count
     pattern = re.compile(rf"{key}\s*\?\?\s*\(p\s*\?\s*\d+\s*:\s*\d+\)")
     replaced, count = pattern.subn(f"{key} ?? (p ? {portrait} : {landscape})", source)
     return replaced, count
@@ -166,8 +175,15 @@ def _replace_stick_figure_title(source: str, portrait: int, landscape: int) -> t
 
 
 def _replace_handwritten_description(source: str, portrait: int, landscape: int) -> tuple[str, int]:
-    pattern = re.compile(r"const\s+baseDescSize\s*=\s*p\s*\?\s*\d+\s*:\s*\d+;")
-    return pattern.subn(f"const baseDescSize = p ? {portrait} : {landscape};", source)
+    # Match frontend: const finalDescSize = descPropSize ?? (p ? 22 : 28);
+    pattern_plain = re.compile(r"const\s+finalDescSize\s*=\s*\w+\s*\?\?\s*\(\s*p\s*\?\s*\d+\s*:\s*\d+\s*\);")
+    replaced, count = pattern_plain.subn(f"const finalDescSize = descPropSize ?? (p ? {portrait} : {landscape});", source)
+    if count:
+        return replaced, count
+    # Match remotion-video: const finalDescSize = descPropSize ?? (p ? 22 : 28) * scale;
+    pattern_scaled = re.compile(r"const\s+finalDescSize\s*=\s*\w+\s*\?\?\s*\(\s*p\s*\?\s*\d+\s*:\s*\d+\s*\)\s*\*\s*scale;")
+    replaced, count = pattern_scaled.subn(f"const finalDescSize = descPropSize ?? (p ? {portrait} : {landscape}) * scale;", source)
+    return replaced, count
 
 
 def _snake_to_pascal(value: str) -> str:

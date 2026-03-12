@@ -243,7 +243,7 @@ function SpeechBubble({
           <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
         <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
-          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
+          <div style={{ color: textColor, fontSize: fontSize, fontWeight: 600, fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
             {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
@@ -283,7 +283,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const labelY = groundY + 28;
   const leftCX = 240;
   const rightCX = 460;
-  const fontSize = p ? 17 : 21;
+  const fontSize = descriptionFontSize ?? (p ? 17 : 21);
 
   const leftBH = estimateBubbleHeight(leftThought, fontSize, 210);
   const rightBH = estimateBubbleHeight(rightThought, fontSize, 210);
