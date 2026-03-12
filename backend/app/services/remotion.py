@@ -55,6 +55,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/registry.ts",
     # Newspaper template default fonts (bundled, not in registry)
     "src/fonts/newspaper-defaults.ts",
+    # Nightfall template default fonts (bundled, not in registry)
+    "src/fonts/nightfall-defaults.ts",
 ]
 
 

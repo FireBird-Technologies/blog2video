@@ -9,6 +9,7 @@
     "build": "npx remotion render DefaultVideo out/video.mp4"
   },
   "dependencies": {
+    "@fontsource/dm-sans": "^5.2.8",
     "@fontsource/fira-code": "^5.1.0",
     "@fontsource/inter": "^5.1.0",
     "@fontsource/lora": "^5.1.0",
