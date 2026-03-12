@@ -12,6 +12,7 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -106,9 +107,9 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: textColor,
-              fontSize: titleFontSize ?? (p ? 36 : 46),
+              fontSize: titleFontSize ?? (p ? 54 : 49),
               fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.55,
               fontStyle: "italic",
               marginTop: 0,
@@ -120,9 +121,9 @@ export const QuoteCallout: React.FC<SceneLayoutProps> = ({
           <p
             style={{
               color: accentColor,
-              fontSize: descriptionFontSize ?? (p ? 20 : 24),
+              fontSize: descriptionFontSize ?? (p ? 30 : 26),
               fontWeight: 500,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               opacity: labelOp,
               textTransform: "uppercase",
               letterSpacing: 3,

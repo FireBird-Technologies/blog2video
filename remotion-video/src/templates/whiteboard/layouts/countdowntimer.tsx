@@ -31,6 +31,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -76,7 +77,13 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
   const urgencyRed = currentCount <= 2 ? `#e53e3e` : accentColor;
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
 
       {/* Paper grain + ink defs */}
@@ -221,7 +228,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             fill={urgencyRed}
             fontSize={(currentCount > 0 ? (p ? 90 : 116) : (p ? 58 : 74)) * scale}
             fontWeight={800}
-            fontFamily="'Comic Sans MS', 'Segoe Print', cursive"
+            fontFamily="'Patrick Hand', system-ui, sans-serif"
             filter="url(#ink)"
             transform={`translate(${ringCX}, ${ringCY}) scale(${numScale}) translate(${-ringCX}, ${-ringCY})`}
           >
@@ -235,7 +242,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             textAnchor="middle"
             fill={textColor}
             fontSize={(p ? 18 : 22) * scale}
-            fontFamily="'Comic Sans MS', cursive"
+            fontFamily="'Patrick Hand', system-ui, sans-serif"
             fillOpacity={0.55}
           >
             {currentCount === 1 ? "second" : currentCount > 0 ? "seconds" : ""}

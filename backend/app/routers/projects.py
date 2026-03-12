@@ -21,7 +21,7 @@ from app.schemas.schemas import (
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
-from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data
+from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -75,7 +75,7 @@ def create_project(
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
-            detail=f"Video limit reached ({user.video_limit}). Upgrade to Pro for 100 videos/month.",
+            detail=f"Video limit reached. Upgrade your subscription.",
         )
 
     if not data.blog_url:
@@ -100,6 +100,7 @@ def create_project(
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+        font_family=data.font_family or None,
         animation_instructions=data.animation_instructions or None,
         logo_position=data.logo_position or "bottom_right",
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
@@ -126,7 +127,18 @@ def update_project(
 ):
     project = _get_user_project(project_id, user.id, db)
 
-    update_data = data.model_dump(exclude_none=True)
+    raw_data = data.model_dump()
+    fields_set = data.model_fields_set
+
+    update_data: dict[str, object] = {}
+    for field, value in raw_data.items():
+        if field not in fields_set:
+            continue
+        if field == "font_family":
+            update_data[field] = value  # allow nulling or changing
+        else:
+            if value is not None:
+                update_data[field] = value
 
     for field, value in update_data.items():
         old_value = getattr(project, field)
@@ -215,7 +227,7 @@ def create_projects_bulk(
     if user.videos_used_this_period + needed > user.video_limit:
         raise HTTPException(
             status_code=403,
-            detail=f"Sorry, your video limit has been reached. You have only {user.video_limit - user.videos_used_this_period} slots left. Please upgrade your plan or buy more credits.",
+            detail=f"Sorry, your video limit has been reached. Please upgrade your plan or buy more credits.",
         )
     if user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
         for data in items:
@@ -272,6 +284,7 @@ def create_projects_bulk(
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
+            font_family=data.font_family or None,
             animation_instructions=data.animation_instructions or None,
             logo_position=data.logo_position or "bottom_right",
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
@@ -1100,15 +1113,19 @@ def get_project_layouts(
     
     # Convert layout IDs to human-readable names
     layout_names = {}
+    meta = get_meta(project.template)
+    schema = meta.get("layout_prop_schema", {}) if meta else {}
     for layout_id in valid_layouts:
-        # Convert snake_case to Title Case
-        name = layout_id.replace("_", " ").title()
+        # Prefer schema label, fallback to Title Case
+        layout_schema = schema.get(layout_id, {})
+        name = layout_schema.get("label") or layout_id.replace("_", " ").title()
         layout_names[layout_id] = name
     
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
         "layouts_without_image": sorted(list(no_image_layouts)),
+        "layout_prop_schema": schema,
     }
 
 

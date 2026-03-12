@@ -35,13 +35,14 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneEditModal, { SceneImageItem, getDefaultFontSizes } from "../components/SceneEditModal";
+import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
+import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
@@ -332,6 +333,8 @@ export default function ProjectView() {
   const [settingsBgColor, setSettingsBgColor] = useState("#FFFFFF");
   const [settingsTextColor, setSettingsTextColor] = useState("#000000");
   const [savingColors, setSavingColors] = useState(false);
+  const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
+  const [savingFontFamily, setSavingFontFamily] = useState(false);
 
 
   useEffect(() => {
@@ -343,9 +346,10 @@ export default function ProjectView() {
       setSettingsAccentColor(project.accent_color || "#7C3AED");
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
+      setSettingsFontId(project.font_family ?? null);
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color]);
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
 
   useEffect(() => {
     if (project) {
@@ -435,6 +439,7 @@ export default function ProjectView() {
   const [generateErrorSceneId, setGenerateErrorSceneId] = useState<number | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const [layoutsWithoutImage, setLayoutsWithoutImage] = useState<Set<string>>(new Set());
+  const [layoutPropSchema, setLayoutPropSchema] = useState<Record<string, { defaults?: Record<string, unknown> }> | null>(null);
   const navigate = useNavigate();
   const missingCustomTemplate = Boolean(
     project?.custom_template_missing ||
@@ -621,6 +626,7 @@ export default function ProjectView() {
       // Fetch layout image-support info (non-blocking)
       getValidLayouts(projectId).then((lr) => {
         setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+        setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
       }).catch(() => {/* ignore */});
       return res.data;
     } catch {
@@ -2307,14 +2313,25 @@ export default function ProjectView() {
                                 {/* Typography — font size sliders with live preview and debounced save */}
                                 {scene.remotion_code && project && (() => {
                                   try {
-                                    const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutProps?: { titleFontSize?: number; descriptionFontSize?: number } };
-                                    const layoutId = desc.layout ?? "text_narration";
+                                    const desc = JSON.parse(scene.remotion_code) as {
+                                      layout?: string;
+                                      layoutConfig?: {
+                                        arrangement?: string;
+                                        titleFontSize?: number;
+                                        descriptionFontSize?: number;
+                                      };
+                                      layoutProps?: { titleFontSize?: number; descriptionFontSize?: number };
+                                    };
+                                    const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
-                                    const aspectRatio = project.aspect_ratio ?? "16:9";
-                                    const defaults = getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const aspectRatio = project.aspect_ratio ?? "landscape";
+                                    const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
+                                    const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
                                     const override = sceneFontOverrides[scene.id];
-                                    const titleFontSize = override?.title ?? desc.layoutProps?.titleFontSize ?? defaults.title;
-                                    const descFontSize = override?.desc ?? desc.layoutProps?.descriptionFontSize ?? defaults.desc;
+                                    const storedTitle = desc.layoutConfig?.titleFontSize ?? desc.layoutProps?.titleFontSize;
+                                    const storedDesc = desc.layoutConfig?.descriptionFontSize ?? desc.layoutProps?.descriptionFontSize;
+                                    const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
+                                    const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
                                     const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
                                     const descClamped = Math.min(80, Math.max(12, Number(descFontSize) || defaults.desc));
 
@@ -2659,7 +2676,7 @@ export default function ProjectView() {
         )}
 
        {activeTab === "settings" && (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
             <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
@@ -2721,6 +2738,80 @@ export default function ProjectView() {
                     </>
                   ) : (
                     "Apply to all Scenes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Font family</h2>
+            <p className="text-xs text-gray-400 mb-5">
+            Leave as Default to use the template’s built-in fonts.
+            </p>
+            <div className="glass-card p-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-700">
+                  Font family
+                </label>
+                <select
+                  className="w-full max-w-xs px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
+                  value={settingsFontId ?? ""}
+                  onChange={(e) =>
+                    setSettingsFontId(e.target.value === "" ? null : e.target.value)
+                  }
+                >
+                  <option value="">Default (template)</option>
+                  {Object.values(FONT_REGISTRY).map((opt) => (
+                    opt.id === "fira_code" ? null : (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    )
+                  ))}
+                </select>
+              </div>
+              {settingsFontId && (
+                <div className="mt-2">
+                  <p className="text-[11px] text-gray-500 mb-1">Preview</p>
+                  <div
+                    className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                    style={{
+                      fontFamily:
+                        resolveFontFamily(settingsFontId) ??
+                        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    }}
+                  >
+                    The quick brown fox jumps over the lazy dog.
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingFontFamily}
+                  onClick={async () => {
+                    setSavingFontFamily(true);
+                    try {
+                      await updateProject(project.id, {
+                        font_family: settingsFontId || null,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save font family."));
+                    } finally {
+                      setSavingFontFamily(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingFontFamily ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save font"
                   )}
                 </button>
               </div>

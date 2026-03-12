@@ -38,6 +38,9 @@ export interface BlogLayoutProps {
 
   /** Optional image URL for hero (news_headline). */
   imageUrl?: string;
+
+  /** Project-level font override; when set, used for all text in the layout. */
+  fontFamily?: string;
 }
 
 export type NewspaperLayoutType =

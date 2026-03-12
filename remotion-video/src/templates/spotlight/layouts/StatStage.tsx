@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -20,11 +24,15 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const hasImage = !!imageUrl;
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const primary = metrics?.[0];
   const numericValue = primary ? parseFloat(primary.value.replace(/,/g, "")) : 0;
@@ -102,12 +110,12 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 94 : 140),
+              fontSize: titleFontSize ?? (p ? 131 : 120),
               fontWeight: 900,
               color: textColor || "#FFFFFF",
               letterSpacing: "-0.05em",
               lineHeight: 1,
-              fontFamily: "'Arial Black', sans-serif",
+              fontFamily: displayFontFamily,
             }}
           >
             {displayNumber}
@@ -134,12 +142,12 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
           >
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 18 : 22),
+                fontSize: descriptionFontSize ?? (p ? 31 : 29),
                 fontWeight: 700,
                 color: textColor || "#FFFFFF",
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: bodyFontFamily,
               }}
             >
               {primary?.label || title}
@@ -147,10 +155,10 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
             {(narration || (metrics && metrics.length > 1)) && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 14 : 18),
+                  fontSize: descriptionFontSize ?? (p ? 31 : 29),
                   color: "#666666",
                   marginTop: 4,
-                  fontFamily: "Arial, sans-serif",
+                  fontFamily: bodyFontFamily,
                 }}
               >
                 {metrics && metrics.length > 1

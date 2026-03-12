@@ -62,10 +62,12 @@ interface ThoughtBubbleProps {
   isPortrait: boolean;
   index: number;
   scale: number;
+  fontFamily?: string;
+  descriptionFontSize?: number;
 }
 
-function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, scale }: ThoughtBubbleProps) {
-  const fontSize = (isPortrait ? 22 : 26) * scale;
+function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, scale, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
+  const fontSize = descriptionFontSize ?? (isPortrait ? 22 : 26) * scale;
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
   const vbW = isPortrait ? 260 : 300;
@@ -125,7 +127,7 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
               fontWeight: 600,
               textAlign: "center",
               lineHeight: 1.4,
-              fontFamily: "'Comic Sans MS', 'Segoe Print', cursive",
+              fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -155,6 +157,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   descriptionFontSize,
   leftThought = "Option A",
   rightThought = "Option B",
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -225,7 +228,13 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   }
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
 
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
@@ -316,6 +325,8 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={0}
               scale={scale}
+              fontFamily={fontFamily}
+              descriptionFontSize={descriptionFontSize}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={false} seed={2} />
@@ -373,6 +384,8 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={1}
               scale={scale}
+              fontFamily={fontFamily}
+              descriptionFontSize={descriptionFontSize}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={true} seed={3} />

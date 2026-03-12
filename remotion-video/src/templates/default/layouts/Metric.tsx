@@ -1,4 +1,11 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import {
+  AbsoluteFill,
+  interpolate,
+  useCurrentFrame,
+  spring,
+  Easing,
+} from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Metric: React.FC<SceneLayoutProps> = ({
@@ -10,39 +17,36 @@ export const Metric: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
-  const p = aspectRatio === "portrait";
+  const isPortrait = aspectRatio === "portrait";
 
-  const titleSpring = spring({
-    frame: frame - 3,
-    fps,
-    config: { damping: 22, stiffness: 90, mass: 1 },
-  });
-  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
+  // Data Handling
+  const mainMetric = metrics[0] || { value: "0", label: "", suffix: "%" };
+  const numericValue = parseFloat(mainMetric.value.replace(/[^0-9.-]/g, "")) || 0;
+
+  // Animations
+  const entrance = spring({ frame, fps, config: { damping: 20, stiffness: 100 } });
+  
+  // Count-up animation with easing for a smoother "landing"
+  const animatedNum = interpolate(frame, [20, 70], [0, numericValue], {
     extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
   });
 
-  // If no metrics provided, show a simple title
-  const mainMetric = metrics[0];
-  const numericValue = mainMetric ? parseFloat(mainMetric.value.replace(/[^0-9.-]/g, "")) || 0 : 0;
-  const animatedNum = Math.floor(
-    interpolate(frame, [10, 50], [0, numericValue], {
-      extrapolateRight: "clamp",
-    })
-  );
-  const barW = interpolate(frame, [10, 50], [0, Math.min(numericValue, 100)], {
+  // Gauge Properties
+  const circleSize = isPortrait ? 380 : 340;
+  const strokeWidth = 16;
+  const radius = (circleSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  // Stroke Fill Logic
+  const fillProgress = interpolate(frame, [20, 70], [0, Math.min(numericValue, 100)], {
     extrapolateRight: "clamp",
   });
-  const subSpring = spring({
-    frame: frame - 35,
-    fps,
-    config: { damping: 20, stiffness: 80, mass: 1 },
-  });
-  const subOp = interpolate(subSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const strokeDashoffset = circumference * (1 - fillProgress / 100);
 
   return (
     <AbsoluteFill
@@ -52,128 +56,166 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: p ? "60px 50px" : undefined,
-        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Roboto Slab', serif",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: -100,
-          left: -100,
-          width: p ? 350 : 500,
-          height: p ? 350 : 500,
-          borderRadius: "50%",
-          border: `2px solid ${accentColor}15`,
-        }}
-      />
+      {/* BACKGROUND DECORATION */}
+      <div style={{
+        position: 'absolute',
+        width: circleSize * 1.5,
+        height: circleSize * 1.5,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${accentColor}15 0%, transparent 70%)`,
+        opacity: interpolate(entrance, [0, 1], [0, 1]),
+      }} />
 
-      <h3
-        style={{
+      {/* HEADER */}
+      <div style={{
+        opacity: interpolate(entrance, [0, 1], [0, 0.6]),
+        transform: `translateY(${interpolate(entrance, [0, 1], [-20, 0])}px)`,
+        textAlign: "center",
+        marginBottom: 40,
+        zIndex: 2,
+      }}>
+        <h3 style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 22 : 26),
-          fontWeight: 500,
-          fontFamily: "Inter, sans-serif",
-          opacity: titleOp * 0.6,
-          marginTop: 0,
-          marginBottom: p ? 20 : 24,
+          fontSize: titleFontSize ?? (isPortrait ? 40 : 32),
+          fontWeight: 700,
           textTransform: "uppercase",
-          letterSpacing: 4,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </h3>
+          letterSpacing: 8,
+          margin: 0,
+        }}>
+          {title}
+        </h3>
+      </div>
 
-      {mainMetric && (
-        <>
-          <div
-            style={{
-              fontSize: p ? 90 : 120,
-              fontWeight: 800,
-              fontFamily: "Inter, sans-serif",
-              color: textColor,
-              lineHeight: 1,
-            }}
-          >
-            {animatedNum}
-            <span style={{ color: accentColor }}>
+      {/* MAIN GAUGE SECTION */}
+      <div style={{
+        position: "relative",
+        width: circleSize,
+        height: circleSize,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: entrance,
+        transform: `scale(${entrance})`,
+      }}>
+        <svg
+          width={circleSize}
+          height={circleSize}
+          viewBox={`0 0 ${circleSize} ${circleSize}`}
+          style={{ position: "absolute", transform: "rotate(-90deg)" }}
+        >
+          {/* Outer Track */}
+          <circle
+            cx={circleSize / 2}
+            cy={circleSize / 2}
+            r={radius}
+            fill="none"
+            stroke={textColor}
+            strokeOpacity={0.1}
+            strokeWidth={strokeWidth}
+          />
+          {/* Animated Progress Arc */}
+          <circle
+            cx={circleSize / 2}
+            cy={circleSize / 2}
+            r={radius}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 10px ${accentColor}66)` }}
+          />
+        </svg>
+
+        {/* CENTER CONTENT */}
+        <div style={{
+          backgroundColor: "rgba(255, 255, 255, 0.03)",
+          backdropFilter: "blur(12px)",
+          borderRadius: "50%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+          // Modifications for dynamic sizing:
+          minWidth: circleSize * 0.8, // Minimum size to start as a circle
+          minHeight: circleSize * 0.8, // Minimum size
+          padding: 20, // Add padding around content
+          boxSizing: 'border-box', // Include padding in min-width/height
+          // Removed fixed width/height so it can grow based on content
+        }}>
+          <div style={{
+            fontSize: isPortrait ? 110 : 90,
+            fontWeight: 900,
+            color: textColor,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "baseline",
+          }}>
+            {Math.round(animatedNum)}
+            <span style={{ color: accentColor, fontSize: 40, marginLeft: 4 }}>
               {mainMetric.suffix || "%"}
             </span>
           </div>
+        </div>
+      </div>
 
-          <div
-            style={{
-              width: p ? 280 : 380,
-              height: 8,
-              backgroundColor: `${textColor}20`,
-              borderRadius: 4,
-              marginTop: p ? 24 : 32,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: `${barW}%`,
-                height: "100%",
-                backgroundColor: accentColor,
-                borderRadius: 4,
-              }}
-            />
-          </div>
-
-          <p
-            style={{
-              color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 20 : 24),
-              fontFamily: "Inter, sans-serif",
-              marginTop: p ? 20 : 24,
-              marginBottom: 0,
-              opacity: subOp * 0.6,
-              textAlign: "center",
-            }}
-          >
+      {/* MAIN LABEL - Moved outside the gauge */}
+      {mainMetric.label && (
+        <div style={{
+          textAlign: "center",
+          marginTop: 30, // Space from the gauge circle
+          marginBottom: 20, // Space before secondary metrics
+          opacity: interpolate(frame, [40, 60], [0, 1], { extrapolateLeft: "clamp" }),
+          zIndex: 2, // Ensure it's above background decorations
+        }}>
+          <p style={{
+            color: textColor,
+            fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28), // Changed to use descriptionFontSize
+            fontWeight: 500,
+            margin: 0,
+            lineHeight: 1.2,
+            maxWidth: isPortrait ? '80%' : '60%', // Control width for text wrapping
+            marginInline: 'auto', // Center the paragraph itself
+          }}>
             {mainMetric.label}
           </p>
-        </>
+        </div>
       )}
 
-      {/* Secondary metrics */}
+      {/* SECONDARY METRICS (GRID LAYOUT) */}
       {metrics.length > 1 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: p ? "column" : "row",
-            gap: p ? 24 : 50,
-            marginTop: p ? 36 : 48,
-            opacity: subOp,
-            alignItems: "center",
-            flexWrap: "wrap",
-            justifyContent: "center",
-          }}
-        >
+        <div style={{
+          display: "flex",
+          gap: isPortrait ? 40 : 80,
+          marginTop: 60, // Adjusted to account for new label placement
+          flexWrap: "wrap",
+          justifyContent: "center",
+          opacity: interpolate(frame, [50, 70], [0, 1], { extrapolateLeft: "clamp" }),
+        }}>
           {metrics.slice(1).map((m, i) => (
             <div key={i} style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  fontSize: p ? 32 : 42,
-                  fontWeight: 700,
-                  color: accentColor,
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                {m.value}
-                {m.suffix && <span style={{ fontSize: p ? 20 : 26 }}>{m.suffix}</span>}
+              <div style={{
+                fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28),
+                fontWeight: 800,
+                color: accentColor,
+                marginBottom: 4,
+              }}>
+                {m.value}{m.suffix}
               </div>
-              <div
-                style={{
-                  fontSize: p ? 13 : 15,
-                  color: textColor,
-                  opacity: 0.6,
-                  fontFamily: "Inter, sans-serif",
-                  marginTop: 8,
-                }}
-              >
+              <div style={{
+                fontSize: descriptionFontSize ?? (isPortrait ? 34 : 28),
+                color: textColor,
+                opacity: 0.6,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}>
                 {m.label}
               </div>
             </div>
@@ -181,16 +223,15 @@ export const Metric: React.FC<SceneLayoutProps> = ({
         </div>
       )}
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          backgroundColor: accentColor,
-        }}
-      />
+      {/* PROGRESS BAR FOOTER */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        height: 6,
+        width: "100%",
+        background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)`,
+        opacity: 0.5,
+      }} />
     </AbsoluteFill>
   );
 };

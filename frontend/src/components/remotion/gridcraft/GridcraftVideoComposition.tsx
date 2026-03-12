@@ -1,5 +1,6 @@
 import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "./constants";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { Blobs } from "./components/Blobs";
@@ -53,6 +54,7 @@ export interface GridcraftVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const GridcraftVideoComposition: React.FC<
@@ -67,12 +69,18 @@ export const GridcraftVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || COLORS.BG }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor || COLORS.BG,
+        fontFamily: fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+      }}
+    >
       <Blobs />
 
       {scenes.map((scene, index) => {
@@ -93,6 +101,7 @@ export const GridcraftVideoComposition: React.FC<
           textColor: textColor || COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          fontFamily,
         };
 
         return (

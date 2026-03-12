@@ -1,7 +1,8 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   dataPoints,
@@ -16,6 +17,7 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -34,6 +36,7 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
   const finalVerdict = verdict || title;
   const hasImage = !!imageUrl;
   const p = aspectRatio === "portrait";
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -49,7 +52,7 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         gap: hasImage ? (p ? 24 : 32) : 0,
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
       }}
     >
       {hasImage && (
@@ -89,10 +92,10 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
          <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
              {points[0]?.label || "Before"}
          </div>
-         <div style={{ fontSize: titleFontSize ?? 28, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+         <div style={{ fontSize: titleFontSize ?? (p ? 49 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
              {points[0]?.title}
          </div>
-         <div style={{ fontSize: descriptionFontSize ?? 20, lineHeight: 1.5, color: COLORS.MUTED }}>
+         <div style={{ fontSize: descriptionFontSize ?? (p ? 29 : 35), lineHeight: 1.5, color: COLORS.MUTED }}>
              {points[0]?.description}
          </div>
       </div>
@@ -108,10 +111,10 @@ export const BentoCompare: React.FC<GridcraftLayoutProps> = ({
          <div style={{ fontSize: 12, color: COLORS.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>
              {points[1]?.label || "After"}
          </div>
-         <div style={{ fontSize: titleFontSize ?? 28, fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
+         <div style={{ fontSize: titleFontSize ?? (p ? 49 : 49), fontWeight: 700, marginBottom: 12, color: COLORS.DARK }}>
              {points[1]?.title}
          </div>
-         <div style={{ fontSize: descriptionFontSize ?? 20, lineHeight: 1.5, color: COLORS.MUTED }}>
+         <div style={{ fontSize: descriptionFontSize ?? (p ? 29 : 35), lineHeight: 1.5, color: COLORS.MUTED }}>
              {points[1]?.description}
          </div>
       </div>

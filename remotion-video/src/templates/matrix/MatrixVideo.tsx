@@ -9,6 +9,8 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { MATRIX_LAYOUT_REGISTRY } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -37,10 +39,11 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
@@ -150,6 +153,8 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       });
   }, [dataUrl]);
 
+  const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
+
   if (!data) {
     return (
       <AbsoluteFill
@@ -164,7 +169,7 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           style={{
             color: "#00FF41",
             fontSize: 28,
-            fontFamily: "'Fira Code', 'Courier New', monospace",
+            fontFamily: resolvedFontFamily ?? MATRIX_DEFAULT_FONT_FAMILY,
           }}
         >
           {">"} Loading...
@@ -177,7 +182,12 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#000000" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#000000",
+        fontFamily: resolvedFontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
@@ -199,6 +209,7 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#00FF41",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

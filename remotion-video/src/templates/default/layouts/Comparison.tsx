@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Comparison: React.FC<SceneLayoutProps> = ({
@@ -13,6 +13,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -60,6 +61,50 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
+  const { durationInFrames } = useVideoConfig();
+
+  const exitStartFrame = durationInFrames - 30;
+
+  // Left section exit animation
+  const leftExitSpring = spring({
+    frame: frame - exitStartFrame,
+    fps,
+    config: { damping: 18, stiffness: 100, mass: 1 },
+  });
+  const leftOutX = interpolate(leftExitSpring, [0, 1], [0, p ? 0 : -200], {
+    extrapolateLeft: "clamp",
+  });
+  const leftOutY = interpolate(leftExitSpring, [0, 1], [0, p ? -150 : 0], {
+    extrapolateLeft: "clamp",
+  });
+
+  // Right section exit animation
+  const rightExitSpring = spring({
+    frame: frame - exitStartFrame,
+    fps,
+    config: { damping: 18, stiffness: 100, mass: 1 },
+  });
+  const rightOutX = interpolate(rightExitSpring, [0, 1], [0, p ? 0 : 200], {
+    extrapolateLeft: "clamp",
+  });
+  const rightOutY = interpolate(rightExitSpring, [0, 1], [0, p ? 150 : 0], {
+    extrapolateLeft: "clamp",
+  });
+
+  // Combine entry and exit transformations
+  const finalLeftX = leftX + leftOutX;
+  const finalLeftY = leftY + leftOutY;
+  const finalRightX = rightX + rightOutX;
+  const finalRightY = rightY + rightOutY;
+
+  // Combine entry and exit opacity
+  const outroOp = interpolate(leftExitSpring, [0, 1], [1, 0], {
+    extrapolateLeft: "clamp",
+  });
+  const finalOp = op * outroOp;
+
+  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 43 : 33);
+
   return (
     <AbsoluteFill
       style={{
@@ -73,9 +118,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
       <h2
         style={{
           color: textColor,
-          fontSize: titleFontSize ?? (p ? 36 : 46),
+          fontSize: titleFontSize ?? (p ? 70 : 78),
           fontWeight: 700,
-          fontFamily: "Inter, sans-serif",
+          fontFamily: fontFamily ?? "'Roboto Slab', serif",
           opacity: titleOp,
           marginTop: 0,
           marginBottom: p ? 28 : 40,
@@ -98,16 +143,17 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           style={{
             flex: 1,
             padding: p ? "24px 20px" : 40,
-            opacity: op,
+            opacity: finalOp,
             transform: p
-              ? `translateY(${leftY}px)`
-              : `translateX(${leftX}px)`,
+              ? `translateY(${finalLeftY}px)`
+              : `translateX(${finalLeftX}px)`,
           }}
         >
           <div
             style={{
-              width: p ? 36 : 44,
-              height: p ? 36 : 44,
+              // Adjust width and height based on the new font size
+              width: resolvedDescriptionFontSize * 1.2,
+              height: resolvedDescriptionFontSize * 1.2,
               borderRadius: 12,
               backgroundColor: "#FEE2E2",
               display: "flex",
@@ -116,14 +162,14 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: p ? 18 : 22, color: "#DC2626" }}>✕</span>
+            <span style={{ fontSize: resolvedDescriptionFontSize, color: "#DC2626" }}>✕</span>
           </div>
           <h3
             style={{
-              fontSize: descriptionFontSize ?? (p ? 24 : 28),
+              fontSize: resolvedDescriptionFontSize,
               fontWeight: 600,
               color: textColor,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               margin: 0,
               marginBottom: 12,
             }}
@@ -132,9 +178,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: descriptionFontSize ?? (p ? 20 : 24),
+              fontSize: resolvedDescriptionFontSize,
               color: textColor,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.6,
               opacity: 0.7,
               margin: 0,
@@ -170,16 +216,17 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           style={{
             flex: 1,
             padding: p ? "24px 20px" : 40,
-            opacity: op,
+            opacity: finalOp,
             transform: p
-              ? `translateY(${rightY}px)`
-              : `translateX(${rightX}px)`,
+              ? `translateY(${finalRightY}px)`
+              : `translateX(${finalRightX}px)`,
           }}
         >
           <div
             style={{
-              width: p ? 36 : 44,
-              height: p ? 36 : 44,
+              // Adjust width and height based on the new font size
+              width: resolvedDescriptionFontSize * 1.2,
+              height: resolvedDescriptionFontSize * 1.2,
               borderRadius: 12,
               backgroundColor: "#DCFCE7",
               display: "flex",
@@ -188,14 +235,14 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: p ? 18 : 22, color: "#16A34A" }}>✓</span>
+            <span style={{ fontSize: resolvedDescriptionFontSize, color: "#16A34A" }}>✓</span>
           </div>
           <h3
             style={{
-              fontSize: descriptionFontSize ?? (p ? 24 : 28),
+              fontSize: resolvedDescriptionFontSize,
               fontWeight: 600,
               color: textColor,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               margin: 0,
               marginBottom: 12,
             }}
@@ -204,9 +251,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
           </h3>
           <p
             style={{
-              fontSize: descriptionFontSize ?? (p ? 20 : 24),
+              fontSize: resolvedDescriptionFontSize,
               color: textColor,
-              fontFamily: "Inter, sans-serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               lineHeight: 1.6,
               opacity: 0.7,
               margin: 0,

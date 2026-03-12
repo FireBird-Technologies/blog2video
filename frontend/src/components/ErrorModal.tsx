@@ -3,10 +3,11 @@ import ReactDOM from "react-dom";
 interface Props {
   open: boolean;
   message: string;
+  showUpgrade?: boolean;
   onClose: () => void;
 }
 
-export default function ErrorModal({ open, message, onClose }: Props) {
+export default function ErrorModal({ open, message, showUpgrade, onClose }: Props) {
   if (!open) return null;
 
   return ReactDOM.createPortal(
@@ -48,11 +49,27 @@ export default function ErrorModal({ open, message, onClose }: Props) {
             </p>
           </div>
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex justify-end gap-3">
+          {showUpgrade && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                window.location.href = "/pricing";
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-purple-700 hover:bg-purple-800 rounded-lg transition-colors"
+            >
+              Upgrade plan
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-white bg-purple-700 hover:bg-purple-800 rounded-lg transition-colors"
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              showUpgrade
+                ? "text-gray-700 bg-gray-100 hover:bg-gray-200"
+                : "text-white bg-purple-700 hover:bg-purple-800"
+            }`}
           >
             OK
           </button>

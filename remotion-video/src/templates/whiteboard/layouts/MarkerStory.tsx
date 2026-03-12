@@ -12,6 +12,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -41,7 +42,8 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px"
       }}
     >
       <WhiteboardBackground bgColor={bgColor} />

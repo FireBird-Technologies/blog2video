@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -20,10 +21,12 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const blurSpring = spring({
     frame,
@@ -145,14 +148,14 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 34 : 50),
+            fontSize: titleFontSize ?? (p ? 55 : 42),
             fontWeight: 700,
             color: textColor || "#FFFFFF",
             letterSpacing: "-0.02em",
             lineHeight: 1.25,
             filter: `blur(${blur}px)`,
             opacity: Math.min(textOpacity * 1.5, 1),
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             position: "relative",
           }}
         >
@@ -162,12 +165,12 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
         <div
           style={{
             marginTop: p ? 24 : 36,
-            fontSize: descriptionFontSize ?? (p ? 16 : 20),
+            fontSize: descriptionFontSize ?? (p ? 55 : 44),
             fontWeight: 300,
             color: "#666666",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             opacity: ctaOpacity,
             transform: `translateY(${(1 - ctaY) * 10}px)`,
           }}
