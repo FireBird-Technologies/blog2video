@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
@@ -5,7 +6,7 @@ import type { NightfallLayoutProps } from "../types";
 
 /**
  * GlassImage — Enhanced Professional Version
- * 
+ *
  * Improvements:
  * - Intelligent Ken Burns effect (zoom + pan based on image aspect)
  * - Multi-layer gradient overlays for depth
@@ -38,14 +39,14 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     [1, 1.08],
     { extrapolateRight: "clamp" }
   );
-  
+
   const kenBurnsPanX = interpolate(
     frame,
     [0, 180],
     [0, p ? -3 : -5],
     { extrapolateRight: "clamp" }
   );
-  
+
   const kenBurnsPanY = interpolate(
     frame,
     [0, 180],
@@ -83,10 +84,24 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
+  // Particle generation for fallback animation
+  const numParticles = 30;
+  const particles = useMemo(() => {
+    return Array.from({ length: numParticles }).map((_, i) => ({
+      id: i,
+      size: 40 + Math.random() * 100, // Larger size range
+      initialX: Math.random() * 100,
+      initialY: Math.random() * 60, // Restrict to upper 60% of the screen
+      animationDelay: Math.random() * 90, // Delay up to 3 seconds (30fps * 3s)
+      directionX: Math.random() > 0.5 ? 1 : -1,
+      directionY: Math.random() > 0.5 ? 1 : -1,
+    }));
+  }, []); // Only generate once
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground drift={false} bgColor={bgColor} />
-      
+
       {imageUrl ? (
         <>
           {/* Main Image with Ken Burns */}
@@ -107,7 +122,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 objectFit: "cover",
                 opacity: imageOpacity,
                 transform: `
-                  scale(${kenBurnsScale}) 
+                  scale(${kenBurnsScale})
                   translate(${kenBurnsPanX}%, ${kenBurnsPanY}%)
                 `,
                 zIndex: 1,
@@ -126,7 +141,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               zIndex: 2,
             }}
           />
-          
+
           {/* Bottom gradient for caption readability */}
           <div
             style={{
@@ -161,27 +176,61 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           />
         </>
       ) : (
-        // Fallback if no image
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: `linear-gradient(135deg, ${accentColor}15 0%, transparent 100%)`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: titleFontSize ?? (p ? 78 : 64),
-              opacity: 0.2,
-              color: textColor,
-            }}
-          >
-            📷
-          </div>
-        </div>
+        // Fallback if no image - show animation only
+        <AbsoluteFill style={{ overflow: "hidden" }}>
+          {particles.map((particle) => {
+            const { id, size, initialX, initialY, animationDelay, directionX, directionY } = particle;
+
+            const actualFrame = frame + animationDelay; // Offset each particle's start
+
+            // Sinusoidal movement for subtle drift
+            const offsetX = Math.sin(actualFrame * 0.01 * directionX + id) * 50; // Randomize phase with id
+            const offsetY = Math.cos(actualFrame * 0.015 * directionY + id) * 50;
+
+            // Continuous fade in and out cycle
+            const opacityCycleDuration = 300; // 10 seconds per fade cycle
+            const currentCycleFrame = actualFrame % opacityCycleDuration;
+            const opacity = interpolate(
+              currentCycleFrame,
+              [0, opacityCycleDuration * 0.1, opacityCycleDuration * 0.9, opacityCycleDuration],
+              [0, 0.4, 0.4, 0],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            );
+
+            // Scale can also subtly change
+            const scale = interpolate(
+              Math.sin(actualFrame * 0.005 + id / 2),
+              [-1, 1],
+              [0.8, 1.2]
+            );
+
+            return (
+              <div
+                key={id}
+                style={{
+                  position: "absolute",
+                  left: `${initialX}%`,
+                  top: `${initialY}%`,
+                  width: size,
+                  height: size,
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle at center, ${accentColor} 0%, transparent 70%)`,
+                  opacity: opacity,
+                  transform: `
+                      translate(-50%, -50%)
+                      translateX(${offsetX}px)
+                      translateY(${offsetY}px)
+                      scale(${scale})
+                    `,
+                  filter: `blur(${size / 15}px)`, // More blur for larger particles
+                  pointerEvents: "none",
+                  mixBlendMode: "lighten", // or 'screen' to make them brighter
+                  zIndex: 0,
+                }}
+              />
+            );
+          })}
+        </AbsoluteFill>
       )}
 
       {/* Caption Container with Parallax */}
