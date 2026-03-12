@@ -62,10 +62,11 @@ interface ThoughtBubbleProps {
   isPortrait: boolean;
   index: number;
   fontFamily?: string;
+  descriptionFontSize?: number;
 }
 
-function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily }: ThoughtBubbleProps) {
-  const fontSize = isPortrait ? 22 : 26;
+function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
+  const fontSize = descriptionFontSize ?? (isPortrait ? 22 : 26);
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
   const vbW = isPortrait ? 260 : 300;
@@ -322,6 +323,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={0}
               fontFamily={fontFamily}
+              descriptionFontSize={descriptionFontSize}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={false} seed={2} />
@@ -379,6 +381,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               isPortrait={p}
               index={1}
               fontFamily={fontFamily}
+              descriptionFontSize={descriptionFontSize}
             />
             <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginTop: p ? -10 : 20 }}>
               <Stickman isRight={true} seed={3} />
