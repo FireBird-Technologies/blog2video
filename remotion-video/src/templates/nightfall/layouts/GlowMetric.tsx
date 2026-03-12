@@ -25,6 +25,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig(); // Get duration and fps from video config
@@ -254,7 +255,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                   fontWeight: 600,
                   color: textColor,
                   opacity: 0.8,
-                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                   marginBottom: p ? 24 : 56, // Adjusted margin for portrait
                   textAlign: "center",
                   letterSpacing: "0.02em",
@@ -316,7 +317,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                     fontSize: primaryMetricValueFontSize, // Scaled with descriptionFontSize
                     fontWeight: 800,
                     color: textColor,
-                    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                    fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                     textAlign: "center",
                     lineHeight: 1,
                     transform: `scale(${primaryScale})`,
@@ -344,7 +345,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                     style={{
                       fontSize: effectiveDescriptionFontSize, // Uses effectiveDescriptionFontSize
                       color: "rgba(226,232,240,0.45)",
-                      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                      fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                       marginTop: p ? 12 : 18, // Adjusted margin for portrait
                       textAlign: "center",
                       fontWeight: 400,
@@ -400,7 +401,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                           fontSize: titleFontSize ?? (p ? 86 : 50),
                           fontWeight: 700,
                           color: accentColor,
-                          fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                          fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                           lineHeight: 1,
                         }}
                       >
@@ -422,7 +423,7 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                           fontSize: secondaryMetricLabelFontSize, // Scaled with descriptionFontSize
                           color: textColor,
                           opacity: 0.6,
-                          fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                          fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                           marginTop: 8,
                           fontWeight: 500,
                           letterSpacing: "0.02em",

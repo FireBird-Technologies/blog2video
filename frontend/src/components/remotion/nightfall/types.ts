@@ -40,6 +40,7 @@ export interface NightfallLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
+  fontFamily?: string;
   metrics?: { value: string; label: string; suffix?: string }[];
   codeLines?: string[];
   codeLanguage?: string;

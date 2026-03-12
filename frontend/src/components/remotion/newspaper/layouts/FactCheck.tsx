@@ -3,8 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img, static
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "Fact Check",
@@ -19,6 +19,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   descriptionFontSize,
   stats,
   imageUrl,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
@@ -56,7 +57,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   });
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT, backgroundColor: "#000" }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT, backgroundColor: "#000" }}>
       <NewsBackground bgColor={bgColor} />
 
       {/* Background Tint */}
@@ -111,7 +112,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <circle cx="14" cy="14" r="10" stroke={textColor} strokeWidth="3" />
               <line x1="22" y1="22" x2="31" y2="31" stroke={textColor} strokeWidth="3" strokeLinecap="round" />
             </svg>
-            <div style={{ fontFamily: H_FONT, fontSize: titleFontSize ?? (p ? 84 * scale : 70 * scale), fontWeight: 900, color: textColor, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: titleFontSize ?? (p ? 84 * scale : 70 * scale), fontWeight: 900, color: textColor, textTransform: "uppercase" }}>
               {title}
             </div>
           </div>
@@ -134,10 +135,10 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             display: "flex",
             flexDirection: "column"
           }}>
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor), padding: "4px 8px", marginBottom: 15 * scale }}>
+            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, ...badgeHL(accentColor), padding: "4px 8px", marginBottom: 15 * scale }}>
               {leftLabel}
             </div>
-            <div style={{ fontFamily: H_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.3, fontStyle: "italic" }}>
+            <div style={{ fontFamily: fontFamily ?? H_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.3, fontStyle: "italic" }}>
               "{leftThought}"
             </div>
           </div>
@@ -168,10 +169,10 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             display: "flex",
             flexDirection: "column"
           }}>
-            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, padding: "4px 8px", marginBottom: 15 * scale }}>
+            <div style={{ display: "inline-block", alignSelf: "flex-start", fontFamily: fontFamily ?? B_FONT, fontSize: p ? 14 : 13, fontWeight: 800, letterSpacing: "0.1em", color: textColor, border: `1.5px solid ${textColor}`, padding: "4px 8px", marginBottom: 15 * scale }}>
               {rightLabel}
             </div>
-            <div style={{ fontFamily: B_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.4 }}>
+            <div style={{ fontFamily: fontFamily ?? B_FONT, fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale), fontWeight: 500, color: textColor, lineHeight: 1.4 }}>
               {rightThought}
             </div>
           </div>
@@ -189,7 +190,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                   border: "1px solid #ddd"
                 }}>
                   <Img src={imageUrl} style={{ width: "100%", height: "auto", display: "block", filter: "sepia(0.2) contrast(1.1)" }} />
-                  <div style={{ marginTop: 8, fontFamily: H_FONT, fontSize: 11, color: "#666", fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 4 }}>
+                  <div style={{ marginTop: 8, fontFamily: fontFamily ?? H_FONT, fontSize: 11, color: "#666", fontStyle: "italic", borderTop: "1px solid #eee", paddingTop: 4 }}>
                     Newspaper Archive / Photo
                   </div>
                 </div>
@@ -205,7 +206,7 @@ export const FactCheck: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             marginTop: p ? 20 * scale : 40 * scale,
             paddingTop: 20 * scale,
             borderTop: `${3 * scale}px solid ${accentColor}`,
-            fontFamily: B_FONT, 
+            fontFamily: fontFamily ?? B_FONT, 
             fontSize: descriptionFontSize ?? (p ? 35 * scale : 41 * scale),
             fontWeight: 700,
             color: textColor 

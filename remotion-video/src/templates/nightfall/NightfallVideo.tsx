@@ -8,6 +8,7 @@ import {
   useCurrentFrame,
   CalculateMetadataFunction,
 } from "remotion";
+import "../../fonts/nightfall-defaults";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
@@ -234,6 +235,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         // Debug: Log layoutProps for data_visualization scenes

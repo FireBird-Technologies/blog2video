@@ -3,8 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring, sta
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   title = "By the Numbers",
@@ -21,6 +21,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
     { value: "32", label: "Days until next deadline" },
     { value: "$6B", label: "Daily economic cost" },
   ],
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width, height, fps } = useVideoConfig();
@@ -55,7 +56,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const ruleW = interpolate(frame, [4, 20], [0, 100], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
       <div style={{
         width: "100%",
         height: "100%",
@@ -120,7 +121,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           <div style={{ opacity: titleOp }}>
             <div
               style={{
-                fontFamily: H_FONT,
+                fontFamily: fontFamily ?? H_FONT,
                 fontSize: titleFontSize ?? (p ? 110 * scale : 90 * scale),
                 fontWeight: 800,
                 color: textColor,
@@ -170,7 +171,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                   }}
                 >
                   <div style={{ 
-                    fontFamily: H_FONT, 
+                    fontFamily: fontFamily ?? H_FONT, 
                     fontSize: p ? 64 * scale : 58 * scale,
                     fontWeight: 900, 
                     color: textColor, 
@@ -183,7 +184,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                   <div style={{ height: p ? 6 : 4, background: accentColor, borderRadius: 3, width: `${ulW}%`, marginBottom: p ? 14 : 10 }} />
 
                   <div style={{ 
-                    fontFamily: B_FONT, 
+                    fontFamily: fontFamily ?? B_FONT, 
                     fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
                     fontWeight: 600, 
                     color: textColor, 
@@ -201,7 +202,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontFamily: B_FONT,
+                fontFamily: fontFamily ?? B_FONT,
                 fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
                 fontWeight: 500,
                 color: textColor,

@@ -3,8 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, spring
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "How We Got Here",
@@ -23,6 +23,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
     { value: "Feb 3", label: "Emergency session called to negotiate reopening" },
   ],
   imageUrl,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps, width } = useVideoConfig();
@@ -97,7 +98,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           <div style={{ opacity: titleOp, marginBottom: p ? 30 * scale : 40 * scale }}>
             <h1
               style={{
-                fontFamily: H_FONT,
+                fontFamily: fontFamily ?? H_FONT,
                 fontSize: titleFontSize ?? (p ? 72 * scale : 80 * scale),
                 fontWeight: 900,
                 color: textColor,
@@ -168,7 +169,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                     }}>
                       <div style={{
                         minWidth: p ? 110 * scale : 100 * scale,
-                        fontFamily: B_FONT,
+                        fontFamily: fontFamily ?? B_FONT,
                         fontSize: p ? 30 * scale : 26 * scale,
                         fontWeight: 900,
                         color: isLatest ? accentColor : textColor,
@@ -179,7 +180,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
                         {item.value}
                       </div>
                       <div style={{
-                        fontFamily: B_FONT,
+                        fontFamily: fontFamily ?? B_FONT,
                         fontSize: descriptionFontSize ?? (p ? 32 * scale : 28 * scale),
                         color: textColor,
                         fontWeight: isLatest ? 700 : 400,
@@ -199,7 +200,7 @@ export const NewsTimeline: React.FC<BlogLayoutProps & { imageUrl?: string }> = (
           {narration && (
             <div
               style={{
-                fontFamily: B_FONT,
+                fontFamily: fontFamily ?? B_FONT,
                 // Calculation: Uses custom descriptionFontSize if provided, otherwise falls back to your defaults, then subtracts 7
                 fontSize: ((descriptionFontSize ?? (p ? 48 : 37)) - 7) * scale,
                 fontStyle: "italic",
