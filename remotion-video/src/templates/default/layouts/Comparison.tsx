@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { SceneLayoutProps } from "../types";
 
 export const Comparison: React.FC<SceneLayoutProps> = ({
@@ -61,9 +61,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
     extrapolateRight: "clamp",
   });
 
-  // Define total scene duration and when exit animation should start
-  const sceneDurationInFrames = 150; // Assuming a typical scene duration of 5 seconds
-  const exitStartFrame = sceneDurationInFrames - 30; // Start exiting 1 second before the end
+  const { durationInFrames } = useVideoConfig();
+
+  const exitStartFrame = durationInFrames - 30;
 
   // Left section exit animation
   const leftExitSpring = spring({
