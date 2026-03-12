@@ -9,8 +9,8 @@ import {
 } from "remotion";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 /* ───────────────────────────────────────── */
 /* SHARDS                                   */
@@ -141,6 +141,7 @@ export const NewsHeadline: React.FC<
   category,
   imageUrl,
   leftThought,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width: videoWidth } = useVideoConfig();
@@ -174,7 +175,7 @@ export const NewsHeadline: React.FC<
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
       <ShatterBackground bgColor={bgColor} />
       
       {/* Background Overlays */}
@@ -288,7 +289,7 @@ export const NewsHeadline: React.FC<
               style={{
                 display: "flex",
                 gap: 12 * scale,
-                fontFamily: B_FONT,
+                fontFamily: fontFamily ?? B_FONT,
                 fontSize: (p ? 20 : 16) * scale,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
@@ -308,7 +309,7 @@ export const NewsHeadline: React.FC<
         {/* TITLE */}
         <div
           style={{
-            fontFamily: H_FONT,
+            fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
             fontSize: titleFontSize ?? (p ? 90 * scale : 86 * scale),
             fontWeight: 800,

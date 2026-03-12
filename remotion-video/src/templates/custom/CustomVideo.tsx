@@ -40,7 +40,7 @@ interface VideoData {
   fontFamily?: string | null;
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 

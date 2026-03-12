@@ -3,8 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, Img, useVideoConfig, static
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   title = "The Story",
@@ -17,6 +17,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   descriptionFontSize,
   stats,
   imageUrl,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width: videoWidth } = useVideoConfig();
@@ -90,7 +91,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
   const statsContainerStyles: React.CSSProperties = {
     opacity: pullOp,
     transform: `translateX(${pullSlide}px) translateZ(30px)`,
-    fontFamily: B_FONT,
+    fontFamily: fontFamily ?? B_FONT,
     color: textColor,
     // Default styles for flex item or portrait mode
     width: p ? "100%" : "30%",
@@ -114,7 +115,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT, backgroundColor: "#000", perspective: "1500px" }}>
       <div style={{
         width: "100%",
         height: "100%",
@@ -179,7 +180,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div style={{ height: p ? 12 * scale : 8 * scale, background: textColor, width: `${ruleW}%`, marginBottom: 20 * scale }} />
             <div
               style={{
-                fontFamily: B_FONT,
+                fontFamily: fontFamily ?? B_FONT,
                 fontSize: titleFontSize ?? (p ? 72 * scale : 85 * scale), // Massive Defaults
                 fontWeight: 900,
                 letterSpacing: "-0.02em",
@@ -211,7 +212,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             }}>
               <div
                 style={{
-                  fontFamily: B_FONT,
+                  fontFamily: fontFamily ?? B_FONT,
                   fontSize: descriptionFontSize ?? (p ? 38 * scale : 32 * scale),
                   fontWeight: 500,
                   color: textColor,
@@ -221,7 +222,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 <span
                   style={{
                     float: "left",
-                    fontFamily: H_FONT,
+                    fontFamily: fontFamily ?? H_FONT,
                     fontSize: p ? 130 * scale : 110 * scale,
                     fontWeight: 800,
                     lineHeight: 0.7,
@@ -250,7 +251,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               <div style={statsContainerStyles}>
                 <div
                   style={{
-                    fontFamily: H_FONT,
+                    fontFamily: fontFamily ?? H_FONT,
                     fontSize: p ? 90 * scale : 80 * scale,
                     fontWeight: 800,
                     color: textColor,
@@ -263,7 +264,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
                 {pullCap && (
                   <div
                     style={{
-                      fontFamily: B_FONT,
+                      fontFamily: fontFamily ?? B_FONT,
                       fontSize: (p ? 24 : 18) * scale,
                       fontWeight: 700,
                       color: textColor,
@@ -284,7 +285,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             <div style={statsContainerStyles}>
               <div
                 style={{
-                  fontFamily: H_FONT,
+                  fontFamily: fontFamily ?? H_FONT,
                   fontSize: p ? 90 * scale : 80 * scale,
                   fontWeight: 800,
                   color: textColor,
@@ -297,7 +298,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
               {pullCap && (
                 <div
                   style={{
-                    fontFamily: B_FONT,
+                    fontFamily: fontFamily ?? B_FONT,
                     fontSize: (p ? 24 : 18) * scale,
                     fontWeight: 700,
                     color: textColor,
