@@ -3,8 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile 
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const PullQuote: React.FC<BlogLayoutProps> = ({
   title = "This is not a political game. Real people will feel real consequences starting tomorrow.",
@@ -16,6 +16,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
@@ -58,7 +59,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   return (
     <AbsoluteFill style={{ 
       overflow: "hidden", 
-      fontFamily: B_FONT, 
+      fontFamily: fontFamily ?? B_FONT, 
       backgroundColor: "#000",
       perspective: "1200px" 
     }}>
@@ -145,7 +146,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             <div style={{ flex: 1 }}>
               {/* Quote Mark */}
               <div style={{
-                fontFamily: H_FONT,
+                fontFamily: fontFamily ?? H_FONT,
                 fontSize: p ? 140 * scale : 120 * scale, // Huge quote marks for portrait impact
                 lineHeight: 0.5,
                 color: accentColor,
@@ -159,7 +160,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
               {/* Main Quote Text */}
               <div style={{
-                fontFamily: H_FONT,
+                fontFamily: fontFamily ?? H_FONT,
                 fontSize: titleFontSize ?? (p ? 58 * scale : 64 * scale), // Adjusted for readability on mobile
                 fontWeight: 600,
                 lineHeight: 1.25,
@@ -184,7 +185,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Attribution */}
               <div style={{ opacity: attrOp }}>
                 <div style={{ 
-                    fontFamily: B_FONT, 
+                    fontFamily: fontFamily ?? B_FONT, 
                     fontSize: descriptionFontSize ?? (p ? 32 * scale : 36 * scale),
                     fontWeight: 800, 
                     color: textColor, 
@@ -196,7 +197,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 </div>
                 {source && (
                   <div style={{ 
-                    fontFamily: B_FONT, 
+                    fontFamily: fontFamily ?? B_FONT, 
                     fontSize: 18 * scale,
                     fontWeight: 600, 
                     color: textColor, 

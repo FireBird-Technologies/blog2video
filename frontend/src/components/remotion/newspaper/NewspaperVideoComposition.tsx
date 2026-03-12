@@ -1,3 +1,4 @@
+import "../../../fonts/newspaper-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
@@ -71,6 +72,7 @@ export const NewspaperVideoComposition: React.FC<
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
           aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
         };
 
         return (
