@@ -10,6 +10,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -64,7 +65,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
             color: textColor,
             fontSize: titleFontSize ?? (p ? 50 : 51),
             fontWeight: 700,
-            fontFamily: "'Roboto Slab', serif",
+            fontFamily: fontFamily ?? "'Roboto Slab', serif",
             marginTop: 0,
             marginBottom: 0, // Reset margin since parent div handles spacing
             textAlign: "center",
@@ -144,7 +145,7 @@ export const FlowDiagram: React.FC<SceneLayoutProps> = ({
                     fontSize: descriptionFontSize ?? (p ? 35 : 27),
                     fontWeight: 600,
                     color: isLast ? "#FFF" : textColor,
-                    fontFamily: "'Roboto Slab', serif",
+                    fontFamily: fontFamily ?? "'Roboto Slab', serif",
                     // Added wordBreak and hyphens to better handle long content without overflowing
                     wordBreak: "break-word",
                     hyphens: "auto",

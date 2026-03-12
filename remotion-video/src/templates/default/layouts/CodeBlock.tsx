@@ -11,6 +11,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
   codeLanguage = "",
   descriptionFontSize,
   titleFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -66,7 +67,7 @@ export const CodeBlock: React.FC<SceneLayoutProps> = ({
         {title && (
           <div
             style={{
-              fontFamily: "'Roboto Slab', serif",
+              fontFamily: fontFamily ?? "'Roboto Slab', serif",
               fontSize: titleFontSize ?? (p ? 99 : 77),
               color: "#ffffff",
               fontWeight: 'bold',
