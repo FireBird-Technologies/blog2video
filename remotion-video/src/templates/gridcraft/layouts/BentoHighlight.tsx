@@ -1,7 +1,9 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
+import type { SpringConfig } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Backend props
@@ -17,18 +19,20 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
-  // Responsive flag based on video width, assuming 'p' implies a smaller width or aspect ratio
-  const p = width < 1000;
+  const p = aspectRatio === "portrait";
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Helper for spring animations, allowing custom config
-  const spr = (d: number, config?: Parameters<typeof spring>[2]) => spring({
+  const spr = (d: number, config?: Partial<SpringConfig>) => spring({
     frame: Math.max(0, frame - d),
     fps,
-    config: { damping: 14, stiffness: 110, ...config }, // Default config, allowing override
+    config: { damping: 14, stiffness: 110, ...(config ?? {}) }, // Default config, allowing override
   });
 
   // --- Overall Layout Fade Out ---
@@ -83,7 +87,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
         opacity: layoutOpacity, // Apply overall fade out here
       }}
     >

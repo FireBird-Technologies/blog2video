@@ -1,4 +1,8 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -17,10 +21,14 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const displayItems = items || [title];
   const framesPerItem = 18;
@@ -107,7 +115,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                     fontWeight: 900,
                     color: accentColor,
                     minWidth: p ? 28 : 44,
-                    fontFamily: "'Arial Black', sans-serif",
+                    fontFamily: displayFontFamily,
                   }}
                 >
                   {String(i + 1).padStart(2, "0")}
@@ -117,7 +125,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                     fontSize: descriptionFontSize ?? (p ? 24 : 36),
                     fontWeight: 700,
                     color: textColor || "#FFFFFF",
-                    fontFamily: "Arial, sans-serif",
+                    fontFamily: bodyFontFamily,
                     letterSpacing: "-0.01em",
                   }}
                 >

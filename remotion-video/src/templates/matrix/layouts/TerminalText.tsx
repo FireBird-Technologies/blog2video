@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 /**
@@ -18,12 +19,14 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
   textColor,
   aspectRatio,
   titleFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const hasImage = !!imageUrl;
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayText = narration || title;
 
@@ -95,7 +98,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.2} />
+      <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
       {/* Main content block (Image + Text Wrapper) */}
       {/* The overall content block itself no longer has an entrance animation, 
@@ -155,7 +158,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 68 : 48),
               fontWeight: 700,
               color: accent,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               textShadow: `0 0 10px ${accent}66`,
             }}
           >
@@ -175,7 +178,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
                   fontSize: titleFontSize ?? (p ? 68 : 48),
                   fontWeight: isHighlight ? 700 : 400,
                   color: isHighlight ? "#FFFFFF" : accent,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   lineHeight: 1.4,
                   textShadow: isHighlight
                     ? `0 0 16px ${accent}, 0 0 32px ${accent}66`
@@ -194,7 +197,7 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
                 fontSize: titleFontSize ?? (p ? 68 : 48),
                 fontWeight: 400,
                 color: accent,
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 textShadow: `0 0 10px ${accent}`,
               }}
             >

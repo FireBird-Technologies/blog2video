@@ -1,4 +1,5 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 /**
@@ -20,11 +21,13 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const leftSpring = spring({
     frame: frame - 3,
@@ -129,7 +132,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               color: "#EF444488",
               letterSpacing: "0.2em",
               textTransform: "uppercase",
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               marginBottom: 12,
             }}
           >
@@ -143,7 +146,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               textAlign: "center",
               letterSpacing: "-0.02em",
               lineHeight: 1.1,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               textShadow: "0 0 16px #EF444444",
             }}
           >
@@ -156,7 +159,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
                 color: "#EF444488",
                 marginTop: 12,
                 textAlign: "center",
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 maxWidth: "90%",
               }}
             >
@@ -201,7 +204,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               color: "#3B82F688",
               letterSpacing: "0.2em",
               textTransform: "uppercase",
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               marginBottom: 12,
             }}
           >
@@ -215,7 +218,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
               textAlign: "center",
               letterSpacing: "-0.02em",
               lineHeight: 1.1,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               textShadow: "0 0 16px #3B82F644",
             }}
           >
@@ -228,7 +231,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
                 color: "#3B82F688",
                 marginTop: 12,
                 textAlign: "center",
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 maxWidth: "90%",
               }}
             >

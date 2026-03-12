@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -20,10 +21,12 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const blurSpring = spring({
     frame,
@@ -152,7 +155,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
             lineHeight: 1.25,
             filter: `blur(${blur}px)`,
             opacity: Math.min(textOpacity * 1.5, 1),
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             position: "relative",
           }}
         >
@@ -167,7 +170,7 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
             color: "#666666",
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             opacity: ctaOpacity,
             transform: `translateY(${(1 - ctaY) * 10}px)`,
           }}

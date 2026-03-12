@@ -1,4 +1,8 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -19,10 +23,14 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const leftSpring = spring({
     frame: frame - 3,
@@ -109,7 +117,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
             color: "#666666",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             marginBottom: 12,
           }}
         >
@@ -123,7 +131,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
             textAlign: "center",
             letterSpacing: "-0.03em",
             lineHeight: 1.1,
-            fontFamily: "'Arial Black', sans-serif",
+            fontFamily: displayFontFamily,
           }}
         >
           {title && !leftLabel ? title : displayLeftLabel}
@@ -135,7 +143,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
               color: "#888888",
               marginTop: 12,
               textAlign: "center",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: bodyFontFamily,
               maxWidth: "90%",
             }}
           >
@@ -180,7 +188,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
             color: "#666666",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: bodyFontFamily,
             marginBottom: 12,
           }}
         >
@@ -194,7 +202,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
             textAlign: "center",
             letterSpacing: "-0.03em",
             lineHeight: 1.1,
-            fontFamily: "'Arial Black', sans-serif",
+            fontFamily: displayFontFamily,
           }}
         >
           {displayRightLabel}
@@ -206,7 +214,7 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
               color: "#666666",
               marginTop: 12,
               textAlign: "center",
-              fontFamily: "Arial, sans-serif",
+              fontFamily: bodyFontFamily,
               maxWidth: "90%",
             }}
           >
