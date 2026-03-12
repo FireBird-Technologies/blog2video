@@ -345,12 +345,13 @@ async def _generate_scenes(project: Project, db: Session):
         if user:
             
             project_url = f"{settings.FRONTEND_URL}/project/{project.id}"
-            email_service.send_preview_ready_email(
-                user_email=user.email,
-                user_name=user.name,
-                project_name=project.name,
-                project_url=project_url,
-            )
+            
+            # email_service.send_preview_ready_email(
+            #     user_email=user.email,
+            #     user_name=user.name,
+            #     project_name=project.name,
+            #     project_url=project_url,
+            # )
             
             # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
             scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
