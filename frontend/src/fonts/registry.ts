@@ -3,21 +3,36 @@
 
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
 import "@fontsource/roboto-slab/400.css";
 import "@fontsource/roboto-slab/600.css";
+import "@fontsource/roboto-slab/700.css";
 import "@fontsource/patrick-hand/400.css";
 import "@fontsource/arimo/400.css";
+import "@fontsource/arimo/600.css";
 import "@fontsource/arimo/700.css";
 import "@fontsource/archivo-black/400.css";
 import "@fontsource/poppins/400.css";
 import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
 import "@fontsource/montserrat/400.css";
 import "@fontsource/montserrat/600.css";
+import "@fontsource/montserrat/700.css";
 import "@fontsource/merriweather/400.css";
+import "@fontsource/merriweather/600.css";
+import "@fontsource/merriweather/700.css";
 import "@fontsource/playfair-display/400.css";
+import "@fontsource/playfair-display/600.css";
+import "@fontsource/playfair-display/700.css";
 import "@fontsource/oswald/400.css";
+import "@fontsource/oswald/600.css";
+import "@fontsource/oswald/700.css";
 import "@fontsource/lora/400.css";
+import "@fontsource/lora/600.css";
+import "@fontsource/lora/700.css";
 import "@fontsource/fira-code/400.css";
+import "@fontsource/fira-code/600.css";
+import "@fontsource/fira-code/700.css";
 
 export type FontId =
   | "inter"
