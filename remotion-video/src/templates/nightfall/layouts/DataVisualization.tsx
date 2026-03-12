@@ -30,6 +30,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
   pieChart: pieChartData,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -138,7 +139,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 67 : 61),
               fontWeight: 600,
               color: textColor,
-              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+              fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
               marginBottom: p ? 24 : 32,
               textAlign: "center",
               opacity: titleOpacity,
@@ -273,7 +274,7 @@ export const DataVisualization: React.FC<NightfallLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 40 : 36),
                   color: "rgba(226,232,240,0.8)",
                   opacity: 0.9,
-                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                   lineHeight: 1.7,
                   textAlign: "center",
                   fontWeight: 400,
