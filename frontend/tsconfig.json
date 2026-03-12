@@ -15,7 +15,13 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@remotion/*": ["../remotion-video/src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["../remotion-video"]
 }
