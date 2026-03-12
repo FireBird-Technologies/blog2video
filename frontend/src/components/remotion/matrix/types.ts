@@ -18,6 +18,7 @@ export interface MatrixLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
+  fontFamily?: string;
   // terminal_text
   highlightWord?: string;
   // glitch_punch

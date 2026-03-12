@@ -9,6 +9,9 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
+import {
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+} from "./constants";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
@@ -269,6 +272,10 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       });
   }, [dataUrl]);
 
+  const resolvedFontFamily = data
+    ? resolveFontFamily(data.fontFamily ?? null)
+    : null;
+
   if (!data) {
     return (
       <AbsoluteFill
@@ -279,20 +286,29 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           justifyContent: "center",
         }}
       >
-        <p style={{ color: COLORS.DARK, fontSize: 36, fontFamily: "sans-serif" }}>Loading...</p>
+        <p
+          style={{
+            color: COLORS.DARK,
+            fontSize: 36,
+            fontFamily:
+              resolvedFontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+          }}
+        >
+          Loading...
+        </p>
       </AbsoluteFill>
     );
   }
 
   const FPS = 30;
   let currentFrame = 0;
-  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: data.bgColor || COLORS.BG,
-        fontFamily: resolvedFontFamily || undefined,
+        fontFamily:
+          resolvedFontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
       }}
     >
       <Blobs />
@@ -319,6 +335,7 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

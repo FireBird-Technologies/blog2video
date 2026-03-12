@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 /**
@@ -21,11 +22,13 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   // Existing line animation for highlight phrase
   const lineSpring = spring({
@@ -186,7 +189,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.15} />
+      <MatrixBackground bgColor={bgColor} opacity={0.15} fontFamily={resolvedFontFamily} />
 
       <div
         style={{
@@ -237,7 +240,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
               letterSpacing: "-0.01em",
               lineHeight: 1.3,
               // Removed global blur and opacity, now handled per word
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               position: "relative",
               // Removed global text shadow, now handled per word
             }}
@@ -252,7 +255,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
               fontWeight: 400,
               color: `${accent}66`,
               letterSpacing: "0.1em",
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               opacity: ctaOpacityAnim, // Apply animated opacity
               transform: `translateX(${ctaSlideX}px)`, // Apply animated slide from right
             }}

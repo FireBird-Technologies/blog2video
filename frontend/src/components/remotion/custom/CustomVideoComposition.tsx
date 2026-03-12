@@ -147,6 +147,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
               narration={scene.narration}
               imageUrl={scene.imageUrl}
               aspectRatio={aspectRatio || "landscape"}
+              fontFamily={fontFamily}
             />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
           </Sequence>

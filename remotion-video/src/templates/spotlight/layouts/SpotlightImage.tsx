@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -19,10 +23,14 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const revealSpring = spring({
     frame: frame - 3,
@@ -87,7 +95,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
                 fontSize: titleFontSize ?? (p ? 91 : 72),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
-                fontFamily: "'Arial Black', sans-serif",
+                fontFamily: displayFontFamily,
                 letterSpacing: "-0.02em",
                 lineHeight: 1.15,
                 opacity: captionOpacity,
@@ -102,7 +110,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 39 : 37),
                   fontWeight: 400,
                   color: "rgba(255,255,255,0.75)",
-                  fontFamily: "Arial, sans-serif",
+                  fontFamily: bodyFontFamily,
                   marginTop: p ? 16 : 24,
                   lineHeight: 1.4,
                   opacity: captionOpacity,
@@ -158,7 +166,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 91 : 72),
               fontWeight: 700,
               color: textColor || "#FFFFFF",
-              fontFamily: "'Arial Black', sans-serif",
+              fontFamily: displayFontFamily,
               lineHeight: 1.2,
             }}
           >
@@ -169,7 +177,7 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
               style={{
                 fontSize: descriptionFontSize ?? (p ? 39 : 37),
                 color: "rgba(255,255,255,0.85)",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: bodyFontFamily,
                 marginTop: 8,
                 lineHeight: 1.4,
               }}

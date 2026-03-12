@@ -187,6 +187,7 @@ export const SpotlightVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#FFFFFF",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

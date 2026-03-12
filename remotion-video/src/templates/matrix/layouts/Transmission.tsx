@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 // Define default spring config for various effects
@@ -36,10 +37,12 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayPhrases =
     phrases && phrases.length > 0
@@ -113,7 +116,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.2} />
+      <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
       {displayPhrases.map((phrase, i) => {
         const isActive = currentIdx === i;
@@ -186,7 +189,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
                   fontSize: p ? 14 : 18,
                   fontWeight: 400,
                   color: `${accent}44`,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   letterSpacing: "0.2em",
                   marginBottom: p ? 12 : 20,
                   textTransform: "uppercase",
@@ -206,7 +209,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
                   color: accent,
                   letterSpacing: "-0.02em",
                   lineHeight: 1.15,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   textShadow: `0 0 16px ${accent}44`,
                   // Apply body text animations
                   opacity: bodyOpacity,

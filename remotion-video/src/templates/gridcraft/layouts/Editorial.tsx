@@ -1,7 +1,11 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import {
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+  GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
+} from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const Editorial: React.FC<GridcraftLayoutProps> = ({
   title,
@@ -10,9 +14,14 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const p = aspectRatio === "portrait";
+  const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
 
   const spr = spring({ frame, fps, config: { damping: 14 } });
   
@@ -32,7 +41,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: sansFontFamily,
       }}
     >
       <div
@@ -73,7 +82,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
                lineHeight: 1.2, 
                color: COLORS.DARK, 
                marginBottom: 24,
-               fontFamily: FONT_FAMILY.SERIF 
+               fontFamily: serifFontFamily,
             }}>
                {title}
            </div>

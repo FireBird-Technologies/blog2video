@@ -6,6 +6,9 @@ import "@fontsource/inter/600.css";
 import "@fontsource/roboto-slab/400.css";
 import "@fontsource/roboto-slab/600.css";
 import "@fontsource/patrick-hand/400.css";
+import "@fontsource/arimo/400.css";
+import "@fontsource/arimo/700.css";
+import "@fontsource/archivo-black/400.css";
 import "@fontsource/poppins/400.css";
 import "@fontsource/poppins/600.css";
 import "@fontsource/montserrat/400.css";
@@ -20,6 +23,8 @@ export type FontId =
   | "inter"
   | "roboto_slab"
   | "patrick_hand"
+  | "arimo"
+  | "archivo_black"
   | "poppins"
   | "montserrat"
   | "merriweather"
@@ -49,6 +54,16 @@ export const FONT_REGISTRY: Record<FontId, FontOption> = {
     id: "patrick_hand",
     label: "Patrick Hand",
     cssFamily: "'Patrick Hand', system-ui, sans-serif",
+  },
+  arimo: {
+    id: "arimo",
+    label: "Arimo",
+    cssFamily: "Arimo, Arial, sans-serif",
+  },
+  archivo_black: {
+    id: "archivo_black",
+    label: "Archivo Black",
+    cssFamily: "'Archivo Black', 'Arial Black', 'Helvetica Neue', sans-serif",
   },
   poppins: {
     id: "poppins",
@@ -92,4 +107,3 @@ export function resolveFontFamily(id: string | null | undefined): string | null 
   const key = id as FontId;
   return FONT_REGISTRY[key]?.cssFamily ?? null;
 }
-
