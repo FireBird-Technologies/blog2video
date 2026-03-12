@@ -25,6 +25,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -229,7 +230,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 78 : 64),
               fontWeight: 700,
               color: textColor,
-              fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+              fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
               marginBottom: narration ? 15 : 0,
               lineHeight: 1.3,
             }}
@@ -243,7 +244,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               style={{
                 fontSize: descriptionFontSize ?? (p ? 42 : 35),
                 color: "rgba(226,232,240,0.45)",
-                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                 lineHeight: 1.6,
               }}
             >

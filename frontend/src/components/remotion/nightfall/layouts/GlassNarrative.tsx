@@ -27,6 +27,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -167,7 +168,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                 fontSize: titleFontSize ?? (p ? 76 : 63), // Default for landscape with image
                 fontWeight: 700,
                 color: textColor,
-                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                 marginBottom: 32, // Default for landscape
                 lineHeight: 1.25,
                 letterSpacing: "-0.01em",
@@ -246,7 +247,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                     fontSize: titleFontSize ?? (p ? (hasImage ? 40 : 36) : 46), 
                     fontWeight: 700,
                     color: textColor,
-                    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                    fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                     marginBottom: 28,
                     lineHeight: 1.25,
                     letterSpacing: "-0.01em",
@@ -267,7 +268,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 43 : 36), 
                   lineHeight: 1.8,
                   color: "rgba(226,232,240,0.8)",
-                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                 }}
               >
                 {paragraphs.length > 1 ? (
@@ -288,7 +289,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                               float: "left",
                               fontSize: p ? 120 : 140,
                               lineHeight: 0.85,
-                              fontFamily: "'Playfair Display', Georgia, serif",
+                              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                               color: accentColor,
                               fontWeight: 700,
                               marginRight: 12,
@@ -316,7 +317,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                             float: "left",
                             fontSize: p ? 120 : 140,
                             lineHeight: 0.85,
-                            fontFamily: "'Playfair Display', Georgia, serif",
+                            fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                             color: accentColor,
                             fontWeight: 700,
                             marginRight: 12,

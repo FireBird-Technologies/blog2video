@@ -1,3 +1,4 @@
+import "../../../fonts/nightfall-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
@@ -103,6 +104,7 @@ export const NightfallVideoComposition: React.FC<
           textColor: textColor || "#E2E8F0",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          fontFamily,
         };
 
         return (
