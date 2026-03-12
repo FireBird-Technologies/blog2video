@@ -65,6 +65,7 @@ export const SpotlightVideoComposition: React.FC<
           textColor: textColor || "#FFFFFF",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          fontFamily,
         };
 
         return (

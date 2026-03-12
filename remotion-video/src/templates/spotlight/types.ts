@@ -18,6 +18,7 @@ export interface SpotlightLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
+  fontFamily?: string;
   // statement
   highlightWord?: string;
   // word_punch

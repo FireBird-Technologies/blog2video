@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -20,11 +24,15 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const hasImage = !!imageUrl;
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const primary = metrics?.[0];
   const numericValue = primary ? parseFloat(primary.value.replace(/,/g, "")) : 0;
@@ -107,7 +115,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
               color: textColor || "#FFFFFF",
               letterSpacing: "-0.05em",
               lineHeight: 1,
-              fontFamily: "'Arial Black', sans-serif",
+              fontFamily: displayFontFamily,
             }}
           >
             {displayNumber}
@@ -139,7 +147,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
                 color: textColor || "#FFFFFF",
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                fontFamily: "Arial, sans-serif",
+                fontFamily: bodyFontFamily,
               }}
             >
               {primary?.label || title}
@@ -150,7 +158,7 @@ export const StatStage: React.FC<SpotlightLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 31 : 29),
                   color: "#666666",
                   marginTop: 4,
-                  fontFamily: "Arial, sans-serif",
+                  fontFamily: bodyFontFamily,
                 }}
               >
                 {metrics && metrics.length > 1

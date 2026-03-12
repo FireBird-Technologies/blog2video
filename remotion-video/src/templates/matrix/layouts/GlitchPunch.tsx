@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 const GLITCH_CHARS = "アイウエオ0123456789!@#$%^&*<>{}[]|/\\";
@@ -23,11 +24,13 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
   bgColor,
   aspectRatio,
   titleFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayWord = word || title;
   const chars = displayWord.split("");
@@ -59,7 +62,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.15} />
+      <MatrixBackground bgColor={bgColor} opacity={0.15} fontFamily={resolvedFontFamily} />
 
       <div
         style={{
@@ -99,7 +102,7 @@ export const GlitchPunch: React.FC<MatrixLayoutProps> = ({
             color: accent,
             textTransform: "uppercase",
             letterSpacing: "-0.03em",
-            fontFamily: "'Fira Code', 'Courier New', monospace",
+            fontFamily: resolvedFontFamily,
             lineHeight: 1,
             textAlign: "center",
             padding: "0 5%",

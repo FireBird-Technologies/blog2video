@@ -1,7 +1,8 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 // Default features if none provided
 const DEFAULT_FEATURES = [
@@ -19,6 +20,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -45,6 +47,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
   const gridRows = p ? `repeat(${items.length}, auto)` : (items.length === 4 ? "1fr 1fr" : "1fr 1fr");
 
   const hasImage = !!imageUrl;
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -60,7 +63,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         gap: hasImage ? (p ? 24 : 32) : 0, // Gap between image and grid, or 0 if no image
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
       }}
     >
       {hasImage && (

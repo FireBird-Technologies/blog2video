@@ -2,7 +2,8 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
 import type { SpringConfig } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Backend props
@@ -19,6 +20,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width } = useVideoConfig();
@@ -55,6 +57,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     : (dataPoints || []).map(d => d.value || d.description || d.label || "");
 
   const hasImage = !!imageUrl;
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Facts text size follows display/description text size
   const factFontSize = descriptionFontSize ?? (p ? 47 : 28);
@@ -85,7 +88,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
         opacity: layoutOpacity, // Apply overall fade out here
       }}
     >

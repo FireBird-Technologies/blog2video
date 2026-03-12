@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -17,11 +18,13 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   bgColor,
   aspectRatio,
   titleFontSize,
-  descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
   const punchSpring = spring({
     frame: frame - 3,
@@ -81,7 +84,7 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
             letterSpacing: "-0.05em",
             transform: `scale(${Math.max(scale, 0)})`,
             opacity,
-            fontFamily: "'Arial Black', sans-serif",
+            fontFamily: displayFontFamily,
             lineHeight: 1,
             textAlign: "center",
             padding: "0 5%",

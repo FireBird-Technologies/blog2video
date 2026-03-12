@@ -11,6 +11,7 @@ import type { CustomTheme, SceneLayoutConfig } from "./types";
 import { getFontUrl } from "./utils/styleEngine";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { delayRender, continueRender } from "remotion";
+import { resolveFontFamily } from "../../fonts/registry";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -118,15 +119,36 @@ export const calculateCustomMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  const [fontsReady, setFontsReady] = useState(false);
   const [fontHandle] = useState(() =>
     delayRender("Loading custom fonts", { timeoutInMilliseconds: 15_000 }),
   );
 
   useEffect(() => {
+    setFontsReady(false);
+    setData(null);
+
+    const finishFontLoad = () => {
+      setFontsReady(true);
+      continueRender(fontHandle);
+    };
+
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
       .then((d: VideoData) => {
         setData(d);
+
+        const resolvedProjectFontFamily = resolveFontFamily(d.fontFamily ?? null);
+        if (resolvedProjectFontFamily) {
+          Promise.all([
+            document.fonts.load(`400 16px ${resolvedProjectFontFamily}`),
+            document.fonts.load(`700 16px ${resolvedProjectFontFamily}`),
+          ])
+            .then(() => document.fonts.ready)
+            .then(() => finishFontLoad())
+            .catch(() => finishFontLoad());
+          return;
+        }
 
         const theme = d.theme || FALLBACK_THEME;
         const fontUrl = getFontUrl(theme);
@@ -141,10 +163,10 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           ];
           Promise.all(faces.map((f) => document.fonts.load(f)))
             .then(() => document.fonts.ready)
-            .then(() => continueRender(fontHandle))
-            .catch(() => continueRender(fontHandle));
+            .then(() => finishFontLoad())
+            .catch(() => finishFontLoad());
         };
-        link.onerror = () => continueRender(fontHandle);
+        link.onerror = () => finishFontLoad();
         document.head.appendChild(link);
       })
       .catch(() => {
@@ -166,11 +188,14 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             },
           ],
         });
+        setFontsReady(true);
         continueRender(fontHandle);
       });
   }, [dataUrl, fontHandle]);
 
-  if (!data) {
+  const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
+
+  if (!data || !fontsReady) {
     return (
       <AbsoluteFill
         style={{
@@ -180,7 +205,13 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           justifyContent: "center",
         }}
       >
-        <p style={{ color: "#666", fontSize: 28, fontFamily: "Inter, sans-serif" }}>
+        <p
+          style={{
+            color: "#666",
+            fontSize: 28,
+            fontFamily: resolvedFontFamily ?? "Inter, sans-serif",
+          }}
+        >
           Loading...
         </p>
       </AbsoluteFill>
@@ -232,7 +263,7 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     <AbsoluteFill
       style={{
         backgroundColor: theme.colors.bg,
-        fontFamily: data.fontFamily || undefined,
+        fontFamily: resolvedFontFamily || undefined,
       }}
     >
       {data.scenes.map((scene) => {
@@ -265,6 +296,7 @@ export const CustomVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               narration={scene.narration}
               imageUrl={imageUrl}
               aspectRatio={data.aspectRatio || "landscape"}
+              fontFamily={resolvedFontFamily || undefined}
             />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} />

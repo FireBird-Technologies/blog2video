@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 /**
@@ -19,12 +20,14 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize, // Not explicitly used for general items, but kept for consistency
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const hasImage = !!imageUrl;
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayItems = items || [title];
   const framesPerLine = 40; // Duration for one full line to appear word by word
@@ -67,7 +70,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.2} />
+      <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
       {hasImage && (
         <div
@@ -145,7 +148,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                   fontSize: computedFontSize,
                   fontWeight: 700,
                   color: accent,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   lineHeight: 1.4,
                   minWidth: p ? 70 : 90,
                   whiteSpace: "nowrap",
@@ -158,7 +161,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                   fontSize: computedFontSize,
                   fontWeight: 400,
                   color: accent,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   letterSpacing: "0.01em",
                   lineHeight: 1.4,
                   display: "flex",

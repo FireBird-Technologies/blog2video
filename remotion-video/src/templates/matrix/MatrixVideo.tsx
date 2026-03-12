@@ -10,6 +10,7 @@ import {
 } from "remotion";
 import { MATRIX_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -152,6 +153,8 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       });
   }, [dataUrl]);
 
+  const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
+
   if (!data) {
     return (
       <AbsoluteFill
@@ -166,7 +169,7 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           style={{
             color: "#00FF41",
             fontSize: 28,
-            fontFamily: "'Fira Code', 'Courier New', monospace",
+            fontFamily: resolvedFontFamily ?? MATRIX_DEFAULT_FONT_FAMILY,
           }}
         >
           {">"} Loading...
@@ -177,7 +180,6 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
-  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
     <AbsoluteFill
@@ -207,6 +209,7 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#00FF41",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (
