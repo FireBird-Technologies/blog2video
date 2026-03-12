@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@remotion": path.resolve(__dirname, "../remotion-video/src"),
+      "@remotion-video": path.resolve(__dirname, "../remotion-video/src"),
     },
   },
   server: {
