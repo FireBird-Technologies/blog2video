@@ -1,7 +1,11 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import {
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+  GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
+} from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
@@ -16,6 +20,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   descriptionFontSize,
   categoryFontSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -28,6 +33,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const iconContent = icon ?? categoryTag;
   // Subtitle/tagline: layoutProps.subtitle, else scene narration (for bottom-right cell)
   const tagline = subtitle || narration || "";
+  const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
 
   // Animations
   const spr = (delay: number) =>
@@ -57,7 +64,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: sansFontFamily,
       }}
     >
       {/* Main Title Cell */}
@@ -96,7 +103,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 72 : 85),
             fontWeight: 700,
             lineHeight: 1.1,
-            fontFamily: FONT_FAMILY.SERIF,
+            fontFamily: serifFontFamily,
             marginBottom: 16,
           }}
         >

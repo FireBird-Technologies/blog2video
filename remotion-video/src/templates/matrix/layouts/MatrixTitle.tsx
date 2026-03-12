@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
@@ -24,11 +25,13 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const titleChars = title.split("");
   // Speed up decode for longer titles so animation completes in time
@@ -75,7 +78,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.25} />
+      <MatrixBackground bgColor={bgColor} opacity={0.25} fontFamily={resolvedFontFamily} />
 
       <div
         style={{
@@ -130,7 +133,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 128 : 110),
               fontWeight: 700,
               color: accent,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               textAlign: "center",
               lineHeight: 1.1,
               letterSpacing: "-0.02em",
@@ -177,7 +180,7 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
                 fontSize: descriptionFontSize ?? (p ? 52 : 53),
                 fontWeight: 400,
                 color: `${accent}88`,
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 textAlign: "center",
                 marginTop: p ? 20 : 28,
                 letterSpacing: "0.08em",

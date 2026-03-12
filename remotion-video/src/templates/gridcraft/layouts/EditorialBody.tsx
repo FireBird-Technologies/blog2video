@@ -4,6 +4,7 @@ import {
   interpolate,
   useCurrentFrame,
 } from "remotion";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import type { GridcraftLayoutProps } from "../types";
 
 export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
@@ -14,8 +15,10 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
   textColor,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const titleOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
   const titleY = interpolate(frame, [0, 15], [20, 0], { extrapolateRight: "clamp" });
@@ -41,7 +44,7 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
           fontSize: titleFontSize ?? 42,
           fontWeight: 600,
           color: textColor || "#171717",
-          fontFamily: "'Inter', 'Segoe UI', sans-serif",
+          fontFamily: resolvedFontFamily,
           margin: "0 0 20px 0",
           opacity: titleOpacity,
           transform: `translateY(${titleY}px)`,
@@ -61,7 +64,7 @@ export const EditorialBody: React.FC<GridcraftLayoutProps> = ({
           fontSize: descriptionFontSize ?? 24,
           fontWeight: 400,
           color: textColor || "#171717",
-          fontFamily: "'Inter', 'Segoe UI', sans-serif",
+          fontFamily: resolvedFontFamily,
           lineHeight: 1.7,
           opacity: bodyOpacity,
           transform: `translateY(${bodyY}px)`,

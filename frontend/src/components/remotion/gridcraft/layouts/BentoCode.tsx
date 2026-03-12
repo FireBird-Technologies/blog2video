@@ -1,7 +1,11 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import {
+  GRIDCRAFT_DEFAULT_MONO_FONT_FAMILY,
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+} from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   title, // Language
@@ -12,6 +16,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
@@ -22,6 +27,8 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
   const lines = codeLines && codeLines.length > 0
     ? codeLines
     : (codeSnippet || "").split("\n");
+  const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const monoFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_MONO_FONT_FAMILY;
 
   // Constants for line-by-line code animation
   const LINE_APPEAR_START_OFFSET = 2; // Each line starts 2 frames after the previous
@@ -86,7 +93,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
         width: `${containerWidthPercentage * 100}%`,
         height: overallContainerHeightStyle, // Dynamically set overall container height
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: sansFontFamily,
       }}
     >
       {/* Code Window */}
@@ -98,7 +105,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
            borderRadius: 24,
            border: "1px solid rgba(255,255,255,0.1)",
            padding: 32,
-           fontFamily: FONT_FAMILY.MONO,
+           fontFamily: monoFontFamily,
            fontSize: descriptionFontSize ?? (p ? 27 : 27),
            lineHeight: 1.8,
            color: "#E2E8F0",

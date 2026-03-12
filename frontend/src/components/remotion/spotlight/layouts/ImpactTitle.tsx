@@ -1,5 +1,9 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -19,10 +23,14 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const titleScale = spring({
     frame: frame - 3,
@@ -87,7 +95,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 87 : 100),
             fontWeight: 900,
             color: textColor,
-            fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif",
+            fontFamily: displayFontFamily,
             textAlign: "center",
             lineHeight: 1.05,
             transform: `scale(${scale})`,
@@ -106,7 +114,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
               fontSize: descriptionFontSize ?? (p ? 35 : 33),
               fontWeight: 300,
               color: textColor,
-              fontFamily: "Arial, sans-serif",
+              fontFamily: bodyFontFamily,
               textAlign: "center",
               marginTop: p ? 20 : 28,
               letterSpacing: "0.15em",

@@ -65,6 +65,7 @@ export const MatrixVideoComposition: React.FC<
           textColor: textColor || "#00FF41",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          fontFamily,
         };
 
         return (

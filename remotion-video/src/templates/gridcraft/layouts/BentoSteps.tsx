@@ -1,7 +1,8 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   steps,
@@ -11,6 +12,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -24,6 +26,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
 
   const hasImage = !!imageUrl;
   const p = aspectRatio === "portrait";
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -39,7 +42,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         gap: hasImage ? (p ? 24 : 32) : 0,
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
       }}
     >
       {hasImage && (
