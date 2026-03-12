@@ -235,7 +235,7 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            {/* <span style={{ fontSize: resolvedDescriptionFontSize, color: "#16A34A" }}>✓</span> */}
+            <span style={{ fontSize: resolvedDescriptionFontSize, color: "#16A34A" }}>✓</span>
           </div>
           <h3
             style={{
