@@ -4,37 +4,37 @@ import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
   type LayoutType as RemotionDefaultLayoutType,
   type SceneLayoutProps as RemotionDefaultSceneLayoutProps,
-} from "@remotion/templates/default/layouts";
+} from "@remotion-video/templates/default/layouts";
 import {
   NIGHTFALL_LAYOUT_REGISTRY as REMOTION_NIGHTFALL_LAYOUT_REGISTRY,
   type NightfallLayoutType as RemotionNightfallLayoutType,
   type NightfallLayoutProps as RemotionNightfallLayoutProps,
-} from "@remotion/templates/nightfall/layouts";
+} from "@remotion-video/templates/nightfall/layouts";
 import {
   GRIDCRAFT_LAYOUT_REGISTRY as REMOTION_GRIDCRAFT_LAYOUT_REGISTRY,
-} from "@remotion/templates/gridcraft/layouts";
+} from "@remotion-video/templates/gridcraft/layouts";
 import {
   SPOTLIGHT_LAYOUT_REGISTRY as REMOTION_SPOTLIGHT_LAYOUT_REGISTRY,
   type SpotlightLayoutType as RemotionSpotlightLayoutType,
   type SpotlightLayoutProps as RemotionSpotlightLayoutProps,
-} from "@remotion/templates/spotlight/layouts";
+} from "@remotion-video/templates/spotlight/layouts";
 import {
   MATRIX_LAYOUT_REGISTRY as REMOTION_MATRIX_LAYOUT_REGISTRY,
   type MatrixLayoutType as RemotionMatrixLayoutType,
   type MatrixLayoutProps as RemotionMatrixLayoutProps,
-} from "@remotion/templates/matrix/layouts";
+} from "@remotion-video/templates/matrix/layouts";
 import {
   WHITEBOARD_LAYOUT_REGISTRY as REMOTION_WHITEBOARD_LAYOUT_REGISTRY,
   type WhiteboardLayoutType as RemotionWhiteboardLayoutType,
   type WhiteboardLayoutProps as RemotionWhiteboardLayoutProps,
-} from "@remotion/templates/whiteboard/layouts";
+} from "@remotion-video/templates/whiteboard/layouts";
 import {
   NEWSPAPER_LAYOUT_REGISTRY as REMOTION_NEWSPAPER_LAYOUT_REGISTRY,
   type NewspaperLayoutType as RemotionNewspaperLayoutType,
   type BlogLayoutProps as RemotionNewspaperLayoutProps,
-} from "@remotion/templates/newspaper/layouts";
-import { UniversalScene } from "@remotion/templates/custom/UniversalScene";
-import type { CustomTheme, SceneLayoutConfig } from "@remotion/templates/custom/types";
+} from "@remotion-video/templates/newspaper/layouts";
+import { UniversalScene } from "@remotion-video/templates/custom/UniversalScene";
+import type { CustomTheme, SceneLayoutConfig } from "@remotion-video/templates/custom/types";
 
 export interface RemotionDefaultSceneInput {
   id: number;
