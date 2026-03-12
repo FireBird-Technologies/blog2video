@@ -121,6 +121,8 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               </ul>
               <button
                 onClick={() => handleCheckout("per_video")}
@@ -166,6 +168,8 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
               <button
@@ -217,6 +221,8 @@ export default function UpgradePlanModal({
                 <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
                 <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
                 <li className="flex items-start gap-2"><CheckMark />Unlimited AI edit & image generation</li>
+                <li className="flex items-start gap-2"><CheckMark />Custom video templates</li>
+                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
                 <li className="flex items-start gap-2"><CheckMark />Priority support</li>
               </ul>
               <button

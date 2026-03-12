@@ -30,6 +30,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats: statsProp,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -41,7 +42,13 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
 
       {/* Paper grain + ink filter */}

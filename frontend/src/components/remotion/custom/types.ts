@@ -147,4 +147,5 @@ export interface UniversalSceneProps {
   narration: string;
   imageUrl?: string;
   aspectRatio?: string;
+  fontFamily?: string;
 }

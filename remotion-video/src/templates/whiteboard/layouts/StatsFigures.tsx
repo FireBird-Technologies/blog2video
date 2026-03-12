@@ -104,6 +104,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   bgColor,
   descriptionFontSize,
   stats: statsProp,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { width: videoWidth } = useVideoConfig();
@@ -127,7 +128,14 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   ];
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        backgroundColor: bgColor,
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
       
       {/* Background Scribbles */}

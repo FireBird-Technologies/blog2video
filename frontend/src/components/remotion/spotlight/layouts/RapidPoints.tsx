@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -18,10 +19,12 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
   textColor,
   aspectRatio,
   titleFontSize,
-  descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
   const displayPhrases =
     phrases && phrases.length > 0
@@ -84,12 +87,12 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
             <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 38 : 62),
+                fontSize: titleFontSize ?? (p ? 96 : 90),
                 fontWeight: 800,
                 color: textColor || "#FFFFFF",
                 letterSpacing: "-0.025em",
                 lineHeight: 1.15,
-                fontFamily: "'Arial Black', sans-serif",
+                fontFamily: displayFontFamily,
               }}
             >
               {phrase

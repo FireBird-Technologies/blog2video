@@ -10,25 +10,39 @@ import ErrorModal from "../components/ErrorModal";
 export const DEFAULT_ERROR_MESSAGE =
   "We got an unexpected error, please try again or contact support.";
 
+interface ErrorOptions {
+  showUpgrade?: boolean;
+}
+
 interface ErrorModalContextType {
-  showError: (message: string) => void;
+  showError: (message: string, options?: ErrorOptions) => void;
 }
 
 const ErrorModalContext = createContext<ErrorModalContextType | null>(null);
 
 export function ErrorModalProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const showError = useCallback((msg: string) => {
+  const showError = useCallback((msg: string, options?: ErrorOptions) => {
     setMessage(msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE);
+    setShowUpgrade(Boolean(options?.showUpgrade));
   }, []);
 
-  const close = useCallback(() => setMessage(null), []);
+  const close = useCallback(() => {
+    setMessage(null);
+    setShowUpgrade(false);
+  }, []);
 
   return (
     <ErrorModalContext.Provider value={{ showError }}>
       {children}
-      <ErrorModal open={message != null} message={message ?? ""} onClose={close} />
+      <ErrorModal
+        open={message != null}
+        message={message ?? ""}
+        showUpgrade={showUpgrade}
+        onClose={close}
+      />
     </ErrorModalContext.Provider>
   );
 }

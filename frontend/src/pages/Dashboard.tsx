@@ -197,7 +197,10 @@ export default function Dashboard() {
       if (isBulkUpgradeRequired) {
         setShowBulkUpgradeModal(true);
       } else if (err?.response?.status === 403) {
-        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
+        showError(
+          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+          { showUpgrade: true }
+        );
       } else {
         console.error("Bulk create failed:", err);
       }
@@ -279,9 +282,13 @@ export default function Dashboard() {
       navigate(`/project/${res.data.id}`);
     } catch (err: any) {
       if (err?.response?.status === 403) {
-        showError(getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."));
+        showError(
+          getErrorMessage(err, "Video limit reached. Upgrade to Pro for more."),
+          { showUpgrade: true }
+        );
       } else {
         console.error("Failed to create project:", err);
+        showError(getErrorMessage(err));
       }
     } finally {
       setCreating(false);

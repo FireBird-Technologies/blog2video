@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -33,10 +34,11 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown>{
   dataUrl: string;
 }
 
@@ -112,9 +114,15 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#F7F3E8" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#F7F3E8",
+        fontFamily: resolvedFontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
         const startFrame = currentFrame;
@@ -133,6 +141,7 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111827",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

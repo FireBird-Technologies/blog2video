@@ -15,6 +15,9 @@ export interface BlogLayoutProps {
   rightThought?: string;
   category?: string;
   imageUrl?: string;
+
+  /** Project-level font override; when set, used for all text in the layout. */
+  fontFamily?: string;
 }
 
 export type NewspaperLayoutType =

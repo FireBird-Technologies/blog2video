@@ -61,6 +61,7 @@ export interface CustomVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   theme?: CustomTheme;
+  fontFamily?: string;
 }
 
 export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
@@ -74,6 +75,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
   logoSize,
   aspectRatio,
   theme: rawTheme,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
@@ -117,7 +119,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: theme.colors.bg }}>
+    <AbsoluteFill style={{ backgroundColor: theme.colors.bg, fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.max(
           1,
@@ -145,6 +147,7 @@ export const CustomVideoComposition: React.FC<CustomVideoCompositionProps> = ({
               narration={scene.narration}
               imageUrl={scene.imageUrl}
               aspectRatio={aspectRatio || "landscape"}
+              fontFamily={fontFamily}
             />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
           </Sequence>

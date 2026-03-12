@@ -9,6 +9,7 @@ import {
   delayRender,
 } from "remotion";
 import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -37,10 +38,11 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
@@ -191,9 +193,15 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FFFFFF" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#FFFFFF",
+        fontFamily: resolvedFontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene, index) => {
         const durationFrames = Math.max(
           1,
@@ -224,6 +232,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#000000",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (
