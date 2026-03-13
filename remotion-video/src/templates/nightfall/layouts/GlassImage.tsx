@@ -3,6 +3,7 @@ import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotio
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
+import { random } from "remotion";
 
 /**
  * GlassImage — Enhanced Professional Version
@@ -85,18 +86,15 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
   );
 
   // Particle generation for fallback animation
-  const numParticles = 30;
+  const numParticles = 15;
   const particles = useMemo(() => {
-    return Array.from({ length: numParticles }).map((_, i) => ({
-      id: i,
-      size: 40 + Math.random() * 100, // Larger size range
-      initialX: Math.random() * 100,
-      initialY: Math.random() * 60, // Restrict to upper 60% of the screen
-      animationDelay: Math.random() * 90, // Delay up to 3 seconds (30fps * 3s)
-      directionX: Math.random() > 0.5 ? 1 : -1,
-      directionY: Math.random() > 0.5 ? 1 : -1,
-    }));
-  }, []); // Only generate once
+  return Array.from({ length: numParticles }).map((_, i) => ({
+    id: i,
+    size: 40 + random(i) * 100,
+    initialX: random(i + 1) * 100,
+    initialY: random(i + 2) * 60,
+  }));
+}, []);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -179,30 +177,11 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
         // Fallback if no image - show animation only
         <AbsoluteFill style={{ overflow: "hidden" }}>
           {particles.map((particle) => {
-            const { id, size, initialX, initialY, animationDelay, directionX, directionY } = particle;
+            const { id, size, initialX, initialY } = particle;
 
-            const actualFrame = frame + animationDelay; // Offset each particle's start
 
-            // Sinusoidal movement for subtle drift
-            const offsetX = Math.sin(actualFrame * 0.01 * directionX + id) * 50; // Randomize phase with id
-            const offsetY = Math.cos(actualFrame * 0.015 * directionY + id) * 50;
-
-            // Continuous fade in and out cycle
-            const opacityCycleDuration = 300; // 10 seconds per fade cycle
-            const currentCycleFrame = actualFrame % opacityCycleDuration;
-            const opacity = interpolate(
-              currentCycleFrame,
-              [0, opacityCycleDuration * 0.1, opacityCycleDuration * 0.9, opacityCycleDuration],
-              [0, 0.4, 0.4, 0],
-              { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-            );
-
-            // Scale can also subtly change
-            const scale = interpolate(
-              Math.sin(actualFrame * 0.005 + id / 2),
-              [-1, 1],
-              [0.8, 1.2]
-            );
+              const scale = 1;
+              const opacity = 0.2 + (id % 3) * 0.05;
 
             return (
               <div
@@ -217,11 +196,9 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                   background: `radial-gradient(circle at center, ${accentColor} 0%, transparent 70%)`,
                   opacity: opacity,
                   transform: `
-                      translate(-50%, -50%)
-                      translateX(${offsetX}px)
-                      translateY(${offsetY}px)
-                      scale(${scale})
-                    `,
+                    translate(-50%, -50%)
+                    scale(${scale})
+                  `,
                   filter: `blur(${size / 15}px)`, // More blur for larger particles
                   pointerEvents: "none",
                   mixBlendMode: "lighten", // or 'screen' to make them brighter
