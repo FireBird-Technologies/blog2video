@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2020",
+    "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
+    "skipLibCheck": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
@@ -10,12 +12,14 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "skipLibCheck": true,
+    "types": ["node"],
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "react", "react-dom"]
+    "paths": {
+      "@remotion-video/src/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }
