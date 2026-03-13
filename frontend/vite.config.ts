@@ -3,16 +3,15 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import fs from "fs";
 
-const remotionVideoPath = path.resolve(__dirname, "../remotion-video/src");
-const isRemotionAvailable = fs.existsSync(remotionVideoPath);
+const isCloudflare = !!process.env.CF_PAGES;
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@remotion-video": isRemotionAvailable
-        ? remotionVideoPath
-        : path.resolve(__dirname, "./src/components/remotion"),
+      "@remotion-video": isCloudflare
+        ? path.resolve(__dirname, "./src/components/remotion")
+        : path.resolve(__dirname, "../remotion-video/src"),
     },
   },
   server: {
