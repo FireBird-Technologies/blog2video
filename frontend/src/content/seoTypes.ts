@@ -60,6 +60,9 @@ export interface BlogSection {
   heading: string;
   paragraphs: string[];
   bullets?: string[];
+  component?: string;
+  ctaPath?: string;
+  ctaLabel?: string;
 }
 
 export interface DistributionAsset {
