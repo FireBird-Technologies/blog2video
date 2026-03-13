@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -115,8 +115,8 @@ export default function Landing() {
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
       <Seo
-        title="Turn Blog Posts Into Videos"
-        description="Turn blog posts, articles, PDFs, and documents into narrated videos with templates, voiceover, scene editing, and cross-channel distribution workflows."
+        title="Blog to Video | Turn Posts Into Videos | Blog2Video"
+        description="Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed. Free to start."
         path="/"
         schema={homepageSchema()}
       />
@@ -220,6 +220,12 @@ export default function Landing() {
             <p className="text-xs text-gray-400">
               First video free — no credit card required
             </p>
+            <Link
+              to="/blog-to-video"
+              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              Learn more: Blog to video converter →
+            </Link>
           </div>
         </div>
       </section>

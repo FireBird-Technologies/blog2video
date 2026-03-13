@@ -23,7 +23,7 @@ export const marketingPages: MarketingPage[] = [
 ];
 
 export const topNavLinks = [
-  { href: "/blog-to-video", label: "Workflows" },
+  { href: "/blog-to-video", label: "Blog to Video" },
   { href: "/for-technical-bloggers", label: "Use Cases" },
   { href: "/templates/geometric-explainer", label: "Templates" },
   { href: "/blogs", label: "Blog" },
