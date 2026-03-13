@@ -5,6 +5,7 @@ import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../a
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import AccountDeletedModal from "../components/AccountDeletedModal";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -18,6 +19,9 @@ export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     "monthly"
   );
+  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -26,7 +30,28 @@ export default function Pricing() {
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
+        setPendingCredential(response.credential);
+        setAccountDeletedOpen(true);
+      } else {
+        showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      }
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!pendingCredential) return;
+    setReactivating(true);
+    try {
+      const res = await googleLogin(pendingCredential, true);
+      login(res.data.access_token, res.data.user);
+      setAccountDeletedOpen(false);
+      setPendingCredential(null);
+      navigate("/dashboard");
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Failed to reactivate account."));
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -667,6 +692,13 @@ export default function Pricing() {
       </div>
 
       <PublicFooter />
+
+      <AccountDeletedModal
+        open={accountDeletedOpen}
+        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
+        onReactivate={handleReactivate}
+        reactivating={reactivating}
+      />
     </div>
   );
 }

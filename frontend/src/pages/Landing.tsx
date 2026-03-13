@@ -8,6 +8,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -73,6 +74,9 @@ export default function Landing() {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
+  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
   const scrollRef = useScrollReveal();
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
@@ -108,7 +112,28 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
+        setPendingCredential(response.credential);
+        setAccountDeletedOpen(true);
+      } else {
+        showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      }
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!pendingCredential) return;
+    setReactivating(true);
+    try {
+      const res = await googleLogin(pendingCredential, true);
+      login(res.data.access_token, res.data.user);
+      setAccountDeletedOpen(false);
+      setPendingCredential(null);
+      navigate("/dashboard");
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Failed to reactivate account."));
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -777,6 +802,13 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
+
+      <AccountDeletedModal
+        open={accountDeletedOpen}
+        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
+        onReactivate={handleReactivate}
+        reactivating={reactivating}
+      />
     </div>
   );
 }
