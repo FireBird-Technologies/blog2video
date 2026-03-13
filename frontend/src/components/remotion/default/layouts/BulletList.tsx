@@ -1,139 +1,182 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, Img } from "remotion";
 import { SceneLayoutProps } from "../types";
 
-export const BulletList: React.FC<SceneLayoutProps> = ({
-  title,
-  accentColor,
-  bgColor,
-  textColor,
-  bullets = [],
-  aspectRatio,
-  titleFontSize,
-  descriptionFontSize,
-}) => {
+export const BulletList: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
+  const {
+    title,
+    accentColor,
+    bgColor,
+    textColor,
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+    imageUrl, // New Prop
+    fontFamily,
+    ...extra
+  } = props;
+
+  const { points = [] } = extra as {
+    points?: { key: string; value: string }[];
+  };
+
   const frame = useCurrentFrame();
-  const fps = 30;
+  const { fps } = { fps: 30 };
   const p = aspectRatio === "portrait";
 
-  const titleSpring = spring({
-    frame: frame - 3,
+  // Animation for the Image
+  const imageSpring = spring({
+    frame,
     fps,
-    config: { damping: 22, stiffness: 90, mass: 1 },
+    config: { damping: 20, stiffness: 100 },
   });
-  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  
+  const imageScale = interpolate(imageSpring, [0, 1], [1.1, 1]);
+  const imageOpacity = interpolate(frame, [0, 15], [0, 1]);
 
   return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: bgColor,
-        padding: p ? "60px 50px" : "80px 120px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
+    <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily ?? "'Roboto Slab', serif", overflow: "hidden" }}>
       <div
         style={{
-          position: "absolute",
-          top: -60,
-          right: -60,
-          width: p ? 250 : 350,
-          height: p ? 250 : 350,
-          borderRadius: "50%",
-          border: `2px solid ${accentColor}15`,
-        }}
-      />
-      <h2
-        style={{
-          color: textColor,
-          fontSize: titleFontSize ?? (p ? 36 : 48),
-          fontWeight: 700,
-          fontFamily: "Inter, sans-serif",
-          opacity: titleOp,
-          marginTop: 0,
-          marginBottom: p ? 28 : 36,
-          lineHeight: 1.2,
+          display: "flex",
+          flexDirection: p ? "column" : "row",
+          width: "100%",
+          height: "100%",
         }}
       >
-        {title}
-      </h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: p ? 16 : 20 }}>
-        {bullets.map((b, i) => {
-          const delay = 18 + i * 10;
-          const itemSpring = spring({
-            frame: frame - delay,
-            fps,
-            config: { damping: 18, stiffness: 120, mass: 1 },
-          });
-          const op = interpolate(itemSpring, [0, 1], [0, 1], {
-            extrapolateRight: "clamp",
-          });
-          const x = interpolate(itemSpring, [0, 1], [-40, 0], {
-            extrapolateRight: "clamp",
-          });
-          return (
-            <div
-              key={i}
+        {/* --- LEFT/TOP SIDE: IMAGE SECTION --- */}
+        {imageUrl && (
+          <div
+            style={{
+              flex: 1,
+              position: "relative",
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+              boxShadow: "0 0 50px rgba(0,0,0,0.2)",
+              zIndex: 1,
+            }}
+          >
+            <Img
+              src={imageUrl}
               style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: p ? 16 : 20,
-                opacity: op,
-                transform: `translateX(${x}px)`,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+            {/* Subtle Gradient Overlay to blend with text side */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: p 
+                ? `linear-gradient(to bottom, transparent 80%, ${bgColor} 100%)`
+                : `linear-gradient(to right, transparent 80%, ${bgColor} 100%)`
+            }} />
+          </div>
+        )}
+
+        {/* --- RIGHT/BOTTOM SIDE: CONTENT SECTION --- */}
+        <div
+          style={{
+            flex: 1.2,
+            padding: p ? "40px 60px" : "80px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            zIndex: 2,
+          }}
+        >
+          {title && (
+            <h2
+              style={{
+                fontSize: titleFontSize ?? (p ? 60 : 52),
+                fontWeight: 800,
+                color: textColor,
+                marginBottom: 40,
+                textAlign: p ? "center" : "left",
+                lineHeight: 1.1,
+                letterSpacing: "-0.02em"
               }}
             >
-              <div
-                style={{
-                  width: p ? 28 : 32,
-                  height: p ? 28 : 32,
-                  borderRadius: 10,
-                  backgroundColor: `${accentColor}15`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  marginTop: 2,
-                }}
-              >
-                <span
+              {title}
+            </h2>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+            {points.map((point, i) => {
+              const delay = 20 + i * 10;
+              const itemSpring = spring({
+                frame: frame - delay,
+                fps,
+                config: { damping: 15, stiffness: 100 },
+              });
+
+              const entranceX = interpolate(itemSpring, [0, 1], [40, 0]);
+              const entranceOpacity = interpolate(itemSpring, [0, 1], [0, 1]);
+
+              return (
+                <div
+                  key={i}
                   style={{
-                    color: accentColor,
-                    fontWeight: 700,
-                    fontSize: p ? 14 : 16,
-                    fontFamily: "Inter, sans-serif",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 20,
+                    opacity: entranceOpacity,
+                    transform: `translateX(${entranceX}px)`,
                   }}
                 >
-                  {i + 1}
-                </span>
-              </div>
-              <span
-                style={{
-                  color: textColor,
-                  fontSize: descriptionFontSize ?? (p ? 22 : 26),
-                  fontFamily: "Inter, sans-serif",
-                  fontWeight: 500,
-                  lineHeight: 1.4,
-                }}
-              >
-                {b}
-              </span>
-            </div>
-          );
-        })}
+                  {/* Bullet Number with Glow */}
+                  <div
+                    style={{
+                      width: 45,
+                      height: 45,
+                      borderRadius: 12,
+                      backgroundColor: accentColor,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      boxShadow: `0 10px 20px ${accentColor}44`,
+                      color: "white",
+                      fontWeight: 800,
+                      fontSize: 22,
+                    }}
+                  >
+                    {i + 1}
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div
+                      style={{
+                        fontSize: descriptionFontSize ? descriptionFontSize * 1.1 : 32,
+                        fontWeight: 700,
+                        color: accentColor,
+                        textTransform: "uppercase",
+                        letterSpacing: "1px"
+                      }}
+                    >
+                      {point.key}
+                    </div>
+                    {point.value && (
+                      <div
+                        style={{
+                          fontSize: descriptionFontSize ?? (p ? 37 : 29),
+                          color: textColor,
+                          opacity: 0.9,
+                          lineHeight: 1.4,
+                          maxWidth: "90%"
+                        }}
+                      >
+                        {point.value}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          backgroundColor: accentColor,
-        }}
-      />
     </AbsoluteFill>
   );
 };

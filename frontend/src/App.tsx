@@ -9,10 +9,12 @@ import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
+import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
+import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -89,6 +91,16 @@ function AppRoutes() {
               <main className="max-w-7xl mx-auto px-6 py-8">
                 <Subscription />
               </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/template-studio-editing-feature"
+          element={
+            <ProtectedRoute>
+              <PasswordProtectedRoute redirectTo="/">
+                <TemplateStudio />
+              </PasswordProtectedRoute>
             </ProtectedRoute>
           }
         />

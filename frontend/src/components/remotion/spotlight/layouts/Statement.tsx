@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
+import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
@@ -19,11 +20,13 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
   textColor,
   aspectRatio,
   titleFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
   const lines = narration
     ? narration.split(/(?<=\.)\s+|(?<=\n)/).filter((l) => l.trim())
@@ -55,14 +58,14 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: hasImage && !p ? "row" : "column",
+          flexDirection: p ? "column" : "row",
           alignItems: "center",
           justifyContent: "center",
           padding: p ? "10% 8%" : "0 8%",
-          gap: hasImage ? (p ? 30 : 60) : 0,
+          gap: p ? 30 : 60,
         }}
       >
-        {hasImage && (
+        {imageUrl && (
           <div
             style={{
               flex: p ? "none" : "0 0 38%",
@@ -85,7 +88,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
           </div>
         )}
 
-        <div style={{ width: hasImage && !p ? "58%" : "100%" }}>
+        <div style={{ width: p ? "100%" : "58%" }}>
           {lines.map((line, i) => {
             const lineSpring = spring({
               frame: frame - i * 8,
@@ -103,6 +106,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                   opacity: lineSpring,
                   lineHeight: 1.15,
                   marginBottom: 4,
+                  textAlign: p ? "center" : "left",
                 }}
               >
                 {words.map((word, wi) => {
@@ -119,7 +123,7 @@ export const Statement: React.FC<SpotlightLayoutProps> = ({
                           : titleFontSize ?? (p ? 42 : 56),
                         fontWeight: 800,
                         color: isHighlight ? accentColor : textColor || "#FFFFFF",
-                        fontFamily: "'Arial Black', sans-serif",
+                        fontFamily: displayFontFamily,
                         letterSpacing: isHighlight ? "-0.04em" : "-0.02em",
                         textTransform: isHighlight ? "uppercase" : "none",
                         display: "inline",

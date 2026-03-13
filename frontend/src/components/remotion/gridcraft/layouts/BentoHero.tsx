@@ -1,7 +1,11 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import {
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+  GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
+} from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   title,
@@ -14,9 +18,14 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   icon,
   titleFontSize,
   descriptionFontSize,
+  categoryFontSize,
+  aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  const p = aspectRatio === "portrait";
 
   // Dynamic content: category tag from layoutProps, or first word of title, or "Featured"
   const categoryTag = (category ?? (title ? title.split(/\s+/)[0]?.slice(0, 14) : "Featured")) || "Featured";
@@ -24,6 +33,8 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const iconContent = icon ?? categoryTag;
   // Subtitle/tagline: layoutProps.subtitle, else scene narration (for bottom-right cell)
   const tagline = subtitle || narration || "";
+  const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
 
   // Animations
   const spr = (delay: number) =>
@@ -46,25 +57,31 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "2fr 1fr",
-        gridTemplateRows: "1fr 1fr",
+        // Adjust grid layout based on orientation
+        gridTemplateColumns: p ? "1fr 1fr" : "2fr 1fr",
+        gridTemplateRows: p ? "2fr 1fr" : "1fr 1fr", // Adjust row height distribution for portrait
         gap: 24,
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: sansFontFamily,
       }}
     >
       {/* Main Title Cell */}
       <div
         style={{
-          gridRow: "1 / 3",
+          // Grid area adjusts based on orientation
+          gridColumn: p ? "1 / 3" : "1 / 2", // Spans both columns for portrait, or 1st column for landscape
+          gridRow: p ? "1 / 2" : "1 / 3", // Spans 1st row for portrait, or both rows for landscape
           ...glass(true), // Accent
           backgroundColor: accentColor || COLORS.ACCENT,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-end",
-          padding: 48,
+          // Text centering for portrait
+          justifyContent: p ? "center" : "flex-end", // Vertically center for portrait
+          alignItems: p ? "center" : "flex-start", // Horizontally center for portrait
+          textAlign: p ? "center" : "left", // Center text for portrait
+          padding: p ? 32 : 48, // Reduced padding for portrait
           transform: `scale(${scale1})`,
           opacity: opacity1,
         }}
@@ -75,7 +92,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
             textTransform: "uppercase",
             letterSpacing: "0.15em",
             opacity: 0.9,
-            marginBottom: 16,
+            marginBottom: p ? 8 : 16, // Smaller margin for portrait
             fontWeight: 500,
           }}
         >
@@ -83,10 +100,10 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
         </div>
         <div
           style={{
-            fontSize: titleFontSize ?? (title && title.length > 20 ? 66 : 84),
+            fontSize: titleFontSize ?? (p ? 72 : 85),
             fontWeight: 700,
             lineHeight: 1.1,
-            fontFamily: FONT_FAMILY.SERIF,
+            fontFamily: serifFontFamily,
             marginBottom: 16,
           }}
         >
@@ -97,44 +114,52 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
       {/* Icon/Category Cell - or image when imageUrl provided */}
       <div
         style={{
+          // Grid area adjusts based on orientation
+          gridColumn: p ? "1 / 2" : "2 / 3", // 1st column in 2nd row for portrait, 2nd column in 1st row for landscape
+          gridRow: p ? "2 / 3" : "1 / 2",
           ...glass(false),
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          alignItems: "center", // Already centered vertically
+          justifyContent: "center", // Already centered horizontally
           transform: `scale(${scale2})`,
           opacity: opacity2,
-          padding: imageUrl ? 0 : 24,
+          padding: imageUrl ? 0 : (p ? 16 : 24), // Adjust padding for portrait
           overflow: "hidden",
         }}
       >
         {imageUrl ? (
           <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (
-          <div style={{ fontSize: 28, fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
+          <div style={{ fontSize: categoryFontSize ?? (p ? 24 : 28), fontWeight: 700, color: textColor || COLORS.DARK, textAlign: "center" }}>
             {iconContent}
           </div>
         )}
       </div>
 
-      {/* Tagline/Subtitle Cell - narration or subtitle, no static "Version 1.0" */}
+      {/* Tagline/Subtitle Cell - narration or subtitle */}
       <div
         style={{
+          // Grid area adjusts based on orientation
+          gridColumn: p ? "2 / 3" : "2 / 3", // 2nd column in 2nd row for portrait, 2nd column in 2nd row for landscape
+          gridRow: p ? "2 / 3" : "2 / 3",
           ...glass(false),
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          padding: 32,
+          alignItems: "center", // Center horizontally for portrait
+          justifyContent: "center", // Already centered vertically
+          textAlign: "center", // Center text
+          padding: p ? 24 : 32, // Adjust padding for portrait
           transform: `scale(${scale3})`,
           opacity: opacity3,
         }}
       >
         {tagline ? (
           <>
-            <div style={{ fontSize: 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Tagline</div>
-            <div style={{ fontSize: descriptionFontSize ?? 22, fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
+            <div style={{ fontSize: p ? 12 : 14, color: COLORS.MUTED, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: p ? 4 : 8 }}>Tagline</div>
+            <div style={{ fontSize: descriptionFontSize ?? (p ? 30 : 28), fontWeight: 600, color: textColor || COLORS.DARK, lineHeight: 1.3 }}>{tagline}</div>
           </>
         ) : (
-          <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.MUTED, fontStyle: "italic" }}>Add a tagline</div>
+          <div style={{ fontSize: p ? 16 : 18, fontWeight: 500, color: COLORS.MUTED, fontStyle: "italic" }}>Add a tagline</div>
         )}
       </div>
     </div>

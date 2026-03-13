@@ -372,12 +372,43 @@ interface ElementRenderCtx {
   theme: CustomTheme;
   deco: StyleDecorations;
   anim: AnimationConfig;
+  fonts: ResolvedFontFamilies;
   frame: number;
   fps: number;
   isPortrait: boolean;
   elementIndex: number;
   titleFontSize?: number;
   descriptionFontSize?: number;
+}
+
+interface ResolvedFontFamilies {
+  heading: string;
+  body: string;
+  mono: string;
+  quoteMark: string;
+}
+
+const DEFAULT_QUOTE_MARK_FONT_FAMILY = "Georgia, serif";
+
+function getResolvedFontFamilies(
+  theme: CustomTheme,
+  fontFamily?: string,
+): ResolvedFontFamilies {
+  if (fontFamily) {
+    return {
+      heading: fontFamily,
+      body: fontFamily,
+      mono: fontFamily,
+      quoteMark: fontFamily,
+    };
+  }
+
+  return {
+    heading: `'${theme.fonts.heading}', sans-serif`,
+    body: `'${theme.fonts.body}', sans-serif`,
+    mono: `'${theme.fonts.mono}', monospace`,
+    quoteMark: DEFAULT_QUOTE_MARK_FONT_FAMILY,
+  };
 }
 
 function animatedSpring(ctx: ElementRenderCtx, extraDelay = 0) {
@@ -394,7 +425,7 @@ function animatedSpring(ctx: ElementRenderCtx, extraDelay = 0) {
 }
 
 function HeadingElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const anim = animatedSpring(ctx);
   const styleScale =
     theme.style === "bold" ? 1.15
@@ -413,7 +444,7 @@ function HeadingElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }
     <div style={{ ...anim, ...deco.contentPadding }}>
       <h1
         style={{
-          fontFamily: `'${theme.fonts.heading}', sans-serif`,
+          fontFamily: fonts.heading,
           fontSize,
           fontWeight: 800,
           color: theme.colors.text,
@@ -430,7 +461,7 @@ function HeadingElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }
 }
 
 function BodyTextElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const anim = animatedSpring(ctx);
   const bodyScale = theme.style === "bold" ? 1.12 : theme.style === "minimal" ? 0.95 : 1.0;
   const defaultBodySize = Math.round((ctx.isPortrait ? 18 : 24) * bodyScale);
@@ -439,7 +470,7 @@ function BodyTextElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
     <div style={{ ...anim, ...deco.contentPadding }}>
       <p
         style={{
-          fontFamily: `'${theme.fonts.body}', sans-serif`,
+          fontFamily: fonts.body,
           fontSize: ctx.descriptionFontSize || defaultBodySize,
           fontWeight: 400,
           color: el.emphasis === "subtle" ? theme.colors.muted : theme.colors.text,
@@ -455,7 +486,7 @@ function BodyTextElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
 }
 
 function CardGridElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const items = el.content.items || [];
   const cols =
     ctx.isPortrait ? 1 : items.length <= 2 ? items.length : items.length <= 4 ? 2 : 3;
@@ -506,7 +537,7 @@ function CardGridElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
             )}
             <p
               style={{
-                fontFamily: `'${theme.fonts.body}', sans-serif`,
+                fontFamily: fonts.body,
                 fontSize: ctx.isPortrait ? 15 : 19,
                 fontWeight: 500,
                 color: theme.colors.text,
@@ -519,7 +550,7 @@ function CardGridElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
             {item.description && (
               <p
                 style={{
-                  fontFamily: `'${theme.fonts.body}', sans-serif`,
+                  fontFamily: fonts.body,
                   fontSize: ctx.isPortrait ? 12 : 14,
                   color: theme.colors.muted,
                   margin: 0,
@@ -537,7 +568,7 @@ function CardGridElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
 }
 
 function CodeBlockElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const anim = animatedSpring(ctx);
   const lines = el.content.codeLines || [];
 
@@ -570,7 +601,7 @@ function CodeBlockElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
                 marginLeft: 8,
                 fontSize: 11,
                 color: theme.colors.muted,
-                fontFamily: `'${theme.fonts.mono}', monospace`,
+                fontFamily: fonts.mono,
               }}
             >
               {el.content.codeLanguage}
@@ -588,7 +619,7 @@ function CodeBlockElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
               <div key={idx} style={{ ...lineAnim }}>
                 <code
                   style={{
-                    fontFamily: `'${theme.fonts.mono}', monospace`,
+                    fontFamily: fonts.mono,
                     fontSize: ctx.isPortrait ? 13 : 17,
                     color: theme.style === "neon" ? theme.colors.accent : theme.colors.text,
                     lineHeight: 1.8,
@@ -607,7 +638,7 @@ function CodeBlockElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
 }
 
 function MetricRowElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const items = el.content.items || [];
   const cols = ctx.isPortrait ? 2 : Math.min(items.length, 4);
 
@@ -642,7 +673,7 @@ function MetricRowElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
           >
             <span
               style={{
-                fontFamily: `'${theme.fonts.heading}', sans-serif`,
+                fontFamily: fonts.heading,
                 fontSize: ctx.isPortrait ? 36 : 52,
                 fontWeight: 800,
                 color: theme.colors.accent,
@@ -653,7 +684,7 @@ function MetricRowElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
             </span>
             <span
               style={{
-                fontFamily: `'${theme.fonts.body}', sans-serif`,
+                fontFamily: fonts.body,
                 fontSize: ctx.isPortrait ? 13 : 16,
                 color: theme.colors.muted,
                 fontWeight: 500,
@@ -669,7 +700,7 @@ function MetricRowElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx
 }
 
 function ImageElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { deco, theme } = ctx;
+  const { deco, theme, fonts } = ctx;
   const anim = animatedSpring(ctx);
   const imageUrl = el.content.imageUrl;
   if (!hasUsableImageUrl(imageUrl)) return null;
@@ -698,7 +729,7 @@ function ImageElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
       {el.content.caption && (
         <p
           style={{
-            fontFamily: `'${theme.fonts.body}', sans-serif`,
+            fontFamily: fonts.body,
             fontSize: 14,
             color: theme.colors.muted,
             margin: 0,
@@ -712,7 +743,7 @@ function ImageElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
 }
 
 function QuoteElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const anim = animatedSpring(ctx);
 
   return (
@@ -723,7 +754,7 @@ function QuoteElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
           fontSize: ctx.isPortrait ? 48 : 72,
           lineHeight: 1,
           color: theme.colors.accent,
-          fontFamily: "Georgia, serif",
+          fontFamily: fonts.quoteMark,
           fontWeight: 700,
           display: "block",
           marginBottom: -10,
@@ -733,7 +764,7 @@ function QuoteElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
       </span>
       <blockquote
         style={{
-          fontFamily: `'${theme.fonts.heading}', sans-serif`,
+          fontFamily: fonts.heading,
           fontSize: ctx.isPortrait ? 24 : 38,
           fontWeight: 700,
           color: theme.colors.text,
@@ -768,7 +799,7 @@ function QuoteElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
       {el.content.author && (
         <p
           style={{
-            fontFamily: `'${theme.fonts.body}', sans-serif`,
+            fontFamily: fonts.body,
             fontSize: ctx.isPortrait ? 14 : 18,
             color: theme.colors.muted,
             marginTop: 16,
@@ -784,7 +815,7 @@ function QuoteElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
 }
 
 function TimelineElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const items = el.content.items || [];
   const isHorizontal = !ctx.isPortrait;
 
@@ -844,7 +875,7 @@ function TimelineElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
             />
             <span
               style={{
-                fontFamily: `'${theme.fonts.heading}', sans-serif`,
+                fontFamily: fonts.heading,
                 fontSize: ctx.isPortrait ? 14 : 16,
                 fontWeight: 700,
                 color: theme.colors.accent,
@@ -855,7 +886,7 @@ function TimelineElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
             {item.description && (
               <span
                 style={{
-                  fontFamily: `'${theme.fonts.body}', sans-serif`,
+                  fontFamily: fonts.body,
                   fontSize: ctx.isPortrait ? 12 : 14,
                   color: theme.colors.muted,
                   textAlign: isHorizontal ? "center" : "left",
@@ -872,7 +903,7 @@ function TimelineElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
 }
 
 function StepsElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const items = el.content.items || [];
 
   return (
@@ -911,7 +942,7 @@ function StepsElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontFamily: `'${theme.fonts.heading}', sans-serif`,
+                fontFamily: fonts.heading,
                 fontSize: ctx.isPortrait ? 16 : 20,
                 fontWeight: 800,
                 flexShrink: 0,
@@ -922,7 +953,7 @@ function StepsElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
             <div>
               <p
                 style={{
-                  fontFamily: `'${theme.fonts.body}', sans-serif`,
+                  fontFamily: fonts.body,
                   fontSize: ctx.isPortrait ? 16 : 20,
                   fontWeight: 600,
                   color: theme.colors.text,
@@ -935,7 +966,7 @@ function StepsElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
               {item.description && (
                 <p
                   style={{
-                    fontFamily: `'${theme.fonts.body}', sans-serif`,
+                    fontFamily: fonts.body,
                     fontSize: ctx.isPortrait ? 12 : 14,
                     color: theme.colors.muted,
                     margin: 0,
@@ -954,7 +985,7 @@ function StepsElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) 
 }
 
 function IconTextElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx }) {
-  const { theme, deco } = ctx;
+  const { theme, deco, fonts } = ctx;
   const items = el.content.items || [];
 
   return (
@@ -988,7 +1019,7 @@ function IconTextElement({ el, ctx }: { el: SceneElement; ctx: ElementRenderCtx 
             )}
             <span
               style={{
-                fontFamily: `'${theme.fonts.body}', sans-serif`,
+                fontFamily: fonts.body,
                 fontSize: ctx.isPortrait ? 16 : 20,
                 fontWeight: 500,
                 color: theme.colors.text,
@@ -1045,12 +1076,14 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
   narration,
   imageUrl,
   aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const isPortrait = aspectRatio === "9:16";
+  const isPortrait = aspectRatio === "portrait" || aspectRatio === "9:16";
   const deco = getStyleDecorations(theme, isPortrait);
   const anim = getAnimationConfig(theme);
+  const fonts = getResolvedFontFamilies(theme, fontFamily);
 
   // Debug: log what's being rendered (only on first frame to avoid spam)
   if (frame === 0) {
@@ -1133,6 +1166,7 @@ export const UniversalScene: React.FC<UniversalSceneProps> = ({
     theme,
     deco,
     anim,
+    fonts,
     frame,
     fps,
     isPortrait,

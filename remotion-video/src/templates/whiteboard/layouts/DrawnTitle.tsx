@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -71,10 +71,13 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const fps = 30;
+  const scale = videoWidth / 1920;
 
   const titleDur = Math.ceil(title.length * (fps / CHARS_PER_SEC));
   const titleChars = Math.min(
@@ -103,7 +106,8 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px"
       }}
     >
       <WhiteboardBackground bgColor={bgColor} />
@@ -150,7 +154,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
             color: textColor,
             fontWeight: 700,
             lineHeight: 1.1,
-            fontSize: titleFontSize ?? (p ? 76 : 114),
+            fontSize: (titleFontSize ?? (p ? 76 : 114)) * scale,
             letterSpacing: "0.01em",
             filter: "url(#ink)",
           }}
@@ -161,7 +165,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
         {/* Animated Underline */}
         <svg
           style={{ 
-            width: p ? 380 : 720, 
+            width: p ? 380 * scale : 720 * scale,
             maxWidth: "90%", 
             height: 14, 
             marginTop: p ? 30 : 20, 
@@ -203,7 +207,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           style={{
             marginTop: p ? 30 : 26,
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 34 : 36),
+            fontSize: (descriptionFontSize ?? (p ? 34 : 36)) * scale,
             fontWeight: 500,
             maxWidth: p ? "100%" : "76%",
             lineHeight: 1.45,

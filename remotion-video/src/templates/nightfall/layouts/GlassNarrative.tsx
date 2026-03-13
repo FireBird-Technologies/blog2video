@@ -14,6 +14,7 @@ import type { NightfallLayoutProps } from "../types";
  * - Better content hierarchy
  * - Subtle floating animation for life
  * - Image support: shows image alongside text when available
+ * - Portrait mode: image large, then title, then narration
  */
 
 export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
@@ -26,6 +27,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
@@ -116,7 +118,8 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             position: "absolute",
             width: p ? "95%" : hasImage ? "92%" : "75%",
             maxWidth: hasImage ? 1400 : 950,
-            height: p ? 400 : hasImage ? 600 : 500,
+            // Increased height for portrait with image to accommodate more content
+            height: p ? (hasImage ? 800 : 400) : (hasImage ? 600 : 500), 
             background: `radial-gradient(ellipse at center, ${accentColor}15 0%, transparent 70%)`,
             filter: "blur(60px)",
             opacity: cardOpacity * 0.6,
@@ -129,7 +132,8 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             ...glassCardStyle(accentColor, 0.1),
             width: p ? "95%" : hasImage ? "92%" : "75%",
             maxWidth: hasImage ? 1400 : 950,
-            padding: p ? 44 : hasImage ? 72 : 64,
+            // Adjust padding based on portrait and image presence
+            padding: p ? (hasImage ? 60 : 44) : (hasImage ? 72 : 64), 
             transform: `translateY(${(1 - cardY) * 50 + floatY}px)`,
             opacity: cardOpacity,
             position: "relative",
@@ -140,7 +144,8 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             `,
             display: "flex",
             flexDirection: "column",
-            gap: hasImage ? (p ? 24 : 32) : 0,
+            // Adjust gap within the card based on image and portrait
+            gap: hasImage ? (p ? 32 : 32) : 0, 
           }}
         >
           {/* Top accent line */}
@@ -156,15 +161,15 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
             }}
           />
 
-          {/* Title - shown at top when image exists */}
-          {hasImage && (
+          {/* Title - shown at top when image exists AND NOT IN PORTRAIT */}
+          {hasImage && !p && (
             <h2
               style={{
-                fontSize: titleFontSize ?? (p ? 40 : 52),
+                fontSize: titleFontSize ?? (p ? 76 : 63), // Default for landscape with image
                 fontWeight: 700,
                 color: textColor,
-                fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-                marginBottom: p ? 20 : 32,
+                fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                marginBottom: 32, // Default for landscape
                 lineHeight: 1.25,
                 letterSpacing: "-0.01em",
                 opacity: titleOpacity,
@@ -180,8 +185,10 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
           <div
             style={{
               display: "flex",
-              flexDirection: hasImage && !p ? "row" : "column",
-              gap: hasImage ? (p ? 24 : 40) : 0,
+              // Layout image and text in a row for landscape (if image), column otherwise
+              flexDirection: hasImage && !p ? "row" : "column", 
+              // Gap between image and text section
+              gap: hasImage ? (p ? 32 : 40) : 0, 
               alignItems: hasImage && !p ? "flex-start" : "stretch",
             }}
           >
@@ -191,13 +198,15 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                 style={{
                   flex: p ? "none" : "0 0 42%",
                   width: p ? "100%" : "auto",
-                  height: p ? 220 : 380,
+                  // Make image larger in portrait mode with image
+                  height: p && hasImage ? 400 : (p ? 220 : 380), 
                   position: "relative",
                   opacity: imageOpacity,
                   transform: `scale(${imageScale})`,
                   borderRadius: 12,
                   overflow: "hidden",
-                  marginBottom: p ? 20 : 0,
+                  // Add more margin below image in portrait mode with image
+                  marginBottom: p && hasImage ? 30 : (p ? 20 : 0), 
                 }}
               >
                 <Img
@@ -230,14 +239,15 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                 flexDirection: "column",
               }}
             >
-              {/* Title - shown here when no image */}
-              {!hasImage && (
+              {/* Title - shown here when no image OR in portrait mode (below image) */}
+              {(!hasImage || p) && (
                 <h2
                   style={{
-                    fontSize: titleFontSize ?? (p ? 36 : 46),
+                    // Adjust font size for title based on portrait, image presence
+                    fontSize: titleFontSize ?? (p ? (hasImage ? 40 : 36) : 46), 
                     fontWeight: 700,
                     color: textColor,
-                    fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                    fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                     marginBottom: 28,
                     lineHeight: 1.25,
                     letterSpacing: "-0.01em",
@@ -254,10 +264,11 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                 style={{
                   opacity: narrationOpacity,
                   transform: `translateY(${narrationY}px)`,
-                  fontSize: descriptionFontSize ?? (hasImage ? 26 : 25),
+                  // Adjust font size for narration based on portrait, image presence
+                  fontSize: descriptionFontSize ?? (p ? 43 : 36), 
                   lineHeight: 1.8,
                   color: "rgba(226,232,240,0.8)",
-                  fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
                 }}
               >
                 {paragraphs.length > 1 ? (
@@ -278,7 +289,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                               float: "left",
                               fontSize: p ? 120 : 140,
                               lineHeight: 0.85,
-                              fontFamily: "'Playfair Display', Georgia, serif",
+                              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                               color: accentColor,
                               fontWeight: 700,
                               marginRight: 12,
@@ -306,7 +317,7 @@ export const GlassNarrative: React.FC<NightfallLayoutProps> = ({
                             float: "left",
                             fontSize: p ? 120 : 140,
                             lineHeight: 0.85,
-                            fontFamily: "'Playfair Display', Georgia, serif",
+                            fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                             color: accentColor,
                             fontWeight: 700,
                             marginRight: 12,

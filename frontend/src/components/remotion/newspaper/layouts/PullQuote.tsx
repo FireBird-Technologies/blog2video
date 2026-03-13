@@ -1,10 +1,10 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import { NewsBackground } from "../NewsBackground";
 import type { BlogLayoutProps } from "../types";
 
-const H_FONT = "Georgia, 'Times New Roman', serif";
-const B_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const H_FONT = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const B_FONT = "'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export const PullQuote: React.FC<BlogLayoutProps> = ({
   title = "This is not a political game. Real people will feel real consequences starting tomorrow.",
@@ -16,10 +16,12 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   stats,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = width / 1920;
   const source = stats?.[0]?.label ?? "";
 
   // --- Continuous Motion Logic (Unchanged) ---
@@ -35,11 +37,12 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   // --- Shard Logic: Optimized for Portrait Aspect Ratio ---
   // In portrait, we increase the width of the shards to ensure full coverage
   const shardWidthFactor = p ? 0.8 : 0.5; 
-  const leftShardX = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, -150]);
-  const leftShardRot = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, -8]);
+  // Modified: Shards now stick at position 0 and rotation 0 after colliding (motionProgress = 1)
+  const leftShardX = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, 0]);
+  const leftShardRot = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, 0]);
   
-  const rightShardX = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 150]);
-  const rightShardRot = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 8]);
+  const rightShardX = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 0]);
+  const rightShardRot = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 0]);
 
   // UI Animations
   const barH = interpolate(frame, [0, 18], [0, 100], { extrapolateRight: "clamp" });
@@ -47,7 +50,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const quoteMarkOp = interpolate(frame, [6, 20], [0, 1], { extrapolateRight: "clamp" });
   
   const words = title.split(" ");
-  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp" });
+  const wordProgress = interpolate(frame, [16, 54], [0, 1], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
   const visWords = Math.floor(words.length * wordProgress);
 
   const attrOp = interpolate(frame, [50, 64], [0, 1], { extrapolateRight: "clamp" });
@@ -56,7 +59,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   return (
     <AbsoluteFill style={{ 
       overflow: "hidden", 
-      fontFamily: B_FONT, 
+      fontFamily: fontFamily ?? B_FONT, 
       backgroundColor: "#000",
       perspective: "1200px" 
     }}>
@@ -79,7 +82,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
 
         {/* Shards: Width adjusted for aspect ratio */}
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
@@ -95,7 +98,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
         />
 
         <img
-          src="/vintage-news.avif"
+          src={staticFile("vintage-news.avif")}
           alt=""
           style={{
             position: "absolute",
@@ -124,45 +127,45 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
           <div style={{ 
             display: "flex", 
             flexDirection: "row", // Keep horizontal to maintain quote-bar relationship
-            gap: p ? 24 : 32, 
-            alignItems: "flex-start", 
-            maxWidth: p ? width * 0.9 : 1000, 
+            gap: p ? 24 * scale : 32 * scale,
+            alignItems: "flex-start",
+            maxWidth: p ? width * 0.9 : 1000 * scale,
             width: "100%" 
           }}>
             {/* Accent Bar */}
             <div style={{
-              width: p ? 10 : 8,
+              width: p ? 10 * scale : 8 * scale,
               flexShrink: 0,
               background: accentColor,
               alignSelf: "stretch",
               clipPath: `inset(0 0 ${100 - barH}% 0)`,
-              minHeight: p ? 120 : 80,
+              minHeight: p ? 120 * scale : 80 * scale,
               borderRadius: 4,
             }} />
 
             <div style={{ flex: 1 }}>
               {/* Quote Mark */}
               <div style={{
-                fontFamily: H_FONT,
-                fontSize: p ? 140 : 120, // Huge quote marks for portrait impact
+                fontFamily: fontFamily ?? H_FONT,
+                fontSize: p ? 140 * scale : 120 * scale, // Huge quote marks for portrait impact
                 lineHeight: 0.5,
                 color: accentColor,
                 opacity: quoteMarkOp,
                 transform: `scale(${quoteMarkS})`,
                 transformOrigin: "left top",
-                marginBottom: p ? 20 : 15,
+                marginBottom: p ? 20 * scale : 15 * scale,
               }}>
                 &#8220;
               </div>
 
               {/* Main Quote Text */}
               <div style={{
-                fontFamily: H_FONT,
-                fontSize: titleFontSize ?? (p ? 58 : 64), // Adjusted for readability on mobile
+                fontFamily: fontFamily ?? H_FONT,
+                fontSize: titleFontSize ?? (p ? 58 * scale : 64 * scale), // Adjusted for readability on mobile
                 fontWeight: 600,
                 lineHeight: 1.25,
                 color: textColor,
-                marginBottom: p ? 40 : 40,
+                marginBottom: 40 * scale,
                 letterSpacing: p ? "-0.02em" : "normal",
               }}>
                 {words.slice(0, visWords).join(" ")}
@@ -182,11 +185,11 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Attribution */}
               <div style={{ opacity: attrOp }}>
                 <div style={{ 
-                    fontFamily: B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 32 : 36), 
+                    fontFamily: fontFamily ?? B_FONT, 
+                    fontSize: descriptionFontSize ?? (p ? 32 * scale : 36 * scale),
                     fontWeight: 800, 
                     color: textColor, 
-                    marginBottom: 8,
+                    marginBottom: 8 * scale,
                     textTransform: "uppercase",
                     letterSpacing: "0.05em"
                 }}>
@@ -194,8 +197,8 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 </div>
                 {source && (
                   <div style={{ 
-                    fontFamily: B_FONT, 
-                    fontSize: p ? 18 : 18, 
+                    fontFamily: fontFamily ?? B_FONT, 
+                    fontSize: 18 * scale,
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: sourceOp * 0.7 

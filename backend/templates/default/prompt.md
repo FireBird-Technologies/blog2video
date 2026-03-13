@@ -58,6 +58,37 @@ Geometric Explainer is a clean, modern video style for technical and educational
 
 ---
 
+## hero_image
+**Visual:** A full-screen background image is overlaid with a colorful diagonal gradient, transitioning from purple to blue. A large, uppercase title and optional subtitle are centered on top, animating in with a subtle upward motion.
+
+**When to Use:** Use the `hero_image` layout for impactful video introductions, title screens, or section breaks that need to grab the viewer's attention.
+
+**Avoid When:** Avoid this layout for displaying long paragraphs or detailed, multi-point information.
+
+**Notes:**
+* The purple-to-blue diagonal gradient overlay is a fixed part of the design and cannot be customized.
+* The title text is automatically converted to uppercase.
+* The background image has a subtle zoom-out animation applied throughout the scene.
+
+---
+
+## bullet_list
+**Visual:** An animated, numbered list where each point slides in. Each item features a circular number, a main point in a colored, pill-shaped container, and an optional description underneath.
+
+**Props:**
+  - `points` (object_array) — An array of objects for the list items. Each object must have a `key` (the main text) and an optional `value` (the description).
+
+**When to Use:** Use the `bullet_list` layout to present a sequence of key features, benefits, or takeaways in a visually distinct and structured manner.
+
+**Avoid When:** Avoid this layout for very long text descriptions that would compromise the design.
+
+**Notes:**
+- The text for each point's title (`key`) is automatically transformed to uppercase.
+- The description (`value`) for each point is optional; if omitted, only the pill-shaped title will be shown.
+- For best results, keep the number of points between 2 and 5.
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** Always hero_image. No exceptions.

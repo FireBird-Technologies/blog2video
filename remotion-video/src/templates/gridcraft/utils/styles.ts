@@ -8,12 +8,6 @@ export const COLORS = {
   MUTED: "#6B7280",
 };
 
-export const FONT_FAMILY = {
-  SANS: "'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif", // Fallback for DM Sans
-  SERIF: "'Georgia', 'Cambria', 'Times New Roman', serif",
-  MONO: "'Courier New', monospace",
-};
-
 export const glass = (accent: boolean) => ({
   backgroundColor: accent
     ? "rgba(249,115,22,0.85)"

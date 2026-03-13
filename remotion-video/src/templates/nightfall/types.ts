@@ -41,6 +41,7 @@ export interface NightfallLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
+  fontFamily?: string;
   // glow_metric
   metrics?: { value: string; label: string; suffix?: string }[];
   // glass_code

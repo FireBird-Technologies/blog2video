@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -11,9 +11,12 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   // 1. BOUNCE MATH
   const bounceHeight = 120;
@@ -38,7 +41,8 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px"
       }}
     >
       <WhiteboardBackground bgColor={bgColor} />
@@ -74,7 +78,7 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
         {/* Header-style Text for Portrait */}
         {p && (
           <div style={{ color: textColor, opacity: textOp, textAlign: "center", marginBottom: -20 }}>
-            <div style={{ fontWeight: 700, fontSize: titleFontSize ?? 64, filter: "url(#ink)" }}>{title}</div>
+            <div style={{ fontWeight: 700, fontSize: (titleFontSize ?? 64) * scale, filter: "url(#ink)" }}>{title}</div>
             {/* Hand-drawn underline for title in portrait */}
             <svg width="100%" height="20" viewBox="0 0 300 20" style={{ opacity: doodleOp }}>
                 <path d="M50,10 Q150,18 250,10" stroke={accentColor} strokeWidth="4" fill="none" strokeLinecap="round" />
@@ -122,12 +126,12 @@ export const StickFigureScene: React.FC<WhiteboardLayoutProps> = ({
           textAlign: p ? "center" : "left",
           maxWidth: p ? "90%" : "auto" 
         }}>
-          {!p && <div style={{ fontWeight: 700, fontSize: titleFontSize ?? 82, filter: "url(#ink)" }}>{title}</div>}
-          <div style={{ 
-            marginTop: p ? 0 : 18, 
-            fontSize: descriptionFontSize ?? (p ? 34 : 38), 
+          {!p && <div style={{ fontWeight: 700, fontSize: (titleFontSize ?? 82) * scale, filter: "url(#ink)" }}>{title}</div>}
+          <div style={{
+            marginTop: p ? 0 : 18,
+            fontSize: (descriptionFontSize ?? (p ? 34 : 38)) * scale,
             filter: "url(#ink)",
-            lineHeight: 1.4 
+            lineHeight: 1.4
           }}>
             {narration}
           </div>

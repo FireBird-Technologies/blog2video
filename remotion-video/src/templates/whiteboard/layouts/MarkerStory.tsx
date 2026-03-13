@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -12,9 +12,12 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
   const hasImage = !!imageUrl;
 
   const titleProgress = interpolate(frame, [0, 28], [0, 1], {
@@ -39,7 +42,8 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
     <AbsoluteFill
       style={{
         overflow: "hidden",
-        fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px"
       }}
     >
       <WhiteboardBackground bgColor={bgColor} />
@@ -85,7 +89,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             <div
               style={{
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 68 : 88),
+                fontSize: (titleFontSize ?? (p ? 68 : 88)) * scale,
                 lineHeight: 1.03,
                 fontWeight: 700,
                 opacity: 0,
@@ -99,7 +103,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
                 inset: 0,
                 clipPath: `inset(0 ${titleClipRight}% 0 0)`,
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 68 : 88),
+                fontSize: (titleFontSize ?? (p ? 68 : 88)) * scale,
                 lineHeight: 1.03,
                 fontWeight: 700,
                 filter: "url(#ink)",
@@ -111,7 +115,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
 
           {/* Wobbly accent underline */}
           <svg
-            style={{ display: "block", width: p ? 220 : 320, height: 12, marginTop: 8 }}
+            style={{ display: "block", width: p ? 220 * scale : 320 * scale, height: 12, marginTop: 8 }}
             viewBox="0 0 320 12"
             preserveAspectRatio="none"
           >
@@ -161,9 +165,9 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               marginTop: p ? 10 : 22,
-              fontSize: descriptionFontSize ?? (p ? 34 : 40),
+              fontSize: (descriptionFontSize ?? (p ? 34 : 40)) * scale,
               lineHeight: 1.3,
-              maxWidth: p ? "100%" : 820,
+              maxWidth: p ? "100%" : 820 * scale,
               position: "relative",
               color: textColor,
             }}

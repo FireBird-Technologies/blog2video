@@ -6,7 +6,9 @@ import {
   staticFile,
   CalculateMetadataFunction,
 } from "remotion";
+import "../../fonts/newspaper-defaults";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
+import { resolveFontFamily } from "../../fonts/registry";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
@@ -31,10 +33,11 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  fontFamily?: string | null;
   scenes: SceneData[];
 }
 
-interface VideoProps {
+interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
 
@@ -101,9 +104,15 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   const FPS = 30;
   let currentFrame = 0;
+  const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: data.bgColor || "#FAFAF8" }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: data.bgColor || "#FAFAF8",
+        fontFamily: resolvedFontFamily || undefined,
+      }}
+    >
       {data.scenes.map((scene) => {
         const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
         const startFrame = currentFrame;
@@ -123,6 +132,7 @@ export const NewspaperVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
           imageUrl,
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (

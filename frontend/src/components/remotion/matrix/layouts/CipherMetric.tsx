@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 const CIPHER_CHARS = "0123456789ABCDEF!@#$%ΔΣΩλ";
@@ -26,12 +27,14 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
   const hasImage = !!imageUrl;
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const primary = metrics?.[0];
   const numericValue = primary
@@ -91,7 +94,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.2} />
+      <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
       <div
         style={{
@@ -132,7 +135,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
               color: accent,
               letterSpacing: "-0.03em",
               lineHeight: 1,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               textShadow: `0 0 ${20 * glowPulse}px ${accent}88, 0 0 ${40 * glowPulse}px ${accent}44`,
             }}
           >
@@ -162,7 +165,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
                 color: accent,
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
               }}
             >
               {primary?.label || title}
@@ -173,7 +176,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 14 : 18),
                   color: `${accent}66`,
                   marginTop: 4,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                 }}
               >
                 {metrics && metrics.length > 1

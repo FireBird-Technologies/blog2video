@@ -50,7 +50,13 @@ _SHARED_SRC_FILES = [
     "src/index.ts",
     "src/components/LogoOverlay.tsx",
     "src/components/Transitions.tsx",
-    "src/components/LogoOverlay.tsx"
+    "src/components/LogoOverlay.tsx",
+    # Shared font registry so templates can resolve font IDs to CSS families
+    "src/fonts/registry.ts",
+    # Newspaper template default fonts (bundled, not in registry)
+    "src/fonts/newspaper-defaults.ts",
+    # Nightfall template default fonts (bundled, not in registry)
+    "src/fonts/nightfall-defaults.ts",
 ]
 
 
@@ -663,6 +669,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "accentColor": project.accent_color or "#7C3AED",
         "bgColor": project.bg_color or "#FFFFFF",
         "textColor": project.text_color or "#000000",
+        "fontFamily": getattr(project, "font_family", None),
         "logo": logo_file,
         "logoPosition": getattr(project, "logo_position", None) or "bottom_right",
         "logoOpacity": getattr(project, "logo_opacity", 0.9) or 0.9,
@@ -1010,7 +1017,7 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                                 from app.models.user import User
                                 user = db.query(User).filter(User.id == project.user_id).first()
                                 if user:
-                                    dashboard_url = f"{settings.FRONTEND_URL}/projects/{project_id}"
+                                    dashboard_url = f"{settings.FRONTEND_URL}/project/{project_id}"
                                     email_service.send_download_ready_email(
                                         user_email=user.email,
                                         user_name=user.name,

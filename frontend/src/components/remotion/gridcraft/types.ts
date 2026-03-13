@@ -29,6 +29,7 @@ export interface GridcraftLayoutProps {
   bgColor: string;
   textColor: string;
   aspectRatio?: string;
+  fontFamily?: string;
 
   // Shared data points (used by KPI, Steps)
   dataPoints?: DataPoint[];
@@ -70,4 +71,5 @@ export interface GridcraftLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  categoryFontSize?: number;
 }
