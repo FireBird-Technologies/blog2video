@@ -1,11 +1,13 @@
+import { useMemo } from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { DarkBackground } from "../DarkBackground";
 import { glassCardStyle } from "../GlassCard";
 import type { NightfallLayoutProps } from "../types";
+import { random } from "remotion";
 
 /**
  * GlassImage — Enhanced Professional Version
- * 
+ *
  * Improvements:
  * - Intelligent Ken Burns effect (zoom + pan based on image aspect)
  * - Multi-layer gradient overlays for depth
@@ -38,14 +40,14 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     [1, 1.08],
     { extrapolateRight: "clamp" }
   );
-  
+
   const kenBurnsPanX = interpolate(
     frame,
     [0, 180],
     [0, p ? -3 : -5],
     { extrapolateRight: "clamp" }
   );
-  
+
   const kenBurnsPanY = interpolate(
     frame,
     [0, 180],
@@ -83,10 +85,21 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
     { extrapolateRight: "clamp" }
   );
 
+  // Particle generation for fallback animation
+  const numParticles = 15;
+  const particles = useMemo(() => {
+  return Array.from({ length: numParticles }).map((_, i) => ({
+    id: i,
+    size: 40 + random(i) * 100,
+    initialX: random(i + 1) * 100,
+    initialY: random(i + 2) * 60,
+  }));
+}, []);
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <DarkBackground drift={false} bgColor={bgColor} />
-      
+
       {imageUrl ? (
         <>
           {/* Main Image with Ken Burns */}
@@ -107,7 +120,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
                 objectFit: "cover",
                 opacity: imageOpacity,
                 transform: `
-                  scale(${kenBurnsScale}) 
+                  scale(${kenBurnsScale})
                   translate(${kenBurnsPanX}%, ${kenBurnsPanY}%)
                 `,
                 zIndex: 1,
@@ -126,7 +139,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               zIndex: 2,
             }}
           />
-          
+
           {/* Bottom gradient for caption readability */}
           <div
             style={{
@@ -161,27 +174,40 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
           />
         </>
       ) : (
-        // Fallback if no image
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: `linear-gradient(135deg, ${accentColor}15 0%, transparent 100%)`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: titleFontSize ?? (p ? 78 : 64),
-              opacity: 0.2,
-              color: textColor,
-            }}
-          >
-            📷
-          </div>
-        </div>
+        // Fallback if no image - show animation only
+        <AbsoluteFill style={{ overflow: "hidden" }}>
+          {particles.map((particle) => {
+            const { id, size, initialX, initialY } = particle;
+
+
+              const scale = 1;
+              const opacity = 0.2 + (id % 3) * 0.05;
+
+            return (
+              <div
+                key={id}
+                style={{
+                  position: "absolute",
+                  left: `${initialX}%`,
+                  top: `${initialY}%`,
+                  width: size,
+                  height: size,
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle at center, ${accentColor} 0%, transparent 70%)`,
+                  opacity: opacity,
+                  transform: `
+                    translate(-50%, -50%)
+                    scale(${scale})
+                  `,
+                  filter: `blur(${size / 15}px)`, // More blur for larger particles
+                  pointerEvents: "none",
+                  mixBlendMode: "lighten", // or 'screen' to make them brighter
+                  zIndex: 0,
+                }}
+              />
+            );
+          })}
+        </AbsoluteFill>
       )}
 
       {/* Caption Container with Parallax */}
