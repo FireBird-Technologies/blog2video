@@ -568,6 +568,17 @@ export const createTemplateLayoutFile = (payload: {
   });
 };
 
+export const renderTemplateLayout = (payload: {
+  template_id: string;
+  layout_id: string;
+  aspect_ratio?: string;
+  duration_seconds?: number;
+  layout_props?: Record<string, unknown>;
+}) =>
+  api.post<Blob>("/template-studio/render-layout", payload, {
+    responseType: "blob",
+  });
+
 export interface VoicePreview {
   voice_id: string;
   name: string;
