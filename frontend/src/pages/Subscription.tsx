@@ -11,15 +11,18 @@ import {
   createPortalSession,
   cancelSubscription,
   resumeSubscription,
+  deleteAccount,
   BillingStatus,
   SubscriptionDetail,
   Invoice,
   DataSummary,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 
 export default function Subscription() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
 
   const [billing, setBilling] = useState<BillingStatus | null>(null);
@@ -29,7 +32,9 @@ export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const { showError } = useErrorModal();
 
   useEffect(() => {
     loadAll();
@@ -112,6 +117,17 @@ export default function Subscription() {
       console.error("Failed to resume:", err);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      await logout();
+      navigate("/");
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to delete account."));
+      throw err;
     }
   };
 
@@ -713,8 +729,25 @@ export default function Subscription() {
               </p>
             </div>
           </div>
+          <div className="pt-4 mt-4 border-t border-red-100">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-sm font-medium text-red-600 hover:text-red-700"
+            >
+              Delete my account
+            </button>
+          </div>
         </div>
       </section>
+
+      <ConfirmDeleteModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete your account?"
+        warningMessage="Deleting your account will permanently remove all your data and cancel any active subscription. This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDeleteAccount}
+      />
     </div>
   );
 }

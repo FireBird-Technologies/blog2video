@@ -227,12 +227,14 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-export const googleLogin = (credential: string) =>
-  api.post<AuthResponse>("/auth/google", { credential });
+export const googleLogin = (credential: string, reactivate = false) =>
+  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
 export const logoutCleanup = () => api.post("/auth/logout");
+
+export const deleteAccount = () => api.post("/auth/delete-account");
 
 export const getPublicConfig = () =>
   api.get<PublicConfig>("/config/public");
