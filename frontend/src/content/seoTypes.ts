@@ -54,6 +54,11 @@ export interface TemplateProfile {
   bestFor: string;
   differentiator: string;
   styleFit: string;
+  previewSceneKey?: string;
+  layouts?: string[];
+  longDescription?: string;
+  idealFor?: string[];
+  exampleTopics?: string[];
 }
 
 export interface BlogSection {

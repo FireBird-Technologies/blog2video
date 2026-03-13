@@ -88,7 +88,7 @@ export const blogPosts: BlogPost[] = [
         ],
         component: "blog-workflow",
         ctaPath: "/blog-to-video",
-        ctaLabel: "Convert your first blog post free",
+        ctaLabel: "Try the blog to video converter free",
       },
     ],
     faq: faq("blog post to video", "repurposing one article into multiple formats"),
