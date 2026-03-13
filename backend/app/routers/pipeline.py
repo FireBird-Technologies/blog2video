@@ -530,7 +530,7 @@ async def render_video_endpoint(
         if not user_row or not user_row.can_create_video:
             raise HTTPException(
                 status_code=403,
-                detail=f"Video limit reached ({getattr(user_row, 'video_limit', 1)}). Re-render counts as a video. Upgrade or purchase more credits.",
+                detail="Video limit reached. Re-rendering counts as a new video. Upgrade your plan or buy more credits to continue."
             )
         user_row.videos_used_this_period += 1
         db.commit()
