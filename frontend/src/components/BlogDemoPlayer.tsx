@@ -788,9 +788,425 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+
+  "preview-nightfall": {
+    template: "nightfall",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Cinematic Title", durationSeconds: 7,
+        narration: "The Cinematic Title layout opens with a full-frame headline that fades in with glass-morphism depth. It sets the tone for the entire video and works best as the opening scene for any technical deep dive or product story.",
+        layout: "cinematic_title",
+        layoutProps: { title: "Nightfall: Cinematic Dark Template" },
+      },
+      {
+        id: 2, order: 2, title: "Glass Narrative", durationSeconds: 8,
+        narration: "Glass Narrative presents body text on a translucent card with soft indigo glow behind it. The layout is designed for longer explanations where the viewer needs to absorb a full paragraph of context before moving to the next idea.",
+        layout: "glass_narrative",
+        layoutProps: { title: "Glass Narrative for Long-Form Explanation" },
+      },
+      {
+        id: 3, order: 3, title: "Glass Code", durationSeconds: 8,
+        narration: "Glass Code renders syntax-highlighted code on a dark glass card. Each line appears with monospace formatting, making it perfect for API examples, configuration snippets, and technical walkthroughs that need code to stay readable.",
+        layout: "glass_code",
+        layoutProps: {
+          title: "Code Scene: API Example",
+          codeLanguage: "typescript",
+          codeLines: [
+            "const video = await Blog2Video.create({",
+            "  url: 'https://your-blog.com/post',",
+            "  template: 'nightfall',",
+            "  voice: 'rachel',",
+            "});",
+            "",
+            "await video.render();",
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Glass Stack", durationSeconds: 8,
+        narration: "Glass Stack presents a list of items on stacked glass cards. Each card animates in sequence, making it ideal for step-by-step processes, feature lists, and structured arguments that benefit from visual separation.",
+        layout: "glass_stack",
+        layoutProps: {
+          title: "Nightfall Layouts",
+          items: [
+            "Cinematic Title — full-frame headline with glass depth and glow",
+            "Glass Narrative — translucent card for body text and explanations",
+            "Glass Code — syntax-highlighted code block on dark glass",
+            "Kinetic Insight — animated quote with highlighted keyword",
+            "Chapter Break — numbered section divider with subtitle",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Kinetic Insight", durationSeconds: 7,
+        narration: "Kinetic Insight animates a key quote or insight with one highlighted word that glows brighter than the rest. Use it for the defining statement of the video — the line viewers remember.",
+        layout: "kinetic_insight",
+        layoutProps: {
+          quote: "Premium visuals from your existing content. No stock footage needed.",
+          highlightWord: "Premium",
+        },
+      },
+    ],
+  },
+
+  "preview-spotlight": {
+    template: "spotlight",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Impact Title", durationSeconds: 7,
+        narration: "Impact Title fills the frame with a bold headline against a black background. The typography is designed for maximum contrast and immediate attention, making it the ideal opening for any high-energy video.",
+        layout: "statement",
+        layoutProps: { title: "Spotlight: Bold Kinetic Template", highlightWord: "Bold" },
+      },
+      {
+        id: 2, order: 2, title: "Versus Comparison", durationSeconds: 8,
+        narration: "The Versus layout splits the screen into two halves with contrasting descriptions. It is built for direct comparisons — tool evaluations, before-and-after analyses, or any argument that benefits from a clear side-by-side format.",
+        layout: "versus",
+        layoutProps: {
+          title: "Side-by-Side Comparison",
+          leftLabel: "Blog2Video",
+          rightLabel: "Manual Video",
+          leftDescription: "Paste a URL. AI generates scenes, narration, and structure. Edit individual scenes. Render in minutes.",
+          rightDescription: "Write a script from scratch. Record or generate footage. Edit timeline manually. Repeat for every post.",
+        },
+      },
+      {
+        id: 3, order: 3, title: "Cascade List", durationSeconds: 8,
+        narration: "Cascade List reveals items one at a time in a cascading animation. Each item slides in from the side, creating a dynamic reveal that keeps viewers engaged through longer lists of features, steps, or benefits.",
+        layout: "cascade_list",
+        layoutProps: {
+          title: "Spotlight Layouts",
+          items: [
+            "Impact Title — full-frame bold headline",
+            "Statement — centered claim with highlighted keyword",
+            "Versus — side-by-side comparison layout",
+            "Cascade List — animated sequential item reveal",
+            "Rapid Points — fast-paced phrase sequence",
+            "Word Punch — single giant word that fills the frame",
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Rapid Points", durationSeconds: 7,
+        narration: "Rapid Points displays short phrases one after another with hard cuts between each. The fast pacing creates urgency and momentum, ideal for hooks, social clips, and short-form content where every second counts.",
+        layout: "rapid_points",
+        layoutProps: {
+          title: "Why Spotlight Works",
+          phrases: [
+            "Bold typography grabs attention instantly.",
+            "High-contrast black and red design.",
+            "Pacing built for viewer retention.",
+            "Every layout earns the next second.",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Statement", durationSeconds: 7,
+        narration: "Statement centers a single powerful claim on screen with one word highlighted in the accent color. Use it for the thesis of the video — the one idea that anchors everything else.",
+        layout: "statement",
+        layoutProps: { title: "Built for YouTube. Designed for Attention.", highlightWord: "Attention" },
+      },
+    ],
+  },
+
+  "preview-whiteboard": {
+    template: "whiteboard",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Drawn Title", durationSeconds: 7,
+        narration: "The Drawn Title layout opens the whiteboard with a hand-drawn style headline on a warm paper background. The informal, approachable tone signals to viewers that this is educational content designed for learning, not just marketing.",
+        layout: "marker_story",
+        layoutProps: { title: "Whiteboard: Classroom-Friendly Template" },
+      },
+      {
+        id: 2, order: 2, title: "Stick Figure Scene", durationSeconds: 7,
+        narration: "Stick Figure Scene uses simple hand-drawn characters and scenarios to illustrate concepts. The deliberately informal visual style keeps focus on the explanation rather than the production, making complex ideas feel accessible.",
+        layout: "stick_figure_scene",
+        layoutProps: { title: "Visual Storytelling with Stick Figures" },
+      },
+      {
+        id: 3, order: 3, title: "Stats Chart", durationSeconds: 8,
+        narration: "Stats Chart displays comparative data as hand-drawn bar charts on the whiteboard. The animated bars reveal in sequence, making data comparisons easy to follow and remember in an educational context.",
+        layout: "stats_chart",
+        layoutProps: {
+          title: "Teaching with Data",
+          stats: [
+            { label: "Manual video creation", value: 180 },
+            { label: "Slide-to-video tools", value: 60 },
+            { label: "Blog2Video", value: 5 },
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Speech Bubble Dialogue", durationSeconds: 8,
+        narration: "Speech Bubble Dialogue shows two perspectives side by side in comic-style speech bubbles. It works well for before-and-after comparisons, student-teacher interactions, and contrasting viewpoints that benefit from a conversational format.",
+        layout: "speech_bubble_dialogue",
+        layoutProps: {
+          title: "Before and After",
+          leftThought: "This concept is hard to explain in text alone...",
+          rightThought: "The narrated whiteboard video made it click in seconds!",
+          stats: [{ label: "Student" }, { label: "Viewer" }],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Marker Story", durationSeconds: 7,
+        narration: "Marker Story presents a narrative on the whiteboard with marker-style text. The layout works for longer explanations that need the warmth and clarity of a real classroom presentation.",
+        layout: "marker_story",
+        layoutProps: { title: "Calm Pacing for Real Comprehension" },
+      },
+    ],
+  },
+
+  "preview-gridcraft": {
+    template: "gridcraft",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Editorial Body", durationSeconds: 7,
+        narration: "Editorial Body presents structured body text in a warm editorial grid. The layout brings magazine-quality typography and spacing to article content, making data-rich and list-heavy writing feel intentionally designed rather than generically rendered.",
+        layout: "editorial_body",
+        layoutProps: { title: "Gridcraft: Editorial Bento Template" },
+      },
+      {
+        id: 2, order: 2, title: "Bento Steps", durationSeconds: 8,
+        narration: "Bento Steps lays out a multi-step process in a structured grid where each step gets its own card. The layout is built for workflows, onboarding sequences, and any content that follows a clear progression from start to finish.",
+        layout: "bento_steps",
+        layoutProps: {
+          title: "Workflow in Steps",
+          steps: [
+            { label: "Source", description: "Start with a published blog post or article" },
+            { label: "Generate", description: "Blog2Video builds scenes from the content" },
+            { label: "Review", description: "Edit individual scenes with the scene editor" },
+            { label: "Publish", description: "Export to YouTube, Shorts, or embed" },
+          ],
+        },
+      },
+      {
+        id: 3, order: 3, title: "Bento Compare", durationSeconds: 8,
+        narration: "Bento Compare shows two approaches side by side in editorial cards with a verdict below. It is designed for product comparisons, workflow evaluations, and any content that asks the viewer to weigh two options.",
+        layout: "bento_compare",
+        layoutProps: {
+          title: "Compare Two Approaches",
+          leftLabel: "Content-First",
+          rightLabel: "Prompt-First",
+          leftDescription: "Start from the article. Structure preserved. Narration matches the writing.",
+          rightDescription: "Start from a blank prompt. Re-explain everything. Output drifts.",
+          verdict: "Content-first produces higher-fidelity video",
+        },
+      },
+      {
+        id: 4, order: 4, title: "Bento Features", durationSeconds: 8,
+        narration: "Bento Features presents a feature grid with icons, labels, and short descriptions in a structured bento layout. Each feature card animates in sequence, creating a clean, scannable overview of capabilities or benefits.",
+        layout: "bento_features",
+        layoutProps: {
+          title: "Gridcraft Layouts",
+          features: [
+            { icon: "📐", label: "Bento Steps", description: "Multi-step workflow progression" },
+            { icon: "⚖️", label: "Bento Compare", description: "Side-by-side evaluation with verdict" },
+            { icon: "📝", label: "Editorial Body", description: "Magazine-quality body text" },
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Pull Quote", durationSeconds: 7,
+        narration: "Pull Quote highlights a key statement with editorial styling and attribution. Use it for the defining insight of the section — the quote that viewers screenshot or remember.",
+        layout: "pull_quote",
+        layoutProps: {
+          quote: "Structure your content like a magazine. Render it like a video.",
+          attribution: "The Gridcraft Approach",
+        },
+      },
+    ],
+  },
+
+  "preview-matrix": {
+    template: "matrix",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Terminal Text", durationSeconds: 8,
+        narration: "Terminal Text types out content character by character in green monospace font on a black background with a blinking cursor. The typewriter effect creates the feeling of a live terminal session, perfect for developer audiences who think in code.",
+        layout: "terminal_text",
+        layoutProps: { title: "Matrix: a cyberpunk terminal template for developer content and technical explainers.", highlightWord: "cyberpunk" },
+      },
+      {
+        id: 2, order: 2, title: "Data Stream", durationSeconds: 8,
+        narration: "Data Stream reveals items one at a time with terminal prompt prefixes and index numbers. Each item slides in like an incoming data packet, creating a sequential reveal that feels like watching a log stream in real time.",
+        layout: "data_stream",
+        layoutProps: {
+          title: "Matrix Layouts",
+          items: [
+            "Terminal Text — character-by-character typewriter with blinking cursor",
+            "Data Stream — incoming items with terminal prompt prefixes",
+            "Fork Choice — red pill / blue pill split comparison",
+            "Cipher Metric — number decoded from cipher noise with roll-up",
+            "Transmission — intercepted signal phrases with hard cuts",
+          ],
+        },
+      },
+      {
+        id: 3, order: 3, title: "Fork Choice", durationSeconds: 8,
+        narration: "Fork Choice splits the screen into a red-tinted left half and blue-tinted right half with a green neon divider. The layout is built for binary decisions, tool comparisons, and any content that presents two contrasting paths.",
+        layout: "fork_choice",
+        layoutProps: {
+          title: "Choose Your Approach",
+          leftLabel: "Automated",
+          rightLabel: "Manual",
+          leftDescription: "Paste URL. AI generates structured video. Edit scenes individually.",
+          rightDescription: "Write script. Record screen. Edit timeline. Repeat per post.",
+        },
+      },
+      {
+        id: 4, order: 4, title: "Transmission", durationSeconds: 7,
+        narration: "Transmission displays short phrases sequentially like intercepted signals. Each phrase appears centered with a signal-intercepted prefix and hard cuts between messages, creating urgency and a cinematic hacker aesthetic.",
+        layout: "transmission",
+        layoutProps: {
+          title: "Signal Phrases",
+          phrases: [
+            "Content structure extracted",
+            "Scenes generated from source",
+            "Narration synthesized",
+            "Video rendered and ready",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Glitch Punch", durationSeconds: 7,
+        narration: "Glitch Punch fills the frame with a single word that decodes from cipher characters and slams into place with a neon glow pulse. Maximum impact for the single most important word or number in the video.",
+        layout: "glitch_punch",
+        layoutProps: { word: "MATRIX" },
+      },
+    ],
+  },
+
+  "preview-newspaper": {
+    template: "newspaper",
+    scenes: [
+      {
+        id: 1, order: 1, title: "News Headline", durationSeconds: 8,
+        narration: "News Headline opens with a large serif title on vintage newsprint texture with shattering paper shards that assemble into the final layout. Highlighted words in yellow create emphasis, and the 3D camera movement adds cinematic depth to the editorial format.",
+        layout: "news_headline",
+        layoutProps: {
+          title: "Newspaper: Editorial Video Template",
+          category: "Template Showcase",
+          highlightWords: ["Newspaper", "Editorial", "Template"],
+        },
+      },
+      {
+        id: 2, order: 2, title: "Article Lead", durationSeconds: 8,
+        narration: "Article Lead presents body text with a typeset drop-cap opening and a bold stat pull-quote on the side. The layout brings the classic newspaper above-the-fold experience to video, making newsletters and long-form commentary feel authoritative.",
+        layout: "article_lead",
+        layoutProps: {
+          title: "The Story",
+          stats: [{ value: "6", label: "built-in layouts for editorial content" }],
+        },
+      },
+      {
+        id: 3, order: 3, title: "Fact Check", durationSeconds: 8,
+        narration: "Fact Check places two perspectives side by side — a claim on the left and the facts on the right — with labeled badges and a verdict below. The layout is designed for analysis, myth-busting, and any content that contrasts perception with reality.",
+        layout: "fact_check",
+        layoutProps: {
+          title: "Fact Check",
+          leftThought: "AI video tools produce generic, low-quality output from any article.",
+          rightThought: "Blog2Video preserves article structure, code blocks, and arguments in the generated video because the article is the source.",
+          stats: [{ label: "THE CLAIM" }, { label: "THE FACTS" }],
+        },
+      },
+      {
+        id: 4, order: 4, title: "News Timeline", durationSeconds: 8,
+        narration: "News Timeline presents a sequence of events along a vertical spine with animated entry and a colored progress indicator. Each event has a bold value and description, making it ideal for chronological narratives, release histories, and workflow progressions.",
+        layout: "news_timeline",
+        layoutProps: {
+          title: "How It Works",
+          stats: [
+            { value: "Step 1", label: "Paste the article or newsletter URL" },
+            { value: "Step 2", label: "Blog2Video extracts structure into scenes" },
+            { value: "Step 3", label: "Pick a voice and review the outline" },
+            { value: "Step 4", label: "Render and publish across channels" },
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Data Snapshot", durationSeconds: 7,
+        narration: "Data Snapshot displays metrics in animated cards with large numbers, yellow accent underlines, and label text. The layout brings the data-forward aesthetic of a newspaper infographic to video, making statistics and KPIs visually memorable.",
+        layout: "data_snapshot",
+        layoutProps: {
+          title: "By the Numbers",
+          stats: [
+            { value: "6", label: "Newspaper layouts" },
+            { value: "3D", label: "Camera movement" },
+            { value: "100+", label: "AI voices" },
+          ],
+        },
+      },
+    ],
+  },
+
+  "preview-default": {
+    template: "default",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Structured Explainer Opening", durationSeconds: 7,
+        narration: "The Geometric Explainer template opens with a clean hero layout on a white background. The structured hierarchy and deliberate spacing establish an educational tone from the first frame, signaling that this video prioritizes clarity over flash.",
+        layout: "hero_image",
+        layoutProps: { title: "Geometric Explainer: Clarity-First Template" },
+      },
+      {
+        id: 2, order: 2, title: "Text Narration", durationSeconds: 8,
+        narration: "Text Narration presents body text in a structured, readable format. The layout is designed for tutorials and walkthroughs where the viewer needs to follow a line of reasoning step by step without distraction.",
+        layout: "text_narration",
+        layoutProps: { title: "Body Text for Tutorials and Walkthroughs" },
+      },
+      {
+        id: 3, order: 3, title: "Code Block", durationSeconds: 8,
+        narration: "Code Block renders syntax-highlighted code in a clean monospace layout. Indentation, line spacing, and formatting carry over from the original article, making it ideal for technical tutorials that teach by example.",
+        layout: "code_block",
+        layoutProps: {
+          title: "Code Block: Technical Tutorial",
+          codeLanguage: "typescript",
+          codeLines: [
+            "import { Blog2Video } from 'blog2video';",
+            "",
+            "const video = await Blog2Video.fromUrl(",
+            "  'https://your-blog.com/tutorial'",
+            ");",
+            "",
+            "await video.selectTemplate('default');",
+            "await video.render({ format: '1080p' });",
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Flow Diagram", durationSeconds: 8,
+        narration: "Flow Diagram visualizes a process as connected steps. The layout maps directly from the article's workflow sections, turning linear instructions into a visual sequence that is easier to follow and remember.",
+        layout: "bullet_list",
+        layoutProps: {
+          title: "How a Blog Becomes a Video",
+          items: [
+            "Paste the article URL into Blog2Video",
+            "AI extracts headings, paragraphs, and code blocks",
+            "Each section becomes a scene with the right layout",
+            "Review narration and edit individual scenes",
+            "Render and export to YouTube, Shorts, or embed",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Comparison View", durationSeconds: 7,
+        narration: "The Comparison layout presents two approaches side by side. It is built for articles that evaluate tools, compare methods, or contrast before-and-after states — common patterns in technical writing.",
+        layout: "comparison",
+        layoutProps: {
+          title: "Content-First vs Prompt-First",
+          leftLabel: "Geometric Explainer",
+          rightLabel: "Generic AI Video",
+          leftDescription: "Reads article structure. Preserves code and lists. Educational pacing.",
+          rightDescription: "Starts from a prompt. Structure is guessed. Details are lost.",
+        },
+      },
+    ],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
+  default: { accent: "#7C3AED", bg: "#FFFFFF", text: "#000000" },
   nightfall: { accent: "#818CF8", bg: "#0A0A1A", text: "#E2E8F0" },
   spotlight: { accent: "#EF4444", bg: "#000000", text: "#FFFFFF" },
   whiteboard: { accent: "#1F2937", bg: "#F7F3E8", text: "#111827" },
@@ -800,6 +1216,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
+  default: "Geometric Explainer",
   nightfall: "Nightfall",
   spotlight: "Spotlight",
   whiteboard: "Whiteboard",

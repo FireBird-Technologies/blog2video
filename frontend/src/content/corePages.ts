@@ -4,11 +4,11 @@ import type { MarketingPage } from "./seoTypes";
 export const coreCommercialPages: MarketingPage[] = [
   createPage({
     path: "/blog-to-video",
-    title: "Blog To Video Converter for Technical Content",
+    title: "Blog to Video Converter | Turn Posts Into Videos | Blog2Video",
     description:
-      "Turn blog posts into narrated videos with code blocks, diagrams, voiceover, and reusable templates.",
+      "Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed.",
     eyebrow: "Commercial workflow",
-    heroTitle: "Turn blog posts into videos without rebuilding them from scratch",
+    heroTitle: "Blog to Video: Turn Posts Into Videos Without Rebuilding",
     heroDescription:
       "Blog2Video is built for creators who already have long-form content and want a clean path to YouTube, Shorts, and social video without outsourcing every publish.",
     category: "commercial",
@@ -43,11 +43,28 @@ export const coreCommercialPages: MarketingPage[] = [
     recommendedTemplate: "gridcraft",
     recommendedTemplateReason:
       "Gridcraft works especially well for blogs because it handles comparisons, structured ideas, and data-rich writing without flattening the narrative.",
-    faq: createFaq(
-      "blog to video conversion",
-      "Writers and founder-creators",
-      "Blog2Video uses your real content structure and turns it into React-rendered scenes, diagrams, and code-aware layouts instead of vague stock footage."
-    ),
+    faq: [
+      {
+        question: "How do I convert a blog to video?",
+        answer:
+          "Paste your blog URL into Blog2Video. The tool reads the live page, extracts headings and content structure, and generates a scene-by-scene video outline. Pick a template and voice, then render. No prompts or manual scripting needed.",
+      },
+      {
+        question: "What is the best blog to video converter?",
+        answer:
+          "Blog2Video is built for bloggers because it treats your article as the source of truth, not a loose prompt. It preserves code blocks, diagrams, and argument structure, and supports templates, AI voiceover, and scene editing.",
+      },
+      {
+        question: "How do I use my blog for videos?",
+        answer:
+          "Use Blog2Video to turn every published post into a narrated video. Paste the URL, generate the video, and export to YouTube, Shorts, LinkedIn, or embed back into the original article. One blog post becomes multiple video assets.",
+      },
+      ...createFaq(
+        "blog to video conversion",
+        "Writers and founder-creators",
+        "Blog2Video uses your real content structure and turns it into React-rendered scenes, diagrams, and code-aware layouts instead of vague stock footage."
+      ),
+    ],
     relatedPaths: [
       "/article-to-video",
       "/blog-to-youtube-video",
