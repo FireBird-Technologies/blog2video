@@ -54,6 +54,18 @@ export const footerGroups = [
     ],
   },
   {
+    title: "Templates",
+    links: [
+      "/templates/nightfall",
+      "/templates/spotlight",
+      "/templates/whiteboard",
+      "/templates/gridcraft",
+      "/templates/matrix",
+      "/templates/newspaper",
+      "/templates/geometric-explainer",
+    ],
+  },
+  {
     title: "Resources",
     links: [
       "/distribution-flywheel",
