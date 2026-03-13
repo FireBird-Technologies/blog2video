@@ -49,6 +49,13 @@ const Navbar = () => {
           >
             Billing
           </Link>
+{/* 
+          <Link
+            to="/template-studio"
+            className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
+          >
+            Template Studio
+          </Link> */}
 
           {/* Usage */}
           <span className="hidden sm:block text-xs text-gray-400">

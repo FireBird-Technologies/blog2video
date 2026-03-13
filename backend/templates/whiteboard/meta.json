@@ -33,6 +33,511 @@
     "handwritten_equation",
     "speech_bubble_dialogue"
   ],
+  "layout_prop_schema": {
+    "drawn_title": {
+      "label": "Drawn Title",
+      "scene_defaults": {
+        "title": "Hello World!",
+        "narration": "A beautiful animated title card for your next video"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 76,
+          "landscape": 114
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 36
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        }
+      ]
+    },
+    "marker_story": {
+      "label": "Marker Story",
+      "scene_defaults": {
+        "title": "The Big Idea",
+        "narration": "Sometimes the simplest ideas are the most powerful ones that change everything."
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 85,
+          "landscape": 100
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 49
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        }
+      ]
+    },
+    "stick_figure_scene": {
+      "label": "Stick Figure Scene",
+      "scene_defaults": {
+        "title": "Keep Going!",
+        "narration": "Consistency beats perfection every single time."
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 82
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 38
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        }
+      ]
+    },
+    "stats_figures": {
+      "label": "Stats Figures",
+      "scene_defaults": {
+        "title": "Our Impact",
+        "narration": "Numbers that speak for themselves"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 70
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 30
+        },
+        "stats": [
+          {
+            "label": "Growth",
+            "value": "50%"
+          },
+          {
+            "label": "Faster",
+            "value": "3x"
+          },
+          {
+            "label": "Users",
+            "value": "10K+"
+          },
+          {
+            "label": "Revenue",
+            "value": "$2M"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ]
+        }
+      ]
+    },
+    "stats_chart": {
+      "label": "Stats Chart",
+      "scene_defaults": {
+        "title": "Comparison",
+        "narration": "See how the options stack up"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 30
+        },
+        "stats": [
+          {
+            "label": "Option A",
+            "value": "85"
+          },
+          {
+            "label": "Option B",
+            "value": "60"
+          },
+          {
+            "label": "Option C",
+            "value": "40"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Bars",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value (0-100)"
+            }
+          ]
+        }
+      ]
+    },
+    "comparison": {
+      "label": "Comparison",
+      "scene_defaults": {
+        "title": "The Debate",
+        "narration": "Which side are you on?"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 50,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 28
+        },
+        "leftThought": "Coffee first thing in the morning",
+        "rightThought": "Tea for a mindful start to the day"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "leftThought",
+          "label": "Left Thought",
+          "type": "text"
+        },
+        {
+          "key": "rightThought",
+          "label": "Right Thought",
+          "type": "text"
+        }
+      ]
+    },
+    "countdown_timer": {
+      "label": "Countdown Timer",
+      "scene_defaults": {
+        "title": "Get Ready!",
+        "narration": "until launch"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 48,
+          "landscape": 60
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 32
+        },
+        "stats": [
+          {
+            "label": "start",
+            "value": "5"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Countdown Settings",
+          "type": "object_array",
+          "maxItems": 1,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Start At (2-9)"
+            },
+            {
+              "key": "label",
+              "label": "Label (optional)"
+            }
+          ]
+        }
+      ]
+    },
+    "handwritten_equation": {
+      "label": "Handwritten Equation",
+      "scene_defaults": {
+        "title": "The Formula",
+        "narration": "Breaking it down step by step"
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 58,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 43
+        },
+        "stats": [
+          {
+            "label": "Compound Interest Formula",
+            "value": "A = P · (1 + r/n)^(n·t)"
+          },
+          {
+            "label": "Where:",
+            "value": "P = principal,  r = rate,  n = compounds/yr"
+          },
+          {
+            "label": "Example:",
+            "value": "A = 1000 · (1 + 0.05/12)^(12·5)"
+          },
+          {
+            "label": "Result:",
+            "value": "A ≈ $1,283.36"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Equation Steps",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Step Label"
+            },
+            {
+              "key": "value",
+              "label": "Step Value"
+            }
+          ]
+        }
+      ]
+    },
+    "speech_bubble_dialogue": {
+      "label": "Speech Bubble Dialogue",
+      "scene_defaults": {
+        "title": "Conversation",
+        "narration": ""
+      },
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 42,
+          "landscape": 54
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 26
+        },
+        "leftThought": "Wait, did you know?",
+        "rightThought": "Tell me more!",
+        "stats": [
+          {
+            "label": "Person A",
+            "value": ""
+          },
+          {
+            "label": "Person B",
+            "value": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 90,
+          "step": 1
+        },
+        {
+          "key": "leftThought",
+          "label": "Left Bubble",
+          "type": "text"
+        },
+        {
+          "key": "rightThought",
+          "label": "Right Bubble",
+          "type": "text"
+        },
+        {
+          "key": "stats",
+          "label": "Speaker Labels",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Name"
+            },
+            {
+              "key": "value",
+              "label": "Unused (optional)"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "features": [
     "Hand-drawn marker reveal animations",
     "Story-beat focused layout flow",

@@ -1,7 +1,11 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import {
+  GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
+  GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
+} from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const Editorial: React.FC<GridcraftLayoutProps> = ({
   title,
@@ -10,9 +14,14 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   accentColor,
   titleFontSize,
   descriptionFontSize,
+  aspectRatio,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const p = aspectRatio === "portrait";
+  const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
+  const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
 
   const spr = spring({ frame, fps, config: { damping: 14 } });
   
@@ -32,7 +41,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
         width: "90%",
         height: "80%",
         margin: "auto",
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: sansFontFamily,
       }}
     >
       <div
@@ -68,12 +77,12 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
             margin: hasImage ? 0 : "auto",
         }}>
            <div style={{ 
-               fontSize: titleFontSize ?? 42, 
+               fontSize: titleFontSize ?? (p ? 65 : 64), 
                fontWeight: 700, 
                lineHeight: 1.2, 
                color: COLORS.DARK, 
                marginBottom: 24,
-               fontFamily: FONT_FAMILY.SERIF 
+               fontFamily: serifFontFamily,
             }}>
                {title}
            </div>
@@ -81,7 +90,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
            <div style={{ width: hasImage ? "40%" : "20%", height: 3, backgroundColor: accentColor || COLORS.ACCENT, marginBottom: 24, alignSelf: hasImage ? "flex-start" : "center" }} />
 
            <div style={{ 
-               fontSize: descriptionFontSize ?? 22, 
+               fontSize: descriptionFontSize ?? (p ? 37 : 38), 
                lineHeight: 1.6, 
                color: COLORS.DARK, 
                opacity: 0.85 

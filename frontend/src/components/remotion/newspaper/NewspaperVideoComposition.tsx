@@ -1,3 +1,4 @@
+import "../../../fonts/newspaper-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
@@ -25,6 +26,7 @@ export interface NewspaperVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const NewspaperVideoComposition: React.FC<
@@ -39,19 +41,23 @@ export const NewspaperVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
-  let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8" }}>
-      {scenes.map((scene) => {
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
+      {scenes.map((scene, index) => {
+        // --- STABLE FRAME CALCULATION ---
+        // Calculate the start frame by summing durations of all previous scenes
+        const startFrame = scenes
+          .slice(0, index)
+          .reduce((acc, s) => acc + Math.max(1, Math.round(s.durationSeconds * FPS)), 0);
+
         const durationFrames = Math.max(
           1,
           Math.round(scene.durationSeconds * FPS)
         );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
 
         const LayoutComponent =
           NEWSPAPER_LAYOUT_REGISTRY[scene.layout as NewspaperLayoutType] ||
@@ -66,17 +72,24 @@ export const NewspaperVideoComposition: React.FC<
           bgColor: bgColor || "#FAFAF8",
           textColor: textColor || "#111111",
           aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
         };
 
         return (
           <Sequence
-            key={scene.id}
+            // Use a stable key + index to prevent remounting
+            key={`${scene.id}-${index}`} 
             from={startFrame}
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {/* IMPORTANT: Wrap in a div to ensure the LayoutComponent 
+               receives a fresh coordinate system from the Sequence 
+            */}
+            <AbsoluteFill>
+               <LayoutComponent {...layoutProps} />
+               {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            </AbsoluteFill>
           </Sequence>
         );
       })}

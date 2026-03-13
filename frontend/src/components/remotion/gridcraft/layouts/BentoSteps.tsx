@@ -1,7 +1,8 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
 import { GridcraftLayoutProps } from "../types";
-import { glass, FONT_FAMILY, COLORS } from "../utils/styles";
+import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
+import { glass, COLORS } from "../utils/styles";
 
 export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   steps,
@@ -11,6 +12,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -24,6 +26,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
 
   const hasImage = !!imageUrl;
   const p = aspectRatio === "portrait";
+  const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   const imageOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: Math.max(0, frame - 5), fps, config: { damping: 14 } });
@@ -39,7 +42,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
         height: "80%",
         margin: "auto",
         gap: hasImage ? (p ? 24 : 32) : 0,
-        fontFamily: FONT_FAMILY.SANS,
+        fontFamily: resolvedFontFamily,
       }}
     >
       {hasImage && (
@@ -103,10 +106,10 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
                   <div style={{ fontSize: 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
                       {String(i + 1).padStart(2, "0")}
                   </div>
-                  <div style={{ fontSize: titleFontSize ?? 22, fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
+                  <div style={{ fontSize: titleFontSize ?? (p ? 47 : 42), fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
                       {item.label}
                   </div>
-                  <div style={{ fontSize: descriptionFontSize ?? 16, lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
+                  <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 22), lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
                       {item.description}
                   </div>
               </div>

@@ -174,10 +174,6 @@ class EmailService:
                   </td>
                 </tr>
               </table>
-              <p style="margin:0;font-size:13px;color:#9ca3af;">
-                If the button doesn't work, copy and paste this link:<br/>
-                <a href="{cta_url}" style="color:#9333EA;word-break:break-all;">{cta_url}</a>
-              </p>
             </td>
           </tr>
           <tr>

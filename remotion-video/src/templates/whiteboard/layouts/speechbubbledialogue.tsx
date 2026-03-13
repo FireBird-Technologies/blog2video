@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -180,6 +180,7 @@ interface BubbleProps {
   swayX?: number;
   swayY?: number;
   portrait: boolean;
+  fontFamily?: string;
 }
 
 function SpeechBubble({
@@ -194,6 +195,7 @@ function SpeechBubble({
   swayX = 0,
   swayY = 0,
   portrait,
+  fontFamily,
 }: BubbleProps) {
   const innerW = 210;
   const hContent = estimateBubbleHeight(text, fontSize, innerW);
@@ -241,7 +243,7 @@ function SpeechBubble({
           <path d={tailPath} fill={fill} stroke={textColor} strokeWidth={portrait ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round" />
         </g>
         <foreignObject x={bX + 14} y={tY + 10} width={innerW} height={hContent - 16} opacity={Math.min(progress * 2.5, 1)}>
-          <div style={{ color: textColor, fontSize: 24, fontWeight: 600, fontFamily: "'Comic Sans MS', 'Segoe Print', cursive", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
+          <div style={{ color: textColor, fontSize: fontSize, fontWeight: 600, fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", lineHeight: 1.45, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", boxSizing: "border-box", wordBreak: "break-word" }}>
             {visText}
             {visChars < text.length && <span style={{ opacity: 0.35 }}>|</span>}
           </div>
@@ -262,10 +264,13 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   descriptionFontSize,
   leftThought = "Wait, did you know?",
   rightThought = "Tell me more!",
+  fontFamily,
   stats,
 }) => {
   const frame = useCurrentFrame();
+  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
+  const scale = videoWidth / 1920;
 
   const figDash = 500;
   const figOff = figDash * (1 - interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp" }));
@@ -280,7 +285,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const labelY = groundY + 28;
   const leftCX = 240;
   const rightCX = 460;
-  const fontSize = p ? 17 : 21;
+  const fontSize = descriptionFontSize ?? (p ? 17 : 21);
 
   const leftBH = estimateBubbleHeight(leftThought, fontSize, 210);
   const rightBH = estimateBubbleHeight(rightThought, fontSize, 210);
@@ -306,7 +311,13 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
   const rightSpeaker = stats?.[1]?.label ?? "Person B";
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden", fontFamily: "'Comic Sans MS', 'Segoe Print', 'Bradley Hand', cursive" }}>
+    <AbsoluteFill
+      style={{
+        overflow: "hidden",
+        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+        letterSpacing: "1.5px",
+      }}
+    >
       <WhiteboardBackground bgColor={bgColor} />
       {p && <BackgroundScribbles color={textColor} />}
 
@@ -327,7 +338,7 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
       </svg>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: p ? 14 : 18, padding: p ? "4% 4%" : "12% 7% 3% 7%" }}> {/* Landscape padding: 12% top */}
-        <svg viewBox={`0 0 ${svgW} ${labelY + 10}`} style={{ width: p ? "96%" : "80%", maxWidth: 880, height: "auto", overflow: "visible" }} fill="none">
+        <svg viewBox={`0 0 ${svgW} ${labelY + 10}`} style={{ width: p ? "96%" : "80%", maxWidth: 880 * scale, height: "auto", overflow: "visible" }} fill="none">
           <defs>
             <filter id="inkFigs" x="-4%" y="-4%" width="108%" height="108%">
               <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="29" result="w" />
@@ -341,14 +352,14 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
             <line x1={20} y1={groundY} x2={680} y2={groundY - 2} stroke={textColor} strokeWidth={p ? 4.5 : 3} strokeLinecap="round" />
           </g>
 
-          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} />
-          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} />
+          <SpeechBubble anchorX={leftCX} topY={leftBubbleTopY} side="right" text={leftThought} textColor={textColor} progress={leftBubbleProgress} fontSize={fontSize} swayX={leftSway} swayY={leftSwayYFinal} portrait={p} fontFamily={fontFamily} />
+          <SpeechBubble anchorX={rightCX} topY={rightBubbleTopY} side="left" text={rightThought} textColor={accentColor} progress={rightBubbleProgress} fontSize={fontSize} swayX={rightSway} swayY={rightSwayYFinal} portrait={p} fontFamily={fontFamily} />
 
           <StickFigure cx={leftCX} dash={figDash} offset={figOff} stroke={textColor} isRight={false} bubbleBottomY={leftBubbleTopY + leftBH + leftSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={leftSway} portrait={p} />
           <StickFigure cx={rightCX} dash={figDash} offset={figOff} stroke={accentColor} isRight={true} bubbleBottomY={rightBubbleTopY + rightBH + rightSwayYFinal} bubbleWidth={bubbleWidth} bubbleSway={rightSway} portrait={p} />
 
-          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
-          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily="'Comic Sans MS', cursive" fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
+          <text x={leftCX} y={labelY} textAnchor="middle" fill={textColor} fontSize={18} fontFamily={fontFamily ?? "'Patrick Hand', system-ui, sans-serif"} fontWeight="700" opacity={labelOp}>{leftSpeaker}</text>
+          <text x={rightCX} y={labelY} textAnchor="middle" fill={accentColor} fontSize={18} fontFamily={fontFamily ?? "'Patrick Hand', system-ui, sans-serif"} fontWeight="700" opacity={labelOp}>{rightSpeaker}</text>
 
           {[0, 1, 2].map((dot) => {
             const dotOp = interpolate(frame, [60 + dot * 4, 68 + dot * 4], [0, 1], { extrapolateRight: "clamp" });
@@ -357,8 +368,8 @@ export const SpeechBubbleDialogue: React.FC<WhiteboardLayoutProps> = ({
         </svg>
 
         <div style={{ textAlign: "center", opacity: titleOp }}>
-          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 42 : 54), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
-          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 22 : 26), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
+          <div style={{ color: textColor, fontWeight: 700, fontSize: titleFontSize ?? (p ? 42 * scale : 54 * scale), lineHeight: 1.1, filter: "url(#ink)" }}>{title}</div>
+          {narration && <div style={{ marginTop: 8, color: textColor, fontSize: descriptionFontSize ?? (p ? 22 * scale : 26 * scale), opacity: 0.88, filter: "url(#ink)" }}>{narration}</div>}
         </div>
       </div>
     </AbsoluteFill>

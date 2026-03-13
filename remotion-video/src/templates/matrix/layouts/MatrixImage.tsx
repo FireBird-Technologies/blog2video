@@ -1,5 +1,6 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 
 /**
@@ -19,11 +20,13 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
   const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const revealSpring = spring({
     frame: frame - 3,
@@ -46,7 +49,7 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <MatrixBackground bgColor={bgColor} opacity={0.3} />
+      <MatrixBackground bgColor={bgColor} opacity={0.3} fontFamily={resolvedFontFamily} />
 
       {/* Image layer */}
       {imageUrl ? (
@@ -97,10 +100,10 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           <div style={{ maxWidth: 900 }}>
             <div
               style={{
-                fontSize: titleFontSize ?? (p ? 58 : 80),
+                fontSize: titleFontSize ?? (p ? 66 : 80),
                 fontWeight: 700,
                 color: accent,
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 letterSpacing: "-0.02em",
                 lineHeight: 1.15,
                 opacity: captionOpacity,
@@ -113,10 +116,10 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
             {narration && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 20 : 26),
+                  fontSize: descriptionFontSize ?? (p ? 45 : 37),
                   fontWeight: 400,
                   color: `${accent}88`,
-                  fontFamily: "'Fira Code', 'Courier New', monospace",
+                  fontFamily: resolvedFontFamily,
                   marginTop: p ? 16 : 24,
                   lineHeight: 1.4,
                   opacity: captionOpacity,
@@ -159,10 +162,10 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 24 : 32),
+              fontSize: titleFontSize ?? (p ? 66 : 80),
               fontWeight: 700,
               color: accent,
-              fontFamily: "'Fira Code', 'Courier New', monospace",
+              fontFamily: resolvedFontFamily,
               lineHeight: 1.2,
             }}
           >
@@ -171,9 +174,9 @@ export const MatrixImage: React.FC<MatrixLayoutProps> = ({
           {narration && (
             <div
               style={{
-                fontSize: p ? 14 : 18,
+                fontSize: descriptionFontSize ?? (p ? 45 : 37),
                 color: `${accent}88`,
-                fontFamily: "'Fira Code', 'Courier New', monospace",
+                fontFamily: resolvedFontFamily,
                 marginTop: 6,
                 lineHeight: 1.4,
               }}

@@ -1,29 +1,34 @@
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
-import { SpotlightBackground } from "../SpotlightBackground";
+import {
+  SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
+  SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
+} from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
 /**
  * CascadeList — Stacking Items
  *
- * Items appear one at a time, stacking vertically. Each item is a bold number
- * in accent color + white text. Previous items dim as new ones appear.
- * Raw text on black, no cards or backgrounds.
+ * Items appear one at a time, stacking vertically over a background image.
+ * Each item is a bold number in accent color + white text.
+ * Previous items dim as new ones appear.
  */
 export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   title,
   items,
   imageUrl,
   accentColor,
-  bgColor,
   textColor,
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
   const fps = 30;
   const p = aspectRatio === "portrait";
-  const hasImage = !!imageUrl;
+  const displayFontFamily =
+    fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
+  const bodyFontFamily = fontFamily ?? SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY;
 
   const displayItems = items || [title];
   const framesPerItem = 18;
@@ -32,58 +37,50 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
     displayItems.length - 1
   );
 
-  const imageOpacity = interpolate(frame, [5, 30], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
-  const imageScale = spring({
-    frame: frame - 5,
+  const bgOpacity = interpolate(frame, [0, 20], [0, 1]);
+  const bgScale = spring({
+    frame,
     fps,
-    config: { damping: 20, stiffness: 80 },
+    config: { damping: 200 },
+    from: 1.1,
+    to: 1,
   });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <SpotlightBackground bgColor={bgColor} />
+      <AbsoluteFill>
+        {imageUrl ? (
+          <Img
+            src={imageUrl}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: bgOpacity,
+              transform: `scale(${bgScale})`,
+            }}
+          />
+        ) : (
+          <AbsoluteFill style={{ backgroundColor: "#111111" }} />
+        )}
+        <AbsoluteFill style={{ backgroundColor: "rgba(0, 0, 0, 0.45)" }} />
+      </AbsoluteFill>
 
       <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: hasImage && !p ? "row" : "column",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: p ? "8% 8%" : "0 8%",
-          gap: hasImage ? (p ? 30 : 60) : 0,
+          padding: "8%",
         }}
       >
-        {hasImage && (
-          <div
-            style={{
-              flex: p ? "none" : "0 0 35%",
-              width: p ? "70%" : "auto",
-              height: p ? 200 : 360,
-              borderRadius: 4,
-              overflow: "hidden",
-              opacity: imageOpacity,
-              transform: `scale(${imageScale})`,
-            }}
-          >
-            <Img
-              src={imageUrl}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          </div>
-        )}
-
         <div
           style={{
-            width: hasImage && !p ? "60%" : "85%",
+            width: "90%",
+            maxWidth: 1000,
             display: "flex",
             flexDirection: "column",
             gap: p ? 12 : 20,
@@ -91,12 +88,12 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
         >
           {displayItems.map((item, i) => {
             const itemSpring = spring({
-              frame: frame - i * framesPerItem,
+              frame: frame - i * framesPerItem - 5,
               fps,
               config: { damping: 18, stiffness: 180, mass: 1 },
             });
 
-            const shown = frame >= i * framesPerItem;
+            const shown = frame >= i * framesPerItem + 5;
             const dimmed = shown && i < currentIdx;
 
             return (
@@ -109,7 +106,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                   transform: shown
                     ? `translateX(${(1 - itemSpring) * 80}px)`
                     : "translateX(80px)",
-                  opacity: shown ? (dimmed ? 0.3 : itemSpring) : 0,
+                  opacity: shown ? (dimmed ? 0.4 : itemSpring) : 0,
                 }}
               >
                 <span
@@ -118,7 +115,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                     fontWeight: 900,
                     color: accentColor,
                     minWidth: p ? 28 : 44,
-                    fontFamily: "'Arial Black', sans-serif",
+                    fontFamily: displayFontFamily,
                   }}
                 >
                   {String(i + 1).padStart(2, "0")}
@@ -128,7 +125,7 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
                     fontSize: descriptionFontSize ?? (p ? 24 : 36),
                     fontWeight: 700,
                     color: textColor || "#FFFFFF",
-                    fontFamily: "Arial, sans-serif",
+                    fontFamily: bodyFontFamily,
                     letterSpacing: "-0.01em",
                   }}
                 >

@@ -1,5 +1,6 @@
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { useMemo } from "react";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 
 /**
  * MatrixBackground — Digital Rain
@@ -27,7 +28,8 @@ function seededRandom(seed: number): number {
 export const MatrixBackground: React.FC<{
   bgColor?: string;
   opacity?: number;
-}> = ({ bgColor = "#000000", opacity = 0.35 }) => {
+  fontFamily?: string;
+}> = ({ bgColor = "#000000", opacity = 0.35, fontFamily }) => {
   const frame = useCurrentFrame();
 
   const columns: RainColumn[] = useMemo(() => {
@@ -99,7 +101,7 @@ export const MatrixBackground: React.FC<{
                   style={{
                     color: isHead ? "#FFFFFF" : "#00FF41",
                     fontSize: col.fontSize,
-                    fontFamily: "'Fira Code', 'Courier New', monospace",
+                    fontFamily: fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY,
                     lineHeight: "1.4",
                     opacity: fadeOpacity,
                     textShadow: isHead

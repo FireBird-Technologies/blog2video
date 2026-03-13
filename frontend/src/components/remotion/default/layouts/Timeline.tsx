@@ -1,175 +1,219 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import React from "react";
+import {
+  AbsoluteFill,
+  interpolate,
+  useCurrentFrame,
+  spring,
+  useVideoConfig,
+  Img,
+} from "remotion";
 import { SceneLayoutProps } from "../types";
 
-export const Timeline: React.FC<SceneLayoutProps> = ({
-  title,
-  accentColor,
-  bgColor,
-  textColor,
-  timelineItems = [],
-  aspectRatio,
-  titleFontSize,
-  descriptionFontSize,
-}) => {
-  const frame = useCurrentFrame();
-  const fps = 30;
-  const p = aspectRatio === "portrait";
+export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (props) => {
+  const {
+    title,
+    accentColor,
+    bgColor,
+    textColor,
+    timelineItems = [],
+    aspectRatio,
+    titleFontSize,
+    descriptionFontSize,
+    imageUrl,
+    fontFamily,
+  } = props;
 
-  const titleSpring = spring({
-    frame: frame - 3,
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames, width, height } = useVideoConfig();
+  const p = aspectRatio === "portrait" || height > width;
+
+  // --- ENTRANCE ANIMATIONS ---
+  const entranceSpring = spring({
+    frame,
     fps,
-    config: { damping: 22, stiffness: 90, mass: 1 },
+    config: { damping: 20, stiffness: 60 },
   });
-  const titleOp = interpolate(titleSpring, [0, 1], [0, 1], {
-    extrapolateRight: "clamp",
+
+  const sectionOpacity = interpolate(entranceSpring, [0, 1], [0, 1]);
+  const slideIn = interpolate(entranceSpring, [0, 1], [100, 0]);
+
+  // --- EXIT (VANISH) ANIMATIONS ---
+  const vanishDuration = 20;
+  const vanishStart = durationInFrames - vanishDuration;
+  const vanishSpring = spring({
+    frame: frame - vanishStart,
+    fps,
+    config: { damping: 20, stiffness: 100 },
   });
-  const lineH = interpolate(frame, [15, 80], [0, 100], {
-    extrapolateRight: "clamp",
-  });
+
+  const vanishOpacity = interpolate(vanishSpring, [0, 1], [1, 0]);
+  const vanishScale = interpolate(vanishSpring, [0, 1], [1, 0.95]);
+
+  const numColumns = timelineItems.length > 4 && !p ? 2 : 1;
+  const columnItems = Array.from({ length: numColumns }, (_, i) =>
+    timelineItems.filter((_, idx) => idx % numColumns === i)
+  );
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: bgColor,
-        padding: p ? "60px 50px" : "70px 100px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
+        backgroundColor: bgColor || "#0a0a0a",
+        fontFamily: fontFamily ?? "'Roboto Slab', serif",
         overflow: "hidden",
+        opacity: vanishOpacity,
+        transform: `scale(${vanishScale})`,
       }}
     >
-      <h2
-        style={{
-          color: textColor,
-          fontSize: titleFontSize ?? (p ? 36 : 46),
-          fontWeight: 700,
-          fontFamily: "Inter, sans-serif",
-          opacity: titleOp,
-          marginTop: 0,
-          marginBottom: p ? 30 : 40,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </h2>
-
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 0,
-          position: "relative",
-          paddingLeft: p ? 30 : 40,
+          flexDirection: p ? "column" : "row",
+          width: "100%",
+          height: "100%",
         }}
       >
-        {/* Vertical line */}
+        {/* --- LEFT SIDE: STICKY IMAGE --- */}
+        {imageUrl && (
+          <div
+            style={{
+              flex: p ? "0.6" : "1",
+              position: "relative",
+              overflow: "hidden",
+              opacity: sectionOpacity,
+              transform: p ? `translateY(-${slideIn}px)` : `translateX(-${slideIn}px)`,
+              // BUG FIX: Negative margin to overlap the containers by 1px
+              marginRight: p ? 0 : -1,
+              marginBottom: p ? -1 : 0,
+              zIndex: 2, // Ensure image/gradient sits above any content-side bleed
+            }}
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block", // BUG FIX: Removes baseline whitespace
+                transform: `scale(${interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+              }}
+            />
+            {/* Gradient Overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: p
+                  ? `linear-gradient(to bottom, transparent 40%, ${bgColor} 100%)`
+                  : `linear-gradient(to right, transparent 40%, ${bgColor} 100%)`,
+              }}
+            />
+          </div>
+        )}
+
+        {/* --- RIGHT SIDE: TIMELINE CONTENT --- */}
         <div
           style={{
-            position: "absolute",
-            left: p ? 10 : 15,
-            top: 0,
-            width: 2,
-            height: `${lineH}%`,
-            backgroundColor: `${accentColor}30`,
-            borderRadius: 1,
+            flex: 1.5,
+            padding: p ? "40px 30px" : "60px 80px",
+            display: "flex",
+            flexDirection: "column",
+            backgroundColor: bgColor, // Explicitly match BG to fill any gaps
+            opacity: sectionOpacity,
+            transform: p ? `translateY(${slideIn}px)` : `translateX(${slideIn}px)`,
+            zIndex: 1,
           }}
-        />
+        >
+          <h2
+            style={{
+              fontSize: titleFontSize ?? (p ? 85 : 74),
+              fontWeight: 900,
+              color: textColor || "#fff",
+              marginBottom: 40,
+              textAlign: p ? "center" : "left",
+              lineHeight: 1.1,
+            }}
+          >
+            {title}
+          </h2>
 
-        {timelineItems.map((item, i) => {
-          const delay = 18 + i * 12;
-          const itemSpring = spring({
-            frame: frame - delay,
-            fps,
-            config: { damping: 16, stiffness: 120, mass: 1 },
-          });
-          const op = interpolate(itemSpring, [0, 1], [0, 1], {
-            extrapolateRight: "clamp",
-          });
-          const x = interpolate(itemSpring, [0, 1], [-30, 0], {
-            extrapolateRight: "clamp",
-          });
-          const dotScale = interpolate(itemSpring, [0, 0.6], [0, 1], {
-            extrapolateRight: "clamp",
-          });
-          const isLast = i === timelineItems.length - 1;
-
-          return (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: p ? 20 : 28,
-                marginBottom: p ? 22 : 28,
-                opacity: op,
-                transform: `translateX(${x}px)`,
-              }}
-            >
+          <div style={{ display: "flex", flexDirection: "row", gap: 60, flex: 1 }}>
+            {columnItems.map((col, colIndex) => (
               <div
+                key={colIndex}
                 style={{
-                  width: p ? 24 : 28,
-                  height: p ? 24 : 28,
-                  borderRadius: "50%",
-                  backgroundColor: isLast ? accentColor : `${accentColor}20`,
-                  border: `2px solid ${accentColor}`,
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  transform: `scale(${dotScale})`,
-                  marginLeft: p ? -12 : -14,
+                  flexDirection: "column",
+                  position: "relative",
+                  paddingLeft: 35,
+                  flex: 1,
                 }}
               >
-                <span
+                {/* Track Line */}
+                <div
                   style={{
-                    color: isLast ? "#FFF" : accentColor,
-                    fontSize: p ? 11 : 13,
-                    fontWeight: 700,
+                    position: "absolute",
+                    left: 0,
+                    top: 10,
+                    bottom: 0,
+                    width: 2,
+                    background: `linear-gradient(to bottom, ${accentColor}, transparent)`,
+                    opacity: 0.4,
                   }}
-                >
-                  {i + 1}
-                </span>
-              </div>
-              <div>
-                <h3
-                  style={{
-                    fontSize: descriptionFontSize ?? (p ? 20 : 24),
-                    fontWeight: 600,
-                    color: textColor,
-                    fontFamily: "Inter, sans-serif",
-                    margin: 0,
-                    marginBottom: 4,
-                  }}
-                >
-                  {item.label}
-                </h3>
-                <p
-                  style={{
-                    fontSize: descriptionFontSize ?? (p ? 22 : 24),
-                    color: textColor,
-                    fontFamily: "Inter, sans-serif",
-                    opacity: 0.6,
-                    margin: 0,
-                  }}
-                >
-                  {item.description}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                />
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          width: "100%",
-          height: 4,
-          backgroundColor: accentColor,
-        }}
-      />
+                {col.map((item, i) => {
+                  const overallIndex = colIndex * col.length + i;
+                  const itemDelay = 10 + overallIndex * 5;
+                  const itemSpring = spring({ frame: frame - itemDelay, fps, config: { damping: 12 } });
+
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        position: "relative",
+                        marginBottom: 30,
+                        opacity: itemSpring,
+                        transform: `translateY(${interpolate(itemSpring, [0, 1], [10, 0])}px)`,
+                      }}
+                    >
+                      {/* Animated Dot */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: -41,
+                          top: 8,
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          backgroundColor: accentColor,
+                          boxShadow: `0 0 10px ${accentColor}`,
+                          transform: `scale(${itemSpring})`,
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                          padding: "12px 18px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255, 255, 255, 0.08)",
+                        }}
+                      >
+                        <h3 style={{ fontSize: descriptionFontSize ?? (p ? 40 : 30), fontWeight: 700, color: accentColor, margin: "0 0 4px 0" }}>
+                          {item.label}
+                        </h3>
+                        <p style={{ fontSize: descriptionFontSize ?? (p ? 40 : 30), color: textColor, opacity: 0.7, margin: 0, lineHeight: 1.3 }}>
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </AbsoluteFill>
   );
 };

@@ -2,6 +2,7 @@ import { useMemo, useEffect } from "react";
 import { Player } from "@remotion/player";
 import { BACKEND_URL, Project } from "../api/client";
 import { getTemplateConfig } from "./remotion/templateConfig";
+import { resolveFontFamily } from "../fonts/registry";
 
 interface VideoPreviewProps {
   project: Project;
@@ -25,6 +26,7 @@ interface SceneInput {
 
 export default function VideoPreview({ project, logoSizeOverride, logoOpacityOverride, logoPositionOverride }: VideoPreviewProps) {
   const config = getTemplateConfig(project.template);
+  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const scenes = useMemo((): SceneInput[] => {
     const resolveUrl = (asset: {
@@ -292,6 +294,7 @@ export default function VideoPreview({ project, logoSizeOverride, logoOpacityOve
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
+    ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };
 

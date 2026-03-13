@@ -29,4 +29,5 @@ export interface WhiteboardLayoutProps {
   /** For comparison layout: thought cloud content for left and right stick figures */
   leftThought?: string;
   rightThought?: string;
+  fontFamily?: string;
 }

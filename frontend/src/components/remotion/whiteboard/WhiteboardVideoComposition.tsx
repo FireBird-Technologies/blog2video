@@ -25,6 +25,7 @@ export interface WhiteboardVideoCompositionProps {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  fontFamily?: string;
 }
 
 export const WhiteboardVideoComposition: React.FC<
@@ -39,12 +40,13 @@ export const WhiteboardVideoComposition: React.FC<
   logoOpacity,
   logoSize,
   aspectRatio,
+  fontFamily,
 }) => {
   const FPS = 30;
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#F7F3E8" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#F7F3E8", fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
         const startFrame = currentFrame;
@@ -63,6 +65,7 @@ export const WhiteboardVideoComposition: React.FC<
           bgColor: bgColor || "#F7F3E8",
           textColor: textColor || "#111827",
           aspectRatio: aspectRatio || "landscape",
+          fontFamily,
         };
 
         return (

@@ -31,6 +31,9 @@ class Project(Base):
     accent_color: Mapped[str] = mapped_column(String(20), default="#7C3AED")
     bg_color: Mapped[str] = mapped_column(String(20), default="#FFFFFF")
     text_color: Mapped[str] = mapped_column(String(20), default="#000000")
+    # Optional project-level font family override (font ID, e.g. 'roboto_slab').
+    # When null, templates use their own defaults.
+    font_family: Mapped[str | None] = mapped_column(String(64), nullable=True)
     animation_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     studio_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
     studio_port: Mapped[int | None] = mapped_column(nullable=True)

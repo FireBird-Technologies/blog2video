@@ -1,8 +1,10 @@
+import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
-import BlogDemoPlayer from "../components/BlogDemoPlayer";
 import Seo from "../components/seo/Seo";
+
+const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
 import {
   blogPosts,
   getBlogPost,
@@ -81,7 +83,9 @@ export default function BlogPostPage() {
                     </ul>
                   ) : null}
                   {section.component && (
-                    <BlogDemoPlayer sceneKey={section.component} />
+                    <Suspense fallback={<div className="min-h-48 rounded-xl bg-gray-100 animate-pulse" />}>
+                      <BlogDemoPlayer sceneKey={section.component} />
+                    </Suspense>
                   )}
                   {section.ctaPath && (
                     <Link
