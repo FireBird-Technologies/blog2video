@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
+import BlogDemoPlayer from "../components/BlogDemoPlayer";
 import Seo from "../components/seo/Seo";
 import {
   blogPosts,
@@ -79,6 +80,18 @@ export default function BlogPostPage() {
                       ))}
                     </ul>
                   ) : null}
+                  {section.component && (
+                    <BlogDemoPlayer sceneKey={section.component} />
+                  )}
+                  {section.ctaPath && (
+                    <Link
+                      to={section.ctaPath}
+                      className="mt-6 inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+                    >
+                      {section.ctaLabel || "Try Blog2Video free"}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  )}
                 </section>
               ))}
             </div>
