@@ -831,12 +831,9 @@ export default function ProjectView() {
         }
         // Video limit reached (403) — show upgrade modal + mention download option
         if (err?.response?.status === 403) {
-          const baseMsg = message || "Video limit reached. Re-render counts as a video.";
+          const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
           const hasExisting = Boolean(project?.r2_video_url);
-          const fullMsg = hasExisting
-            ? `${baseMsg} You can still download your existing rendered video using the Download button below.`
-            : baseMsg;
-          showError(fullMsg, { showUpgrade: true });
+          showError(baseMsg, { showUpgrade: true });
           setHasError(true);
           setRendering(false);
           if (hasExisting) setRendered(true);
