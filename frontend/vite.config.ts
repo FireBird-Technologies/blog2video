@@ -9,9 +9,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@remotion-video": isCloudflare
-        ? path.resolve(__dirname, "./src/components/remotion")
-        : path.resolve(__dirname, "../remotion-video/src"),
+      "@remotion-video/templates": isCloudflare
+          ? path.resolve(__dirname, "./src/components/remotion")
+          : path.resolve(__dirname, "../remotion-video/src/templates"),
     },
   },
   server: {

@@ -18,7 +18,7 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@remotion-video/*": ["./src/components/remotion/*"]
+        "@remotion-video/templates/*": ["./src/components/remotion/*"]
     }
   },
   "include": ["src"],
