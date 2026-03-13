@@ -6,8 +6,10 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@remotion-video": path.resolve(__dirname, "../remotion-video/src"),
-    },
+        "@remotion-video": process.env.CF_PAGES
+          ? path.resolve(__dirname, "./src/components/remotion")
+          : path.resolve(__dirname, "../remotion-video/src"),
+      }
   },
   server: {
     port: 5173,
