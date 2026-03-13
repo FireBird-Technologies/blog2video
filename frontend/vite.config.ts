@@ -1,8 +1,21 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "path";
+import fs from "fs";
+
+const isCloudflare = !!process.env.CF_PAGES;
+const isVercel = !!process.env.VERCEL;
+const isCI = isCloudflare || isVercel;
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@remotion-video/templates": isCI
+          ? path.resolve(__dirname, "./src/components/remotion")
+          : path.resolve(__dirname, "../remotion-video/src/templates"),
+    },
+  },
   server: {
     port: 5173,
     proxy: {
