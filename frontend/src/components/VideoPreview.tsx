@@ -24,7 +24,12 @@ interface SceneInput {
   voiceoverUrl?: string;
 }
 
-export default function VideoPreview({ project, logoSizeOverride, logoOpacityOverride, logoPositionOverride }: VideoPreviewProps) {
+export default function VideoPreview({
+  project,
+  logoSizeOverride,
+  logoOpacityOverride,
+  logoPositionOverride,
+}: VideoPreviewProps) {
   const config = getTemplateConfig(project.template);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
@@ -127,9 +132,8 @@ export default function VideoPreview({ project, logoSizeOverride, logoOpacityOve
       // Apply scene-specific images (later uploads overwrite by same scene_id)
       for (const { sceneId, url } of sceneSpecificAssets) {
         const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-        if (sceneIdx >= 0) {
+        if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
           sceneImageMap[sceneIdx] = url;
-          hideImageFlags[sceneIdx] = false;
         }
       }
 

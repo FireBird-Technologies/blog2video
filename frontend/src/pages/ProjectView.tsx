@@ -28,6 +28,7 @@ import {
   Scene,
   BACKEND_URL,
   bulkUpdateSceneTypography,
+  submitProjectReview,
   updateProject
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
@@ -39,6 +40,7 @@ import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSize
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
@@ -126,6 +128,10 @@ function extractAudioFilename(voiceoverPath: string | null): string | null {
   
   return filename || null;
 }
+
+const FIRST_PROJECT_REVIEW_POPUP_DELAY_MS = 2 * 60 * 1000;
+const getFirstProjectReviewPopupDismissedKey = (projectId: number) =>
+  `b2v_first_project_review_popup_dismissed_${projectId}`;
 
 /**
  * Resolve voiceover URL for a scene. When a scene is regenerated, a new audio Asset is created
@@ -451,6 +457,12 @@ export default function ProjectView() {
   const tourAutoStartedRef = useRef(false);
   const tourShownThisSessionRef = useRef(false);
   const [projectCount, setProjectCount] = useState<number | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [inlineReviewSubmitted, setInlineReviewSubmitted] = useState(false);
+  const [showReviewPopup, setShowReviewPopup] = useState(false);
+  const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
+  const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTabsGuide = useCallback(() => {
     if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
     tourShownThisSessionRef.current = false;
@@ -460,6 +472,14 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
+  const reviewState = project?.review_state ?? null;
+  const isFirstProject = reviewState?.project_sequence === 1;
+  const clearReviewPopupTimer = useCallback(() => {
+    if (reviewPopupTimerRef.current) {
+      clearTimeout(reviewPopupTimerRef.current);
+      reviewPopupTimerRef.current = null;
+    }
+  }, []);
   // Pre-fetch project count when guide not seen so we can start tour when pipeline is done
   useEffect(() => {
     if (localStorage.getItem(tabsGuideSeenKey) || !user) return;
@@ -510,6 +530,143 @@ export default function ProjectView() {
   useEffect(() => {
     if (runProjectTour) setTabsTourStepIndex(0);
   }, [runProjectTour]);
+
+  useEffect(() => {
+    clearReviewPopupTimer();
+    setReviewSubmitting(false);
+    setReviewError(null);
+    setInlineReviewSubmitted(false);
+    setShowReviewPopup(false);
+    if (!project?.id) {
+      setFirstProjectPopupDismissed(false);
+      return;
+    }
+    try {
+      setFirstProjectPopupDismissed(
+        window.localStorage.getItem(getFirstProjectReviewPopupDismissedKey(project.id)) === "1"
+      );
+    } catch {
+      setFirstProjectPopupDismissed(false);
+    }
+  }, [project?.id, clearReviewPopupTimer]);
+
+  useEffect(() => {
+    if (reviewState?.has_review_for_project) {
+      clearReviewPopupTimer();
+      setShowReviewPopup(false);
+    }
+  }, [reviewState?.has_review_for_project, clearReviewPopupTimer]);
+
+  useEffect(() => {
+    clearReviewPopupTimer();
+    if (
+      !project?.id ||
+      !reviewState ||
+      reviewState.has_review_for_project ||
+      !pipelineFinished ||
+      !isFirstProject ||
+      firstProjectPopupDismissed
+    ) {
+      setShowReviewPopup(false);
+      return;
+    }
+    reviewPopupTimerRef.current = setTimeout(() => {
+      setShowReviewPopup(true);
+    }, FIRST_PROJECT_REVIEW_POPUP_DELAY_MS);
+
+    return clearReviewPopupTimer;
+  }, [
+    project?.id,
+    reviewState?.has_review_for_project,
+    pipelineFinished,
+    isFirstProject,
+    firstProjectPopupDismissed,
+    clearReviewPopupTimer,
+  ]);
+
+  useEffect(() => {
+    return clearReviewPopupTimer;
+  }, [clearReviewPopupTimer]);
+
+  const submitReview = useCallback(async ({
+    rating,
+    suggestion,
+    source,
+    triggerEvent,
+    surface,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+    source: "first_project_popup" | "inline_row";
+    triggerEvent: "delayed_popup" | "manual";
+    surface: "inline" | "popup";
+  }) => {
+    if (!project) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const response = await submitProjectReview(project.id, {
+        rating,
+        suggestion,
+        source,
+        trigger_event: triggerEvent,
+      });
+      setProject((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          review_state: response.data.review_state,
+        };
+      });
+      if (surface === "inline") {
+        setInlineReviewSubmitted(true);
+      } else {
+        setShowReviewPopup(false);
+        setInlineReviewSubmitted(false);
+      }
+    } catch (err) {
+      setReviewError(getErrorMessage(err, "Failed to save your review."));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }, [project]);
+  const handleInlineSubmitReview = useCallback(({
+    rating,
+    suggestion,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+  }) => submitReview({
+    rating,
+    suggestion,
+    source: "inline_row",
+    triggerEvent: "manual",
+    surface: "inline",
+  }), [submitReview]);
+  const handlePopupSubmitReview = useCallback(({
+    rating,
+    suggestion,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+  }) => submitReview({
+    rating,
+    suggestion,
+    source: "first_project_popup",
+    triggerEvent: "delayed_popup",
+    surface: "popup",
+  }), [submitReview]);
+  const handleDismissReviewPopup = useCallback(() => {
+    if (!project) return;
+    clearReviewPopupTimer();
+    setShowReviewPopup(false);
+    setFirstProjectPopupDismissed(true);
+    try {
+      window.localStorage.setItem(getFirstProjectReviewPopupDismissedKey(project.id), "1");
+    } catch {
+      // Ignore storage failures and fall back to in-memory dismissal for this page.
+    }
+  }, [project, clearReviewPopupTimer]);
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -1098,6 +1255,16 @@ export default function ProjectView() {
   const pipelineComplete = ["generated", "rendering", "done"].includes(
     project.status
   );
+  const showInlineReviewPrompt = Boolean(
+    inlineReviewSubmitted ||
+      (
+        !reviewState?.has_review_for_project &&
+        (
+          reviewState?.should_show_inline ||
+          (isFirstProject && firstProjectPopupDismissed)
+        )
+      )
+  );
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
@@ -1192,11 +1359,10 @@ export default function ProjectView() {
     // Apply scene-specific images (later uploads overwrite by same scene_id)
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-      if (sceneIdx >= 0) {
+      if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
         // Overwrite any existing assignment; scene-specific re-enables images
         sceneImageMap[sceneIdx] = [url];
         sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
-        hideImageFlags[sceneIdx] = false;
       }
     }
 
@@ -1767,13 +1933,28 @@ export default function ProjectView() {
                           : undefined
                       }
                     >
-                      <VideoPreview project={project} logoSizeOverride={logoSize} logoOpacityOverride={logoOpacity} logoPositionOverride={logoPosition} />
+                      <VideoPreview
+                        project={project}
+                        logoSizeOverride={logoSize}
+                        logoOpacityOverride={logoOpacity}
+                        logoPositionOverride={logoPosition}
+                      />
                     </div>
-                    <p className="text-[11px] text-gray-400 flex-shrink-0">
-                      Live preview · {project.scenes.length} scenes
-                      {totalAudioDuration > 0 &&
-                        ` · ${Math.round(totalAudioDuration)}s`}
-                    </p>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+                      <p className="text-[11px] text-gray-400 flex-shrink-0">
+                        Preview · {project.scenes.length} scenes
+                        {totalAudioDuration > 0 &&
+                          ` · ${Math.round(totalAudioDuration)}s`}
+                      </p>
+                      {showInlineReviewPrompt && (
+                        <ProjectReviewPrompt
+                          submitted={inlineReviewSubmitted}
+                          submitting={reviewSubmitting}
+                          error={reviewError}
+                          onSubmit={handleInlineSubmitReview}
+                        />
+                      )}
+                    </div>
                     {imageAssets.some((a) => /\.gif(\?.*)?$/i.test(a.filename)) && (
                       <p className="text-[10px] text-amber-500 flex items-center gap-1">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1813,6 +1994,26 @@ export default function ProjectView() {
         projectId={projectId}
         onPurchased={() => loadProject()}
       /> */}
+
+      {showReviewPopup && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            onClick={handleDismissReviewPopup}
+          />
+          <div className="relative w-full max-w-md" onClick={(event) => event.stopPropagation()}>
+            <ProjectReviewPrompt
+              variant="modal"
+              submitted={false}
+              submitting={reviewSubmitting}
+              error={reviewError}
+              onDismiss={handleDismissReviewPopup}
+              onSubmit={handlePopupSubmitReview}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Download warning — show before starting download when video is already rendered */}
       {showDownloadWarning && ReactDOM.createPortal(

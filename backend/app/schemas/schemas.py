@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
 
 
@@ -74,6 +74,65 @@ class ChatMessageOut(BaseModel):
         from_attributes = True
 
 
+class ReviewStateOut(BaseModel):
+    project_sequence: int
+    has_review_for_project: bool
+    should_show_inline: bool
+
+
+class ReviewOut(BaseModel):
+    id: int
+    user_id: int
+    project_id: int
+    rating: int
+    suggestion: Optional[str] = None
+    source: str
+    trigger_event: str
+    project_sequence: int
+    plan_at_submission: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReviewSubmit(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    suggestion: Optional[str] = None
+    source: str
+    trigger_event: str
+
+    @field_validator("suggestion")
+    @classmethod
+    def normalize_suggestion(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        return trimmed or None
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, v: str) -> str:
+        allowed = {"inline_row", "first_project_popup"}
+        if v not in allowed:
+            raise ValueError("source must be one of: first_project_popup, inline_row")
+        return v
+
+    @field_validator("trigger_event")
+    @classmethod
+    def validate_trigger_event(cls, v: str) -> str:
+        allowed = {"manual", "delayed_popup"}
+        if v not in allowed:
+            raise ValueError("trigger_event must be one of: delayed_popup, manual")
+        return v
+
+
+class ReviewSubmitResponse(BaseModel):
+    review: ReviewOut
+    review_state: ReviewStateOut
+
+
 class ProjectOut(BaseModel):
     id: int
     name: str
@@ -103,6 +162,7 @@ class ProjectOut(BaseModel):
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
     custom_template_missing: bool = False
+    review_state: Optional[ReviewStateOut] = None
     created_at: datetime
     updated_at: datetime
     scenes: list[SceneOut] = []
