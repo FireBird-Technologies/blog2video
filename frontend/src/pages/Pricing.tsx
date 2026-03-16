@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
@@ -10,6 +10,7 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
+// import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
   const { user, login } = useAuth();
@@ -136,6 +137,10 @@ export default function Pricing() {
           </p>
         </div>
       </div>
+      
+      {/* <div className="flex justify-center">
+        <DiscountCodeBadge className="md:hidden" />
+      </div> */}
 
       {/* Billing toggle */}
       <div className="flex items-center justify-center gap-3 py-6">
