@@ -16,6 +16,16 @@ import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { CustomVideoComposition } from "./custom/CustomVideoComposition";
+import {
+  RemotionCustomVideoComposition,
+  RemotionDefaultVideoComposition,
+  RemotionGridcraftVideoComposition,
+  RemotionMatrixVideoComposition,
+  RemotionNewspaperVideoComposition,
+  RemotionNightfallVideoComposition,
+  RemotionSpotlightVideoComposition,
+  RemotionWhiteboardVideoComposition,
+} from "./remotionAdapters";
 
 export interface TemplateColors {
   accent: string;
@@ -245,11 +255,48 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
 
-export function getTemplateConfig(templateId: string | undefined): TemplateConfig {
+type TemplateSource = "frontend" | "remotion";
+
+export function getTemplateConfig(
+  templateId: string | undefined,
+  source: TemplateSource = "frontend",
+): TemplateConfig {
   const id = (templateId || "default").trim().toLowerCase();
+
   // Route "custom_42", "custom_123" etc. to the custom template config
   if (id.startsWith("custom_")) {
     return TEMPLATE_REGISTRY.custom;
   }
-  return TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
+
+  const base = TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
+
+  if (source === "remotion") {
+    const overrideComponent =
+      id === "default"
+        ? RemotionDefaultVideoComposition
+        : id === "nightfall"
+          ? RemotionNightfallVideoComposition
+          : id === "gridcraft"
+            ? RemotionGridcraftVideoComposition
+            : id === "spotlight"
+              ? RemotionSpotlightVideoComposition
+              : id === "matrix"
+                ? RemotionMatrixVideoComposition
+                : id === "whiteboard"
+                  ? RemotionWhiteboardVideoComposition
+                  : id === "newspaper"
+                    ? RemotionNewspaperVideoComposition
+                    : id === "custom"
+                      ? RemotionCustomVideoComposition
+                      : null;
+
+    if (overrideComponent) {
+      return {
+        ...base,
+        component: overrideComponent as React.ComponentType<any>,
+      };
+    }
+  }
+
+  return base;
 }

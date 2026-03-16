@@ -620,7 +620,7 @@ export default function ProjectView() {
       const res = await getProject(projectId);
       setProject(res.data);
       setHasError(false); // clear any previous load errors on success
-      if (res.data.status === "done") {
+      if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
         setRendered(true);
       }
       // Fetch layout image-support info (non-blocking)
@@ -766,7 +766,7 @@ export default function ProjectView() {
 
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
-
+  const handleRenderRef = useRef<(force: boolean, onStart?: () => void) => Promise<void>>();
 
   const handleRender = async (
     forceReRender = false,
@@ -778,6 +778,17 @@ export default function ProjectView() {
         "You can't render this video because its custom template has been deleted."
       );
       setRendering(false);
+      return;
+    }
+
+    // Re-render while already rendering — skip API call, take user to status page instead
+    if (forceReRender && project?.status === "rendering") {
+      onRenderStarted?.();
+      setRendered(false);
+      setRendering(true);
+      setHasError(false);
+      renderHighWaterRef.current = 0;
+      startRenderPollingLoop({ isResume: true });
       return;
     }
 
@@ -818,6 +829,17 @@ export default function ProjectView() {
           stopRenderPolling();
           return;
         }
+        // Video limit reached (403) — show upgrade modal + mention download option
+        if (err?.response?.status === 403) {
+          const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
+          const hasExisting = Boolean(project?.r2_video_url);
+          showError(baseMsg, { showUpgrade: true });
+          setHasError(true);
+          setRendering(false);
+          if (hasExisting) setRendered(true);
+          stopRenderPolling();
+          return;
+        }
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
           showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
@@ -826,8 +848,18 @@ export default function ProjectView() {
         }
       }
 
-      stopRenderPolling();
-      renderPollingRef.current = setInterval(async () => {
+      startRenderPollingLoop({ isResume: false });
+    };
+
+    startRenderAndPoll();
+  };
+  handleRenderRef.current = handleRender;
+
+  /** Start polling render status. When isResume=true, we're resuming (no retry on error). */
+  const startRenderPollingLoop = useCallback(
+    (opts?: { isResume?: boolean }) => {
+      const isResume = opts?.isResume ?? false;
+      const poll = async () => {
         try {
           const status = await getRenderStatus(projectId);
           const {
@@ -839,7 +871,6 @@ export default function ProjectView() {
             time_remaining,
           } = status.data;
 
-          // Never go backward — only update if progress moved forward
           if (progress >= renderHighWaterRef.current) {
             renderHighWaterRef.current = progress;
             setRenderProgress(progress);
@@ -850,43 +881,37 @@ export default function ProjectView() {
           if (time_remaining) setRenderTimeLeft(time_remaining);
 
           if (renderErr) {
-            // Auto-retry: re-trigger render instead of stopping
-            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
-              renderRetryCountRef.current++;
-              console.log(
-                `[RENDER] Error "${renderErr}", auto-retrying (${renderRetryCountRef.current}/${MAX_RENDER_RETRIES})...`
-              );
-              stopRenderPolling();
-              // Keep the current progress visible — user shouldn't see a reset
-              // Small delay before retrying
-              await new Promise((r) => setTimeout(r, 3000));
-              startRenderAndPoll();
-            } else {
-              showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
+            if (isResume) {
+              showError("Render failed. Please try re-rendering.");
+              setHasError(true);
               setRendering(false);
               stopRenderPolling();
+              return;
             }
+            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
+              renderRetryCountRef.current++;
+              stopRenderPolling();
+              await new Promise((r) => setTimeout(r, 3000));
+              handleRenderRef.current?.(true);
+              return;
+            }
+            showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist.");
+            setHasError(true);
+            setRendering(false);
+            stopRenderPolling();
             return;
           }
 
-          // Transition to saving screen when:
-          // - backend says done (render + R2 upload complete), OR
-          // - all frames rendered (100% / frames match) — encoding + R2 still in progress
           const allFramesRendered =
             progress >= 100 && total_frames > 0 && rendered_frames >= total_frames;
 
           if (done || allFramesRendered) {
             setRenderProgress(100);
             stopRenderPolling();
-
-            // Transition: rendering → saving (encoding + uploading to cloud)
             setRendering(false);
             setSaving(true);
 
-            // Stay on saving screen until backend reports done AND project has updated URL.
-            // (On re-render, project already has an old r2_video_url — we must wait for
-            // render-status.done so we don't show preview with stale video.)
-            const maxWait = 120; // max 120 attempts (~240s)
+            const maxWait = 120;
             for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
               const [statusRes, fresh] = await Promise.all([
@@ -899,29 +924,26 @@ export default function ProjectView() {
               if (renderDone && (hasVideoUrl || localDone)) break;
             }
 
-            // Transition: saving → done (green download button + auto-download)
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
-            console.log("rendering completed")
-
-            // Also open the video URL directly in a new tab as a fallback
-            // in case the blob download is blocked by popup settings
             const freshProject = await loadProject();
             const directUrl = freshProject?.r2_video_url;
             if (directUrl) {
-              console.log("downloading")
               window.open(directUrl, "_blank", "noopener,noreferrer");
             }
           }
         } catch {
-          // Network hiccup — keep polling
+          /* keep polling */
         }
-      }, 10_000); // Poll every 10 seconds
-    };
+      };
 
-    startRenderAndPoll();
-  };
+      stopRenderPolling();
+      poll(); // immediate first poll
+      renderPollingRef.current = setInterval(poll, 10_000);
+    },
+    [projectId]
+  );
 
   const handleDownload = async () => {
     if (!project || !project.r2_video_url) {

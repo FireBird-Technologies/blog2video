@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -8,6 +8,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
@@ -73,6 +74,9 @@ export default function Landing() {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
+  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
   const scrollRef = useScrollReveal();
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
@@ -108,15 +112,36 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
+        setPendingCredential(response.credential);
+        setAccountDeletedOpen(true);
+      } else {
+        showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      }
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!pendingCredential) return;
+    setReactivating(true);
+    try {
+      const res = await googleLogin(pendingCredential, true);
+      login(res.data.access_token, res.data.user);
+      setAccountDeletedOpen(false);
+      setPendingCredential(null);
+      navigate("/dashboard");
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Failed to reactivate account."));
+    } finally {
+      setReactivating(false);
     }
   };
 
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
       <Seo
-        title="Turn Blog Posts Into Videos"
-        description="Turn blog posts, articles, PDFs, and documents into narrated videos with templates, voiceover, scene editing, and cross-channel distribution workflows."
+        title="Blog to Video | Turn Posts Into Videos | Blog2Video"
+        description="Turn blog posts into videos in minutes. Blog2Video converts articles to narrated videos with code, diagrams, and templates. No prompts needed. Free to start."
         path="/"
         schema={homepageSchema()}
       />
@@ -220,6 +245,12 @@ export default function Landing() {
             <p className="text-xs text-gray-400">
               First video free — no credit card required
             </p>
+            <Link
+              to="/blog-to-video"
+              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              Learn more: Blog to video converter →
+            </Link>
           </div>
         </div>
       </section>
@@ -701,7 +732,7 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, $25/month
+            Your first video is free. Then $3/video pay-as-you-go, $25/month
             (or $20/mo annual), $50/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
@@ -714,7 +745,7 @@ export default function Landing() {
             </div>
             <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
-              <p className="text-3xl font-bold text-gray-900">$5</p>
+              <p className="text-3xl font-bold text-gray-900">$3</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
             </div>
             <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
@@ -771,6 +802,13 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
+
+      <AccountDeletedModal
+        open={accountDeletedOpen}
+        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
+        onReactivate={handleReactivate}
+        reactivating={reactivating}
+      />
     </div>
   );
 }
