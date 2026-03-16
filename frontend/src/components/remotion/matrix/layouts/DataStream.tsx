@@ -66,57 +66,64 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
     Math.min(baseFontSize, Math.floor(baseFontSize * (4 / Math.max(itemCount, 4))))
   );
   const computedFontSize = descriptionFontSize ?? scaledFontSize;
+  const prefixWidth = p ? 110 : 132;
+  const stackPaddingTop = hasImage ? (p ? 56 : 36) : (p ? 180 : 140);
+  const stackPaddingBottom = p ? 120 : 84;
+  const stackPaddingX = p ? 40 : 88;
+  const listMaxWidth = hasImage ? (p ? 760 : 920) : (p ? 820 : 1080);
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.2} fontFamily={resolvedFontFamily} />
 
-      {hasImage && (
-        <div
-          style={{
-            position: "absolute",
-            top: p ? "4%" : "3%",
-            left: "50%",
-            transform: `translateX(calc(-50% + ${imageTranslateX}px)) scale(${imageScale})`,
-            width: p ? "60%" : "35%",
-            maxWidth: p ? 400 : 500,
-            height: "auto",
-            opacity: imageOpacity,
-            filter: `blur(${imageBlur}px)`,
-            zIndex: 10,
-          }}
-        >
-          <Img
-            src={imageUrl}
-            style={{
-              width: "100%",
-              height: "auto",
-              maxHeight: p ? 260 : 300,
-              objectFit: "contain",
-              borderRadius: 8,
-            }}
-          />
-        </div>
-      )}
-
-      {/* Main content container for text */}
       <div
         style={{
           position: "absolute",
-          top: hasImage ? (p ? "38%" : "42%") : "50%",
-          bottom: "4%",
-          left: "50%",
-          transform: `translateX(-50%)`,
-          width: p ? "90%" : "85%",
-          maxWidth: p ? 640 : 1100,
+          inset: 0,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          gap: p ? 8 : 14,
+          alignItems: "center",
+          justifyContent: "flex-start",
+          padding: `${stackPaddingTop}px ${stackPaddingX}px ${stackPaddingBottom}px`,
+          boxSizing: "border-box",
           zIndex: 20,
-          overflow: "hidden",
         }}
       >
+        {hasImage && (
+          <div
+            style={{
+              width: p ? "60%" : "35%",
+              maxWidth: p ? 400 : 500,
+              height: "auto",
+              marginBottom: p ? 32 : 40,
+              opacity: imageOpacity,
+              filter: `blur(${imageBlur}px)`,
+              transform: `translateX(${imageTranslateX}px) scale(${imageScale})`,
+            }}
+          >
+            <Img
+              src={imageUrl}
+              style={{
+                width: "100%",
+                height: "auto",
+                maxHeight: p ? 260 : 300,
+                objectFit: "contain",
+                borderRadius: 8,
+              }}
+            />
+          </div>
+        )}
+
+        <div
+          style={{
+            width: "100%",
+            maxWidth: listMaxWidth,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: p ? 14 : 18,
+          }}
+        >
         {displayItems.map((item, i) => {
           const lineAppearStartFrame = textStartFrame + (i * framesPerLine);
 
@@ -128,32 +135,38 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
             { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
           );
 
-          const words = item.split(/(\s+)/);
+          const words = item.trim().split(/\s+/).filter(Boolean);
 
           return (
             <div
               key={i}
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: `${prefixWidth}px minmax(0, 1fr)`,
                 alignItems: "flex-start",
-                gap: p ? 10 : 16,
+                width: "100%",
+                columnGap: p ? 18 : 24,
                 opacity: lineOpacity,
                 filter: `drop-shadow(0 0 8px ${accent}66)`,
               }}
             >
-              <span
+              <div
                 style={{
                   fontSize: computedFontSize,
                   fontWeight: 700,
                   color: accent,
                   fontFamily: resolvedFontFamily,
                   lineHeight: 1.4,
-                  minWidth: p ? 70 : 90,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "baseline",
+                  gap: "0.34em",
                   whiteSpace: "nowrap",
                 }}
               >
-                {">"} {String(i + 1).padStart(2, "0")}
-              </span>
+                <span>{">"}</span>
+                <span>{String(i + 1).padStart(2, "0")}</span>
+              </div>
               <span
                 style={{
                   fontSize: computedFontSize,
@@ -165,6 +178,9 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "baseline",
+                  justifyContent: "flex-start",
+                  columnGap: "0.38em",
+                  rowGap: "0.14em",
                 }}
               >
                 {words.map((word, wordIdx) => {
@@ -181,25 +197,19 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
                     },
                     from: 0,
                     to: 1,
-                    durationInFrames: 30, // Word animation lasts a bit longer for smoothness
+                    durationInFrames: 30,
                   });
 
-                  // If it's a space, render it directly without animation
-                  if (word.trim() === '') {
-                      return <span key={`${i}-${wordIdx}-space`}>{word}</span>;
-                  }
-
-                  const translateY = interpolate(wordSpring, [0, 1], [30, 0]); // Rises from bottom
-                  const wordOpacity = interpolate(wordSpring, [0, 1], [0, 1]); // Fades in
+                  const translateY = interpolate(wordSpring, [0, 1], [30, 0]);
+                  const wordOpacity = interpolate(wordSpring, [0, 1], [0, 1]);
 
                   return (
                     <span
                       key={`${i}-${wordIdx}`}
                       style={{
-                        display: 'inline-block', // Important for translateY on individual words
-                        transform: `translateY(${wordIsShown ? translateY : 30}px)`, // Keep hidden words off-screen
-                        opacity: wordIsShown ? wordOpacity : 0, // Keep hidden words invisible
-                        marginRight: '0.25em', // Add a consistent space after each word
+                        display: "inline-block",
+                        transform: `translateY(${wordIsShown ? translateY : 30}px)`,
+                        opacity: wordIsShown ? wordOpacity : 0,
                       }}
                     >
                       {word}
@@ -210,6 +220,7 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
             </div>
           );
         })}
+        </div>
       </div>
     </AbsoluteFill>
   );

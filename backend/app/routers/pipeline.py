@@ -336,12 +336,12 @@ async def _generate_scenes(project: Project, db: Session):
     write_remotion_data(project, scenes, db)
 
     project.status = ProjectStatus.GENERATED
+    user = db.query(User).filter(User.id == project.user_id).first()
     db.commit()
     db.refresh(project)
 
     # Notify the user that their video is ready to preview
     try:
-        user = db.query(User).filter(User.id == project.user_id).first()
         if user:
             
             project_url = f"{settings.FRONTEND_URL}/project/{project.id}"
