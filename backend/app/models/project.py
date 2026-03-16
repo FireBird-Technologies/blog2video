@@ -77,3 +77,4 @@ class Project(Base):
     chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
     project_edit_history = relationship("ProjectEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
+    reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")

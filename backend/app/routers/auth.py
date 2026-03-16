@@ -103,6 +103,7 @@ def google_login(
 
     # Find or create user
     user = db.query(User).filter(User.google_id == google_id).first()
+    created_new_user = False
 
     if not user:
         # Check if email already exists (shouldn't happen with Google, but safe)
@@ -120,11 +121,15 @@ def google_login(
                 google_id=google_id,
                 plan=PlanTier.FREE,
                 videos_used_this_period=0,
+                video_limit_bonus=0,
+                is_active=True,
             )
             db.add(user)
+            db.flush()
+            created_new_user = True
 
     # User exists — check if soft-deleted (from google_id or email lookup)
-    if not user.is_active:
+    if not created_new_user and not user.is_active:
         if not reactivate:
             raise HTTPException(
                 status_code=403,

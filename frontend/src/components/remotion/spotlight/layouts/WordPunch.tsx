@@ -8,7 +8,7 @@ import type { SpotlightLayoutProps } from "../types";
  *
  * ONE word/short phrase fills the entire frame at 180-200px.
  * Springs from 0% to ~110% (overshoot) then settles to 100%.
- * Optional image alongside when available.
+ * Optional image can sit below the word when available.
  */
 export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   word,
@@ -39,10 +39,15 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
   });
 
   const displayWord = word || title;
-  const hasImage = !!imageUrl;
-
-  const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
-  const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
+  const hasImage = Boolean(imageUrl);
+  const imageOpacity = interpolate(frame, [10, 35], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+  const imageScale = spring({
+    frame: frame - 10,
+    fps,
+    config: { damping: 20, stiffness: 80 },
+  });
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -53,31 +58,22 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: hasImage && !p ? "row" : "column",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          gap: hasImage ? (p ? 24 : 48) : 0,
-          padding: p ? "10% 8%" : "0 8%",
+          justifyContent: hasImage ? "flex-start" : "center",
+          gap: hasImage ? (p ? 36 : 44) : 0,
+          padding: hasImage
+            ? p
+              ? "14% 8% 12%"
+              : "10% 8% 10%"
+            : p
+              ? "10% 8%"
+              : "0 8%",
         }}
       >
-        {hasImage && (
-          <div
-            style={{
-              flex: p ? "none" : "0 0 38%",
-              width: p ? "70%" : "auto",
-              height: p ? 220 : 360,
-              borderRadius: 4,
-              overflow: "hidden",
-              opacity: imageOpacity,
-              transform: `scale(${imageScale})`,
-            }}
-          >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
-        )}
         <div
           style={{
-            fontSize: titleFontSize ?? (p ? 112 : 164),
+            fontSize: titleFontSize ?? (hasImage ? (p ? 100 : 148) : (p ? 112 : 164)),
             fontWeight: 900,
             color: accentColor,
             textTransform: "uppercase",
@@ -88,11 +84,29 @@ export const WordPunch: React.FC<SpotlightLayoutProps> = ({
             lineHeight: 1,
             textAlign: "center",
             padding: "0 5%",
-            flex: hasImage && !p ? 1 : "none",
+            maxWidth: hasImage ? "90%" : "100%",
           }}
         >
           {displayWord}
         </div>
+
+        {hasImage && (
+          <div
+            style={{
+              width: p ? "72%" : "42%",
+              height: p ? "26%" : "32%",
+              borderRadius: 4,
+              overflow: "hidden",
+              opacity: imageOpacity,
+              transform: `scale(${imageScale})`,
+            }}
+          >
+            <Img
+              src={imageUrl!}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </div>
+        )}
       </div>
     </AbsoluteFill>
   );
