@@ -344,6 +344,7 @@ def init_db():
         SceneEditHistory,
         # Ensure SQLite creates the prebuilt_voices table in dev/local.
         PrebuiltVoice,
+        Review,
     )
     from app.models.subscription import seed_plans
 

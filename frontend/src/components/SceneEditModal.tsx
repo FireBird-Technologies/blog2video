@@ -9,7 +9,6 @@ import {
   generateSceneImage,
   regenerateScene,
   getValidLayouts,
-  deleteAsset,
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -786,8 +785,28 @@ export default function SceneEditModal({
   const handleRemoveImage = async (assetId: number) => {
     setRemovingAssetId(assetId);
     try {
-      await deleteAsset(project.id, assetId);
+      let descriptor: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          descriptor = JSON.parse(scene.remotion_code);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const layoutProps: Record<string, unknown> = {
+        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+        hideImage: true,
+      };
+      delete layoutProps.assignedImage;
+      descriptor.layoutProps = layoutProps;
+
+      await updateScene(project.id, scene.id, {
+        remotion_code: JSON.stringify(descriptor),
+      });
+      setSelectedImageFile(null);
       onSaved();
+      onClose();
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "response" in err

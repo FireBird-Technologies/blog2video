@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
+from app.models.user import User
 from app.services import r2_storage
 from app.services.email import email_service, EmailServiceError
 from app.services.template_service import (
@@ -403,6 +404,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         for scene_id, filename in scene_specific:
             scene_idx = next((i for i, s in enumerate(scenes) if s.id == scene_id), -1)
             if scene_idx >= 0:
+                if hide_image_flags[scene_idx]:
+                    continue
                 scene = scenes[scene_idx]
                 layout_props = {}
                 layout = get_fallback_layout(template_id)
@@ -1011,13 +1014,12 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                         project = db.query(Project).filter(Project.id == project_id).first()
                         if project:
                             project.status = ProjectStatus.DONE
+                            user = db.query(User).filter(User.id == project.user_id).first()
                             db.commit()
                             logger.info("[REMOTION] Project %s marked DONE (no R2)", project_id)
 
                             # Send download-ready email (link to dashboard since no CDN URL)
                             try:
-                                from app.models.user import User
-                                user = db.query(User).filter(User.id == project.user_id).first()
                                 if user:
                                     dashboard_url = f"{settings.FRONTEND_URL}/project/{project_id}"
                                     email_service.send_download_ready_email(
@@ -1134,13 +1136,12 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             # Cloud Run instance restarted, etc.)
             from app.models.project import ProjectStatus
             project.status = ProjectStatus.DONE
+            user = db.query(User).filter(User.id == project.user_id).first()
             db.commit()
             logger.info("[REMOTION] Video uploaded to R2 and project %s marked DONE", project_id)
 
             # Send download-ready email notification to the user
             try:
-                from app.models.user import User
-                user = db.query(User).filter(User.id == project.user_id).first()
                 if user:
                     email_service.send_download_ready_email(
                         user_email=user.email,
