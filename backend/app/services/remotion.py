@@ -27,7 +27,9 @@ from app.services.template_service import (
     is_custom_template,
 )
 
-logger = logging.getLogger(__name__)
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Track running studio processes: project_id -> subprocess.Popen
 _studio_processes: dict[int, subprocess.Popen] = {}
@@ -437,21 +439,21 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                             if not has_lc:
                                 full_desc["layout"] = layout
                             scene.remotion_code = json.dumps(full_desc)
-                            print(f"[REMOTION] Scene-specific image pass: scene {scene_idx} → assignedImage={filename}, layoutConfig={'preserved ✅' if has_lc else 'NOT present (legacy)'}")
+                            logger.info("[REMOTION] Scene-specific image pass: scene %s → assignedImage=%s, layoutConfig=%s", scene_idx, filename, "preserved" if has_lc else "NOT present (legacy)")
                         except (json.JSONDecodeError, TypeError):
                             if is_custom_template(template_id):
-                                print(f"[REMOTION] ❌ Scene-specific image pass: scene {scene_idx} → parse error on CUSTOM template, skipping to avoid layoutConfig loss")
+                                logger.warning("[REMOTION] Scene-specific image pass: scene %s → parse error on CUSTOM template, skipping", scene_idx)
                             else:
                                 scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                                print(f"[REMOTION] ⚠️ Scene-specific image pass: scene {scene_idx} → parse error, wrote legacy format")
+                                logger.info("[REMOTION] Scene-specific image pass: scene %s → parse error, wrote legacy format", scene_idx)
                                 scenes_need_update.append(scene)
                             continue
                     else:
                         if is_custom_template(template_id):
-                            print(f"[REMOTION] ❌ Scene-specific image pass: scene {scene_idx} → no existing code for CUSTOM template, skipping")
+                            logger.warning("[REMOTION] Scene-specific image pass: scene %s → no existing code for CUSTOM template, skipping", scene_idx)
                         else:
                             scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                            print(f"[REMOTION] ⚠️ Scene-specific image pass: scene {scene_idx} → no existing code, wrote legacy format")
+                            logger.info("[REMOTION] Scene-specific image pass: scene %s → no existing code, wrote legacy format", scene_idx)
                             scenes_need_update.append(scene)
                         continue
                     scenes_need_update.append(scene)
@@ -522,21 +524,21 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                             if not has_lc:
                                 full_desc["layout"] = layout
                             scene.remotion_code = json.dumps(full_desc)
-                            print(f"[REMOTION] Generic image pass: scene {scene_idx} → assignedImage={assigned_filename}, layoutConfig={'preserved ✅' if has_lc else 'NOT present (legacy)'}")
+                            logger.info("[REMOTION] Generic image pass: scene %s → assignedImage=%s, layoutConfig=%s", scene_idx, assigned_filename, "preserved" if has_lc else "NOT present (legacy)")
                         except (json.JSONDecodeError, TypeError):
                             if is_custom_template(template_id):
-                                print(f"[REMOTION] ❌ Generic image pass: scene {scene_idx} → parse error on CUSTOM template, skipping to avoid layoutConfig loss")
+                                logger.warning("[REMOTION] Generic image pass: scene %s → parse error on CUSTOM template, skipping", scene_idx)
                             else:
                                 scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                                print(f"[REMOTION] ⚠️ Generic image pass: scene {scene_idx} → parse error, wrote legacy format")
+                                logger.info("[REMOTION] Generic image pass: scene %s → parse error, wrote legacy format", scene_idx)
                                 scenes_need_update.append(scene)
                             continue
                     else:
                         if is_custom_template(template_id):
-                            print(f"[REMOTION] ❌ Generic image pass: scene {scene_idx} → no existing code for CUSTOM template, skipping")
+                            logger.warning("[REMOTION] Generic image pass: scene %s → no existing code for CUSTOM template, skipping", scene_idx)
                         else:
                             scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                            print(f"[REMOTION] ⚠️ Generic image pass: scene {scene_idx} → no existing code, wrote legacy format")
+                            logger.info("[REMOTION] Generic image pass: scene %s → no existing code, wrote legacy format", scene_idx)
                             scenes_need_update.append(scene)
                         continue
                     scenes_need_update.append(scene)
@@ -546,7 +548,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         try:
             db.commit()
         except Exception as e:
-            print(f"[REBUILD_WORKSPACE] Failed to update scene assignments: {e}")
+            logger.exception("[REBUILD_WORKSPACE] Failed to update scene assignments: %s", e)
             db.rollback()
 
     # Build audio asset lookup: scene order -> audio asset (for R2 fallback)
@@ -632,12 +634,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         if layout_config is not None:
             # Custom templates: universal layout config
             scene_entry["layoutConfig"] = layout_config
-            print(f"[REMOTION] Scene {i}: layoutConfig → arrangement={layout_config.get('arrangement')}, elements={len(layout_config.get('elements', []))}, decorations={layout_config.get('decorations')}")
+            logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"))
         else:
             # Built-in templates: legacy format
             scene_entry["layout"] = layout
             scene_entry["layoutProps"] = layout_props
-            print(f"[REMOTION] Scene {i}: legacy → layout={layout}, layoutProps keys={list(layout_props.keys())}")
+            logger.info("[REMOTION] Scene %s: legacy → layout=%s, layoutProps keys=%s", i, layout, list(layout_props.keys()))
 
         scene_data.append(scene_entry)
 
@@ -684,9 +686,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         custom_data = _load_custom_template_data(template_id)
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
-            print(f"[REMOTION] Custom theme loaded for {template_id}: style={custom_data['theme'].get('style')}, accent={custom_data['theme'].get('colors', {}).get('accent')}")
+            logger.info("[REMOTION] Custom theme loaded for %s: style=%s, accent=%s", template_id, custom_data["theme"].get("style"), custom_data["theme"].get("colors", {}).get("accent"))
         else:
-            print(f"[REMOTION] WARNING: No theme found for custom template {template_id}")
+            logger.warning("[REMOTION] No theme found for custom template %s", template_id)
     data_path = os.path.join(public_dir, "data.json")
     with open(data_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -875,7 +877,7 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
 
     npx = shutil.which("npx") or "npx"
     cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
-    print(f"[RENDER] project={project.id} template={project.template} resolution={resolution} aspect_ratio={aspect_ratio}")
+    logger.info("[RENDER] project=%s template=%s resolution=%s aspect_ratio=%s", project.id, project.template, resolution, aspect_ratio)
 
     _render_progress[project.id] = {
         "progress": 0,
@@ -961,7 +963,7 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
 
     # Log non-progress lines (errors, warnings) for debugging
     if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
-        print(f"[REMOTION][project {project_id}] {line}")
+        logger.debug("[REMOTION][project %s] %s", project_id, line)
 
     m = frame_pat.search(line)
     if m:
@@ -1010,7 +1012,7 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                         if project:
                             project.status = ProjectStatus.DONE
                             db.commit()
-                            print(f"[REMOTION] Project {project_id} marked DONE (no R2)")
+                            logger.info("[REMOTION] Project %s marked DONE (no R2)", project_id)
 
                             # Send download-ready email (link to dashboard since no CDN URL)
                             try:
@@ -1031,12 +1033,12 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                     finally:
                         db.close()
                 except Exception as e:
-                    print(f"[REMOTION] Failed to update project status: {e}")
+                    logger.exception("[REMOTION] Failed to update project status: %s", e)
 
             # Clean up the workspace to free disk space
             workspace = get_workspace_dir(project_id)
             safe_remove_workspace(workspace)
-            print(f"[REMOTION] Cleaned up workspace for project {project_id}")
+            logger.info("[REMOTION] Cleaned up workspace for project %s", project_id)
 
             # NOW mark as done in progress dict for polling endpoint
             _render_progress[project_id]["done"] = True
@@ -1053,9 +1055,9 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             if attempt < MAX_RENDER_RETRIES and cmd and workspace:
                 next_attempt = attempt + 1
                 delay = 3 * attempt  # 3s, 6s backoff
-                print(
-                    f"[REMOTION] Render failed (exit {retcode}) for project {project_id}, "
-                    f"retrying {next_attempt}/{MAX_RENDER_RETRIES} in {delay}s (bundle cache reused)..."
+                logger.warning(
+                    "[REMOTION] Render failed (exit %s) for project %s, retrying %s/%s in %ss (bundle cache reused)",
+                    retcode, project_id, next_attempt, MAX_RENDER_RETRIES, delay,
                 )
                 time.sleep(delay)
 
@@ -1111,7 +1113,7 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             from app.models.project import Project
             project = db.query(Project).filter(Project.id == project_id).first()
             if not project:
-                print(f"[REMOTION] Project {project_id} not found — skipping R2 upload")
+                logger.warning("[REMOTION] Project %s not found — skipping R2 upload", project_id)
                 return None
 
             user_id = project.user_id
@@ -1133,7 +1135,7 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
             from app.models.project import ProjectStatus
             project.status = ProjectStatus.DONE
             db.commit()
-            print(f"[REMOTION] Video uploaded to R2 and project {project_id} marked DONE")
+            logger.info("[REMOTION] Video uploaded to R2 and project %s marked DONE", project_id)
 
             # Send download-ready email notification to the user
             try:
@@ -1155,7 +1157,7 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
 
         return r2_url
     except Exception as e:
-        print(f"[REMOTION] R2 video upload failed for project {project_id}: {e}")
+        logger.exception("[REMOTION] R2 video upload failed for project %s: %s", project_id, e)
         return None
 
 
@@ -1176,10 +1178,10 @@ def _download_url_to_file(url: str, dest: str) -> bool:
         with open(dest, "wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
-        print(f"[REMOTION] Downloaded from R2: {os.path.basename(dest)}")
+        logger.info("[REMOTION] Downloaded from R2: %s", os.path.basename(dest))
         return True
     except Exception as e:
-        print(f"[REMOTION] Failed to download {url}: {e}")
+        logger.warning("[REMOTION] Failed to download %s: %s", url, e)
         return False
 
 
