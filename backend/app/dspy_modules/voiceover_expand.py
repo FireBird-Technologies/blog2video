@@ -1,6 +1,9 @@
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ExpandNarrationToVoiceover(dspy.Signature):
@@ -88,5 +91,8 @@ async def expand_narration_to_voiceover(
             return out
         return display_text.strip()
     except Exception as e:
-        print(f"[VOICEOVER_EXPAND] Failed to expand narration: {e}")
+        logger.warning(
+            "[VOICEOVER_EXPAND] Failed to expand narration: %s",
+            e,
+        )
         return display_text.strip()

@@ -4,6 +4,9 @@ Refine scene text (idea) into a strong image generation prompt using DSPy.
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class RefineImagePrompt(dspy.Signature):
@@ -32,5 +35,8 @@ def refine_image_prompt(idea: str) -> str:
             return out
         return idea.strip()
     except Exception as e:
-        print(f"[IMAGE_PROMPT] Failed to refine prompt: {e}")
+        logger.warning(
+            "[IMAGE_PROMPT] Failed to refine prompt: %s",
+            e,
+        )
         return idea.strip()

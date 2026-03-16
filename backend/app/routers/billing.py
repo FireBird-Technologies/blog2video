@@ -1,6 +1,6 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
-Supports both Pro subscription ($50/mo) and per-video purchase ($5).
+Supports both Pro subscription ($50/mo) and per-video purchase ($3).
 """
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -16,10 +16,12 @@ from app.models.project import Project
 from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
 )
+from app.observability.logging import get_logger
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
+logger = get_logger(__name__)
 
 
 class CheckoutResponse(BaseModel):
@@ -244,7 +246,7 @@ def create_checkout_session(
     return CheckoutResponse(checkout_url=session.url)
 
 
-# ─── Per-Video Checkout ($5) ──────────────────────────────
+# ─── Per-Video Checkout ($3) ──────────────────────────────
 
 @router.post("/checkout-per-video", response_model=CheckoutResponse)
 def create_per_video_checkout(
@@ -253,7 +255,7 @@ def create_per_video_checkout(
     db: Session = Depends(get_db),
 ):
     """
-    Create a Stripe Checkout session for a single video ($5).
+    Create a Stripe Checkout session for a single video ($3).
     If project_id is provided, unlocks that specific project.
     If project_id is omitted (e.g. from Pricing page), buys a video credit.
     """
@@ -436,7 +438,12 @@ def list_invoices(
             ))
         return result
     except Exception as e:
-        print(f"[BILLING] Failed to fetch invoices: {e}")
+        logger.error(
+            "[BILLING] Failed to fetch invoices for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
         return []
 
 
@@ -563,7 +570,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     elif event_type == "charge.refunded":
         _handle_charge_refunded(data, db)
     else:
-        print(f"[BILLING] Unhandled webhook event: {event_type}")
+        logger.warning("[BILLING] Unhandled webhook event: %s", event_type)
 
     return {"status": "ok"}
 
@@ -607,8 +614,12 @@ def _handle_checkout_completed(session: dict, db: Session):
                     db.add(sub)
 
                 db.commit()
-                print(f"[BILLING] Per-video purchase: unlocked studio for project {project_id}, "
-                    f"credit expires {credit_expiry.date()}")
+                logger.info(
+                    "[BILLING] Per-video purchase: unlocked studio for project %s, credit expires %s",
+                    project_id,
+                    credit_expiry.date(),
+                    extra={"project_id": int(project_id), "user_id": int(user_id) if user_id else None},
+                )
         elif user_id:
             # No project — this is a video credit purchase (from Pricing page)
             user = db.query(User).filter(User.id == int(user_id)).first()
@@ -629,10 +640,12 @@ def _handle_checkout_completed(session: dict, db: Session):
                     db.add(sub)
 
                 db.commit()
-                print(
-                    f"[BILLING] Per-video credit purchased for user {user_id}, "
-                    f"expires {credit_expiry.date()}, "
-                    f"new video_limit_bonus={user.video_limit_bonus}"
+                logger.info(
+                    "[BILLING] Per-video credit purchased for user %s, expires %s, new video_limit_bonus=%s",
+                    user_id,
+                    credit_expiry.date(),
+                    user.video_limit_bonus,
+                    extra={"user_id": int(user_id)},
                 )
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────

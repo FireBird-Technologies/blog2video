@@ -241,7 +241,7 @@ export default function Pricing() {
               <p className="text-sm text-gray-400">Pay as you go</p>
             </div>
             <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">$5</span>
+              <span className="text-4xl font-bold text-gray-900">$3</span>
               <span className="text-sm text-gray-400 ml-1">/video</span>
             </div>
             <ul className="space-y-3 mb-8 flex-1">
@@ -561,7 +561,7 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$5/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
+                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
                 { feature: "Videos", free: "First video free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
