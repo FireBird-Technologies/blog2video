@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { topNavLinks } from "../../content/siteContent";
 import { templateProfiles } from "../../content/marketingBase";
 import { useAuth } from "../../hooks/useAuth";
+import DiscountBanner from "../DiscountBanner";
 
 const templateLinks = templateProfiles.map((t) => ({
   href: `/templates/${t.slug}`,
@@ -37,8 +38,11 @@ export default function PublicHeader() {
   const isTemplatesActive = location.pathname.startsWith("/templates");
 
   return (
-    <nav className="border-b border-gray-200/60 bg-white/70 backdrop-blur-xl sticky top-0 z-50">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+    <nav className="bg-white/70 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/60">
+      {/* Banner above navbar so it appears first on scroll */}
+      <DiscountBanner containerClassName="max-w-6xl" />
+
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-600 text-sm font-bold text-white">
             B2V
@@ -47,7 +51,10 @@ export default function PublicHeader() {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-4 md:flex">
+          {/* Main links */}
+          {!user && (
+            <>
           {topNavLinks.map((link) =>
             link.label === "Templates" ? (
               <div key={link.href} ref={dropdownRef} className="relative">
@@ -104,12 +111,14 @@ export default function PublicHeader() {
               </Link>
             )
           )}
-          <Link
-            to="/contact"
-            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
-          >
-            Contact
-          </Link>
+            <Link
+              to="/contact"
+              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+            >
+              Contact
+            </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile hamburger */}

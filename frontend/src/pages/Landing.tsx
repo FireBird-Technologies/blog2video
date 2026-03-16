@@ -11,6 +11,7 @@ import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PublicFooter from "../components/public/PublicFooter";
+import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
 
@@ -146,8 +147,11 @@ export default function Landing() {
         schema={homepageSchema()}
       />
       {/* ─── Nav ─── */}
-      <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
+        {/* Banner above navbar so it appears first on scroll */}
+        <DiscountBanner containerClassName="max-w-6xl" />
+
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               B2V
@@ -158,11 +162,25 @@ export default function Landing() {
           </div>
           {/* Desktop: horizontal links */}
           <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map(({ href, label }) => (
-              <a key={href} href={href} className="text-sm text-gray-400 hover:text-gray-900 transition-colors">
-                {label}
-              </a>
-            ))}
+            {NAV_LINKS.map(({ href, label }) =>
+              href.startsWith("#") ? (
+                <a
+                  key={href}
+                  href={href}
+                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  key={href}
+                  to={href}
+                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  {label}
+                </Link>
+              )
+            )}
           </div>
           {/* Mobile: dropdown trigger */}
           <div className="relative md:hidden">
@@ -186,16 +204,27 @@ export default function Landing() {
                   onClick={() => setNavOpen(false)}
                 />
                 <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
-                  {NAV_LINKS.map(({ href, label }) => (
-                    <a
-                      key={href}
-                      href={href}
-                      onClick={() => setNavOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                    >
-                      {label}
-                    </a>
-                  ))}
+                  {NAV_LINKS.map(({ href, label }) =>
+                    href.startsWith("#") ? (
+                      <a
+                        key={href}
+                        href={href}
+                        onClick={() => setNavOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      >
+                        {label}
+                      </a>
+                    ) : (
+                      <Link
+                        key={href}
+                        to={href}
+                        onClick={() => setNavOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      >
+                        {label}
+                      </Link>
+                    )
+                  )}
                 </div>
               </>
             )}
