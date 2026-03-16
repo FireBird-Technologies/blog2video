@@ -23,7 +23,7 @@ export const marketingPages: MarketingPage[] = [
 ];
 
 export const topNavLinks = [
-  { href: "/blog-to-video", label: "Workflows" },
+  { href: "/blog-to-video", label: "Blog to Video" },
   { href: "/for-technical-bloggers", label: "Use Cases" },
   { href: "/templates/geometric-explainer", label: "Templates" },
   { href: "/blogs", label: "Blog" },
@@ -51,6 +51,18 @@ export const footerGroups = [
       "/for-researchers",
       "/for-medium-writers",
       "/for-substack-writers",
+    ],
+  },
+  {
+    title: "Templates",
+    links: [
+      "/templates/nightfall",
+      "/templates/spotlight",
+      "/templates/whiteboard",
+      "/templates/gridcraft",
+      "/templates/matrix",
+      "/templates/newspaper",
+      "/templates/geometric-explainer",
     ],
   },
   {

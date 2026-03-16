@@ -18,6 +18,7 @@ import {
   rebuildTemplateLayoutFile,
   createTemplateLayout,
   createTemplateLayoutFile,
+  renderTemplateLayout,
   type PropDef,
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
@@ -797,6 +798,9 @@ export default function TemplateStudio() {
   const [aiPreviewVersion, setAiPreviewVersion]     = useState<string | null>(null);
   const [aiSwitchingVersion, setAiSwitchingVersion] = useState(false);
   const previewSelectionRef = useRef("");
+  const [viewSource, setViewSource] = useState<"frontend" | "remotion">("frontend");
+  const [layoutRendering, setLayoutRendering] = useState(false);
+  const [layoutRenderError, setLayoutRenderError] = useState<string>("");
 
   // ── Rebuild mode state ──────────────────────────────────────────────────────
   const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
@@ -876,7 +880,10 @@ export default function TemplateStudio() {
     if (sd.durationSeconds)         setDurationSeconds(sd.durationSeconds);
   }, [schema]);
 
-  const config      = useMemo(() => getTemplateConfig(selectedTemplateId || "default"), [selectedTemplateId]);
+  const config = useMemo(
+    () => getTemplateConfig(selectedTemplateId || "default", viewSource),
+    [selectedTemplateId, viewSource],
+  );
   const Composition = config.component as unknown as ComponentType<Record<string, unknown>>;
   const isPortrait  = aspectRatio === "portrait";
   const layoutSupportsImage = useMemo(() => {
@@ -1184,6 +1191,34 @@ export default function TemplateStudio() {
     } finally { setNewLayoutLoading(false); }
   };
 
+  const handleRenderSingleLayout = async () => {
+    if (!selectedTemplateId || !selectedLayout) return;
+    try {
+      setLayoutRendering(true);
+      setLayoutRenderError("");
+      const res = await renderTemplateLayout({
+        template_id: selectedTemplateId,
+        layout_id: selectedLayout,
+        aspect_ratio: aspectRatio,
+        duration_seconds: durationSeconds,
+        layout_props: resolvedLayoutProps,
+      });
+      const blob = res.data as unknown as Blob;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selectedTemplateId}_${selectedLayout}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setLayoutRenderError("Failed to render layout. Please try again.");
+    } finally {
+      setLayoutRendering(false);
+    }
+  };
+
   // Restore existing AI versions for the selected template/layout on change or refresh.
   useEffect(() => {
     if (!selectedTemplateId || !selectedLayout) {
@@ -1364,6 +1399,43 @@ export default function TemplateStudio() {
                     }}>
                       {humanize(selectedLayout)}
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleRenderSingleLayout}
+                      disabled={!selectedTemplateId || !selectedLayout || layoutRendering}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        marginLeft: "8px",
+                        padding: "4px 9px",
+                        borderRadius: "999px",
+                        border: `1px solid ${T.border}`,
+                        background: T.surfaceAlt,
+                        color: T.textSub,
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        fontFamily: FONT,
+                        cursor: layoutRendering ? "default" : "pointer",
+                        opacity: layoutRendering ? 0.7 : 1,
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      <span>{layoutRendering ? "Rendering…" : "Render"}</span>
+                    </button>
                   </>
                 )}
               </>
@@ -1538,46 +1610,146 @@ export default function TemplateStudio() {
                 <div className="glass-card" style={{ overflow: "hidden" }}>
 
                   {/* Chrome bar */}
-                  <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "9px 14px", borderBottom: `1px solid ${T.border}`, background: T.surfaceAlt,
-                  }}>
-                    {/* Left: traffic dots + Edit button matching attached style */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <div style={{ display: "flex", gap: "5px" }}>
-                        {["#ff5f56", "#ffbd2e", "#27c93f"].map((c, i) => (
-                          <div key={i} style={{ width: "8px", height: "8px", borderRadius: "50%", background: c, opacity: 0.6 }} />
-                        ))}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "9px 14px",
+                        borderBottom: `1px solid ${T.border}`,
+                        background: T.surfaceAlt,
+                      }}
+                    >
+                      {/* Left: traffic dots + Edit + Toggle */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{ display: "flex", gap: "5px" }}>
+                          {["#ff5f56", "#ffbd2e", "#27c93f"].map((c, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "50%",
+                                background: c,
+                                opacity: 0.6,
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setSceneModalOpen(true)}
+                          className="btn-edit"
+                          title="Edit scene"
+                        >
+                          <IconEdit />
+                          Edit
+                        </button>
+
+                        {/* Toggle moved here */}
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px",
+                            borderRadius: "10px",
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            gap: "2px",
+                          }}
+                        >
+                          {(
+                            [
+                              { id: "frontend", label: "Frontend file" },
+                              { id: "remotion", label: "Remotion build" },
+                            ] as const
+                          ).map((opt) => {
+                            const active = viewSource === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() =>
+                                  setViewSource(
+                                    opt.id === "frontend" ? "frontend" : "remotion",
+                                  )
+                                }
+                                style={{
+                                  border: "none",
+                                  borderRadius: "9px",
+                                  padding: "4px 8px",
+                                  fontSize: "10px",
+                                  fontWeight: active ? 600 : 500,
+                                  fontFamily: FONT,
+                                  cursor: "pointer",
+                                  background: active ? T.accent : "transparent",
+                                  color: active ? "#ffffff" : T.textSub,
+                                  transition: "background 0.15s, color 0.15s",
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setSceneModalOpen(true)}
-                        className="btn-edit"
-                        title="Edit scene"
+
+                      {/* Center: resolution pill */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "3px 10px",
+                          borderRadius: "6px",
+                          background: T.bg,
+                          border: `1px solid ${T.border}`,
+                        }}
                       >
-                        <IconEdit />
-                        Edit
-                      </button>
-                    </div>
+                        <div
+                          style={{
+                            width: "4px",
+                            height: "4px",
+                            borderRadius: "50%",
+                            background: T.accent,
+                            opacity: 0.5,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: T.textMuted,
+                            fontFamily: FONT,
+                          }}
+                        >
+                          {canvasW} × {canvasH} · {durationInFrames}f · 30fps
+                        </span>
+                      </div>
 
-                    {/* Center: resolution pill */}
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: "6px",
-                      padding: "3px 10px", borderRadius: "6px",
-                      background: T.bg, border: `1px solid ${T.border}`,
-                    }}>
-                      <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: T.accent, opacity: 0.5 }} />
-                      <span style={{ fontSize: "10px", color: T.textMuted, fontFamily: FONT }}>
-                        {canvasW} × {canvasH} · {durationInFrames}f · 30fps
-                      </span>
+                      {/* Right: Rendering badge */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <div
+                          style={{
+                            width: "5px",
+                            height: "5px",
+                            borderRadius: "50%",
+                            background: T.green,
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: T.green,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            fontFamily: FONT,
+                          }}
+                        >
+                          RENDERING
+                        </span>
+                      </div>
                     </div>
-
-                    {/* Right: Rendering badge */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                      <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.green }} />
-                      <span style={{ fontSize: "10px", color: T.green, fontWeight: 700, letterSpacing: "0.08em", fontFamily: FONT }}>RENDERING</span>
-                    </div>
-                  </div>
 
                   {/* Player */}
                   <div style={{

@@ -12,10 +12,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
+    "types": ["node"],
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+        "@remotion-video/templates/*": ["./src/components/remotion/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["../remotion-video"]
 }

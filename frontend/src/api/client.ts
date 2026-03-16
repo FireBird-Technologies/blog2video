@@ -227,12 +227,14 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-export const googleLogin = (credential: string) =>
-  api.post<AuthResponse>("/auth/google", { credential });
+export const googleLogin = (credential: string, reactivate = false) =>
+  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
 export const logoutCleanup = () => api.post("/auth/logout");
+
+export const deleteAccount = () => api.post("/auth/delete-account");
 
 export const getPublicConfig = () =>
   api.get<PublicConfig>("/config/public");
@@ -567,6 +569,17 @@ export const createTemplateLayoutFile = (payload: {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+export const renderTemplateLayout = (payload: {
+  template_id: string;
+  layout_id: string;
+  aspect_ratio?: string;
+  duration_seconds?: number;
+  layout_props?: Record<string, unknown>;
+}) =>
+  api.post<Blob>("/template-studio/render-layout", payload, {
+    responseType: "blob",
+  });
 
 export interface VoicePreview {
   voice_id: string;

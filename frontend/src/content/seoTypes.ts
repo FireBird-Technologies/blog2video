@@ -54,12 +54,20 @@ export interface TemplateProfile {
   bestFor: string;
   differentiator: string;
   styleFit: string;
+  previewSceneKey?: string;
+  layouts?: string[];
+  longDescription?: string;
+  idealFor?: string[];
+  exampleTopics?: string[];
 }
 
 export interface BlogSection {
   heading: string;
   paragraphs: string[];
   bullets?: string[];
+  component?: string;
+  ctaPath?: string;
+  ctaLabel?: string;
 }
 
 export interface DistributionAsset {

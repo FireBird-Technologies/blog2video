@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Lock
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.auth import get_current_user
@@ -92,6 +93,14 @@ class AiLayoutCreateRequest(BaseModel):
     props: list[PropDef] = Field(default_factory=list, max_length=30)
     image_base64: str | None = None
     image_mime_type: str | None = None
+
+
+class RenderLayoutRequest(BaseModel):
+    template_id: str
+    layout_id: str
+    aspect_ratio: str | None = "landscape"
+    duration_seconds: float | None = None
+    layout_props: dict | None = None
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -2063,3 +2072,160 @@ def create_layout_file(
         image_mime_type=mime,
     )
     return create_layout(payload, user=user)
+
+
+@router.post("/render-layout")
+def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_current_user)):
+    """
+    Render a single layout as a short MP4 using remotion-video.
+
+    This is used by Template Studio to render a one-scene demo video for the
+    currently selected template/layout with default/random data.
+    """
+    from app.services.template_service import (
+        validate_template_id,
+        get_valid_layouts,
+        get_preview_colors,
+        get_composition_id,
+        is_custom_template,
+    )
+    from app.services.remotion import provision_workspace, get_workspace_dir, _build_render_cmd, safe_remove_workspace
+    import os
+    import json as _json
+    import shutil as _shutil
+    import tempfile as _tempfile
+    import subprocess as _subprocess
+
+    template_id = validate_template_id((payload.template_id or "").strip())
+    if is_custom_template(template_id):
+        raise HTTPException(status_code=400, detail="Single-layout render is not yet supported for custom templates.")
+
+    layout_id = (payload.layout_id or "").strip().lower()
+    if not layout_id:
+        raise HTTPException(status_code=400, detail="layout_id is required.")
+
+    valid_layouts = get_valid_layouts(template_id)
+    if layout_id not in valid_layouts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Layout '{layout_id}' is not valid for template '{template_id}'.",
+        )
+
+    aspect_ratio = (payload.aspect_ratio or "landscape").strip().lower()
+    if aspect_ratio not in ("landscape", "portrait"):
+        aspect_ratio = "landscape"
+
+    # Use a synthetic project id for per-user temporary workspaces.
+    synthetic_project_id = -abs(user.id or 1)
+
+    try:
+        # Ensure Remotion workspace with all template code is available.
+        provision_workspace(synthetic_project_id, template_id)
+        workspace = get_workspace_dir(synthetic_project_id)
+        public_dir = os.path.join(workspace, "public")
+        os.makedirs(public_dir, exist_ok=True)
+
+        # Copy shared static assets (textures, fonts, etc.) from the base Remotion
+        # project public/ into this workspace, so template-specific backgrounds like
+        # the vintage newspaper texture are available during render.
+        template_public_dir = os.path.join(settings.REMOTION_PROJECT_PATH, "public")
+        if os.path.isdir(template_public_dir):
+            for root, _dirs, filenames in os.walk(template_public_dir):
+                for filename in filenames:
+                    src = os.path.join(root, filename)
+                    rel = os.path.relpath(src, template_public_dir)
+                    dst = os.path.join(public_dir, rel)
+                    os.makedirs(os.path.dirname(dst), exist_ok=True)
+                    _shutil.copy2(src, dst)
+
+        # Build minimal data.json for a single scene.
+        preview_colors = get_preview_colors(template_id) or {}
+        accent = preview_colors.get("accent", "#7C3AED")
+        bg = preview_colors.get("bg", "#FFFFFF")
+        text = preview_colors.get("text", "#000000")
+
+        # Use caller-provided duration if available, else default to 5 seconds.
+        try:
+            dur = float(payload.duration_seconds) if payload.duration_seconds is not None else 5.0
+        except (TypeError, ValueError):
+            dur = 5.0
+        if dur <= 0:
+            dur = 5.0
+
+        # Layout props passed from Template Studio; fallback to empty dict.
+        layout_props = payload.layout_props or {}
+
+        data = {
+            "projectName": f"TemplateStudio {template_id}/{layout_id}",
+            "accentColor": accent,
+            "bgColor": bg,
+            "textColor": text,
+            "heroImage": None,
+            "logo": None,
+            "logoPosition": "bottom_right",
+            "logoOpacity": 0.9,
+            "logoSize": 100.0,
+            "aspectRatio": aspect_ratio,
+            "scenes": [
+                {
+                    "id": 1,
+                    "order": 1,
+                    "title": "Sample Title",
+                    "narration": "This is a sample narration for this layout.",
+                    "layout": layout_id,
+                    "layoutProps": layout_props,
+                    "durationSeconds": dur,
+                    "voiceoverFile": None,
+                    "images": [],
+                }
+            ],
+        }
+
+        data_path = os.path.join(public_dir, "data.json")
+        with open(data_path, "w", encoding="utf-8") as f:
+            _json.dump(data, f, indent=2)
+
+        # Render to a temp file and stream back to the client.
+        tmp_dir = _tempfile.mkdtemp(prefix="template-studio-layout-")
+        output_path = os.path.join(tmp_dir, f"{template_id}_{layout_id}.mp4")
+
+        npx = _shutil.which("npx") or "npx"
+        composition_id = get_composition_id(template_id)
+        cmd = _build_render_cmd(
+            npx,
+            output_path,
+            resolution="1080p",
+            aspect_ratio=aspect_ratio,
+            composition_id=composition_id,
+        )
+
+        result = _subprocess.run(
+            cmd,
+            cwd=workspace,
+            shell=(os.name == "nt"),
+            capture_output=True,
+            text=False,
+            timeout=600,
+        )
+        if result.returncode != 0 or not os.path.exists(output_path):
+            stderr = (result.stderr or b"").decode("utf-8", errors="ignore")
+            stdout = (result.stdout or b"").decode("utf-8", errors="ignore")
+            detail = (stderr or stdout or "Unknown render error").strip()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Remotion render failed: {detail}",
+            )
+
+        filename = f"{template_id}_{layout_id}.mp4"
+        return FileResponse(
+            path=output_path,
+            media_type="video/mp4",
+            filename=filename,
+        )
+    finally:
+        try:
+            workspace = get_workspace_dir(synthetic_project_id)
+            safe_remove_workspace(workspace)
+        except Exception:
+            # Best effort cleanup; ignore failures.
+            pass

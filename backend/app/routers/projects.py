@@ -23,9 +23,10 @@ from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
+from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _inject_custom_theme(project: Project) -> Project:
@@ -185,7 +186,12 @@ def _apply_logo_to_project(
             project.logo_r2_key = r2_key
             project.logo_r2_url = r2_url
         except Exception as e:
-            print(f"[PROJECTS] Logo R2 upload failed for project {project_id}: {e}")
+            logger.error(
+                "[PROJECTS] Logo R2 upload failed for project %s: %s",
+                project_id,
+                e,
+                extra={"project_id": project_id, "user_id": user_id},
+            )
             project.logo_r2_key = None
             project.logo_r2_url = None
     if not project.logo_r2_url:
@@ -310,7 +316,12 @@ def create_projects_bulk(
         try:
             _apply_logo_to_project(p.id, user.id, raw_bytes, content_type, filename, request, db)
         except Exception as e:
-            print(f"[PROJECTS] Bulk logo apply failed for project {p.id}: {e}")
+            logger.error(
+                "[PROJECTS] Bulk logo apply failed for project %s: %s",
+                p.id,
+                e,
+                extra={"project_id": p.id, "user_id": user.id},
+            )
     return BulkCreateResponse(project_ids=project_ids)
 
 
@@ -374,7 +385,12 @@ def create_project_from_upload(
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
-    print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
+    logger.info(
+        "[PROJECTS] Creating project from upload: template='%s', validated='%s'",
+        template,
+        template_id,
+        extra={"user_id": user.id},
+    )
     project = Project(
         user_id=user.id,
         name=project_name,
@@ -397,13 +413,24 @@ def create_project_from_upload(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    print(f"[PROJECTS] Project {project.id} created with template='{project.template}', video_style='{project.video_style}'")
+    logger.info(
+        "[PROJECTS] Project %s created with template='%s', video_style='%s'",
+        project.id,
+        project.template,
+        project.video_style,
+        extra={"project_id": project.id, "user_id": user.id},
+    )
 
     # ── Extract text + images from documents ────────────────
     try:
         project = extract_from_documents(project, files, db)
     except Exception as e:
-        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        logger.error(
+            "[PROJECTS] Document extraction failed for project %s: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
         project.status = ProjectStatus.ERROR
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
@@ -448,7 +475,12 @@ def upload_documents_to_project(
     try:
         project = extract_from_documents(project, files, db)
     except Exception as e:
-        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        logger.error(
+            "[PROJECTS] Document extraction failed for project %s: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
         project.status = ProjectStatus.ERROR
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
@@ -669,12 +701,22 @@ def delete_asset(
         try:
             os.remove(local_path)
         except OSError as e:
-            print(f"[PROJECTS] Failed to remove local file {local_path}: {e}")
+            logger.warning(
+                "[PROJECTS] Failed to remove local file %s: %s",
+                local_path,
+                e,
+                extra={"project_id": project_id, "user_id": user.id},
+            )
     if r2_key:
         try:
             r2_storage.delete_file(r2_key)
         except Exception as e:
-            print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
+            logger.warning(
+                "[PROJECTS] R2 delete failed for %s: %s",
+                r2_key,
+                e,
+                extra={"project_id": project_id, "user_id": user.id},
+            )
 
     # Rebuild workspace so data.json reflects the deleted asset and
     # updated hideImage flags immediately.
@@ -689,7 +731,12 @@ def delete_asset(
         )
         rebuild_workspace(project, all_scenes, db)
     except Exception as e:
-        print(f"[PROJECTS] Warning: workspace rebuild after asset deletion failed: {e}")
+        logger.warning(
+            "[PROJECTS] Warning: workspace rebuild after asset deletion failed for project %s: %s",
+            project_id,
+            e,
+            extra={"project_id": project_id, "user_id": user.id},
+        )
 
     return {"detail": "Asset deleted"}
 

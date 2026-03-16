@@ -10,8 +10,10 @@ from app.models.chat_message import ChatMessage, MessageRole
 from app.schemas.schemas import ChatRequest, ChatResponse, SceneOut
 from app.dspy_modules.editor import ScriptEditor
 from app.services.remotion import write_remotion_data
+from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/projects/{project_id}/chat", tags=["chat"])
+logger = get_logger(__name__)
 
 
 @router.post("", response_model=ChatResponse)
@@ -109,7 +111,12 @@ async def chat_edit(
         try:
             write_remotion_data(project, project.scenes, db)
         except Exception as file_err:
-            print(f"[CHAT] Warning: Failed to update Remotion files: {file_err}")
+            logger.warning(
+                "[CHAT] Warning: Failed to update Remotion files for project %s: %s",
+                project.id,
+                file_err,
+                extra={"project_id": project.id, "user_id": user.id},
+            )
 
         scene_outs = [SceneOut.model_validate(s) for s in project.scenes]
 

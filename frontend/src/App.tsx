@@ -12,6 +12,7 @@ import BlogPostPage from "./pages/BlogPostPage";
 import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
+import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
@@ -60,7 +61,11 @@ function AppRoutes() {
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
         {marketingPages.map((page) => (
-          <Route key={page.path} path={page.path} element={<MarketingPageView />} />
+          <Route
+            key={page.path}
+            path={page.path}
+            element={page.category === "template" ? <TemplatePageView /> : <MarketingPageView />}
+          />
         ))}
 
         {/* Protected */}

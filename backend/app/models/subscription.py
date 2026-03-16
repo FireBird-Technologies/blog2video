@@ -145,8 +145,8 @@ SEED_PLANS = [
     {
         "slug": "per_video",
         "name": "Per Video",
-        "description": "Pay $5 per video — includes Studio & AI chat editor",
-        "price_cents": 500,
+        "description": "Pay $3 per video — includes Studio & AI chat editor",
+        "price_cents": 300,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": -1,  # 1 video per purchase
         "includes_studio": True,

@@ -351,7 +351,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {});
     setMyVoicesLoading(true);
     getMyVoices()
-      .then((r) => setMyVoicesList(r.data ?? []))
+      .then((r) => {
+        const list = r.data ?? [];
+        setMyVoicesList(list);
+        if (list.length > 0) {
+          const firstId = list[0].voice_id;
+          // Single/link flow: default-select the first voice in Step 3
+          if (!customVoiceId && voiceGender !== "none") {
+            setCustomVoiceId(firstId);
+          }
+        }
+      })
       .catch(() => setMyVoicesList([]))
       .finally(() => setMyVoicesLoading(false));
     getPrebuiltVoices()
@@ -362,6 +372,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       })
       .catch(() => {});
   }, []);
+
+  // Keep bulk rows in sync: whenever we have saved voices and bulk URLs,
+  // ensure each populated row gets a default custom voice if it doesn't have one.
+  useEffect(() => {
+    if (!myVoicesList.length) return;
+    const firstId = myVoicesList[0].voice_id;
+    setBulkCustomVoiceId((prev) => {
+      const next = [...prev];
+      let changed = false;
+      bulkRows.forEach((row, idx) => {
+        if (row.url.trim() && !next[idx]) {
+          next[idx] = firstId;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [myVoicesList, bulkRows]);
 
   // Preferred built-in template (Nightfall when available) for single and bulk flows.
   const preferredTemplateId =
