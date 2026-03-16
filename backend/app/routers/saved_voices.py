@@ -17,8 +17,10 @@ from app.services.elevenlabs_voice_design import (
     get_voice_preview_url,
 )
 from app.services import r2_storage
+from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/voices", tags=["voices"])
+logger = get_logger(__name__)
 
 
 @router.get("/saved", response_model=list[SavedVoiceOut])
@@ -113,7 +115,12 @@ def create_custom_voice(
             generated_voice_id=generated_voice_id,
         )
     except Exception as e:
-        print(f"[VOICES] create-voice-from-preview failed: {e}")
+        logger.error(
+            "[VOICES] create-voice-from-preview failed for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
         raise HTTPException(
             status_code=502,
             detail="Failed to add voice to library. The preview may have expired; try designing again.",
@@ -188,7 +195,12 @@ def create_custom_voice_clone(
             remove_background_noise=remove_bg,
         )
     except Exception as e:
-        print(f"[VOICES] IVC failed: {e}")
+        logger.error(
+            "[VOICES] IVC failed for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
         raise HTTPException(
             status_code=502,
             detail="Failed to create voice clone. Check the file format and try again.",
@@ -204,14 +216,29 @@ def create_custom_voice_clone(
                 try:
                     preview_url = get_voice_preview_url(voice_id)
                 except Exception as e:
-                    print(f"[VOICES] Get voice preview failed (non-fatal): {e}")
+                    logger.warning(
+                        "[VOICES] Get voice preview failed (non-fatal) for user %s: %s",
+                        user.id,
+                        e,
+                        extra={"user_id": user.id},
+                    )
     except Exception as e:
-        print(f"[VOICES] Generate preview TTS failed (non-fatal): {e}")
+        logger.warning(
+            "[VOICES] Generate preview TTS failed (non-fatal) for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
     if not preview_url:
         try:
             preview_url = get_voice_preview_url(voice_id)
         except Exception as e:
-            print(f"[VOICES] Get voice preview failed (non-fatal): {e}")
+            logger.warning(
+                "[VOICES] Get voice preview failed (non-fatal) for user %s: %s",
+                user.id,
+                e,
+                extra={"user_id": user.id},
+            )
     custom = CustomVoice(
         user_id=user.id,
         name=name.strip(),
@@ -268,7 +295,12 @@ def get_or_refresh_custom_voice_preview(
             db.refresh(custom)
             return {"preview_url": preview_url, "ready": True}
     except Exception as e:
-        print(f"[VOICES] get_voice_preview_url failed: {e}")
+        logger.warning(
+            "[VOICES] get_voice_preview_url failed for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
     return {"preview_url": None, "ready": False}
 
 
@@ -290,7 +322,12 @@ def delete_custom_voice(
         try:
             r2_storage.delete_voice_preview(user.id, custom.voice_id)
         except Exception as e:
-            print(f"[VOICES] R2 delete voice preview failed (non-fatal): {e}")
+            logger.warning(
+                "[VOICES] R2 delete voice preview failed (non-fatal) for user %s: %s",
+                user.id,
+                e,
+                extra={"user_id": user.id},
+            )
     db.delete(custom)
     db.commit()
     return {"ok": True}

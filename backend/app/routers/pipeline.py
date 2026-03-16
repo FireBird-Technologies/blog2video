@@ -6,7 +6,13 @@ import traceback
 import requests
 from datetime import timedelta
 
-logger = logging.getLogger(__name__)
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+from opentelemetry.metrics import get_meter_provider
+
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -45,6 +51,25 @@ router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
 
 # In-memory pipeline progress tracker: project_id -> { step, error }
 _pipeline_progress: dict[int, dict] = {}
+
+_tracer = trace.get_tracer("app.pipeline")
+_meter = get_meter_provider().get_meter("app.pipeline")
+
+_pipelines_started = _meter.create_counter(
+    "pipelines_started",
+    unit="1",
+    description="Number of pipelines started",
+)
+_pipelines_succeeded = _meter.create_counter(
+    "pipelines_succeeded",
+    unit="1",
+    description="Number of pipelines completed successfully",
+)
+_pipelines_failed = _meter.create_counter(
+    "pipelines_failed",
+    unit="1",
+    description="Number of pipelines that failed",
+)
 
 
 # ─── Single async generate endpoint ──────────────────────────
@@ -126,56 +151,100 @@ def _run_pipeline_sync(project_id: int, user_id: int) -> None:
 async def _run_pipeline(project_id: int, user_id: int):
     """Full async pipeline running in background."""
     db = SessionLocal()
-    try:
-        project = db.query(Project).filter(Project.id == project_id).first()
-        if not project:
-            return
+    attributes = {
+        "pipeline.project_id": project_id,
+        "pipeline.user_id": user_id,
+    }
+    _pipelines_started.add(1, attributes=attributes)
 
-        # Step 1: Scrape (skip for upload-based projects)
-        if project.status in (ProjectStatus.CREATED,):
-            if project.blog_url and project.blog_url.startswith("upload://"):
-                # Upload project without pending files — wait for documents
-                _set_error(project_id, project, db, "Documents not yet uploaded. Please upload files first.")
-                return
-            _pipeline_progress[project_id]["step"] = 1
-            try:
-                scrape_blog(project, db)
-            except Exception as e:
-                _set_error(project_id, project, db, f"Scraping failed: {e}")
+    with _tracer.start_as_current_span("pipeline.run", attributes=attributes) as span:
+        try:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if not project:
+                logger.warning("[PIPELINE] Project %s not found", project_id)
+                span.set_status(Status(StatusCode.ERROR, "Project not found"))
                 return
 
-        # Step 2: Generate script (async DSPy)
-        if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED):
-            _pipeline_progress[project_id]["step"] = 2
-            try:
-                await _generate_script(project, db)
-            except Exception as e:
-                _set_error(project_id, project, db, f"Script generation failed: {e}")
-                return
+            logger.info("[PIPELINE] Starting pipeline for project %s (user %s)", project_id, user_id)
 
-        # Step 3: Generate scene descriptors + voiceovers
-        if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED, ProjectStatus.SCRIPTED):
-            _pipeline_progress[project_id]["step"] = 3
-            try:
-                await _generate_scenes(project, db)
-            except Exception as e:
-                _set_error(project_id, project, db, f"Scene generation failed: {e}")
-                return
+            # Step 1: Scrape (skip for upload-based projects)
+            if project.status in (ProjectStatus.CREATED,):
+                if project.blog_url and project.blog_url.startswith("upload://"):
+                    # Upload project without pending files — wait for documents
+                    _set_error(project_id, project, db, "Documents not yet uploaded. Please upload files first.")
+                    span.set_status(Status(StatusCode.ERROR, "Documents not uploaded"))
+                    return
+                _pipeline_progress[project_id]["step"] = 1
+                with _tracer.start_as_current_span(
+                    "pipeline.scrape_blog",
+                    attributes={**attributes, "pipeline.stage": "scrape"},
+                ):
+                    try:
+                        scrape_blog(project, db)
+                    except Exception as e:
+                        span.record_exception(e)
+                        span.set_status(Status(StatusCode.ERROR, "Scraping failed"))
+                        _set_error(project_id, project, db, f"Scraping failed: {e}")
+                        return
 
-        # Step 4: Done (no more studio launch — frontend handles preview)
-        _pipeline_progress[project_id]["step"] = 4
-        _pipeline_progress[project_id]["running"] = False
+            # Step 2: Generate script (async DSPy)
+            if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED):
+                _pipeline_progress[project_id]["step"] = 2
+                with _tracer.start_as_current_span(
+                    "pipeline.generate_script",
+                    attributes={**attributes, "pipeline.stage": "generate_script"},
+                ):
+                    try:
+                        await _generate_script(project, db)
+                        logger.info("[PIPELINE] Project %s: script generation completed", project_id)
+                    except Exception as e:
+                        span.record_exception(e)
+                        span.set_status(Status(StatusCode.ERROR, "Script generation failed"))
+                        _set_error(project_id, project, db, f"Script generation failed: {e}")
+                        return
 
-    except Exception as e:
-        traceback.print_exc()
-        _set_error(project_id, None, db, f"Pipeline error: {e}")
-    finally:
-        db.close()
+            # Step 3: Generate scene descriptors + voiceovers
+            if project.status in (ProjectStatus.CREATED, ProjectStatus.SCRAPED, ProjectStatus.SCRIPTED):
+                _pipeline_progress[project_id]["step"] = 3
+                with _tracer.start_as_current_span(
+                    "pipeline.generate_scenes",
+                    attributes={**attributes, "pipeline.stage": "generate_scenes"},
+                ):
+                    try:
+                        await _generate_scenes(project, db)
+                    except Exception as e:
+                        span.record_exception(e)
+                        span.set_status(Status(StatusCode.ERROR, "Scene generation failed"))
+                        _set_error(project_id, project, db, f"Scene generation failed: {e}")
+                        return
+
+            # Step 4: Done (no more studio launch — frontend handles preview)
+            _pipeline_progress[project_id]["step"] = 4
+            _pipeline_progress[project_id]["running"] = False
+            _pipelines_succeeded.add(1, attributes=attributes)
+            span.set_status(Status(StatusCode.OK))
+            logger.info("[PIPELINE] Project %s: pipeline completed successfully", project_id)
+
+        except Exception as e:
+            logger.exception("[PIPELINE] Pipeline error for project %s: %s", project_id, e)
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, "Pipeline run error"))
+            _pipelines_failed.add(1, attributes=attributes)
+            _set_error(project_id, None, db, f"Pipeline error: {e}")
+        finally:
+            db.close()
 
 
 def _set_error(project_id: int, project, db: Session, msg: str):
     """Set pipeline error state."""
-    print(f"[PIPELINE] Error for project {project_id}: {msg}")
+    attributes = {"pipeline.project_id": project_id}
+    _pipelines_failed.add(1, attributes=attributes)
+
+    logger.error(
+        "[PIPELINE] Error for project %s: %s",
+        project_id,
+        msg,
+    )
     _pipeline_progress[project_id]["error"] = msg
     _pipeline_progress[project_id]["running"] = False
     if project:
@@ -184,7 +253,11 @@ def _set_error(project_id: int, project, db: Session, msg: str):
             project.status = ProjectStatus.ERROR
             db.commit()
         except Exception as e:
-            print(f"[PIPELINE] Failed to persist error status for project {project_id}: {e}")
+            logger.error(
+                "[PIPELINE] Failed to persist error status for project %s: %s",
+                project_id,
+                e,
+            )
 
 
 async def _generate_script(project: Project, db: Session):
@@ -263,7 +336,7 @@ async def _generate_scenes(project: Project, db: Session):
     # Prepare scene descriptor generator
     db.refresh(project)
     template_id = validate_template_id(project.template if project.template else "default")
-    print(f"[PIPELINE] Project {project.id}: template='{project.template}', validated='{template_id}'")
+    logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
@@ -272,7 +345,7 @@ async def _generate_scenes(project: Project, db: Session):
     # ── Task 1: Voiceovers ───────────────────────────────────────
     async def _voiceover_task():
         if getattr(project, "voice_gender", None) == "none":
-            print(f"[PIPELINE] Skipping voiceover — no-audio mode for project {project.id}")
+            logger.info("[PIPELINE] Skipping voiceover — no-audio mode for project %s", project.id)
             for scene in scenes:
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
@@ -326,11 +399,17 @@ async def _generate_scenes(project: Project, db: Session):
         scene.remotion_code = json.dumps(descriptor)
         if has_layout_config:
             lc = descriptor["layoutConfig"]
-            print(f"[PIPELINE] Scene {i} stored: layoutConfig.arrangement={lc.get('arrangement')}, elements={len(lc.get('elements', []))}, decorations={lc.get('decorations')}")
+            logger.info(
+                "[PIPELINE] Scene %s stored: layoutConfig.arrangement=%s, elements=%s, decorations=%s",
+                i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
+            )
         else:
-            print(f"[PIPELINE] Scene {i} stored: legacy layout={descriptor.get('layout')}, layoutProps keys={list(descriptor.get('layoutProps', {}).keys())}")
+            logger.info(
+                "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
+                i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
+            )
     db.commit()
-    print(f"[PIPELINE] All {len(scenes)} scene descriptors committed to DB")
+    logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 
     # Write data.json + assets to per-project Remotion workspace
     write_remotion_data(project, scenes, db)
@@ -566,9 +645,7 @@ async def render_video_endpoint(
         start_render_async(project, resolution=resolution)
         return {"detail": "Render started", "progress": 0, "resolution": resolution}
     except Exception as e:
-        print(f"[RENDER] Failed to start render for project {project_id}: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("[RENDER] Failed to start render for project %s: %s", project_id, e)
         project.status = ProjectStatus.GENERATED
         db.commit()
         raise HTTPException(
@@ -593,7 +670,7 @@ def render_status_endpoint(
         # process likely crashed or was lost (e.g. Cloud Run instance restart).
         # Reset status to allow retry.
         if project.status == ProjectStatus.RENDERING:
-            print(f"[RENDER] Project {project_id} is RENDERING but no progress found — render was lost, resetting status")
+            logger.warning("[RENDER] Project %s is RENDERING but no progress found — render was lost, resetting status", project_id)
             project.status = ProjectStatus.GENERATED  # Back to pre-render state
             db.commit()
             return {

@@ -19,8 +19,10 @@ from app.auth import create_access_token, get_current_user
 from app.services.voice_seed import ensure_free_voices_for_user
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+logger = get_logger(__name__)
 
 
 class GoogleLoginRequest(BaseModel):
@@ -57,7 +59,12 @@ def _delete_project_storage(project: Project) -> None:
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
         except Exception as e:
-            print(f"[DELETE_ACCOUNT] R2 deletion failed for project {project.id}: {e}")
+            logger.error(
+                "[DELETE_ACCOUNT] R2 deletion failed for project %s: %s",
+                project.id,
+                e,
+                extra={"project_id": project.id, "user_id": project.user_id},
+            )
     project_media = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
     if os.path.exists(project_media):
         safe_remove_workspace(get_workspace_dir(project.id))
@@ -83,7 +90,7 @@ def google_login(
             settings.GOOGLE_CLIENT_ID,
         )
     except ValueError as e:
-        print(f"[AUTH ERROR] Google token verification failed: {e}")
+        logger.error("[AUTH ERROR] Google token verification failed: %s", e)
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
 
     google_id = idinfo["sub"]
@@ -217,7 +224,12 @@ def delete_account(
                 stripe.api_key = settings.STRIPE_SECRET_KEY
                 stripe.Subscription.delete(user.stripe_subscription_id)
             except Exception as e:
-                print(f"[DELETE_ACCOUNT] Stripe cancel failed for user {user.id}: {e}")
+                logger.error(
+                    "[DELETE_ACCOUNT] Stripe cancel failed for user %s: %s",
+                    user.id,
+                    e,
+                    extra={"user_id": user.id},
+                )
 
         # 2. Delete subscriptions (unlink project_id first to avoid FK issues)
         subs = db.query(Subscription).filter(Subscription.user_id == user.id).all()
@@ -250,5 +262,10 @@ def delete_account(
         return {"detail": "Account deleted successfully"}
     except Exception as e:
         db.rollback()
-        print(f"[DELETE_ACCOUNT] Error for user {user.id}: {e}")
+        logger.error(
+            "[DELETE_ACCOUNT] Error for user %s: %s",
+            user.id,
+            e,
+            extra={"user_id": user.id},
+        )
         raise HTTPException(status_code=500, detail="Failed to delete account")
