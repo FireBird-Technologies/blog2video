@@ -4,7 +4,7 @@ import shutil
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from sqlalchemy import func, text, inspect
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,11 +12,14 @@ from app.auth import get_current_user
 from app.config import settings
 from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
+from app.models.review import Review
 from app.models.scene import Scene
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
-    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, SceneTypographyBulkUpdate, ProjectUpdate
+    ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
+    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
+    SceneTypographyBulkUpdate, ProjectUpdate
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
@@ -38,6 +41,52 @@ def _inject_custom_theme(project: Project) -> Project:
     else:
         project.custom_theme = None
         project.custom_template_missing = False
+    return project
+
+
+def _is_preview_ready(project: Project) -> bool:
+    return project.status in (ProjectStatus.GENERATED, ProjectStatus.DONE)
+
+
+def _get_project_sequence(project: Project, user: User, db: Session) -> int:
+    earlier_projects = (
+        db.query(func.count(Project.id))
+        .filter(
+            Project.user_id == user.id,
+            (
+                (Project.created_at < project.created_at)
+                | ((Project.created_at == project.created_at) & (Project.id < project.id))
+            ),
+        )
+        .scalar()
+        or 0
+    )
+    return int(earlier_projects) + 1
+
+
+def _build_review_state(project: Project, user: User, db: Session) -> ReviewStateOut:
+    has_review_for_project = (
+        db.query(Review.id)
+        .filter(Review.user_id == user.id, Review.project_id == project.id)
+        .first()
+        is not None
+    )
+    project_sequence = _get_project_sequence(project, user, db)
+
+    return ReviewStateOut(
+        project_sequence=project_sequence,
+        has_review_for_project=has_review_for_project,
+        should_show_inline=bool(
+            _is_preview_ready(project)
+            and not has_review_for_project
+            and project_sequence > 1
+        ),
+    )
+
+
+def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
+    _inject_custom_theme(project)
+    project.review_state = _build_review_state(project, user, db)
     return project
 
 # ─── Constants ────────────────────────────────────────────
@@ -116,7 +165,7 @@ def create_project(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.patch("/{project_id}/update-project", response_model=ProjectOut)
@@ -157,7 +206,7 @@ def update_project(
 
     db.commit()
     db.refresh(project)
-    return project
+    return _prepare_project_response(project, user, db)
 
 
 
@@ -435,7 +484,7 @@ def create_project_from_upload(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.post("/{project_id}/upload-documents", response_model=ProjectOut)
@@ -485,7 +534,7 @@ def upload_documents_to_project(
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.post("/{project_id}/logo")
@@ -556,7 +605,42 @@ def get_project(
 ):
     """Get a single project with all its scenes and assets."""
     project = _get_user_project(project_id, user.id, db)
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
+
+
+@router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
+def submit_project_review(
+    project_id: int,
+    payload: ReviewSubmit,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    project_sequence = _get_project_sequence(project, user, db)
+
+    review = (
+        db.query(Review)
+        .filter(Review.user_id == user.id, Review.project_id == project.id)
+        .first()
+    )
+    if review is None:
+        review = Review(user_id=user.id, project_id=project.id)
+        db.add(review)
+
+    review.rating = payload.rating
+    review.suggestion = payload.suggestion
+    review.source = payload.source
+    review.trigger_event = payload.trigger_event
+    review.project_sequence = project_sequence
+    review.plan_at_submission = user.plan.value if hasattr(user.plan, "value") else str(user.plan)
+
+    db.commit()
+    db.refresh(review)
+
+    return ReviewSubmitResponse(
+        review=ReviewOut.model_validate(review),
+        review_state=_build_review_state(project, user, db),
+    )
 
 
 @router.delete("/{project_id}")
@@ -603,7 +687,7 @@ def update_project_logo(
         project.logo_opacity = data.logo_opacity
     db.commit()
     db.refresh(project)
-    return project
+    return _prepare_project_response(project, user, db)
 
 
 @router.patch("/{project_id}/assets/{asset_id}/exclude")

@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import DiscountBanner from "../DiscountBanner";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -14,7 +15,10 @@ const Navbar = () => {
 
   return (
     <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      {/* Discount banner — only for free tier users, aligned with navbar width */}
+      <DiscountBanner containerClassName="max-w-7xl" visible={user.plan === "free"} />
+
+      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
         <Link
           to="/dashboard?show_form=0"
           onClick={goToDashboard}
