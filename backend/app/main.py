@@ -22,6 +22,8 @@ from app.models.subscription import Subscription, SubscriptionStatus
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, saved_voices, template_studio
+from app.observability.tracing import init_tracing
+from app.observability.logging import configure_logging
 
 
 # ─── Scheduled cleanup for stale data (free + paid tiers) ────
@@ -231,7 +233,7 @@ def _ensure_prebuilt_voices_seeded() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: init DB, start background tasks."""
+    """Application lifespan: init DB and start background tasks."""
     free_cleanup = None
     paid_cleanup = None
 
@@ -245,7 +247,7 @@ async def lifespan(app: FastAPI):
         import traceback
         traceback.print_exc()
         raise
-    
+
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
@@ -254,9 +256,9 @@ async def lifespan(app: FastAPI):
         print(f"[STARTUP] Failed to start background tasks: {e}")
         import traceback
         traceback.print_exc()
-    
+
     yield
-    
+
     try:
         if free_cleanup:
             free_cleanup.cancel()
@@ -274,6 +276,13 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+# Configure logging + tracing at import time (before the app starts serving)
+try:
+    configure_logging()
+    init_tracing(app)
+except Exception as e:
+    print(f"[STARTUP] Observability init failed: {e}")
 
 # CORS — build allowed origins from FRONTEND_URL (comma-separated ok)
 _origins = [

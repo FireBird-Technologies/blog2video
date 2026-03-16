@@ -4,6 +4,9 @@ Regenerate visual_description based on user's editing instruction.
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class RegenerateVisualDescription(dspy.Signature):
@@ -61,5 +64,8 @@ async def regenerate_visual_description(
             return out
         return current_visual_description or ""
     except Exception as e:
-        print(f"[VISUAL_DESC] Failed to regenerate visual description: {e}")
+        logger.warning(
+            "[VISUAL_DESC] Failed to regenerate visual description: %s",
+            e,
+        )
         return current_visual_description or ""
