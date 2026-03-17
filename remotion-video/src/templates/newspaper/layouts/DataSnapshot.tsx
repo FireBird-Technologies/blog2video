@@ -26,10 +26,13 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, width, height, fps } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = width / 1920;
+  // Match frontend preview: 1280 baseline, never shrink below 1
   const items = stats.slice(0, 4);
 
-  // --- 3D Camera & Exit Logic (Unchanged) ---
+  // Resolve description font size once for consistency
+  const resolvedDescriptionFontSize = descriptionFontSize ?? (p ? 36 : 22);
+
+  // --- Exit Logic (Modified for left slide transition) ---
   const EXIT_START = durationInFrames - 25;
   const exitSpring = spring({
     frame: frame - EXIT_START,
@@ -38,10 +41,9 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
   });
 
   const entranceZoom = interpolate(frame, [0, 40], [0.8, 1], { extrapolateRight: "clamp" });
-  const exitZoom = interpolate(exitSpring, [0, 1], [1, 0.85]);
-  const exitRotateX = interpolate(exitSpring, [0, 1], [0, 12]);
+  // Instead of exitZoom and exitRotateX, we'll use exitTranslateX
+  const exitTranslateX = interpolate(exitSpring, [0, 1], [0, -width]); // Scene moves quickly to the left
   const exitOpacity = interpolate(exitSpring, [0.4, 1], [1, 0]);
-  const currentScale = entranceZoom * exitZoom;
 
   // --- Shard Logic (Optimized for Portrait Space) ---
   const shardProgress = interpolate(frame, [0, durationInFrames / 2], [0, 1], { extrapolateRight: "clamp" });
@@ -62,7 +64,8 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
         height: "100%",
         transformStyle: "preserve-3d",
         opacity: exitOpacity,
-        transform: `scale(${currentScale}) rotateX(${exitRotateX}deg)`,
+        // Modified transform: uses entranceZoom and exitTranslateX for the exit transition
+        transform: `scale(${entranceZoom}) translateX(${exitTranslateX}px)`,
       }}>
         <NewsBackground bgColor={bgColor} />
 
@@ -112,7 +115,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             padding: p ? "12% 8%" : "6% 9%",
-            gap: p ? 30 * scale : 32 * scale,
+            gap: p ? 30 : 32,
             zIndex: 3,
             transform: "translateZ(50px)",
           }}
@@ -122,7 +125,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 110 * scale : 90 * scale),
+                fontSize: titleFontSize ?? (p ? 78 : 69),
                 fontWeight: 800,
                 color: textColor,
                 lineHeight: 1.1,
@@ -143,7 +146,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
               display: "flex",
               flexDirection: p ? "column" : "row",
               flexWrap: p ? "nowrap" : "wrap",
-              gap: p ? 20 * scale : 22 * scale,
+              gap: p ? 20 : 22,
               alignContent: "flex-start",
             }}
           >
@@ -163,7 +166,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                     backgroundColor: "rgba(255,255,255,0.85)",
                     border: "1px solid rgba(0,0,0,0.1)",
                     borderRadius: p ? 12 : 8,
-                    padding: `${p ? 24 * scale : 20 * scale}px ${p ? 28 * scale : 22 * scale}px`,
+                    padding: `${p ? 24 : 20}px ${p ? 28 : 22}px`,
                     boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
                     display: "flex",
                     flexDirection: "column",
@@ -172,11 +175,12 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 >
                   <div style={{ 
                     fontFamily: fontFamily ?? H_FONT, 
-                    fontSize: p ? 64 * scale : 58 * scale,
+                    // Modified: In portrait mode, stats size is +7 the description font size
+                    fontSize: p ? (resolvedDescriptionFontSize + 7) : 58,
                     fontWeight: 900, 
                     color: textColor, 
                     lineHeight: 1, 
-                    marginBottom: p ? 14 * scale : 10 * scale
+                    marginBottom: p ? 14 : 10
                   }}>
                     {item.value}
                   </div>
@@ -185,7 +189,7 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
 
                   <div style={{ 
                     fontFamily: fontFamily ?? B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
+                    fontSize: resolvedDescriptionFontSize, // Use resolved value
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: 0.8, 
@@ -203,12 +207,12 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
             <div
               style={{
                 fontFamily: fontFamily ?? B_FONT,
-                fontSize: descriptionFontSize ?? (p ? 38 * scale : 35 * scale),
+                fontSize: resolvedDescriptionFontSize, // Use resolved value
                 fontWeight: 500,
                 color: textColor,
                 opacity: interpolate(frame, [60, 76], [0, 0.7], { extrapolateRight: "clamp" }),
                 lineHeight: 1.4,
-                paddingTop: p ? 10 * scale : 0,
+                paddingTop: p ? 10 : 0,
                 borderTop: p ? `1px solid ${textColor}15` : "none",
               }}
             >
