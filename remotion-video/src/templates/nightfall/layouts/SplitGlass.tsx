@@ -162,7 +162,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 65 : 61),
               fontWeight: 700,
               color: textColor,
-              fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
               marginTop: p ? 100 : 90, // Increased margin to bring the title down
               textAlign: "center",
               opacity: titleOpacity,
@@ -219,7 +219,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   left: p ? 24 : 28,
                   fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   color: "rgba(226,232,240,0.45)",
-                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   fontWeight: 600,
@@ -234,7 +234,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
-                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                   marginTop: p ? 8 : 12,
                   flex: 1, // Allow content to take available space
                   overflow: "hidden", // Hide overflowing text
@@ -331,7 +331,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   left: p ? 24 : 28,
                   fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   color: accentColor,
-                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
                   fontWeight: 600,
@@ -346,7 +346,7 @@ export const SplitGlass: React.FC<NightfallLayoutProps> = ({
                   fontSize: descriptionFontSize ?? (p ? 35 : 28),
                   lineHeight: 1.75,
                   color: "rgba(226,232,240,0.85)",
-                  fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                  fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
                   marginTop: p ? 8 : 12,
                   flex: 1, // Allow content to take available space
                   overflow: "hidden", // Hide overflowing text
