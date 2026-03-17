@@ -51,7 +51,7 @@ export const calculateNewspaperMetadata: CalculateMetadataFunction<VideoProps> =
       const data: VideoData = await res.json();
 
       const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
       const isPortrait = data.aspectRatio === "portrait";
 
       // Newspaper base resolution: 1280×720 in landscape, 720×1280 in portrait
