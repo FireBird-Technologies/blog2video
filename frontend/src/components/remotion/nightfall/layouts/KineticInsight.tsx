@@ -95,7 +95,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 169 : 112),
             color: accentColor,
             opacity: quoteOpacity * 0.25,
-            fontFamily: fontFamily ?? "Georgia, serif",
+            fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
             fontWeight: 700,
             transform: `scale(${quoteScale})`,
             lineHeight: 1,
@@ -196,7 +196,7 @@ export const KineticInsight: React.FC<NightfallLayoutProps> = ({
               [0, 0.25],
               { extrapolateRight: "clamp" }
             ),
-            fontFamily: fontFamily ?? "Georgia, serif",
+            fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
             fontWeight: 700,
             lineHeight: 1,
           }}
