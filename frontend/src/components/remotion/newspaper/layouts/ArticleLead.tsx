@@ -60,34 +60,29 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
 
   // --- Custom Logic for User Instructions ---
   const isLandscapeWithImage = !p && imageUrl;
-  const isPortraitWithImage = p && imageUrl;
 
-  // Use descriptionFontSize directly for narration (like titleFontSize for title).
-  const narrationSize = descriptionFontSize ?? (p ? 33 : 30);
-  const baseForStats = descriptionFontSize ?? (p ? 33 : 30);
+  const narrationSize = descriptionFontSize ?? (p ? 35 : 30);
+  const baseForStats = descriptionFontSize ?? (p ? 35 : 30);
   const statsValueSize = baseForStats + 40;
   const statsLabelSize = baseForStats - 15;
 
   let actualTitleMarginBottom: string | number;
-  let bodyContentAreaMarginTop: string | number = 0; // New variable for vertical spacing
+  let bodyContentAreaMarginTop: string | number = 0;
 
-  if (isPortraitWithImage) {
-    // In portrait format with an image, adjust spacing:
-    actualTitleMarginBottom = 20; 
-    bodyContentAreaMarginTop = "20vh"; 
-  } else if (p) { // This handles portrait without an image
-    actualTitleMarginBottom = 50; 
-    bodyContentAreaMarginTop = 0;
-  } else { // This handles landscape (with or without image)
+  if (p && !imageUrl) {
+    // Portrait mode, NO image: Narration at top, stats in middle
+    actualTitleMarginBottom = 40; // More space below title for narration
+    bodyContentAreaMarginTop = 0; // Narration starts high in the body area
+  } else if (p) { // This handles portrait WITH an image (keep current layout)
+    actualTitleMarginBottom = 20;
+    bodyContentAreaMarginTop = "20vh";
+  } else { // This handles landscape (with or without image) - keep current layout
     actualTitleMarginBottom = 50;
     bodyContentAreaMarginTop = 0;
   }
 
-  // 2. Make stats dependent on content (narration text) and position "above it" for portrait layouts
-  // For portrait layouts (p is true), stats should appear visually above narration.
-  // For landscape, stats are either to the right or absolutely positioned at bottom.
-  const bodyContentAreaFlexDirection = p ? "column-reverse" : "row";
-  const bodyContentAreaJustifyContent = p ? "flex-start" : "space-between";
+  const bodyContentAreaFlexDirection = (p && !imageUrl) ? "column" : (p ? "column-reverse" : "row");
+  const bodyContentAreaJustifyContent = (p && !imageUrl) ? "flex-start" : (p ? "flex-start" : "space-between");
 
   const narrationWidth = p ? "100%" : "52%";
 
@@ -97,14 +92,22 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     transform: `translateX(${pullSlide}px) translateZ(30px)`,
     fontFamily: fontFamily ?? B_FONT,
     color: textColor,
-    // Default styles for flex item or portrait mode
-    width: p ? "100%" : "30%",
+    width: p ? "100%" : "30%", // Default for portrait or flex item in landscape
     borderLeft: `${(p ? 12 : 8)}px solid ${accentColor}`,
     paddingLeft: 25,
-    alignSelf: p ? "flex-start" : "center", // Only applies if it's a flex item
+    alignSelf: p ? "center" : "center", // Horizontal centering for portrait; default for landscape
   };
 
-  if (isLandscapeWithImage) {
+  if (p && !imageUrl) {
+    // Portrait, NO image: Stats in middle, no left border, top border instead, centered
+    statsContainerStyles.borderLeft = "none";
+    statsContainerStyles.borderTop = `8px solid ${accentColor}`;
+    statsContainerStyles.paddingTop = 25;
+    statsContainerStyles.paddingLeft = 0;
+    statsContainerStyles.marginTop = "auto"; // Push to bottom (after narration), then center with marginBottom
+    statsContainerStyles.marginBottom = "auto"; // Attempt to center vertically in remaining space
+    statsContainerStyles.width = "88%"; // Make it narrower for better centering
+  } else if (isLandscapeWithImage) {
     // Landscape with image: Stats move to the bottom, become absolutely positioned
     statsContainerStyles.position = "absolute";
     statsContainerStyles.bottom = "6%";
@@ -115,6 +118,10 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
     statsContainerStyles.paddingTop = 25;
     statsContainerStyles.paddingLeft = 0;
     delete statsContainerStyles.alignSelf; // Not a flex item anymore
+    delete statsContainerStyles.marginTop; // Clear auto margins if they were set
+    delete statsContainerStyles.marginBottom;
+  } else if (p) { // Portrait with image (current behavior: stats appear above narration due to column-reverse)
+    statsContainerStyles.alignSelf = "flex-start"; // Keep it at the start for column-reverse (it's the first flex item)
   }
 
 
@@ -137,12 +144,12 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             style={{
               position: "absolute",
               // Portrait: Centered Middle | Landscape: Anchored Right
-              top: p ? "23%" : "20%", 
+              top: p ? "23%" : "20%",
               right: p ? "auto" : "6%",
               left: p ? "50%" : "auto",
               width: p ? "88%" : "38%",
               height: p ? "38%" : "60%", // Decreased height for portrait mode
-              transform: p 
+              transform: p
                 ? `translateX(-50%) translateZ(40px) scale(${imageScale}) rotate(${imageRotation}deg)`
                 : `translateZ(40px) scale(${imageScale}) rotate(${imageRotation}deg)`,
               opacity: imageOpacity,
@@ -174,8 +181,7 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             inset: 0,
             display: "flex",
             flexDirection: "column",
-            // Adjusted padding-top to bring content slightly upwards
-            padding: p ? "8.5% 8%" : "4.5% 8%", 
+            padding: p ? "8.5% 8%" : "4.5% 8%",
             zIndex: 5,
             transform: "translateZ(60px)",
           }}
@@ -204,85 +210,162 @@ export const ArticleLead: React.FC<BlogLayoutProps & { imageUrl?: string }> = ({
             style={{
               flex: 1,
               display: "flex",
-              flexDirection: bodyContentAreaFlexDirection, // Updated to handle "above it" for portrait
+              flexDirection: bodyContentAreaFlexDirection,
               gap: p ? 30 : 60,
-              alignItems: p ? "stretch" : "center",
-              justifyContent: bodyContentAreaJustifyContent, // Simplified
-              marginTop: bodyContentAreaMarginTop, // Apply dynamic margin here
+              alignItems: p ? "stretch" : "center", // 'stretch' for columns allows children to take full width
+              justifyContent: bodyContentAreaJustifyContent,
+              marginTop: bodyContentAreaMarginTop,
             }}
           >
-            {/* PULL STAT (Right side in Landscape / Above Narration in Portrait) */}
-            {pullVal && !isLandscapeWithImage && ( // Render here IF NOT Landscape with Image (handled separately below)
-              <div style={statsContainerStyles}>
-                <div
-                  style={{
-                    fontFamily: fontFamily ?? H_FONT,
-                    fontSize: statsValueSize,
-                    fontWeight: 800,
-                    color: textColor,
-                    lineHeight: 1,
-                    marginBottom: 5,
-                  }}
-                >
-                  {displayVal}
-                </div>
-                {pullCap && (
+            {/* Conditional ordering based on `p` and `imageUrl` */}
+            {p && !imageUrl ? ( // Portrait, NO image: Narration then Stats
+              <>
+                {/* NARRATION TEXT (First in column) */}
+                <div style={{ width: narrationWidth, marginBottom: 50 /* give some space */ }}>
                   <div
                     style={{
                       fontFamily: fontFamily ?? B_FONT,
-                      fontSize: statsLabelSize,
-                      fontWeight: 700,
+                      fontSize: narrationSize,
+                      fontWeight: 500,
                       color: textColor,
-                      opacity: 0.7,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em"
+                      lineHeight: 1.45,
                     }}
                   >
-                    {pullCap}
+                    <span
+                      style={{
+                        float: "left",
+                        fontFamily: fontFamily ?? H_FONT,
+                        fontSize: p ? 130 : 110,
+                        fontWeight: 800,
+                        lineHeight: 0.7,
+                        marginRight: 15,
+                        marginTop: 5,
+                        color: textColor,
+                        opacity: dropCapOp,
+                        transform: `translateY(${dropCapY}px)`,
+                        display: "inline-block",
+                      }}
+                    >
+                      {dropChar}
+                    </span>
+
+                    <span style={{ textShadow: `0 0 2px ${bgColor}` }}>
+                      {visText.length > 1 ? visText.slice(1) : ""}
+                      {showCursor && visChars > 0 && (
+                        <span style={{ display: "inline-block", width: 4, height: "0.9em", background: textColor, opacity: 0.6, marginLeft: 2, verticalAlign: "middle" }} />
+                      )}
+                    </span>
+                  </div>
+                </div>
+                {/* PULL STAT (Second in column, pushed to middle) */}
+                {pullVal && (
+                  <div style={statsContainerStyles}>
+                    <div
+                      style={{
+                        fontFamily: fontFamily ?? H_FONT,
+                        fontSize: statsValueSize,
+                        fontWeight: 800,
+                        color: textColor,
+                        lineHeight: 1,
+                        marginBottom: 5,
+                      }}
+                    >
+                      {displayVal}
+                    </div>
+                    {pullCap && (
+                      <div
+                        style={{
+                          fontFamily: fontFamily ?? B_FONT,
+                          fontSize: statsLabelSize,
+                          fontWeight: 700,
+                          color: textColor,
+                          opacity: 0.7,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em"
+                        }}
+                      >
+                        {pullCap}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
+            ) : ( // All other cases: Portrait WITH image or Landscape
+                  // Portrait WITH image: Stats then Narration (column-reverse)
+                  // Landscape: Narration then Stats (row, narration first by default layout if stats is absent or to right)
+              <>
+                {/* PULL STAT (If not landscape with image, it's a flex item here) */}
+                {pullVal && !isLandscapeWithImage && (
+                  <div style={statsContainerStyles}>
+                    <div
+                      style={{
+                        fontFamily: fontFamily ?? H_FONT,
+                        fontSize: statsValueSize,
+                        fontWeight: 800,
+                        color: textColor,
+                        lineHeight: 1,
+                        marginBottom: 5,
+                      }}
+                    >
+                      {displayVal}
+                    </div>
+                    {pullCap && (
+                      <div
+                        style={{
+                          fontFamily: fontFamily ?? B_FONT,
+                          fontSize: statsLabelSize,
+                          fontWeight: 700,
+                          color: textColor,
+                          opacity: 0.7,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em"
+                        }}
+                      >
+                        {pullCap}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* NARRATION TEXT */}
+                <div style={{ width: narrationWidth }}>
+                  <div
+                    style={{
+                      fontFamily: fontFamily ?? B_FONT,
+                      fontSize: narrationSize,
+                      fontWeight: 500,
+                      color: textColor,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span
+                      style={{
+                        float: "left",
+                        fontFamily: fontFamily ?? H_FONT,
+                        fontSize: p ? 130 : 110,
+                        fontWeight: 800,
+                        lineHeight: 0.7,
+                        marginRight: 15,
+                        marginTop: 5,
+                        color: textColor,
+                        opacity: dropCapOp,
+                        transform: `translateY(${dropCapY}px)`,
+                        display: "inline-block",
+                      }}
+                    >
+                      {dropChar}
+                    </span>
+
+                    <span style={{ textShadow: `0 0 2px ${bgColor}` }}>
+                      {visText.length > 1 ? visText.slice(1) : ""}
+                      {showCursor && visChars > 0 && (
+                        <span style={{ display: "inline-block", width: 4, height: "0.9em", background: textColor, opacity: 0.6, marginLeft: 2, verticalAlign: "middle" }} />
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </>
             )}
-
-            {/* NARRATION TEXT */}
-            <div style={{ 
-              width: narrationWidth, 
-            }}>
-              <div
-                style={{
-                  fontFamily: fontFamily ?? B_FONT,
-                  fontSize: narrationSize,
-                  fontWeight: 500,
-                  color: textColor,
-                  lineHeight: 1.45,
-                }}
-              >
-                <span
-                  style={{
-                    float: "left",
-                    fontFamily: fontFamily ?? H_FONT,
-                    fontSize: p ? 130 : 110,
-                    fontWeight: 800,
-                    lineHeight: 0.7,
-                    marginRight: 15,
-                    marginTop: 5,
-                    color: textColor,
-                    opacity: dropCapOp,
-                    transform: `translateY(${dropCapY}px)`,
-                    display: "inline-block",
-                  }}
-                >
-                  {dropChar}
-                </span>
-
-                <span style={{ textShadow: `0 0 2px ${bgColor}` }}>
-                  {visText.length > 1 ? visText.slice(1) : ""}
-                  {showCursor && visChars > 0 && (
-                    <span style={{ display: "inline-block", width: 4, height: "0.9em", background: textColor, opacity: 0.6, marginLeft: 2, verticalAlign: "middle" }} />
-                  )}
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* PULL STAT (Only for Landscape with Image, positioned at bottom) */}
