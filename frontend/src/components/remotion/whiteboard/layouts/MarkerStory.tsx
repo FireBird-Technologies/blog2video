@@ -87,7 +87,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
             <div
               style={{
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 68 : 88),
+                fontSize: titleFontSize ?? (p ? 90 : 63),
                 lineHeight: 1.03,
                 fontWeight: 700,
                 opacity: 0,
@@ -101,7 +101,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
                 inset: 0,
                 clipPath: `inset(0 ${titleClipRight}% 0 0)`,
                 color: textColor,
-                fontSize: titleFontSize ?? (p ? 68 : 88),
+                fontSize: titleFontSize ?? (p ? 90 : 63),
                 lineHeight: 1.03,
                 fontWeight: 700,
                 filter: "url(#ink)",
@@ -163,7 +163,7 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               marginTop: p ? 10 : 22,
-              fontSize: descriptionFontSize ?? (p ? 34 : 40),
+              fontSize: descriptionFontSize ?? (p ? 33 : 28),
               lineHeight: 1.3,
               maxWidth: p ? "100%" : 820,
               position: "relative",

@@ -176,7 +176,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 72 : 70), // Increased for Portrait
+              fontSize: titleFontSize ?? (p ? 72 : 62), // Increased for Portrait
               lineHeight: 1.1,
               marginBottom: 16,
               textAlign: "center",
@@ -188,7 +188,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 32 : 30), // Increased for Portrait
+              fontSize: descriptionFontSize ?? (p ? 27 : 25), // Increased for Portrait
               opacity: 0.9,
               maxWidth: p ? "95%" : 750,
               textAlign: "center",
@@ -230,7 +230,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                   position: "relative",
                   width: p ? "90%" : "auto", 
                   minWidth: p ? "unset" : 160,
-                  padding: p ? "35px 20px" : "24px 22px", // More vertical padding in cards
+                  padding: p ? "20px 20px" : "24px 22px", // Reduced vertical padding in portrait
                   backgroundColor: "rgba(255,255,255,0.85)",
                   opacity: cardOp,
                   display: "flex",
@@ -254,7 +254,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                   color: textColor, 
                   fontSize: p ? 28 : 20, // Much larger labels
                   fontWeight: 700, 
-                  marginTop: p ? 10 : 4,
+                  marginTop: p ? 6 : 4, // Reduced margin-top for tighter spacing
                   textTransform: p ? "uppercase" : "none", // Added punch for portrait
                   letterSpacing: p ? "1px" : "normal"
                 }}>

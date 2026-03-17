@@ -101,6 +101,7 @@ class RenderLayoutRequest(BaseModel):
     aspect_ratio: str | None = "landscape"
     duration_seconds: float | None = None
     layout_props: dict | None = None
+    resolution: str | None = None
 
 
 _ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -2191,10 +2192,15 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
 
         npx = _shutil.which("npx") or "npx"
         composition_id = get_composition_id(template_id)
+        # Use caller-provided resolution if valid, else default to template-specific base:
+        # 720p for whiteboard/newspaper, 1080p for all others.
+        resolution = (payload.resolution or "").strip().lower()
+        if resolution not in ("720p", "1080p"):
+            resolution = "720p" if template_id in ("whiteboard", "newspaper") else "1080p"
         cmd = _build_render_cmd(
             npx,
             output_path,
-            resolution="1080p",
+            resolution=resolution,
             aspect_ratio=aspect_ratio,
             composition_id=composition_id,
         )

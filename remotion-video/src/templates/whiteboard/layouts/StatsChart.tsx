@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps, WhiteboardStatItem } from "../types";
 
@@ -29,26 +29,18 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
   aspectRatio,
   titleFontSize,
   descriptionFontSize,
-  stats: statsProp,
   fontFamily,
+  stats: statsProp,
 }) => {
   const frame = useCurrentFrame();
-  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
   const stats = statsProp?.length ? statsProp : DEFAULT_STATS;
   const maxItems = Math.min(stats.length, 5);
 
   const titleOp = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill
-      style={{
-        overflow: "hidden",
-        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
-        letterSpacing: "1.5px",
-      }}
-    >
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
       <WhiteboardBackground bgColor={bgColor} />
 
       {/* Paper grain + ink filter */}
@@ -111,11 +103,11 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 54 * scale : 72 * scale),
+              fontSize: titleFontSize ?? (p ? 72 : 69),
               lineHeight: 1.1,
               marginBottom: 16,
               filter: "url(#ink)",
-              maxWidth: 800 * scale,
+              maxWidth: 800,
               transform: p ? "rotate(-1deg)" : "none",
             }}
           >
@@ -124,9 +116,9 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 24 * scale : 30 * scale),
+              fontSize: descriptionFontSize ?? (p ? 31 : 23),
               opacity: 0.9,
-              maxWidth: p ? "90%" : 640 * scale,
+              maxWidth: p ? "90%" : 640,
               filter: "url(#ink)",
               fontStyle: p ? "italic" : "normal",
             }}
@@ -139,7 +131,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
         <div
           style={{
             width: "100%",
-            maxWidth: p ? "100%" : 800 * scale,
+            maxWidth: p ? "100%" : 800,
             display: "flex",
             flexDirection: "column",
             gap: p ? 24 : 20,
@@ -172,7 +164,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                     style={{
                       flexShrink: 0,
                       color: textColor,
-                      fontSize: (p ? 20 : 22) * scale,
+                      fontSize: p ? 20 : 22,
                       fontWeight: 700,
                       minWidth: p ? "auto" : 120,
                       textAlign: "left",
@@ -219,7 +211,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
                       style={{
                         flexShrink: 0,
                         color: accentColor,
-                        fontSize: (p ? 22 : 26) * scale,
+                        fontSize: p ? 22 : 26,
                         fontWeight: 800,
                         minWidth: 55,
                         textAlign: "right",

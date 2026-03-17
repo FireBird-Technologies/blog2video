@@ -256,7 +256,7 @@ export const GlassImage: React.FC<NightfallLayoutProps> = ({
               fontSize: titleFontSize ?? (p ? 78 : 64),
               fontWeight: 700,
               color: textColor,
-              fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
               marginBottom: narration ? 15 : 0,
               lineHeight: 1.3,
             }}

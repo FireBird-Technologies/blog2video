@@ -146,7 +146,6 @@ export const NewsHeadline: React.FC<
   const frame = useCurrentFrame();
   const { durationInFrames, width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
 
   /* 🎬 Unified Fade In / Fade Out */
   const fadeIn = interpolate(frame, [0, 20], [0, 1], {
@@ -173,6 +172,11 @@ export const NewsHeadline: React.FC<
       : leftThoughtFromProps
         ? leftThoughtFromProps.split(/[,\u2013\u2014\-]/).join(" ").split(/\s+/).filter(Boolean)
         : [words[0], words[Math.floor(words.length / 2)], words[words.length - 1]];
+
+  // Calculate description font size for relative scaling
+  const actualDescriptionFontSize = descriptionFontSize ?? (p ? 39 : 35);
+  const categoryBaseFontSize = p ? 28 : 24; // Base for category without descriptionFontSize
+  const authorBaseFontSize = p ? 20 : 16; // Base for author without descriptionFontSize
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", fontFamily: fontFamily ?? B_FONT }}>
@@ -268,17 +272,19 @@ export const NewsHeadline: React.FC<
         }}
       >
         {/* CATEGORY + AUTHOR (from stats) */}
-        <div style={{ marginBottom: p ? 20 * scale : 30 * scale, display: "flex", flexDirection: "column", gap: 6 * scale }}>
+        <div style={{ marginBottom: p ? 20 : 30, display: "flex", flexDirection: "column", gap: 6 }}>
           <div
             style={{
               display: "inline-block",
-              fontSize: (p ? 28 : 24) * scale, // Larger for portrait
+              fontSize: descriptionFontSize 
+                ? actualDescriptionFontSize * (p ? (categoryBaseFontSize / 40) : (categoryBaseFontSize / 40))
+                : categoryBaseFontSize,
               fontWeight: 800,
               letterSpacing: "0.15em",
               textTransform: "uppercase",
               color: textColor,
-              borderBottom: `${4 * scale}px solid ${textColor}`,
-              paddingBottom: 6 * scale,
+              borderBottom: `${4}px solid ${textColor}`,
+              paddingBottom: 6,
               alignSelf: "flex-start",
             }}
           >
@@ -288,16 +294,18 @@ export const NewsHeadline: React.FC<
             <div
               style={{
                 display: "flex",
-                gap: 12 * scale,
+                gap: 12,
                 fontFamily: fontFamily ?? B_FONT,
-                fontSize: (p ? 20 : 16) * scale,
+                fontSize: descriptionFontSize 
+                  ? actualDescriptionFontSize * (p ? (authorBaseFontSize / 40) : (authorBaseFontSize / 38))
+                  : authorBaseFontSize,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
                 color: "#555",
               }}
             >
               {stats.map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 * scale }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontWeight: 700 }}>{s.value}</span>
                   {s.label && <span style={{ opacity: 0.8 }}>{s.label}</span>}
                 </div>
@@ -311,10 +319,10 @@ export const NewsHeadline: React.FC<
           style={{
             fontFamily: fontFamily ?? H_FONT,
             // Drastically increased portrait size for mobile impact
-            fontSize: titleFontSize ?? (p ? 90 * scale : 86 * scale),
+            fontSize: titleFontSize ?? (p ? 82 : 78),
             fontWeight: 800,
             lineHeight: 1.0,
-            marginBottom: p ? 40 * scale : 36 * scale,
+            marginBottom: p ? 40 : 36,
             maxWidth: p ? "100%" : (imageUrl ? "50%" : "60%"),
           }}
         >
@@ -325,7 +333,7 @@ export const NewsHeadline: React.FC<
             );
 
             return (
-              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: `${12 * scale}px` }}>
+              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: `${12}px` }}>
                 {isHighlight && (
                   <span
                     style={{
@@ -351,7 +359,7 @@ export const NewsHeadline: React.FC<
         {narration && (
           <div
             style={{
-              fontSize: descriptionFontSize ?? (p ? 46 * scale : 44 * scale), // Larger for portrait
+              fontSize: actualDescriptionFontSize, // Use the potentially derived value
               fontWeight: 600,
               color: textColor,
               lineHeight: 1.4,
