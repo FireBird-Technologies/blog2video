@@ -61,7 +61,7 @@ export const calculateWhiteboardMetadata: CalculateMetadataFunction<VideoProps> 
       const data: VideoData = await res.json();
 
       const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
