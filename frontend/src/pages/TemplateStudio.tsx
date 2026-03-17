@@ -966,8 +966,23 @@ export default function TemplateStudio() {
   ]);
 
   const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
-  const canvasW          = isPortrait ? 1080 : 1920;
-  const canvasH          = isPortrait ? 1920 : 1080;
+  const [studioResolution, setStudioResolution] = useState<"1080p" | "720p">(
+    () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newspaper" ? "720p" : "1080p"),
+  );
+
+  // Default resolution per template: Stickman/Whiteboard/Newspaper => 720p, others => 1080p
+  useEffect(() => {
+    if (!selectedTemplateId) return;
+    if (selectedTemplateId === "whiteboard" || selectedTemplateId === "newspaper" || selectedTemplateId === "stickman") {
+      setStudioResolution("720p");
+    } else {
+      setStudioResolution("1080p");
+    }
+  }, [selectedTemplateId]);
+  const baseWidth = studioResolution === "720p" ? 1280 : 1920;
+  const baseHeight = studioResolution === "720p" ? 720 : 1080;
+  const canvasW          = isPortrait ? baseHeight : baseWidth;
+  const canvasH          = isPortrait ? baseWidth : baseHeight;
   const durationInFrames = Math.max(30, Math.round(durationSeconds * 30));
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
@@ -1202,6 +1217,7 @@ export default function TemplateStudio() {
         aspect_ratio: aspectRatio,
         duration_seconds: durationSeconds,
         layout_props: resolvedLayoutProps,
+        resolution: studioResolution,
       });
       const blob = res.data as unknown as Blob;
       const url = window.URL.createObjectURL(blob);
@@ -1695,32 +1711,60 @@ export default function TemplateStudio() {
                         </div>
                       </div>
 
-                      {/* Center: resolution pill */}
+                      {/* Center: resolution + canvas pill (styled like toggle) */}
                       <div
                         style={{
-                          display: "flex",
+                          display: "inline-flex",
                           alignItems: "center",
+                          padding: "2px 8px 2px 4px",
+                          borderRadius: "10px",
+                          background: T.surfaceAlt,
                           gap: "6px",
-                          padding: "3px 10px",
-                          borderRadius: "6px",
-                          background: T.bg,
-                          border: `1px solid ${T.border}`,
                         }}
                       >
                         <div
                           style={{
-                            width: "4px",
-                            height: "4px",
-                            borderRadius: "50%",
-                            background: T.accent,
-                            opacity: 0.5,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px",
+                            borderRadius: "10px",
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            gap: "2px",
                           }}
-                        />
+                        >
+                          {(["720p", "1080p"] as const).map((res) => {
+                            const active = res === studioResolution;
+                            return (
+                              <button
+                                key={res}
+                                type="button"
+                                onClick={() => setStudioResolution(res)}
+                                style={{
+                                  border: "none",
+                                  borderRadius: "9px",
+                                  padding: "4px 8px",
+                                  fontSize: "10px",
+                                  fontWeight: active ? 600 : 500,
+                                  fontFamily: FONT,
+                                  cursor: "pointer",
+                                  background: active ? T.accent : "transparent",
+                                  color: active ? "#ffffff" : T.textSub,
+                                  transition: "background 0.15s, color 0.15s",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {res}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <span
                           style={{
                             fontSize: "10px",
                             color: T.textMuted,
                             fontFamily: FONT,
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {canvasW} × {canvasH} · {durationInFrames}f · 30fps
@@ -1760,7 +1804,7 @@ export default function TemplateStudio() {
                     <div style={{
                       width: "100%",
                       aspectRatio: isPortrait ? "9/16" : "16/9",
-                      maxHeight: isPortrait ? "calc(100vh - 170px)" : "540px",
+                      maxHeight: isPortrait ? "420px" : "540px",
                       borderRadius: "8px", overflow: "hidden",
                       boxShadow: `0 0 0 1px ${T.border}, 0 4px 16px rgba(147,51,234,0.07), 0 16px 48px rgba(0,0,0,0.08)`,
                     }}>
@@ -1779,7 +1823,7 @@ export default function TemplateStudio() {
                 </div>
 
                 {/* Stats bar */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignItems: "stretch" }}>
                   {[
                     { label: "Template", value: selectedTemplate?.name || "—" },
                     { label: "Layout",   value: humanize(selectedLayout) || "—" },

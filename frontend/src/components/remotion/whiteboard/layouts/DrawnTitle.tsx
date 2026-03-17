@@ -152,7 +152,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
             color: textColor,
             fontWeight: 700,
             lineHeight: 1.1,
-            fontSize: titleFontSize ?? (p ? 76 : 114),
+            fontSize: titleFontSize ?? (p ? 81 : 66),
             letterSpacing: "0.01em",
             filter: "url(#ink)",
           }}
@@ -205,7 +205,7 @@ export const DrawnTitle: React.FC<WhiteboardLayoutProps> = ({
           style={{
             marginTop: p ? 30 : 26,
             color: textColor,
-            fontSize: descriptionFontSize ?? (p ? 34 : 36),
+            fontSize: descriptionFontSize ?? (p ? 37 : 27),
             fontWeight: 500,
             maxWidth: p ? "100%" : "76%",
             lineHeight: 1.45,

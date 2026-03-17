@@ -335,8 +335,8 @@ export default function VideoPreview({
           component={Composition}
           inputProps={inputProps}
           durationInFrames={totalDurationFrames}
-          compositionWidth={isPortrait ? 1080 : 1920}
-          compositionHeight={isPortrait ? 1920 : 1080}
+          compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
+          compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
           controls
           style={{

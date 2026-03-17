@@ -609,6 +609,7 @@ export const renderTemplateLayout = (payload: {
   aspect_ratio?: string;
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
+  resolution?: "1080p" | "720p";
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",
