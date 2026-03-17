@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -25,16 +25,14 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
 
   const steps = statsProp?.length ? statsProp : DEFAULT_STEPS;
   const maxSteps = Math.min(steps.length, 5);
   const displaySteps = steps.slice(0, maxSteps);
 
-  const finalTitleSize = (titleFontSize ?? (p ? 58 : 64)) * scale;
-  const finalDescSize = descPropSize ?? (p ? 22 : 43) * scale;
+  const finalTitleSize = titleFontSize ?? (p ? 80 : 68);
+  const finalDescSize = descPropSize ?? (p ? 32 : 27);
 
   const titleOp = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
   const stepStartFrame = (i: number) => 16 + i * (STEP_DURATION + STEP_GAP);
@@ -76,8 +74,8 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
           top: "60%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: 400 * scale,
-          height: 500 * scale,
+          width: 400,
+          height: 500,
           opacity: titleOp * 0.25,
           filter: "url(#ink)",
           pointerEvents: "none"
@@ -136,7 +134,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
           flexDirection: "column",
           justifyContent: p ? "flex-start" : "center",
           marginTop: p ? 20 : 0,
-          gap: (p ? 24 : 18) * scale,
+          gap: p ? 24 : 18,
         }}>
           {displaySteps.map((step, i) => {
             const startF = stepStartFrame(i);
@@ -161,7 +159,7 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
               >
                 <div style={{
                   color: textColor,
-                  fontSize: (p ? 25 : 20) * scale,
+                  fontSize: p ? 25 : 20,
                   fontWeight: 600,
                   opacity: 0.6,
                   marginBottom: 4,
@@ -193,25 +191,25 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
         <AbsoluteFill style={{
           top: 'auto', left: 'auto',
           right: '5%', bottom: '15%',
-          width: 170 * scale,
-          height: 260 * scale,
+          width: 170,
+          height: 260,
           filter: "url(#ink)",
           opacity: titleOp * 0.9,
         }}>
           <svg viewBox="0 0 100 200" style={{ display: 'block', width: '100%', height: '100%' }}>
             <g transform={`translate(50, 100)`}>
               <g transform={`translate(0, ${bodyBob}) scale(-1, 1)`}>
-                <circle cx={0} cy={-75} r={17} stroke={textColor} strokeWidth={6 * scale} fill="none" />
-                <path d="M0, -58 L-4, 5 L18, 50" fill="none" stroke={textColor} strokeWidth={6 * scale} strokeLinecap="round"/>
-                <path d="M-2, -15 L-25, 0" fill="none" stroke={textColor} strokeWidth={5 * scale} strokeLinecap="round" />
+                <circle cx={0} cy={-75} r={17} stroke={textColor} strokeWidth={6} fill="none" />
+                <path d="M0, -58 L-4, 5 L18, 50" fill="none" stroke={textColor} strokeWidth={6} strokeLinecap="round"/>
+                <path d="M-2, -15 L-25, 0" fill="none" stroke={textColor} strokeWidth={5} strokeLinecap="round" />
                 <g transform={`translate(0, ${-bodyBob})`}>
-                  <path d={`M-2, -15 L25, 5 L35, ${handYVisual - 100}`} fill="none" stroke={textColor} strokeWidth={5 * scale} strokeLinecap="round" />
+                  <path d={`M-2, -15 L25, 5 L35, ${handYVisual - 100}`} fill="none" stroke={textColor} strokeWidth={5} strokeLinecap="round" />
                 </g>
-                <path d="M18,50 L14, 90" fill="none" stroke={textColor} strokeWidth={6 * scale} strokeLinecap="round" />
-                <path d="M18,50 L26, 90" fill="none" stroke={textColor} strokeWidth={6 * scale} strokeLinecap="round" />
+                <path d="M18,50 L14, 90" fill="none" stroke={textColor} strokeWidth={6} strokeLinecap="round" />
+                <path d="M18,50 L26, 90" fill="none" stroke={textColor} strokeWidth={6} strokeLinecap="round" />
               </g>
               <circle cx={-38} cy={ballYVisual - 100} r={15} fill={accentColor} stroke={textColor} strokeWidth={1} />
-              <line x1={-60} y1={55} x2={40} y2={55} stroke={textColor} strokeWidth={4 * scale} strokeLinecap="round" />
+              <line x1={-60} y1={55} x2={40} y2={55} stroke={textColor} strokeWidth={4} strokeLinecap="round" />
             </g>
           </svg>
         </AbsoluteFill>

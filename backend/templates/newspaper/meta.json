@@ -27,12 +27,12 @@
       "label": "News Headline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 90,
-          "landscape": 86
+          "portrait": 82,
+          "landscape": 78
         },
         "descriptionFontSize": {
-          "portrait": 46,
-          "landscape": 44
+          "portrait": 39,
+          "landscape": 35
         },
         "category": "News",
         "leftThought": "breakthrough, launch",
@@ -98,12 +98,12 @@
       "label": "Article Lead",
       "defaults": {
         "titleFontSize": {
-          "portrait": 93,
-          "landscape": 85
+          "portrait": 84,
+          "landscape": 67
         },
         "descriptionFontSize": {
-          "portrait": 68,
-          "landscape": 35
+          "portrait": 35,
+          "landscape": 30
         },
         "stats": [
           {
@@ -153,12 +153,12 @@
       "label": "Pull Quote",
       "defaults": {
         "titleFontSize": {
-          "portrait": 58,
-          "landscape": 64
+          "portrait": 90,
+          "landscape": 71
         },
         "descriptionFontSize": {
-          "portrait": 32,
-          "landscape": 36
+          "portrait": 27,
+          "landscape": 23
         },
         "stats": [
           {
@@ -208,12 +208,12 @@
       "label": "Data Snapshot",
       "defaults": {
         "titleFontSize": {
-          "portrait": 110,
-          "landscape": 90
+          "portrait": 78,
+          "landscape": 69
         },
         "descriptionFontSize": {
-          "portrait": 38,
-          "landscape": 35
+          "portrait": 36,
+          "landscape": 22
         },
         "stats": [
           {
@@ -267,12 +267,12 @@
       "label": "Fact Check",
       "defaults": {
         "titleFontSize": {
-          "portrait": 84,
-          "landscape": 70
+          "portrait": 70,
+          "landscape": 64
         },
         "descriptionFontSize": {
-          "portrait": 35,
-          "landscape": 41
+          "portrait": 30,
+          "landscape": 25
         },
         "leftThought": "Claim being made",
         "rightThought": "Evidence-based correction",
@@ -338,12 +338,12 @@
       "label": "News Timeline",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
-          "landscape": 80
+          "portrait": 76,
+          "landscape": 62
         },
         "descriptionFontSize": {
-          "portrait": 48,
-          "landscape": 37
+          "portrait": 26,
+          "landscape": 23
         },
         "stats": [
           {

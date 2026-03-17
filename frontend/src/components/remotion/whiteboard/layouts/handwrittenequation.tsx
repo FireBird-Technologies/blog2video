@@ -31,8 +31,8 @@ export const HandwrittenEquation: React.FC<WhiteboardLayoutProps> = ({
   const maxSteps = Math.min(steps.length, 5);
   const displaySteps = steps.slice(0, maxSteps);
 
-  const finalTitleSize = titleFontSize ?? (p ? 58 : 64);
-  const finalDescSize = descPropSize ?? (p ? 22 : 43);
+  const finalTitleSize = titleFontSize ?? (p ? 80 : 68);
+  const finalDescSize = descPropSize ?? (p ? 32 : 27);
 
   const titleOp = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: "clamp" });
   const stepStartFrame = (i: number) => 16 + i * (STEP_DURATION + STEP_GAP);

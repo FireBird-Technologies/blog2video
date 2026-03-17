@@ -124,7 +124,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 48 : 60),
+              fontSize: titleFontSize ?? (p ? 69 : 53),
               lineHeight: 1.1,
               textAlign: "center",
               filter: "url(#ink)",
@@ -271,7 +271,7 @@ export const CountdownTimer: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 26 : 32),
+              fontSize: descriptionFontSize ?? (p ? 35 : 25),
               fontWeight: 600,
               textAlign: "center",
               opacity: 0.85,
