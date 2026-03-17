@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps, WhiteboardStatItem } from "../types";
 
@@ -103,13 +103,11 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   titleFontSize,
   bgColor,
   descriptionFontSize,
-  stats: statsProp,
   fontFamily,
+  stats: statsProp,
 }) => {
   const frame = useCurrentFrame();
-  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
   const stats = statsProp?.length ? statsProp : DEFAULT_STATS;
 
   const mainStats = stats.slice(0, 5);
@@ -128,14 +126,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
   ];
 
   return (
-    <AbsoluteFill
-      style={{
-        overflow: "hidden",
-        backgroundColor: bgColor,
-        fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
-        letterSpacing: "1.5px",
-      }}
-    >
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor, fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif", letterSpacing: "1.5px" }}>
       <WhiteboardBackground bgColor={bgColor} />
       
       {/* Background Scribbles */}
@@ -185,7 +176,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 72 * scale : 70 * scale),
+              fontSize: titleFontSize ?? (p ? 72 : 62), // Increased for Portrait
               lineHeight: 1.1,
               marginBottom: 16,
               textAlign: "center",
@@ -197,9 +188,9 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 32 * scale : 30 * scale),
+              fontSize: descriptionFontSize ?? (p ? 27 : 25), // Increased for Portrait
               opacity: 0.9,
-              maxWidth: p ? "95%" : 750 * scale,
+              maxWidth: p ? "95%" : 750,
               textAlign: "center",
               margin: "0 auto",
             }}
@@ -239,7 +230,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                   position: "relative",
                   width: p ? "90%" : "auto", 
                   minWidth: p ? "unset" : 160,
-                  padding: p ? "35px 20px" : "24px 22px", // More vertical padding in cards
+                  padding: p ? "20px 20px" : "24px 22px", // Reduced vertical padding in portrait
                   backgroundColor: "rgba(255,255,255,0.85)",
                   opacity: cardOp,
                   display: "flex",
@@ -253,7 +244,7 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                 <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 1} />
                 <span style={{ 
                   color: accentColor, 
-                  fontSize: p ? 58 * scale : 42 * scale,
+                  fontSize: p ? 58 : 42, // Much larger values
                   fontWeight: 900,
                   lineHeight: 1
                 }}>
@@ -261,9 +252,9 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
                 </span>
                 <div style={{ 
                   color: textColor, 
-                  fontSize: p ? 28 * scale : 20 * scale,
+                  fontSize: p ? 28 : 20, // Much larger labels
                   fontWeight: 700, 
-                  marginTop: p ? 10 : 4,
+                  marginTop: p ? 6 : 4, // Reduced margin-top for tighter spacing
                   textTransform: p ? "uppercase" : "none", // Added punch for portrait
                   letterSpacing: p ? "1px" : "normal"
                 }}>
@@ -302,8 +293,8 @@ export const StatsFigures: React.FC<WhiteboardLayoutProps> = ({
             }}
           >
             <HandDrawnBox color={accentColor} dashArray={dash} dashOffset={offset} seed={i + 20} />
-            <div style={{ fontSize: 28 * scale, fontWeight: 800, color: accentColor }}>{item.value}</div>
-            <div style={{ fontSize: 16 * scale, fontWeight: 600, color: textColor }}>{item.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: accentColor }}>{item.value}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: textColor }}>{item.label}</div>
           </div>
         );
       })}
