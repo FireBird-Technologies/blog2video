@@ -83,6 +83,7 @@ export interface Scene {
   remotion_code: string | null;
   voiceover_path: string | null;
   duration_seconds: number;
+  extra_hold_seconds?: number | null;
   created_at: string;
 }
 

@@ -56,6 +56,9 @@ class Settings(BaseSettings):
         "remotion-video",
     )
 
+    # Scene timing: minimum duration so animations can complete before transition.
+    MIN_SCENE_DURATION_SECONDS: float = float(os.environ.get("MIN_SCENE_DURATION_SECONDS", "7.5"))
+
     # Media storage
     MEDIA_DIR: str = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media"

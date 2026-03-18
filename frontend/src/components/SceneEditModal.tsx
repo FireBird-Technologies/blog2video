@@ -426,6 +426,7 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
+  const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -502,6 +503,7 @@ export default function SceneEditModal({
     const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
     setDisplayText(initialDisplay);
     setAiNarration(scene.narration_text || "");
+    setExtraHoldSeconds(scene.extra_hold_seconds != null ? String(scene.extra_hold_seconds) : "");
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -580,7 +582,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -723,11 +725,15 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           }
         }
+        const extraHoldVal = parseFloat(extraHoldSeconds.trim());
+        const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
+
         await updateScene(project.id, scene.id, {
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
+          extra_hold_seconds: extraHold,
         });
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
@@ -971,6 +977,25 @@ export default function SceneEditModal({
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={2}
                 />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Extra hold (seconds)
+                </h4>
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  value={extraHoldSeconds}
+                  onChange={(e) => setExtraHoldSeconds(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Add seconds after the voiceover ends so animations can complete before transitioning.
+                </p>
               </div>
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
