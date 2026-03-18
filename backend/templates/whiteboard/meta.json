@@ -25,6 +25,7 @@
     "speech_bubble_dialogue"
   ],
   "layouts_without_image": [
+    "drawn_title",
     "stick_figure_scene",
     "stats_figures",
     "stats_chart",
