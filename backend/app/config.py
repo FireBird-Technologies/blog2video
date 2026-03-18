@@ -56,6 +56,11 @@ class Settings(BaseSettings):
         "remotion-video",
     )
 
+    # Scene timing
+    # Guardrail: if an occasional TTS response produces unexpectedly short audio,
+    # clamp the scene duration so animations still have time to complete.
+    MIN_SCENE_DURATION_SECONDS: float = float(os.environ.get("MIN_SCENE_DURATION_SECONDS", "8.0"))
+
     # Media storage
     MEDIA_DIR: str = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media"

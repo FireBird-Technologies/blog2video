@@ -154,7 +154,7 @@ def create_project(
         animation_instructions=data.animation_instructions or None,
         logo_position=data.logo_position or "bottom_right",
         logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
-        custom_voice_id=data.custom_voice_id or None,
+        custom_voice_id=None if (data.voice_gender or "").lower() == "none" else (data.custom_voice_id or None),
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
@@ -343,7 +343,7 @@ def create_projects_bulk(
             animation_instructions=data.animation_instructions or None,
             logo_position=data.logo_position or "bottom_right",
             logo_opacity=data.logo_opacity if data.logo_opacity is not None else 0.9,
-            custom_voice_id=data.custom_voice_id or None,
+            custom_voice_id=None if (data.voice_gender or "").lower() == "none" else (data.custom_voice_id or None),
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
             status=ProjectStatus.CREATED,
@@ -453,7 +453,7 @@ def create_project_from_upload(
         animation_instructions=animation_instructions or None,
         logo_position=logo_position or "bottom_right",
         logo_opacity=logo_opacity if logo_opacity is not None else 0.9,
-        custom_voice_id=custom_voice_id or None,
+        custom_voice_id=None if (voice_gender or "").lower() == "none" else (custom_voice_id or None),
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
         status=ProjectStatus.CREATED,
@@ -830,6 +830,7 @@ MANUAL_TRACKED_FIELDS = {
     "display_text",
     "remotion_code",
     "narration_text",
+    "extra_hold_seconds",
 }
 
 

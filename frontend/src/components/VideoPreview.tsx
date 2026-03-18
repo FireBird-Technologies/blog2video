@@ -253,7 +253,7 @@ export default function VideoPreview({
         layout,
         layoutProps,
         ...(layoutConfig ? { layoutConfig } : {}),
-        durationSeconds: Number(scene.duration_seconds) || 5,
+        durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
       };
@@ -262,9 +262,11 @@ export default function VideoPreview({
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
-    const sceneFrames = project.scenes.map((s) =>
-      Math.max(1, Math.round((Number(s.duration_seconds) || 5) * FPS))
-    );
+    const sceneFrames = project.scenes.map((s) => {
+      const base = Number(s.duration_seconds) || 5;
+      const extra = Number(s.extra_hold_seconds) || 0;
+      return Math.max(1, Math.round((base + extra) * FPS));
+    });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
     return Math.max(sum + 60, 150);
   }, [project.scenes]);

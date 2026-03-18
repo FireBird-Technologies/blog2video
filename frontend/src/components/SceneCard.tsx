@@ -53,6 +53,9 @@ export default function SceneCard({ scene, images }: Props) {
           </span>
           <span className="text-[11px] text-gray-300 ml-1">
             {scene.duration_seconds}s
+            {(scene.extra_hold_seconds ?? 0) > 0 && (
+              <span className="text-gray-400"> +{scene.extra_hold_seconds}s</span>
+            )}
           </span>
         </div>
       </div>

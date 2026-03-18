@@ -34,11 +34,14 @@ DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
 def _get_voice_id(project: Project) -> str | None:
+    gender = getattr(project, "voice_gender", "female")
+    if gender == "none":
+        return None
+
     custom = getattr(project, "custom_voice_id", None)
     if custom:
         return custom
 
-    gender = getattr(project, "voice_gender", "female")
     accent = getattr(project, "voice_accent", "american")
     return VOICE_MAP.get((gender, accent), DEFAULT_VOICE_ID)
 
@@ -89,7 +92,9 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     if voice_id is None:
         word_count = len(voiceover_text.split())
         estimated_duration = max(5.0, word_count / WORDS_PER_SECOND)
-        scene.duration_seconds = round(estimated_duration + DURATION_PAD, 1)
+        scene.duration_seconds = round(
+            max(settings.MIN_SCENE_DURATION_SECONDS, estimated_duration + DURATION_PAD), 1
+        )
         scene.voiceover_path = None
         db.commit()
         logger.info(
@@ -129,7 +134,9 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
             for chunk in audio_generator:
                 f.write(chunk)
         audio_duration = _get_audio_duration(output_path)
-        scene.duration_seconds = round(audio_duration + DURATION_PAD, 1)
+        scene.duration_seconds = round(
+            max(settings.MIN_SCENE_DURATION_SECONDS, audio_duration + DURATION_PAD), 1
+        )
         scene.voiceover_path = output_path
         db.commit()
         r2_key_val = None

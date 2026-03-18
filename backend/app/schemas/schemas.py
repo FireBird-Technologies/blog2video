@@ -41,6 +41,7 @@ class SceneOut(BaseModel):
     remotion_code: Optional[str] = None
     voiceover_path: Optional[str] = None
     duration_seconds: float
+    # extra_hold_seconds: Optional[float] = None
     created_at: datetime
 
     class Config:
@@ -246,6 +247,7 @@ class SceneUpdate(BaseModel):
     visual_description: Optional[str] = None
     remotion_code: Optional[str] = None
     duration_seconds: Optional[float] = None
+    extra_hold_seconds: Optional[float] = None
 
 
 # ─── Scene Editing ──────────────────────────────────────────
