@@ -187,6 +187,8 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "codeLines", label: "Code lines", type: "string_array" },
   ],
   // Spotlight template
+  statement: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
+  word_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
   cascade_list: [{ key: "items", label: "Items", type: "string_array" }],
   rapid_points: [{ key: "phrases", label: "Phrases", type: "string_array" }],
   versus: [
@@ -223,6 +225,23 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   glow_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  // Matrix template
+  terminal_text: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
+  glitch_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
+  fork_choice: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+  ],
+  transmission: [{ key: "phrases", label: "Phrases", type: "string_array", maxItems: 8 }],
+  awakening: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+  ],
+  data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
+  cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
@@ -240,18 +259,22 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "rightDescription", label: "Right description", type: "text" },
     { key: "verdict", label: "Verdict", type: "string" },
   ],
-  bento_features: [{ key: "features", label: "Features", type: "object_array",
-    subFields: [{ key: "icon", label: "Icon", placeholder: "emoji" }, { key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+  bento_features: [
+    { key: "features", label: "Features", type: "object_array",
+      subFields: [{ key: "icon", label: "Icon", placeholder: "emoji" }, { key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 },
+    { key: "highlightIndex", label: "Accent cell index (0-based)", type: "string", placeholder: "0" },
+  ],
   bento_steps: [{ key: "steps", label: "Steps", type: "object_array",
-    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 5 }],
   bento_highlight: [
     { key: "subtitle", label: "Subtitle", type: "string" },
     { key: "mainPoint", label: "Main point", type: "text" },
-    { key: "supportingFacts", label: "Supporting facts", type: "string_array" },
+    { key: "supportingFacts", label: "Supporting facts", type: "string_array", maxItems: 2 },
   ],
   bento_hero: [
-    { key: "tagline", label: "Tagline", type: "string" },
-    { key: "category", label: "Category", type: "string" },
+    { key: "subtitle", label: "Subtitle / tagline", type: "string" },
+    { key: "category", label: "Category", type: "string", placeholder: "e.g. Featured, Census" },
+    { key: "icon", label: "Icon (emoji)", type: "string", placeholder: "e.g. ⚡ 🔒" },
   ],
   pull_quote: [
     { key: "quote", label: "Quote", type: "text" },
@@ -261,9 +284,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   bento_code: [
     { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
     { key: "codeLines", label: "Code lines", type: "string_array" },
+    { key: "description", label: "Code description", type: "text", placeholder: "Short explanation of what the code does" },
   ],
-  kpi_grid: [{ key: "dataPoints", label: "Data points", type: "object_array",
-    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value" }] }],
+  kpi_grid: [
+    { key: "dataPoints", label: "Data points", type: "object_array",
+      subFields: [
+        { key: "label", label: "Label" },
+        { key: "value", label: "Value", placeholder: "e.g. 97%, 50ms" },
+        { key: "trend", label: "Trend", placeholder: "up, down, or neutral" },
+      ], maxItems: 3 },
+    { key: "highlightIndex", label: "Accent cell index (0-based)", type: "string", placeholder: "0" },
+  ],
   // Whiteboard template
   stats_figures: [{ key: "stats", label: "Key figures", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
