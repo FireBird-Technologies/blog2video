@@ -1513,7 +1513,7 @@ export default function ProjectView() {
   // Count audio scenes
   const audioScenes = project.scenes.filter((s) => s.voiceover_path);
   const totalAudioDuration = project.scenes.reduce(
-    (sum, s) => sum + s.duration_seconds,
+    (sum, s) => sum + (s.duration_seconds ?? 0) + (s.extra_hold_seconds ?? 0),
     0
   );
 
@@ -2447,7 +2447,7 @@ export default function ProjectView() {
                                     </span>
                                   )}
                                   <span className="text-[11px] text-gray-300 ml-1">
-                                    {scene.duration_seconds}s
+                                    {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
                                   </span>
 
                                   {/* Expand chevron */}

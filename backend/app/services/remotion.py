@@ -623,13 +623,15 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         # Use display_text for on-screen text when available; otherwise fall back to narration_text.
         on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
 
+        extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
+        effective_duration = scene.duration_seconds + extra_hold
         scene_entry: dict = {
             "id": scene.id,
             "order": scene.order,
             "title": scene.title,
             "narration": on_screen_text,
             "visualDescription": scene.visual_description,
-            "durationSeconds": scene.duration_seconds,
+            "durationSeconds": round(effective_duration, 1),
             "voiceoverFile": voiceover_filename,
             "images": scene_images,
         }
