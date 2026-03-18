@@ -121,7 +121,12 @@
         "descriptionFontSize": {
           "portrait": 59,
           "landscape": 67
-        }
+        },
+        "items": [
+          "Signal received",
+          "Decrypting packet",
+          "Transmission complete"
+        ]
       },
       "fields": [
         {
@@ -141,6 +146,12 @@
           "min": 10,
           "max": 180,
           "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "string_array",
+          "maxItems": 8
         }
       ]
     },
