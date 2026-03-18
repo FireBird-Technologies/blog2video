@@ -34,11 +34,14 @@ DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 
 
 def _get_voice_id(project: Project) -> str | None:
+    gender = getattr(project, "voice_gender", "female")
+    if gender == "none":
+        return None
+
     custom = getattr(project, "custom_voice_id", None)
     if custom:
         return custom
 
-    gender = getattr(project, "voice_gender", "female")
     accent = getattr(project, "voice_accent", "american")
     return VOICE_MAP.get((gender, accent), DEFAULT_VOICE_ID)
 
