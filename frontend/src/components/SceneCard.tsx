@@ -52,7 +52,7 @@ export default function SceneCard({ scene, images }: Props) {
             Audio
           </span>
           <span className="text-[11px] text-gray-300 ml-1">
-            {scene.duration_seconds}s
+            {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
           </span>
         </div>
       </div>

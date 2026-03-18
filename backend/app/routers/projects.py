@@ -830,6 +830,7 @@ MANUAL_TRACKED_FIELDS = {
     "display_text",
     "remotion_code",
     "narration_text",
+    "extra_hold_seconds",
 }
 
 

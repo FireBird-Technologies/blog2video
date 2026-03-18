@@ -349,9 +349,12 @@ async def _generate_scenes(project: Project, db: Session):
             for scene in scenes:
                 if scene.narration_text:
                     word_count = len(scene.narration_text.split())
-                    scene.duration_seconds = round(max(5.0, word_count / 2.5) + 1.0, 1)
+                    scene.duration_seconds = round(
+                        max(settings.MIN_SCENE_DURATION_SECONDS, max(5.0, word_count / 2.5) + 1.0),
+                        1,
+                    )
                 else:
-                    scene.duration_seconds = 5.0
+                    scene.duration_seconds = round(max(settings.MIN_SCENE_DURATION_SECONDS, 5.0), 1)
                 scene.voiceover_path = None
             db.commit()
         else:
