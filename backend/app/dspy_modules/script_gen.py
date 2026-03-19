@@ -84,6 +84,11 @@ class BlogToScript(dspy.Signature):
 
     Output the scenes as a JSON array.
 
+    ═══ LANGUAGE RULE (CRITICAL) ═══
+    - content_language specifies the language of the scraped blog content.
+    - Generate ALL output (title, scene titles, narrations, visual_description) EXCLUSIVELY in that language.
+    - Do NOT translate to English if the content is in another language. Match the source language exactly.
+
     ═══ LAYOUT SUGGESTION (OPTIONAL, TEMPLATE-AWARE) ═══
     - When layout_catalog is provided, use it to suggest a layout ID for each scene.
     - Think about the **entire video** as a sequence — layout choices should feel like a deliberate visual journey, not random picks.
@@ -145,6 +150,9 @@ class BlogToScript(dspy.Signature):
             "preferred_layout per scene; do NOT copy it verbatim into narrations."
         )
     )
+    content_language: str = dspy.InputField(
+        desc="Language of the scraped content (e.g. 'English', 'Spanish', 'French'). Generate ALL output in this language."
+    )
 
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
@@ -186,6 +194,7 @@ class ScriptGenerator:
         aspect_ratio: str = "landscape",
         video_style: str = "explainer",
         layout_catalog: str = "",
+        content_language: str = "English",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -202,6 +211,7 @@ class ScriptGenerator:
             aspect_ratio=aspect_ratio or "landscape",
             video_style=(video_style or "explainer").strip().lower() or "explainer",
             layout_catalog=layout_catalog or "",
+            content_language=(content_language or "English").strip(),
         )
 
         # Parse the scenes JSON and apply style-specific limits

@@ -160,6 +160,7 @@ class ProjectOut(BaseModel):
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
+    content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
     custom_template_missing: bool = False
