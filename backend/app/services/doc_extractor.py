@@ -111,6 +111,10 @@ def extract_from_documents(
 
     # ── Persist results ───────────────────────────────────────
     project.blog_content = "\n\n---\n\n".join(all_markdown) if all_markdown else ""
+    # Only set content_language if not already set (preserve user's explicit choice)
+    if not (getattr(project, "content_language", None) or "").strip():
+        from app.services.language_detection import detect_content_language
+        project.content_language = detect_content_language(project.blog_content)
     project.status = ProjectStatus.SCRAPED
     db.commit()
     db.refresh(project)
