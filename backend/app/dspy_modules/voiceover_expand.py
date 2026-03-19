@@ -30,6 +30,10 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - Clean phrasing
     - No elaboration beyond what fits the style
 
+    ═══ LANGUAGE RULE (CRITICAL) ═══
+    - content_language is the language of the source content. Output expanded_voiceover EXCLUSIVELY in that language.
+    - Do NOT translate to English if the source is in another language.
+
     Output ONLY the final narration text.
     No labels. No quotes. No commentary.
     """
@@ -38,6 +42,9 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     display_text: str = dspy.InputField(desc="Short display text shown on screen (1-2 sentences)")
     video_style: str = dspy.InputField(
         desc="Video style: explainer (educational), promotional (persuasive, benefit-focused), storytelling (narrative). Match tone in the voiceover."
+    )
+    content_language: str = dspy.InputField(
+        desc="Language of the source content (e.g. 'English', 'Spanish'). Output expanded_voiceover in this language."
     )
 
     expanded_voiceover: str = dspy.OutputField(
@@ -63,10 +70,12 @@ async def expand_narration_to_voiceover(
     display_text: str,
     scene_title: str = "",
     video_style: str = "explainer",
+    content_language: str = "English",
 ) -> str:
     """
     Slightly expand a short display text into a natural voiceover narration.
     video_style (explainer | promotional | storytelling) shapes the tone.
+    content_language (e.g. 'English', 'Spanish') ensures output is in the source language.
     Returns the expanded text, or the original text if expansion fails.
     """
     if not (display_text and display_text.strip()):
@@ -80,11 +89,13 @@ async def expand_narration_to_voiceover(
     predictor_async = _get_predictor()
 
     style = (video_style or "explainer").strip().lower() or "explainer"
+    lang = (content_language or "English").strip()
     try:
         result = await predictor_async(
             scene_title=scene_title or "",
             display_text=display_text.strip(),
             video_style=style,
+            content_language=lang,
         )
         out = (result.expanded_voiceover or "").strip()
         if out:

@@ -228,7 +228,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
 
 async def generate_all_voiceovers(
-    scenes: list[Scene], db: Session, video_style: str | None = None
+    scenes: list[Scene], db: Session, video_style: str | None = None, content_language: str = "English"
 ) -> list[str]:
     """Generate voiceover audio for all scenes concurrently.
 
@@ -251,7 +251,7 @@ async def generate_all_voiceovers(
             return scene.narration_text or ""
         async with expand_sem:
             return await expand_narration_to_voiceover(
-                scene.narration_text, scene.title, video_style=style
+                scene.narration_text, scene.title, video_style=style, content_language=content_language
             )
 
     expanded_texts = await asyncio.gather(
