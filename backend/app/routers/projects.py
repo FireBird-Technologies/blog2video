@@ -1624,9 +1624,11 @@ async def regenerate_scene(
     narration_source = (scene.narration_text or "").strip()
     if should_regenerate_voiceover and narration_source:
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+        from app.services.language_detection import get_content_language_for_project
         video_style = getattr(project, "video_style", None) or "explainer"
+        content_language = get_content_language_for_project(project)
         expanded_voiceover = await expand_narration_to_voiceover(
-            narration_source, scene.title, video_style=video_style
+            narration_source, scene.title, video_style=video_style, content_language=content_language
         )
 
         original_narration = scene.narration_text

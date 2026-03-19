@@ -29,6 +29,7 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
+from app.services.language_detection import get_content_language_for_project
 from app.services.voiceover import generate_all_voiceovers
 from app.services.remotion import (
     write_remotion_data,
@@ -272,6 +273,7 @@ async def _generate_script(project: Project, db: Session):
     except Exception:
         layout_catalog = ""
 
+    content_language = get_content_language_for_project(project)
     generator = ScriptGenerator()
     result = await generator.generate(
         blog_content=project.blog_content,
@@ -280,6 +282,7 @@ async def _generate_script(project: Project, db: Session):
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
         video_style=getattr(project, "video_style", "explainer") or "explainer",
         layout_catalog=layout_catalog,
+        content_language=content_language,
     )
 
     project.name = result["title"]
@@ -292,7 +295,7 @@ async def _generate_script(project: Project, db: Session):
     video_style = getattr(project, "video_style", None) or "explainer"
     scenes_raw: list[dict] = result["scenes"]
 
-    display_gen = DisplayTextGenerator(template_id, video_style=video_style)
+    display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
@@ -358,8 +361,11 @@ async def _generate_scenes(project: Project, db: Session):
                 scene.voiceover_path = None
             db.commit()
         else:
+            content_lang = get_content_language_for_project(project)
             await generate_all_voiceovers(
-                scenes, db, video_style=getattr(project, "video_style", None) or "explainer"
+                scenes, db,
+                video_style=getattr(project, "video_style", None) or "explainer",
+                content_language=content_lang,
             )
 
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
