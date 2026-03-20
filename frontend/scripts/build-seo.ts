@@ -25,6 +25,11 @@ import MarketingPageView from "../src/pages/MarketingPageView";
 import NotFoundPage from "../src/pages/NotFoundPage";
 import Pricing from "../src/pages/Pricing";
 import {
+  normalizeSchemaForJsonLd,
+  SEO_JSON_LD_SCRIPT_ID,
+  type JsonLdInput,
+} from "../src/seo/jsonLd";
+import {
   blogIndexSchema,
   blogPostSchema,
   contactSchema,
@@ -155,7 +160,9 @@ function buildHeadTags(routePath: string) {
 <meta name="twitter:image" content="${defaultOgImage}" />
 ${
   payload.schema
-    ? `<script type="application/ld+json">${JSON.stringify(payload.schema)}</script>`
+    ? `<script type="application/ld+json" id="${SEO_JSON_LD_SCRIPT_ID}">${JSON.stringify(
+        normalizeSchemaForJsonLd(payload.schema as JsonLdInput)
+      )}</script>`
     : ""
 }
 `.trim();
