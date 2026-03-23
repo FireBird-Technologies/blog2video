@@ -17,6 +17,141 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-vs-notebooklm",
+    title: "Blog2Video vs NotebookLM: Learning Tool vs Content Engine",
+    description:
+      "NotebookLM is built for understanding content. Blog2Video is built for publishing it. Here is exactly what that difference means in practice.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-notebooklm.png",
+    heroImageAlt: "Split screen: NotebookLM podcast summary on the left, Blog2Video branded video output on the right.",
+    publishedAt: "2026-03-24",
+    readTime: "5 min read",
+    heroEyebrow: "Blog2Video vs NotebookLM",
+    heroTitle: "NotebookLM is for learning. Blog2Video is for publishing. They are not the same thing.",
+    heroDescription:
+      "Both tools take written content and turn it into audio or video. But the output goal is completely different — one helps you understand material, the other helps you distribute it under your own brand.",
+    primaryKeyword: "blog2video vs notebooklm",
+    keywordVariant: "notebooklm alternative for content creators",
+    relatedPaths: [
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/bulk-blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The core difference: learning vs publishing",
+        paragraphs: [
+          "NotebookLM is a research assistant. You feed it sources — PDFs, docs, articles — and it helps you understand them faster. The podcast-style audio summaries are great for absorbing information on a commute. The Q&A interface is useful for navigating dense material. Everything about NotebookLM is designed to help the reader learn.",
+          "Blog2Video is a content engine. You feed it a blog post or article URL and it generates a finished, branded video you can publish on YouTube, LinkedIn, or Instagram. Everything about Blog2Video is designed to help the creator distribute.",
+          "This is not a subtle difference. NotebookLM is optimized for simplicity of learning — the output is generic by design because the goal is comprehension, not brand identity. Blog2Video is optimized for consistency of publishing — the output needs to look and sound like you every time.",
+        ],
+      },
+      {
+        heading: "Your voice, not a generic AI voice",
+        paragraphs: [
+          "NotebookLM generates audio narration that sounds like a podcast between two neutral AI hosts. It is coherent and easy to follow, but it has no connection to your brand, your tone, or your voice.",
+          "Blog2Video lets you use ElevenLabs voices with a live preview before you commit to generation, or clone your own voice from a short audio sample. When your video goes out, it sounds like you — the same voice your audience recognizes from your other content.",
+          "For anyone building a brand around their content, generic narration is not acceptable at scale. Voice cloning means every video you generate sounds consistent with the last one, without you recording anything new.",
+        ],
+        bullets: [
+          "ElevenLabs library: preview any voice before generating",
+          "Voice cloning: record a short sample, use it on every video",
+          "Custom voice settings: consistent tone across every post you convert",
+        ],
+      },
+      {
+        heading: "Branded templates that look like your content, not a product demo",
+        paragraphs: [
+          "NotebookLM has no visual output. It produces audio. There is nothing to brand.",
+          "Blog2Video has a full template system. Templates like Nightfall, Geometric Explainer, Matrix, and Newspaper are already production-ready. Template Studio lets you use AI to customize any existing template or build one from scratch — adjusting colors, typography, layout, and animation to match your brand.",
+          "The v2 of branded templates takes this further: you will be able to generate a custom template directly from your own website or a PDF of your slide deck. The system extracts your visual identity and builds a template around it. Every video you generate after that will look like it was made specifically for your brand.",
+        ],
+        bullets: [
+          "Template Studio: customize or create templates with AI, no video editor experience needed",
+          "Branded templates v2: upload your site or slides, get a template that matches your identity",
+          "Use the same template for every post — consistent output across your whole archive",
+        ],
+      },
+      {
+        heading: "One flow for every post: three steps, every time",
+        paragraphs: [
+          "NotebookLM requires you to upload documents, set up a notebook, wait for processing, and then interact with the interface to get what you need. It is a research session, not a production pipeline.",
+          "Blog2Video has one flow: paste a URL, pick your template and voice, hit generate. That is it. The same three steps work for a 500-word post and a 3,000-word technical guide. The tool handles the scripting, scene structure, narration, and timing.",
+          "This matters for teams that need to publish consistently. A three-step flow you can repeat every week without thinking about it is what makes video a sustainable part of a content strategy rather than an occasional experiment.",
+        ],
+        bullets: [
+          "Step 1: paste your blog URL (10 seconds)",
+          "Step 2: select template and voice (20 seconds)",
+          "Step 3: generate, review, export (under 2 minutes)",
+        ],
+      },
+      {
+        heading: "Bulk generation and the agency use case",
+        paragraphs: [
+          "NotebookLM is a single-document, single-session tool. There is no concept of processing multiple pieces of content in parallel.",
+          "Blog2Video supports bulk video generation — up to five videos at once from a single queue. For agencies managing clients across multiple blogs, or content teams working through a backlog, this changes the economics entirely. What would take a full day of individual generation runs in a single batch.",
+          "The bulk API is on the roadmap, which opens this further: agencies can plug Blog2Video into their own tools and trigger video generation programmatically as part of a broader content workflow.",
+        ],
+        bullets: [
+          "Bulk generation: up to 5 videos in a single run",
+          "Suitable for agencies managing multiple client blogs",
+          "API access planned: trigger generation from your own tools",
+          "One person can cover the video layer across an entire editorial calendar",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can NotebookLM produce videos I can publish?",
+        answer:
+          "No. NotebookLM produces audio summaries and text responses designed for learning and research. It does not generate publishable video with branding, narration, or visual scenes.",
+      },
+      {
+        question: "Does Blog2Video work for formats other than blog posts?",
+        answer:
+          "Yes. Blog2Video handles blog URLs, article URLs, PDFs, and DOCX files. Any written source with structure can be converted into a video.",
+      },
+      {
+        question: "How does voice cloning work in Blog2Video?",
+        answer:
+          "You record a short audio sample from within the voice settings page. Blog2Video uses ElevenLabs to create a cloned voice model that is then available for all future video generations.",
+      },
+      {
+        question: "What is Template Studio?",
+        answer:
+          "Template Studio is a visual editor inside Blog2Video where you can customize any existing template — colors, typography, layout, animation — or build a new one from scratch using AI. Templates you build in Template Studio are reusable across every post you convert.",
+      },
+      {
+        question: "Is Blog2Video useful if I only publish occasionally?",
+        answer:
+          "Yes. The three-step flow is fast enough that occasional publishers can add video to every post without it becoming a project. You do not need to commit to a high publishing cadence to get value from it.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "video",
+        title: "Blog2Video vs NotebookLM: Why One is for Learning and One is for Publishing",
+        angle: "Direct comparison hook targeting people who have tried NotebookLM for content and found it is not the right tool",
+      },
+      {
+        channel: "site",
+        title: "Blog2Video vs NotebookLM: Learning Tool vs Content Engine",
+        angle: "SEO post targeting 'blog2video vs notebooklm' and 'notebooklm alternative for content creators'",
+      },
+      {
+        channel: "substack",
+        title: "I tried using NotebookLM to make videos. Here is where it falls short.",
+        angle: "First-person story from a content creator who wanted a publishing tool, not a research tool",
+      },
+      {
+        channel: "medium",
+        title: "NotebookLM is not a content creation tool. Here is what to use instead.",
+        angle: "Clear differentiation article for content marketers and bloggers searching for NotebookLM alternatives",
+      },
+    ],
+  },
+  {
     slug: "blog-to-video-before-after",
     title: "Blog to Video: Before vs After",
     description:
