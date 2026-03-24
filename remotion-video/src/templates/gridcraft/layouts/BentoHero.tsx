@@ -53,6 +53,7 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
   const tagline = subtitle || narration || "";
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
+  const titleFontFamily = p ? sansFontFamily : serifFontFamily;
 
   // Animations
   const spr = (delay: number) =>
@@ -118,8 +119,11 @@ export const BentoHero: React.FC<GridcraftLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 72 : 85),
             fontWeight: 700,
             lineHeight: 1.1,
-            fontFamily: serifFontFamily,
+            fontFamily: titleFontFamily,
             marginBottom: 16,
+            maxWidth: "100%",
+            minWidth: 0,
+            wordBreak: "break-word",
           }}
         >
           {title || "Gridcraft"}
