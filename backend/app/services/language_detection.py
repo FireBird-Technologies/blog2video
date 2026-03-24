@@ -100,10 +100,34 @@ _LANG_NAMES: dict[str, str] = {
 }
 
 # Minimum confidence (0–1) to trust detection. Below this, fall back to English.
-_MIN_CONFIDENCE = 0.85
+_MIN_CONFIDENCE = 0.75
 
 # Minimum chars of prose to attempt detection (code-heavy content needs more)
-_MIN_SAMPLE_CHARS = 100
+_MIN_SAMPLE_CHARS = 80
+
+
+def _detect_from_script_heuristics(text: str) -> str | None:
+    """Detect language from Unicode script patterns for short/ambiguous samples."""
+    if not text:
+        return None
+
+    # Arabic-script block (used by Urdu/Arabic/Persian).
+    arabic_chars = re.findall(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", text)
+    if not arabic_chars:
+        return None
+
+    # If Arabic-script dominates, prefer Urdu when Urdu-specific letters exist.
+    total_letters = re.findall(r"[^\W\d_]", text, flags=re.UNICODE)
+    arabic_ratio = (len(arabic_chars) / max(1, len(total_letters))) if total_letters else 0.0
+    if arabic_ratio < 0.3:
+        return None
+
+    # Urdu-specific characters frequently present in Urdu prose.
+    if re.search(r"[ٹڈڑںھہےیگچپژک]", text):
+        return "ur"
+
+    # Fallback for Arabic-script text when Urdu markers are absent.
+    return "ar"
 
 
 def _sample_for_detection(text: str) -> str:
@@ -133,6 +157,10 @@ def detect_content_language(text: str | None) -> str:
         return "en"
 
     sample = _sample_for_detection(text)
+    script_guess = _detect_from_script_heuristics(sample)
+    if script_guess:
+        return script_guess
+
     if len(sample) < _MIN_SAMPLE_CHARS:
         return "en"
 
@@ -152,6 +180,11 @@ def detect_content_language(text: str | None) -> str:
 
         # Require minimum confidence to avoid wrong detections
         if score < _MIN_CONFIDENCE:
+            # For short/noisy text, script heuristics are often more reliable than
+            # a low-confidence model prediction.
+            heuristic_guess = _detect_from_script_heuristics(sample)
+            if heuristic_guess:
+                return heuristic_guess
             logger.info(
                 "[LANG] Low confidence %.2f for '%s', defaulting to English",
                 score,
@@ -194,3 +227,26 @@ def get_language_for_prompt(code: str) -> str:
     Unknown codes are returned as-is (LLM can usually infer).
     """
     return _LANG_NAMES.get(code.lower(), code)
+
+
+def normalize_preferred_language_code(value: str | None) -> str | None:
+    """Normalize user-provided language preference to ISO-like code when possible.
+
+    Accepts either language code (e.g. "ur", "en") or language name
+    (e.g. "Urdu", "English"). Returns lower-case code when resolved,
+    otherwise returns a lower-cased trimmed value.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return None
+
+    lowered = raw.lower()
+    if lowered in _LANG_NAMES:
+        return lowered
+
+    # Reverse-map known language names to their codes.
+    for code, name in _LANG_NAMES.items():
+        if lowered == name.lower():
+            return code
+
+    return lowered
