@@ -73,7 +73,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
 
           {/* Live preview */}
           <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-            <CustomPreview theme={theme} name={name || undefined} />
+            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} previewImageUrl={template.preview_image_url} />
           </div>
 
           {/* Name */}

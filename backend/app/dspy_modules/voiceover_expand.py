@@ -98,9 +98,20 @@ async def expand_narration_to_voiceover(
             content_language=lang,
         )
         out = (result.expanded_voiceover or "").strip()
-        if out:
-            return out
-        return display_text.strip()
+        if not out:
+            return display_text.strip()
+        # Hard cap: if LLM exceeded 1.4× the input word count, truncate to fit
+        max_words = max(int(word_count * 1.4), word_count + 5)
+        out_words = out.split()
+        if len(out_words) > max_words:
+            out = " ".join(out_words[:max_words])
+            # Ensure we don't end mid-sentence — trim to last period/question/exclamation
+            for end in (". ", "? ", "! "):
+                last = out.rfind(end)
+                if last > len(out) * 0.6:
+                    out = out[: last + 1]
+                    break
+        return out
     except Exception as e:
         logger.warning(
             "[VOICEOVER_EXPAND] Failed to expand narration: %s",

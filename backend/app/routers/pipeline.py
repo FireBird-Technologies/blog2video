@@ -606,7 +606,7 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-    if is_custom_template(project.template) and _load_custom_template_data(project.template) is None:
+    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
         raise HTTPException(
             status_code=409,
             detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",

@@ -15,9 +15,7 @@ import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition
 import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
-import { CustomVideoComposition } from "./custom/CustomVideoComposition";
 import {
-  RemotionCustomVideoComposition,
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
@@ -153,18 +151,6 @@ const NEWSPAPER_LAYOUTS = new Set([
   "fact_check",
   "news_timeline",
 ]);
-const CUSTOM_ARRANGEMENTS = new Set([
-  "full-center",
-  "split-left",
-  "split-right",
-  "top-bottom",
-  "grid-2x2",
-  "grid-3",
-  "asymmetric-left",
-  "asymmetric-right",
-  "stacked",
-]);
-
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -257,19 +243,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1280,
     baseHeight: 720,
   },
-  custom: {
-    component: CustomVideoComposition as React.ComponentType<any>,
-    heroLayout: "full-center",
-    fallbackLayout: "full-center",
-    validLayouts: CUSTOM_ARRANGEMENTS,
-    defaultColors: {
-      accent: "#7C3AED",
-      bg: "#FFFFFF",
-      text: "#1A1A2E",
-    },
-    baseWidth: 1920,
-    baseHeight: 1080,
-  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -281,11 +254,6 @@ export function getTemplateConfig(
   source: TemplateSource = "frontend",
 ): TemplateConfig {
   const id = (templateId || "default").trim().toLowerCase();
-
-  // Route "custom_42", "custom_123" etc. to the custom template config
-  if (id.startsWith("custom_")) {
-    return TEMPLATE_REGISTRY.custom;
-  }
 
   const base = TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
 
@@ -305,9 +273,7 @@ export function getTemplateConfig(
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
                     ? RemotionNewspaperVideoComposition
-                    : id === "custom"
-                      ? RemotionCustomVideoComposition
-                      : null;
+                    : null;
 
     if (overrideComponent) {
       return {
