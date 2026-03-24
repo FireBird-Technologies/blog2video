@@ -38,6 +38,16 @@ _studio_processes: dict[int, subprocess.Popen] = {}
 # Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
 _render_progress: dict[int, dict] = {}
 
+# Per-project workspace locks to prevent concurrent file writes
+_workspace_locks: dict[int, threading.Lock] = {}
+
+
+def _get_workspace_lock(project_id: int) -> threading.Lock:
+    """Get or create a per-project workspace lock."""
+    if project_id not in _workspace_locks:
+        _workspace_locks[project_id] = threading.Lock()
+    return _workspace_locks[project_id]
+
 # ─── Template files to copy into each workspace ──────────────
 
 _TEMPLATE_CONFIG_FILES = [
@@ -144,34 +154,155 @@ def provision_workspace(project_id: int, template_id: str | None = None) -> str:
     Create (or ensure) a per-project Remotion workspace.
     Copies ALL templates (not just the project's) because Root.tsx
     imports from every template directory.
+
+    For custom templates with AI-generated code, overwrites the placeholder
+    scene component files (SceneIntro.tsx, SceneContent.tsx, SceneOutro.tsx)
+    with the actual generated code from the database.
+
+    Uses a per-project lock to prevent concurrent file writes.
     """
-    workspace = get_workspace_dir(project_id)
-    template = settings.REMOTION_PROJECT_PATH
+    with _get_workspace_lock(project_id):
+        workspace = get_workspace_dir(project_id)
+        template = settings.REMOTION_PROJECT_PATH
 
-    os.makedirs(workspace, exist_ok=True)
-    os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
+        os.makedirs(workspace, exist_ok=True)
+        os.makedirs(os.path.join(workspace, "public"), exist_ok=True)
 
-    _link_directory(
-        os.path.join(template, "node_modules"),
-        os.path.join(workspace, "node_modules"),
+        _link_directory(
+            os.path.join(template, "node_modules"),
+            os.path.join(workspace, "node_modules"),
+        )
+
+        # Copy config files
+        for filename in _TEMPLATE_CONFIG_FILES:
+            src = os.path.join(template, filename)
+            dst = os.path.join(workspace, filename)
+            if os.path.exists(src):
+                shutil.copy2(src, dst)
+
+        # Copy ALL template source files (Root.tsx imports every template)
+        for rel_path in _get_all_template_src_files():
+            src = os.path.join(template, rel_path)
+            dst = os.path.join(workspace, rel_path)
+            if os.path.exists(src):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
+
+        # For custom templates with AI-generated code, overwrite the placeholder
+        # scene files with the actual generated code from the database.
+        if template_id and is_custom_template(template_id):
+            _write_generated_scene_files(workspace, template_id)
+
+        return workspace
+
+
+def _write_generated_scene_files(workspace: str, template_id: str) -> None:
+    """
+    Overwrite the placeholder generated scene files in the workspace with
+    actual AI-generated code from the database.
+
+    Writes:
+      - SceneIntro.tsx (intro variant)
+      - SceneOutro.tsx (outro variant)
+      - SceneContent0.tsx, SceneContent1.tsx, ... (N content variants)
+      - SceneContent.tsx (re-exports Content0 for backward compat)
+      - contentRegistry.ts (exports array of all content components + count)
+    """
+    from app.services.template_service import _load_custom_template_data
+
+    custom_data = _load_custom_template_data(template_id)
+    if not custom_data or not custom_data.get("has_generated_code"):
+        return
+
+    generated_dir = os.path.join(workspace, "src", "templates", "generated")
+    os.makedirs(generated_dir, exist_ok=True)
+
+    # Write intro
+    intro_code = custom_data.get("intro_code")
+    if intro_code:
+        wrapped = _wrap_generated_code(intro_code)
+        filepath = os.path.join(generated_dir, "SceneIntro.tsx")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(wrapped)
+        logger.info("Wrote SceneIntro.tsx (%d bytes)", len(wrapped))
+
+    # Write outro
+    outro_code = custom_data.get("outro_code")
+    if outro_code:
+        wrapped = _wrap_generated_code(outro_code)
+        filepath = os.path.join(generated_dir, "SceneOutro.tsx")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(wrapped)
+        logger.info("Wrote SceneOutro.tsx (%d bytes)", len(wrapped))
+
+    # Write content variants
+    content_codes = custom_data.get("content_codes") or []
+    num_content = len(content_codes)
+    for i, code in enumerate(content_codes):
+        if not code:
+            continue
+        wrapped = _wrap_generated_code(code)
+        filepath = os.path.join(generated_dir, f"SceneContent{i}.tsx")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(wrapped)
+        logger.info("Wrote SceneContent%d.tsx (%d bytes)", i, len(wrapped))
+
+    # Write SceneContent.tsx that re-exports Content0 (backward compat for GeneratedVideo stub)
+    if num_content > 0:
+        compat = '// Backward-compat: re-export first content variant\nexport { default } from "./SceneContent0";\n'
+        filepath = os.path.join(generated_dir, "SceneContent.tsx")
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(compat)
+
+    # Write contentRegistry.ts — exports all content variants as an array
+    imports = []
+    names = []
+    for i in range(num_content):
+        name = f"Content{i}"
+        imports.append(f'import {name} from "./SceneContent{i}";')
+        names.append(name)
+
+    registry = (
+        "// Auto-generated content variant registry\n"
+        + "import type { GeneratedSceneProps } from \"./types\";\n"
+        + "\n".join(imports) + "\n\n"
+        + f"export const CONTENT_VARIANTS: React.FC<GeneratedSceneProps>[] = [{', '.join(names)}];\n"
+        + f"export const CONTENT_VARIANT_COUNT = {num_content};\n"
     )
+    filepath = os.path.join(generated_dir, "contentRegistry.ts")
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(registry)
+    logger.info("Wrote contentRegistry.ts with %d content variants", num_content)
 
-    # Copy config files
-    for filename in _TEMPLATE_CONFIG_FILES:
-        src = os.path.join(template, filename)
-        dst = os.path.join(workspace, filename)
-        if os.path.exists(src):
-            shutil.copy2(src, dst)
 
-    # Copy ALL template source files (Root.tsx imports every template)
-    for rel_path in _get_all_template_src_files():
-        src = os.path.join(template, rel_path)
-        dst = os.path.join(workspace, rel_path)
-        if os.path.exists(src):
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copy2(src, dst)
+def _wrap_generated_code(raw_code: str) -> str:
+    """
+    Wrap AI-generated component code in a proper .tsx module.
 
-    return workspace
+    The raw code looks like:
+        const SceneComponent = (props) => { ... };
+
+    We add Remotion imports, type import, and a default export.
+    """
+    return f'''// Auto-generated by Blog2Video AI — DO NOT EDIT MANUALLY
+import React from "react";
+import {{
+  useCurrentFrame,
+  useVideoConfig,
+  interpolate,
+  spring,
+  Easing,
+  AbsoluteFill,
+  Sequence,
+  Img,
+  random,
+}} from "remotion";
+import type {{ GeneratedSceneProps }} from "./types";
+
+{raw_code}
+
+export default SceneComponent;
+'''
 
 
 def _link_directory(src: str, dst: str) -> None:
@@ -275,279 +406,171 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
 
     # Distribute images across scenes - images move with their scenes when reordered.
     # Strategy:
-    # 1. Check if scene has stored assignedImage in layoutProps (persistent assignment)
-    # 2. Respect layoutProps.hideImage: when true, NEVER auto-assign a generic image
-    # 3. Layouts in layouts_without_image: always treated as hideImage, clear any assignment
-    # 4. Scene-specific images (scene_<sceneId>_...) always stay with their scene and
-    #    clear any previous hideImage flag (unless layout doesn't support images)
-    # 5. For scenes without assignment and not hideImage, assign generic images ONCE
-    #    and store the assignment
+    # Image assignment: single-pass approach
+    # 1. Parse each scene's remotion_code ONCE into memory
+    # 2. Resolve all assignments (stored, scene-specific, generic)
+    # 3. Write back modified descriptors ONCE at the end
     scene_image_map: dict[int, list[str]] = {i: [] for i in range(len(scenes))}
-    scenes_need_update: list[Scene] = []  # Track scenes that need remotion_code update
     hide_image_flags: list[bool] = [False] * len(scenes)
-
-    # Layouts that never display images for this template
     no_image_layouts: set[str] = get_layouts_without_image(template_id)
 
+    # Pre-parse all scene descriptors once
+    parsed_descs: list[dict | None] = []
+    scene_layouts: list[str] = []
+    scene_layout_props: list[dict] = []
+    fallback = get_fallback_layout(template_id)
+    for scene in scenes:
+        desc = None
+        layout = fallback
+        lp = {}
+        if scene.remotion_code:
+            try:
+                desc = json.loads(scene.remotion_code)
+                if "layoutConfig" in desc:
+                    layout = desc["layoutConfig"].get("arrangement", fallback)
+                else:
+                    layout = desc.get("layout", fallback)
+                lp = desc.get("layoutProps", {}) or {}
+            except (json.JSONDecodeError, TypeError):
+                pass
+        parsed_descs.append(desc)
+        scene_layouts.append(layout)
+        scene_layout_props.append(lp)
+
+    # Track which scene descriptors were modified (need serialization at end)
+    dirty: set[int] = set()
+
     if all_image_files and scenes:
-        # Use project.assets for scene-specific detection (all_image_files has only filenames)
         image_assets = [
             a for a in project.assets
             if a.asset_type.value == "image" and not a.excluded
         ]
-        # Deterministic order (helps keep preview/render consistent)
         try:
             image_assets.sort(key=lambda a: (a.created_at, a.id))
         except Exception:
             image_assets.sort(key=lambda a: a.id)
 
-        # Track generic filenames already used by a scene (enforce 1 generic -> 1 scene)
         used_generic_files: set[str] = set()
-
         scene_specific: list[tuple[int, str]] = []
         generic_files: list[str] = []
-
         for asset in image_assets:
             m = re.match(r"^scene_(\d+)_", asset.filename)
             if m:
                 scene_specific.append((int(m.group(1)), asset.filename))
             else:
                 generic_files.append(asset.filename)
+        scene_specific_files = {fn for _, fn in scene_specific}
 
-        scene_specific_files = {filename for _, filename in scene_specific}
+        # Build scene_id -> index lookup
+        id_to_idx = {s.id: i for i, s in enumerate(scenes)}
 
-        # First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
+        # Step 1: Process stored assignments + layout constraints
         for i, scene in enumerate(scenes):
-            layout_props = {}
-            layout = get_fallback_layout(template_id)
-            desc = None
-            if scene.remotion_code:
-                try:
-                    desc = json.loads(scene.remotion_code)
-                    # For custom templates, layout lives inside layoutConfig.arrangement
-                    if "layoutConfig" in desc:
-                        layout = desc["layoutConfig"].get("arrangement", layout)
-                    else:
-                        layout = desc.get("layout", layout)
-                    layout_props = desc.get("layoutProps", {}) or {}
-                except (json.JSONDecodeError, TypeError):
-                    pass
+            layout = scene_layouts[i]
+            lp = scene_layout_props[i]
 
-            # Layouts that don't support images are always treated as hideImage
-            layout_no_image = layout in no_image_layouts
-            if layout_no_image:
+            if layout in no_image_layouts:
                 hide_image_flags[i] = True
-                # Clear any stale assignedImage and set hideImage in remotion_code
                 changed = False
-                if layout_props.get("assignedImage"):
-                    layout_props.pop("assignedImage", None)
+                if lp.get("assignedImage"):
+                    lp.pop("assignedImage", None)
                     changed = True
-                if not layout_props.get("hideImage"):
-                    layout_props["hideImage"] = True
+                if not lp.get("hideImage"):
+                    lp["hideImage"] = True
                     changed = True
-                if changed and desc is not None:
-                    desc["layoutProps"] = layout_props
-                    scene.remotion_code = json.dumps(desc)
-                    scenes_need_update.append(scene)
-                continue  # No further assignment logic for this scene
+                if changed:
+                    dirty.add(i)
+                continue
 
-            hide_image = bool(layout_props.get("hideImage", False))
-            hide_image_flags[i] = hide_image
+            hide_image_flags[i] = bool(lp.get("hideImage", False))
+            assigned = lp.get("assignedImage")
+            if not assigned:
+                continue
 
-            assigned_image = layout_props.get("assignedImage")
-            if assigned_image:
-                if hide_image:
-                    # Scene is explicitly marked to have no image; clear any stale assignedImage
-                    layout_props.pop("assignedImage", None)
-                    if desc is not None:
-                        desc["layoutProps"] = layout_props
-                        scene.remotion_code = json.dumps(desc)
-                        scenes_need_update.append(scene)
-                elif assigned_image in all_image_files:
-                    # Validate and enforce uniqueness for generic assigned images.
-                    # Scene-specific filenames must match the scene id in the prefix.
-                    m = re.match(r"^scene_(\d+)_", str(assigned_image))
-                    if m:
-                        assigned_scene_id = int(m.group(1))
-                        if assigned_scene_id != scene.id:
-                            # Invalid: scene-specific image assigned to a different scene
-                            layout_props.pop("assignedImage", None)
-                            if desc is not None:
-                                desc["layoutProps"] = layout_props
-                                scene.remotion_code = json.dumps(desc)
-                                scenes_need_update.append(scene)
-                        else:
-                            # Valid scene-specific assignment
-                            scene_image_map[i] = [assigned_image]
+            if hide_image_flags[i]:
+                lp.pop("assignedImage", None)
+                dirty.add(i)
+            elif assigned in all_image_files:
+                m = re.match(r"^scene_(\d+)_", str(assigned))
+                if m:
+                    if int(m.group(1)) == scene.id:
+                        scene_image_map[i] = [assigned]
                     else:
-                        # Generic assignment: enforce 1:1 mapping
-                        if assigned_image in used_generic_files:
-                            # Duplicate generic assignment — clear so it can be re-assigned uniquely
-                            layout_props.pop("assignedImage", None)
-                            if desc is not None:
-                                desc["layoutProps"] = layout_props
-                                scene.remotion_code = json.dumps(desc)
-                                scenes_need_update.append(scene)
-                        else:
-                            used_generic_files.add(str(assigned_image))
-                            scene_image_map[i] = [assigned_image]
+                        lp.pop("assignedImage", None)
+                        dirty.add(i)
                 else:
-                    # Image was deleted - clear stale assignment
-                    layout_props.pop("assignedImage", None)
-                    if desc is not None:
-                        desc["layoutProps"] = layout_props
-                        scene.remotion_code = json.dumps(desc)
-                        scenes_need_update.append(scene)
-        
-        # Second pass: Apply scene-specific images (overwrite stored assignments if scene-specific exists)
-        # Skip scenes whose layout does not support images.
+                    if assigned in used_generic_files:
+                        lp.pop("assignedImage", None)
+                        dirty.add(i)
+                    else:
+                        used_generic_files.add(str(assigned))
+                        scene_image_map[i] = [assigned]
+            else:
+                lp.pop("assignedImage", None)
+                dirty.add(i)
+
+        # Step 2: Scene-specific images (override stored assignments)
         for scene_id, filename in scene_specific:
-            scene_idx = next((i for i, s in enumerate(scenes) if s.id == scene_id), -1)
-            if scene_idx >= 0:
-                if hide_image_flags[scene_idx]:
-                    continue
-                scene = scenes[scene_idx]
-                layout_props = {}
-                layout = get_fallback_layout(template_id)
-                if scene.remotion_code:
-                    try:
-                        desc = json.loads(scene.remotion_code)
-                        # For custom templates, layout lives inside layoutConfig.arrangement
-                        if "layoutConfig" in desc:
-                            layout = desc["layoutConfig"].get("arrangement", layout)
-                        else:
-                            layout = desc.get("layout", layout)
-                        layout_props = desc.get("layoutProps", {}) or {}
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+            idx = id_to_idx.get(scene_id, -1)
+            if idx < 0 or scene_layouts[idx] in no_image_layouts:
+                continue
+            scene_image_map[idx] = [filename]
+            lp = scene_layout_props[idx]
+            if lp.get("assignedImage") != filename or lp.get("hideImage"):
+                lp["assignedImage"] = filename
+                lp.pop("hideImage", None)
+                hide_image_flags[idx] = False
+                dirty.add(idx)
 
-                # Do not assign images to layouts that don't support them
-                if layout in no_image_layouts:
-                    continue
+        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips)
+        for i, scene in enumerate(scenes):
+            if scene_image_map[i]:
+                continue
+            scene_type = getattr(scene, "scene_type", None)
+            if scene_type is None:
+                if i == 0:
+                    scene_type = "intro"
+                elif i == len(scenes) - 1 and len(scenes) > 1:
+                    scene_type = "outro"
+            if scene_type == "intro" and hero_image_file and hero_image_file in generic_files and hero_image_file not in used_generic_files:
+                scene_image_map[i] = [hero_image_file]
+                used_generic_files.add(hero_image_file)
+            elif scene_type == "outro":
+                hide_image_flags[i] = True
 
-                scene_image_map[scene_idx] = [filename]
-                # Update remotion_code to store scene-specific assignment (if not already set)
-                # Only update if assignment changed
-                if layout_props.get("assignedImage") != filename or layout_props.get("hideImage"):
-                    layout_props["assignedImage"] = filename
-                    # Uploading a scene-specific image should re-enable images even if hideImage was set
-                    layout_props.pop("hideImage", None)
-                    hide_image_flags[scene_idx] = False
-                    # Preserve the full descriptor (including layoutConfig for custom templates)
-                    if scene.remotion_code:
-                        try:
-                            full_desc = json.loads(scene.remotion_code)
-                            has_lc = "layoutConfig" in full_desc
-                            full_desc["layoutProps"] = layout_props
-                            if not has_lc:
-                                full_desc["layout"] = layout
-                            scene.remotion_code = json.dumps(full_desc)
-                            logger.info("[REMOTION] Scene-specific image pass: scene %s → assignedImage=%s, layoutConfig=%s", scene_idx, filename, "preserved" if has_lc else "NOT present (legacy)")
-                        except (json.JSONDecodeError, TypeError):
-                            if is_custom_template(template_id):
-                                logger.warning("[REMOTION] Scene-specific image pass: scene %s → parse error on CUSTOM template, skipping", scene_idx)
-                            else:
-                                scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                                logger.info("[REMOTION] Scene-specific image pass: scene %s → parse error, wrote legacy format", scene_idx)
-                                scenes_need_update.append(scene)
-                            continue
-                    else:
-                        if is_custom_template(template_id):
-                            logger.warning("[REMOTION] Scene-specific image pass: scene %s → no existing code for CUSTOM template, skipping", scene_idx)
-                        else:
-                            scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                            logger.info("[REMOTION] Scene-specific image pass: scene %s → no existing code, wrote legacy format", scene_idx)
-                            scenes_need_update.append(scene)
-                        continue
-                    scenes_need_update.append(scene)
-
-        # Third pass: Assign generic images to scenes without one yet (1 per scene)
-        # IMPORTANT: Do NOT assign generics to scenes that have hideImage=true or
-        # whose layout does not support images.
+        # Step 4: Assign remaining generics (1 per scene)
         generic_idx = 0
-        for scene_idx in range(len(scenes)):
-            # Resolve this scene's layout to check no_image_layouts
-            scene = scenes[scene_idx]
-            scene_layout = get_fallback_layout(template_id)
-            if scene.remotion_code:
-                try:
-                    _desc = json.loads(scene.remotion_code)
-                    if "layoutConfig" in _desc:
-                        scene_layout = _desc["layoutConfig"].get("arrangement", scene_layout)
-                    else:
-                        scene_layout = _desc.get("layout", scene_layout)
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
-            if (
-                not scene_image_map[scene_idx]
-                and not hide_image_flags[scene_idx]
-                and scene_layout not in no_image_layouts
-                and generic_idx < len(generic_files)
-            ):
-                # Pick next unused generic filename (enforce 1:1)
-                assigned_filename = None
-                while generic_idx < len(generic_files):
-                    candidate = generic_files[generic_idx]
-                    generic_idx += 1
-                    if candidate in used_generic_files:
-                        continue
-                    if candidate in scene_specific_files:
-                        continue
-                    assigned_filename = candidate
-                    break
-
-                if assigned_filename is None:
+        for i in range(len(scenes)):
+            if scene_image_map[i] or hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+                continue
+            while generic_idx < len(generic_files):
+                candidate = generic_files[generic_idx]
+                generic_idx += 1
+                if candidate in used_generic_files or candidate in scene_specific_files:
                     continue
+                scene_image_map[i] = [candidate]
+                used_generic_files.add(candidate)
+                lp = scene_layout_props[i]
+                if lp.get("assignedImage") != candidate:
+                    lp["assignedImage"] = candidate
+                    dirty.add(i)
+                break
 
-                scene_image_map[scene_idx] = [assigned_filename]
-                used_generic_files.add(assigned_filename)
-                # Store assignment in remotion_code (if not already set)
-                layout_props = {}
-                layout = get_fallback_layout(template_id)
-                if scene.remotion_code:
-                    try:
-                        desc = json.loads(scene.remotion_code)
-                        if "layoutConfig" in desc:
-                            layout = desc["layoutConfig"].get("arrangement", layout)
-                        else:
-                            layout = desc.get("layout", layout)
-                        layout_props = desc.get("layoutProps", {}) or {}
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                # Only update if assignment changed
-                if layout_props.get("assignedImage") != assigned_filename:
-                    layout_props["assignedImage"] = assigned_filename
-                    # Preserve the full descriptor (including layoutConfig for custom templates)
-                    if scene.remotion_code:
-                        try:
-                            full_desc = json.loads(scene.remotion_code)
-                            has_lc = "layoutConfig" in full_desc
-                            full_desc["layoutProps"] = layout_props
-                            if not has_lc:
-                                full_desc["layout"] = layout
-                            scene.remotion_code = json.dumps(full_desc)
-                            logger.info("[REMOTION] Generic image pass: scene %s → assignedImage=%s, layoutConfig=%s", scene_idx, assigned_filename, "preserved" if has_lc else "NOT present (legacy)")
-                        except (json.JSONDecodeError, TypeError):
-                            if is_custom_template(template_id):
-                                logger.warning("[REMOTION] Generic image pass: scene %s → parse error on CUSTOM template, skipping", scene_idx)
-                            else:
-                                scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                                logger.info("[REMOTION] Generic image pass: scene %s → parse error, wrote legacy format", scene_idx)
-                                scenes_need_update.append(scene)
-                            continue
-                    else:
-                        if is_custom_template(template_id):
-                            logger.warning("[REMOTION] Generic image pass: scene %s → no existing code for CUSTOM template, skipping", scene_idx)
-                        else:
-                            scene.remotion_code = json.dumps({"layout": layout, "layoutProps": layout_props})
-                            logger.info("[REMOTION] Generic image pass: scene %s → no existing code, wrote legacy format", scene_idx)
-                            scenes_need_update.append(scene)
-                        continue
-                    scenes_need_update.append(scene)
-
-    # Commit scene updates if any
-    if scenes_need_update:
+    # Serialize modified descriptors back to scenes (single write per scene)
+    if dirty:
+        is_custom = is_custom_template(template_id)
+        for i in dirty:
+            desc = parsed_descs[i]
+            if desc is not None:
+                desc["layoutProps"] = scene_layout_props[i]
+                if "layoutConfig" not in desc:
+                    desc["layout"] = scene_layouts[i]
+                scenes[i].remotion_code = json.dumps(desc)
+            elif not is_custom:
+                scenes[i].remotion_code = json.dumps({
+                    "layout": scene_layouts[i],
+                    "layoutProps": scene_layout_props[i],
+                })
         try:
             db.commit()
         except Exception as e:
@@ -620,7 +643,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         raw_images = [] if hide_image else scene_image_map.get(i, [])
         scene_images = raw_images[:1]
 
-        # Use display_text for on-screen text when available; otherwise fall back to narration_text.
+        # Short on-screen text (display_text) vs full voiceover narration (narration_text)
         on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
@@ -630,6 +653,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             "order": scene.order,
             "title": scene.title,
             "narration": on_screen_text,
+            "displayText": on_screen_text,
+            "narrationText": scene.narration_text or "",
             "visualDescription": scene.visual_description,
             "durationSeconds": round(effective_duration, 1),
             "voiceoverFile": voiceover_filename,
@@ -639,7 +664,15 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         if layout_config is not None:
             # Custom templates: universal layout config
             scene_entry["layoutConfig"] = layout_config
-            logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"))
+            # Pass structured content (bullets, metrics, quotes, etc.) for AI scene components
+            try:
+                desc_parsed = json.loads(scene.remotion_code) if scene.remotion_code else {}
+                sc = desc_parsed.get("structuredContent")
+                if sc:
+                    scene_entry["structuredContent"] = sc
+            except (json.JSONDecodeError, TypeError):
+                pass
+            logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s, structuredContent=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"), scene_entry.get("structuredContent", {}).get("contentType", "none"))
         else:
             # Built-in templates: legacy format
             scene_entry["layout"] = layout
@@ -685,13 +718,119 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "scenes": scene_data,
     }
 
-    # Include theme object for custom templates (drives CustomVideoComposition)
+    # Include theme + brandColors for custom templates (GeneratedVideo composition)
     if is_custom_template(template_id):
         from app.services.template_service import _load_custom_template_data
-        custom_data = _load_custom_template_data(template_id)
+        custom_data = _load_custom_template_data(template_id, db=db)
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
-            logger.info("[REMOTION] Custom theme loaded for %s: style=%s, accent=%s", template_id, custom_data["theme"].get("style"), custom_data["theme"].get("colors", {}).get("accent"))
+            theme_colors = custom_data["theme"].get("colors", {})
+            logger.info("[REMOTION] Custom theme loaded for %s: style=%s, accent=%s", template_id, custom_data["theme"].get("style"), theme_colors.get("accent"))
+
+            data["brandColors"] = {
+                "primary": theme_colors.get("accent", "#7C3AED"),
+                "secondary": theme_colors.get("surface", "#F5F5F5"),
+                "accent": theme_colors.get("accent", "#7C3AED"),
+                "background": theme_colors.get("bg", "#FFFFFF"),
+                "text": theme_colors.get("text", "#1A1A2E"),
+            }
+            # Tag each scene with a sceneType for GeneratedVideo
+            total = len(scene_data)
+            content_codes = custom_data.get("content_codes") or []
+            num_content_variants = len(content_codes) if content_codes else 1
+            data["contentVariantCount"] = num_content_variants
+            pass  # variant count set
+
+            # Content-type → variant routing (matches _VARIANT_SPECIALIZATIONS in code_generator.py)
+            # Variant 0: bullets, steps | 1: metrics | 2: code | 3: quote, comparison | 4: timeline, plain
+            _CONTENT_TYPE_TO_VARIANT = {
+                "bullets": 0, "steps": 0,
+                "metrics": 1,
+                "code": 2,
+                "quote": 3, "comparison": 3,
+                "timeline": 4, "plain": 4,
+            }
+
+            content_idx = 0  # fallback round-robin counter
+            _variant_use_count: dict[int, int] = {}  # track how many scenes use each variant
+            for idx, sd in enumerate(scene_data):
+                scene_obj = scenes[idx] if idx < len(scenes) else None
+                db_type = getattr(scene_obj, "scene_type", None) if scene_obj else None
+
+                # Check for explicit per-scene overrides from variant switching
+                override_type = None
+                override_variant = None
+                if scene_obj and scene_obj.remotion_code:
+                    try:
+                        desc = json.loads(scene_obj.remotion_code)
+                        override_type = desc.get("sceneTypeOverride")
+                        override_variant = desc.get("contentVariantIndex")
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # Priority: override > db_type > position-based
+                if override_type in ("intro", "content", "outro"):
+                    sd["sceneType"] = override_type
+                elif db_type in ("intro", "content", "outro"):
+                    sd["sceneType"] = db_type
+                elif idx == 0:
+                    sd["sceneType"] = "intro"
+                elif idx == total - 1 and total > 1:
+                    sd["sceneType"] = "outro"
+                else:
+                    sd["sceneType"] = "content"
+                # Assign content variant index for content scenes
+                if sd["sceneType"] == "content":
+                    if override_variant is not None:
+                        sd["contentVariantIndex"] = override_variant % num_content_variants
+                    else:
+                        # Route by content type: prefer specialist variant for FIRST occurrence,
+                        # then cycle through other variants for visual diversity
+                        scene_content_type = sd.get("structuredContent", {}).get("contentType", "plain") if isinstance(sd.get("structuredContent"), dict) else "plain"
+                        matched_variant = _CONTENT_TYPE_TO_VARIANT.get(scene_content_type)
+                        if matched_variant is not None and matched_variant < num_content_variants and _variant_use_count.get(matched_variant, 0) == 0:
+                            # First scene of this type → use the specialist
+                            sd["contentVariantIndex"] = matched_variant
+                        else:
+                            # Already used that specialist → cycle for visual diversity
+                            sd["contentVariantIndex"] = content_idx % num_content_variants
+                    _variant_use_count[sd["contentVariantIndex"]] = _variant_use_count.get(sd["contentVariantIndex"], 0) + 1
+                    content_idx += 1
+            logger.info(
+                "GeneratedVideo: brandColors and sceneTypes set for %d scenes (%d content variants)",
+                total, num_content_variants,
+            )
+
+            # Include brand logo if available via BrandKit
+            brand_kit = custom_data.get("brand_kit")
+            if brand_kit:
+                logos = brand_kit.get("logos", [])
+                if logos:
+                    primary = logos[0] if isinstance(logos[0], dict) else {"url": logos[0]}
+                    logo_url = primary.get("url", "")
+                    if logo_url:
+                        # Download logo to workspace public/ folder for staticFile() access
+                        logo_filename = "brand-logo.png"
+                        logo_dest = os.path.join(public_dir, logo_filename)
+                        if _download_url_to_file(logo_url, logo_dest):
+                            data["brandLogo"] = logo_filename
+                            logger.info("Brand logo downloaded to workspace: %s", logo_filename)
+
+                # Pass brand images for AI scene components
+                brand_images_raw = brand_kit.get("images", [])
+                if isinstance(brand_images_raw, list) and brand_images_raw:
+                    brand_image_files = []
+                    for bi_idx, bi in enumerate(brand_images_raw[:5]):
+                        bi_url = bi if isinstance(bi, str) else (bi.get("url", "") if isinstance(bi, dict) else "")
+                        if bi_url:
+                            bi_ext = bi_url.rsplit(".", 1)[-1].split("?")[0] if "." in bi_url else "png"
+                            bi_filename = f"brand_img_{bi_idx}.{bi_ext}"
+                            bi_dest = os.path.join(public_dir, bi_filename)
+                            if _download_url_to_file(bi_url, bi_dest):
+                                brand_image_files.append(bi_filename)
+                    if brand_image_files:
+                        data["brandImages"] = brand_image_files
+                        logger.info("Brand images downloaded to workspace: %s", brand_image_files)
         else:
             logger.warning("[REMOTION] No theme found for custom template %s", template_id)
     data_path = os.path.join(public_dir, "data.json")

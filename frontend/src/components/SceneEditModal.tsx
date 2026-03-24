@@ -79,7 +79,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     news_timeline: { title: [36, 48], desc: [15, 18] },
   },
   custom: {
-    // Universal arrangements (font sizes are approximate — UniversalScene handles sizing)
+    // Custom template arrangements (font sizes are approximate)
     "full-center": { title: [36, 48], desc: [18, 22] },
     "split-left": { title: [32, 42], desc: [16, 20] },
     "split-right": { title: [32, 42], desc: [16, 20] },
@@ -376,6 +376,30 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   },
 };
 
+/** Structured content fields for AI-generated custom template scenes. */
+const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
+  bullets: [{ key: "bullets", label: "Bullet points", type: "string_array", maxItems: 8 }],
+  metrics: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 4 }],
+  code: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  quote: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "quoteAuthor", label: "Author", type: "string" },
+  ],
+  comparison: [
+    { key: "comparisonLeft.label", label: "Left label", type: "string" },
+    { key: "comparisonLeft.description", label: "Left description", type: "text" },
+    { key: "comparisonRight.label", label: "Right label", type: "string" },
+    { key: "comparisonRight.description", label: "Right description", type: "text" },
+  ],
+  timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 }],
+  steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
+};
+
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
@@ -456,6 +480,7 @@ export default function SceneEditModal({
   const [titleFontSize, setTitleFontSize] = useState<string>("");
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
+  const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const [selectedLayout, setSelectedLayout] = useState("");
@@ -495,6 +520,13 @@ export default function SceneEditModal({
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
+        // Custom templates: check for variant override first
+        if (desc.sceneTypeOverride) {
+          if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
+            return `content_${desc.contentVariantIndex}`;
+          }
+          return desc.sceneTypeOverride; // "intro" or "outro"
+        }
         // Custom templates store arrangement in layoutConfig
         if (desc.layoutConfig?.arrangement) return desc.layoutConfig.arrangement;
         return desc.layout || null;
@@ -599,6 +631,28 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableLayoutProps(lpCopy);
+    // Initialize structured content for custom templates
+    let scInit: Record<string, unknown> = {};
+    if (scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.structuredContent && typeof desc.structuredContent === "object") {
+          scInit = { ...desc.structuredContent };
+          // Flatten comparison objects for dot-key editing
+          if (scInit.comparisonLeft && typeof scInit.comparisonLeft === "object") {
+            const cl = scInit.comparisonLeft as Record<string, string>;
+            scInit["comparisonLeft.label"] = cl.label || "";
+            scInit["comparisonLeft.description"] = cl.description || "";
+          }
+          if (scInit.comparisonRight && typeof scInit.comparisonRight === "object") {
+            const cr = scInit.comparisonRight as Record<string, string>;
+            scInit["comparisonRight.label"] = cr.label || "";
+            scInit["comparisonRight.description"] = cr.description || "";
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    setEditableStructuredContent(scInit);
     const schemaDefaults = getDefaultFontSizesFromSchema(
       layouts?.layout_prop_schema,
       layoutId,
@@ -700,6 +754,26 @@ export default function SceneEditModal({
             else delete config.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) config.descriptionFontSize = dsNum;
             else delete config.descriptionFontSize;
+            // Merge edited structured content back
+            if (editableStructuredContent.contentType && editableStructuredContent.contentType !== "plain") {
+              const sc = { ...editableStructuredContent };
+              // Rebuild comparison objects from dot-key fields
+              if (sc.contentType === "comparison") {
+                sc.comparisonLeft = {
+                  label: String(sc["comparisonLeft.label"] || ""),
+                  description: String(sc["comparisonLeft.description"] || ""),
+                };
+                sc.comparisonRight = {
+                  label: String(sc["comparisonRight.label"] || ""),
+                  description: String(sc["comparisonRight.description"] || ""),
+                };
+                delete sc["comparisonLeft.label"];
+                delete sc["comparisonLeft.description"];
+                delete sc["comparisonRight.label"];
+                delete sc["comparisonRight.description"];
+              }
+              desc.structuredContent = sc;
+            }
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
@@ -1221,6 +1295,166 @@ export default function SceneEditModal({
               );
               })()}
 
+              {/* ── Structured content fields for custom templates ── */}
+              {(() => {
+                if (!isCustomTemplate) return null;
+                const ct = (editableStructuredContent.contentType as string) || "";
+                const scFields = CUSTOM_CONTENT_FIELDS[ct];
+                if (!scFields || ct === "plain") return null;
+                const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+                const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                return (
+                  <div>
+                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Structured content <span className="normal-case tracking-normal text-gray-300">({ct})</span>
+                    </h4>
+                    <div className="space-y-4">
+                      {scFields.map((field) => {
+                        if (field.type === "string") {
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <input
+                                type="text"
+                                value={String(editableStructuredContent[field.key] ?? "")}
+                                onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className={inputClass}
+                              />
+                            </div>
+                          );
+                        }
+                        if (field.type === "text") {
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <AutoGrowTextarea
+                                value={String(editableStructuredContent[field.key] ?? "")}
+                                onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className={textareaClass}
+                                minRows={2}
+                              />
+                            </div>
+                          );
+                        }
+                        if (field.type === "string_array") {
+                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as string[];
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <div className="space-y-2">
+                                {items.map((item, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 tabular-nums">{i + 1}.</span>
+                                    <input
+                                      type="text"
+                                      value={item}
+                                      onChange={(e) => {
+                                        const updated = [...items];
+                                        updated[i] = e.target.value;
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className={`flex-1 ${inputClass}`}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!field.maxItems || items.length < field.maxItems) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, ""] }))}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Add {field.label.toLowerCase().replace(/s$/, "")}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (field.type === "object_array" && field.subFields) {
+                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <div className="space-y-3">
+                                {items.map((item, i) => (
+                                  <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                    <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                    <div className="flex-1 space-y-2">
+                                      {field.subFields!.map((sf) => (
+                                        <div key={sf.key}>
+                                          <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                          <input
+                                            type="text"
+                                            value={item[sf.key] ?? ""}
+                                            placeholder={sf.placeholder || sf.label}
+                                            onChange={(e) => {
+                                              const updated = [...items];
+                                              updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                              setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                            }}
+                                            className={inputClass}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!field.maxItems || items.length < field.maxItems) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const empty: Record<string, string> = {};
+                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                      setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
+                                    }}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Add {field.label.toLowerCase().replace(/s$/, "")}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div>
                 <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2.5">
                   Typography <span className="normal-case tracking-normal text-gray-300">(optional)</span>
@@ -1457,15 +1691,17 @@ export default function SceneEditModal({
                         </span>
                       )}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
-                        selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                      }`}
-                    >
-                      Auto (Let AI choose)
-                    </button>
+                    {!isCustomTemplate && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
+                          selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                        }`}
+                      >
+                        Auto (Let AI choose)
+                      </button>
+                    )}
                     {layouts?.layouts
                       .filter((id) => id !== currentLayoutId)
                       .map((layoutId) => {
