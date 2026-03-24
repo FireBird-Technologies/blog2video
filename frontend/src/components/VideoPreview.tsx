@@ -54,7 +54,7 @@ export default function VideoPreview({
 
   const compileCustomTemplate = useCallback(async () => {
     if (!isCustom) return;
-    const match = project.template.match(/^custom_(\d+)$/);
+    const match = project.template?.match(/^custom_(\d+)$/);
     if (!match) return;
     const templateId = parseInt(match[1], 10);
 
