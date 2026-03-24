@@ -141,6 +141,10 @@ def scrape_blog(project: Project, db: Session) -> Project:
 
     # Update project
     project.blog_content = text
+    # Only set content_language if not already set (preserve user's explicit choice)
+    if not (getattr(project, "content_language", None) or "").strip():
+        from app.services.language_detection import detect_content_language
+        project.content_language = detect_content_language(text)
     project.status = ProjectStatus.SCRAPED
     db.commit()
     db.refresh(project)

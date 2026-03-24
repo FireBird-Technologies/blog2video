@@ -22,6 +22,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
+  const titleFontFamily = p ? sansFontFamily : serifFontFamily;
 
   const spr = spring({ frame, fps, config: { damping: 14 } });
   
@@ -48,7 +49,7 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
         style={{
            ...glass(false),
            display: "flex",
-           flexDirection: hasImage ? "row" : "column",
+           flexDirection: hasImage && !p ? "row" : "column",
            width: "100%",
            height: "100%",
            padding: hasImage ? 0 : 60,
@@ -71,10 +72,11 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
             display: "flex", 
             flexDirection: "column", 
             justifyContent: "center", 
-            padding: hasImage ? 48 : 0,
-            textAlign: hasImage ? "left" : "center",
+            padding: hasImage ? (p ? 32 : 48) : 0,
+            textAlign: hasImage && !p ? "left" : "center",
             maxWidth: hasImage ? "none" : "800px",
             margin: hasImage ? 0 : "auto",
+            minWidth: 0,
         }}>
            <div style={{ 
                fontSize: titleFontSize ?? (p ? 65 : 64), 
@@ -82,18 +84,20 @@ export const Editorial: React.FC<GridcraftLayoutProps> = ({
                lineHeight: 1.2, 
                color: COLORS.DARK, 
                marginBottom: 24,
-               fontFamily: serifFontFamily,
+               fontFamily: titleFontFamily,
+               wordBreak: "break-word",
             }}>
                {title}
            </div>
            
-           <div style={{ width: hasImage ? "40%" : "20%", height: 3, backgroundColor: accentColor || COLORS.ACCENT, marginBottom: 24, alignSelf: hasImage ? "flex-start" : "center" }} />
+           <div style={{ width: hasImage ? "40%" : "20%", height: 3, backgroundColor: accentColor || COLORS.ACCENT, marginBottom: 24, alignSelf: hasImage && !p ? "flex-start" : "center" }} />
 
            <div style={{ 
                fontSize: descriptionFontSize ?? (p ? 37 : 38), 
                lineHeight: 1.6, 
                color: COLORS.DARK, 
-               opacity: 0.85 
+               opacity: 0.85,
+               wordBreak: "break-word",
             }}>
                {narration}
            </div>

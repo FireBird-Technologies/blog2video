@@ -1,6 +1,8 @@
 import asyncio
 import os
+import re
 import time
+import requests
 from mutagen.mp3 import MP3
 from elevenlabs import ElevenLabs
 from sqlalchemy.orm import Session
@@ -31,6 +33,7 @@ VOICE_MAP = {
 
 # Fallback: Bill (american male documentary voice) if no match
 DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
+ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 
 
 def _get_voice_id(project: Project) -> str | None:
@@ -39,8 +42,9 @@ def _get_voice_id(project: Project) -> str | None:
         return None
 
     custom = getattr(project, "custom_voice_id", None)
-    if custom:
-        return custom
+    custom_str = custom.strip() if isinstance(custom, str) else None
+    if custom_str:
+        return custom_str
 
     accent = getattr(project, "voice_accent", "american")
     return VOICE_MAP.get((gender, accent), DEFAULT_VOICE_ID)
@@ -60,7 +64,111 @@ def _get_audio_duration(filepath: str) -> float:
             return 10.0
 
 
+def _fetch_voice_meta(voice_id: str) -> dict | None:
+    """Fetch ElevenLabs voice metadata for diagnostics."""
+    if not voice_id or not settings.ELEVENLABS_API_KEY:
+        return None
+    try:
+        resp = requests.get(
+            ELEVENLABS_VOICE_META_URL.format(voice_id=voice_id),
+            headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 WORDS_PER_SECOND = 2.5  # average speaking pace for duration estimation
+
+
+def _spell_digits_for_tts(text: str) -> str:
+    """Force numbers to be read clearly, digit-by-digit with separator words.
+
+    Examples:
+    - 2026 -> "2 0 2 6"
+    - 12.50 -> "1 2 point 5 0"
+    - 2026-03-24 -> "2 0 2 6 dash 0 3 dash 2 4"
+    - $199 -> "dollar 1 9 9"
+    """
+    if not text:
+        return text
+
+    symbol_map = {
+        "$": "dollar",
+        "€": "euro",
+        "£": "pound",
+        "₹": "rupee",
+        ".": "point",
+        "/": "slash",
+        "-": "dash",
+        "%": "percent",
+    }
+
+    def _expand_numeric_token(token: str) -> str:
+        parts: list[str] = []
+        for idx, ch in enumerate(token):
+            if ch.isdigit():
+                parts.append(ch)
+            elif ch in symbol_map:
+                # Speak separators only when they are between digits.
+                # This avoids saying "point" for trailing punctuation like "2026."
+                prev_ch = token[idx - 1] if idx > 0 else ""
+                next_ch = token[idx + 1] if idx + 1 < len(token) else ""
+                if ch in {".", "/", "-"} and not (prev_ch.isdigit() and next_ch.isdigit()):
+                    continue
+                parts.append(symbol_map[ch])
+            elif ch == ",":
+                # Ignore thousands separators so 10,000 -> 1 0 0 0 0
+                continue
+        return " ".join(parts) if parts else token
+
+    def _replace(match: re.Match[str]) -> str:
+        return _expand_numeric_token(match.group(0))
+
+    # Match standalone numeric-like chunks to avoid rewriting alphanumeric words.
+    # Supports currency prefix, separators (.,/,-), and percent suffix.
+    pattern = r"(?<![A-Za-z0-9])[\$€£₹]?\d[\d,./-]*%?(?![A-Za-z0-9])"
+    return re.sub(pattern, _replace, text)
+
+
+def _spell_abbreviations_for_tts(text: str) -> str:
+    """Spell all-caps abbreviations letter-by-letter for clearer TTS output.
+
+    Examples:
+    - AI -> "A I"
+    - NASA -> "N A S A"
+    - U.S.A. -> "U S A"
+    """
+    if not text:
+        return text
+
+    # Dotted abbreviations first (U.S., U.S.A., etc.)
+    def _replace_dotted(match: re.Match[str]) -> str:
+        token = match.group(0)
+        letters = [ch for ch in token if ch.isalpha()]
+        return " ".join(letters)
+
+    text = re.sub(r"\b(?:[A-Z]\.){2,}[A-Z]?\b\.?", _replace_dotted, text)
+
+    # Plain all-caps words (2+ chars), but skip common Roman numerals.
+    roman_numerals = {
+        "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
+        "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX",
+    }
+
+    def _replace_caps(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if token in roman_numerals:
+            return token
+        return " ".join(list(token))
+
+    return re.sub(r"\b[A-Z]{2,}\b", _replace_caps, text)
 
 
 def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) -> str:
@@ -82,11 +190,31 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     # Determine voice from project preferences
     project = db.query(Project).filter(Project.id == scene.project_id).first()
     voice_id = _get_voice_id(project) if project else None
+    if project:
+        configured_custom = getattr(project, "custom_voice_id", None)
+        configured_custom = configured_custom.strip() if isinstance(configured_custom, str) else None
+        voice_meta = _fetch_voice_meta(voice_id) if voice_id else None
+        labels = voice_meta.get("labels", {}) if isinstance(voice_meta, dict) else {}
+        logger.info(
+            "[VOICEOVER] Scene %s voice resolution: resolved=%s source=%s project_custom=%s gender=%s accent=%s voice_name=%s voice_category=%s voice_labels=%s",
+            scene.order,
+            voice_id,
+            "custom" if configured_custom else "map",
+            configured_custom,
+            getattr(project, "voice_gender", None),
+            getattr(project, "voice_accent", None),
+            voice_meta.get("name") if isinstance(voice_meta, dict) else None,
+            voice_meta.get("category") if isinstance(voice_meta, dict) else None,
+            labels if isinstance(labels, dict) else {},
+            extra={"project_id": scene.project_id, "user_id": scene.project.user_id if scene.project else None},
+        )
 
     # Use narration_text directly (it should already be expanded if needed)
     voiceover_text = scene.narration_text
     if not voiceover_text or not voiceover_text.strip():
         return ""
+    voiceover_text = _spell_digits_for_tts(voiceover_text)
+    voiceover_text = _spell_abbreviations_for_tts(voiceover_text)
 
     # No-audio mode: estimate duration from word count, skip TTS
     if voice_id is None:
@@ -118,17 +246,14 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
     def _try_tts(vid: str) -> None:
         """Run TTS with given voice_id; writes to output_path and updates scene. Raises on failure."""
+        # Do not force a global voice_settings profile for every voice.
+        # Using ElevenLabs default settings preserves each prebuilt/custom voice character
+        # more faithfully and aligns better with preview playback.
         audio_generator = client.text_to_speech.convert(
             text=voiceover_text,
             voice_id=vid,
             model_id="eleven_multilingual_v2",
             output_format="mp3_44100_128",
-            voice_settings={
-                "stability": 0.75,
-                "similarity_boost": 0.85,
-                "style": 0.0,
-                "use_speaker_boost": True,
-            },
         )
         with open(output_path, "wb") as f:
             for chunk in audio_generator:
@@ -179,7 +304,11 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
         return "voice_not_found" in s or ("404" in s and "voice" in s)
 
     last_error = None
-    used_custom = bool(project and getattr(project, "custom_voice_id", None))
+    used_custom = bool(
+        project
+        and isinstance(getattr(project, "custom_voice_id", None), str)
+        and getattr(project, "custom_voice_id").strip()
+    )
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             _try_tts(voice_id)
@@ -228,7 +357,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
 
 async def generate_all_voiceovers(
-    scenes: list[Scene], db: Session, video_style: str | None = None
+    scenes: list[Scene], db: Session, video_style: str | None = None, content_language: str = "English"
 ) -> list[str]:
     """Generate voiceover audio for all scenes concurrently.
 
@@ -251,7 +380,7 @@ async def generate_all_voiceovers(
             return scene.narration_text or ""
         async with expand_sem:
             return await expand_narration_to_voiceover(
-                scene.narration_text, scene.title, video_style=style
+                scene.narration_text, scene.title, video_style=style, content_language=content_language
             )
 
     expanded_texts = await asyncio.gather(

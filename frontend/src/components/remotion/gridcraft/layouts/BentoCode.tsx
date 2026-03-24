@@ -29,6 +29,7 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
     : (codeSnippet || "").split("\n");
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const monoFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_MONO_FONT_FAMILY;
+  const codeFontFamily = p ? sansFontFamily : monoFontFamily;
 
   // Constants for line-by-line code animation
   const LINE_APPEAR_START_OFFSET = 2; // Each line starts 2 frames after the previous
@@ -105,12 +106,15 @@ export const BentoCode: React.FC<GridcraftLayoutProps> = ({
            borderRadius: 24,
            border: "1px solid rgba(255,255,255,0.1)",
            padding: 32,
-           fontFamily: monoFontFamily,
+           fontFamily: codeFontFamily,
            fontSize: descriptionFontSize ?? (p ? 27 : 27),
            lineHeight: 1.8,
            color: "#E2E8F0",
            overflow: "hidden", // Important for containing the typing lines
            boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+           minWidth: 0,
+           fontVariantNumeric: p ? "tabular-nums" : undefined,
+           letterSpacing: p ? "-0.01em" : undefined,
         }}
       >
         {lines.map((line, i) => (
