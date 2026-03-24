@@ -1537,6 +1537,8 @@ async def regenerate_scene(
             has_lc = "layoutConfig" in current_descriptor
             print(f"[REGENERATE] current descriptor: has_layoutConfig={has_lc}, keys={list(current_descriptor.keys())}")
 
+        from app.services.language_detection import get_content_language_for_project
+        content_language = get_content_language_for_project(project)
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
             narration=scene.narration_text or "",
@@ -1546,6 +1548,7 @@ async def regenerate_scene(
             other_scenes_layouts=other_scenes_layouts,
             preferred_layout=effective_layout,
             current_descriptor=current_descriptor,
+            content_language=content_language,
         )
 
         # Preserve image assignment from old descriptor into the new one.
