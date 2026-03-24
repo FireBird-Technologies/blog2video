@@ -106,15 +106,11 @@ def generate_voice_preview_audio(voice_id: str) -> bytes | None:
         "xi-api-key": settings.ELEVENLABS_API_KEY,
         "Content-Type": "application/json",
     }
+    # Keep preview synthesis aligned with final project voiceover generation:
+    # do not override per-voice defaults via hardcoded voice_settings.
     body = {
         "text": CLONE_PREVIEW_TEXT,
         "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.75,
-            "style": 0.0,
-            "use_speaker_boost": True,
-        },
     }
     resp = requests.post(url, json=body, headers=headers, timeout=30)
     resp.raise_for_status()
@@ -144,3 +140,20 @@ def get_voice_preview_url(voice_id: str) -> str | None:
     preview_url = (data.get("preview_url") or "").strip() or None
     logger.info("[VOICES] get voice preview_url=%s for voice_id=%s", bool(preview_url), voice_id)
     return preview_url
+
+
+def get_voice_metadata(voice_id: str) -> dict | None:
+    """Fetch full voice metadata from ElevenLabs for a voice_id.
+
+    Returns None when unavailable.
+    """
+    if not (voice_id or "").strip():
+        return None
+    url = f"https://api.elevenlabs.io/v1/voices/{voice_id.strip()}"
+    headers = {"xi-api-key": settings.ELEVENLABS_API_KEY}
+    resp = requests.get(url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+    if not isinstance(data, dict):
+        return None
+    return data

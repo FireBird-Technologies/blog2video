@@ -29,8 +29,12 @@ def list_saved_voices(
     db: Session = Depends(get_db),
 ):
     """Return the current user's saved voices (for Step 3 and My Voices page)."""
-    voices = db.query(SavedVoice).filter(SavedVoice.user_id == user.id).order_by(SavedVoice.created_at.desc()).all()
-    return voices
+    return (
+        db.query(SavedVoice)
+        .filter(SavedVoice.user_id == user.id)
+        .order_by(SavedVoice.created_at.desc())
+        .all()
+    )
 
 
 @router.post("/saved", response_model=SavedVoiceOut)
@@ -44,8 +48,22 @@ def create_saved_voice(
     """
     preview_url = (data.preview_url or "").strip() or None
     voice_id = data.voice_id.strip()
+    source = (data.source or "custom").strip() or "custom"
+    # Prevent duplicate saved entries for the same user+source+voice_id.
+    existing = (
+        db.query(SavedVoice)
+        .filter(
+            SavedVoice.user_id == user.id,
+            SavedVoice.source == source,
+            SavedVoice.voice_id == voice_id,
+        )
+        .first()
+    )
     custom = None
-    if data.custom_voice_id:
+    # Only resolve/link custom voice metadata when source is custom.
+    # This prevents prebuilt voices from being accidentally remapped
+    # even if a custom_voice_id is present in incoming payloads.
+    if source == "custom" and data.custom_voice_id:
         custom = (
             db.query(CustomVoice)
             .filter(CustomVoice.id == data.custom_voice_id, CustomVoice.user_id == user.id)
@@ -55,22 +73,37 @@ def create_saved_voice(
             voice_id = custom.voice_id  # use permanent voice_id for TTS
             if custom.preview_url:
                 preview_url = custom.preview_url
+            if not (data.gender or "").strip():
+                data.gender = custom.form_gender
+            if not (data.accent or "").strip():
+                data.accent = custom.form_accent
     voice = SavedVoice(
         user_id=user.id,
         voice_id=voice_id,
         name=(data.name or "").strip() or "My voice",
         preview_url=preview_url,
-        source=(data.source or "custom").strip() or "custom",
+        source=source,
         plan=(data.plan or "").strip() or None,
         gender=(data.gender or "").strip() or None,
         accent=(data.accent or "").strip() or None,
         description=(data.description or "").strip() or None,
-        custom_voice_id=data.custom_voice_id,
+        custom_voice_id=data.custom_voice_id if source == "custom" else None,
     )
-    db.add(voice)
+    if existing:
+        existing.name = voice.name
+        existing.preview_url = voice.preview_url
+        existing.plan = voice.plan
+        existing.gender = voice.gender
+        existing.accent = voice.accent
+        existing.description = voice.description
+        existing.custom_voice_id = voice.custom_voice_id
+        target = existing
+    else:
+        db.add(voice)
+        target = voice
     db.commit()
-    db.refresh(voice)
-    return voice
+    db.refresh(target)
+    return target
 
 
 def _custom_voice_description(data: CustomVoiceCreate) -> str:
@@ -125,7 +158,23 @@ def create_custom_voice(
             status_code=502,
             detail="Failed to add voice to library. The preview may have expired; try designing again.",
         ) from e
-    preview_url = preview_url_from_api or (data.preview_url or "").strip() or None
+    # Important: prefer preview URL from the permanent voice ID we just created.
+    # The original design preview can be from a temporary/generated voice and may
+    # not match the final library voice exactly.
+    preview_url = preview_url_from_api or None
+    if not preview_url:
+        try:
+            preview_url = get_voice_preview_url(permanent_voice_id)
+        except Exception as e:
+            logger.warning(
+                "[VOICES] Failed to fetch preview URL for permanent voice %s (user %s): %s",
+                permanent_voice_id,
+                user.id,
+                e,
+                extra={"user_id": user.id},
+            )
+    if not preview_url:
+        preview_url = (data.preview_url or "").strip() or None
     response_json = json.dumps(data.response) if data.response is not None else None
     custom = CustomVoice(
         user_id=user.id,
