@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import type { CustomTemplateTheme } from "../api/client";
 // import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
 // import GridcraftPreview from "./templatePreviews/GridcraftPreview";
@@ -7,14 +6,12 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 // import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 // import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
-import CustomPreview from "./templatePreviews/CustomPreview";
 import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
 import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
 import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
-import CustomPreviewPortrait from "./templatePreviews/portrait/CustomPreviewPortrait";
 // import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
 
-type TemplateId = "nightfall" | /* "gridcraft" | */ "spotlight" | /* "default" | */ /* "matrix" | */ "whiteboard" | /* "newspaper" | */ "custom";
+type TemplateId = "nightfall" | /* "gridcraft" | */ "spotlight" | /* "default" | */ /* "matrix" | */ "whiteboard" /* | "newspaper" */;
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -67,35 +64,7 @@ const TEMPLATES: TemplateInfo[] = [
   //   description: "Editorial news style with pull quotes, fact-check panels, and timelines — great for in-depth explainers and journalism.",
   //   hasPortrait: false,
   // },
-  {
-    id: "custom",
-    name: "Custom",
-    description: "Design your own template from any website URL. Set your brand colors, typography, and animation style — fully yours.",
-    hasPortrait: true,
-  },
 ];
-
-// Sample theme for the Custom tab preview
-const SAMPLE_CUSTOM_THEME: CustomTemplateTheme = {
-  colors: {
-    accent: "#6366F1",
-    bg: "#0F0F1A",
-    text: "#F1F5F9",
-    surface: "#1E1E2E",
-    muted: "#94A3B8",
-  },
-  fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
-  borderRadius: 12,
-  style: "glass",
-  animationPreset: "spring",
-  category: "tech",
-  patterns: {
-    cards: { corners: "rounded", shadowDepth: "medium", borderStyle: "accent" },
-    spacing: { density: "comfortable", gridGap: 24 },
-    images: { treatment: "rounded", overlay: "gradient", captionStyle: "below" },
-    layout: { direction: "centered", decorativeElements: ["gradient", "blur"] },
-  },
-};
 
 const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   nightfall: NightfallPreview,
@@ -105,14 +74,12 @@ const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   // matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   // newspaper: NewsPaperPreview,
-  custom: () => <CustomPreview theme={SAMPLE_CUSTOM_THEME} name="Your Brand" />,
 };
 
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
   spotlight: SpotlightPreviewPortrait,
   whiteboard: WhiteboardPreviewPortrait,
-  custom: () => <CustomPreviewPortrait theme={SAMPLE_CUSTOM_THEME} name="Your Brand" />,
   // gridcraft: GridcraftPreviewPortrait,
 };
 
@@ -322,7 +289,7 @@ export default function FullTemplateShowcase() {
         Templates
       </p>
       <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-        Multiple templates — or build your own
+        Multiple templates — pick your style
       </h2>
       <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-6 leading-relaxed">
         Pick the look that fits your content. Every template has unique layouts for your scenes.
@@ -397,11 +364,6 @@ export default function FullTemplateShowcase() {
             <div className="border-l-2 border-purple-500 pl-5 py-1">
               <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-3">
                 {current.name}
-                {current.id === "custom" && (
-                  <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold bg-purple-100 text-purple-600 rounded-full align-middle">
-                    Pro
-                  </span>
-                )}
               </h3>
               <p className="text-sm text-gray-500 leading-relaxed">{current.description}</p>
             </div>
