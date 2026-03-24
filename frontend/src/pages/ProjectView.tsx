@@ -1925,6 +1925,18 @@ export default function ProjectView() {
                 )}
                 {project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    {(project.template ?? "default") === "gridcraft" &&
+                      project.aspect_ratio === "portrait" && (
+                        <div
+                          className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-950 leading-snug"
+                          role="status"
+                        >
+                          <span className="font-semibold">Portrait Gridcraft:</span> Layout is
+                          sensitive to text length and per-scene font overrides. Preview{" "}
+                          <span className="font-medium">each scene</span> and adjust titles, body
+                          copy, or scene font sizes if anything clips.
+                        </div>
+                      )}
                     <div
                       className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
                       style={

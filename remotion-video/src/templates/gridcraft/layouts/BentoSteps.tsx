@@ -64,11 +64,12 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 1fr",
-          gridTemplateRows: "1fr 1fr",
+          gridTemplateColumns: p ? "1fr" : "1fr 1fr 1fr 1fr",
+          gridTemplateRows: p ? `repeat(${items.length}, auto)` : "1fr 1fr",
           gap: 16,
           flex: hasImage && !p ? 1 : "none",
           width: hasImage && !p ? "auto" : "100%",
+          minWidth: 0,
         }}
       >
       {items.map((item, i) => {
@@ -78,7 +79,7 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
           const scale = interpolate(s, [0, 1], [0.8, 1]);
           const opacity = interpolate(s, [0, 1], [0, 1]);
           
-          // Zig-zag layout
+          // Zig-zag layout (landscape); single column (portrait)
           const positions = [
              { gridColumn: "1", gridRow: "1" },
              { gridColumn: "2", gridRow: "2" },
@@ -92,24 +93,28 @@ export const BentoSteps: React.FC<GridcraftLayoutProps> = ({
               <div
                 key={i}
                 style={{
-                  ...positions[i % 4],
+                  ...(p
+                    ? { gridColumn: "1", gridRow: i + 1 }
+                    : positions[i % 4]),
                   ...glass(isLast),
                   backgroundColor: isLast ? (accentColor || COLORS.ACCENT) : undefined,
-                  padding: 24,
+                  padding: p ? 20 : 24,
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
+                  minWidth: 0,
+                  overflow: "hidden",
                   transform: `scale(${scale})`,
                   opacity,
                 }}
               >
-                  <div style={{ fontSize: 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
+                  <div style={{ fontSize: p ? 32 : 42, fontWeight: 700, color: isLast ? "rgba(255,255,255,0.4)" : COLORS.ACCENT, opacity: 0.5, marginBottom: 8, lineHeight: 1 }}>
                       {String(i + 1).padStart(2, "0")}
                   </div>
-                  <div style={{ fontSize: titleFontSize ?? (p ? 47 : 42), fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK }}>
+                  <div style={{ fontSize: titleFontSize ?? (p ? 36 : 42), fontWeight: 700, marginBottom: 4, color: isLast ? COLORS.WHITE : COLORS.DARK, wordBreak: "break-word" }}>
                       {item.label}
                   </div>
-                  <div style={{ fontSize: descriptionFontSize ?? (p ? 26 : 22), lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED }}>
+                  <div style={{ fontSize: descriptionFontSize ?? (p ? 22 : 22), lineHeight: 1.4, color: isLast ? "rgba(255,255,255,0.8)" : COLORS.MUTED, wordBreak: "break-word" }}>
                       {item.description}
                   </div>
               </div>

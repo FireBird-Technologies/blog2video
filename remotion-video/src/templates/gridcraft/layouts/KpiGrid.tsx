@@ -187,6 +187,8 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
                   aspectRatio: p ? undefined : "1/1",
                   minHeight: p ? 150 : undefined,
                   width: "100%",
+                  minWidth: 0,
+                  overflow: "hidden",
                 }}
               >
                   <div style={{ 
@@ -194,7 +196,9 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
                       fontWeight: 700, 
                       lineHeight: 1, 
                       color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK),
-                      marginBottom: 12
+                      marginBottom: 12,
+                      textAlign: "center",
+                      wordBreak: "break-word",
                     }}>
                       {finalDisplayedValue} {/* Use animated value */}
                   </div>
@@ -205,11 +209,14 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
 
                   <div style={{ 
                       marginTop: 12, 
-                      fontSize: descriptionFontSize ?? (p ? 45 : 39), 
+                      fontSize: descriptionFontSize ?? (p ? 30 : 39), 
                       textTransform: "uppercase", 
                       letterSpacing: "0.1em",
                       opacity: labelOpacity, // Apply label opacity here
-                      color: isAccent ? COLORS.WHITE : COLORS.MUTED
+                      color: isAccent ? COLORS.WHITE : COLORS.MUTED,
+                      textAlign: "center",
+                      wordBreak: "break-word",
+                      maxWidth: "100%",
                    }}>
                       {item.label}
                   </div>
