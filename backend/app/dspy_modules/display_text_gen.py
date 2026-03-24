@@ -45,6 +45,10 @@ class GenerateDisplayText(dspy.Signature):
       "First punchy line here. Second line here."
     - Do NOT prefix with numbers or bullets.
     - Respect template rules above even if narration is long.
+
+    ═══ LANGUAGE RULE (CRITICAL) ═══
+    - content_language is the language of the source content. Generate display_text EXCLUSIVELY in that language.
+    - Do NOT translate to English if the source is in another language.
     """
 
     template_id: str = dspy.InputField(
@@ -58,6 +62,9 @@ class GenerateDisplayText(dspy.Signature):
     visual_description: str = dspy.InputField(
         desc="Visual description for this scene (for extra context when phrasing text)"
     )
+    content_language: str = dspy.InputField(
+        desc="Language of the source content (e.g. 'English', 'Spanish'). Generate display_text in this language."
+    )
 
     display_text: str = dspy.OutputField(
         desc="Final on-screen display text following the template-specific sentence/count rules. Plain text only."
@@ -69,10 +76,11 @@ class DisplayTextGenerator:
     Service for generating template-aware display_text strings for scenes.
     """
 
-    def __init__(self, template_id: str, video_style: str = "explainer"):
+    def __init__(self, template_id: str, video_style: str = "explainer", content_language: str = "English"):
         ensure_dspy_configured()
         self.template_id = (template_id or "default").strip().lower()
         self.video_style = (video_style or "explainer").strip().lower()
+        self.content_language = (content_language or "English").strip()
         self._predictor = dspy.ChainOfThought(GenerateDisplayText)
         self.predictor = dspy.asyncify(self._predictor)
 
@@ -112,6 +120,7 @@ class DisplayTextGenerator:
                     scene_title=title,
                     narration=narration,
                     visual_description=visual,
+                    content_language=self.content_language,
                 )
             )
 

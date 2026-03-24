@@ -51,21 +51,22 @@ export const calculateNewspaperMetadata: CalculateMetadataFunction<VideoProps> =
       const data: VideoData = await res.json();
 
       const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
       const isPortrait = data.aspectRatio === "portrait";
 
+      // Newspaper base resolution: 1280×720 in landscape, 720×1280 in portrait
       return {
         durationInFrames: Math.max(totalFrames, FPS * 5),
         fps: FPS,
-        width: isPortrait ? 1080 : 1920,
-        height: isPortrait ? 1920 : 1080,
+        width: isPortrait ? 720 : 1280,
+        height: isPortrait ? 1280 : 720,
       };
     } catch {
       return {
         durationInFrames: FPS * 300,
         fps: FPS,
-        width: 1920,
-        height: 1080,
+        width: 1280,
+        height: 720,
       };
     }
   };

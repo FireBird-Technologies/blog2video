@@ -9,7 +9,6 @@ import {
   generateSceneImage,
   regenerateScene,
   getValidLayouts,
-  deleteAsset,
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -188,6 +187,8 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "codeLines", label: "Code lines", type: "string_array" },
   ],
   // Spotlight template
+  statement: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
+  word_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
   cascade_list: [{ key: "items", label: "Items", type: "string_array" }],
   rapid_points: [{ key: "phrases", label: "Phrases", type: "string_array" }],
   versus: [
@@ -224,6 +225,23 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   glow_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  // Matrix template
+  terminal_text: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
+  glitch_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
+  fork_choice: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftDescription", label: "Left description", type: "text" },
+    { key: "rightDescription", label: "Right description", type: "text" },
+  ],
+  transmission: [{ key: "phrases", label: "Phrases", type: "string_array", maxItems: 8 }],
+  awakening: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+  ],
+  data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
+  cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
@@ -241,18 +259,22 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "rightDescription", label: "Right description", type: "text" },
     { key: "verdict", label: "Verdict", type: "string" },
   ],
-  bento_features: [{ key: "features", label: "Features", type: "object_array",
-    subFields: [{ key: "icon", label: "Icon", placeholder: "emoji" }, { key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+  bento_features: [
+    { key: "features", label: "Features", type: "object_array",
+      subFields: [{ key: "icon", label: "Icon", placeholder: "emoji" }, { key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 },
+    { key: "highlightIndex", label: "Accent cell index (0-based)", type: "string", placeholder: "0" },
+  ],
   bento_steps: [{ key: "steps", label: "Steps", type: "object_array",
-    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }] }],
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 5 }],
   bento_highlight: [
     { key: "subtitle", label: "Subtitle", type: "string" },
     { key: "mainPoint", label: "Main point", type: "text" },
-    { key: "supportingFacts", label: "Supporting facts", type: "string_array" },
+    { key: "supportingFacts", label: "Supporting facts", type: "string_array", maxItems: 2 },
   ],
   bento_hero: [
-    { key: "tagline", label: "Tagline", type: "string" },
-    { key: "category", label: "Category", type: "string" },
+    { key: "subtitle", label: "Subtitle / tagline", type: "string" },
+    { key: "category", label: "Category", type: "string", placeholder: "e.g. Featured, Census" },
+    { key: "icon", label: "Icon (emoji)", type: "string", placeholder: "e.g. ⚡ 🔒" },
   ],
   pull_quote: [
     { key: "quote", label: "Quote", type: "text" },
@@ -262,9 +284,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   bento_code: [
     { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
     { key: "codeLines", label: "Code lines", type: "string_array" },
+    { key: "description", label: "Code description", type: "text", placeholder: "Short explanation of what the code does" },
   ],
-  kpi_grid: [{ key: "dataPoints", label: "Data points", type: "object_array",
-    subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value" }] }],
+  kpi_grid: [
+    { key: "dataPoints", label: "Data points", type: "object_array",
+      subFields: [
+        { key: "label", label: "Label" },
+        { key: "value", label: "Value", placeholder: "e.g. 97%, 50ms" },
+        { key: "trend", label: "Trend", placeholder: "up, down, or neutral" },
+      ], maxItems: 3 },
+    { key: "highlightIndex", label: "Accent cell index (0-based)", type: "string", placeholder: "0" },
+  ],
   // Whiteboard template
   stats_figures: [{ key: "stats", label: "Key figures", type: "object_array",
     subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "e.g. 50% or 10K+" }], maxItems: 4 }],
@@ -427,6 +457,7 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
+  const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -503,6 +534,7 @@ export default function SceneEditModal({
     const initialDisplay = scene.display_text ?? scene.narration_text ?? "";
     setDisplayText(initialDisplay);
     setAiNarration(scene.narration_text || "");
+    setExtraHoldSeconds(scene.extra_hold_seconds != null ? String(scene.extra_hold_seconds) : "");
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
@@ -581,7 +613,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -724,11 +756,15 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           }
         }
+        const extraHoldVal = parseFloat(extraHoldSeconds.trim());
+        const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
+
         await updateScene(project.id, scene.id, {
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
+          extra_hold_seconds: extraHold,
         });
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
@@ -786,8 +822,28 @@ export default function SceneEditModal({
   const handleRemoveImage = async (assetId: number) => {
     setRemovingAssetId(assetId);
     try {
-      await deleteAsset(project.id, assetId);
+      let descriptor: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          descriptor = JSON.parse(scene.remotion_code);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const layoutProps: Record<string, unknown> = {
+        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+        hideImage: true,
+      };
+      delete layoutProps.assignedImage;
+      descriptor.layoutProps = layoutProps;
+
+      await updateScene(project.id, scene.id, {
+        remotion_code: JSON.stringify(descriptor),
+      });
+      setSelectedImageFile(null);
       onSaved();
+      onClose();
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "response" in err
@@ -952,6 +1008,25 @@ export default function SceneEditModal({
                   className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden"
                   minRows={2}
                 />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                  Extra hold (seconds)
+                </h4>
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  value={extraHoldSeconds}
+                  onChange={(e) => setExtraHoldSeconds(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Add seconds after the voiceover ends so animations can complete before transitioning.
+                </p>
               </div>
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}

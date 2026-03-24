@@ -21,28 +21,77 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames, width, height } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = width / 1920;
   const source = stats?.[0]?.label ?? "";
 
-  // --- Continuous Motion Logic (Unchanged) ---
+  // --- Continuous Motion Logic ---
   const motionProgress = interpolate(frame, [0, 50, durationInFrames], [0, 1, 1.2], {
     extrapolateRight: "clamp",
   });
 
-  const EXIT_START = durationInFrames - 30;
-  const camZ = interpolate(frame, [EXIT_START, durationInFrames], [0, -200], { extrapolateLeft: "clamp" });
-  const camRotX = interpolate(frame, [EXIT_START, durationInFrames], [0, 15], { extrapolateLeft: "clamp" });
-  const camOpacity = interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], { extrapolateLeft: "clamp" });
+  // --- Exit Transition Logic ---
+  const EXIT_TRANSITION_START = durationInFrames - 50; // Shards and text start their exit movement/scale
+  const CONTENT_FADE_START = durationInFrames - 15; // All content fades out
+
+  // Opacity for all content (except the main AbsoluteFill background)
+  const contentOpacity = interpolate(frame, 
+    [CONTENT_FADE_START, durationInFrames], 
+    [1, 0], 
+    { extrapolateLeft: "clamp" }
+  );
 
   // --- Shard Logic: Optimized for Portrait Aspect Ratio ---
-  // In portrait, we increase the width of the shards to ensure full coverage
   const shardWidthFactor = p ? 0.8 : 0.5; 
-  // Modified: Shards now stick at position 0 and rotation 0 after colliding (motionProgress = 1)
-  const leftShardX = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, 0]);
-  const leftShardRot = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, 0]);
+
+  // Intro animation for shards
+  const leftShardX_intro = interpolate(motionProgress, [0, 1, 1.2], [-width, 0, 0], { extrapolateRight: "clamp" });
+  const leftShardRot_intro = interpolate(motionProgress, [0, 1, 1.2], [-15, 0, 0], { extrapolateRight: "clamp" });
   
-  const rightShardX = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 0]);
-  const rightShardRot = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 0]);
+  const rightShardX_intro = interpolate(motionProgress, [0, 1, 1.2], [width, 0, 0], { extrapolateRight: "clamp" });
+  const rightShardRot_intro = interpolate(motionProgress, [0, 1, 1.2], [15, 0, 0], { extrapolateRight: "clamp" });
+
+  // Exit animation for shards: Scale and extra translation/rotation to cover screen
+  const shardScale = interpolate(frame, 
+    [EXIT_TRANSITION_START, durationInFrames], 
+    [1, 4], // Scale up significantly to ensure full coverage
+    { extrapolateLeft: "clamp" }
+  );
+
+  const leftShardExitTranslateX = interpolate(frame, 
+    [EXIT_TRANSITION_START, durationInFrames], 
+    [0, -width * 0.7], // Push left shard further left
+    { extrapolateLeft: "clamp" }
+  );
+
+  const rightShardExitTranslateX = interpolate(frame, 
+    [EXIT_TRANSITION_START, durationInFrames], 
+    [0, width * 0.7], // Push right shard further right
+    { extrapolateLeft: "clamp" }
+  );
+
+  const leftShardExitRotate = interpolate(frame, 
+    [EXIT_TRANSITION_START, durationInFrames], 
+    [0, -30], 
+    { extrapolateLeft: "clamp" }
+  );
+
+  const rightShardExitRotate = interpolate(frame, 
+    [EXIT_TRANSITION_START, durationInFrames], 
+    [0, 30], 
+    { extrapolateLeft: "clamp" }
+  );
+
+  // Combine intro and exit transforms for shards
+  const finalLeftShardTransform = `
+    translateX(${leftShardX_intro + leftShardExitTranslateX}px) 
+    rotate(${leftShardRot_intro + leftShardExitRotate}deg) 
+    scale(${shardScale})
+  `;
+
+  const finalRightShardTransform = `
+    translateX(${rightShardX_intro + rightShardExitTranslateX}px) 
+    rotate(${rightShardRot_intro + rightShardExitRotate}deg) 
+    scale(${shardScale})
+  `;
 
   // UI Animations
   const barH = interpolate(frame, [0, 18], [0, 100], { extrapolateRight: "clamp" });
@@ -56,18 +105,31 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
   const attrOp = interpolate(frame, [50, 64], [0, 1], { extrapolateRight: "clamp" });
   const sourceOp = interpolate(frame, [58, 72], [0, 1], { extrapolateRight: "clamp" });
 
+  // --- New: Content exit scale for text zoom ---
+  const contentExitScale = interpolate(frame,
+    [EXIT_TRANSITION_START, durationInFrames],
+    [1, 4], // Scale up at the same rate as shards
+    { extrapolateLeft: "clamp" }
+  );
+
+  // --- New: Content blur for text exit ---
+  const contentBlur = interpolate(frame,
+    [EXIT_TRANSITION_START, durationInFrames],
+    [0, 10], // From 0px blur to 10px blur
+    { extrapolateLeft: "clamp" }
+  );
+
   return (
     <AbsoluteFill style={{ 
       overflow: "hidden", 
       fontFamily: fontFamily ?? B_FONT, 
-      backgroundColor: "#000",
+      backgroundColor: bgColor,
       perspective: "1200px" 
     }}>
       <div style={{
         width: "100%",
         height: "100%",
-        opacity: camOpacity,
-        transform: `translateZ(${camZ}px) rotateX(${camRotX}deg)`,
+        opacity: contentOpacity,
         transformStyle: "preserve-3d"
       }}>
         <NewsBackground bgColor={bgColor} />
@@ -80,7 +142,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             zIndex: 2,
         }} />
 
-        {/* Shards: Width adjusted for aspect ratio */}
+        {/* Shards: Width adjusted for aspect ratio, applying combined transform */}
         <img
           src={staticFile("vintage-news.avif")}
           alt=""
@@ -92,7 +154,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             height: "100%",
             objectFit: "cover",
             opacity: 0.35,
-            transform: `translateX(${leftShardX}px) rotate(${leftShardRot}deg)`,
+            transform: finalLeftShardTransform,
             zIndex: 1,
           }}
         />
@@ -108,7 +170,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
             height: "100%",
             objectFit: "cover",
             opacity: 0.35,
-            transform: `translateX(${rightShardX}px) rotate(${rightShardRot}deg)`,
+            transform: finalRightShardTransform,
             zIndex: 1,
           }}
         />
@@ -122,24 +184,25 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
           justifyContent: "center",
           padding: p ? "10% 10%" : "6% 10%",
           zIndex: 3,
-          transform: "translateZ(80px)" 
+          transform: `translateZ(80px) scale(${contentExitScale})`, // Added contentExitScale for text zoom
+          filter: `blur(${contentBlur}px)`, // Added blur filter
         }}>
           <div style={{ 
             display: "flex", 
-            flexDirection: "row", // Keep horizontal to maintain quote-bar relationship
-            gap: p ? 24 * scale : 32 * scale,
+            flexDirection: "row", 
+            gap: p ? 24 : 32,
             alignItems: "flex-start",
-            maxWidth: p ? width * 0.9 : 1000 * scale,
+            maxWidth: p ? width * 0.9 : 1000,
             width: "100%" 
           }}>
             {/* Accent Bar */}
             <div style={{
-              width: p ? 10 * scale : 8 * scale,
+              width: p ? 10 : 8,
               flexShrink: 0,
               background: accentColor,
               alignSelf: "stretch",
               clipPath: `inset(0 0 ${100 - barH}% 0)`,
-              minHeight: p ? 120 * scale : 80 * scale,
+              minHeight: p ? 120 : 80,
               borderRadius: 4,
             }} />
 
@@ -147,13 +210,13 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Quote Mark */}
               <div style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: p ? 140 * scale : 120 * scale, // Huge quote marks for portrait impact
+                fontSize: p ? 140 : 120, 
                 lineHeight: 0.5,
                 color: accentColor,
                 opacity: quoteMarkOp,
                 transform: `scale(${quoteMarkS})`,
                 transformOrigin: "left top",
-                marginBottom: p ? 20 * scale : 15 * scale,
+                marginBottom: p ? 20 : 15,
               }}>
                 &#8220;
               </div>
@@ -161,11 +224,11 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               {/* Main Quote Text */}
               <div style={{
                 fontFamily: fontFamily ?? H_FONT,
-                fontSize: titleFontSize ?? (p ? 58 * scale : 64 * scale), // Adjusted for readability on mobile
+                fontSize: titleFontSize ?? (p ? 90 : 71), 
                 fontWeight: 600,
                 lineHeight: 1.25,
                 color: textColor,
-                marginBottom: 40 * scale,
+                marginBottom: 40,
                 letterSpacing: p ? "-0.02em" : "normal",
               }}>
                 {words.slice(0, visWords).join(" ")}
@@ -186,10 +249,10 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
               <div style={{ opacity: attrOp }}>
                 <div style={{ 
                     fontFamily: fontFamily ?? B_FONT, 
-                    fontSize: descriptionFontSize ?? (p ? 32 * scale : 36 * scale),
+                    fontSize: descriptionFontSize ?? (p ? 27 : 23),
                     fontWeight: 800, 
                     color: textColor, 
-                    marginBottom: 8 * scale,
+                    marginBottom: 8,
                     textTransform: "uppercase",
                     letterSpacing: "0.05em"
                 }}>
@@ -198,7 +261,7 @@ export const PullQuote: React.FC<BlogLayoutProps> = ({
                 {source && (
                   <div style={{ 
                     fontFamily: fontFamily ?? B_FONT, 
-                    fontSize: 18 * scale,
+                    fontSize: 18,
                     fontWeight: 600, 
                     color: textColor, 
                     opacity: sourceOp * 0.7 

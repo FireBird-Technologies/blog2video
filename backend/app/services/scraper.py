@@ -15,6 +15,9 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.asset import Asset, AssetType
 from app.services import r2_storage
+from app.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Browser headers for image downloads and fallback scraping
 _BROWSER_HEADERS = {
@@ -53,12 +56,28 @@ def scrape_blog(project: Project, db: Session) -> Project:
         try:
             text, image_urls = _scrape_with_firecrawl(url)
             if text and len(text.strip()) >= _MIN_CONTENT_LENGTH:
-                print(f"[SCRAPER] Firecrawl succeeded ({len(text)} chars, {len(image_urls)} images)")
+                logger.info(
+                    "[SCRAPER] Firecrawl succeeded (%s chars, %s images) for project %s",
+                    len(text),
+                    len(image_urls),
+                    project.id,
+                    extra={"project_id": project.id, "user_id": project.user_id},
+                )
             else:
-                print(f"[SCRAPER] Firecrawl returned thin content ({len(text.strip())} chars), trying requests...")
+                logger.info(
+                    "[SCRAPER] Firecrawl returned thin content (%s chars), trying requests... (project %s)",
+                    len(text.strip()),
+                    project.id,
+                    extra={"project_id": project.id, "user_id": project.user_id},
+                )
                 text = ""
         except Exception as e:
-            print(f"[SCRAPER] Firecrawl failed: {e}, trying requests...")
+            logger.warning(
+                "[SCRAPER] Firecrawl failed for project %s: %s, trying requests...",
+                project.id,
+                e,
+                extra={"project_id": project.id, "user_id": project.user_id},
+            )
 
     # ── Step 2: requests + BeautifulSoup (free fallback) ──
     if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
@@ -67,11 +86,27 @@ def scrape_blog(project: Project, db: Session) -> Project:
             if req_text and len(req_text.strip()) >= _MIN_CONTENT_LENGTH:
                 text = req_text
                 image_urls = req_images
-                print(f"[SCRAPER] requests succeeded ({len(text)} chars, {len(image_urls)} images)")
+                logger.info(
+                    "[SCRAPER] requests succeeded (%s chars, %s images) for project %s",
+                    len(text),
+                    len(image_urls),
+                    project.id,
+                    extra={"project_id": project.id, "user_id": project.user_id},
+                )
             else:
-                print(f"[SCRAPER] requests returned thin content ({len(req_text.strip())} chars), trying Exa...")
+                logger.info(
+                    "[SCRAPER] requests returned thin content (%s chars), trying Exa... (project %s)",
+                    len(req_text.strip()),
+                    project.id,
+                    extra={"project_id": project.id, "user_id": project.user_id},
+                )
         except Exception as e:
-            print(f"[SCRAPER] requests failed: {e}, trying Exa...")
+            logger.warning(
+                "[SCRAPER] requests failed for project %s: %s, trying Exa...",
+                project.id,
+                e,
+                extra={"project_id": project.id, "user_id": project.user_id},
+            )
 
     # ── Step 3: Exa with livecrawl (last resort) ──
     if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.EXA_API_KEY:
@@ -80,9 +115,20 @@ def scrape_blog(project: Project, db: Session) -> Project:
             if exa_text and len(exa_text.strip()) >= _MIN_CONTENT_LENGTH:
                 text = exa_text
                 image_urls = exa_images
-                print(f"[SCRAPER] Exa succeeded ({len(text)} chars, {len(image_urls)} images)")
+                logger.info(
+                    "[SCRAPER] Exa succeeded (%s chars, %s images) for project %s",
+                    len(text),
+                    len(image_urls),
+                    project.id,
+                    extra={"project_id": project.id, "user_id": project.user_id},
+                )
         except Exception as e:
-            print(f"[SCRAPER] Exa failed: {e}")
+            logger.warning(
+                "[SCRAPER] Exa failed for project %s: %s",
+                project.id,
+                e,
+                extra={"project_id": project.id, "user_id": project.user_id},
+            )
 
     if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
         raise ValueError(
@@ -95,6 +141,10 @@ def scrape_blog(project: Project, db: Session) -> Project:
 
     # Update project
     project.blog_content = text
+    # Only set content_language if not already set (preserve user's explicit choice)
+    if not (getattr(project, "content_language", None) or "").strip():
+        from app.services.language_detection import detect_content_language
+        project.content_language = detect_content_language(text)
     project.status = ProjectStatus.SCRAPED
     db.commit()
     db.refresh(project)
@@ -133,7 +183,10 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
     # If Exa returned very little content, the page might be paywalled/JS-rendered.
     # Retry with livecrawl="always" to force a fresh headless crawl.
     if len(html_text.strip()) < 500:
-        print(f"[SCRAPER] Exa returned thin content ({len(html_text)} chars), retrying with forced livecrawl...")
+        logger.info(
+            "[SCRAPER] Exa returned thin content (%s chars), retrying with forced livecrawl...",
+            len(html_text),
+        )
         try:
             result2 = exa.get_contents(
                 urls=[url],
@@ -145,9 +198,15 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
             if result2.results and len((result2.results[0].text or "").strip()) > len(html_text.strip()):
                 page = result2.results[0]
                 html_text = page.text or ""
-                print(f"[SCRAPER] Forced livecrawl got {len(html_text)} chars (better)")
+                logger.info(
+                    "[SCRAPER] Forced livecrawl got %s chars (better)",
+                    len(html_text),
+                )
         except Exception as e2:
-            print(f"[SCRAPER] Forced livecrawl failed (using cached): {e2}")
+            logger.warning(
+                "[SCRAPER] Forced livecrawl failed (using cached): %s",
+                e2,
+            )
 
     # --- Parse Exa's HTML (already scoped to article content) ---
     soup_exa = BeautifulSoup(html_text, "lxml") if "<" in html_text else None

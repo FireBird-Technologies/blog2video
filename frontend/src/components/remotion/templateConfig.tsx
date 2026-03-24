@@ -66,6 +66,9 @@ export interface TemplateConfig {
   validLayouts: ReadonlySet<string>;
   /** Default colors when project has no overrides */
   defaultColors: TemplateColors;
+  /** Base canvas resolution for this template in landscape (width x height). Portrait swaps these. */
+  baseWidth: number;
+  baseHeight: number;
 }
 
 const DEFAULT_LAYOUTS = new Set([
@@ -173,6 +176,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#FFFFFF",
       text: "#000000",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
   nightfall: {
     component: NightfallVideoComposition as React.ComponentType<any>,
@@ -184,6 +189,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#0A0A1A",
       text: "#E2E8F0",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
   gridcraft: {
     component: GridcraftVideoComposition as React.ComponentType<any>,
@@ -195,6 +202,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#FAFAFA",
       text: "#171717",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
   spotlight: {
     component: SpotlightVideoComposition as React.ComponentType<any>,
@@ -206,6 +215,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#000000",
       text: "#FFFFFF",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
   matrix: {
     component: MatrixVideoComposition as React.ComponentType<any>,
@@ -217,6 +228,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#000000",
       text: "#00FF41",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
   whiteboard: {
     component: WhiteboardVideoComposition as React.ComponentType<any>,
@@ -228,6 +241,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#F7F3E8",
       text: "#111827",
     },
+    baseWidth: 1280,
+    baseHeight: 720,
   },
   newspaper: {
     component: NewspaperVideoComposition as React.ComponentType<any>,
@@ -239,6 +254,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#FAFAF8",
       text: "#111111",
     },
+    baseWidth: 1280,
+    baseHeight: 720,
   },
   custom: {
     component: CustomVideoComposition as React.ComponentType<any>,
@@ -250,6 +267,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       bg: "#FFFFFF",
       text: "#1A1A2E",
     },
+    baseWidth: 1920,
+    baseHeight: 1080,
   },
 };
 

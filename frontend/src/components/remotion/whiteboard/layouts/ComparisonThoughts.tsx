@@ -66,7 +66,11 @@ interface ThoughtBubbleProps {
 }
 
 function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
-  const fontSize = descriptionFontSize ?? (isPortrait ? 22 : 26);
+  // Reduce text size in bubble: Cap the font size for the bubble text
+  const baseBubbleFontSize = isPortrait ? 22 : 26;
+  const maxBubbleFontSize = isPortrait ? 28 : 30; // Max font size for text inside the bubble
+  const fontSize = Math.min(descriptionFontSize ?? baseBubbleFontSize, maxBubbleFontSize);
+
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
   const vbW = isPortrait ? 260 : 300;
@@ -205,7 +209,11 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
     const footY = 155;
 
     return (
-      <svg viewBox="0 0 100 160" style={{ width: p ? "48%" : "36%", maxWidth: 240, height: "auto", overflow: "visible" }} fill="none">
+      <svg viewBox="0 0 100 160" 
+        // Reduce the sizes of the stickman for both landscape and portrait mode
+        style={{ width: p ? "38%" : "28%", maxWidth: 180, height: "auto", overflow: "visible" }} 
+        fill="none"
+      >
         <defs>
           <filter id={`inkFig${seed}`} x="-20%" y="-20%" width="140%" height="140%">
             <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
@@ -268,7 +276,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 50 : 62),
+              fontSize: titleFontSize ?? (p ? 62 : 61),
               lineHeight: 1.1,
               filter: "url(#ink)",
             }}
@@ -280,7 +288,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               style={{
                 marginTop: 8,
                 color: textColor,
-                fontSize: descriptionFontSize ?? (p ? 26 : 28),
+                fontSize: descriptionFontSize ?? (p ? 20 : 20),
                 opacity: 0.88,
                 filter: "url(#ink)",
                 maxWidth: p ? "92%" : "auto",

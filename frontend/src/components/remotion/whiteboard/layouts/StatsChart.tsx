@@ -103,7 +103,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 54 : 72),
+              fontSize: titleFontSize ?? (p ? 72 : 69),
               lineHeight: 1.1,
               marginBottom: 16,
               filter: "url(#ink)",
@@ -116,7 +116,7 @@ export const StatsChart: React.FC<WhiteboardLayoutProps> = ({
           <div
             style={{
               color: textColor,
-              fontSize: descriptionFontSize ?? (p ? 24 : 30),
+              fontSize: descriptionFontSize ?? (p ? 31 : 23),
               opacity: 0.9,
               maxWidth: p ? "90%" : 640,
               filter: "url(#ink)",

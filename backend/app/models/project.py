@@ -57,6 +57,11 @@ class Project(Base):
     # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
+    # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
+    # All generated content (script, display text, voiceover) is produced in this language.
+    # Null = auto-detect from blog_content when needed. Later: user choice / translate option.
+    content_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
     
@@ -77,3 +82,4 @@ class Project(Base):
     chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan", order_by="ChatMessage.created_at")
     project_edit_history = relationship("ProjectEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
+    reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")

@@ -22,31 +22,22 @@ def ensure_free_voices_for_user(db: Session, user_id: int) -> None:
         .order_by(PrebuiltVoice.name)
         .all()
     )
+    row_by_id = {r.voice_id: r for r in rows}
 
-    if rows:
-        for r in rows:
-            db.add(
-                SavedVoice(
-                    user_id=user_id,
-                    voice_id=r.voice_id,
-                    name=r.name,
-                    preview_url=r.preview_url,
-                    source="prebuilt",
-                    plan=r.plan,
-                    description=r.description,
-                )
+    # Always seed exactly the 4 configured free IDs in fallback-defined order.
+    for item in FREE_PREMADE_FALLBACK:
+        vid = item["voice_id"]
+        row = row_by_id.get(vid)
+        db.add(
+            SavedVoice(
+                user_id=user_id,
+                voice_id=vid,
+                name=(row.name if row else item["name"]),
+                preview_url=(row.preview_url if row else None),
+                source="prebuilt",
+                plan="free",
+                description=(row.description if row else None),
             )
-    else:
-        for item in FREE_PREMADE_FALLBACK:
-            db.add(
-                SavedVoice(
-                    user_id=user_id,
-                    voice_id=item["voice_id"],
-                    name=item["name"],
-                    preview_url=None,
-                    source="prebuilt",
-                    plan="free",
-                )
-            )
+        )
 
     db.commit()

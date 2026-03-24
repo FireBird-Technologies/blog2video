@@ -15,7 +15,7 @@ export default function ScriptPanel({ scenes, projectName }: Props) {
   }
 
   const totalDuration = scenes.reduce(
-    (sum, s) => sum + s.duration_seconds,
+    (sum, s) => sum + s.duration_seconds + (s.extra_hold_seconds ?? 0),
     0
   );
 
@@ -38,7 +38,9 @@ export default function ScriptPanel({ scenes, projectName }: Props) {
           >
             <div className="flex items-center gap-3 mb-2">
               <h3 className="text-sm font-medium text-gray-900">{scene.title}</h3>
-              <span className="text-[11px] text-gray-300">{scene.duration_seconds}s</span>
+              <span className="text-[11px] text-gray-300">
+                {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
+              </span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mb-2">
               {/* Script panel shows the narration text (voiceover script), not the shorter display text */}

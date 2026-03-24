@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import AccountDeletedModal from "../components/AccountDeletedModal";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
+// import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
   const { user, login } = useAuth();
@@ -18,6 +20,9 @@ export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     "monthly"
   );
+  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
@@ -26,7 +31,28 @@ export default function Pricing() {
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
+        setPendingCredential(response.credential);
+        setAccountDeletedOpen(true);
+      } else {
+        showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      }
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!pendingCredential) return;
+    setReactivating(true);
+    try {
+      const res = await googleLogin(pendingCredential, true);
+      login(res.data.access_token, res.data.user);
+      setAccountDeletedOpen(false);
+      setPendingCredential(null);
+      navigate("/dashboard");
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Failed to reactivate account."));
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -111,6 +137,10 @@ export default function Pricing() {
           </p>
         </div>
       </div>
+      
+      {/* <div className="flex justify-center">
+        <DiscountCodeBadge className="md:hidden" />
+      </div> */}
 
       {/* Billing toggle */}
       <div className="flex items-center justify-center gap-3 py-6">
@@ -216,7 +246,7 @@ export default function Pricing() {
               <p className="text-sm text-gray-400">Pay as you go</p>
             </div>
             <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">$5</span>
+              <span className="text-4xl font-bold text-gray-900">$3</span>
               <span className="text-sm text-gray-400 ml-1">/video</span>
             </div>
             <ul className="space-y-3 mb-8 flex-1">
@@ -536,7 +566,7 @@ export default function Pricing() {
             </thead>
             <tbody>
               {[
-                { feature: "Price", free: "$0", perVideo: "$5/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
+                { feature: "Price", free: "$0", perVideo: "$3/video", standard: isAnnual ? "$20/mo" : "$25/mo", pro: isAnnual ? "$40/mo" : "$50/mo", customized: "Custom" },
                 { feature: "Videos", free: "First video free", perVideo: "Unlimited", standard: "30/month", pro: "100/month", customized: "Custom" },
                 { feature: "AI script generation", free: true, perVideo: true, standard: true, pro: true, customized: true },
                 { feature: "ElevenLabs voiceover", free: true, perVideo: true, standard: true, pro: true, customized: true },
@@ -667,6 +697,13 @@ export default function Pricing() {
       </div>
 
       <PublicFooter />
+
+      <AccountDeletedModal
+        open={accountDeletedOpen}
+        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
+        onReactivate={handleReactivate}
+        reactivating={reactivating}
+      />
     </div>
   );
 }

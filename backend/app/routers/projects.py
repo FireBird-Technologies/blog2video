@@ -4,7 +4,7 @@ import shutil
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from sqlalchemy import func, text, inspect
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,20 +12,25 @@ from app.auth import get_current_user
 from app.config import settings
 from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
+from app.models.review import Review
 from app.models.scene import Scene
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
-    SceneOut, SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest, SceneTypographyBulkUpdate, ProjectUpdate
+    ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
+    SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
+    SceneTypographyBulkUpdate, ProjectUpdate
 )
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
+from app.services.language_detection import normalize_preferred_language_code
+from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _inject_custom_theme(project: Project) -> Project:
@@ -37,6 +42,52 @@ def _inject_custom_theme(project: Project) -> Project:
     else:
         project.custom_theme = None
         project.custom_template_missing = False
+    return project
+
+
+def _is_preview_ready(project: Project) -> bool:
+    return project.status in (ProjectStatus.GENERATED, ProjectStatus.DONE)
+
+
+def _get_project_sequence(project: Project, user: User, db: Session) -> int:
+    earlier_projects = (
+        db.query(func.count(Project.id))
+        .filter(
+            Project.user_id == user.id,
+            (
+                (Project.created_at < project.created_at)
+                | ((Project.created_at == project.created_at) & (Project.id < project.id))
+            ),
+        )
+        .scalar()
+        or 0
+    )
+    return int(earlier_projects) + 1
+
+
+def _build_review_state(project: Project, user: User, db: Session) -> ReviewStateOut:
+    has_review_for_project = (
+        db.query(Review.id)
+        .filter(Review.user_id == user.id, Review.project_id == project.id)
+        .first()
+        is not None
+    )
+    project_sequence = _get_project_sequence(project, user, db)
+
+    return ReviewStateOut(
+        project_sequence=project_sequence,
+        has_review_for_project=has_review_for_project,
+        should_show_inline=bool(
+            _is_preview_ready(project)
+            and not has_review_for_project
+            and project_sequence > 1
+        ),
+    )
+
+
+def _prepare_project_response(project: Project, user: User, db: Session) -> Project:
+    _inject_custom_theme(project)
+    project.review_state = _build_review_state(project, user, db)
     return project
 
 # ─── Constants ────────────────────────────────────────────
@@ -62,6 +113,29 @@ def _normalize_video_style(video_style: str | None) -> str:
             detail="video_style must be one of: explainer, promotional, storytelling",
         )
     return style
+
+
+def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
+    """Normalize accent values to fit projects.voice_accent (VARCHAR(10))."""
+    raw = (voice_accent or "").strip().lower()
+    if not raw:
+        return "american"
+
+    # Common frontend/API variants
+    aliases = {
+        "en-american": "american",
+        "en_us": "american",
+        "en-us": "american",
+        "us": "american",
+        "en-british": "british",
+        "en_uk": "british",
+        "en-uk": "british",
+        "uk": "british",
+    }
+    normalized = aliases.get(raw, raw)
+
+    # Safety net: never exceed DB column length.
+    return normalized[:10]
 
 
 @router.post("", response_model=ProjectOut)
@@ -96,7 +170,7 @@ def create_project(
         blog_url=data.blog_url,
         template=template_id,
         voice_gender=data.voice_gender or "female",
-        voice_accent=data.voice_accent or "american",
+        voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -107,6 +181,7 @@ def create_project(
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        content_language=normalize_preferred_language_code(data.content_language),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -115,7 +190,7 @@ def create_project(
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.patch("/{project_id}/update-project", response_model=ProjectOut)
@@ -136,6 +211,8 @@ def update_project(
             continue
         if field == "font_family":
             update_data[field] = value  # allow nulling or changing
+        elif field == "content_language":
+            update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         else:
             if value is not None:
                 update_data[field] = value
@@ -156,7 +233,7 @@ def update_project(
 
     db.commit()
     db.refresh(project)
-    return project
+    return _prepare_project_response(project, user, db)
 
 
 
@@ -185,7 +262,12 @@ def _apply_logo_to_project(
             project.logo_r2_key = r2_key
             project.logo_r2_url = r2_url
         except Exception as e:
-            print(f"[PROJECTS] Logo R2 upload failed for project {project_id}: {e}")
+            logger.error(
+                "[PROJECTS] Logo R2 upload failed for project %s: %s",
+                project_id,
+                e,
+                extra={"project_id": project_id, "user_id": user_id},
+            )
             project.logo_r2_key = None
             project.logo_r2_url = None
     if not project.logo_r2_url:
@@ -280,7 +362,7 @@ def create_projects_bulk(
             blog_url=data.blog_url.strip(),
             template=template_id,
             voice_gender=data.voice_gender or "female",
-            voice_accent=data.voice_accent or "american",
+            voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -291,6 +373,7 @@ def create_projects_bulk(
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
+            content_language=normalize_preferred_language_code(data.content_language),
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -310,7 +393,12 @@ def create_projects_bulk(
         try:
             _apply_logo_to_project(p.id, user.id, raw_bytes, content_type, filename, request, db)
         except Exception as e:
-            print(f"[PROJECTS] Bulk logo apply failed for project {p.id}: {e}")
+            logger.error(
+                "[PROJECTS] Bulk logo apply failed for project %s: %s",
+                p.id,
+                e,
+                extra={"project_id": p.id, "user_id": user.id},
+            )
     return BulkCreateResponse(project_ids=project_ids)
 
 
@@ -331,6 +419,7 @@ def create_project_from_upload(
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
+    content_language: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -374,14 +463,19 @@ def create_project_from_upload(
         )
     colors = get_preview_colors(template_id)
     normalized_video_style = _normalize_video_style(video_style)
-    print(f"[PROJECTS] Creating project from upload: template='{template}', validated='{template_id}'")
+    logger.info(
+        "[PROJECTS] Creating project from upload: template='%s', validated='%s'",
+        template,
+        template_id,
+        extra={"user_id": user.id},
+    )
     project = Project(
         user_id=user.id,
         name=project_name,
         blog_url="upload://documents",
         template=template_id,
         voice_gender=voice_gender or "female",
-        voice_accent=voice_accent or "american",
+        voice_accent=_normalize_voice_accent_for_db(voice_accent),
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=text_color or (colors.get("text") if colors else None) or "#000000",
@@ -391,24 +485,36 @@ def create_project_from_upload(
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        content_language=normalize_preferred_language_code(content_language),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
     user.videos_used_this_period += 1
     db.commit()
     db.refresh(project)
-    print(f"[PROJECTS] Project {project.id} created with template='{project.template}', video_style='{project.video_style}'")
+    logger.info(
+        "[PROJECTS] Project %s created with template='%s', video_style='%s'",
+        project.id,
+        project.template,
+        project.video_style,
+        extra={"project_id": project.id, "user_id": user.id},
+    )
 
     # ── Extract text + images from documents ────────────────
     try:
         project = extract_from_documents(project, files, db)
     except Exception as e:
-        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        logger.error(
+            "[PROJECTS] Document extraction failed for project %s: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
         project.status = ProjectStatus.ERROR
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.post("/{project_id}/upload-documents", response_model=ProjectOut)
@@ -448,12 +554,17 @@ def upload_documents_to_project(
     try:
         project = extract_from_documents(project, files, db)
     except Exception as e:
-        print(f"[PROJECTS] Document extraction failed for project {project.id}: {e}")
+        logger.error(
+            "[PROJECTS] Document extraction failed for project %s: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
         project.status = ProjectStatus.ERROR
         db.commit()
         raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
 
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
 
 
 @router.post("/{project_id}/logo")
@@ -524,7 +635,42 @@ def get_project(
 ):
     """Get a single project with all its scenes and assets."""
     project = _get_user_project(project_id, user.id, db)
-    return _inject_custom_theme(project)
+    return _prepare_project_response(project, user, db)
+
+
+@router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
+def submit_project_review(
+    project_id: int,
+    payload: ReviewSubmit,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    project_sequence = _get_project_sequence(project, user, db)
+
+    review = (
+        db.query(Review)
+        .filter(Review.user_id == user.id, Review.project_id == project.id)
+        .first()
+    )
+    if review is None:
+        review = Review(user_id=user.id, project_id=project.id)
+        db.add(review)
+
+    review.rating = payload.rating
+    review.suggestion = payload.suggestion
+    review.source = payload.source
+    review.trigger_event = payload.trigger_event
+    review.project_sequence = project_sequence
+    review.plan_at_submission = user.plan.value if hasattr(user.plan, "value") else str(user.plan)
+
+    db.commit()
+    db.refresh(review)
+
+    return ReviewSubmitResponse(
+        review=ReviewOut.model_validate(review),
+        review_state=_build_review_state(project, user, db),
+    )
 
 
 @router.delete("/{project_id}")
@@ -571,7 +717,7 @@ def update_project_logo(
         project.logo_opacity = data.logo_opacity
     db.commit()
     db.refresh(project)
-    return project
+    return _prepare_project_response(project, user, db)
 
 
 @router.patch("/{project_id}/assets/{asset_id}/exclude")
@@ -669,12 +815,22 @@ def delete_asset(
         try:
             os.remove(local_path)
         except OSError as e:
-            print(f"[PROJECTS] Failed to remove local file {local_path}: {e}")
+            logger.warning(
+                "[PROJECTS] Failed to remove local file %s: %s",
+                local_path,
+                e,
+                extra={"project_id": project_id, "user_id": user.id},
+            )
     if r2_key:
         try:
             r2_storage.delete_file(r2_key)
         except Exception as e:
-            print(f"[PROJECTS] R2 delete failed for {r2_key}: {e}")
+            logger.warning(
+                "[PROJECTS] R2 delete failed for %s: %s",
+                r2_key,
+                e,
+                extra={"project_id": project_id, "user_id": user.id},
+            )
 
     # Rebuild workspace so data.json reflects the deleted asset and
     # updated hideImage flags immediately.
@@ -689,7 +845,12 @@ def delete_asset(
         )
         rebuild_workspace(project, all_scenes, db)
     except Exception as e:
-        print(f"[PROJECTS] Warning: workspace rebuild after asset deletion failed: {e}")
+        logger.warning(
+            "[PROJECTS] Warning: workspace rebuild after asset deletion failed for project %s: %s",
+            project_id,
+            e,
+            extra={"project_id": project_id, "user_id": user.id},
+        )
 
     return {"detail": "Asset deleted"}
 
@@ -699,6 +860,7 @@ MANUAL_TRACKED_FIELDS = {
     "display_text",
     "remotion_code",
     "narration_text",
+    "extra_hold_seconds",
 }
 
 
@@ -1375,6 +1537,8 @@ async def regenerate_scene(
             has_lc = "layoutConfig" in current_descriptor
             print(f"[REGENERATE] current descriptor: has_layoutConfig={has_lc}, keys={list(current_descriptor.keys())}")
 
+        from app.services.language_detection import get_content_language_for_project
+        content_language = get_content_language_for_project(project)
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
             narration=scene.narration_text or "",
@@ -1384,6 +1548,7 @@ async def regenerate_scene(
             other_scenes_layouts=other_scenes_layouts,
             preferred_layout=effective_layout,
             current_descriptor=current_descriptor,
+            content_language=content_language,
         )
 
         # Preserve image assignment from old descriptor into the new one.
@@ -1492,9 +1657,11 @@ async def regenerate_scene(
     narration_source = (scene.narration_text or "").strip()
     if should_regenerate_voiceover and narration_source:
         from app.dspy_modules.voiceover_expand import expand_narration_to_voiceover
+        from app.services.language_detection import get_content_language_for_project
         video_style = getattr(project, "video_style", None) or "explainer"
+        content_language = get_content_language_for_project(project)
         expanded_voiceover = await expand_narration_to_voiceover(
-            narration_source, scene.title, video_style=video_style
+            narration_source, scene.title, video_style=video_style, content_language=content_language
         )
 
         original_narration = scene.narration_text

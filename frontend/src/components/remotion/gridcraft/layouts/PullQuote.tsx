@@ -31,6 +31,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const sansFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
   const serifFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY;
+  const quoteFontFamily = p ? sansFontFamily : serifFontFamily;
 
   const highlightWords = (highlightPhrase || "").split(" ").map(w => w.toLowerCase().replace(/[.,!?;:]/g, ""));
 
@@ -97,7 +98,7 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
         justifyContent: "center",
         padding: "5%",
         gap: hasImage ? (p ? 24 : 32) : 0,
-        fontFamily: serifFontFamily,
+        fontFamily: quoteFontFamily,
         position: "relative",
       }}
     >
@@ -123,6 +124,8 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
           alignItems: "center",
           justifyContent: "center",
           flex: hasImage && !p ? 1 : "none",
+          minWidth: 0,
+          maxWidth: "100%",
         }}
       >
         {/* Opening quotation mark */}
@@ -151,7 +154,9 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
             color: COLORS.DARK,
             fontWeight: 600,
             zIndex: 1,
-            maxWidth: "90%",
+            maxWidth: "100%",
+            minWidth: 0,
+            wordBreak: "break-word",
           }}
         >
           {words.map((w, i) => {

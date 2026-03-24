@@ -4,6 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import App from "./App";
 import "./index.css";
+import { initFrontendOtel } from "./observability/otel";
+
+// Initialize frontend OpenTelemetry before rendering
+initFrontendOtel();
 
 // Google Client ID is loaded from backend config at runtime.
 // For initial render we use a placeholder; the Landing page fetches the real one.
