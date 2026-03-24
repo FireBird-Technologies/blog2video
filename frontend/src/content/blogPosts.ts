@@ -17,6 +17,162 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "translate-blog-to-video-in-any-language",
+    title: "How to Turn Any Blog Post into a Video in 39 Languages",
+    description:
+      "Blog2Video auto-detects the language of your content and generates the entire video — script, narration, and on-screen text — in that language. Override it manually to translate an English blog into a Spanish, Hindi, Arabic, or Japanese video in one step.",
+    category: "Feature",
+    heroImage: "/blog/blog-cover-multilingual.png",
+    heroImageAlt: "A single blog post URL generating video output in Spanish, Hindi, Arabic, and Japanese side by side.",
+    publishedAt: "2026-03-24",
+    readTime: "5 min read",
+    heroEyebrow: "Multilingual Video Generation",
+    heroTitle: "Your blog is already written. Now make it reach audiences in their own language.",
+    heroDescription:
+      "Blog2Video supports 39 languages with automatic detection and a one-click override. Paste an English URL, select Spanish, and every word of the video — script, narration, captions — comes out in Spanish. No separate translation step, no extra tool.",
+    primaryKeyword: "translate blog to video",
+    keywordVariant: "multilingual video generation from blog post",
+    relatedPaths: [
+      "/multilingual-video-generation",
+      "/bulk-blog-to-video",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Why most blog-to-video tools fail non-English creators",
+        paragraphs: [
+          "Most AI video tools are built English-first. Feed them a Hindi or Arabic article and they either translate everything into English before processing or produce broken output with mismatched scripts. The narration ends up in English while the display text is in the original language, or vice versa. The result is a video nobody wants to publish.",
+          "Blog2Video treats language as a first-class input. Before a single scene is generated, the system identifies the language of your content and uses that language for everything — the script, the scene titles, the narration text, and the on-screen captions. No post-processing. No secondary translation API. No mismatches.",
+        ],
+        bullets: [
+          "Auto-detection runs before generation, not after",
+          "All output — script, narration, display text — uses the same language",
+          "Right-to-left scripts (Arabic, Urdu, Hebrew, Persian) render correctly",
+          "East Asian scripts (Japanese, Korean, Chinese) are fully supported",
+        ],
+      },
+      {
+        heading: "How auto-detection works",
+        paragraphs: [
+          "When you paste a URL or upload a document, Blog2Video scrapes the content and runs it through a FastText language model with a minimum confidence threshold of 75%. For code-heavy technical content where keywords like 'if', 'return', and 'for' would skew English detection, the system strips code blocks before sampling.",
+          "For Arabic-script languages — Arabic, Urdu, Persian — where FastText confidence can vary on shorter texts, a Unicode heuristic checks for script-specific characters and differentiates between them. Urdu-specific letters are detected separately from standard Arabic, which matters for voiceover selection.",
+          "If confidence falls below the threshold, the system defaults to English rather than guessing. You can always override manually in the Language dropdown before generating.",
+        ],
+      },
+      {
+        heading: "The translation workflow: one URL, multiple language videos",
+        paragraphs: [
+          "The manual language override is what makes Blog2Video genuinely useful as a translation tool. In the Voice step, the Language dropdown defaults to Auto. Change it to Spanish, Hindi, Vietnamese, or any of the 39 supported languages and the entire video will be generated in that language — even if the source article is in English.",
+          "This means a single blog post can become a Spanish video for your Latin American audience, a Hindi video for South Asian distribution, and an Arabic video for MENA — all from the same URL, in the same session. Each version carries the full content in the target language, not dubbed audio over English text.",
+        ],
+        bullets: [
+          "Step 1: Paste the blog URL as normal",
+          "Step 2: Pick your template",
+          "Step 3: Open the Language dropdown and select the target language",
+          "Step 4: Generate — the full video comes out in your chosen language",
+        ],
+        ctaPath: "/multilingual-video-generation",
+        ctaLabel: "See the multilingual feature",
+      },
+      {
+        heading: "Bulk mode: generate the same post in multiple languages at once",
+        paragraphs: [
+          "The bulk submission mode lets you queue multiple rows with the same URL but different language settings. Add the post four times, set each row to a different language, and submit. Four language-specific videos generate in parallel — each with the correct script, narration, and on-screen text in its target language.",
+          "For teams publishing to international audiences, this replaces a workflow that previously required a separate translator, a separate voiceover session, and a separate video edit for each language version. The entire output is driven by the original article, so the message stays consistent across all versions.",
+        ],
+        bullets: [
+          "Add the same URL multiple times in bulk mode",
+          "Set a different language per row",
+          "All versions generate simultaneously",
+          "Each version has independent voice and template settings",
+        ],
+      },
+      {
+        heading: "All 39 supported languages",
+        paragraphs: [
+          "Blog2Video supports the following languages in both auto-detection and manual selection: Arabic, Bengali, Chinese (Simplified), Chinese (Traditional), Czech, Danish, Dutch, Finnish, French, German, Greek, Gujarati, Hebrew, Hindi, Hungarian, Indonesian, Italian, Japanese, Korean, Malayalam, Marathi, Norwegian, Persian (Farsi), Polish, Portuguese, Punjabi, Romanian, Russian, Spanish, Swedish, Tamil, Telugu, Thai, Turkish, Ukrainian, Urdu, Vietnamese.",
+          "The voiceover is also generated in the selected language via ElevenLabs, which supports multilingual synthesis for the major global languages. For languages where ElevenLabs voice coverage is broader in certain accents, selecting the closest voice before generation gives the best result.",
+        ],
+        bullets: [
+          "European: Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Ukrainian, Swedish, Danish, Norwegian, Finnish, Greek, Romanian, Hungarian, Czech",
+          "South Asian: Hindi, Urdu, Bengali, Tamil, Telugu, Malayalam, Gujarati, Punjabi, Marathi",
+          "East Asian: Japanese, Korean, Chinese (Simplified), Chinese (Traditional)",
+          "Middle Eastern: Arabic, Hebrew, Persian (Farsi)",
+          "Southeast Asian: Vietnamese, Thai, Indonesian",
+        ],
+      },
+      {
+        heading: "Who this matters for",
+        paragraphs: [
+          "For multilingual content teams, it removes the translation bottleneck from the video production pipeline. The written content gets translated and published in multiple languages already — the video layer can now follow without a separate workflow.",
+          "For solo creators targeting international audiences on YouTube or Instagram, it means the same piece of content can reach a Spanish-speaking audience, a Hindi-speaking audience, and an Arabic-speaking audience without filming three separate videos.",
+          "For SEO agencies running international campaigns, it means blog content can be repurposed into video for each target market as a standard deliverable rather than a custom request.",
+        ],
+        bullets: [
+          "Multilingual content teams: remove the video translation bottleneck",
+          "International YouTube creators: reach new audiences from existing posts",
+          "SEO agencies: make multilingual video a standard deliverable",
+          "Non-English bloggers: generate video in your language without workarounds",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video translate the content or just detect the language?",
+        answer:
+          "Both. If you keep Auto selected, it detects the source language and generates the video in that language — no translation happens, the output matches the input. If you manually select a different language from the dropdown, Blog2Video generates the entire video in that language, which means the content is effectively translated as part of the generation step.",
+      },
+      {
+        question: "Which languages support voiceover narration?",
+        answer:
+          "ElevenLabs supports multilingual synthesis across most of the 39 languages in Blog2Video. Coverage is strongest for Spanish, French, German, Hindi, Japanese, Korean, Arabic, Portuguese, and Chinese. For less common languages, the auto voice selection uses the closest available match.",
+      },
+      {
+        question: "Can I generate the same blog post in multiple languages at once?",
+        answer:
+          "Yes. In bulk mode, add the same URL multiple times and set a different language for each row. All versions generate simultaneously, each with the correct language output.",
+      },
+      {
+        question: "Do right-to-left languages like Arabic and Urdu render correctly?",
+        answer:
+          "Yes. Right-to-left text rendering is handled natively. Arabic, Urdu, Hebrew, and Persian display correctly in the video output without manual adjustment.",
+      },
+      {
+        question: "How accurate is the auto language detection?",
+        answer:
+          "The FastText model used for detection targets 75% minimum confidence before accepting a result. For code-heavy content, code blocks are stripped from the sample to avoid skewing detection toward English. For Arabic-script languages, a Unicode heuristic runs in parallel and differentiates Arabic, Urdu, and Persian accurately.",
+      },
+      {
+        question: "What if my content is in a language not listed?",
+        answer:
+          "If auto-detection returns a low confidence score for an unsupported language, the system defaults to English. You can type or select the closest supported language manually in the Language dropdown to get the best available output.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn Any Blog Post into a Video in 39 Languages",
+        angle: "SEO post targeting 'translate blog to video' and 'multilingual video generation' with step-by-step workflow and full language list.",
+      },
+      {
+        channel: "video",
+        title: "One English Blog → 4 Language Videos (Spanish, Hindi, Arabic, Japanese)",
+        angle: "Screen recording showing the language dropdown, bulk mode with 4 language rows, and the finished outputs side by side.",
+      },
+      {
+        channel: "substack",
+        title: "I turned one English blog post into videos in 4 languages in 10 minutes",
+        angle: "First-person workflow story for content creators targeting international audiences.",
+      },
+      {
+        channel: "medium",
+        title: "The fastest way to produce multilingual video content from a blog post",
+        angle: "Practical guide framing Blog2Video's language feature against the traditional translate-then-record workflow.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-vs-notebooklm",
     title: "Blog2Video vs NotebookLM: Learning Tool vs Content Engine",
     description:
