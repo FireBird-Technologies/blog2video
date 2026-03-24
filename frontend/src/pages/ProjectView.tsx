@@ -2037,8 +2037,8 @@ export default function ProjectView() {
             </h3>
             <p className="text-sm text-gray-600 mb-6">
               {downloadWarningMode === "download"
-                ? "This download may not include your most recent edits. To ensure all changes are reflected, please re-render the video before downloading."
-                : "Make sure You have made all the changes. Re-rendering of video will result in deduction of a video count."}
+                ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
+                : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
             </p>
 
 

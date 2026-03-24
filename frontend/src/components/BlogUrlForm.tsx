@@ -92,6 +92,18 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
 
+const normalizeVoiceGender = (value?: string | null): "female" | "male" | null => {
+  const v = (value ?? "").trim().toLowerCase();
+  if (v === "female" || v === "male") return v;
+  return null;
+};
+
+const normalizeVoiceAccent = (value?: string | null): string | null => {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  return v.toLowerCase();
+};
+
 
 // Step indicator — order: 1 Content, 2 Template, 3 Voice
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -282,7 +294,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
   const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
-  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
+  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
@@ -304,7 +316,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
-  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
+  const [voiceAccent, setVoiceAccent] = useState<string>("american");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -355,10 +367,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const list = r.data ?? [];
         setMyVoicesList(list);
         if (list.length > 0) {
-          const firstId = list[0].voice_id;
+          const first = list[0];
+          const firstId = first.voice_id;
           // Single/link flow: default-select the first voice in Step 3
           if (!customVoiceId && voiceGender !== "none") {
             setCustomVoiceId(firstId);
+            const g = normalizeVoiceGender(first.gender);
+            const a = normalizeVoiceAccent(first.accent);
+            if (g) setVoiceGender(g);
+            if (a) setVoiceAccent(a);
           }
         }
       })
@@ -702,6 +719,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
       }
 
+      const firstSavedVoiceId = myVoicesList[0]?.voice_id;
       const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
         const normalized = url.trim();
         urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
@@ -714,13 +732,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
         }
 
+        const rowSelectedVoiceId = bulkCustomVoiceId[i]?.trim();
+        const selectedVoice = myVoicesList.find((v) => v.voice_id === rowSelectedVoiceId);
+        const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? bulkVoiceGender[i];
+        const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? bulkVoiceAccent[i];
+        const effectiveCustomVoiceId = rowSelectedVoiceId || firstSavedVoiceId;
+
         return {
         blog_url: normalized,
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: bulkVideoStyles[i] ?? "promotional",
-        voice_gender: bulkVoiceGender[i],
-        voice_accent: bulkVoiceAccent[i],
+        voice_gender: inferredGender,
+        voice_accent: inferredAccent,
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
             ? bulkAccentColors[i]
@@ -735,7 +759,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             : textColor,
         logo_position: bulkLogoPosition[i] ?? "bottom_right",
         logo_opacity: bulkLogoOpacity[i] ?? 0.9,
-        custom_voice_id: bulkVoiceGender[i] === "none" ? undefined : (bulkCustomVoiceId[i]?.trim() || undefined),
+        custom_voice_id:
+          inferredGender === "none"
+            ? undefined
+            : (effectiveCustomVoiceId || undefined),
         aspect_ratio: bulkAspectRatio[i] ?? "landscape",
       };
       });
@@ -778,11 +805,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
+      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
+      const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       await onSubmit(
         "",
         name.trim() || undefined,
-        voiceGender,
-        voiceAccent,
+        inferredGender,
+        inferredAccent,
         accentColor,
         bgColor,
         textColor,
@@ -790,7 +821,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         logoFile || undefined,
         logoPosition,
         logoOpacity,
-        voiceGender === "none" ? undefined : (customVoiceId.trim() || undefined),
+        inferredGender === "none" ? undefined : (effectiveCustomVoiceId || undefined),
         aspectRatio,
         docFiles,
         template !== "default" ? template : undefined,
@@ -805,12 +836,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
+      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
+      const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       for (const url of validUrls) {
         await onSubmit(
           url.trim(),
           name.trim() || undefined,
-          voiceGender,
-          voiceAccent,
+          inferredGender,
+          inferredAccent,
           accentColor,
           bgColor,
           textColor,
@@ -818,7 +853,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           logoFile || undefined,
           logoPosition,
           logoOpacity,
-          voiceGender === "none" ? undefined : (customVoiceId.trim() || undefined),
+          inferredGender === "none" ? undefined : (effectiveCustomVoiceId || undefined),
           aspectRatio,
           undefined,
           template !== "default" ? template : undefined,
@@ -2435,7 +2470,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         setShowUpgrade(true);
                         return;
                       }
-                      setCustomVoiceId(isSelected ? "" : saved.voice_id);
+                      const nextId = isSelected ? "" : saved.voice_id;
+                      setCustomVoiceId(nextId);
+                      if (!isSelected) {
+                        const g = normalizeVoiceGender(saved.gender);
+                        const a = normalizeVoiceAccent(saved.accent);
+                        if (g) setVoiceGender(g);
+                        if (a) setVoiceAccent(a);
+                      }
                     }}
                     badge={
                       isCustom ? (
@@ -2703,8 +2745,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           return;
                         }
                         const value = isSelectedBulk ? "" : saved.voice_id;
+                        const g = normalizeVoiceGender(saved.gender);
+                        const a = normalizeVoiceAccent(saved.accent);
                         const targetIndices = indexed.map(({ i }) => i);
                         if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = g; });
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = a; });
+                              return next;
+                            });
+                          }
                           setBulkCustomVoiceId((prev) => {
                             const next = [...prev];
                             targetIndices.forEach((idx) => { next[idx] = value; });
@@ -2712,6 +2770,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           });
                         } else {
                           setBulkApplyVoiceAll(false);
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = g;
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = a;
+                              return next;
+                            });
+                          }
                           setBulkCustomVoiceId((prev) => {
                             const next = [...prev];
                             next[activeIndex] = value;
