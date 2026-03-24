@@ -332,7 +332,7 @@ export const GlassCode: React.FC<NightfallLayoutProps> = (props) => {
               style={{
                 fontSize: p ? 11 : 12,
                 color: `${safeTextColor}50`,
-                fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+                fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
               }}
             >
               ⌘C

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 
@@ -61,13 +61,16 @@ interface ThoughtBubbleProps {
   bubbleOp: number;
   isPortrait: boolean;
   index: number;
-  scale: number;
   fontFamily?: string;
   descriptionFontSize?: number;
 }
 
-function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, scale, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
-  const fontSize = descriptionFontSize ?? (isPortrait ? 22 : 26) * scale;
+function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait, index, fontFamily, descriptionFontSize }: ThoughtBubbleProps) {
+  // Reduce text size in bubble: Cap the font size for the bubble text
+  const baseBubbleFontSize = isPortrait ? 22 : 26;
+  const maxBubbleFontSize = isPortrait ? 28 : 30; // Max font size for text inside the bubble
+  const fontSize = Math.min(descriptionFontSize ?? baseBubbleFontSize, maxBubbleFontSize);
+
   const bubbleInnerW = isPortrait ? 240 : 272; 
   const contentH = estimateBubbleHeight(thought, fontSize, bubbleInnerW);
   const vbW = isPortrait ? 260 : 300;
@@ -81,7 +84,7 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
     <div
       style={{
         width: "100%",
-        maxWidth: isPortrait ? 320 * scale : 480 * scale,
+        maxWidth: isPortrait ? 320 : 480,
         marginBottom: isPortrait ? 6 : 14,
         opacity: bubbleOp,
         position: "relative",
@@ -128,6 +131,7 @@ function ThoughtBubble({ thought, textColor, dash, offset, bubbleOp, isPortrait,
               textAlign: "center",
               lineHeight: 1.4,
               fontFamily: fontFamily ?? "'Patrick Hand', system-ui, sans-serif",
+              letterSpacing: "1.5px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -160,9 +164,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { width: videoWidth } = useVideoConfig();
   const p = aspectRatio === "portrait";
-  const scale = videoWidth / 1920;
 
   const drawProgress = interpolate(frame, [0, 34], [0, 1], {
     extrapolateLeft: "clamp",
@@ -207,7 +209,11 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
     const footY = 155;
 
     return (
-      <svg viewBox="0 0 100 160" style={{ width: p ? "48%" : "36%", maxWidth: 240, height: "auto", overflow: "visible" }} fill="none">
+      <svg viewBox="0 0 100 160" 
+        // Reduce the sizes of the stickman for both landscape and portrait mode
+        style={{ width: p ? "38%" : "28%", maxWidth: 180, height: "auto", overflow: "visible" }} 
+        fill="none"
+      >
         <defs>
           <filter id={`inkFig${seed}`} x="-20%" y="-20%" width="140%" height="140%">
             <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed={seed} result="w" />
@@ -270,7 +276,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
             style={{
               color: textColor,
               fontWeight: 700,
-              fontSize: titleFontSize ?? (p ? 50 * scale : 62 * scale),
+              fontSize: titleFontSize ?? (p ? 62 : 61),
               lineHeight: 1.1,
               filter: "url(#ink)",
             }}
@@ -282,7 +288,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               style={{
                 marginTop: 8,
                 color: textColor,
-                fontSize: descriptionFontSize ?? (p ? 26 * scale : 28 * scale),
+                fontSize: descriptionFontSize ?? (p ? 20 : 20),
                 opacity: 0.88,
                 filter: "url(#ink)",
                 maxWidth: p ? "92%" : "auto",
@@ -324,7 +330,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               bubbleOp={bubbleOp}
               isPortrait={p}
               index={0}
-              scale={scale}
               fontFamily={fontFamily}
               descriptionFontSize={descriptionFontSize}
             />
@@ -349,7 +354,7 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
                 color: accentColor,
                 fontWeight: 900,
                 // DRAMATICALLY INCREASED SIZE IN PORTRAIT
-                fontSize: p ? 64 * scale : 44 * scale,
+                fontSize: p ? 64 : 44, 
                 opacity: titleOp,
                 filter: "url(#ink)",
                 textTransform: "uppercase",
@@ -383,7 +388,6 @@ export const ComparisonThoughts: React.FC<WhiteboardLayoutProps> = ({
               bubbleOp={bubbleOp}
               isPortrait={p}
               index={1}
-              scale={scale}
               fontFamily={fontFamily}
               descriptionFontSize={descriptionFontSize}
             />

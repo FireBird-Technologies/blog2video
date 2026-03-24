@@ -254,7 +254,7 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
               fontSize: descriptionFontSize ?? (p ? 43 : 36),
               fontWeight: 400,
               color: "rgba(226,232,240,0.45)",
-              fontFamily: fontFamily ?? "'DM Sans', 'Helvetica Neue', sans-serif",
+              fontFamily: fontFamily ?? "'Playfair Display', Georgia, serif",
               textAlign: "center",
               marginTop: p ? 28 : 36,
               maxWidth: p ? "85%" : 950,

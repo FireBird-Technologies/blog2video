@@ -162,7 +162,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: resolvedDescriptionFontSize, color: "#DC2626" }}>✕</span>
+            <svg width={resolvedDescriptionFontSize} height={resolvedDescriptionFontSize} viewBox="0 0 24 24" fill="none">
+              <path d="M6 6L18 18M6 18L18 6" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
           </div>
           <h3
             style={{
@@ -235,7 +237,9 @@ export const Comparison: React.FC<SceneLayoutProps> = ({
               marginBottom: 16,
             }}
           >
-            <span style={{ fontSize: resolvedDescriptionFontSize, color: "#16A34A" }}>✓</span>
+          <svg width={resolvedDescriptionFontSize} height={resolvedDescriptionFontSize} viewBox="0 0 24 24" fill="none">
+            <path d="M5 12L10 17L19 7" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           </div>
           <h3
             style={{

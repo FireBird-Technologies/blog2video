@@ -83,6 +83,7 @@ export interface Scene {
   remotion_code: string | null;
   voiceover_path: string | null;
   duration_seconds: number;
+  extra_hold_seconds?: number | null;
   created_at: string;
 }
 
@@ -128,6 +129,7 @@ export interface Project {
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_template_missing?: boolean;
+  review_state?: ReviewState | null;
   created_at: string;
   updated_at: string;
   scenes: Scene[];
@@ -149,6 +151,38 @@ export interface ChatMessage {
   role: string;
   content: string;
   created_at: string;
+}
+
+export interface ReviewState {
+  project_sequence: number;
+  has_review_for_project: boolean;
+  should_show_inline: boolean;
+}
+
+export interface Review {
+  id: number;
+  user_id: number;
+  project_id: number;
+  rating: number;
+  suggestion: string | null;
+  source: "first_project_popup" | "inline_row";
+  trigger_event: "delayed_popup" | "manual";
+  project_sequence: number;
+  plan_at_submission: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitProjectReviewPayload {
+  rating: 1 | 2 | 3 | 4 | 5;
+  suggestion?: string;
+  source: "first_project_popup" | "inline_row";
+  trigger_event: "delayed_popup" | "manual";
+}
+
+export interface SubmitProjectReviewResponse {
+  review: Review;
+  review_state: ReviewState;
 }
 
 export interface ChatResponse {
@@ -227,12 +261,14 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-export const googleLogin = (credential: string) =>
-  api.post<AuthResponse>("/auth/google", { credential });
+export const googleLogin = (credential: string, reactivate = false) =>
+  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
 export const logoutCleanup = () => api.post("/auth/logout");
+
+export const deleteAccount = () => api.post("/auth/delete-account");
 
 export const getPublicConfig = () =>
   api.get<PublicConfig>("/config/public");
@@ -574,6 +610,7 @@ export const renderTemplateLayout = (payload: {
   aspect_ratio?: string;
   duration_seconds?: number;
   layout_props?: Record<string, unknown>;
+  resolution?: "1080p" | "720p";
 }) =>
   api.post<Blob>("/template-studio/render-layout", payload, {
     responseType: "blob",
@@ -605,7 +642,8 @@ export const createProject = (
   custom_voice_id?: string,
   aspect_ratio?: string,
   template?: string,
-  video_style?: VideoStyleId
+  video_style?: VideoStyleId,
+  content_language?: string | null
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -622,6 +660,7 @@ export const createProject = (
     aspect_ratio,
     template,
     video_style,
+    content_language,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -640,6 +679,7 @@ export interface BulkProjectItem {
   logo_opacity?: number;
   custom_voice_id?: string;
   aspect_ratio?: string;
+  content_language?: string | null;
 }
 
 export interface BulkCreateResponse {
@@ -683,6 +723,7 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
+    content_language?: string | null;
   } = {}
 ) => {
   const formData = new FormData();
@@ -700,6 +741,9 @@ export const createProjectFromDocs = (
     formData.append("logo_opacity", String(config.logo_opacity));
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.content_language !== undefined && config.content_language !== null) {
+    formData.append("content_language", config.content_language);
+  }
   if (config.template) formData.append("template", config.template);
   if (config.video_style) formData.append("video_style", config.video_style);
   return api.post<Project>("/projects/upload", formData, {
@@ -741,6 +785,11 @@ export const listProjects = () =>
 
 export const getProject = (id: number) =>
   api.get<Project>(`/projects/${id}`);
+
+export const submitProjectReview = (
+  projectId: number,
+  data: SubmitProjectReviewPayload
+) => api.post<SubmitProjectReviewResponse>(`/projects/${projectId}/review`, data);
 
 export const deleteProject = (id: number) =>
   api.delete(`/projects/${id}`);

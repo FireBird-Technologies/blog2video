@@ -94,7 +94,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
           style={{
             fontSize: titleFontSize ?? (p ? 87 : 100),
             fontWeight: 900,
-            color: textColor,
+            color: accentColor,
             fontFamily: displayFontFamily,
             textAlign: "center",
             lineHeight: 1.05,

@@ -112,7 +112,7 @@ export default function UpgradePlanModal({
                 <p className="text-xs text-gray-400 mt-0.5">Pay as you go</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$5</span>
+                <span className="text-2xl font-bold text-gray-900">$3</span>
                 <span className="text-xs text-gray-400 ml-1">/video</span>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">

@@ -25,6 +25,7 @@
     "speech_bubble_dialogue"
   ],
   "layouts_without_image": [
+    "drawn_title",
     "stick_figure_scene",
     "stats_figures",
     "stats_chart",
@@ -42,12 +43,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 76,
-          "landscape": 114
+          "portrait": 81,
+          "landscape": 66
         },
         "descriptionFontSize": {
-          "portrait": 34,
-          "landscape": 36
+          "portrait": 37,
+          "landscape": 27
         }
       },
       "fields": [
@@ -79,12 +80,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 85,
-          "landscape": 100
+          "portrait": 90,
+          "landscape": 63
         },
         "descriptionFontSize": {
-          "portrait": 34,
-          "landscape": 49
+          "portrait": 33,
+          "landscape": 28
         }
       },
       "fields": [
@@ -116,12 +117,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 82
+          "portrait": 73,
+          "landscape": 62
         },
         "descriptionFontSize": {
-          "portrait": 34,
-          "landscape": 38
+          "portrait": 31,
+          "landscape": 28
         }
       },
       "fields": [
@@ -154,11 +155,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 72,
-          "landscape": 70
+          "landscape": 62
         },
         "descriptionFontSize": {
-          "portrait": 32,
-          "landscape": 30
+          "portrait": 27,
+          "landscape": 25
         },
         "stats": [
           {
@@ -224,12 +225,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
-          "landscape": 72
+          "portrait": 72,
+          "landscape": 69
         },
         "descriptionFontSize": {
-          "portrait": 24,
-          "landscape": 30
+          "portrait": 31,
+          "landscape": 23
         },
         "stats": [
           {
@@ -291,12 +292,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 50,
-          "landscape": 62
+          "portrait": 62,
+          "landscape": 61
         },
         "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 28
+          "portrait": 20,
+          "landscape": 20
         },
         "leftThought": "Coffee first thing in the morning",
         "rightThought": "Tea for a mindful start to the day"
@@ -340,12 +341,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 48,
-          "landscape": 60
+          "portrait": 69,
+          "landscape": 53
         },
         "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 32
+          "portrait": 35,
+          "landscape": 25
         },
         "stats": [
           {
@@ -399,12 +400,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 58,
-          "landscape": 64
+          "portrait": 80,
+          "landscape": 68
         },
         "descriptionFontSize": {
-          "portrait": 22,
-          "landscape": 43
+          "portrait": 32,
+          "landscape": 27
         },
         "stats": [
           {
@@ -470,12 +471,12 @@
       },
       "defaults": {
         "titleFontSize": {
-          "portrait": 42,
-          "landscape": 54
+          "portrait": 72,
+          "landscape": 37
         },
         "descriptionFontSize": {
-          "portrait": 22,
-          "landscape": 26
+          "portrait": 30,
+          "landscape": 19
         },
         "leftThought": "Wait, did you know?",
         "rightThought": "Tell me more!",

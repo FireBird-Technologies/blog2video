@@ -36,7 +36,8 @@ interface Props {
     aspectRatio?: string,
     uploadFiles?: File[],
     template?: string,
-    videoStyle?: VideoStyleId
+    videoStyle?: VideoStyleId,
+    contentLanguage?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -91,6 +92,64 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
+const SUPPORTED_CONTENT_LANGUAGES: Array<{ code: string; name: string }> = [
+  { code: "ar", name: "Arabic" },
+  { code: "bn", name: "Bengali" },
+  { code: "cs", name: "Czech" },
+  { code: "da", name: "Danish" },
+  { code: "de", name: "German" },
+  { code: "el", name: "Greek" },
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fa", name: "Persian (Farsi)" },
+  { code: "fi", name: "Finnish" },
+  { code: "fr", name: "French" },
+  { code: "gu", name: "Gujarati" },
+  { code: "he", name: "Hebrew" },
+  { code: "hi", name: "Hindi" },
+  { code: "hu", name: "Hungarian" },
+  { code: "id", name: "Indonesian" },
+  { code: "it", name: "Italian" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "ml", name: "Malayalam" },
+  { code: "mr", name: "Marathi" },
+  { code: "nl", name: "Dutch" },
+  { code: "no", name: "Norwegian" },
+  { code: "pa", name: "Punjabi" },
+  { code: "pl", name: "Polish" },
+  { code: "pt", name: "Portuguese" },
+  { code: "ro", name: "Romanian" },
+  { code: "ru", name: "Russian" },
+  { code: "sv", name: "Swedish" },
+  { code: "ta", name: "Tamil" },
+  { code: "te", name: "Telugu" },
+  { code: "th", name: "Thai" },
+  { code: "tr", name: "Turkish" },
+  { code: "uk", name: "Ukrainian" },
+  { code: "ur", name: "Urdu" },
+  { code: "vi", name: "Vietnamese" },
+  { code: "zh-cn", name: "Chinese (Simplified)" },
+  { code: "zh-tw", name: "Chinese (Traditional)" },
+];
+
+const getLanguageOptionLabel = (code: string): string => {
+  if (code === "auto") return "Auto";
+  const lang = SUPPORTED_CONTENT_LANGUAGES.find((item) => item.code === code);
+  return lang ? `${lang.code} - ${lang.name}` : code;
+};
+
+const normalizeVoiceGender = (value?: string | null): "female" | "male" | null => {
+  const v = (value ?? "").trim().toLowerCase();
+  if (v === "female" || v === "male") return v;
+  return null;
+};
+
+const normalizeVoiceAccent = (value?: string | null): string | null => {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  return v.toLowerCase();
+};
 
 
 // Step indicator — order: 1 Content, 2 Template, 3 Voice
@@ -282,8 +341,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
   const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
-  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<("american" | "british")[]>(["american"]);
+  const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
+  const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
   const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
@@ -304,7 +364,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
-  const [voiceAccent, setVoiceAccent] = useState<"american" | "british">("american");
+  const [voiceAccent, setVoiceAccent] = useState<string>("american");
+  const [contentLanguage, setContentLanguage] = useState<string>("auto");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -338,6 +399,59 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
 
+  const renderLanguageDropdown = (
+    value: string,
+    onSelect: (next: string) => void
+  ) => (
+    <details className="relative group">
+      <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
+        <span>{getLanguageOptionLabel(value)}</span>
+        <svg
+          className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+        {/* ~12 visible rows; rest scrollable */}
+        <div className="max-h-[18.5rem] overflow-y-auto py-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              onSelect("auto");
+              const details = (e.currentTarget.closest("details") as HTMLDetailsElement | null);
+              details?.removeAttribute("open");
+            }}
+            className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
+              value === "auto" ? "bg-purple-50 text-purple-700" : "text-gray-700"
+            }`}
+          >
+            Auto
+          </button>
+          {SUPPORTED_CONTENT_LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              type="button"
+              onClick={(e) => {
+                onSelect(lang.code);
+                const details = (e.currentTarget.closest("details") as HTMLDetailsElement | null);
+                details?.removeAttribute("open");
+              }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
+                value === lang.code ? "bg-purple-50 text-purple-700" : "text-gray-700"
+              }`}
+            >
+              {lang.code} - {lang.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
     getTemplates()
@@ -351,7 +465,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       .catch(() => {});
     setMyVoicesLoading(true);
     getMyVoices()
-      .then((r) => setMyVoicesList(r.data ?? []))
+      .then((r) => {
+        const list = r.data ?? [];
+        setMyVoicesList(list);
+        if (list.length > 0) {
+          const first = list[0];
+          const firstId = first.voice_id;
+          // Single/link flow: default-select the first voice in Step 3
+          if (!customVoiceId && voiceGender !== "none") {
+            setCustomVoiceId(firstId);
+            const g = normalizeVoiceGender(first.gender);
+            const a = normalizeVoiceAccent(first.accent);
+            if (g) setVoiceGender(g);
+            if (a) setVoiceAccent(a);
+          }
+        }
+      })
       .catch(() => setMyVoicesList([]))
       .finally(() => setMyVoicesLoading(false));
     getPrebuiltVoices()
@@ -362,6 +491,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       })
       .catch(() => {});
   }, []);
+
+  // Keep bulk rows in sync: whenever we have saved voices and bulk URLs,
+  // ensure each populated row gets a default custom voice if it doesn't have one.
+  useEffect(() => {
+    if (!myVoicesList.length) return;
+    const firstId = myVoicesList[0].voice_id;
+    setBulkCustomVoiceId((prev) => {
+      const next = [...prev];
+      let changed = false;
+      bulkRows.forEach((row, idx) => {
+        if (row.url.trim() && !next[idx]) {
+          next[idx] = firstId;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [myVoicesList, bulkRows]);
 
   // Preferred built-in template (Nightfall when available) for single and bulk flows.
   const preferredTemplateId =
@@ -571,6 +718,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
+        setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
         setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
@@ -603,6 +751,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
+    setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [...prev, "promotional"]);
     setBulkTemplatePickerViews((prev) => [...prev, "style"]);
@@ -622,6 +771,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkVoiceGender((prev) => prev.filter((_, i) => i !== index));
     setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
     setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
+    setBulkContentLanguage((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplatePickerViews((prev) => prev.filter((_, i) => i !== index));
@@ -674,6 +824,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         urlCounts[normalized] = (urlCounts[normalized] ?? 0) + 1;
       }
 
+      const firstSavedVoiceId = myVoicesList[0]?.voice_id;
       const items: BulkProjectItem[] = valid.map(({ url, name: n, i }) => {
         const normalized = url.trim();
         urlSeenSoFar[normalized] = (urlSeenSoFar[normalized] ?? 0) + 1;
@@ -686,13 +837,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           resolvedName = occurrence === 1 ? derived : `${derived} (${occurrence})`;
         }
 
+        const rowSelectedVoiceId = bulkCustomVoiceId[i]?.trim();
+        const selectedVoice = myVoicesList.find((v) => v.voice_id === rowSelectedVoiceId);
+        const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? bulkVoiceGender[i];
+        const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? bulkVoiceAccent[i];
+        const effectiveCustomVoiceId = rowSelectedVoiceId || firstSavedVoiceId;
+
         return {
         blog_url: normalized,
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: bulkVideoStyles[i] ?? "promotional",
-        voice_gender: bulkVoiceGender[i],
-        voice_accent: bulkVoiceAccent[i],
+        voice_gender: inferredGender,
+        voice_accent: inferredAccent,
         accent_color:
           bulkAccentColors[i] && bulkAccentColors[i].trim()
             ? bulkAccentColors[i]
@@ -707,8 +864,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             : textColor,
         logo_position: bulkLogoPosition[i] ?? "bottom_right",
         logo_opacity: bulkLogoOpacity[i] ?? 0.9,
-        custom_voice_id: bulkCustomVoiceId[i]?.trim() || undefined,
+        custom_voice_id:
+          inferredGender === "none"
+            ? undefined
+            : (effectiveCustomVoiceId || undefined),
         aspect_ratio: bulkAspectRatio[i] ?? "landscape",
+        content_language:
+          (bulkContentLanguage[i] ?? "auto") === "auto"
+            ? null
+            : (bulkContentLanguage[i] ?? "auto"),
       };
       });
       const logoIndices: number[] = [];
@@ -727,6 +891,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
+      setBulkContentLanguage(["auto"]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles(["promotional"]);
       setBulkTemplatePickerViews(["style"]);
@@ -741,6 +906,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkTemplateMasterIndex(0);
       setBulkApplyVoiceAll(true);
       setBulkVoiceMasterIndex(0);
+      setContentLanguage("auto");
       return;
     }
 
@@ -750,11 +916,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
+      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
+      const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       await onSubmit(
         "",
         name.trim() || undefined,
-        voiceGender,
-        voiceAccent,
+        inferredGender,
+        inferredAccent,
         accentColor,
         bgColor,
         textColor,
@@ -762,11 +932,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         logoFile || undefined,
         logoPosition,
         logoOpacity,
-        customVoiceId.trim() || undefined,
+        inferredGender === "none" ? undefined : (effectiveCustomVoiceId || undefined),
         aspectRatio,
         docFiles,
         template !== "default" ? template : undefined,
-        videoStyle
+        videoStyle,
+        contentLanguage === "auto" ? null : contentLanguage
       );
       setDocFiles([]);
       setName("");
@@ -777,12 +948,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setShowCustomTemplateUpgrade(true);
         return;
       }
+      const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
+      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
+      const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       for (const url of validUrls) {
         await onSubmit(
           url.trim(),
           name.trim() || undefined,
-          voiceGender,
-          voiceAccent,
+          inferredGender,
+          inferredAccent,
           accentColor,
           bgColor,
           textColor,
@@ -790,11 +965,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           logoFile || undefined,
           logoPosition,
           logoOpacity,
-          customVoiceId.trim() || undefined,
+          inferredGender === "none" ? undefined : (effectiveCustomVoiceId || undefined),
           aspectRatio,
           undefined,
           template !== "default" ? template : undefined,
-          videoStyle
+          videoStyle,
+          contentLanguage === "auto" ? null : contentLanguage
         );
       }
       setUrls([""]);
@@ -2355,8 +2531,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
         </svg>
         <p className="text-[11px] text-purple-600 leading-relaxed">
-          The video will be narrated in the <span className="font-semibold">language of the content</span>.
+          Choose narration language. Keep <span className="font-semibold">Auto</span> to detect from content.
         </p>
+      </div>
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+          Language
+        </label>
+        {renderLanguageDropdown(contentLanguage, setContentLanguage)}
+        <p className="text-[11px] text-gray-500">Language of the video content</p>
       </div>
       <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
         <input
@@ -2407,7 +2590,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                         setShowUpgrade(true);
                         return;
                       }
-                      setCustomVoiceId(isSelected ? "" : saved.voice_id);
+                      const nextId = isSelected ? "" : saved.voice_id;
+                      setCustomVoiceId(nextId);
+                      if (!isSelected) {
+                        const g = normalizeVoiceGender(saved.gender);
+                        const a = normalizeVoiceAccent(saved.accent);
+                        if (g) setVoiceGender(g);
+                        if (a) setVoiceAccent(a);
+                      }
                     }}
                     badge={
                       isCustom ? (
@@ -2523,6 +2713,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rowVoiceGender = bulkVoiceGender[activeIndex] ?? "female";
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
+    const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
 
     const applyVoiceToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -2544,6 +2735,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const next = [...prev];
         targetIndices.forEach((idx) => {
           next[idx] = rowCustomVoiceId;
+        });
+        return next;
+      });
+      setBulkContentLanguage((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowContentLanguage;
         });
         return next;
       });
@@ -2589,8 +2787,34 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               }}
               className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
             />
-            <span className="font-medium">Apply voice settings to all videos</span>
+            <span className="font-medium">Apply settings to all videos</span>
           </label>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Language
+          </label>
+          {renderLanguageDropdown(rowContentLanguage, (value) => {
+            const targetIndices = indexed.map(({ i }) => i);
+            if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+              setBulkContentLanguage((prev) => {
+                const next = [...prev];
+                targetIndices.forEach((idx) => {
+                  next[idx] = value;
+                });
+                return next;
+              });
+            } else {
+              setBulkApplyVoiceAll(false);
+              setBulkContentLanguage((prev) => {
+                const next = [...prev];
+                next[activeIndex] = value;
+                return next;
+              });
+            }
+          })}
+          <p className="text-[11px] text-gray-500">Language of the video content</p>
         </div>
 
         <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
@@ -2675,8 +2899,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           return;
                         }
                         const value = isSelectedBulk ? "" : saved.voice_id;
+                        const g = normalizeVoiceGender(saved.gender);
+                        const a = normalizeVoiceAccent(saved.accent);
                         const targetIndices = indexed.map(({ i }) => i);
                         if (bulkApplyVoiceAll && activeIndex === masterIndex) {
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = g; });
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              targetIndices.forEach((idx) => { next[idx] = a; });
+                              return next;
+                            });
+                          }
                           setBulkCustomVoiceId((prev) => {
                             const next = [...prev];
                             targetIndices.forEach((idx) => { next[idx] = value; });
@@ -2684,6 +2924,20 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           });
                         } else {
                           setBulkApplyVoiceAll(false);
+                          if (g) {
+                            setBulkVoiceGender((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = g;
+                              return next;
+                            });
+                          }
+                          if (a) {
+                            setBulkVoiceAccent((prev) => {
+                              const next = [...prev];
+                              next[activeIndex] = a;
+                              return next;
+                            });
+                          }
                           setBulkCustomVoiceId((prev) => {
                             const next = [...prev];
                             next[activeIndex] = value;

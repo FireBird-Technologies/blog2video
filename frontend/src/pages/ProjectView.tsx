@@ -28,6 +28,7 @@ import {
   Scene,
   BACKEND_URL,
   bulkUpdateSceneTypography,
+  submitProjectReview,
   updateProject
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
@@ -39,6 +40,7 @@ import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSize
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
+import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
@@ -126,6 +128,10 @@ function extractAudioFilename(voiceoverPath: string | null): string | null {
   
   return filename || null;
 }
+
+const FIRST_PROJECT_REVIEW_POPUP_DELAY_MS = 2 * 60 * 1000;
+const getFirstProjectReviewPopupDismissedKey = (projectId: number) =>
+  `b2v_first_project_review_popup_dismissed_${projectId}`;
 
 /**
  * Resolve voiceover URL for a scene. When a scene is regenerated, a new audio Asset is created
@@ -451,6 +457,12 @@ export default function ProjectView() {
   const tourAutoStartedRef = useRef(false);
   const tourShownThisSessionRef = useRef(false);
   const [projectCount, setProjectCount] = useState<number | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [inlineReviewSubmitted, setInlineReviewSubmitted] = useState(false);
+  const [showReviewPopup, setShowReviewPopup] = useState(false);
+  const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
+  const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTabsGuide = useCallback(() => {
     if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
     tourShownThisSessionRef.current = false;
@@ -460,6 +472,14 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
+  const reviewState = project?.review_state ?? null;
+  const isFirstProject = reviewState?.project_sequence === 1;
+  const clearReviewPopupTimer = useCallback(() => {
+    if (reviewPopupTimerRef.current) {
+      clearTimeout(reviewPopupTimerRef.current);
+      reviewPopupTimerRef.current = null;
+    }
+  }, []);
   // Pre-fetch project count when guide not seen so we can start tour when pipeline is done
   useEffect(() => {
     if (localStorage.getItem(tabsGuideSeenKey) || !user) return;
@@ -510,6 +530,143 @@ export default function ProjectView() {
   useEffect(() => {
     if (runProjectTour) setTabsTourStepIndex(0);
   }, [runProjectTour]);
+
+  useEffect(() => {
+    clearReviewPopupTimer();
+    setReviewSubmitting(false);
+    setReviewError(null);
+    setInlineReviewSubmitted(false);
+    setShowReviewPopup(false);
+    if (!project?.id) {
+      setFirstProjectPopupDismissed(false);
+      return;
+    }
+    try {
+      setFirstProjectPopupDismissed(
+        window.localStorage.getItem(getFirstProjectReviewPopupDismissedKey(project.id)) === "1"
+      );
+    } catch {
+      setFirstProjectPopupDismissed(false);
+    }
+  }, [project?.id, clearReviewPopupTimer]);
+
+  useEffect(() => {
+    if (reviewState?.has_review_for_project) {
+      clearReviewPopupTimer();
+      setShowReviewPopup(false);
+    }
+  }, [reviewState?.has_review_for_project, clearReviewPopupTimer]);
+
+  useEffect(() => {
+    clearReviewPopupTimer();
+    if (
+      !project?.id ||
+      !reviewState ||
+      reviewState.has_review_for_project ||
+      !pipelineFinished ||
+      !isFirstProject ||
+      firstProjectPopupDismissed
+    ) {
+      setShowReviewPopup(false);
+      return;
+    }
+    reviewPopupTimerRef.current = setTimeout(() => {
+      setShowReviewPopup(true);
+    }, FIRST_PROJECT_REVIEW_POPUP_DELAY_MS);
+
+    return clearReviewPopupTimer;
+  }, [
+    project?.id,
+    reviewState?.has_review_for_project,
+    pipelineFinished,
+    isFirstProject,
+    firstProjectPopupDismissed,
+    clearReviewPopupTimer,
+  ]);
+
+  useEffect(() => {
+    return clearReviewPopupTimer;
+  }, [clearReviewPopupTimer]);
+
+  const submitReview = useCallback(async ({
+    rating,
+    suggestion,
+    source,
+    triggerEvent,
+    surface,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+    source: "first_project_popup" | "inline_row";
+    triggerEvent: "delayed_popup" | "manual";
+    surface: "inline" | "popup";
+  }) => {
+    if (!project) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      const response = await submitProjectReview(project.id, {
+        rating,
+        suggestion,
+        source,
+        trigger_event: triggerEvent,
+      });
+      setProject((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          review_state: response.data.review_state,
+        };
+      });
+      if (surface === "inline") {
+        setInlineReviewSubmitted(true);
+      } else {
+        setShowReviewPopup(false);
+        setInlineReviewSubmitted(false);
+      }
+    } catch (err) {
+      setReviewError(getErrorMessage(err, "Failed to save your review."));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }, [project]);
+  const handleInlineSubmitReview = useCallback(({
+    rating,
+    suggestion,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+  }) => submitReview({
+    rating,
+    suggestion,
+    source: "inline_row",
+    triggerEvent: "manual",
+    surface: "inline",
+  }), [submitReview]);
+  const handlePopupSubmitReview = useCallback(({
+    rating,
+    suggestion,
+  }: {
+    rating: 1 | 2 | 3 | 4 | 5;
+    suggestion?: string;
+  }) => submitReview({
+    rating,
+    suggestion,
+    source: "first_project_popup",
+    triggerEvent: "delayed_popup",
+    surface: "popup",
+  }), [submitReview]);
+  const handleDismissReviewPopup = useCallback(() => {
+    if (!project) return;
+    clearReviewPopupTimer();
+    setShowReviewPopup(false);
+    setFirstProjectPopupDismissed(true);
+    try {
+      window.localStorage.setItem(getFirstProjectReviewPopupDismissedKey(project.id), "1");
+    } catch {
+      // Ignore storage failures and fall back to in-memory dismissal for this page.
+    }
+  }, [project, clearReviewPopupTimer]);
   const [sceneFontOverrides, setSceneFontOverrides] = useState<Record<number, { title: number; desc: number }>>({});
   const [savingFontSizes, setSavingFontSizes] = useState<number | null>(null);
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -620,7 +777,7 @@ export default function ProjectView() {
       const res = await getProject(projectId);
       setProject(res.data);
       setHasError(false); // clear any previous load errors on success
-      if (res.data.status === "done") {
+      if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
         setRendered(true);
       }
       // Fetch layout image-support info (non-blocking)
@@ -766,7 +923,7 @@ export default function ProjectView() {
 
   // Track highest-seen render progress so we never go backward
   const renderHighWaterRef = useRef(0);
-
+  const handleRenderRef = useRef<(force: boolean, onStart?: () => void) => Promise<void>>();
 
   const handleRender = async (
     forceReRender = false,
@@ -778,6 +935,17 @@ export default function ProjectView() {
         "You can't render this video because its custom template has been deleted."
       );
       setRendering(false);
+      return;
+    }
+
+    // Re-render while already rendering — skip API call, take user to status page instead
+    if (forceReRender && project?.status === "rendering") {
+      onRenderStarted?.();
+      setRendered(false);
+      setRendering(true);
+      setHasError(false);
+      renderHighWaterRef.current = 0;
+      startRenderPollingLoop({ isResume: true });
       return;
     }
 
@@ -818,6 +986,17 @@ export default function ProjectView() {
           stopRenderPolling();
           return;
         }
+        // Video limit reached (403) — show upgrade modal + mention download option
+        if (err?.response?.status === 403) {
+          const baseMsg = message || "Video limit reached. Re-render counts as a video. Upgrade your plan or buy more credits to continue.";
+          const hasExisting = Boolean(project?.r2_video_url);
+          showError(baseMsg, { showUpgrade: true });
+          setHasError(true);
+          setRendering(false);
+          if (hasExisting) setRendered(true);
+          stopRenderPolling();
+          return;
+        }
         // If this is a retry, keep going; otherwise show error
         if (renderRetryCountRef.current >= MAX_RENDER_RETRIES) {
           showError(getErrorMessage(err, "Render failed after multiple attempts. Please try again, or contact support, if the issue persist.")); setHasError(true);
@@ -826,8 +1005,18 @@ export default function ProjectView() {
         }
       }
 
-      stopRenderPolling();
-      renderPollingRef.current = setInterval(async () => {
+      startRenderPollingLoop({ isResume: false });
+    };
+
+    startRenderAndPoll();
+  };
+  handleRenderRef.current = handleRender;
+
+  /** Start polling render status. When isResume=true, we're resuming (no retry on error). */
+  const startRenderPollingLoop = useCallback(
+    (opts?: { isResume?: boolean }) => {
+      const isResume = opts?.isResume ?? false;
+      const poll = async () => {
         try {
           const status = await getRenderStatus(projectId);
           const {
@@ -839,7 +1028,6 @@ export default function ProjectView() {
             time_remaining,
           } = status.data;
 
-          // Never go backward — only update if progress moved forward
           if (progress >= renderHighWaterRef.current) {
             renderHighWaterRef.current = progress;
             setRenderProgress(progress);
@@ -850,43 +1038,37 @@ export default function ProjectView() {
           if (time_remaining) setRenderTimeLeft(time_remaining);
 
           if (renderErr) {
-            // Auto-retry: re-trigger render instead of stopping
-            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
-              renderRetryCountRef.current++;
-              console.log(
-                `[RENDER] Error "${renderErr}", auto-retrying (${renderRetryCountRef.current}/${MAX_RENDER_RETRIES})...`
-              );
-              stopRenderPolling();
-              // Keep the current progress visible — user shouldn't see a reset
-              // Small delay before retrying
-              await new Promise((r) => setTimeout(r, 3000));
-              startRenderAndPoll();
-            } else {
-              showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist"); setHasError(true);
+            if (isResume) {
+              showError("Render failed. Please try re-rendering.");
+              setHasError(true);
               setRendering(false);
               stopRenderPolling();
+              return;
             }
+            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
+              renderRetryCountRef.current++;
+              stopRenderPolling();
+              await new Promise((r) => setTimeout(r, 3000));
+              handleRenderRef.current?.(true);
+              return;
+            }
+            showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist.");
+            setHasError(true);
+            setRendering(false);
+            stopRenderPolling();
             return;
           }
 
-          // Transition to saving screen when:
-          // - backend says done (render + R2 upload complete), OR
-          // - all frames rendered (100% / frames match) — encoding + R2 still in progress
           const allFramesRendered =
             progress >= 100 && total_frames > 0 && rendered_frames >= total_frames;
 
           if (done || allFramesRendered) {
             setRenderProgress(100);
             stopRenderPolling();
-
-            // Transition: rendering → saving (encoding + uploading to cloud)
             setRendering(false);
             setSaving(true);
 
-            // Stay on saving screen until backend reports done AND project has updated URL.
-            // (On re-render, project already has an old r2_video_url — we must wait for
-            // render-status.done so we don't show preview with stale video.)
-            const maxWait = 120; // max 120 attempts (~240s)
+            const maxWait = 120;
             for (let i = 0; i < maxWait; i++) {
               await new Promise((r) => setTimeout(r, 2000));
               const [statusRes, fresh] = await Promise.all([
@@ -899,29 +1081,26 @@ export default function ProjectView() {
               if (renderDone && (hasVideoUrl || localDone)) break;
             }
 
-            // Transition: saving → done (green download button + auto-download)
             setSaving(false);
             setRendered(true);
             autoDownloadRef.current = true;
-            console.log("rendering completed")
-
-            // Also open the video URL directly in a new tab as a fallback
-            // in case the blob download is blocked by popup settings
             const freshProject = await loadProject();
             const directUrl = freshProject?.r2_video_url;
             if (directUrl) {
-              console.log("downloading")
               window.open(directUrl, "_blank", "noopener,noreferrer");
             }
           }
         } catch {
-          // Network hiccup — keep polling
+          /* keep polling */
         }
-      }, 10_000); // Poll every 10 seconds
-    };
+      };
 
-    startRenderAndPoll();
-  };
+      stopRenderPolling();
+      poll(); // immediate first poll
+      renderPollingRef.current = setInterval(poll, 10_000);
+    },
+    [projectId]
+  );
 
   const handleDownload = async () => {
     if (!project || !project.r2_video_url) {
@@ -1076,6 +1255,16 @@ export default function ProjectView() {
   const pipelineComplete = ["generated", "rendering", "done"].includes(
     project.status
   );
+  const showInlineReviewPrompt = Boolean(
+    inlineReviewSubmitted ||
+      (
+        !reviewState?.has_review_for_project &&
+        (
+          reviewState?.should_show_inline ||
+          (isFirstProject && firstProjectPopupDismissed)
+        )
+      )
+  );
 
   // ─── Distribute blog images across scenes (match VideoPreview logic) ────────────────
   const imageAssets = project.assets.filter((a) => a.asset_type === "image");
@@ -1170,11 +1359,10 @@ export default function ProjectView() {
     // Apply scene-specific images (later uploads overwrite by same scene_id)
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-      if (sceneIdx >= 0) {
+      if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
         // Overwrite any existing assignment; scene-specific re-enables images
         sceneImageMap[sceneIdx] = [url];
         sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
-        hideImageFlags[sceneIdx] = false;
       }
     }
 
@@ -1325,7 +1513,7 @@ export default function ProjectView() {
   // Count audio scenes
   const audioScenes = project.scenes.filter((s) => s.voiceover_path);
   const totalAudioDuration = project.scenes.reduce(
-    (sum, s) => sum + s.duration_seconds,
+    (sum, s) => sum + (s.duration_seconds ?? 0) + (s.extra_hold_seconds ?? 0),
     0
   );
 
@@ -1737,6 +1925,18 @@ export default function ProjectView() {
                 )}
                 {project.scenes.length > 0 ? (
                   <div className="flex-1 flex flex-col p-4 gap-3 min-h-0">
+                    {(project.template ?? "default") === "gridcraft" &&
+                      project.aspect_ratio === "portrait" && (
+                        <div
+                          className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-950 leading-snug"
+                          role="status"
+                        >
+                          <span className="font-semibold">Portrait Gridcraft:</span> Layout is
+                          sensitive to text length and per-scene font overrides. Preview{" "}
+                          <span className="font-medium">each scene</span> and adjust titles, body
+                          copy, or scene font sizes if anything clips.
+                        </div>
+                      )}
                     <div
                       className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
                       style={
@@ -1745,13 +1945,28 @@ export default function ProjectView() {
                           : undefined
                       }
                     >
-                      <VideoPreview project={project} logoSizeOverride={logoSize} logoOpacityOverride={logoOpacity} logoPositionOverride={logoPosition} />
+                      <VideoPreview
+                        project={project}
+                        logoSizeOverride={logoSize}
+                        logoOpacityOverride={logoOpacity}
+                        logoPositionOverride={logoPosition}
+                      />
                     </div>
-                    <p className="text-[11px] text-gray-400 flex-shrink-0">
-                      Live preview · {project.scenes.length} scenes
-                      {totalAudioDuration > 0 &&
-                        ` · ${Math.round(totalAudioDuration)}s`}
-                    </p>
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
+                      <p className="text-[11px] text-gray-400 flex-shrink-0">
+                        Preview · {project.scenes.length} scenes
+                        {totalAudioDuration > 0 &&
+                          ` · ${Math.round(totalAudioDuration)}s`}
+                      </p>
+                      {showInlineReviewPrompt && (
+                        <ProjectReviewPrompt
+                          submitted={inlineReviewSubmitted}
+                          submitting={reviewSubmitting}
+                          error={reviewError}
+                          onSubmit={handleInlineSubmitReview}
+                        />
+                      )}
+                    </div>
                     {imageAssets.some((a) => /\.gif(\?.*)?$/i.test(a.filename)) && (
                       <p className="text-[10px] text-amber-500 flex items-center gap-1">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1792,6 +2007,26 @@ export default function ProjectView() {
         onPurchased={() => loadProject()}
       /> */}
 
+      {showReviewPopup && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            onClick={handleDismissReviewPopup}
+          />
+          <div className="relative w-full max-w-md" onClick={(event) => event.stopPropagation()}>
+            <ProjectReviewPrompt
+              variant="modal"
+              submitted={false}
+              submitting={reviewSubmitting}
+              error={reviewError}
+              onDismiss={handleDismissReviewPopup}
+              onSubmit={handlePopupSubmitReview}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Download warning — show before starting download when video is already rendered */}
       {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
@@ -1802,8 +2037,8 @@ export default function ProjectView() {
             </h3>
             <p className="text-sm text-gray-600 mb-6">
               {downloadWarningMode === "download"
-                ? "This download may not include your most recent edits. To ensure all changes are reflected, please re-render the video before downloading."
-                : "Make sure You have made all the changes. Re-rendering of video will result in deduction of a video count."}
+                ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
+                : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
             </p>
 
 
@@ -2224,7 +2459,7 @@ export default function ProjectView() {
                                     </span>
                                   )}
                                   <span className="text-[11px] text-gray-300 ml-1">
-                                    {scene.duration_seconds}s
+                                    {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
                                   </span>
 
                                   {/* Expand chevron */}

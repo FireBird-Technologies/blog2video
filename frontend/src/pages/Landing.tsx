@@ -8,8 +8,10 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
+import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PublicFooter from "../components/public/PublicFooter";
+import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
 import { homepageSchema } from "../seo/schema";
 
@@ -73,6 +75,9 @@ export default function Landing() {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
+  const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState(false);
   const scrollRef = useScrollReveal();
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
@@ -108,7 +113,28 @@ export default function Landing() {
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
-      showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      if (err?.response?.status === 403 && err?.response?.data?.detail === "account_deleted") {
+        setPendingCredential(response.credential);
+        setAccountDeletedOpen(true);
+      } else {
+        showError(getErrorMessage(err, "Authentication failed. Please try again."));
+      }
+    }
+  };
+
+  const handleReactivate = async () => {
+    if (!pendingCredential) return;
+    setReactivating(true);
+    try {
+      const res = await googleLogin(pendingCredential, true);
+      login(res.data.access_token, res.data.user);
+      setAccountDeletedOpen(false);
+      setPendingCredential(null);
+      navigate("/dashboard");
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Failed to reactivate account."));
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -121,8 +147,11 @@ export default function Landing() {
         schema={homepageSchema()}
       />
       {/* ─── Nav ─── */}
-      <nav className="border-b border-gray-200/50 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
+        {/* Banner above navbar so it appears first on scroll */}
+        <DiscountBanner containerClassName="max-w-6xl" />
+
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               B2V
@@ -133,11 +162,25 @@ export default function Landing() {
           </div>
           {/* Desktop: horizontal links */}
           <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map(({ href, label }) => (
-              <a key={href} href={href} className="text-sm text-gray-400 hover:text-gray-900 transition-colors">
-                {label}
-              </a>
-            ))}
+            {NAV_LINKS.map(({ href, label }) =>
+              href.startsWith("#") ? (
+                <a
+                  key={href}
+                  href={href}
+                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  key={href}
+                  to={href}
+                  className="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  {label}
+                </Link>
+              )
+            )}
           </div>
           {/* Mobile: dropdown trigger */}
           <div className="relative md:hidden">
@@ -161,16 +204,27 @@ export default function Landing() {
                   onClick={() => setNavOpen(false)}
                 />
                 <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
-                  {NAV_LINKS.map(({ href, label }) => (
-                    <a
-                      key={href}
-                      href={href}
-                      onClick={() => setNavOpen(false)}
-                      className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                    >
-                      {label}
-                    </a>
-                  ))}
+                  {NAV_LINKS.map(({ href, label }) =>
+                    href.startsWith("#") ? (
+                      <a
+                        key={href}
+                        href={href}
+                        onClick={() => setNavOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      >
+                        {label}
+                      </a>
+                    ) : (
+                      <Link
+                        key={href}
+                        to={href}
+                        onClick={() => setNavOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                      >
+                        {label}
+                      </Link>
+                    )
+                  )}
                 </div>
               </>
             )}
@@ -707,7 +761,7 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then $5/video pay-as-you-go, $25/month
+            Your first video is free. Then $3/video pay-as-you-go, $25/month
             (or $20/mo annual), $50/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
@@ -720,7 +774,7 @@ export default function Landing() {
             </div>
             <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
-              <p className="text-3xl font-bold text-gray-900">$5</p>
+              <p className="text-3xl font-bold text-gray-900">$3</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
             </div>
             <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
@@ -777,6 +831,13 @@ export default function Landing() {
       </section>
 
       <PublicFooter />
+
+      <AccountDeletedModal
+        open={accountDeletedOpen}
+        onClose={() => { setAccountDeletedOpen(false); setPendingCredential(null); }}
+        onReactivate={handleReactivate}
+        reactivating={reactivating}
+      />
     </div>
   );
 }

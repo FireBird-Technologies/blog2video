@@ -99,7 +99,7 @@ export function pricingSchema() {
         {
           "@type": "Offer",
           name: "Per Video",
-          price: "5",
+          price: "3",
           priceCurrency: "USD",
         },
         {

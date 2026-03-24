@@ -100,8 +100,8 @@ export const RemotionRoot: React.FC = () => {
         component={WhiteboardVideo}
         durationInFrames={30 * 300}
         fps={30}
-        width={1920}
-        height={1080}
+        width={1280}
+        height={720}
         defaultProps={{
           dataUrl: "/data.json",
         }}
@@ -112,8 +112,8 @@ export const RemotionRoot: React.FC = () => {
         component={NewspaperVideo}
         durationInFrames={30 * 300}
         fps={30}
-        width={1920}
-        height={1080}
+        width={1280}
+        height={720}
         defaultProps={{
           dataUrl: "/data.json",
         }}
