@@ -642,7 +642,8 @@ export const createProject = (
   custom_voice_id?: string,
   aspect_ratio?: string,
   template?: string,
-  video_style?: VideoStyleId
+  video_style?: VideoStyleId,
+  content_language?: string | null
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -659,6 +660,7 @@ export const createProject = (
     aspect_ratio,
     template,
     video_style,
+    content_language,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -677,6 +679,7 @@ export interface BulkProjectItem {
   logo_opacity?: number;
   custom_voice_id?: string;
   aspect_ratio?: string;
+  content_language?: string | null;
 }
 
 export interface BulkCreateResponse {
@@ -720,6 +723,7 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
+    content_language?: string | null;
   } = {}
 ) => {
   const formData = new FormData();
@@ -737,6 +741,9 @@ export const createProjectFromDocs = (
     formData.append("logo_opacity", String(config.logo_opacity));
   if (config.custom_voice_id) formData.append("custom_voice_id", config.custom_voice_id);
   if (config.aspect_ratio) formData.append("aspect_ratio", config.aspect_ratio);
+  if (config.content_language !== undefined && config.content_language !== null) {
+    formData.append("content_language", config.content_language);
+  }
   if (config.template) formData.append("template", config.template);
   if (config.video_style) formData.append("video_style", config.video_style);
   return api.post<Project>("/projects/upload", formData, {

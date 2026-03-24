@@ -23,9 +23,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
 
-  // Responsive flag based on video width, assuming 'p' implies a smaller width or aspect ratio
   const p = aspectRatio === "portrait";
 
   // Helper for spring animations, allowing custom config
@@ -60,7 +59,7 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   const resolvedFontFamily = fontFamily ?? GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY;
 
   // Facts text size follows display/description text size
-  const factFontSize = descriptionFontSize ?? (p ? 47 : 28);
+  const factFontSize = descriptionFontSize ?? (p ? 24 : 28);
   const factLabelSize = Math.round(factFontSize * 0.6);
 
   // --- Title Word-by-Word Animation ---
@@ -82,25 +81,26 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gridTemplateRows: "1.8fr 1fr",
+        gridTemplateColumns: p ? "1fr" : "1fr 1fr",
+        gridTemplateRows: p ? "auto auto auto" : "1.8fr 1fr",
         gap: 20,
         width: "90%",
         height: "80%",
         margin: "auto",
         fontFamily: resolvedFontFamily,
         opacity: layoutOpacity, // Apply overall fade out here
+        minWidth: 0,
       }}
     >
       {/* Main Highlight Box - with optional image */}
       <div
         style={{
-          gridColumn: "1 / 3",
+          gridColumn: "1 / -1",
           ...glass(false),
           backgroundColor: "rgba(255,255,255,0.4)",
           border: `1px solid ${(accentColor || COLORS.ACCENT)}40`,
           display: "flex",
-          flexDirection: hasImage ? "row" : "column",
+          flexDirection: hasImage && !p ? "row" : "column",
           justifyContent: "center",
           padding: hasImage ? 0 : 42,
           overflow: "hidden",
@@ -123,7 +123,8 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            padding: 42,
+            padding: p && hasImage ? 28 : 42,
+            minWidth: 0,
           }}
         >
           <div style={{
@@ -142,10 +143,12 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
             fontWeight: 700,
             lineHeight: 1.3,
             color: textColor || COLORS.DARK,
-            maxWidth: "90%",
+            maxWidth: "100%",
+            minWidth: 0,
             display: "flex", // Make it a flex container to align words
             flexWrap: "wrap", // Allow words to wrap
             overflow: "hidden", // Hide overflow during animation
+            wordBreak: "break-word",
           }}>
             {titleWords.map((word, i) => {
               const wordAnimDelay = titleWordStartDelay + i * titleWordStagger;
@@ -172,9 +175,10 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
           {/* Animated Subtitle (Body Text) fading in softly */}
           {subtitle && (
             <div style={{
-              fontSize: descriptionFontSize ?? (p ? 47 : 28),
+              fontSize: descriptionFontSize ?? (p ? 26 : 28),
               color: COLORS.MUTED,
               marginTop: 12,
+              wordBreak: "break-word",
               // Soft fade in after title words finish
               opacity: interpolate(spr(subtitleInStart, { damping: 20, stiffness: 100 }), [0, 1], [0, 1]),
             }}>{subtitle}</div>
@@ -188,26 +192,31 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
          // Gentle ease-out config for fact card animations
          const progress = spr(factAnimDelay, { damping: 18, stiffness: 100 });
          const factOpacity = interpolate(progress, [0, 1], [0, 1]);
-         // Fact 1 slides from left (-100), Fact 2 slides from right (100)
+         // Fact 1 slides from left (-100), Fact 2 from right (landscape); portrait uses vertical slide
          const translateX = interpolate(progress, [0, 1], [i === 0 ? -100 : 100, 0], { easing: Easing.out(Easing.ease) });
+         const translateY = interpolate(progress, [0, 1], [i === 0 ? -40 : 40, 0], { easing: Easing.out(Easing.ease) });
 
          const isAccent = i === 1;
 
          return (
              <div key={i} style={{
+                 gridColumn: p ? "1" : undefined,
+                 gridRow: p ? i + 2 : undefined,
                  ...glass(isAccent),
                  backgroundColor: isAccent ? (accentColor || COLORS.ACCENT) : undefined,
                  padding: 24,
                  display: "flex",
                  flexDirection: "column",
                  justifyContent: "center",
-                 transform: `translateX(${translateX}px)`, // Apply slide animation
+                 minWidth: 0,
+                 overflow: "hidden",
+                 transform: p ? `translateY(${translateY}px)` : `translateX(${translateX}px)`,
                  opacity: factOpacity,
              }}>
-                 <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase" }}>
+                 <div style={{ fontSize: factLabelSize, opacity: 0.8, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", wordBreak: "break-word" }}>
                      Fact {i + 1}
                  </div>
-                 <div style={{ fontSize: factFontSize, fontWeight: 600, lineHeight: 1.4 }}>
+                 <div style={{ fontSize: factFontSize, fontWeight: 600, lineHeight: 1.4, wordBreak: "break-word" }}>
                      {fact}
                  </div>
              </div>

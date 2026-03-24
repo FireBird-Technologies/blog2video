@@ -225,7 +225,8 @@ export default function Dashboard() {
     aspectRatio?: string,
     uploadFiles?: File[],
     template?: string,
-    videoStyle?: VideoStyleId
+    videoStyle?: VideoStyleId,
+    contentLanguage?: string | null
   ) => {
     setCreating(true);
     try {
@@ -247,6 +248,7 @@ export default function Dashboard() {
           aspect_ratio: aspectRatio,
           template,
           video_style: videoStyle,
+          content_language: contentLanguage,
         });
       } else {
         // URL flow
@@ -264,7 +266,8 @@ export default function Dashboard() {
           customVoiceId,
           aspectRatio,
           template,
-          videoStyle
+          videoStyle,
+          contentLanguage
         );
       }
 

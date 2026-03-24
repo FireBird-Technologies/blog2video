@@ -57,6 +57,11 @@ class Project(Base):
     # Video style: explainer (default), promotional, storytelling — drives script & voiceover tone
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
+    # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
+    # All generated content (script, display text, voiceover) is produced in this language.
+    # Null = auto-detect from blog_content when needed. Later: user choice / translate option.
+    content_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     # Aspect ratio
     aspect_ratio: Mapped[str] = mapped_column(String(20), default="landscape")
     
