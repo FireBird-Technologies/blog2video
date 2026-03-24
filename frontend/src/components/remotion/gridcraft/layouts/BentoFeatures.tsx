@@ -93,6 +93,7 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
           gap: 20, // Gap between feature cards
           flex: hasImage && !p ? 1 : "none",
           width: hasImage && !p ? "auto" : "100%",
+          minWidth: 0,
         }}
       >
       {items.slice(0, 6).map((item, i) => {
@@ -133,18 +134,21 @@ export const BentoFeatures: React.FC<GridcraftLayoutProps> = ({
               // Apply combined transforms and opacity based on mode
               transform: `scale(${cardScale}) translateY(${cardTranslateY}px)`,
               opacity: cardOpacity,
+              minWidth: 0,
+              overflow: "hidden",
             }}
           >
             {item.icon && <div style={{ fontSize: 36, marginBottom: 16 }}>{item.icon}</div>}
-            <div style={{ fontSize: titleFontSize ?? (p ? 41 : 40), fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK) }}>
+            <div style={{ fontSize: titleFontSize ?? (p ? 34 : 40), fontWeight: 700, marginBottom: 8, color: isAccent ? COLORS.WHITE : (textColor || COLORS.DARK), wordBreak: "break-word" }}>
                 {item.label}
             </div>
             {item.description && (
                 <div style={{
-                    fontSize: descriptionFontSize ?? (p ? 40 : 27),
+                    fontSize: descriptionFontSize ?? (p ? 24 : 27),
                     lineHeight: 1.4,
                     opacity: isAccent ? 0.9 : 0.7,
-                    color: isAccent ? COLORS.WHITE : COLORS.MUTED
+                    color: isAccent ? COLORS.WHITE : COLORS.MUTED,
+                    wordBreak: "break-word",
                 }}>
                     {item.description}
                 </div>
