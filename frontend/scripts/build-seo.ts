@@ -25,6 +25,11 @@ import MarketingPageView from "../src/pages/MarketingPageView";
 import NotFoundPage from "../src/pages/NotFoundPage";
 import Pricing from "../src/pages/Pricing";
 import {
+  normalizeSchemaForJsonLd,
+  SEO_JSON_LD_SCRIPT_ID,
+  type JsonLdInput,
+} from "../src/seo/jsonLd";
+import {
   blogIndexSchema,
   blogPostSchema,
   contactSchema,
@@ -40,6 +45,7 @@ type SeoPayload = {
   title: string;
   description: string;
   path: string;
+  image?: string;
   schema?: Record<string, unknown>[] | Record<string, unknown>;
   noindex?: boolean;
 };
@@ -109,6 +115,7 @@ function getSeoPayload(routePath: string): SeoPayload {
         title: post.title,
         description: post.description,
         path: routePath,
+        image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
         schema: blogPostSchema(post),
       };
     }
@@ -137,6 +144,7 @@ function buildHeadTags(routePath: string) {
   const fullTitle = payload.title.includes(siteName)
     ? payload.title
     : `${payload.title} | ${siteName}`;
+  const ogImage = payload.image ?? defaultOgImage;
 
   return `
 <title>${escapeHtml(fullTitle)}</title>
@@ -148,14 +156,16 @@ function buildHeadTags(routePath: string) {
 <meta property="og:title" content="${escapeHtml(fullTitle)}" />
 <meta property="og:description" content="${escapeHtml(payload.description)}" />
 <meta property="og:url" content="${canonicalUrl}" />
-<meta property="og:image" content="${defaultOgImage}" />
+<meta property="og:image" content="${ogImage}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(fullTitle)}" />
 <meta name="twitter:description" content="${escapeHtml(payload.description)}" />
-<meta name="twitter:image" content="${defaultOgImage}" />
+<meta name="twitter:image" content="${ogImage}" />
 ${
   payload.schema
-    ? `<script type="application/ld+json">${JSON.stringify(payload.schema)}</script>`
+    ? `<script type="application/ld+json" id="${SEO_JSON_LD_SCRIPT_ID}">${JSON.stringify(
+        normalizeSchemaForJsonLd(payload.schema as JsonLdInput)
+      )}</script>`
     : ""
 }
 `.trim();

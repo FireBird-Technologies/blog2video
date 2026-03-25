@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { defaultOgImage, siteName, siteUrl } from "../../content/siteContent";
+import { normalizeSchemaForJsonLd, SEO_JSON_LD_SCRIPT_ID } from "../../seo/jsonLd";
 
 type SchemaValue = Record<string, unknown> | Record<string, unknown>[];
 
@@ -82,20 +83,17 @@ export default function Seo({
     upsertMeta('meta[name="twitter:image"]', "name", "twitter:image", image);
     upsertLink('link[rel="canonical"]', "canonical", canonicalUrl);
 
-    const schemaId = "seo-json-ld";
-    const existingScript = document.getElementById(schemaId);
+    const existingScript = document.getElementById(SEO_JSON_LD_SCRIPT_ID);
     if (schema) {
+      const normalized = normalizeSchemaForJsonLd(schema);
+      if (!normalized) return;
       const script =
         existingScript ||
         Object.assign(document.createElement("script"), {
-          id: schemaId,
+          id: SEO_JSON_LD_SCRIPT_ID,
           type: "application/ld+json",
         });
-      script.textContent = JSON.stringify(
-        Array.isArray(schema)
-          ? { "@context": "https://schema.org", "@graph": schema }
-          : schema
-      );
+      script.textContent = JSON.stringify(normalized);
       if (!existingScript) document.head.appendChild(script);
     } else if (existingScript) {
       existingScript.remove();

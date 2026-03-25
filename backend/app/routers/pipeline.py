@@ -370,6 +370,7 @@ async def _generate_scenes(project: Project, db: Session):
 
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
     async def _descriptor_task():
+        content_lang = get_content_language_for_project(project)
         result = await scene_gen.generate_all_scenes(
             scenes_data,
             image_filenames,
@@ -377,6 +378,7 @@ async def _generate_scenes(project: Project, db: Session):
             bg_color=project.bg_color or "#FFFFFF",
             text_color=project.text_color or "#000000",
             animation_instructions=project.animation_instructions or "",
+            content_language=content_lang,
         )
         return result
 
