@@ -22,6 +22,7 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
+    video_length: Optional[str] = "auto"  # auto | short (7-10) | medium (12-15) | detailed (15-20)
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
 
 
@@ -31,6 +32,7 @@ class ProjectUpdate(BaseModel):
     text_color: Optional[str] = None
     font_family: Optional[str] = None
     content_language: Optional[str] = None
+    video_length: Optional[str] = None
 
 class SceneOut(BaseModel):
     id: int
@@ -162,6 +164,7 @@ class ProjectOut(BaseModel):
     custom_voice_id: Optional[str] = None
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
+    video_length: str = "auto"
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
@@ -204,6 +207,7 @@ class BulkProjectItem(BaseModel):
     custom_voice_id: Optional[str] = None
     aspect_ratio: Optional[str] = "landscape"
     content_language: Optional[str] = None
+    video_length: Optional[str] = "auto"
 
 
 class BulkCreateResponse(BaseModel):
