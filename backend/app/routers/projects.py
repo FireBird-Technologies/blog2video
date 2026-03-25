@@ -100,6 +100,7 @@ _ALLOWED_MIME_TYPES = {
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
+_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -113,6 +114,19 @@ def _normalize_video_style(video_style: str | None) -> str:
             detail="video_style must be one of: explainer, promotional, storytelling",
         )
     return style
+
+
+def _normalize_video_length(video_length: str | None) -> str:
+    """Normalize and validate video_length stored on Project."""
+    raw = (video_length or "").strip().lower()
+    if not raw:
+        return "auto"
+    if raw not in _VALID_VIDEO_LENGTHS:
+        raise HTTPException(
+            status_code=422,
+            detail="video_length must be one of: auto, short, medium, detailed",
+        )
+    return raw
 
 
 def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
@@ -181,6 +195,7 @@ def create_project(
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        video_length=_normalize_video_length(getattr(data, "video_length", None)),
         content_language=normalize_preferred_language_code(data.content_language),
         status=ProjectStatus.CREATED,
     )
@@ -213,6 +228,8 @@ def update_project(
             update_data[field] = value  # allow nulling or changing
         elif field == "content_language":
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
+        elif field == "video_length":
+            update_data[field] = _normalize_video_length(value)
         else:
             if value is not None:
                 update_data[field] = value
@@ -373,6 +390,7 @@ def create_projects_bulk(
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
+            video_length=_normalize_video_length(getattr(data, "video_length", None)),
             content_language=normalize_preferred_language_code(data.content_language),
             status=ProjectStatus.CREATED,
         )
@@ -419,6 +437,7 @@ def create_project_from_upload(
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
+    video_length: Optional[str] = Form("auto"),
     content_language: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -485,6 +504,7 @@ def create_project_from_upload(
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        video_length=_normalize_video_length(video_length),
         content_language=normalize_preferred_language_code(content_language),
         status=ProjectStatus.CREATED,
     )
