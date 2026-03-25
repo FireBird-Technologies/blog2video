@@ -36,6 +36,42 @@ DEFAULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4"
 ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 
 
+def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
+    """Return ElevenLabs voice_settings tuned by video style.
+
+    Promotional  → punchy ad delivery: very low stability (high variation),
+                   high style exaggeration, strong speaker presence.
+    Storytelling → warm narrator: moderate stability, rich emotional style,
+                   enough consistency to sustain a long story.
+    Explainer    → clear lecture voice: high stability (steady pacing),
+                   minimal style exaggeration, authoritative but not robotic.
+    """
+    style = (video_style or "explainer").strip().lower()
+
+    if style == "promotional":
+        return {
+            "stability": 0.30,
+            "similarity_boost": 0.75,
+            "style": 0.90,
+            "use_speaker_boost": True,
+        }
+
+    if style == "storytelling":
+        return {
+            "stability": 0.45,
+            "similarity_boost": 0.80,
+            "style": 0.70,
+            "use_speaker_boost": True,
+        }
+        
+    return {
+        "stability": 0.75,
+        "similarity_boost": 0.85,
+        "style": 0.20,
+        "use_speaker_boost": True,
+    }
+
+
 def _get_voice_id(project: Project) -> str | None:
     gender = getattr(project, "voice_gender", "female")
     if gender == "none":
@@ -190,6 +226,7 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     # Determine voice from project preferences
     project = db.query(Project).filter(Project.id == scene.project_id).first()
     voice_id = _get_voice_id(project) if project else None
+    voice_settings = _voice_settings_for_video_style(getattr(project, "video_style", None) if project else None)
     if project:
         configured_custom = getattr(project, "custom_voice_id", None)
         configured_custom = configured_custom.strip() if isinstance(configured_custom, str) else None
@@ -246,14 +283,12 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
 
     def _try_tts(vid: str) -> None:
         """Run TTS with given voice_id; writes to output_path and updates scene. Raises on failure."""
-        # Do not force a global voice_settings profile for every voice.
-        # Using ElevenLabs default settings preserves each prebuilt/custom voice character
-        # more faithfully and aligns better with preview playback.
         audio_generator = client.text_to_speech.convert(
             text=voiceover_text,
             voice_id=vid,
             model_id="eleven_multilingual_v2",
             output_format="mp3_44100_128",
+            voice_settings=voice_settings,
         )
         with open(output_path, "wb") as f:
             for chunk in audio_generator:
