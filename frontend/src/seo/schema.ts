@@ -19,12 +19,21 @@ function breadcrumbList(items: Array<{ name: string; path: string }>) {
   };
 }
 
-function faqSchema(faq: FaqItem[]) {
+function faqSchema(
+  faq: FaqItem[],
+  meta?: { pageUrl: string; name?: string }
+) {
   if (!faq.length) return null;
 
+  const pageUrl = meta?.pageUrl ?? siteUrl;
+  const faqName = meta?.name?.trim() || "Frequently asked questions";
+
+  // No nested @context — parent uses { @context, @graph } from normalizeSchemaForJsonLd
   return {
-    "@context": "https://schema.org",
     "@type": "FAQPage",
+    "@id": `${pageUrl}#faqpage`,
+    name: faqName,
+    url: pageUrl,
     mainEntity: faq.map((entry) => ({
       "@type": "Question",
       name: entry.question,
@@ -177,7 +186,10 @@ export function marketingPageSchema(page: MarketingPage) {
     ]),
   ];
 
-  const faq = faqSchema(page.faq);
+  const faq = faqSchema(page.faq, {
+    pageUrl: `${siteUrl}${page.path}`,
+    name: `FAQ — ${page.heroTitle}`,
+  });
   if (faq) schemas.push(faq);
 
   return schemas;
@@ -215,7 +227,10 @@ export function blogPostSchema(post: BlogPost) {
     ]),
   ];
 
-  const faq = faqSchema(post.faq);
+  const faq = faqSchema(post.faq, {
+    pageUrl: `${siteUrl}/blogs/${post.slug}`,
+    name: `FAQ — ${post.title}`,
+  });
   if (faq) schemas.push(faq);
 
   return schemas;

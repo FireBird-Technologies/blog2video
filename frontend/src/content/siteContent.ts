@@ -1,3 +1,4 @@
+import { alternativePages } from "./alternativePages";
 import { blogPosts } from "./blogPosts";
 import { coreCommercialPages } from "./corePages";
 import { featurePages } from "./featurePages";
@@ -20,6 +21,7 @@ export const marketingPages: MarketingPage[] = [
   ...templatePages,
   ...programmaticPages,
   ...resourcePages,
+  ...alternativePages,
 ];
 
 export const topNavLinks = [
@@ -63,6 +65,17 @@ export const footerGroups = [
       "/templates/matrix",
       "/templates/newspaper",
       "/templates/geometric-explainer",
+    ],
+  },
+  {
+    title: "Comparisons",
+    links: [
+      "/lumen5-alternative",
+      "/pictory-alternative",
+      "/blog2video-vs-lumen5",
+      "/blog2video-vs-pictory",
+      "/blog2video-vs-invideo",
+      "/blog2video-vs-descript",
     ],
   },
   {
