@@ -3,8 +3,8 @@ AI code generator — uses DSPy with Refine for self-correcting Remotion compone
 
 Each scene is generated individually via DSPy ChainOfThought, wrapped in dspy.Refine
 so failed validations trigger targeted feedback + retry on just the failing scene.
-Scenes are generated SEQUENTIALLY — each content scene receives a summary of previous
-scenes' visual approaches to enforce layout diversity across the template.
+All scenes run in PARALLEL via asyncio.gather. Layout diversity is guaranteed by
+hard-assigning a structurally distinct layout family to each content variant.
 """
 
 import asyncio
@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import dspy
 
@@ -22,7 +23,88 @@ from app.services.code_validator import clean_code, validate_component_code
 logger = logging.getLogger(__name__)
 
 REFINE_N = 2          # Max 3 attempts per scene (1 initial + 2 retries) — sufficient since most pass on attempt 1-2
-NUM_CONTENT_VARIANTS = 5  # 5 specialized content designs — each optimized for a content type family
+NUM_CONTENT_VARIANTS = 5  # 5 content variants — each with a hard-assigned layout family for structural diversity
+
+# ─── Layout families ─────────────────────────────────────────
+# Each content variant is assigned ONE layout family with concrete CSS structural
+# mandates. This guarantees visual diversity across variants because the CSS skeletons
+# are fundamentally different — you can't make a "kinetic typography" look like a "card grid".
+# Animation, color, decorative elements, and content rendering remain fully creative.
+
+_LAYOUT_FAMILIES = [
+    {
+        "id": "card_grid",
+        "mandate": (
+            "MANDATORY LAYOUT: CARD GRID\n"
+            "You MUST build a grid/flex-wrap layout with 2-4 distinct card containers.\n"
+            "Required CSS structure: use display: 'grid' with gridTemplateColumns OR display: 'flex' with flexWrap: 'wrap'.\n"
+            "Each card must be a separate container with its own border/shadow/background and content inside.\n"
+            "Cards enter with staggered spring timing — each card at offset i * N frames.\n"
+            "For bullets/steps: one card per item. For metrics: one stat card per metric.\n"
+            "For code: single wide card with monospace content. For quotes: featured card + attribution card.\n"
+            "DO NOT use a single centered text block. DO NOT use a two-column split.\n"
+        ),
+    },
+    {
+        "id": "split_asymmetric",
+        "mandate": (
+            "MANDATORY LAYOUT: SPLIT ASYMMETRIC\n"
+            "You MUST build a two-zone horizontal layout with flexDirection: 'row'.\n"
+            "Required CSS structure: two child divs — left at 60-65% width, right at 35-40% width.\n"
+            "Left zone = primary text/content. Right zone = image (Img) or decorative brand element.\n"
+            "Zones MUST enter from opposite sides — left slides from negative translateX, right from positive translateX.\n"
+            "For bullets/steps: left zone lists items, right zone shows decorative visual.\n"
+            "For metrics: left zone shows primary stat, right zone shows supporting stats.\n"
+            "For code: left zone has code block, right zone has description or visual.\n"
+            "DO NOT use a grid of cards. DO NOT center everything in one column.\n"
+        ),
+    },
+    {
+        "id": "editorial_stack",
+        "mandate": (
+            "MANDATORY LAYOUT: EDITORIAL STACK\n"
+            "You MUST build a vertical magazine-style layout with flexDirection: 'column'.\n"
+            "Required CSS structure: large heading at top → horizontal ruled line (borderBottom) → content section below.\n"
+            "The ruled line / divider is a signature element — use borderBottom with brand accent color.\n"
+            "Content section should use a two-column sub-layout for richer composition.\n"
+            "Elements enter top-to-bottom with staggered vertical timing.\n"
+            "For bullets/steps: numbered editorial list with accent markers.\n"
+            "For metrics: inline stat callouts between ruled sections.\n"
+            "For code: monospace block below the heading with syntax-style formatting.\n"
+            "DO NOT use a grid of cards. DO NOT use a horizontal split.\n"
+        ),
+    },
+    {
+        "id": "centered_hero",
+        "mandate": (
+            "MANDATORY LAYOUT: CENTERED HERO\n"
+            "You MUST build a single massive focal element centered on screen.\n"
+            "Required CSS structure: textAlign 'center', alignItems 'center', justifyContent 'center'.\n"
+            "The title/heading MUST dominate — use fontSize 64-96px, taking up 40%+ of viewport height.\n"
+            "Supporting text appears below at normal size (20-28px) with delayed entrance.\n"
+            "Use spring-driven scale entrance for the hero element (start at scale 0.8, spring to 1.0).\n"
+            "For bullets/steps: hero title, then items appear one-by-one below with spring stagger.\n"
+            "For metrics: single hero stat at massive scale, label below.\n"
+            "For code: hero title, then code fades in below with typewriter effect.\n"
+            "DO NOT use a grid. DO NOT use a split. DO NOT use small text everywhere.\n"
+        ),
+    },
+    {
+        "id": "kinetic_typography",
+        "mandate": (
+            "MANDATORY LAYOUT: KINETIC TYPOGRAPHY\n"
+            "Text IS the entire composition — no cards, no containers, no boxes.\n"
+            "Required CSS structure: split text with .split(' ') or .split('\\n'), render each piece\n"
+            "with position: 'absolute' at varied positions, using mixed fontSize (24px to 120px).\n"
+            "Words/phrases overlap, stack at different scales, and spring into position from varied directions.\n"
+            "The background should be clean with at most subtle gradient — text dominates everything.\n"
+            "For bullets/steps: each item is a text block at different scale and position.\n"
+            "For metrics: values at massive scale, labels at small scale, scattered compositionally.\n"
+            "For code: key code tokens rendered at mixed scales as typographic art.\n"
+            "DO NOT create card containers. DO NOT use a grid. borderRadius should appear < 3 times.\n"
+        ),
+    },
+]
 
 
 # ─── DSPy Signatures ─────────────────────────────────────────
@@ -275,6 +357,40 @@ def _scene_reward(args, pred) -> float:
     if uses_full_viewport:
         score += 0.10
 
+    # Layout family compliance (+0.10 / -0.10) — verify CSS structure matches assigned layout
+    creative_dir = getattr(args, 'creative_direction', '') or (args.get('creative_direction', '') if isinstance(args, dict) else '')
+    layout_id = None
+    if 'LAYOUT: CARD GRID' in creative_dir:
+        layout_id = 'card_grid'
+    elif 'LAYOUT: SPLIT ASYMMETRIC' in creative_dir:
+        layout_id = 'split_asymmetric'
+    elif 'LAYOUT: EDITORIAL STACK' in creative_dir:
+        layout_id = 'editorial_stack'
+    elif 'LAYOUT: CENTERED HERO' in creative_dir:
+        layout_id = 'centered_hero'
+    elif 'LAYOUT: KINETIC TYPOGRAPHY' in creative_dir:
+        layout_id = 'kinetic_typography'
+
+    if layout_id == 'card_grid':
+        compliant = bool(re.search(r'grid|flexWrap|gridTemplateColumns', code))
+        score += 0.10 if compliant else -0.10
+    elif layout_id == 'split_asymmetric':
+        has_row = 'flexDirection' in code and 'row' in code
+        has_asym = bool(re.search(r'width:\s*["\']?(5[5-9]|6[0-9]|7[0-5])%', code))
+        score += 0.10 if (has_row or has_asym) else -0.10
+    elif layout_id == 'editorial_stack':
+        has_ruled = 'borderBottom' in code or 'border-bottom' in code
+        has_column = 'column' in code
+        score += 0.10 if (has_ruled and has_column) else -0.10
+    elif layout_id == 'centered_hero':
+        center_count = code.count("'center'") + code.count('"center"')
+        has_big_text = bool(re.search(r'fontSize:\s*["\']?([6-9]\d|\d{3})', code))
+        score += 0.10 if (center_count >= 2 and has_big_text) else -0.10
+    elif layout_id == 'kinetic_typography':
+        has_split = '.split(' in code
+        few_cards = code.count('borderRadius') < 3
+        score += 0.10 if (has_split and few_cards) else -0.10
+
     # Staggered timing (0.10) — different frame offsets = sequential reveals
     frame_offsets = re.findall(r"frame\s*[-+]\s*\d+|frame\s*,\s*\[\s*(\d+)", code)
     if len(set(frame_offsets)) >= 3:
@@ -375,10 +491,11 @@ def _scene_reward(args, pred) -> float:
 
     spring_details = [f"d{d}s{s}" for d, s in unique_springs]
 
+    layout_tag = f"layout={layout_id}" if layout_id else "layout=none"
     print(
         f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | "
         f"{line_count}L, {anim_count} anims, {effects} fx | "
-        f"springs=[{','.join(spring_details)}] | "
+        f"{layout_tag} | springs=[{','.join(spring_details)}] | "
         f"techniques=[{','.join(anim_techniques)}]"
     )
     return min(score, 1.0)
@@ -392,13 +509,12 @@ def _build_creative_direction(
     variant_index: int,
     total_content_variants: int,
     brand_context: str = "",
-    previous_summaries: list[str] | None = None,
 ) -> str:
     """Build creative direction for a scene.
 
     Intro/outro get brand-aware direction.
-    Content scenes get a layout inspiration menu, content-type handling for ALL types,
-    and diversity context from previous scenes to prevent repetition.
+    Content scenes get a hard-assigned layout family from _LAYOUT_FAMILIES — the layout
+    structure is mandatory but animation, color, and content rendering remain creative.
     """
     if scene_type == "intro":
         return (
@@ -422,44 +538,13 @@ def _build_creative_direction(
             "Render props.displayText as the primary content."
         )
 
-    # ── Content scenes — full creative freedom with diversity enforcement ──
-    diversity_block = ""
-    if previous_summaries:
-        summaries_text = "\n".join(
-            f"  [{i + 1}] {s}" for i, s in enumerate(previous_summaries)
-        )
-        diversity_block = (
-            f"\n--- DIVERSITY REQUIREMENT ---\n"
-            f"Previous scenes used:\n{summaries_text}\n"
-            f"Your scene MUST use a fundamentally different layout approach, spatial composition, "
-            f"and animation strategy from ALL of the above. DO NOT reuse the same layout family.\n"
-        )
+    # ── Content scenes — hard-assigned layout family ──
+    family = _LAYOUT_FAMILIES[variant_index % len(_LAYOUT_FAMILIES)]
 
     return (
-        f"Scene type: CONTENT — variant {variant_index + 1} of {total_content_variants}.\n"
-        f"{diversity_block}\n"
-        "LAYOUT INSPIRATION MENU (pick ONE that differs from previous scenes):\n"
-        "- Full-bleed typography: massive text fills viewport, word-by-word spring reveal, "
-        "  decorative gradient orbs behind text\n"
-        "- Card grid: 2-4 cards in grid/flex layout, staggered spring entrance, "
-        "  glassmorphic or bordered card styling\n"
-        "- Split layout: left/right or top/bottom halves with distinct content zones, "
-        "  asymmetric proportions (60/40 or 70/30)\n"
-        "- Dashboard / data viz: stat cards with count-up animations, progress bars, "
-        "  SVG gauges, data-dense feel\n"
-        "- Timeline / vertical track: connected items with dot markers, alternating sides, "
-        "  animated connecting line\n"
-        "- Editorial / magazine: pull quotes, large serif headings, ruled lines, "
-        "  two-column asymmetric layout\n"
-        "- Terminal / code: monospace aesthetic, line-by-line typewriter reveal, "
-        "  syntax coloring, terminal chrome (dots, prompt)\n"
-        "- Kinetic typography: text as the entire composition, mixed scales, "
-        "  overlapping word groups, dramatic spring physics\n"
-        "- Comparison columns: side-by-side with animated divider, "
-        "  items enter from opposite sides\n"
-        "- Centered hero: single focal element at massive scale, "
-        "  supporting details orbit around or below\n\n"
-        "CONTENT TYPE HANDLING — your scene MUST handle ALL content types:\n"
+        f"Scene type: CONTENT — variant {variant_index + 1} of {total_content_variants}.\n\n"
+        f"{family['mandate']}\n"
+        "CONTENT TYPE HANDLING — your scene MUST handle ALL content types within the assigned layout:\n"
         "- Check props.contentType and branch accordingly:\n"
         "  'bullets' / 'steps' → render props.bullets or props.steps as list items\n"
         "  'metrics' → render props.metrics as stat cards with interpolate count-up\n"
@@ -469,8 +554,8 @@ def _build_creative_direction(
         "  'timeline' → render props.timelineItems as connected vertical/horizontal sequence\n"
         "  'plain' / default → render props.displayText with rich typographic composition\n"
         "- FALLBACK: always fall back to props.displayText when structured fields are absent.\n\n"
-        "CREATIVE FREEDOM:\n"
-        "- Invent an original design — do NOT fall back to simple opacity+translateY.\n"
+        "CREATIVE FREEDOM (within the mandatory layout structure above):\n"
+        "- Invent original animation physics — each scene must feel like a different motion designer crafted it.\n"
         "- Quality bar: match the polish of a hand-crafted motion design studio.\n"
         "- ALL displayed content MUST come from props — NEVER hardcode sample data.\n"
         "- NEVER render contentType as visible text/label/badge.\n"
@@ -656,8 +741,7 @@ def _generate_single_scene_sync(
     return code
 
 
-from concurrent.futures import ThreadPoolExecutor
-_SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=6, thread_name_prefix="scene-gen")
+_SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="scene-gen")
 
 
 async def _generate_single_scene(
@@ -684,55 +768,13 @@ async def _generate_single_scene(
 
 # ─── Main generation entry point ────────────────────────────────
 
-def _extract_scene_summary(code: str) -> str:
-    """Extract a brief visual approach summary from generated scene code.
-
-    Inspects the code for layout patterns, animation techniques, and structural
-    indicators to produce a 1-line description for diversity context.
-    """
-    indicators = []
-
-    if "grid" in code.lower() or (code.count("borderRadius") >= 3 and "map(" in code):
-        indicators.append("card grid")
-    if re.search(r'width:\s*["\']?(4[0-9]|5[0-5])%', code) or "flexDirection" in code and ("row" in code):
-        indicators.append("split layout")
-    if "timeline" in code.lower() or ("border-left" in code and "map(" in code):
-        indicators.append("timeline/vertical track")
-    if "monospace" in code.lower() or "codeLines" in code:
-        indicators.append("code/terminal")
-    if code.count("fontSize") >= 4 and "textAlign" in code and "center" in code:
-        indicators.append("centered hero typography")
-    if "comparison" in code.lower() or "comparisonLeft" in code:
-        indicators.append("comparison columns")
-    if re.search(r'fontSize:\s*(\d{3,}|[6-9]\d)', code) and ".split" in code:
-        indicators.append("kinetic typography")
-    if "stroke-dasharray" in code or "circle" in code.lower() and "interpolate" in code:
-        indicators.append("data visualization")
-    if "radial-gradient" in code and "blur(" in code:
-        indicators.append("full-bleed with gradient orbs")
-
-    anim_hints = []
-    if "translateX" in code:
-        anim_hints.append("horizontal slides")
-    if "scale" in code:
-        anim_hints.append("scale entrances")
-    if "rotate" in code:
-        anim_hints.append("rotation")
-    if "clip-path" in code or "clipPath" in code:
-        anim_hints.append("clip-path reveals")
-    if ".split(" in code and "spring(" in code:
-        anim_hints.append("word-by-word reveal")
-
-    layout_part = ", ".join(indicators[:3]) if indicators else "custom layout"
-    anim_part = ", ".join(anim_hints[:2]) if anim_hints else "spring animations"
-    return f"{layout_part} with {anim_part}"
-
 
 async def generate_component_code(template: CustomTemplate) -> dict[str, str | list[str]]:
     """Generate scene variant code for a custom template using DSPy Refine.
 
-    Generates scenes SEQUENTIALLY: 1 intro, then N content variants (each informed by
-    the previous scene's visual approach for diversity), then 1 outro.
+    All scenes run in PARALLEL via asyncio.gather: 1 intro + N content variants + 1 outro.
+    Each content variant has a hard-assigned layout family from _LAYOUT_FAMILIES, ensuring
+    structural diversity without needing sequential context passing.
 
     Returns dict with keys:
       - intro_code: str (scene 0)
@@ -774,59 +816,60 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     num_content = NUM_CONTENT_VARIANTS
     total_scenes = 1 + num_content + 1
 
-    scenes: list[str] = []
-    scene_types: list[str] = []
-    previous_summaries: list[str] = []
-
-    # ── Generate INTRO ──
+    # Build creative directions upfront — each content variant gets its assigned layout
     intro_direction = _build_creative_direction("intro", 0, num_content, brand_context)
-    intro_code = await _generate_single_scene(
-        brand_context=brand_context,
-        design_system=design_system,
-        scene_type="intro",
-        scene_index=0,
-        total_scenes=total_scenes,
-        creative_direction=intro_direction,
-    )
-    scenes.append(intro_code)
-    scene_types.append("intro")
-    previous_summaries.append(_extract_scene_summary(intro_code))
-    print(f"[F7-DEBUG] [SEQ] Intro done — summary: {previous_summaries[-1]}")
+    outro_direction = _build_creative_direction("outro", 0, num_content, brand_context)
+    content_directions = [
+        _build_creative_direction("content", i, num_content, brand_context)
+        for i in range(num_content)
+    ]
 
-    # ── Generate CONTENT scenes sequentially — each gets diversity context ──
-    for i in range(num_content):
-        content_direction = _build_creative_direction(
-            "content", i, num_content, brand_context,
-            previous_summaries=previous_summaries,
-        )
-        content_code = await _generate_single_scene(
+    layout_assignments = [
+        _LAYOUT_FAMILIES[i % len(_LAYOUT_FAMILIES)]["id"]
+        for i in range(num_content)
+    ]
+    print(
+        f"[F7-DEBUG] [CODEGEN] Layout assignments: "
+        + ", ".join(f"content_{i}={lid}" for i, lid in enumerate(layout_assignments))
+    )
+
+    # ── Generate ALL scenes in parallel ──
+    tasks = [
+        _generate_single_scene(
             brand_context=brand_context,
             design_system=design_system,
-            scene_type="content",
-            scene_index=i + 1,
+            scene_type="intro",
+            scene_index=0,
             total_scenes=total_scenes,
-            creative_direction=content_direction,
+            creative_direction=intro_direction,
+        ),
+    ]
+    for i in range(num_content):
+        tasks.append(
+            _generate_single_scene(
+                brand_context=brand_context,
+                design_system=design_system,
+                scene_type="content",
+                scene_index=i + 1,
+                total_scenes=total_scenes,
+                creative_direction=content_directions[i],
+            ),
         )
-        scenes.append(content_code)
-        scene_types.append("content")
-        summary = _extract_scene_summary(content_code)
-        previous_summaries.append(summary)
-        print(f"[F7-DEBUG] [SEQ] Content {i} done — summary: {summary}")
-
-    # ── Generate OUTRO ──
-    outro_direction = _build_creative_direction("outro", 0, num_content, brand_context)
-    outro_code = await _generate_single_scene(
-        brand_context=brand_context,
-        design_system=design_system,
-        scene_type="outro",
-        scene_index=total_scenes - 1,
-        total_scenes=total_scenes,
-        creative_direction=outro_direction,
+    tasks.append(
+        _generate_single_scene(
+            brand_context=brand_context,
+            design_system=design_system,
+            scene_type="outro",
+            scene_index=total_scenes - 1,
+            total_scenes=total_scenes,
+            creative_direction=outro_direction,
+        ),
     )
-    scenes.append(outro_code)
-    scene_types.append("outro")
+
+    scenes = await asyncio.gather(*tasks)
 
     # Final validation pass
+    scene_types = ["intro"] + ["content"] * num_content + ["outro"]
     for i, code in enumerate(scenes):
         valid, err = validate_component_code(code)
         if not valid:
@@ -834,7 +877,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
 
     intro_code = scenes[0]
     outro_code = scenes[-1]
-    content_codes = scenes[1:-1]
+    content_codes = list(scenes[1:-1])
 
     t_total = time.time() - t_start
 
@@ -845,10 +888,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     print(
         f"[F7-DEBUG] [CODEGEN] '{template.name}' done in {t_total:.1f}s — "
         f"{len(scenes)} scenes ({scene_summary})"
-    )
-    print(
-        f"[F7-DEBUG] [CODEGEN] Diversity summaries: "
-        + " | ".join(f"[{i}] {s}" for i, s in enumerate(previous_summaries))
     )
 
     return {
