@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -144,6 +144,24 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
     style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
     if style not in VALID_VIDEO_STYLES:
         style = "explainer"
+
+    # Pull logo_urls and og_image from linked BrandKit (if any)
+    logo_urls: list[str] = []
+    og_image: str = ""
+    if tpl.brand_kit:
+        bk = tpl.brand_kit
+        try:
+            logos_raw = json.loads(bk.logos) if isinstance(bk.logos, str) else (bk.logos or [])
+            logo_urls = [u for u in logos_raw if isinstance(u, str) and u]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        try:
+            images_raw = json.loads(bk.images) if isinstance(bk.images, str) else (bk.images or [])
+            if images_raw and isinstance(images_raw[0], str):
+                og_image = images_raw[0]
+        except (json.JSONDecodeError, TypeError, IndexError):
+            pass
+
     return {
         "id": tpl.id,
         "name": tpl.name,
@@ -162,6 +180,8 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
         "content_codes": json.loads(tpl.content_codes) if tpl.content_codes else None,
         "current_version_id": tpl.current_version_id,
         "preview_image_url": tpl.preview_image_url,
+        "logo_urls": logo_urls,
+        "og_image": og_image,
         "created_at": tpl.created_at.isoformat() if tpl.created_at else "",
         "updated_at": tpl.updated_at.isoformat() if tpl.updated_at else "",
     }
@@ -331,6 +351,7 @@ def list_custom_templates(
     """List all custom templates for the current user."""
     templates = (
         db.query(CustomTemplate)
+        .options(joinedload(CustomTemplate.brand_kit))
         .filter(CustomTemplate.user_id == user.id)
         .order_by(CustomTemplate.created_at.desc())
         .all()

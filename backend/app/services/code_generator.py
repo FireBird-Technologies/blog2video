@@ -3,7 +3,8 @@ AI code generator — uses DSPy with Refine for self-correcting Remotion compone
 
 Each scene is generated individually via DSPy ChainOfThought, wrapped in dspy.Refine
 so failed validations trigger targeted feedback + retry on just the failing scene.
-All 5 scenes run in parallel via asyncio.gather.
+Scenes are generated SEQUENTIALLY — each content scene receives a summary of previous
+scenes' visual approaches to enforce layout diversity across the template.
 """
 
 import asyncio
@@ -14,7 +15,7 @@ import time
 
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured, get_custom_lm, get_theme_lm
+from app.dspy_modules import ensure_dspy_configured, get_custom_lm
 from app.models.custom_template import CustomTemplate
 from app.services.code_validator import clean_code, validate_component_code
 
@@ -32,7 +33,7 @@ class GenerateDesignSystem(dspy.Signature):
 
     Your design system must be SPECIFIC — include actual CSS values, not descriptions.
     Every decision should be derived from the brand's unique identity.
-    Keep output concise — under 1500 characters. Only concrete CSS values, no prose.
+    Keep output concise — under 2000 characters. Only concrete CSS values, no prose.
 
     Output a design system covering ONLY these 3 areas:
     - Background treatment: exact CSS (e.g. "radial-gradient(circle at 20% 50%, rgba(0,235,121,0.08), transparent 60%)")
@@ -41,10 +42,26 @@ class GenerateDesignSystem(dspy.Signature):
 
     Do NOT include: spring configs, animation physics, decorative elements, or entrance patterns.
     Those are creative choices each scene makes independently.
+
+    Industry-aware inspiration (use as starting points, not rules):
+    - Tech SaaS: dark backgrounds (#0a0a1a), glassmorphic cards (backdrop-filter: blur(20px), rgba bg),
+      monospace code accents, neon glow text-shadow (0 0 20px accent), accent underlines
+    - Luxury / Fashion: ivory or deep backgrounds, generous whitespace, ultra-thin borders,
+      serif headings at large scale, subtle gold/cream accents, no gradients — refined restraint
+    - News / Media: ruled lines (1px border-bottom), bordered cards with sharp corners,
+      strong serif headlines, two-column editorial feel, muted palette with bold accent
+    - Health / Wellness: soft rounded corners (16-24px), pastel gradients, organic shapes,
+      sans-serif headings, calming accent colors, whitespace-heavy
+    - E-commerce / Retail: bold product cards with shadows, price-tag accent styling,
+      strong CTAs, vibrant accent on neutral background, tight grid layout
+    - Finance / Fintech: dark or navy backgrounds, thin-line charts aesthetic,
+      monospace numbers, subtle green/blue accents, clean borders, data-dense feel
+    - Education: warm backgrounds, friendly rounded cards, playful accent usage,
+      clear hierarchy with large headings and readable body, icon-accent pairs
     """
 
     brand_context: str = dspy.InputField(desc="Brand identity: name, colors, fonts, style, patterns, personality")
-    design_system: str = dspy.OutputField(desc="Concise design system (under 1500 chars) with CSS values for backgrounds, cards, and text only")
+    design_system: str = dspy.OutputField(desc="Concise design system (under 2000 chars) with CSS values for backgrounds, cards, and text only")
 
 
 class GenerateSceneCode(dspy.Signature):
@@ -249,32 +266,14 @@ def _scene_reward(args, pred) -> float:
             score -= 0.15
             pass  # scene counter penalty
 
-    # Layout compliance bonus (0.10) — reward following the assigned composition
-    creative_dir = args.get("creative_direction", "") if isinstance(args, dict) else getattr(args, "creative_direction", "")
-    if "FULL-BLEED" in creative_dir:
-        # Should NOT have side-by-side split; should use image as background
-        has_split = bool(re.search(r'width:\s*["\']?(4[0-9]|5[0-5])%', code))
-        if not has_split and ("objectFit" in code or "object-fit" in code) and ("100%" in code or "cover" in code):
-            score += 0.10
-            pass  # FULL-BLEED bonus
-        elif has_split:
-            score -= 0.10
-            pass  # FULL-BLEED split penalty
-    elif "STACKED-VERTICAL" in creative_dir:
-        has_column = "column" in code and ("flexDirection" in code or "flex-direction" in code)
-        if has_column:
-            score += 0.10
-            pass  # STACKED-VERTICAL bonus
-    elif "MULTI-CARD" in creative_dir:
-        has_grid = "grid" in code.lower() or (code.count("borderRadius") >= 3 and code.count("map(") >= 1)
-        if has_grid:
-            score += 0.10
-            pass  # MULTI-CARD bonus
-    elif "CENTERED-HERO" in creative_dir:
-        has_center = "center" in code and "textAlign" in code
-        if has_center:
-            score += 0.10
-            pass  # CENTERED-HERO bonus
+    # Layout quality bonus (0.10) — reward scenes that use full viewport
+    uses_full_viewport = (
+        ("100%" in code or "AbsoluteFill" in code)
+        and ("width" in code or "inset" in code)
+        and not re.search(r'maxWidth:\s*["\']?[3-5]\d%', code)
+    )
+    if uses_full_viewport:
+        score += 0.10
 
     # Staggered timing (0.10) — different frame offsets = sequential reveals
     frame_offsets = re.findall(r"frame\s*[-+]\s*\d+|frame\s*,\s*\[\s*(\d+)", code)
@@ -388,104 +387,18 @@ def _scene_reward(args, pred) -> float:
 # ─── Creative direction builder ──────────────────────────────
 
 
-_CONTENT_VARIANT_ROLES = [
-    {
-        "name": "lists",
-        "content_types": ["bullets", "steps"],
-        "layout": "MULTI-CARD grid or STACKED layout",
-        "role": (
-            "Render bullet points and step-by-step flows as visually rich card grids or staggered items."
-        ),
-        "examples": (
-            "Example A: Numbered step cards with connecting vertical line (SVG or border-left), "
-            "staggered spring entrance from alternating sides, each card has an icon circle with accent color.\n"
-            "Example B: Horizontal card grid with glassmorphic cards (backdrop-filter: blur, semi-transparent bg), "
-            "hover-glow borders using box-shadow with accent color, items slide in from bottom with spring stagger."
-        ),
-    },
-    {
-        "name": "metrics",
-        "content_types": ["metrics"],
-        "layout": "CENTERED-HERO or GRID layout with large numbers",
-        "role": (
-            "Render statistics and KPIs with animated count-ups, prominent stat cards, and data visualization flair."
-        ),
-        "examples": (
-            "Example A: SVG circular gauge (<circle> with animated stroke-dasharray via interpolate), "
-            "count-up number in center using interpolate(frame, [0,60], [0, targetValue]), ring decoration behind.\n"
-            "Example B: Horizontal progress bars with spring-animated widths, glow effect (box-shadow) on fill, "
-            "large hero number with suffix text at different scale.\n"
-            "Example C: Grid of stat cards, each with a radial gradient halo behind the number, "
-            "numbers count up with eased interpolation, suffix animates in separately."
-        ),
-    },
-    {
-        "name": "code",
-        "content_types": ["code"],
-        "layout": "SPLIT layout — code block on one side, explanation on other",
-        "role": (
-            "Render code blocks with line-by-line typewriter reveal, syntax-like coloring, and terminal aesthetics."
-        ),
-        "examples": (
-            "Example A: Line-by-line typewriter reveal — each line fades in sequentially using "
-            "interpolate(frame, [i*8, i*8+10], [0,1]), cursor blink via (frame % 15 > 7), "
-            "syntax-colored tokens (keywords in accent, strings in secondary).\n"
-            "Example B: Terminal window with colored dots (red/yellow/green circles), line numbers on left, "
-            "gradual line appearance with slide-in from right, monospace font, dark surface background."
-        ),
-    },
-    {
-        "name": "editorial",
-        "content_types": ["quote", "comparison"],
-        "layout": "ASYMMETRIC or FULL-CENTER layout",
-        "role": (
-            "Render quotes with dramatic word-by-word reveals, and comparisons as balanced side-by-side layouts."
-        ),
-        "examples": (
-            "Example A: Large opening quotation mark as SVG (fontSize 200, accent color, low opacity), "
-            "word-by-word dramatic reveal — split quote into words, each appears with spring(frame-i*4), "
-            "author name slides in from bottom after quote completes.\n"
-            "Example B: Side-by-side comparison with animated divider line (height animates 0→100% via spring), "
-            "staggered card entrance from opposite sides (left card from -translateX, right from +translateX)."
-        ),
-    },
-    {
-        "name": "general",
-        "content_types": ["timeline", "plain"],
-        "layout": "FULL-BLEED typography or STACKED-VERTICAL layout",
-        "role": (
-            "Render timelines as vertical tracks with dot markers and connecting lines, items staggering in from alternating sides. "
-            "For plain text: create visually rich typography compositions — word-by-word spring animations, "
-            "decorative gradient orbs floating behind text, accent underlines that draw in, "
-            "split text into key phrases displayed at different scales for emphasis hierarchy. "
-            "Plain text scenes should be the MOST visually creative — compensate for lack of structured data "
-            "with rich motion design, decorative elements, and typographic artistry."
-        ),
-        "examples": (
-            "Example A: Vertical timeline with dot markers (<circle> SVG) and connecting line (animated height), "
-            "items slide in from alternating sides using translateX with spring stagger.\n"
-            "Example B: Full-bleed text composition — split displayText into words, "
-            "animate each with spring({ frame: frame - i*3, fps, config: { damping: 12, stiffness: 100 } }), "
-            "decorative gradient orbs (radial-gradient circles, position: absolute, filter: blur(40px)) "
-            "floating behind text, accent underline that draws in via width animation.\n"
-            "Example C: Key phrase hierarchy — extract 2-3 phrases from displayText, "
-            "display largest phrase at 3x scale centered, supporting phrases at 1x below, "
-            "each animates in with different spring config for visual variety."
-        ),
-    },
-]
-
-
 def _build_creative_direction(
     scene_type: str,
     variant_index: int,
     total_content_variants: int,
     brand_context: str = "",
+    previous_summaries: list[str] | None = None,
 ) -> str:
     """Build creative direction for a scene.
 
     Intro/outro get brand-aware direction.
-    Content scenes get content-type specialization but full creative freedom in layout/animation.
+    Content scenes get a layout inspiration menu, content-type handling for ALL types,
+    and diversity context from previous scenes to prevent repetition.
     """
     if scene_type == "intro":
         return (
@@ -508,26 +421,61 @@ def _build_creative_direction(
             "Center the brand name and CTA prominently.\n"
             "Render props.displayText as the primary content."
         )
-    else:
-        role = _CONTENT_VARIANT_ROLES[variant_index % len(_CONTENT_VARIANT_ROLES)]
-        examples = role.get("examples", "")
-        layout = role.get("layout", "")
-        return (
-            f"Scene type: CONTENT — variant '{role['name']}' ({variant_index + 1} of {total_content_variants}).\n"
-            f"Content specialization: {', '.join(role['content_types'])}\n"
-            f"Your role: {role['role']}\n\n"
-            f"LAYOUT CONSTRAINT: This variant MUST use {layout} — other variants use different layouts.\n\n"
-            "You have FULL creative freedom in animation, composition, and visual effects.\n"
-            "Invent an original design — do NOT fall back to simple opacity+translateY.\n"
-            "Quality bar: match the polish of a hand-crafted motion design studio.\n\n"
-            f"CONCRETE RENDERING EXAMPLES (use as inspiration, don't copy verbatim):\n{examples}\n\n"
-            "RULES:\n"
-            "- ALL displayed content MUST come from props — NEVER hardcode sample data.\n"
-            "- NEVER render contentType as visible text/label/badge.\n"
-            "- NEVER render sceneIndex/totalScenes as visible counters.\n"
-            f"- When contentType matches [{', '.join(role['content_types'])}], render that structured data beautifully.\n"
-            "- FALLBACK: if contentType doesn't match, render props.displayText with rich typography."
+
+    # ── Content scenes — full creative freedom with diversity enforcement ──
+    diversity_block = ""
+    if previous_summaries:
+        summaries_text = "\n".join(
+            f"  [{i + 1}] {s}" for i, s in enumerate(previous_summaries)
         )
+        diversity_block = (
+            f"\n--- DIVERSITY REQUIREMENT ---\n"
+            f"Previous scenes used:\n{summaries_text}\n"
+            f"Your scene MUST use a fundamentally different layout approach, spatial composition, "
+            f"and animation strategy from ALL of the above. DO NOT reuse the same layout family.\n"
+        )
+
+    return (
+        f"Scene type: CONTENT — variant {variant_index + 1} of {total_content_variants}.\n"
+        f"{diversity_block}\n"
+        "LAYOUT INSPIRATION MENU (pick ONE that differs from previous scenes):\n"
+        "- Full-bleed typography: massive text fills viewport, word-by-word spring reveal, "
+        "  decorative gradient orbs behind text\n"
+        "- Card grid: 2-4 cards in grid/flex layout, staggered spring entrance, "
+        "  glassmorphic or bordered card styling\n"
+        "- Split layout: left/right or top/bottom halves with distinct content zones, "
+        "  asymmetric proportions (60/40 or 70/30)\n"
+        "- Dashboard / data viz: stat cards with count-up animations, progress bars, "
+        "  SVG gauges, data-dense feel\n"
+        "- Timeline / vertical track: connected items with dot markers, alternating sides, "
+        "  animated connecting line\n"
+        "- Editorial / magazine: pull quotes, large serif headings, ruled lines, "
+        "  two-column asymmetric layout\n"
+        "- Terminal / code: monospace aesthetic, line-by-line typewriter reveal, "
+        "  syntax coloring, terminal chrome (dots, prompt)\n"
+        "- Kinetic typography: text as the entire composition, mixed scales, "
+        "  overlapping word groups, dramatic spring physics\n"
+        "- Comparison columns: side-by-side with animated divider, "
+        "  items enter from opposite sides\n"
+        "- Centered hero: single focal element at massive scale, "
+        "  supporting details orbit around or below\n\n"
+        "CONTENT TYPE HANDLING — your scene MUST handle ALL content types:\n"
+        "- Check props.contentType and branch accordingly:\n"
+        "  'bullets' / 'steps' → render props.bullets or props.steps as list items\n"
+        "  'metrics' → render props.metrics as stat cards with interpolate count-up\n"
+        "  'code' → render props.codeLines with monospace font and line-by-line reveal\n"
+        "  'quote' → render props.quote prominently with props.quoteAuthor attribution\n"
+        "  'comparison' → render props.comparisonLeft vs props.comparisonRight side by side\n"
+        "  'timeline' → render props.timelineItems as connected vertical/horizontal sequence\n"
+        "  'plain' / default → render props.displayText with rich typographic composition\n"
+        "- FALLBACK: always fall back to props.displayText when structured fields are absent.\n\n"
+        "CREATIVE FREEDOM:\n"
+        "- Invent an original design — do NOT fall back to simple opacity+translateY.\n"
+        "- Quality bar: match the polish of a hand-crafted motion design studio.\n"
+        "- ALL displayed content MUST come from props — NEVER hardcode sample data.\n"
+        "- NEVER render contentType as visible text/label/badge.\n"
+        "- NEVER render sceneIndex/totalScenes as visible counters.\n"
+    )
 
 
 # ─── Brand context builder ─────────────────────────────────────
@@ -594,9 +542,16 @@ def _build_brand_context(
             if decorative:
                 ctx += f"  Decorative elements: {', '.join(decorative)}\n"
 
+    # Image & logo context — tell the AI what visual assets are available at render time
+    ctx += "\n--- Available visual assets at render time ---\n"
+    ctx += "props.imageUrl: Per-scene image from the blog post (different image per scene). ALWAYS check and render prominently when available using <Img src={props.imageUrl} />.\n"
+    ctx += "props.brandImages: Array of brand images. Use for decorative backgrounds or secondary visuals.\n"
+
     if brand_kit_data:
         if brand_kit_data.get("logos"):
-            ctx += "\nLogo available via props.logoUrl\n"
+            ctx += "props.logoUrl: Brand logo URL. Render in intro/outro scenes for brand recognition.\n"
+        if brand_kit_data.get("images"):
+            ctx += f"Brand has {len(brand_kit_data['images'])} image(s) available via props.brandImages.\n"
         dl = brand_kit_data.get("design_language", {})
         if dl:
             for key in ("vibe", "density", "shapes"):
@@ -628,7 +583,7 @@ def _build_brand_context(
 def _generate_design_system(brand_context: str) -> str:
     """Generate a concise visual design system for cross-scene consistency.
 
-    Uses Haiku for speed — this is structured CSS extraction, not creative generation.
+    Uses Sonnet for creative reasoning — design system quality directly impacts all scenes.
     Covers backgrounds, cards, and text only. Springs/animations are per-scene creative choices.
     """
     ensure_dspy_configured()
@@ -637,13 +592,13 @@ def _generate_design_system(brand_context: str) -> str:
         GenerateDesignSystem,
         rationale_field=dspy.OutputField(
             prefix="Analysis:",
-            desc="Brief: brand personality → 3 key CSS decisions",
+            desc="Brief: brand personality + industry → 3 key CSS decisions",
         ),
     )
 
     t0 = time.time()
-    theme_lm = get_theme_lm()
-    with dspy.context(lm=theme_lm):
+    codegen_lm = get_custom_lm()
+    with dspy.context(lm=codegen_lm):
         result = module(brand_context=brand_context)
 
     design_system = result.design_system or ""
@@ -729,12 +684,55 @@ async def _generate_single_scene(
 
 # ─── Main generation entry point ────────────────────────────────
 
+def _extract_scene_summary(code: str) -> str:
+    """Extract a brief visual approach summary from generated scene code.
+
+    Inspects the code for layout patterns, animation techniques, and structural
+    indicators to produce a 1-line description for diversity context.
+    """
+    indicators = []
+
+    if "grid" in code.lower() or (code.count("borderRadius") >= 3 and "map(" in code):
+        indicators.append("card grid")
+    if re.search(r'width:\s*["\']?(4[0-9]|5[0-5])%', code) or "flexDirection" in code and ("row" in code):
+        indicators.append("split layout")
+    if "timeline" in code.lower() or ("border-left" in code and "map(" in code):
+        indicators.append("timeline/vertical track")
+    if "monospace" in code.lower() or "codeLines" in code:
+        indicators.append("code/terminal")
+    if code.count("fontSize") >= 4 and "textAlign" in code and "center" in code:
+        indicators.append("centered hero typography")
+    if "comparison" in code.lower() or "comparisonLeft" in code:
+        indicators.append("comparison columns")
+    if re.search(r'fontSize:\s*(\d{3,}|[6-9]\d)', code) and ".split" in code:
+        indicators.append("kinetic typography")
+    if "stroke-dasharray" in code or "circle" in code.lower() and "interpolate" in code:
+        indicators.append("data visualization")
+    if "radial-gradient" in code and "blur(" in code:
+        indicators.append("full-bleed with gradient orbs")
+
+    anim_hints = []
+    if "translateX" in code:
+        anim_hints.append("horizontal slides")
+    if "scale" in code:
+        anim_hints.append("scale entrances")
+    if "rotate" in code:
+        anim_hints.append("rotation")
+    if "clip-path" in code or "clipPath" in code:
+        anim_hints.append("clip-path reveals")
+    if ".split(" in code and "spring(" in code:
+        anim_hints.append("word-by-word reveal")
+
+    layout_part = ", ".join(indicators[:3]) if indicators else "custom layout"
+    anim_part = ", ".join(anim_hints[:2]) if anim_hints else "spring animations"
+    return f"{layout_part} with {anim_part}"
+
+
 async def generate_component_code(template: CustomTemplate) -> dict[str, str | list[str]]:
     """Generate scene variant code for a custom template using DSPy Refine.
 
-    Generates 5 scenes in parallel (1 intro + 3 content + 1 outro).
-    Each scene has its own Refine loop — a failure in one scene
-    only retries that scene, not the entire batch.
+    Generates scenes SEQUENTIALLY: 1 intro, then N content variants (each informed by
+    the previous scene's visual approach for diversity), then 1 outro.
 
     Returns dict with keys:
       - intro_code: str (scene 0)
@@ -744,7 +742,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     """
     theme = json.loads(template.theme) if isinstance(template.theme, str) else template.theme
 
-    # Load brand kit data if linked
     brand_kit_data = None
     if template.brand_kit:
         bk = template.brand_kit
@@ -755,7 +752,6 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
             "design_language": json.loads(bk.design_language) if isinstance(bk.design_language, str) else bk.design_language,
         }
 
-    # Extract brand context for industry-aware generation
     personality = ""
     if brand_kit_data and brand_kit_data.get("design_language"):
         personality = brand_kit_data["design_language"].get("personality", "")
@@ -772,70 +768,87 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
 
     t_start = time.time()
 
-    # Generate shared design system (single LLM call, ~5-10s)
-    # This ensures all scenes follow the same visual rules
     loop = asyncio.get_event_loop()
     design_system = await loop.run_in_executor(None, _generate_design_system, brand_context)
 
-    # Build scene tasks: 1 intro + N content + 1 outro
     num_content = NUM_CONTENT_VARIANTS
     total_scenes = 1 + num_content + 1
 
-    # Build creative directions — minimal, just scene role + variant index.
-    # The brand context (already rich with style, patterns, personality) does the heavy lifting.
-    scene_directions: list[tuple[str, int, str]] = [
-        ("intro", 0, _build_creative_direction("intro", 0, num_content, brand_context)),
-        *[("content", i + 1, _build_creative_direction("content", i, num_content, brand_context)) for i in range(num_content)],
-        ("outro", total_scenes - 1, _build_creative_direction("outro", 0, num_content, brand_context)),
-    ]
+    scenes: list[str] = []
+    scene_types: list[str] = []
+    previous_summaries: list[str] = []
 
-    # Run all scenes in parallel
-    tasks = [
-        _generate_single_scene(
+    # ── Generate INTRO ──
+    intro_direction = _build_creative_direction("intro", 0, num_content, brand_context)
+    intro_code = await _generate_single_scene(
+        brand_context=brand_context,
+        design_system=design_system,
+        scene_type="intro",
+        scene_index=0,
+        total_scenes=total_scenes,
+        creative_direction=intro_direction,
+    )
+    scenes.append(intro_code)
+    scene_types.append("intro")
+    previous_summaries.append(_extract_scene_summary(intro_code))
+    print(f"[F7-DEBUG] [SEQ] Intro done — summary: {previous_summaries[-1]}")
+
+    # ── Generate CONTENT scenes sequentially — each gets diversity context ──
+    for i in range(num_content):
+        content_direction = _build_creative_direction(
+            "content", i, num_content, brand_context,
+            previous_summaries=previous_summaries,
+        )
+        content_code = await _generate_single_scene(
             brand_context=brand_context,
             design_system=design_system,
-            scene_type=scene_type,
-            scene_index=idx,
+            scene_type="content",
+            scene_index=i + 1,
             total_scenes=total_scenes,
-            creative_direction=direction,
+            creative_direction=content_direction,
         )
-        for scene_type, idx, direction in scene_directions
-    ]
+        scenes.append(content_code)
+        scene_types.append("content")
+        summary = _extract_scene_summary(content_code)
+        previous_summaries.append(summary)
+        print(f"[F7-DEBUG] [SEQ] Content {i} done — summary: {summary}")
 
-    try:
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-    except Exception as e:
-        raise RuntimeError(f"Code generation failed: {e}") from e
-
-    # Process results
-    scenes: list[str] = []
-    for i, result in enumerate(results):
-        scene_type, idx, _dir = scene_directions[i]
-        if isinstance(result, Exception):
-            raise RuntimeError(f"Scene {idx} ({scene_type}) generation failed: {result}")
-        scenes.append(result)
+    # ── Generate OUTRO ──
+    outro_direction = _build_creative_direction("outro", 0, num_content, brand_context)
+    outro_code = await _generate_single_scene(
+        brand_context=brand_context,
+        design_system=design_system,
+        scene_type="outro",
+        scene_index=total_scenes - 1,
+        total_scenes=total_scenes,
+        creative_direction=outro_direction,
+    )
+    scenes.append(outro_code)
+    scene_types.append("outro")
 
     # Final validation pass
     for i, code in enumerate(scenes):
         valid, err = validate_component_code(code)
         if not valid:
-            raise RuntimeError(f"Scene {i} failed validation after Refine: {err}")
+            raise RuntimeError(f"Scene {i} ({scene_types[i]}) failed validation after Refine: {err}")
 
     intro_code = scenes[0]
     outro_code = scenes[-1]
     content_codes = scenes[1:-1]
 
     t_total = time.time() - t_start
-    t_design = t_total  # approximate — design system was first step
 
-    # One clean summary for the entire codegen phase
     scene_summary = ", ".join(
-        f"{st}:{result.count(chr(10)) + 1}L"
-        for (st, _idx, _cd), result in zip(scene_directions, scenes)
+        f"{st}:{code.count(chr(10)) + 1}L"
+        for st, code in zip(scene_types, scenes)
     )
     print(
         f"[F7-DEBUG] [CODEGEN] '{template.name}' done in {t_total:.1f}s — "
         f"{len(scenes)} scenes ({scene_summary})"
+    )
+    print(
+        f"[F7-DEBUG] [CODEGEN] Diversity summaries: "
+        + " | ".join(f"[{i}] {s}" for i, s in enumerate(previous_summaries))
     )
 
     return {

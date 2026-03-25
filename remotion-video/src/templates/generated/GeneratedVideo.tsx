@@ -245,7 +245,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           imageUrl,
           sceneIndex: index,
           totalScenes,
-          logoUrl: data.logo ? staticFile(data.logo) : undefined,
+          logoUrl: (data.logo || data.brandLogo) ? staticFile((data.logo || data.brandLogo)!) : undefined,
           brandImages: data.brandImages?.map((f) => staticFile(f)),
           brandColors,
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",

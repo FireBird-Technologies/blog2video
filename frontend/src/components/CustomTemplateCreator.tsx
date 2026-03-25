@@ -10,6 +10,7 @@ import {
   type CustomTemplateItem,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import {
   VIDEO_STYLE_OPTIONS,
   type VideoStyleId,
@@ -279,7 +280,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
             <div className="space-y-5">
               {/* Live preview */}
               <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                <CustomPreview theme={theme} name={templateName || undefined} />
+                <CustomPreviewLandscape theme={theme} name={templateName || undefined} />
               </div>
 
               {/* Template name */}
@@ -436,6 +437,8 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                   introCode={createdTemplate.intro_code || undefined}
                   outroCode={createdTemplate.outro_code || undefined}
                   contentCodes={createdTemplate.content_codes || undefined}
+                  logoUrls={scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined}
+                  ogImage={scrapedOgImage || undefined}
                   onRetry={() => handleGenerateCode(createdTemplate)}
                 />
               </div>
@@ -444,7 +447,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                 <div className="flex flex-col items-center gap-3 py-4">
                   <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
                   <p className="text-sm text-gray-500">{genStep || "Generating your unique template..."}</p>
-                  <p className="text-xs text-gray-400">You can close this dialog — we'll notify you when it's done</p>
+                  <p className="text-xs text-gray-400">You can close this dialog!</p>
                   <p className="text-xs text-gray-300">Elapsed: {elapsedSeconds}s</p>
                 </div>
               )}

@@ -37,8 +37,8 @@ def get_custom_lm() -> dspy.LM:
     """Get or create the code generation LM (Sonnet 4.6, temp 0.7, 5120 max tokens).
 
     Used for code generation in the custom template flow.
-    Higher temperature for creative diversity. 5120 tokens ≈ 300-400 lines of JSX,
-    matching built-in template complexity (KineticInsight=208L, GlassNarrative=358L).
+    Higher temperature for creative diversity. 8192 tokens to accommodate larger scenes
+    (up to ~500 lines of JSX) without truncation causing unbalanced braces.
     """
     global _codegen_lm
     if _codegen_lm is not None:
@@ -50,7 +50,7 @@ def get_custom_lm() -> dspy.LM:
             "anthropic/claude-sonnet-4-6",
             api_key=settings.ANTHROPIC_API_KEY,
             temperature=0.7,
-            max_tokens=5120,
+            max_tokens=8192,
             cache_control_injection_points=[{"location": "message", "role": "system"}],
         )
         return _codegen_lm
