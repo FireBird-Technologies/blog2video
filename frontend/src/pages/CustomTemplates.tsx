@@ -9,6 +9,7 @@ import {
 import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
+import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import { VIDEO_STYLE_OPTIONS } from "../constants/videoStyles";
 
@@ -168,7 +169,20 @@ export default function CustomTemplates() {
               <div key={tpl.id} className="glass-card overflow-hidden group">
                 {/* Template preview */}
                 <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
-                  <CustomPreviewLandscape theme={tpl.theme} name={tpl.name} />
+                  {tpl.intro_code ? (
+                    <CustomPreview
+                      theme={tpl.theme}
+                      name={tpl.name}
+                      introCode={tpl.intro_code || undefined}
+                      outroCode={tpl.outro_code || undefined}
+                      contentCodes={tpl.content_codes || undefined}
+                      previewImageUrl={tpl.preview_image_url}
+                      logoUrls={tpl.logo_urls}
+                      ogImage={tpl.og_image}
+                    />
+                  ) : (
+                    <CustomPreviewLandscape theme={tpl.theme} name={tpl.name} />
+                  )}
                 </div>
 
                 <div className="p-4">
