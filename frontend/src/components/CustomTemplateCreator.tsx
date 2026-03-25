@@ -10,7 +10,6 @@ import {
   type CustomTemplateItem,
 } from "../api/client";
 import CustomPreview from "./templatePreviews/CustomPreview";
-import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import {
   VIDEO_STYLE_OPTIONS,
   type VideoStyleId,
@@ -278,9 +277,21 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
           {/* Step 2: Review extracted theme & save */}
           {step === 2 && (
             <div className="space-y-5">
-              {/* Live preview */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                <CustomPreviewLandscape theme={theme} name={templateName || undefined} />
+              {/* Preview placeholder — real preview appears in Step 3 after AI generation */}
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg }}>
+                <div style={{ aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "24px 32px" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                      <div key={key} style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
+                    ))}
+                  </div>
+                  <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 15, fontWeight: 700, color: theme.colors.text, textAlign: "center", margin: 0 }}>
+                    {templateName || "Your Template"}
+                  </p>
+                  <p style={{ fontFamily: `${theme.fonts.body}, sans-serif`, fontSize: 11, color: theme.colors.muted, textAlign: "center", margin: 0 }}>
+                    Live preview will appear after template generation
+                  </p>
+                </div>
               </div>
 
               {/* Template name */}
