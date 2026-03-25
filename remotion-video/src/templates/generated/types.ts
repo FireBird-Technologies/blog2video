@@ -39,6 +39,8 @@ export interface GeneratedVideoData {
   bgColor: string;
   textColor: string;
   logo?: string | null;
+  /** Brand logo from BrandKit (fallback when no project logo) */
+  brandLogo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;

@@ -741,18 +741,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             data["contentVariantCount"] = num_content_variants
             pass  # variant count set
 
-            # Content-type → variant routing (matches _VARIANT_SPECIALIZATIONS in code_generator.py)
-            # Variant 0: bullets, steps | 1: metrics | 2: code | 3: quote, comparison | 4: timeline, plain
-            _CONTENT_TYPE_TO_VARIANT = {
-                "bullets": 0, "steps": 0,
-                "metrics": 1,
-                "code": 2,
-                "quote": 3, "comparison": 3,
-                "timeline": 4, "plain": 4,
-            }
-
-            content_idx = 0  # fallback round-robin counter
-            _variant_use_count: dict[int, int] = {}  # track how many scenes use each variant
+            # Assign scene types and content variant indices.
+            # Content variants cycle evenly (0, 1, 2, 3, 4, 0, 1, ...) so each content
+            # scene gets a visually different design regardless of contentType.
+            # Previously routed by contentType, but most blog content produces "plain"
+            # which caused all scenes to use the same variant.
+            content_idx = 0
             for idx, sd in enumerate(scene_data):
                 scene_obj = scenes[idx] if idx < len(scenes) else None
                 db_type = getattr(scene_obj, "scene_type", None) if scene_obj else None
@@ -784,17 +778,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     if override_variant is not None:
                         sd["contentVariantIndex"] = override_variant % num_content_variants
                     else:
-                        # Route by content type: prefer specialist variant for FIRST occurrence,
-                        # then cycle through other variants for visual diversity
-                        scene_content_type = sd.get("structuredContent", {}).get("contentType", "plain") if isinstance(sd.get("structuredContent"), dict) else "plain"
-                        matched_variant = _CONTENT_TYPE_TO_VARIANT.get(scene_content_type)
-                        if matched_variant is not None and matched_variant < num_content_variants and _variant_use_count.get(matched_variant, 0) == 0:
-                            # First scene of this type → use the specialist
-                            sd["contentVariantIndex"] = matched_variant
-                        else:
-                            # Already used that specialist → cycle for visual diversity
-                            sd["contentVariantIndex"] = content_idx % num_content_variants
-                    _variant_use_count[sd["contentVariantIndex"]] = _variant_use_count.get(sd["contentVariantIndex"], 0) + 1
+                        # Cycle evenly through all variants for visual diversity
+                        sd["contentVariantIndex"] = content_idx % num_content_variants
                     content_idx += 1
             logger.info(
                 "GeneratedVideo: brandColors and sceneTypes set for %d scenes (%d content variants)",
@@ -802,6 +787,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             )
 
             # Include brand logo if available via BrandKit
+            # Use brand logo as fallback when no project-level logo was uploaded
             brand_kit = custom_data.get("brand_kit")
             if brand_kit:
                 logos = brand_kit.get("logos", [])
@@ -809,10 +795,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     primary = logos[0] if isinstance(logos[0], dict) else {"url": logos[0]}
                     logo_url = primary.get("url", "")
                     if logo_url:
-                        # Download logo to workspace public/ folder for staticFile() access
                         logo_filename = "brand-logo.png"
                         logo_dest = os.path.join(public_dir, logo_filename)
                         if _download_url_to_file(logo_url, logo_dest):
+                            # Set as main logo if no project logo exists
+                            if not data.get("logo"):
+                                data["logo"] = logo_filename
                             data["brandLogo"] = logo_filename
                             logger.info("Brand logo downloaded to workspace: %s", logo_filename)
 

@@ -4,6 +4,60 @@ import { compileComponentCode, type SceneProps } from "../../utils/compileCompon
 
 const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
+type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
+
+const SCENE_SAMPLE_DATA: ContentSampleData[] = [
+  {
+    displayText: "5 Ways to Boost Your Productivity",
+    narrationText: "Here are the key strategies that drive results.",
+    contentType: "bullets",
+    bullets: [
+      "Automate repetitive workflows",
+      "Set clear daily priorities",
+      "Use time-blocking for deep work",
+      "Review metrics every sprint",
+      "Invest in team enablement",
+    ],
+  },
+  {
+    displayText: "Growth at a Glance",
+    narrationText: "The numbers speak for themselves.",
+    contentType: "metrics",
+    metrics: [
+      { value: "847", label: "New users this month", suffix: "+" },
+      { value: "99.9", label: "Platform uptime", suffix: "%" },
+      { value: "12.4", label: "Avg. session length", suffix: "min" },
+    ],
+  },
+  {
+    displayText: "Quick Start Integration",
+    narrationText: "Get up and running in minutes.",
+    contentType: "code",
+    codeLines: [
+      "import { Client } from '@acme/sdk';",
+      "",
+      "const client = new Client({ apiKey: 'sk_live_...' });",
+      "const result = await client.generate({",
+      "  prompt: 'Hello world',",
+      "  model: 'acme-pro',",
+      "});",
+    ],
+    codeLanguage: "typescript",
+  },
+  {
+    displayText: "What Our Customers Say",
+    narrationText: "Real feedback from real users.",
+    contentType: "quote",
+    quote: "This platform completely transformed how we approach content creation. The results were immediate.",
+    quoteAuthor: "Sarah Chen, VP of Marketing",
+  },
+  {
+    displayText: "The Future of Content Creation",
+    narrationText: "Discover how modern tools are reshaping the creative landscape.",
+    contentType: "plain",
+  },
+];
+
 interface CustomPreviewProps {
   theme: CustomTemplateTheme;
   name?: string;
@@ -11,15 +65,20 @@ interface CustomPreviewProps {
   outroCode?: string;
   contentCodes?: string[];
   previewImageUrl?: string | null;
+  logoUrls?: string[];
+  ogImage?: string;
   onRetry?: () => void;
 }
 
 export default function CustomPreview({
   theme,
+  name,
   introCode,
   outroCode,
   contentCodes,
   previewImageUrl,
+  logoUrls,
+  ogImage,
   onRetry,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
@@ -43,6 +102,28 @@ export default function CustomPreview({
 
   const hasCode = sceneCodes.length > 0;
   const hasMultipleScenes = sceneCodes.length > 1;
+
+  // Pre-compute stable sampleProps for each scene so object references don't change
+  // between re-renders (avoids Remotion Player restarting animation mid-playback)
+  const sceneSampleProps = useMemo(() => {
+    const imageProps = ogImage ? { imageUrl: ogImage } : previewImageUrl ? { imageUrl: previewImageUrl } : {};
+    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
+    const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
+
+    return sceneCodes.map((sc, idx) => {
+      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps };
+
+      if (sc.label === "Intro") {
+        return { displayText: name || "Welcome", narrationText: `Welcome to ${name || "our brand"} — transforming ideas into impact.`, ...base };
+      }
+      if (sc.label === "Outro") {
+        return { displayText: name || "Thanks for Watching", narrationText: `Thanks for watching. Visit ${name || "us"} to learn more.`, ...base };
+      }
+      const contentIdx = idx - (introCode ? 1 : 0);
+      const sampleData = SCENE_SAMPLE_DATA[contentIdx % SCENE_SAMPLE_DATA.length];
+      return { ...sampleData, ...base };
+    });
+  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode]);
 
   // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
   useEffect(() => {
@@ -259,7 +340,7 @@ export default function CustomPreview({
                   <RemotionPreviewPlayer
                     compiledComponent={compiled}
                     theme={theme}
-                    sampleProps={previewImageUrl ? { imageUrl: previewImageUrl } : undefined}
+                    sampleProps={sceneSampleProps[idx]}
                     durationSeconds={5}
                     loop={!hasMultipleScenes}
                     onRetry={onRetry}

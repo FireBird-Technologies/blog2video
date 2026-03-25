@@ -54,19 +54,6 @@ interface Props {
   onEnded?: () => void;
 }
 
-// Minimal sample data per content type — rotated across preview instances
-const CONTENT_TYPE_SAMPLES: Partial<SceneProps>[] = [
-  { contentType: "bullets", bullets: ["Engaging visuals", "Brand consistency", "Professional quality"] },
-  { contentType: "metrics", metrics: [{ value: "4.8M", label: "Views", suffix: "+" }, { value: "99.9", label: "Uptime", suffix: "%" }, { value: "150", label: "Countries" }] },
-  { contentType: "quote", quote: "This platform transformed our content workflow.", quoteAuthor: "Sarah Chen, Head of Marketing" },
-  { contentType: "timeline", timelineItems: [{ label: "2021", description: "Founded" }, { label: "2023", description: "1M users" }, { label: "2025", description: "Global expansion" }] },
-  { contentType: "steps", steps: ["Paste your URL", "Choose a template", "Customize", "Export"] },
-  { contentType: "code", codeLines: ["const video = await client.create({", "  url: 'https://blog.com/post',", "  template: 'modern'", "});"], codeLanguage: "typescript" },
-  { contentType: "comparison", comparisonLeft: { label: "Before", description: "Manual editing, hours of work" }, comparisonRight: { label: "After", description: "AI-powered, minutes to create" } },
-];
-
-let _rotationIdx = 0;
-
 const FPS = 30;
 
 export default function RemotionPreviewPlayer({
@@ -145,23 +132,19 @@ export default function RemotionPreviewPlayer({
     compile();
   }, [compiledComponent, compile]);
 
-  // Pick a rotating content type sample, merge with any parent-provided overrides
-  // Must be before early returns to keep hook order stable
+  // Build sample props for preview — only pass basics, no random contentType overrides.
+  // The generated scene code has its own layout baked in; injecting random content types
+  // (bullets, code, metrics) makes every preview look the same instead of showing the scene's design.
   const resolvedProps = useMemo<Omit<SceneProps, "brandColors">>(() => {
-    const rotated = CONTENT_TYPE_SAMPLES[_rotationIdx++ % CONTENT_TYPE_SAMPLES.length];
     return {
-      displayText: "Your Brand Story Comes to Life",
+      displayText: "Transforming Ideas Into Impact",
       narrationText: "Discover how your brand can stand out with unique video content.",
-      // imageUrl left undefined so AI-generated code shows decorative elements;
-      // parent can override via sampleProps.imageUrl with a real preview image.
       sceneIndex: 0,
       totalScenes: 3,
       aspectRatio: "landscape" as const,
-      ...rotated,
       ...sampleProps,
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sampleProps]);
 
   if (isCompiling) {
     return (

@@ -15,6 +15,7 @@ import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
@@ -1497,7 +1498,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreview theme={ct.theme} name={ct.name} previewImageUrl={ct.preview_image_url} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} key={`${customId}-${step}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1566,7 +1567,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreview theme={ct.theme} name={ct.name} previewImageUrl={ct.preview_image_url} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} key={`${customId}-${step}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2183,7 +2184,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreview theme={ct.theme} name={ct.name} previewImageUrl={ct.preview_image_url} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} key={`${customId}-bulk-${activeIndex}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2252,7 +2253,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreview theme={ct.theme} name={ct.name} previewImageUrl={ct.preview_image_url} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} key={`${customId}-bulk-${activeIndex}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

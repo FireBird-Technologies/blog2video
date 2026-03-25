@@ -1041,6 +1041,8 @@ export interface CustomTemplateItem {
   content_codes: string[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
+  logo_urls?: string[];
+  og_image?: string;
   created_at: string;
   updated_at: string;
 }
