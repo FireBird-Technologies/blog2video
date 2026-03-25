@@ -4,7 +4,8 @@ export type PageCategory =
   | "feature"
   | "template"
   | "programmatic"
-  | "resource";
+  | "resource"
+  | "alternative";
 
 export interface FaqItem {
   question: string;
