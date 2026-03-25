@@ -39,7 +39,8 @@ class PlayerErrorBoundary extends React.Component<
 }
 
 interface Props {
-  componentCode: string;
+  componentCode?: string;
+  compiledComponent?: React.FC<SceneProps>;
   theme: CustomTemplateTheme;
   width?: number;
   height?: number;
@@ -70,6 +71,7 @@ const FPS = 30;
 
 export default function RemotionPreviewPlayer({
   componentCode,
+  compiledComponent,
   theme,
   width,
   height,
@@ -104,7 +106,22 @@ export default function RemotionPreviewPlayer({
     [theme.colors]
   );
 
+  // Load Google Fonts for theme's heading and body fonts
+  useEffect(() => {
+    const fonts = new Set([theme.fonts.heading, theme.fonts.body].filter(Boolean));
+    fonts.forEach((fontName) => {
+      const id = `gfont-${fontName.replace(/\s+/g, "-")}`;
+      if (document.getElementById(id)) return;
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;600;700;800&display=swap`;
+      document.head.appendChild(link);
+    });
+  }, [theme.fonts.heading, theme.fonts.body]);
+
   const compile = useCallback(async () => {
+    if (!componentCode) return;
     console.log(`[F7-DEBUG] RemotionPreviewPlayer: compiling code (${componentCode.length} chars)...`);
     setIsCompiling(true);
     const result = await compileComponentCode(componentCode);
@@ -119,8 +136,14 @@ export default function RemotionPreviewPlayer({
   }, [componentCode, onError]);
 
   useEffect(() => {
+    if (compiledComponent) {
+      console.log("[F7-DEBUG] RemotionPreviewPlayer: using pre-compiled component");
+      setCompileResult({ success: true, component: compiledComponent });
+      setIsCompiling(false);
+      return;
+    }
     compile();
-  }, [compile]);
+  }, [compiledComponent, compile]);
 
   // Pick a rotating content type sample, merge with any parent-provided overrides
   // Must be before early returns to keep hook order stable

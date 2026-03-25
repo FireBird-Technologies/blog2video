@@ -357,6 +357,7 @@ function SlideDots({ total, current, accent }: { total: number; current: number;
 
 // ─── Main ────────────────────────────────────────────────────────────
 const SLIDE_DURATION = 3500;
+const TRANSITION_MS = 400;
 
 interface Props {
   theme: CustomTemplateTheme;
@@ -375,21 +376,38 @@ export default function CustomPreviewLandscape({ theme, name }: Props) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      setActive(false);
-      setTimeout(() => {
-        setCurrent((c) => (c + 1) % slides.length);
-        setActive(true);
-      }, 150);
+      setCurrent((c) => (c + 1) % slides.length);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
   }, [slides.length]);
 
-  const SlideComp = slides[current];
+  // Re-trigger active state on slide change so CSS transition fires (mount at 0, then → 1)
+  useEffect(() => {
+    setActive(false);
+    const t = setTimeout(() => setActive(true), 30);
+    return () => clearTimeout(t);
+  }, [current]);
 
   return (
     <ScaledCanvas>
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        <SlideComp active={active} theme={theme} name={name} />
+        {/* All slides mounted as overlapping layers for smooth crossfade */}
+        {slides.map((SlideComp, idx) => (
+          <div
+            key={idx}
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: idx === current && active ? 1 : 0,
+              transform: idx === current && active ? "scale(1)" : idx === current ? "scale(0.98)" : "scale(1.02)",
+              transition: `opacity ${TRANSITION_MS}ms ease-out, transform ${TRANSITION_MS}ms ease-out`,
+              zIndex: idx === current ? 2 : 1,
+              pointerEvents: idx === current ? "auto" : "none",
+            }}
+          >
+            <SlideComp active={idx === current && active} theme={theme} name={name} />
+          </div>
+        ))}
         <SlideDots total={slides.length} current={current} accent={theme.colors.accent} />
       </div>
       <style>{`@keyframes cplBlink { 0%,100%{opacity:.7} 50%{opacity:0} }`}</style>

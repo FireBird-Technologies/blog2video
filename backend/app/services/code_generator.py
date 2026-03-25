@@ -88,10 +88,23 @@ class GenerateSceneCode(dspy.Signature):
     - Use props.titleFontSize || 48 for headings, props.descriptionFontSize || 24 for body.
     - Fall back to props.displayText when structured fields are absent.
 
+    Text Overflow Rules (CRITICAL — content must never escape the frame):
+    - ALWAYS add overflow: "hidden" on the outermost container
+    - For long text: use textOverflow: "ellipsis", whiteSpace: "nowrap" OR limit with
+      WebkitLineClamp + WebkitBoxOrient: "vertical" + display: "-webkit-box" for multi-line truncation
+    - Dynamic font sizing: if text is long (>80 chars), reduce fontSize by 20-30%
+    - NEVER let text overflow the viewport — all content must be contained within the frame
+
     Image Handling:
     - When props.imageUrl exists: MUST use Img with animated entrance (spring scale + opacity),
       accent boxShadow glow, and minimum 40% viewport coverage. Never just static placement.
-    - When props.imageUrl is undefined: fill space with decorative elements, never leave a gap.
+    - When props.imageUrl is undefined: FILL the image space with brand-colored decorative elements:
+      * Gradient mesh background using brandColors (radial-gradient with 2-3 color stops)
+      * Geometric shapes (circles, rectangles) with accent color at low opacity
+      * Abstract SVG pattern (dots, lines, waves) using brandColors
+      * Frosted glass card with brand accent glow
+      NEVER leave an empty gap where an image would be.
+      Use a conditional: props.imageUrl ? <Img.../> : <DecorativeFallback/>
 
     Forbidden Patterns:
     - NEVER render sceneIndex/totalScenes as visible UI (no counters, progress bars).
@@ -182,11 +195,18 @@ def _scene_reward(args, pred) -> float:
     if "aspectRatio" in code or "portrait" in code:
         score += 0.05
 
-    # Image handling (0.10 bonus / -0.15 penalty) — scenes MUST handle imageUrl
+    # Image handling (0.15 bonus / -0.15 penalty) — scenes MUST handle imageUrl
     if "imageUrl" in code and "Img" in code:
         score += 0.05
         # Bonus for animated image entrance (not just static placement)
         if re.search(r'(opacity|transform|scale).*imageUrl|imageUrl.*?(opacity|transform|scale)', code, re.DOTALL):
+            score += 0.05
+        # Bonus for conditional imageUrl handling (fallback when undefined)
+        if re.search(r'imageUrl\s*\?|imageUrl\s*&&', code):
+            score += 0.05
+    elif "imageUrl" in code and "Img" not in code:
+        # References imageUrl but no Img — check for fallback handling
+        if re.search(r'imageUrl\s*\?|imageUrl\s*&&', code):
             score += 0.05
     elif "imageUrl" not in code:
         # Scene completely ignores imageUrl — penalize since images won't render
@@ -315,6 +335,16 @@ def _scene_reward(args, pred) -> float:
     if has_only_basic:
         score -= 0.10
 
+    # Text overflow handling (+0.10 / -0.10)
+    has_overflow_hidden = 'overflow' in code and 'hidden' in code
+    has_text_overflow = 'textOverflow' in code or 'WebkitLineClamp' in code or 'line-clamp' in code
+    if has_overflow_hidden:
+        score += 0.05
+    if has_text_overflow:
+        score += 0.05
+    if not has_overflow_hidden and 'overflow' not in code:
+        score -= 0.10
+
     # Brevity bonus — reward 200-350 lines, penalize >500
     if 200 <= line_count <= 350:
         score += 0.05
@@ -362,27 +392,86 @@ _CONTENT_VARIANT_ROLES = [
     {
         "name": "lists",
         "content_types": ["bullets", "steps"],
-        "role": "Render bullet points and step-by-step flows as visually rich card grids or staggered items.",
+        "layout": "MULTI-CARD grid or STACKED layout",
+        "role": (
+            "Render bullet points and step-by-step flows as visually rich card grids or staggered items."
+        ),
+        "examples": (
+            "Example A: Numbered step cards with connecting vertical line (SVG or border-left), "
+            "staggered spring entrance from alternating sides, each card has an icon circle with accent color.\n"
+            "Example B: Horizontal card grid with glassmorphic cards (backdrop-filter: blur, semi-transparent bg), "
+            "hover-glow borders using box-shadow with accent color, items slide in from bottom with spring stagger."
+        ),
     },
     {
         "name": "metrics",
         "content_types": ["metrics"],
-        "role": "Render statistics and KPIs with animated count-ups, prominent stat cards, and data visualization flair.",
+        "layout": "CENTERED-HERO or GRID layout with large numbers",
+        "role": (
+            "Render statistics and KPIs with animated count-ups, prominent stat cards, and data visualization flair."
+        ),
+        "examples": (
+            "Example A: SVG circular gauge (<circle> with animated stroke-dasharray via interpolate), "
+            "count-up number in center using interpolate(frame, [0,60], [0, targetValue]), ring decoration behind.\n"
+            "Example B: Horizontal progress bars with spring-animated widths, glow effect (box-shadow) on fill, "
+            "large hero number with suffix text at different scale.\n"
+            "Example C: Grid of stat cards, each with a radial gradient halo behind the number, "
+            "numbers count up with eased interpolation, suffix animates in separately."
+        ),
     },
     {
         "name": "code",
         "content_types": ["code"],
-        "role": "Render code blocks with line-by-line typewriter reveal, syntax-like coloring, and terminal aesthetics.",
+        "layout": "SPLIT layout — code block on one side, explanation on other",
+        "role": (
+            "Render code blocks with line-by-line typewriter reveal, syntax-like coloring, and terminal aesthetics."
+        ),
+        "examples": (
+            "Example A: Line-by-line typewriter reveal — each line fades in sequentially using "
+            "interpolate(frame, [i*8, i*8+10], [0,1]), cursor blink via (frame % 15 > 7), "
+            "syntax-colored tokens (keywords in accent, strings in secondary).\n"
+            "Example B: Terminal window with colored dots (red/yellow/green circles), line numbers on left, "
+            "gradual line appearance with slide-in from right, monospace font, dark surface background."
+        ),
     },
     {
         "name": "editorial",
         "content_types": ["quote", "comparison"],
-        "role": "Render quotes with dramatic word-by-word reveals, and comparisons as balanced side-by-side layouts.",
+        "layout": "ASYMMETRIC or FULL-CENTER layout",
+        "role": (
+            "Render quotes with dramatic word-by-word reveals, and comparisons as balanced side-by-side layouts."
+        ),
+        "examples": (
+            "Example A: Large opening quotation mark as SVG (fontSize 200, accent color, low opacity), "
+            "word-by-word dramatic reveal — split quote into words, each appears with spring(frame-i*4), "
+            "author name slides in from bottom after quote completes.\n"
+            "Example B: Side-by-side comparison with animated divider line (height animates 0→100% via spring), "
+            "staggered card entrance from opposite sides (left card from -translateX, right from +translateX)."
+        ),
     },
     {
         "name": "general",
         "content_types": ["timeline", "plain"],
-        "role": "Render timelines as vertical staggered tracks, and plain text with rich typography and decorative fills.",
+        "layout": "FULL-BLEED typography or STACKED-VERTICAL layout",
+        "role": (
+            "Render timelines as vertical tracks with dot markers and connecting lines, items staggering in from alternating sides. "
+            "For plain text: create visually rich typography compositions — word-by-word spring animations, "
+            "decorative gradient orbs floating behind text, accent underlines that draw in, "
+            "split text into key phrases displayed at different scales for emphasis hierarchy. "
+            "Plain text scenes should be the MOST visually creative — compensate for lack of structured data "
+            "with rich motion design, decorative elements, and typographic artistry."
+        ),
+        "examples": (
+            "Example A: Vertical timeline with dot markers (<circle> SVG) and connecting line (animated height), "
+            "items slide in from alternating sides using translateX with spring stagger.\n"
+            "Example B: Full-bleed text composition — split displayText into words, "
+            "animate each with spring({ frame: frame - i*3, fps, config: { damping: 12, stiffness: 100 } }), "
+            "decorative gradient orbs (radial-gradient circles, position: absolute, filter: blur(40px)) "
+            "floating behind text, accent underline that draws in via width animation.\n"
+            "Example C: Key phrase hierarchy — extract 2-3 phrases from displayText, "
+            "display largest phrase at 3x scale centered, supporting phrases at 1x below, "
+            "each animates in with different spring config for visual variety."
+        ),
     },
 ]
 
@@ -421,13 +510,17 @@ def _build_creative_direction(
         )
     else:
         role = _CONTENT_VARIANT_ROLES[variant_index % len(_CONTENT_VARIANT_ROLES)]
+        examples = role.get("examples", "")
+        layout = role.get("layout", "")
         return (
             f"Scene type: CONTENT — variant '{role['name']}' ({variant_index + 1} of {total_content_variants}).\n"
             f"Content specialization: {', '.join(role['content_types'])}\n"
             f"Your role: {role['role']}\n\n"
-            "You have FULL creative freedom in layout, composition, and spatial arrangement.\n"
-            "Invent an original layout — do NOT fall back to simple opacity+translateY.\n"
+            f"LAYOUT CONSTRAINT: This variant MUST use {layout} — other variants use different layouts.\n\n"
+            "You have FULL creative freedom in animation, composition, and visual effects.\n"
+            "Invent an original design — do NOT fall back to simple opacity+translateY.\n"
             "Quality bar: match the polish of a hand-crafted motion design studio.\n\n"
+            f"CONCRETE RENDERING EXAMPLES (use as inspiration, don't copy verbatim):\n{examples}\n\n"
             "RULES:\n"
             "- ALL displayed content MUST come from props — NEVER hardcode sample data.\n"
             "- NEVER render contentType as visible text/label/badge.\n"
@@ -584,7 +677,7 @@ def _generate_single_scene_sync(
         module=base_module,
         N=REFINE_N,
         reward_fn=_scene_reward,
-        threshold=0.7,
+        threshold=0.75,
     )
 
     t0 = time.time()
