@@ -2561,4 +2561,145 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "video-seo-ranking-traffic-blog2video",
+    title: "Your Blog Is Ranking — But You're Leaving Half the Traffic on the Table",
+    description:
+      "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
+    category: "SEO Strategy",
+    heroImage: "/blog/blog-cover-before-after.png",
+    heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
+    publishedAt: "2026-03-26",
+    readTime: "5 min read",
+    heroEyebrow: "Video SEO for Agencies",
+    heroTitle: "Your blog is ranking — but you're leaving half the traffic on the table.",
+    heroDescription:
+      "Google now surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1, and video boosts dwell time — one of Google's strongest ranking signals. The problem? Video production is expensive, slow, and outside most agencies' wheelhouse.",
+    primaryKeyword: "video SEO for blogs",
+    keywordVariant: "add video to blog post for SEO",
+    relatedPaths: [
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/bulk-blog-to-video",
+      "/custom-branded-video-templates",
+    ],
+    sections: [
+      {
+        heading: "The video gap in SEO that most agencies ignore",
+        paragraphs: [
+          "Your client's blog post is ranking on page one. Traffic is coming in. From the outside, the campaign looks healthy. But look at the SERP more carefully and you'll see something most agencies overlook: a video carousel sitting above the organic results, pulling clicks away from the exact content you worked to rank.",
+          "Google now surfaces video results in 26% of all searches. That number is growing. For informational queries — how-to articles, guides, explainers — the video carousel often appears above position one. A page that ranks well in text results but has no video equivalent is only capturing part of the available traffic for that keyword.",
+          "This is not a fringe SEO concern. It is the largest untapped surface in most content strategies, and most agencies are not acting on it because video production feels out of scope.",
+        ],
+        bullets: [
+          "Video results appear in 26% of Google searches",
+          "Pages with video are 53x more likely to rank on page 1",
+          "Video increases dwell time — a direct Google ranking signal",
+          "YouTube is the second largest search engine in the world",
+        ],
+      },
+      {
+        heading: "Dwell time is a ranking signal — and video is the best way to improve it",
+        paragraphs: [
+          "Dwell time is the amount of time a user spends on a page after clicking from the search results. Google uses it as a proxy for content quality. A high dwell time signals that the content answered the query well. A low one signals the opposite, even if the page ranks well temporarily.",
+          "Embedding a video on a blog post is the single most reliable way to increase dwell time. A reader who watches a two-minute video before reading the article stays on the page longer than one who skims and bounces. That additional time sends a quality signal back to Google — which reinforces the ranking rather than eroding it over time.",
+          "This is why pages with video see lasting ranking improvements rather than just short-term traffic bumps. The video does not just attract additional clicks. It makes the underlying text result more defensible.",
+        ],
+      },
+      {
+        heading: "YouTube as a second traffic channel for every client blog",
+        paragraphs: [
+          "Every blog post you convert to video creates two assets: the embedded video that improves on-page engagement, and the YouTube upload that ranks independently. YouTube videos appear in Google search results, in the video carousel, and in YouTube's own discovery algorithm.",
+          "For SEO agencies, this means a single content asset — a blog post the client already has — can generate traffic from three distinct channels: organic text search, the Google video carousel, and YouTube search. The content exists. The keyword research is done. The only missing piece is the video.",
+          "Historically that missing piece required a production budget, a video editor, and turnaround time measured in days. That is why agencies have treated video as an optional add-on rather than a standard deliverable. The economics did not support it.",
+        ],
+        bullets: [
+          "YouTube videos appear directly in Google search results",
+          "YouTube is the second largest search engine globally",
+          "One blog post can rank in text search, the video carousel, and YouTube simultaneously",
+          "No separate keyword research needed — the post is already optimized",
+        ],
+      },
+      {
+        heading: "How blog2video.app changes the economics for agencies",
+        paragraphs: [
+          "Blog2Video takes a blog URL and generates a polished, publish-ready video in under three minutes. Paste the URL, pick a branded template and voice, hit generate. The tool extracts the content, structures it into scenes, writes the narration, and produces the video. No script to write. No recording. No editing.",
+          "For agencies, this means video can become a standard line item on every content deliverable. A team member who can paste a URL can produce a client video. The turnaround is fast enough to include it in the same workflow as the written content — not as a separate production sprint.",
+          "Bulk generation lets you queue up to five videos at once, which means processing a client's backlog of blog posts does not require five separate sessions. An agency can convert a client's entire archive into video assets in a single afternoon.",
+        ],
+        bullets: [
+          "Paste a blog URL — no copy-paste or reformatting required",
+          "Pick a branded template and voice from the ElevenLabs library",
+          "Generate a finished video in under 3 minutes",
+          "Bulk generation: up to 5 videos queued at once",
+          "No video editing experience needed",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try blog2video.app",
+      },
+      {
+        heading: "What this looks like as an agency deliverable",
+        paragraphs: [
+          "The practical change is straightforward. When a piece of client content goes live, a video version goes live alongside it — embedded on the page and uploaded to YouTube. The video uses the client's brand colors, fonts, and voice. It is not a generic auto-generated clip. It looks like something the client's team produced deliberately.",
+          "This adds a concrete, visible output to every content deliverable without adding meaningful production time. Clients see more value. The SEO outcomes improve. And the agency does not need to hire a video team or bring in contractors to make it happen.",
+          "Drop a comment if you want to see exactly how the workflow looks — from blog URL to embedded, published video.",
+        ],
+        bullets: [
+          "Repurpose client content instantly — no production sprint required",
+          "Boost on-page engagement with embedded video",
+          "Add YouTube as a second traffic channel for every post",
+          "Deliver more value without adding to the workload",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How much does video actually affect SEO rankings?",
+        answer:
+          "Pages with video are 53x more likely to rank on the first page of Google, according to Forrester research. The primary mechanism is dwell time — users who watch an embedded video stay on the page longer, sending a quality signal back to Google that reinforces the ranking over time.",
+      },
+      {
+        question: "Do I need to upload the video to YouTube for the SEO benefit?",
+        answer:
+          "Both matter. Embedding the video on the page improves dwell time and makes the page eligible for the video carousel in search results. Uploading to YouTube creates a second ranked asset that appears in YouTube search and YouTube's own discovery feed. Blog2Video generates a video file you can do both with.",
+      },
+      {
+        question: "How long does it take to generate a video from a blog post?",
+        answer:
+          "Under three minutes from URL to finished video. You paste the URL, select a template and voice, and hit generate. The tool handles scripting, narration, scene structure, and export. You can make edits in the built-in editor before downloading.",
+      },
+      {
+        question: "Can agencies use Blog2Video for multiple clients with different branding?",
+        answer:
+          "Yes. Blog2Video supports custom branded templates — you can create a separate template for each client using their colors, fonts, and visual identity. Bulk generation lets you queue multiple videos at once, and each can use a different template.",
+      },
+      {
+        question: "What happens to the blog post's existing ranking when I add a video?",
+        answer:
+          "Adding video to a page does not negatively affect existing rankings. The typical outcome is that dwell time increases, which strengthens the existing ranking signal. The page also becomes eligible for the video carousel, which can increase total SERP real estate for the same keyword.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "video",
+        title: "Your Blog Is Ranking — But You're Leaving Half the Traffic on the Table",
+        angle: "Hook: the 26% stat and the 53x ranking lift. Show the SERP gap agencies are missing. CTA: try blog2video.app.",
+      },
+      {
+        channel: "site",
+        title: "Your Blog Is Ranking — But You're Leaving Half the Traffic on the Table",
+        angle: "SEO post targeting 'video SEO for blogs' and 'add video to blog post for SEO' with embedded YouTube Short.",
+      },
+      {
+        channel: "substack",
+        title: "The SERP real estate your clients aren't claiming",
+        angle: "Agency-focused newsletter piece on the video carousel opportunity and how to operationalize it.",
+      },
+      {
+        channel: "medium",
+        title: "Why SEO agencies should be producing video for every client post",
+        angle: "Data-driven case for adding video as a standard deliverable, with the production economics explained.",
+      },
+    ],
+  },
 ];
