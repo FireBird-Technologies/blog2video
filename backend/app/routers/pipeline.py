@@ -97,7 +97,7 @@ async def generate_video(
         return {"detail": "Already generated", "status": project.status.value}
 
     # Initialize progress
-    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None}
+    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None, "notice": None}
 
     # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
     # Other API requests remain responsive while generation runs.
@@ -140,6 +140,7 @@ def get_pipeline_status(
         "step": step,
         "running": running,
         "error": progress.get("error"),
+        "notice": progress.get("notice"),
         "studio_port": project.studio_port,
     }
 
@@ -313,8 +314,19 @@ async def _generate_script(project: Project, db: Session):
     )
 
     if effective_video_length != requested_video_length:
+        try:
+            if project.id in _pipeline_progress:
+                _pipeline_progress[project.id]["notice"] = {
+                    "code": "video_shortened",
+                    "message": "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+                    "requested_video_length": requested_video_length,
+                    "effective_video_length": effective_video_length,
+                    "video_style": video_style,
+                }
+        except Exception:
+            pass
         logger.info(
-            "[PIPELINE] Project %s: content too short for video_length=%s. Using effective video_length=%s for script generation.",
+            "[PIPELINE] Project %s: content too short for video_length=%s (style=%s). Using effective video_length=%s for script generation.",
             project.id,
             requested_video_length,
             video_style,
