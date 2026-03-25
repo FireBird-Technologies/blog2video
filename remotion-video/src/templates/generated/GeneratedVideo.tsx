@@ -36,6 +36,7 @@ import OutroScene from "./SceneOutro";
 // In the repo this file exports an empty array; at render time it's overwritten
 // with imports of SceneContent0, SceneContent1, etc.
 import { CONTENT_VARIANTS } from "./contentRegistry";
+import { GeneratedTransition } from "./GeneratedTransition";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -263,6 +264,9 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
         };
 
+        const transitionDuration = 15;
+        const transitionFrom = Math.max(0, durationFrames - transitionDuration);
+
         return (
           <Sequence
             key={scene.id}
@@ -273,6 +277,13 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <SceneComp {...sceneProps} />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} />
+            )}
+
+            {/* Brand-aware transition overlay between scenes */}
+            {index < totalScenes - 1 && transitionDuration > 0 && (
+              <Sequence from={transitionFrom} durationInFrames={transitionDuration}>
+                <GeneratedTransition brandColors={brandColors} />
+              </Sequence>
             )}
           </Sequence>
         );
