@@ -226,6 +226,7 @@ export default function Dashboard() {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
+    videoLength?: "auto" | "short" | "medium" | "detailed",
     contentLanguage?: string | null
   ) => {
     setCreating(true);
@@ -248,6 +249,7 @@ export default function Dashboard() {
           aspect_ratio: aspectRatio,
           template,
           video_style: videoStyle,
+          video_length: videoLength,
           content_language: contentLanguage,
         });
       } else {
@@ -267,6 +269,7 @@ export default function Dashboard() {
           aspectRatio,
           template,
           videoStyle,
+          videoLength,
           contentLanguage
         );
       }
