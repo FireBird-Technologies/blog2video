@@ -11,7 +11,7 @@ class CustomTemplate(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    category: Mapped[str] = mapped_column(String(50), default="blog")
+    category: Mapped[str] = mapped_column(String(255), default="blog")
     supported_video_style: Mapped[str] = mapped_column(String(30), default="explainer")
     theme: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string of CustomTheme
     generated_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
