@@ -26,6 +26,7 @@ from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
+from app.services.language_detection import normalize_preferred_language_code
 from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -114,6 +115,29 @@ def _normalize_video_style(video_style: str | None) -> str:
     return style
 
 
+def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
+    """Normalize accent values to fit projects.voice_accent (VARCHAR(10))."""
+    raw = (voice_accent or "").strip().lower()
+    if not raw:
+        return "american"
+
+    # Common frontend/API variants
+    aliases = {
+        "en-american": "american",
+        "en_us": "american",
+        "en-us": "american",
+        "us": "american",
+        "en-british": "british",
+        "en_uk": "british",
+        "en-uk": "british",
+        "uk": "british",
+    }
+    normalized = aliases.get(raw, raw)
+
+    # Safety net: never exceed DB column length.
+    return normalized[:10]
+
+
 @router.post("", response_model=ProjectOut)
 def create_project(
     data: ProjectCreate,
@@ -146,7 +170,7 @@ def create_project(
         blog_url=data.blog_url,
         template=template_id,
         voice_gender=data.voice_gender or "female",
-        voice_accent=data.voice_accent or "american",
+        voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
         accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -157,6 +181,7 @@ def create_project(
         custom_voice_id=data.custom_voice_id or None,
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        content_language=normalize_preferred_language_code(data.content_language),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -186,6 +211,8 @@ def update_project(
             continue
         if field == "font_family":
             update_data[field] = value  # allow nulling or changing
+        elif field == "content_language":
+            update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         else:
             if value is not None:
                 update_data[field] = value
@@ -335,7 +362,7 @@ def create_projects_bulk(
             blog_url=data.blog_url.strip(),
             template=template_id,
             voice_gender=data.voice_gender or "female",
-            voice_accent=data.voice_accent or "american",
+            voice_accent=_normalize_voice_accent_for_db(data.voice_accent),
             accent_color=data.accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
             bg_color=data.bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
             text_color=data.text_color or (colors.get("text") if colors else None) or "#000000",
@@ -346,6 +373,7 @@ def create_projects_bulk(
             custom_voice_id=data.custom_voice_id or None,
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
+            content_language=normalize_preferred_language_code(data.content_language),
             status=ProjectStatus.CREATED,
         )
         db.add(project)
@@ -391,6 +419,7 @@ def create_project_from_upload(
     aspect_ratio: Optional[str] = Form("landscape"),
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
+    content_language: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -446,7 +475,7 @@ def create_project_from_upload(
         blog_url="upload://documents",
         template=template_id,
         voice_gender=voice_gender or "female",
-        voice_accent=voice_accent or "american",
+        voice_accent=_normalize_voice_accent_for_db(voice_accent),
         accent_color=accent_color or (colors.get("accent") if colors else None) or "#7C3AED",
         bg_color=bg_color or (colors.get("bg") if colors else None) or "#FFFFFF",
         text_color=text_color or (colors.get("text") if colors else None) or "#000000",
@@ -456,6 +485,7 @@ def create_project_from_upload(
         custom_voice_id=custom_voice_id or None,
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
+        content_language=normalize_preferred_language_code(content_language),
         status=ProjectStatus.CREATED,
     )
     db.add(project)
@@ -1558,6 +1588,8 @@ async def regenerate_scene(
             has_lc = "layoutConfig" in current_descriptor
             print(f"[REGENERATE] current descriptor: has_layoutConfig={has_lc}, keys={list(current_descriptor.keys())}")
 
+        from app.services.language_detection import get_content_language_for_project
+        content_language = get_content_language_for_project(project)
         descriptor = await template_gen.generate_regenerate_descriptor(
             scene_title=scene.title,
             narration=scene.narration_text or "",
@@ -1567,6 +1599,7 @@ async def regenerate_scene(
             other_scenes_layouts=other_scenes_layouts,
             preferred_layout=effective_layout,
             current_descriptor=current_descriptor,
+            content_language=content_language,
         )
 
         # Preserve image assignment from old descriptor into the new one.

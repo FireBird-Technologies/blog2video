@@ -77,6 +77,9 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
     preferred_layout: str = dspy.InputField(
         desc="Optional: User's preferred layout type. If provided, use this layout and extract props accordingly. Must be one of the valid layouts from the catalog. Empty string means no preference."
     )
+    content_language: str = dspy.InputField(
+        desc="Target language for all generated textual content in layout_props_json. Must match this language only."
+    )
 
     reasoning: str = dspy.OutputField(
         desc="Your reasoning: (1) Content analysis, (2) Layout choice rationale, (3) Prop extraction details, (4) Variety considerations"
@@ -131,6 +134,9 @@ class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
     )
     current_descriptor: str = dspy.InputField(
         desc="Optional: current scene descriptor as JSON (layout + layoutProps). Use to preserve or adapt existing props when the user is refining rather than replacing. Empty string if no existing descriptor."
+    )
+    content_language: str = dspy.InputField(
+        desc="Target language for all generated textual content in layout_props_json. Must match this language only."
     )
 
     reasoning: str = dspy.OutputField(
@@ -193,6 +199,9 @@ class TemplateSceneToDescriptor(dspy.Signature):
     preferred_arrangement: str = dspy.InputField(
         desc="Optional: User's preferred arrangement. If provided, use this arrangement. Empty string means no preference."
     )
+    content_language: str = dspy.InputField(
+        desc="Target language for all generated textual content in layout_config_json. Must match this language only."
+    )
 
     reasoning: str = dspy.OutputField(
         desc="Your reasoning: (1) Content analysis, (2) Arrangement choice, (3) Element selection, (4) Decoration choices, (5) Variety considerations"
@@ -241,6 +250,9 @@ class RegenerateSceneToDescriptor(dspy.Signature):
     )
     current_descriptor: str = dspy.InputField(
         desc="Optional: current scene config as JSON. Use to preserve or adapt existing content. Empty string if none."
+    )
+    content_language: str = dspy.InputField(
+        desc="Target language for all generated textual content in layout_config_json. Must match this language only."
     )
 
     reasoning: str = dspy.OutputField(
@@ -565,11 +577,12 @@ class TemplateSceneGenerator:
         total_scenes: int = 10,
         max_retries: int = 2,
         preferred_layout: str | None = None,
+        content_language: str = "English",
     ) -> dict:
         if not self._is_custom:
             return await self._generate_old_descriptor(
                 scene_title, narration, visual_description,
-                scene_index, total_scenes, max_retries, preferred_layout,
+                scene_index, total_scenes, max_retries, preferred_layout, content_language,
             )
 
         logger.info(
@@ -614,6 +627,7 @@ class TemplateSceneGenerator:
                     previous_arrangements=previous,
                     underused_arrangements=underused,
                     preferred_arrangement=preferred_arr or "",
+                    content_language=(content_language or "English").strip(),
                 )
 
                 config = self._parse_config_json(result.layout_config_json)
@@ -697,6 +711,7 @@ class TemplateSceneGenerator:
         other_scenes_layouts: str,
         preferred_layout: str | None = None,
         current_descriptor: dict | None = None,
+        content_language: str = "English",
     ) -> dict:
         logger.info(
             "[SCENE_GEN] regenerate: scene=%s, preferred_layout=%s, has_current=%s",
@@ -709,7 +724,7 @@ class TemplateSceneGenerator:
             return await self._regenerate_old_descriptor(
                 scene_title, narration, visual_description,
                 scene_index, total_scenes, other_scenes_layouts,
-                preferred_layout, current_descriptor,
+                preferred_layout, current_descriptor, content_language,
             )
 
         # Scene 0 still prefers full-center but the AI chooses elements, decorations, and background
@@ -735,6 +750,7 @@ class TemplateSceneGenerator:
                 other_scenes_arrangements=other_scenes_layouts or "(none yet)",
                 preferred_arrangement=preferred_arr or "",
                 current_descriptor=current_str,
+                content_language=(content_language or "English").strip(),
             )
         except Exception as e:
             if self.debug:
@@ -770,6 +786,7 @@ class TemplateSceneGenerator:
         bg_color: str = "#FFFFFF",
         text_color: str = "#000000",
         animation_instructions: str = "",
+        content_language: str = "English",
     ) -> list[dict]:
         """Generate scene descriptors in batches of BATCH_SIZE for concurrency.
 
@@ -801,6 +818,7 @@ class TemplateSceneGenerator:
                     scene_index=i,
                     total_scenes=total,
                     preferred_layout=scenes_data[i].get("preferred_layout"),
+                    content_language=content_language,
                 )
                 for i in batch_indices
             ]
@@ -838,7 +856,7 @@ class TemplateSceneGenerator:
 
     # ─── Legacy support for built-in templates ───
 
-    async def _generate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, max_retries, preferred_layout):
+    async def _generate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, max_retries, preferred_layout, content_language):
         """Old-style descriptor for built-in templates (layout + layoutProps from catalog)."""
         if scene_index == 0 and not preferred_layout:
             self.variety_tracker.record(self._hero_layout)
@@ -865,6 +883,7 @@ class TemplateSceneGenerator:
                     previous_layouts=previous_layouts,
                     underused_layouts=underused_layouts,
                     preferred_layout=normalized_preferred or "",
+                    content_language=(content_language or "English").strip(),
                 )
 
                 layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
@@ -893,7 +912,7 @@ class TemplateSceneGenerator:
         self.variety_tracker.record(self._fallback_layout)
         return {"layout": self._fallback_layout, "layoutProps": {}}
 
-    async def _regenerate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, other_scenes_layouts, preferred_layout, current_descriptor):
+    async def _regenerate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, other_scenes_layouts, preferred_layout, current_descriptor, content_language):
         """Old-style regeneration for built-in templates (layout + layoutProps from catalog)."""
         if scene_index == 0 and not preferred_layout:
             return {"layout": self._hero_layout, "layoutProps": {}}
@@ -917,6 +936,7 @@ class TemplateSceneGenerator:
                 other_scenes_layouts=other_scenes_layouts or "(none yet)",
                 preferred_layout=normalized or "",
                 current_descriptor=current_str,
+                content_language=(content_language or "English").strip(),
             )
         except Exception as e:
             if self.debug:

@@ -7,6 +7,7 @@ import { useScrollReveal } from "../hooks/useScrollReveal";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
+import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
@@ -453,6 +454,13 @@ export default function Landing() {
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-5xl mx-auto px-6">
           <FullTemplateShowcase />
+        </div>
+      </section>
+
+      {/* ─── Custom template showcase ─── */}
+      <section className="py-20 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto px-6">
+          <CustomTemplateShowcase />
         </div>
       </section>
 

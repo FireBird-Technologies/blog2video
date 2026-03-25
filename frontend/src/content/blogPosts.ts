@@ -17,6 +17,419 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "translate-blog-to-video-in-any-language",
+    title: "How to Turn Any Blog Post into a Video in 39 Languages",
+    description:
+      "Blog2Video auto-detects the language of your content and generates the entire video — script, narration, and on-screen text — in that language. Override it manually to translate an English blog into a Spanish, Hindi, Arabic, or Japanese video in one step.",
+    category: "Feature",
+    heroImage: "/blog/blog-cover-multilingual.png",
+    heroImageAlt: "A single blog post URL generating video output in Spanish, Hindi, Arabic, and Japanese side by side.",
+    publishedAt: "2026-03-24",
+    readTime: "5 min read",
+    heroEyebrow: "Multilingual Video Generation",
+    heroTitle: "Your blog is already written. Now make it reach audiences in their own language.",
+    heroDescription:
+      "Blog2Video supports 39 languages with automatic detection and a one-click override. Paste an English URL, select Spanish, and every word of the video — script, narration, captions — comes out in Spanish. No separate translation step, no extra tool.",
+    primaryKeyword: "translate blog to video",
+    keywordVariant: "multilingual video generation from blog post",
+    relatedPaths: [
+      "/multilingual-video-generation",
+      "/bulk-blog-to-video",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "Why most blog-to-video tools fail non-English creators",
+        paragraphs: [
+          "Most AI video tools are built English-first. Feed them a Hindi or Arabic article and they either translate everything into English before processing or produce broken output with mismatched scripts. The narration ends up in English while the display text is in the original language, or vice versa. The result is a video nobody wants to publish.",
+          "Blog2Video treats language as a first-class input. Before a single scene is generated, the system identifies the language of your content and uses that language for everything — the script, the scene titles, the narration text, and the on-screen captions. No post-processing. No secondary translation API. No mismatches.",
+        ],
+        bullets: [
+          "Auto-detection runs before generation, not after",
+          "All output — script, narration, display text — uses the same language",
+          "Right-to-left scripts (Arabic, Urdu, Hebrew, Persian) render correctly",
+          "East Asian scripts (Japanese, Korean, Chinese) are fully supported",
+        ],
+      },
+      {
+        heading: "How auto-detection works",
+        paragraphs: [
+          "When you paste a URL or upload a document, Blog2Video scrapes the content and runs it through a FastText language model with a minimum confidence threshold of 75%. For code-heavy technical content where keywords like 'if', 'return', and 'for' would skew English detection, the system strips code blocks before sampling.",
+          "For Arabic-script languages — Arabic, Urdu, Persian — where FastText confidence can vary on shorter texts, a Unicode heuristic checks for script-specific characters and differentiates between them. Urdu-specific letters are detected separately from standard Arabic, which matters for voiceover selection.",
+          "If confidence falls below the threshold, the system defaults to English rather than guessing. You can always override manually in the Language dropdown before generating.",
+        ],
+      },
+      {
+        heading: "The translation workflow: one URL, multiple language videos",
+        paragraphs: [
+          "The manual language override is what makes Blog2Video genuinely useful as a translation tool. In the Voice step, the Language dropdown defaults to Auto. Change it to Spanish, Hindi, Vietnamese, or any of the 39 supported languages and the entire video will be generated in that language — even if the source article is in English.",
+          "This means a single blog post can become a Spanish video for your Latin American audience, a Hindi video for South Asian distribution, and an Arabic video for MENA — all from the same URL, in the same session. Each version carries the full content in the target language, not dubbed audio over English text.",
+        ],
+        bullets: [
+          "Step 1: Paste the blog URL as normal",
+          "Step 2: Pick your template",
+          "Step 3: Open the Language dropdown and select the target language",
+          "Step 4: Generate — the full video comes out in your chosen language",
+        ],
+        ctaPath: "/multilingual-video-generation",
+        ctaLabel: "See the multilingual feature",
+      },
+      {
+        heading: "Bulk mode: generate the same post in multiple languages at once",
+        paragraphs: [
+          "The bulk submission mode lets you queue multiple rows with the same URL but different language settings. Add the post four times, set each row to a different language, and submit. Four language-specific videos generate in parallel — each with the correct script, narration, and on-screen text in its target language.",
+          "For teams publishing to international audiences, this replaces a workflow that previously required a separate translator, a separate voiceover session, and a separate video edit for each language version. The entire output is driven by the original article, so the message stays consistent across all versions.",
+        ],
+        bullets: [
+          "Add the same URL multiple times in bulk mode",
+          "Set a different language per row",
+          "All versions generate simultaneously",
+          "Each version has independent voice and template settings",
+        ],
+      },
+      {
+        heading: "All 39 supported languages",
+        paragraphs: [
+          "Blog2Video supports the following languages in both auto-detection and manual selection: Arabic, Bengali, Chinese (Simplified), Chinese (Traditional), Czech, Danish, Dutch, Finnish, French, German, Greek, Gujarati, Hebrew, Hindi, Hungarian, Indonesian, Italian, Japanese, Korean, Malayalam, Marathi, Norwegian, Persian (Farsi), Polish, Portuguese, Punjabi, Romanian, Russian, Spanish, Swedish, Tamil, Telugu, Thai, Turkish, Ukrainian, Urdu, Vietnamese.",
+          "The voiceover is also generated in the selected language via ElevenLabs, which supports multilingual synthesis for the major global languages. For languages where ElevenLabs voice coverage is broader in certain accents, selecting the closest voice before generation gives the best result.",
+        ],
+        bullets: [
+          "European: Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Ukrainian, Swedish, Danish, Norwegian, Finnish, Greek, Romanian, Hungarian, Czech",
+          "South Asian: Hindi, Urdu, Bengali, Tamil, Telugu, Malayalam, Gujarati, Punjabi, Marathi",
+          "East Asian: Japanese, Korean, Chinese (Simplified), Chinese (Traditional)",
+          "Middle Eastern: Arabic, Hebrew, Persian (Farsi)",
+          "Southeast Asian: Vietnamese, Thai, Indonesian",
+        ],
+      },
+      {
+        heading: "Who this matters for",
+        paragraphs: [
+          "For multilingual content teams, it removes the translation bottleneck from the video production pipeline. The written content gets translated and published in multiple languages already — the video layer can now follow without a separate workflow.",
+          "For solo creators targeting international audiences on YouTube or Instagram, it means the same piece of content can reach a Spanish-speaking audience, a Hindi-speaking audience, and an Arabic-speaking audience without filming three separate videos.",
+          "For SEO agencies running international campaigns, it means blog content can be repurposed into video for each target market as a standard deliverable rather than a custom request.",
+        ],
+        bullets: [
+          "Multilingual content teams: remove the video translation bottleneck",
+          "International YouTube creators: reach new audiences from existing posts",
+          "SEO agencies: make multilingual video a standard deliverable",
+          "Non-English bloggers: generate video in your language without workarounds",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video translate the content or just detect the language?",
+        answer:
+          "Both. If you keep Auto selected, it detects the source language and generates the video in that language — no translation happens, the output matches the input. If you manually select a different language from the dropdown, Blog2Video generates the entire video in that language, which means the content is effectively translated as part of the generation step.",
+      },
+      {
+        question: "Which languages support voiceover narration?",
+        answer:
+          "ElevenLabs supports multilingual synthesis across most of the 39 languages in Blog2Video. Coverage is strongest for Spanish, French, German, Hindi, Japanese, Korean, Arabic, Portuguese, and Chinese. For less common languages, the auto voice selection uses the closest available match.",
+      },
+      {
+        question: "Can I generate the same blog post in multiple languages at once?",
+        answer:
+          "Yes. In bulk mode, add the same URL multiple times and set a different language for each row. All versions generate simultaneously, each with the correct language output.",
+      },
+      {
+        question: "Do right-to-left languages like Arabic and Urdu render correctly?",
+        answer:
+          "Yes. Right-to-left text rendering is handled natively. Arabic, Urdu, Hebrew, and Persian display correctly in the video output without manual adjustment.",
+      },
+      {
+        question: "How accurate is the auto language detection?",
+        answer:
+          "The FastText model used for detection targets 75% minimum confidence before accepting a result. For code-heavy content, code blocks are stripped from the sample to avoid skewing detection toward English. For Arabic-script languages, a Unicode heuristic runs in parallel and differentiates Arabic, Urdu, and Persian accurately.",
+      },
+      {
+        question: "What if my content is in a language not listed?",
+        answer:
+          "If auto-detection returns a low confidence score for an unsupported language, the system defaults to English. You can type or select the closest supported language manually in the Language dropdown to get the best available output.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn Any Blog Post into a Video in 39 Languages",
+        angle: "SEO post targeting 'translate blog to video' and 'multilingual video generation' with step-by-step workflow and full language list.",
+      },
+      {
+        channel: "video",
+        title: "One English Blog → 4 Language Videos (Spanish, Hindi, Arabic, Japanese)",
+        angle: "Screen recording showing the language dropdown, bulk mode with 4 language rows, and the finished outputs side by side.",
+      },
+      {
+        channel: "substack",
+        title: "I turned one English blog post into videos in 4 languages in 10 minutes",
+        angle: "First-person workflow story for content creators targeting international audiences.",
+      },
+      {
+        channel: "medium",
+        title: "The fastest way to produce multilingual video content from a blog post",
+        angle: "Practical guide framing Blog2Video's language feature against the traditional translate-then-record workflow.",
+      },
+    ],
+  },
+  {
+    slug: "blog2video-vs-notebooklm",
+    title: "Blog2Video vs NotebookLM: Learning Tool vs Content Engine",
+    description:
+      "NotebookLM is built for understanding content. Blog2Video is built for publishing it. Here is exactly what that difference means in practice.",
+    category: "Comparison",
+    heroImage: "/blog/blog-cover-notebooklm.png",
+    heroImageAlt: "Split screen: NotebookLM podcast summary on the left, Blog2Video branded video output on the right.",
+    publishedAt: "2026-03-24",
+    readTime: "5 min read",
+    heroEyebrow: "Blog2Video vs NotebookLM",
+    heroTitle: "NotebookLM is for learning. Blog2Video is for publishing. They are not the same thing.",
+    heroDescription:
+      "Both tools take written content and turn it into audio or video. But the output goal is completely different — one helps you understand material, the other helps you distribute it under your own brand.",
+    primaryKeyword: "blog2video vs notebooklm",
+    keywordVariant: "notebooklm alternative for content creators",
+    relatedPaths: [
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/bulk-blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The core difference: learning vs publishing",
+        paragraphs: [
+          "NotebookLM is a research assistant. You feed it sources — PDFs, docs, articles — and it helps you understand them faster. The podcast-style audio summaries are great for absorbing information on a commute. The Q&A interface is useful for navigating dense material. Everything about NotebookLM is designed to help the reader learn.",
+          "Blog2Video is a content engine. You feed it a blog post or article URL and it generates a finished, branded video you can publish on YouTube, LinkedIn, or Instagram. Everything about Blog2Video is designed to help the creator distribute.",
+          "This is not a subtle difference. NotebookLM is optimized for simplicity of learning — the output is generic by design because the goal is comprehension, not brand identity. Blog2Video is optimized for consistency of publishing — the output needs to look and sound like you every time.",
+        ],
+      },
+      {
+        heading: "Your voice, not a generic AI voice",
+        paragraphs: [
+          "NotebookLM generates audio narration that sounds like a podcast between two neutral AI hosts. It is coherent and easy to follow, but it has no connection to your brand, your tone, or your voice.",
+          "Blog2Video lets you use ElevenLabs voices with a live preview before you commit to generation, or clone your own voice from a short audio sample. When your video goes out, it sounds like you — the same voice your audience recognizes from your other content.",
+          "For anyone building a brand around their content, generic narration is not acceptable at scale. Voice cloning means every video you generate sounds consistent with the last one, without you recording anything new.",
+        ],
+        bullets: [
+          "ElevenLabs library: preview any voice before generating",
+          "Voice cloning: record a short sample, use it on every video",
+          "Custom voice settings: consistent tone across every post you convert",
+        ],
+      },
+      {
+        heading: "Branded templates that look like your content, not a product demo",
+        paragraphs: [
+          "NotebookLM has no visual output. It produces audio. There is nothing to brand.",
+          "Blog2Video has a full template system. Templates like Nightfall, Geometric Explainer, Matrix, and Newspaper are already production-ready. Template Studio lets you use AI to customize any existing template or build one from scratch — adjusting colors, typography, layout, and animation to match your brand.",
+          "The v2 of branded templates takes this further: you will be able to generate a custom template directly from your own website or a PDF of your slide deck. The system extracts your visual identity and builds a template around it. Every video you generate after that will look like it was made specifically for your brand.",
+        ],
+        bullets: [
+          "Template Studio: customize or create templates with AI, no video editor experience needed",
+          "Branded templates v2: upload your site or slides, get a template that matches your identity",
+          "Use the same template for every post — consistent output across your whole archive",
+        ],
+      },
+      {
+        heading: "One flow for every post: three steps, every time",
+        paragraphs: [
+          "NotebookLM requires you to upload documents, set up a notebook, wait for processing, and then interact with the interface to get what you need. It is a research session, not a production pipeline.",
+          "Blog2Video has one flow: paste a URL, pick your template and voice, hit generate. That is it. The same three steps work for a 500-word post and a 3,000-word technical guide. The tool handles the scripting, scene structure, narration, and timing.",
+          "This matters for teams that need to publish consistently. A three-step flow you can repeat every week without thinking about it is what makes video a sustainable part of a content strategy rather than an occasional experiment.",
+        ],
+        bullets: [
+          "Step 1: paste your blog URL (10 seconds)",
+          "Step 2: select template and voice (20 seconds)",
+          "Step 3: generate, review, export (under 2 minutes)",
+        ],
+      },
+      {
+        heading: "Bulk generation and the agency use case",
+        paragraphs: [
+          "NotebookLM is a single-document, single-session tool. There is no concept of processing multiple pieces of content in parallel.",
+          "Blog2Video supports bulk video generation — up to five videos at once from a single queue. For agencies managing clients across multiple blogs, or content teams working through a backlog, this changes the economics entirely. What would take a full day of individual generation runs in a single batch.",
+          "The bulk API is on the roadmap, which opens this further: agencies can plug Blog2Video into their own tools and trigger video generation programmatically as part of a broader content workflow.",
+        ],
+        bullets: [
+          "Bulk generation: up to 5 videos in a single run",
+          "Suitable for agencies managing multiple client blogs",
+          "API access planned: trigger generation from your own tools",
+          "One person can cover the video layer across an entire editorial calendar",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can NotebookLM produce videos I can publish?",
+        answer:
+          "No. NotebookLM produces audio summaries and text responses designed for learning and research. It does not generate publishable video with branding, narration, or visual scenes.",
+      },
+      {
+        question: "Does Blog2Video work for formats other than blog posts?",
+        answer:
+          "Yes. Blog2Video handles blog URLs, article URLs, PDFs, and DOCX files. Any written source with structure can be converted into a video.",
+      },
+      {
+        question: "How does voice cloning work in Blog2Video?",
+        answer:
+          "You record a short audio sample from within the voice settings page. Blog2Video uses ElevenLabs to create a cloned voice model that is then available for all future video generations.",
+      },
+      {
+        question: "What is Template Studio?",
+        answer:
+          "Template Studio is a visual editor inside Blog2Video where you can customize any existing template — colors, typography, layout, animation — or build a new one from scratch using AI. Templates you build in Template Studio are reusable across every post you convert.",
+      },
+      {
+        question: "Is Blog2Video useful if I only publish occasionally?",
+        answer:
+          "Yes. The three-step flow is fast enough that occasional publishers can add video to every post without it becoming a project. You do not need to commit to a high publishing cadence to get value from it.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "video",
+        title: "Blog2Video vs NotebookLM: Why One is for Learning and One is for Publishing",
+        angle: "Direct comparison hook targeting people who have tried NotebookLM for content and found it is not the right tool",
+      },
+      {
+        channel: "site",
+        title: "Blog2Video vs NotebookLM: Learning Tool vs Content Engine",
+        angle: "SEO post targeting 'blog2video vs notebooklm' and 'notebooklm alternative for content creators'",
+      },
+      {
+        channel: "substack",
+        title: "I tried using NotebookLM to make videos. Here is where it falls short.",
+        angle: "First-person story from a content creator who wanted a publishing tool, not a research tool",
+      },
+      {
+        channel: "medium",
+        title: "NotebookLM is not a content creation tool. Here is what to use instead.",
+        angle: "Clear differentiation article for content marketers and bloggers searching for NotebookLM alternatives",
+      },
+    ],
+  },
+  {
+    slug: "blog-to-video-before-after",
+    title: "Blog to Video: Before vs After",
+    description:
+      "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-before-after.png",
+    heroImageAlt: "Split screen: wall of text on the left taking 45 minutes, polished video on the right in 3 minutes.",
+    publishedAt: "2026-03-23",
+    readTime: "4 min read",
+    heroEyebrow: "Before & After",
+    heroTitle: "What it actually looks like to turn a blog into a video in 3 minutes",
+    heroDescription:
+      "The manual workflow — read, script, record, edit — takes 45 minutes every time. Blog2Video replaces that with three steps: paste a URL, pick a template and voice, hit generate.",
+    primaryKeyword: "blog to video",
+    keywordVariant: "turn blog post into video",
+    relatedPaths: [
+      "/how-to-turn-a-blog-post-into-a-video",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The manual way costs you 45 minutes per post",
+        paragraphs: [
+          "Every blog-to-video workflow starts the same way: open the article, read it end to end, figure out which parts translate to narration, write a script from scratch, record yourself or hire someone, then spend time in an editor trimming pauses and syncing audio to slides.",
+          "Add it up and you're looking at 8 minutes reading, 15 scripting, 10 recording, and 12 editing. That's 45 minutes of active work per post — before you've even thought about thumbnails, captions, or distribution.",
+          "For a team publishing two or three posts a week, that's a part-time job just to produce the video layer. Most teams skip video entirely or outsource it at a cost that makes the whole exercise hard to justify.",
+        ],
+        bullets: [
+          "Read article: ~8 min",
+          "Write video script: ~15 min",
+          "Record voiceover: ~10 min",
+          "Edit & export: ~12 min",
+          "Total: 45+ min per post",
+        ],
+      },
+      {
+        heading: "Three steps replace the entire workflow",
+        paragraphs: [
+          "Blog2Video compresses all of that into three interactions. Step one is pasting your blog URL — Firecrawl extracts the content automatically, no copy-paste or reformatting required. Step two is picking a template and a voice from the ElevenLabs library, with a live preview before you commit. Step three is hitting generate.",
+          "The tool handles scripting, narration, scene structure, and timing. The editor opens when generation finishes, and you can adjust any scene, swap text, or change the voice before exporting. From URL to finished video takes under three minutes.",
+        ],
+        bullets: [
+          "Step 1 — Paste URL (10 seconds)",
+          "Step 2 — Select template & voice (20 seconds)",
+          "Step 3 — Generate & export (~2 minutes)",
+          "Total: under 3 minutes",
+        ],
+      },
+      {
+        heading: "Why the output quality holds up",
+        paragraphs: [
+          "The most common concern with automated video is that it will feel generic. Blog2Video avoids this because it uses the actual structure of your article as the scene blueprint. Each subheading becomes a scene, key points become on-screen callouts, and the narration follows the original argument rather than a summarised version of it.",
+          "Template choices like Geometric Explainer, Nightfall, Matrix, and Newspaper are designed to match different content tones — technical, editorial, punchy, or clean. Choosing the right one takes a few seconds and makes the finished video feel intentional rather than auto-generated.",
+        ],
+        bullets: [
+          "Article structure drives the scene order",
+          "Narration follows your original argument",
+          "Templates match the tone of the content",
+          "ElevenLabs voices preview before you commit",
+        ],
+      },
+      {
+        heading: "Who this matters most for",
+        paragraphs: [
+          "The 15× speed improvement means different things depending on your publishing cadence. For a solo blogger it means you can add video to every post without it becoming a second job. For an SEO agency it means video becomes a standard deliverable, not an upsell. For a content team it means one person can handle the video layer across the whole editorial calendar.",
+          "In every case the underlying math is the same: if the content is already written, the cost to produce the video drops from hours to minutes. That changes whether video is worth it at all.",
+        ],
+        bullets: [
+          "Solo bloggers: add video to every post without extra hours",
+          "SEO agencies: make video a standard deliverable",
+          "Content teams: one person covers the whole calendar",
+          "Technical writers: keep the detail, skip the production overhead",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to edit the blog post before pasting the URL?",
+        answer:
+          "No. Blog2Video uses Firecrawl to extract the content directly from the live URL. The article just needs to be publicly accessible.",
+      },
+      {
+        question: "Can I use my own voice instead of an ElevenLabs preset?",
+        answer:
+          "Yes. You can clone your voice from a short audio sample or build a custom voice from the voice settings page before generating.",
+      },
+      {
+        question: "How long does generation actually take?",
+        answer:
+          "Typically one to two minutes depending on article length and the template selected. You can watch the progress in real time on the generation screen.",
+      },
+      {
+        question: "What video formats can I export?",
+        answer:
+          "16:9 for YouTube and LinkedIn, and 9:16 for TikTok and Instagram Reels. You pick the aspect ratio in step one before generation starts.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "video",
+        title: "Blog to Video in 3 Minutes (Before & After)",
+        angle: "Before/after hook showing the 45-minute manual workflow vs the 3-step Blog2Video flow",
+      },
+      {
+        channel: "site",
+        title: "Blog to Video: Before vs After",
+        angle: "SEO post targeting 'blog to video' with embedded YouTube video and step-by-step breakdown",
+      },
+      {
+        channel: "substack",
+        title: "I cut my blog-to-video time from 45 minutes to 3",
+        angle: "First-person workflow story for content creator audience",
+      },
+      {
+        channel: "medium",
+        title: "The Before/After That Made Me Stop Manually Producing Videos",
+        angle: "Relatable frustration-to-solution narrative for the content marketing audience",
+      },
+    ],
+  },
+  {
     slug: "how-to-turn-a-blog-post-into-a-video",
     title: "How To Turn a Blog Post Into a Video",
     description:
