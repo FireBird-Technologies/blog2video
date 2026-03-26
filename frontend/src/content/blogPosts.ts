@@ -17,6 +17,261 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "custom-video-template-from-your-website",
+    title: "How to Create a Custom Video Template Directly From Your Website",
+    description:
+      "Blog2Video can now extract your exact colors, fonts, and visual style from your website URL and generate a branded video template automatically. Every video you produce looks like your design team built it.",
+    category: "Feature",
+    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImageAlt: "A website URL being pasted into Blog2Video and a fully branded video template generated from it.",
+    publishedAt: "2026-03-27",
+    readTime: "5 min read",
+    heroEyebrow: "Custom Branded Templates",
+    heroTitle: "Paste your website URL. Get a video template that looks exactly like your brand.",
+    heroDescription:
+      "Blog2Video now extracts your colors, fonts, and visual identity directly from your website. Every video you generate after that will look like it came from your design team — not a generic AI tool.",
+    primaryKeyword: "custom video template from website",
+    keywordVariant: "branded video template generator",
+    relatedPaths: [
+      "/custom-branded-video-templates",
+      "/blog-to-video",
+      "/bulk-blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The branding problem with AI video tools",
+        paragraphs: [
+          "Most AI video tools give you templates that look polished but generic. They use their own color palettes, their own font choices, and their own animation styles. The videos are technically fine but they could have been made by anyone. When your audience watches, there is no signal that the video came from you.",
+          "Building a custom template from scratch requires a video editor, a designer, or both. Most teams do not have either sitting idle. So they ship generic templates and hope the content carries it.",
+          "Blog2Video's new custom template feature solves this without either option. Paste your website URL. The system reads your visual identity — your brand colors, your typography, your layout patterns — and generates a video template built around them. The output looks like your brand because it is derived directly from your brand.",
+        ],
+      },
+      {
+        heading: "How the website extraction works",
+        paragraphs: [
+          "When you paste your URL, Blog2Video fetches the page and analyzes the CSS and visual structure. It extracts your primary and secondary colors from your stylesheet, identifies the font families you use for headings and body text, and reads your spacing and layout conventions.",
+          "From those inputs, it builds a template with your color scheme applied to backgrounds, titles, and accent elements. Your fonts replace the default typefaces. The result is a template that follows your brand system without you having to manually configure anything.",
+          "Once the template is generated, you can review it in Template Studio before setting it as your default. If anything is off — a color that pulled incorrectly, a font that needs adjusting — you can refine it through the editor before committing.",
+        ],
+        bullets: [
+          "Color extraction: primary, secondary, and accent colors from your CSS",
+          "Font extraction: heading and body font families matched to your site",
+          "Layout conventions: spacing and visual rhythm from your design system",
+          "Template Studio review: inspect and adjust before setting as default",
+        ],
+      },
+      {
+        heading: "Every video looks like your design team made it",
+        paragraphs: [
+          "The practical effect is consistency at scale. Once your branded template is set, every blog post you convert — whether it is one a week or fifty in bulk mode — comes out looking like it belongs to your content library. The same colors. The same fonts. The same visual identity your audience recognizes from your website and other content.",
+          "For content teams, this removes the manual branding step from every video production cycle. For agencies, it means delivering branded video to clients without custom design work on each project. For solo creators, it means your video content finally looks as considered as the rest of your brand.",
+        ],
+        bullets: [
+          "Consistent brand across every video you generate",
+          "No manual template configuration per video",
+          "Scales from one post to hundreds in bulk mode",
+          "Same visual identity as your website, newsletter, and slides",
+        ],
+        ctaPath: "/custom-branded-video-templates",
+        ctaLabel: "See custom branded templates",
+      },
+      {
+        heading: "Who this is for",
+        paragraphs: [
+          "Content teams that publish branded video alongside articles and newsletters will see the clearest benefit. The website extraction means brand guidelines do not need to be manually re-entered every time a new template is needed.",
+          "SEO agencies converting client blogs into video can generate a client-specific template from the client's URL during onboarding. Every deliverable after that is automatically on-brand without additional design overhead.",
+          "Indie creators who have invested in a recognizable visual identity — a custom site, a consistent color palette, a distinct font — can now bring that identity into video without learning a video editor.",
+        ],
+        bullets: [
+          "Content teams: enforce brand consistency without manual configuration",
+          "SEO agencies: generate client-branded templates at onboarding",
+          "Indie creators: bring your site's visual identity into video automatically",
+          "Anyone already running Blog2Video: upgrade existing output to match your brand",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What does Blog2Video extract from my website?",
+        answer:
+          "It extracts your primary and secondary brand colors from your CSS, your heading and body font families, and your general layout conventions. These are used to build a video template that matches your visual identity.",
+      },
+      {
+        question: "Do I need design skills to use the custom template feature?",
+        answer:
+          "No. The extraction and template generation are automatic. If you want to refine the output, Template Studio gives you a visual editor — but the default result from extraction is usable without any adjustments.",
+      },
+      {
+        question: "Can I use this for client websites if I am an agency?",
+        answer:
+          "Yes. Paste the client's URL during project setup and Blog2Video generates a branded template for that client. Every video produced for that client uses the extracted template automatically.",
+      },
+      {
+        question: "What if my website uses a non-standard font that is not on Google Fonts?",
+        answer:
+          "Blog2Video identifies the font family name from your CSS. If it is a widely available font, it will render correctly in the template. For custom or licensed fonts that are not publicly available, the system uses the closest system fallback.",
+      },
+      {
+        question: "Can I create multiple branded templates for different brands or sub-brands?",
+        answer:
+          "Yes. You can generate separate templates from different URLs and switch between them per video or set a different default for different projects.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Create a Custom Video Template Directly From Your Website",
+        angle: "SEO post targeting 'custom video template from website' and 'branded video template generator' — covers the extraction workflow and use cases for teams, agencies, and creators.",
+      },
+      {
+        channel: "video",
+        title: "I Pasted My Website URL and Got a Branded Video Template in 30 Seconds",
+        angle: "Screen recording showing the URL paste, extraction in progress, template preview, and a finished branded video alongside the original site.",
+      },
+      {
+        channel: "substack",
+        title: "Your brand is already designed. Now put it in your videos automatically.",
+        angle: "First-person angle for creators who have a visual identity but have never been able to consistently apply it to video content.",
+      },
+      {
+        channel: "medium",
+        title: "How to generate a branded video template from your website in one step",
+        angle: "Practical walkthrough targeting content teams and agencies who want consistent brand output without manual template work.",
+      },
+    ],
+  },
+  {
+    slug: "translate-blog-to-video-50-languages",
+    title: "Blog2Video Now Supports 50+ Languages: Reach Global Audiences From One Blog Post",
+    description:
+      "Blog2Video's March 2026 update expands multilingual video generation to 50+ languages. The same workflow — paste a URL, pick a language, generate — now reaches more global markets with automatic narration in each target language.",
+    category: "Feature",
+    heroImage: "/blog/blog-cover-multilingual.png",
+    heroImageAlt: "A single blog post URL generating video output in multiple languages with global audience icons.",
+    publishedAt: "2026-03-27",
+    readTime: "4 min read",
+    heroEyebrow: "Multilingual Video — March 2026 Update",
+    heroTitle: "One blog post. 50+ languages. Same workflow you already know.",
+    heroDescription:
+      "Blog2Video now generates videos in over 50 languages with automatic narration in the target language. Paste your URL, select a language, and the entire video — script, voice, and on-screen text — comes out in that language.",
+    primaryKeyword: "translate blog to video in any language",
+    keywordVariant: "multilingual video generation 50 languages",
+    relatedPaths: [
+      "/multilingual-video-generation",
+      "/bulk-blog-to-video",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "What changed in the March 2026 update",
+        paragraphs: [
+          "Blog2Video previously supported 39 languages for blog-to-video generation. The March 2026 update expands that to 50+ languages, covering additional regional languages across Southeast Asia, Africa, and Central Europe that were previously unsupported.",
+          "The workflow has not changed. Paste your blog URL, select your template, open the Language dropdown, and choose your target language. The entire video — script, narration, scene titles, on-screen captions — is generated in that language. No separate translation step. No extra tool.",
+          "This update also improves narration quality for several existing languages, particularly for tonal languages and those with complex script systems, through updated ElevenLabs voice model integration.",
+        ],
+        bullets: [
+          "50+ languages now supported, up from 39",
+          "New additions include additional African, Southeast Asian, and Central European languages",
+          "Improved narration quality for tonal and complex-script languages",
+          "Same one-step workflow: URL → language selection → generate",
+        ],
+      },
+      {
+        heading: "Reach new markets without a separate translation workflow",
+        paragraphs: [
+          "The most direct use case is simple: you have content in English, and you want it to reach an audience that reads and watches in Spanish, Hindi, Arabic, or Japanese. Previously this meant hiring a translator, finding a voiceover artist in that language, and editing a new video for each version. Blog2Video collapses that into one generation step.",
+          "Select the target language before generating and Blog2Video handles the entire conversion — the script is written in that language, the AI narration speaks in that language, and the on-screen text renders in that language with correct right-to-left support for Arabic and Hebrew, and correct character rendering for East Asian scripts.",
+        ],
+        bullets: [
+          "Script generated in target language — not translated after the fact",
+          "Narration in target language via ElevenLabs multilingual synthesis",
+          "Correct RTL rendering for Arabic, Hebrew, Urdu, Persian",
+          "Correct character rendering for Japanese, Korean, Chinese",
+        ],
+      },
+      {
+        heading: "Bulk mode: one post, multiple language videos simultaneously",
+        paragraphs: [
+          "In bulk mode you can add the same URL multiple times and set a different language per row. All versions generate in parallel. For a team publishing to international audiences, this means a single blog post becomes a Spanish video, a Hindi video, an Arabic video, and a Portuguese video in one batch — each with independent voice and template settings.",
+          "This replaces a workflow that previously required a separate contractor, a separate recording session, and a separate video edit for each language. The source article stays consistent across all versions because all versions are generated from the same URL.",
+        ],
+        bullets: [
+          "Add the same URL multiple times in bulk mode",
+          "Set a different language per row",
+          "All versions generate simultaneously",
+          "Each version has independent voice and language settings",
+        ],
+        ctaPath: "/multilingual-video-generation",
+        ctaLabel: "Try multilingual video generation",
+      },
+      {
+        heading: "Who gains the most from 50+ language support",
+        paragraphs: [
+          "International YouTube and Instagram creators who publish in one language but want to grow audiences in others now have a direct path to language-specific content without separate production runs.",
+          "SEO agencies running international campaigns can include multilingual video as a standard deliverable from the same content brief. The agency produces one article; Blog2Video produces one video per target market.",
+          "Non-English publishers — regional news sites, local blogs, specialty publications — can generate video from their existing content in their own language without workarounds or English-first processing.",
+        ],
+        bullets: [
+          "International creators: grow new language audiences from existing posts",
+          "SEO agencies: multilingual video as standard deliverable",
+          "Non-English publishers: native language video from your own content",
+          "Multilingual content teams: remove the video translation bottleneck",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "How many languages does Blog2Video support now?",
+        answer:
+          "As of the March 2026 update, Blog2Video supports 50+ languages for both auto-detection and manual language selection. The full list includes major European, South Asian, East Asian, Middle Eastern, and Southeast Asian languages, with additional regional languages added in this update.",
+      },
+      {
+        question: "Does it translate my content or generate in the target language?",
+        answer:
+          "Both. If you keep Auto selected, it detects the source language and generates in that language — no translation. If you select a different language manually, the entire video is generated in that language, including the script, narration, and on-screen text.",
+      },
+      {
+        question: "Can I generate the same blog post in multiple languages at once?",
+        answer:
+          "Yes. In bulk mode, add the same URL multiple times and set a different language for each row. All versions generate simultaneously.",
+      },
+      {
+        question: "Do RTL languages like Arabic and Hebrew render correctly?",
+        answer:
+          "Yes. Right-to-left text rendering is handled natively for Arabic, Hebrew, Urdu, and Persian. The on-screen text displays correctly without manual adjustment.",
+      },
+      {
+        question: "Is the narration actually in the target language?",
+        answer:
+          "Yes. Blog2Video uses ElevenLabs multilingual voice synthesis to generate narration in the selected language. The AI voice speaks in the target language, not dubbed English audio.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Now Supports 50+ Languages: Reach Global Audiences From One Blog Post",
+        angle: "SEO update post targeting 'translate blog to video in any language' — covers the March 2026 expansion, workflow, and audience use cases.",
+      },
+      {
+        channel: "video",
+        title: "Blog2Video Now Has 50+ Languages — Here's What That Means For Your Content",
+        angle: "Update walkthrough showing the expanded language list, a live generation in a new language, and bulk mode with multiple language rows.",
+      },
+      {
+        channel: "substack",
+        title: "Blog2Video now reaches 50+ languages — same workflow, new markets",
+        angle: "Brief product update note for existing users and newsletter subscribers covering what changed and who benefits most.",
+      },
+      {
+        channel: "medium",
+        title: "How to produce multilingual video content from a single blog post",
+        angle: "Practical guide targeting content teams and international creators — uses the 50-language update as the hook.",
+      },
+    ],
+  },
+  {
     slug: "translate-blog-to-video-in-any-language",
     title: "How to Turn Any Blog Post into a Video in 39 Languages",
     description:
