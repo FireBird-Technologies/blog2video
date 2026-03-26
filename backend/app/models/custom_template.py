@@ -24,6 +24,7 @@ class CustomTemplate(Base):
     # Multiple unique content scene variants (JSON array of code strings)
     # Claude decides how many to generate (typically 4-8). Scenes cycle through them.
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
+    content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
 
     # Link to BrandKit (optional — existing templates have no brand kit)
     brand_kit_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("brand_kits.id"), nullable=True, index=True)

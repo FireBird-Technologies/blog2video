@@ -737,16 +737,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             # Tag each scene with a sceneType for GeneratedVideo
             total = len(scene_data)
             content_codes = custom_data.get("content_codes") or []
+            archetype_ids = custom_data.get("content_archetype_ids") or []
             num_content_variants = len(content_codes) if content_codes else 1
             data["contentVariantCount"] = num_content_variants
-            pass  # variant count set
 
-            # Assign scene types and content variant indices.
-            # Content variants cycle evenly (0, 1, 2, 3, 4, 0, 1, ...) so each content
-            # scene gets a visually different design regardless of contentType.
-            # Previously routed by contentType, but most blog content produces "plain"
-            # which caused all scenes to use the same variant.
-            content_idx = 0
+            # Assign scene types first
             for idx, sd in enumerate(scene_data):
                 scene_obj = scenes[idx] if idx < len(scenes) else None
                 db_type = getattr(scene_obj, "scene_type", None) if scene_obj else None
@@ -773,14 +768,82 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     sd["sceneType"] = "outro"
                 else:
                     sd["sceneType"] = "content"
-                # Assign content variant index for content scenes
-                if sd["sceneType"] == "content":
-                    if override_variant is not None:
-                        sd["contentVariantIndex"] = override_variant % num_content_variants
-                    else:
-                        # Cycle evenly through all variants for visual diversity
+
+                # Store override_variant for scenes that already have explicit assignments
+                if override_variant is not None:
+                    sd["_override_variant"] = override_variant
+
+            # Content-aware scene matching (replaces blind cycling)
+            if archetype_ids and num_content_variants > 1:
+                from app.services.content_classifier import match_scenes_to_archetypes
+
+                # Collect structuredContent from scene descriptors for matching
+                content_scenes_structured = []
+                content_scene_indices = []
+
+                for idx, sd in enumerate(scene_data):
+                    if sd["sceneType"] == "content" and "_override_variant" not in sd:
+                        # Get structuredContent from the scene descriptor
+                        scene_obj = scenes[idx] if idx < len(scenes) else None
+                        sc_data = {}
+                        if scene_obj and scene_obj.remotion_code:
+                            try:
+                                desc = json.loads(scene_obj.remotion_code)
+                                sc_data = desc.get("structuredContent", {})
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+                        content_scenes_structured.append(sc_data)
+                        content_scene_indices.append(idx)
+
+                # Match content scenes to best archetypes
+                assignments = match_scenes_to_archetypes(content_scenes_structured, archetype_ids)
+
+                # Apply assignments
+                for i, scene_idx in enumerate(content_scene_indices):
+                    if i < len(assignments):
+                        variant_idx = assignments[i]
+                        scene_data[scene_idx]["contentVariantIndex"] = variant_idx
+                        # archetype_ids can be list[str] (old) or list[dict] (new)
+                        if variant_idx < len(archetype_ids):
+                            arch = archetype_ids[variant_idx]
+                            scene_data[scene_idx]["contentArchetype"] = arch["id"] if isinstance(arch, dict) else arch
+                        else:
+                            scene_data[scene_idx]["contentArchetype"] = "unknown"
+
+                print(f"[F7-DEBUG] [REMOTION] Content-aware matching: {len(assignments)} scenes matched to archetypes")
+            else:
+                # Fallback: cycle evenly (for templates without archetype metadata)
+                content_idx = 0
+                for idx, sd in enumerate(scene_data):
+                    if sd.get("sceneType") == "content" and "_override_variant" not in sd:
                         sd["contentVariantIndex"] = content_idx % num_content_variants
-                    content_idx += 1
+                        content_idx += 1
+
+            # Apply explicit overrides (from variant switching UI)
+            for sd in scene_data:
+                if "_override_variant" in sd:
+                    sd["contentVariantIndex"] = sd.pop("_override_variant") % num_content_variants
+                else:
+                    sd.pop("_override_variant", None)
+
+            # Persist variant assignments to DB (fixes preview bug)
+            for idx in range(len(scene_data)):
+                sd = scene_data[idx]
+                scene_obj = scenes[idx] if idx < len(scenes) else None
+                if scene_obj and sd.get("contentVariantIndex") is not None:
+                    try:
+                        desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
+                    except (json.JSONDecodeError, TypeError):
+                        desc = {}
+                    desc["contentVariantIndex"] = sd["contentVariantIndex"]
+                    desc["sceneTypeOverride"] = sd.get("sceneType", "content")
+                    if sd.get("contentArchetype"):
+                        desc["contentArchetype"] = sd["contentArchetype"]
+                    scene_obj.remotion_code = json.dumps(desc)
+
+            db.commit()
+            print(f"[F7-DEBUG] [REMOTION] Persisted variant assignments to DB for {len(scene_data)} scenes")
+
             logger.info(
                 "GeneratedVideo: brandColors and sceneTypes set for %d scenes (%d content variants)",
                 total, num_content_variants,

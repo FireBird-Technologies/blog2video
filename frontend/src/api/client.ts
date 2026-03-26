@@ -1047,6 +1047,7 @@ export interface CustomTemplateItem {
   intro_code: string | null;
   outro_code: string | null;
   content_codes: string[] | null;
+  content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
   current_version_id: number | null;
   preview_image_url: string | null;
   logo_urls?: string[];

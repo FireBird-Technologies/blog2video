@@ -115,6 +115,7 @@ class CustomTemplateOut(BaseModel):
     intro_code: str | None = None
     outro_code: str | None = None
     content_codes: list[str] | None = None
+    content_archetype_ids: list[dict | str] | None = None
     current_version_id: int | None = None
     created_at: str
     updated_at: str
@@ -178,6 +179,7 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
         "content_codes": json.loads(tpl.content_codes) if tpl.content_codes else None,
+        "content_archetype_ids": json.loads(tpl.content_archetype_ids) if tpl.content_archetype_ids else None,
         "current_version_id": tpl.current_version_id,
         "preview_image_url": tpl.preview_image_url,
         "logo_urls": logo_urls,
@@ -502,6 +504,8 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             tpl.intro_code = variants["intro_code"]
             tpl.outro_code = variants["outro_code"]
             tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
+            tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
+            print(f"[F7-DEBUG] [CODEGEN] Stored {len(variants.get('content_codes', []))} content archetypes: {variants.get('archetype_ids', [])}")
 
             _codegen_progress[template_id]["step"] = "saving"
             _save_version(tpl, "Initial generation", db)
@@ -700,6 +704,7 @@ async def regenerate_code(
     tpl.intro_code = variants["intro_code"]
     tpl.outro_code = variants["outro_code"]
     tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
+    tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
 
     _save_version(tpl, "Regenerated", db)
     db.commit()

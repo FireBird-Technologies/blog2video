@@ -1610,17 +1610,30 @@ async def regenerate_scene(
 
         from app.services.language_detection import get_content_language_for_project
         content_language = get_content_language_for_project(project)
-        descriptor = await template_gen.generate_regenerate_descriptor(
-            scene_title=scene.title,
-            narration=scene.narration_text or "",
-            visual_description=new_visual_description,
-            scene_index=scene.order - 1,
-            total_scenes=len(all_scenes),
-            other_scenes_layouts=other_scenes_layouts,
-            preferred_layout=effective_layout,
-            current_descriptor=current_descriptor,
-            content_language=content_language,
-        )
+
+        if is_custom_template(project.template):
+            # Custom templates: re-extract structured content for this single scene
+            from app.services.content_classifier import extract_structured_content_batch
+            single_result = await extract_structured_content_batch(
+                [{"title": scene.title, "narration": scene.narration_text or ""}],
+                content_language=content_language,
+            )
+            descriptor = current_descriptor.copy() if current_descriptor else {}
+            if single_result:
+                descriptor["structuredContent"] = single_result[0]
+            print(f"[F7-DEBUG] [REGENERATE] Custom template: re-extracted structured content for scene {scene.id}")
+        else:
+            descriptor = await template_gen.generate_regenerate_descriptor(
+                scene_title=scene.title,
+                narration=scene.narration_text or "",
+                visual_description=new_visual_description,
+                scene_index=scene.order - 1,
+                total_scenes=len(all_scenes),
+                other_scenes_layouts=other_scenes_layouts,
+                preferred_layout=effective_layout,
+                current_descriptor=current_descriptor,
+                content_language=content_language,
+            )
 
         # Preserve image assignment from old descriptor into the new one.
         # Applies to all templates. Custom templates use layoutConfig for

@@ -6,57 +6,112 @@ const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
 type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
 
-const SCENE_SAMPLE_DATA: ContentSampleData[] = [
-  {
-    displayText: "5 Ways to Boost Your Productivity",
-    narrationText: "Here are the key strategies that drive results.",
-    contentType: "bullets",
-    bullets: [
-      "Automate repetitive workflows",
-      "Set clear daily priorities",
-      "Use time-blocking for deep work",
-      "Review metrics every sprint",
-      "Invest in team enablement",
-    ],
-  },
-  {
-    displayText: "Growth at a Glance",
-    narrationText: "The numbers speak for themselves.",
-    contentType: "metrics",
-    metrics: [
-      { value: "847", label: "New users this month", suffix: "+" },
-      { value: "99.9", label: "Platform uptime", suffix: "%" },
-      { value: "12.4", label: "Avg. session length", suffix: "min" },
-    ],
-  },
-  {
-    displayText: "Quick Start Integration",
-    narrationText: "Get up and running in minutes.",
-    contentType: "code",
-    codeLines: [
-      "import { Client } from '@acme/sdk';",
-      "",
-      "const client = new Client({ apiKey: 'sk_live_...' });",
-      "const result = await client.generate({",
-      "  prompt: 'Hello world',",
-      "  model: 'acme-pro',",
-      "});",
-    ],
-    codeLanguage: "typescript",
-  },
-  {
-    displayText: "What Our Customers Say",
-    narrationText: "Real feedback from real users.",
-    contentType: "quote",
-    quote: "This platform completely transformed how we approach content creation. The results were immediate.",
-    quoteAuthor: "Sarah Chen, VP of Marketing",
-  },
-  {
-    displayText: "The Future of Content Creation",
-    narrationText: "Discover how modern tools are reshaping the creative landscape.",
-    contentType: "plain",
-  },
-];
+/** Map archetype best_for tags to rich sample data so previews look realistic */
+function buildArchetypeSampleData(
+  brandName: string,
+  bestFor?: string[],
+): ContentSampleData {
+  const n = brandName || "Our Brand";
+  const tag = bestFor?.[0] || "plain";
+
+  switch (tag) {
+    case "metrics":
+      return {
+        displayText: `${n} by the Numbers`,
+        narrationText: `Here's a look at the key metrics that define ${n}'s success and growth trajectory.`,
+        contentType: "metrics",
+        metrics: [
+          { value: "3.2M", label: "Active Users", suffix: "+12%" },
+          { value: "99.9%", label: "Uptime SLA" },
+          { value: "4.8", label: "Rating", suffix: "/5" },
+          { value: "150+", label: "Countries" },
+        ],
+      };
+    case "bullets":
+      return {
+        displayText: `What Makes ${n} Different`,
+        narrationText: `From cutting-edge technology to world-class support, here's what sets ${n} apart from the competition.`,
+        contentType: "bullets",
+        bullets: [
+          "Enterprise-grade security and compliance built in",
+          "Real-time collaboration across distributed teams",
+          "AI-powered insights and automated workflows",
+          "24/7 dedicated customer success support",
+        ],
+      };
+    case "quote":
+      return {
+        displayText: `What People Say About ${n}`,
+        narrationText: `Industry leaders share their experience working with ${n} and the impact it has had.`,
+        contentType: "quote",
+        quote: `${n} completely transformed how we approach our workflow. The results speak for themselves.`,
+        quoteAuthor: "Industry Leader",
+      };
+    case "comparison":
+      return {
+        displayText: `${n} vs Traditional`,
+        narrationText: `See how ${n} stacks up against the traditional approach across key dimensions.`,
+        contentType: "comparison",
+        comparisonLeft: { label: "Traditional", description: "Manual processes, slow iteration, limited visibility" },
+        comparisonRight: { label: n, description: "Automated workflows, real-time insights, full transparency" },
+      };
+    case "timeline":
+      return {
+        displayText: `The ${n} Journey`,
+        narrationText: `From inception to industry leadership, here's how ${n} has evolved over the years.`,
+        contentType: "timeline",
+        timelineItems: [
+          { label: "Founded", description: "Started with a vision to transform the industry" },
+          { label: "First Launch", description: "Released our flagship product to early adopters" },
+          { label: "Scale", description: "Expanded to serve enterprise customers globally" },
+          { label: "Today", description: "Industry-leading platform trusted by millions" },
+        ],
+      };
+    case "steps":
+      return {
+        displayText: `How ${n} Works`,
+        narrationText: `Getting started with ${n} is simple. Follow these steps to unlock the full potential.`,
+        contentType: "steps",
+        steps: [
+          "Connect your existing tools and data sources",
+          "Configure your workspace and invite your team",
+          "Let AI analyze patterns and surface insights",
+          "Take action on recommendations and track results",
+        ],
+      };
+    case "code":
+      return {
+        displayText: `Get Started with ${n}`,
+        narrationText: `Integrating ${n} into your workflow takes just a few lines of code.`,
+        contentType: "code",
+        codeLines: [
+          `import { ${n.replace(/\s/g, "")} } from '${n.toLowerCase().replace(/\s/g, "-")}';`,
+          "",
+          `const client = new ${n.replace(/\s/g, "")}({ apiKey: "..." });`,
+          `const result = await client.analyze(data);`,
+          `console.log(result.insights);`,
+        ],
+        codeLanguage: "typescript",
+      };
+    default:
+      return {
+        displayText: `The ${n} Experience`,
+        narrationText: `Discover what makes ${n} a trusted choice for teams and organizations worldwide. Built with quality and innovation at its core.`,
+        contentType: "plain",
+      };
+  }
+}
+
+function buildFallbackSamples(brandName: string): ContentSampleData[] {
+  const n = brandName || "Our Brand";
+  return [
+    { displayText: `Why ${n} Stands Out`, narrationText: `Here's what makes ${n} different from the rest.` },
+    { displayText: `The ${n} Experience`, narrationText: `Discover what sets ${n} apart in the industry.` },
+    { displayText: `Built for You by ${n}`, narrationText: `Everything at ${n} is designed with our customers in mind.` },
+    { displayText: `${n} at a Glance`, narrationText: `A closer look at what ${n} has to offer.` },
+    { displayText: `The Future of ${n}`, narrationText: `See where ${n} is headed next.` },
+  ];
+}
 
 interface CustomPreviewProps {
   theme: CustomTemplateTheme;
@@ -64,6 +119,7 @@ interface CustomPreviewProps {
   introCode?: string;
   outroCode?: string;
   contentCodes?: string[];
+  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
@@ -76,6 +132,7 @@ export default function CustomPreview({
   introCode,
   outroCode,
   contentCodes,
+  contentArchetypeIds,
   previewImageUrl,
   logoUrls,
   ogImage,
@@ -94,36 +151,54 @@ export default function CustomPreview({
     const codes: { code: string; label: string }[] = [];
     if (introCode) codes.push({ code: introCode, label: "Intro" });
     if (contentCodes && contentCodes.length > 0) {
-      contentCodes.forEach((c, i) => codes.push({ code: c, label: `Content ${i + 1}` }));
+      contentCodes.forEach((c, i) => {
+        const rawArch = contentArchetypeIds?.[i];
+        const archId = typeof rawArch === "string" ? rawArch : rawArch?.id;
+        const archetypeLabel = archId
+          ?.replace(/_/g, " ")
+          ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+        codes.push({ code: c, label: archetypeLabel || `Content ${i + 1}` });
+      });
     }
     if (outroCode) codes.push({ code: outroCode, label: "Outro" });
     return codes;
-  }, [introCode, outroCode, contentCodes]);
+  }, [introCode, outroCode, contentCodes, contentArchetypeIds]);
 
   const hasCode = sceneCodes.length > 0;
   const hasMultipleScenes = sceneCodes.length > 1;
 
   // Pre-compute stable sampleProps for each scene so object references don't change
   // between re-renders (avoids Remotion Player restarting animation mid-playback)
+  const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
+
   const sceneSampleProps = useMemo(() => {
     const imageProps = ogImage ? { imageUrl: ogImage } : previewImageUrl ? { imageUrl: previewImageUrl } : {};
     const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
+    const fontProps = { titleFontSize: 48, descriptionFontSize: 24 };
 
     return sceneCodes.map((sc, idx) => {
-      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps };
+      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps, ...fontProps };
+      const n = name || "Our Brand";
 
       if (sc.label === "Intro") {
-        return { displayText: name || "Welcome", narrationText: `Welcome to ${name || "our brand"} — transforming ideas into impact.`, ...base };
+        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base };
       }
       if (sc.label === "Outro") {
-        return { displayText: name || "Thanks for Watching", narrationText: `Thanks for watching. Visit ${name || "us"} to learn more.`, ...base };
+        return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
       }
+      // Use archetype-aware sample data when available
       const contentIdx = idx - (introCode ? 1 : 0);
-      const sampleData = SCENE_SAMPLE_DATA[contentIdx % SCENE_SAMPLE_DATA.length];
-      return { ...sampleData, ...base };
+      const rawArch = contentArchetypeIds?.[contentIdx];
+      const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
+      if (bestFor && bestFor.length > 0) {
+        const sample = buildArchetypeSampleData(n, bestFor);
+        return { ...sample, ...base };
+      }
+      const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
+      return { ...fallback, ...base };
     });
-  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode]);
+  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples]);
 
   // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
   useEffect(() => {
@@ -202,7 +277,7 @@ export default function CustomPreview({
     switchScene(() => idx);
   }, [switchScene]);
 
-  // ─── No code yet — show placeholder ─────────────────────────
+  // ─── No code yet — show blank placeholder ─────────────────────
   if (!hasCode) {
     return (
       <div
@@ -214,62 +289,31 @@ export default function CustomPreview({
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          position: "relative",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
         }}
       >
-        <div style={{ height: 6, background: theme.colors.accent, width: "100%" }} />
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "24px 32px", gap: 12 }}>
-          <div
-            style={{
-              fontFamily: `${theme.fonts.heading}, sans-serif`,
-              fontSize: 18,
-              fontWeight: 700,
-              color: theme.colors.text,
-              textAlign: "center",
-            }}
-          >
-            Your Brand Template
-          </div>
-          <div
-            style={{
-              fontFamily: `${theme.fonts.body}, sans-serif`,
-              fontSize: 12,
-              color: theme.colors.muted,
-              textAlign: "center",
-              maxWidth: 280,
-              lineHeight: 1.5,
-            }}
-          >
-            AI-generated video scenes will match your brand's colors, typography, and visual style.
-          </div>
-          <div
-            style={{
-              background: theme.colors.surface,
-              borderRadius: theme.borderRadius,
-              padding: "12px 20px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginTop: 4,
-            }}
-          >
-            <div style={{ width: 28, height: 28, borderRadius: theme.borderRadius / 2, background: theme.colors.accent, opacity: 0.15 }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <div style={{ width: 80, height: 8, borderRadius: 4, background: theme.colors.text, opacity: 0.2 }} />
-              <div style={{ width: 120, height: 6, borderRadius: 3, background: theme.colors.muted, opacity: 0.3 }} />
-            </div>
-          </div>
-          <div
-            style={{
-              fontFamily: `${theme.fonts.body}, sans-serif`,
-              fontSize: 10,
-              color: theme.colors.muted,
-              opacity: 0.7,
-              marginTop: 8,
-            }}
-          >
-            Preview will appear after code generation
-          </div>
+        <div
+          style={{
+            fontFamily: `${theme.fonts.heading}, sans-serif`,
+            fontSize: 22,
+            fontWeight: 700,
+            color: theme.colors.text,
+            textAlign: "center",
+          }}
+        >
+          {name || "Your Template"}
+        </div>
+        <div
+          style={{
+            fontFamily: `${theme.fonts.body}, sans-serif`,
+            fontSize: 12,
+            color: theme.colors.muted,
+            textAlign: "center",
+          }}
+        >
+          Preview will appear after generation
         </div>
       </div>
     );

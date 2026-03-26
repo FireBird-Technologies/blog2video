@@ -32,6 +32,7 @@ Replace the fixed `UniversalScene.tsx` renderer (9 layouts, 10 element types) wi
 | F4 | Preview Thumbnails for Template Gallery | DONE |
 | F7 | Multiple Unique Content Scene Variants | DONE |
 | OPT | Performance & Quality Optimization (5 fixes) | DONE |
+| V2 | Content-Aware Architecture (feat/customv2) | DONE |
 
 ---
 
@@ -887,15 +888,151 @@ Now, Claude decides how many unique scene variants to create (typically 5-8 tota
 
 ---
 
+## Phase V2: Content-Aware Architecture (feat/customv2) — DONE
+
+### Problem
+
+Custom templates produced repetitive, content-blind videos. Built-in templates look great because each scene gets a layout matched to its content. Custom templates were generic because:
+- 5 hardcoded layout families — every brand got the same structural layouts
+- Blind cycling — scenes rotated through variants regardless of content (metrics scene might get kinetic_typography)
+- 16 wasted DSPy calls per video generating layoutConfig that the renderer ignored
+- Images broken — only one layout family rendered `<Img>`, others silently ignored images
+- Preview broken — `contentVariantIndex` written to data.json but not DB
+
+### What Was Done
+
+#### 1. AI-Decided Brand Scene Types (DecideBrandSceneTypes DSPy Signature)
+
+**Removed:** `CONTENT_ARCHETYPES` (10 hardcoded archetypes), `_LAYOUT_FAMILIES`, `NUM_CONTENT_VARIANTS=5`, `_build_creative_direction()`, `_VARIANT_SPECIALIZATIONS`, `_CONTENT_VARIANT_ROLES`
+
+**Added:** `DecideBrandSceneTypes` DSPy signature — one call per brand that outputs 6-8 scene types tailored to the brand.
+- Example: Metal (fundraising SaaS) → `brand_hook_intro, feature_spotlight, how_it_works, metrics_proof, vs_traditional, fundraising_timeline, founder_voice, cta_outro`
+- Example: Al Jazeera (news) → completely different set of scene types
+- Each scene type has `best_for` tags mapping to content types (bullets, metrics, quote, etc.)
+
+**Files:** `backend/app/services/code_generator.py` — complete rewrite of generation flow
+
+#### 2. Content Extraction & Archetype Matching
+
+**New file:** `backend/app/services/content_classifier.py`
+- `extract_structured_content_batch()` — ONE cheap Haiku call classifies ALL scene narrations into contentType (metrics/bullets/quote/comparison/timeline/steps/code/plain) and extracts structured data
+- `match_scenes_to_archetypes()` — deterministic matching: contentType → best archetype based on `best_for` tags, with anti-repeat logic so consecutive scenes never get the same archetype
+
+**Files modified:**
+- `backend/app/routers/pipeline.py` — custom template branch now uses batch extraction instead of 16 per-scene DSPy calls
+- `backend/app/services/remotion.py` — content-aware matching replaces blind cycling, persists `contentVariantIndex` to DB
+- `frontend/src/components/VideoPreview.tsx` — reads `contentVariantIndex` from DB instead of `CONTENT_TYPE_TO_VARIANT`
+
+#### 3. Alembic Migration for content_archetype_ids
+
+**New file:** `backend/alembic/versions/phase8_content_archetype_ids.py`
+- Adds `content_archetype_ids TEXT` column to `custom_templates` table
+- Merges 3 divergent alembic heads into one
+
+#### 4. Preview System Enrichment
+
+**File:** `frontend/src/components/templatePreviews/CustomPreview.tsx` — complete rewrite
+- Replaced simple `buildSampleData()` with archetype-aware `buildArchetypeSampleData()` returning rich structured data per content type (metrics with values, bullets, quotes, comparison, timeline, steps, code)
+- Scene crossfade transitions with dot navigation
+- Pre-compiles ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
+
+**File:** `frontend/src/components/templatePreviews/CustomPreviewLandscape.tsx`
+- Delegates to `CustomPreview` when generated scene code exists
+- Falls back to `FallbackSlides` component when no code
+
+**File:** `frontend/src/components/BlogUrlForm.tsx`
+- Template picker passes full template data (introCode, outroCode, contentCodes, contentArchetypeIds, logoUrls, ogImage)
+- Selected template preview shows real generated scenes instead of hardcoded slides
+
+#### 5. Image & Logo Rendering (MANDATORY in AI-generated scenes)
+
+**Problem:** AI-generated components ignored `props.imageUrl` and `props.logoUrl` — pipeline delivered images correctly but components didn't render them.
+
+**Root cause:** Not the pipeline — `GeneratedVideo.tsx` correctly maps `scene.images[0]` → `imageUrl`, and `VideoPreview.tsx` correctly passes `imageUrl` from `sceneImageMap`. The issue was that AI-generated React code never referenced these props.
+
+**Fix — Prompt (code_generator.py `GenerateSceneCode`):**
+- Images & Logo section marked MANDATORY with explicit JSX patterns
+- Image techniques from built-in templates: Ken Burns zoom, radial vignette reveal, clipPath slit reveal, gradient overlays (3-layer: vignette + bottom gradient + accent wash)
+- Adaptive layout: `const hasImage = !!props.imageUrl` — with image: split layout or full-bleed overlay; without image: text expands, larger fonts, particles/gradient as visual interest
+- Both modes must look intentionally designed
+
+**Fix — Text animations:**
+- Word-by-word / line-by-line reveals with staggered springs
+- Typewriter effect with blinking cursor
+- Scale-punch for key words (bouncy overshoot spring)
+- Bullet stagger (slide from right, delay=20+i*10)
+- Exit animations 20-30 frames before durationInFrames
+
+**Fix — Scene motion:**
+- Multiple spring configs with different damping/stiffness/mass
+- Metric count-ups, card fly-ins, decorative corner shapes, accent line grows
+- Parallax depth, ambient gradient shifts, pulsing accent glows
+- Reference configs: fast={damping:22,stiffness:140,mass:1.2}, bouncy={damping:14,stiffness:220,mass:1.1}, smooth={damping:20,stiffness:70}
+
+**Fix — Reward function penalties:**
+- `-0.2` if code doesn't reference `logoUrl`
+- `-0.2` if code doesn't reference `imageUrl`
+- `-0.3` for non-monotonic `interpolate()` inputRange (catches runtime crashes like `[0,60,120,90]`)
+- Combined with existing checks (overflow:hidden, hardcoded data, visible contentType/sceneIndex)
+
+#### 6. Code Generator Architecture (current state)
+
+```
+generate_component_code(template)
+  │
+  ├─ _build_brand_context() — raw data only (colors, fonts, patterns, brand kit)
+  │
+  ├─ _decide_brand_scene_types() — ONE DSPy call → 6-8 brand-specific scene types
+  │
+  ├─ _generate_design_system() — ONE Haiku call → concise CSS design system (<2000 chars)
+  │
+  └─ asyncio.gather(*tasks) — ALL scenes in PARALLEL via ThreadPoolExecutor(max_workers=8)
+       └─ _generate_single_scene() → dspy.Refine(ChainOfThought(GenerateSceneCode), reward_fn=_scene_reward)
+            └─ Up to 3 attempts per scene (1 initial + 2 retries if score < 0.75)
+```
+
+**Output:** `{ intro_code, outro_code, content_codes: list[str], archetype_ids: list[dict] }`
+
+### Files Changed Summary
+
+| File | Change |
+|------|--------|
+| `backend/app/services/code_generator.py` | Complete rewrite: DecideBrandSceneTypes, stripped prescriptive code, enriched animation/image prompt, reward penalties for missing image/logo |
+| `backend/app/services/content_classifier.py` | NEW: batch content extraction (Haiku) + deterministic archetype matching |
+| `backend/app/routers/pipeline.py` | Custom template branch uses batch extraction |
+| `backend/app/services/remotion.py` | Content-aware matching, passes structuredContent to scenes |
+| `backend/app/routers/custom_templates.py` | content_archetype_ids serialization, regeneration endpoint |
+| `backend/app/routers/projects.py` | Scene regeneration for custom templates |
+| `backend/app/models/custom_template.py` | content_archetype_ids column |
+| `backend/app/database.py` | SQLite migration for content_archetype_ids |
+| `backend/app/services/template_service.py` | Loads and caches archetype metadata |
+| `backend/alembic/versions/phase8_content_archetype_ids.py` | PostgreSQL migration |
+| `frontend/src/components/templatePreviews/CustomPreview.tsx` | Archetype-aware previews with crossfade |
+| `frontend/src/components/templatePreviews/CustomPreviewLandscape.tsx` | Delegates to CustomPreview for generated code |
+| `frontend/src/components/BlogUrlForm.tsx` | Template picker passes full template data |
+| `frontend/src/components/VideoPreview.tsx` | Reads contentVariantIndex from DB |
+| `frontend/src/components/CustomTemplateCreator.tsx` | Centered step indicator |
+| `frontend/src/pages/CustomTemplates.tsx` | Passes archetype data to previews |
+| `frontend/src/pages/ProjectView.tsx` | Layout label from archetype name |
+| `frontend/src/api/client.ts` | content_archetype_ids types |
+
+### Test Results
+
+Three brands tested end-to-end (template creation → scene generation → video creation):
+
+| Brand | Scene Types Decided | Content Extraction | Archetype Matching | Generation Time |
+|-------|--------------------|--------------------|-------------------|-----------------|
+| Metal (fundraising SaaS) | 8 types: brand_hook_intro, feature_spotlight, how_it_works, metrics_proof, vs_traditional, fundraising_timeline, founder_voice, cta_outro | All scenes classified correctly | Anti-repeat working | ~137s |
+| Al Jazeera (news) | Unique news-focused types | Classified correctly | Working | ~130s |
+| Nestlé Pakistan (FMCG) | Unique consumer brand types | Classified correctly | Working | ~135s |
+
+All regenerated scenes score 1.00 (image/logo handling verified by reward function).
+
+---
+
 ## Next Improvements (TODO)
 
 | # | Improvement | Priority | Description |
 |---|------------|----------|-------------|
-| N1 | Image Props Enforcement | DONE | Reward function now penalizes scenes that ignore `imageUrl` (-0.15). Prompt requires animated image entrance with spring scale + opacity + glow shadow. |
-| N2 | brandImages Pass-through | Medium | Currently only `scene.images[0]` is passed as `imageUrl` in GeneratedVideo.tsx. Pass the full `brandImages` array from BrandKit so scenes can display multiple brand images. |
-| N3 | Animation Quality Standards | DONE | Prompt now requires ≥3 spring configs, staggered text reveal, decorative background element. Reward function enforces. |
-| N4 | Alembic Migration for content_codes | Medium | Create proper Alembic migration for `content_codes` column (needed for PostgreSQL/production). SQLite auto-migration handles local dev. |
-| N5 | Scene-Specific Image Selection | Medium | Smarter image selection — intro gets hero/OG image, content scenes get relevant scraped images, outro gets logo. |
-| N6 | Display Text vs Narration Split | Low | Split into short display text and longer narration for better on-screen text. |
+| N2 | brandImages Pass-through in frontend preview | Low | VideoPreview.tsx doesn't pass `brandImages` to scene props (Remotion pipeline does). Add it for preview parity. |
 | N7 | Per-Plan AI Limits | Low | AI_DAILY_LIMIT per-plan: Free: 5, Standard: 20, Pro: 50. |
-| N8 | Firecrawl Branding Format for CSS | Low | Use Firecrawl's `"branding"` format to get structured colors/fonts/typography directly instead of parsing raw CSS. ScrapedThemeData.branding field exists but was disabled for speed. |

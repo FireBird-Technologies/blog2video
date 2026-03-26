@@ -177,6 +177,7 @@ def _migrate_sqlite(eng) -> None:
             "brand_kit_id": "INTEGER",
             "current_version_id": "INTEGER",
             "content_codes": "TEXT",
+            "content_archetype_ids": "TEXT",
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():

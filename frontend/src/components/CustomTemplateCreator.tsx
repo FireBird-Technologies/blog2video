@@ -207,7 +207,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 px-6 pt-4">
+        <div className="flex items-center gap-2 px-16 pt-4">
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center gap-2 flex-1">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -448,6 +448,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                   introCode={createdTemplate.intro_code || undefined}
                   outroCode={createdTemplate.outro_code || undefined}
                   contentCodes={createdTemplate.content_codes || undefined}
+                  contentArchetypeIds={createdTemplate.content_archetype_ids || undefined}
                   logoUrls={scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined}
                   ogImage={scrapedOgImage || undefined}
                   onRetry={() => handleGenerateCode(createdTemplate)}
