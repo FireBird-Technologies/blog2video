@@ -187,6 +187,7 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "codeLines", label: "Code lines", type: "string_array" },
   ],
   // Spotlight template
+  impact_title: [{ key: "highlightWord", label: "Accent word (title)", type: "string" }],
   statement: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
   word_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
   cascade_list: [{ key: "items", label: "Items", type: "string_array" }],
