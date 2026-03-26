@@ -10,7 +10,6 @@ import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
-import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import { VIDEO_STYLE_OPTIONS } from "../constants/videoStyles";
 
 const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
@@ -176,12 +175,21 @@ export default function CustomTemplates() {
                       introCode={tpl.intro_code || undefined}
                       outroCode={tpl.outro_code || undefined}
                       contentCodes={tpl.content_codes || undefined}
+                      contentArchetypeIds={tpl.content_archetype_ids || undefined}
                       previewImageUrl={tpl.preview_image_url}
                       logoUrls={tpl.logo_urls}
                       ogImage={tpl.og_image}
                     />
                   ) : (
-                    <CustomPreviewLandscape theme={tpl.theme} name={tpl.name} />
+                    <div
+                      className="w-full h-full flex flex-col items-center justify-center gap-3"
+                      style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
+                    >
+                      <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${tpl.theme.colors.accent}40`, borderTopColor: "transparent" }} />
+                      <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
+                        Generating...
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -200,34 +208,43 @@ export default function CustomTemplates() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {tpl.intro_code && (
+                  {!tpl.intro_code ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      Generating template...
+                    </div>
+                  ) : regeneratingId === tpl.id ? (
+                    <div className="flex items-center gap-2 text-xs text-purple-500">
+                      <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      Regenerating...
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleRegenerate(tpl)}
-                        disabled={regeneratingId === tpl.id}
-                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
                         title="Generate a completely new design for this brand"
                       >
-                        {regeneratingId === tpl.id ? "Regenerating..." : "Regenerate"}
+                        Regenerate
                       </button>
-                    )}
-                    <button
-                      onClick={() => setEditTarget(tpl)}
-                      className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeleteTarget(tpl);
-                        setDeleteImpactCount(null);
-                        setDeleteError(null);
-                      }}
-                      className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => setEditTarget(tpl)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeleteTarget(tpl);
+                          setDeleteImpactCount(null);
+                          setDeleteError(null);
+                        }}
+                        className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

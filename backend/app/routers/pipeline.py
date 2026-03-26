@@ -420,16 +420,37 @@ async def _generate_scenes(project: Project, db: Session):
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
     async def _descriptor_task():
         content_lang = get_content_language_for_project(project)
-        result = await scene_gen.generate_all_scenes(
-            scenes_data,
-            image_filenames,
-            accent_color=project.accent_color or "#7C3AED",
-            bg_color=project.bg_color or "#FFFFFF",
-            text_color=project.text_color or "#000000",
-            animation_instructions=project.animation_instructions or "",
-            content_language=content_lang,
-        )
-        return result
+
+        if is_custom_template(template_id):
+            # NEW: Single batch call replaces 16 per-scene DSPy calls
+            from app.services.content_classifier import extract_structured_content_batch
+            structured_contents = await extract_structured_content_batch(
+                scenes_data,
+                content_language=content_lang,
+            )
+
+            # Build descriptors in the format the rest of the pipeline expects
+            # Only structuredContent — no layoutConfig (it was always ignored anyway)
+            descriptors = []
+            for sc in structured_contents:
+                descriptors.append({
+                    "structuredContent": sc,
+                })
+
+            print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")
+            return descriptors
+        else:
+            # Built-in templates: keep existing DSPy per-scene generation (works well)
+            result = await scene_gen.generate_all_scenes(
+                scenes_data,
+                image_filenames,
+                accent_color=project.accent_color or "#7C3AED",
+                bg_color=project.bg_color or "#FFFFFF",
+                text_color=project.text_color or "#000000",
+                animation_instructions=project.animation_instructions or "",
+                content_language=content_lang,
+            )
+            return result
 
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())

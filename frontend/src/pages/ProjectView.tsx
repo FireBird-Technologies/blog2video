@@ -2536,7 +2536,10 @@ export default function ProjectView() {
                                           Layout
                                         </h4>
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                          {desc.layout?.replace(/_/g, " ") || "text narration"}
+                                          {desc.layout?.replace(/_/g, " ")
+                                          || desc.contentArchetype?.replace(/_/g, " ")
+                                          || desc.layoutConfig?.arrangement?.replace(/_/g, " ")
+                                          || "text narration"}
                                         </span>
                                       </div>
                                     );

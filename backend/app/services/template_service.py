@@ -75,6 +75,7 @@ def _build_template_result(tpl) -> dict[str, Any]:
         "intro_code": tpl.intro_code,
         "outro_code": tpl.outro_code,
         "content_codes": content_codes,
+        "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
         "brand_kit": brand_kit_data,
     }
 

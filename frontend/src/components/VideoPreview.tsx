@@ -417,17 +417,8 @@ export default function VideoPreview({
     const totalScenes = scenes.length;
     const FPS = 30;
 
-    // Content-type → variant routing (must match _VARIANT_SPECIALIZATIONS in code_generator.py)
-    // Variant 0: bullets, steps | 1: metrics | 2: code | 3: quote, comparison | 4: timeline, plain
-    const CONTENT_TYPE_TO_VARIANT: Record<string, number> = {
-      bullets: 0, steps: 0,
-      metrics: 1,
-      code: 2,
-      quote: 3, comparison: 3,
-      timeline: 4, plain: 4,
-    };
-
     // Determine scene type and variant for each scene
+    // Backend now persists contentVariantIndex to DB via content-aware matching
     const sceneAssignments: { type: string; variantKey: string }[] = [];
     let contentIdx = 0;
     for (let i = 0; i < scenes.length; i++) {
@@ -446,6 +437,7 @@ export default function VideoPreview({
           } else if (i === totalScenes - 1 && totalScenes > 1) {
             sceneType = "outro";
           }
+          // Read variant index directly — persisted by backend
           if (sceneType === "content" && typeof desc.contentVariantIndex === "number") {
             variantIdx = desc.contentVariantIndex;
           }
@@ -456,16 +448,9 @@ export default function VideoPreview({
       }
 
       if (sceneType === "content") {
-        // If no explicit override, route by content type to the specialized variant
-        if (variantIdx === 0 && !project.scenes[i]?.remotion_code?.includes("contentVariantIndex")) {
-          const sc = scenes[i]?.structuredContent as Record<string, unknown> | undefined;
-          const contentType = (sc?.contentType as string) || "plain";
-          const matched = CONTENT_TYPE_TO_VARIANT[contentType];
-          if (matched !== undefined && matched < numContentVariants) {
-            variantIdx = matched;
-          } else {
-            variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
-          }
+        // Legacy fallback: cycle evenly if no contentVariantIndex from DB
+        if (variantIdx === 0 && !scene?.remotion_code?.includes("contentVariantIndex")) {
+          variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
         }
         contentIdx++;
         sceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });

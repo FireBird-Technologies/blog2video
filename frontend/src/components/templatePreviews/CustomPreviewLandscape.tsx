@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
+import CustomPreview from "./CustomPreview";
 
 const W = 640;
 const H = 360;
@@ -362,9 +363,50 @@ const TRANSITION_MS = 400;
 interface Props {
   theme: CustomTemplateTheme;
   name?: string;
+  introCode?: string;
+  outroCode?: string;
+  contentCodes?: string[];
+  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  previewImageUrl?: string | null;
+  logoUrls?: string[];
+  ogImage?: string;
 }
 
-export default function CustomPreviewLandscape({ theme, name }: Props) {
+export default function CustomPreviewLandscape({
+  theme,
+  name,
+  introCode,
+  outroCode,
+  contentCodes,
+  contentArchetypeIds,
+  previewImageUrl,
+  logoUrls,
+  ogImage,
+}: Props) {
+  // If we have actual generated scene code, use CustomPreview (real scenes)
+  const hasGeneratedCode = !!(introCode || (contentCodes && contentCodes.length > 0));
+
+  if (hasGeneratedCode) {
+    return (
+      <CustomPreview
+        theme={theme}
+        name={name}
+        introCode={introCode}
+        outroCode={outroCode}
+        contentCodes={contentCodes}
+        contentArchetypeIds={contentArchetypeIds}
+        previewImageUrl={previewImageUrl}
+        logoUrls={logoUrls}
+        ogImage={ogImage}
+      />
+    );
+  }
+
+  // Fallback: old hardcoded slides for templates without generated code
+  return <FallbackSlides theme={theme} name={name} />;
+}
+
+function FallbackSlides({ theme, name }: { theme: CustomTemplateTheme; name?: string }) {
   const slides = [SlideCinematic, SlideMetrics, SlideCode];
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);

@@ -247,7 +247,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           {/* Video content */}
           <div className="bg-black">
             {customTemplate ? (
-              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} />
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} logoUrls={customTemplate.logo_urls} ogImage={customTemplate.og_image} />
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -1470,7 +1470,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
             {selectedCustom ? (
-              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} key={`selected-custom-${selectedCustom.id}-${step}`} />
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
@@ -1562,7 +1562,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1631,7 +1631,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2114,7 +2114,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
             <div className="relative">
               {selectedCustomBulk ? (
-                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
               ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
@@ -2263,7 +2263,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2332,7 +2332,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
