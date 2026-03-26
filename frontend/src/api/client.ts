@@ -126,6 +126,7 @@ export interface Project {
   custom_voice_id: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
+  video_length?: "auto" | "short" | "medium" | "detailed";
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_template_missing?: boolean;
@@ -643,6 +644,7 @@ export const createProject = (
   aspect_ratio?: string,
   template?: string,
   video_style?: VideoStyleId,
+  video_length?: "auto" | "short" | "medium" | "detailed",
   content_language?: string | null
 ) =>
   api.post<Project>("/projects", {
@@ -660,6 +662,7 @@ export const createProject = (
     aspect_ratio,
     template,
     video_style,
+    video_length,
     content_language,
   });
 
@@ -669,6 +672,7 @@ export interface BulkProjectItem {
   name?: string;
   template?: string;
   video_style?: VideoStyleId;
+  video_length?: "auto" | "short" | "medium" | "detailed";
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;
@@ -723,6 +727,7 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
+    video_length?: "auto" | "short" | "medium" | "detailed";
     content_language?: string | null;
   } = {}
 ) => {
@@ -746,6 +751,9 @@ export const createProjectFromDocs = (
   }
   if (config.template) formData.append("template", config.template);
   if (config.video_style) formData.append("video_style", config.video_style);
+  if (config.video_length !== undefined && config.video_length !== null) {
+    formData.append("video_length", config.video_length);
+  }
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -818,6 +826,13 @@ export interface PipelineStatus {
   step: number;
   running: boolean;
   error: string | null;
+  notice?: {
+    code: string;
+    message?: string;
+    requested_video_length?: string;
+    effective_video_length?: string;
+    video_style?: string;
+  } | null;
   studio_port: number | null;
 }
 

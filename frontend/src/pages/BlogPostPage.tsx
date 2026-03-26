@@ -47,6 +47,32 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
+            {post.slug === "blog-to-video-before-after" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/v7sB9igdMS0"
+                  title="Blog to Video Before After"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            {post.slug === "video-seo-ranking-traffic-blog2video" && (
+              <div style={{ margin: "32px auto", borderRadius: 12, overflow: "hidden", aspectRatio: "9/16", maxWidth: 360 }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/6gcYiZ-lxZk"
+                  title="Your blog is ranking but you're leaving half the traffic on the table"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
               {post.heroEyebrow}
             </p>

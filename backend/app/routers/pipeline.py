@@ -3,6 +3,7 @@ import json
 import asyncio
 import logging
 import traceback
+import re
 import requests
 from datetime import timedelta
 
@@ -96,7 +97,7 @@ async def generate_video(
         return {"detail": "Already generated", "status": project.status.value}
 
     # Initialize progress
-    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None}
+    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None, "notice": None}
 
     # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
     # Other API requests remain responsive while generation runs.
@@ -139,6 +140,7 @@ def get_pipeline_status(
         "step": step,
         "running": running,
         "error": progress.get("error"),
+        "notice": progress.get("notice"),
         "studio_port": project.studio_port,
     }
 
@@ -274,13 +276,72 @@ async def _generate_script(project: Project, db: Session):
         layout_catalog = ""
 
     content_language = get_content_language_for_project(project)
+    requested_video_length = getattr(project, "video_length", "auto") or "auto"
+    video_style = getattr(project, "video_style", "explainer") or "explainer"
+
+    def _effective_video_length_for_content(
+        blog_content: str | None, requested: str, style: str
+    ) -> str:
+        """Prevent hallucination: if content is short, downshift scene count.
+
+        Only applies when user explicitly requests a longer video length.
+        """
+        req = (requested or "auto").strip().lower()
+        if req not in {"detailed", "medium", "short", "auto"}:
+            return "auto"
+        if req in {"auto", "short"}:
+            return req
+
+        text = (blog_content or "").strip()
+        # Count words in prose-ish content; keep it simple and robust.
+        words = len([w for w in re.split(r"\s+", text) if w])
+
+        # Heuristic thresholds:
+        # - Very short posts can't support 15–20 distinct scenes without invention.
+        # - This keeps output grounded in the actual source.
+        if req == "medium":
+            return "short" if words < 250 else "medium"
+
+        # req == "detailed"
+        if words < 250:
+            return "short"
+        if words < 600:
+            return "medium"
+        return "detailed"
+
+    effective_video_length = _effective_video_length_for_content(
+        getattr(project, "blog_content", None), requested_video_length, video_style
+    )
+
+    if effective_video_length != requested_video_length:
+        try:
+            if project.id in _pipeline_progress:
+                _pipeline_progress[project.id]["notice"] = {
+                    "code": "video_shortened",
+                    "message": "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+                    "requested_video_length": requested_video_length,
+                    "effective_video_length": effective_video_length,
+                    "video_style": video_style,
+                }
+        except Exception:
+            pass
+        logger.info(
+            "[PIPELINE] Project %s: content too short for video_length=%s (style=%s). Using effective video_length=%s for script generation.",
+            project.id,
+            requested_video_length,
+            video_style,
+            effective_video_length,
+            extra={"project_id": project.id, "user_id": project.user_id},
+        )
+        
     generator = ScriptGenerator()
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
-        video_style=getattr(project, "video_style", "explainer") or "explainer",
+        video_style=video_style,
+        video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
     )

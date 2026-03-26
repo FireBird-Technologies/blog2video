@@ -13,21 +13,30 @@ class BlogToScript(dspy.Signature):
 
     ═══ STYLE-SPECIFIC RULES (CRITICAL — follow for the given video_style) ═══
     EXPLAINER:
-    - Cover the blog content thoroughly. Output at most 10 scenes.
+    - Cover the blog content thoroughly.
     - Each major point can have its own scene. Combine only truly related minor points.
     - Narrations: 1 sentence, 10–20 words max per scene (display text).
     PROMOTIONAL:
-    - Maximum 7 scenes. Be concise and punchy. Prioritize benefits and impact over detail.
-    - Narrations MUST be short: 5–12 words per scene. One punchy line per scene. No long sentences.
+    - Be concise and punchy. Prioritize benefits and impact over detail.
+    - Tone must be strictly promotional.
+    - Narrations are longer than before to approximate ~6 seconds of speech per scene:
+      target 12–15 words per scene. One punchy line per scene. Avoid very long sentences.
     - Structure: hook → 2–3 benefit/feature beats → clear call-to-action or closing.
-    - Cut or merge content to fit 7 scenes; leave out minor details.
     STORYTELLING:
-    - Narrative arc: setup → development → payoff. At most 10 scenes.
+    - Narrative arc: setup → development → payoff.
     - Narrations should be slightly lengthier: about 15 words per scene (roughly 12–18 words). One full sentence per scene.
     - Focus on journey, tension, or transformation; scenes should feel like story beats.
 
     GENERAL (all styles):
-    - Do not exceed the scene limit for the chosen style (explainer/storytelling: 10; promotional: 7).
+    - Scene count is controlled by `video_length`, not by `video_style`.
+
+    ═══ VIDEO LENGTH RULES (CRITICAL) ═══
+    - video_length values: auto | short | medium | detailed
+    - short: best-effort 7–10 scenes (cap at 10).
+    - medium: best-effort 12–15 scenes (cap at 15).
+    - detailed: best-effort 15–20 scenes (cap at 20).
+    - auto: choose a natural scene count based on scraped blog_content length and structure,
+      but NEVER exceed 20 scenes.
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
@@ -94,9 +103,10 @@ class BlogToScript(dspy.Signature):
     - Think about the **entire video** as a sequence — layout choices should feel like a deliberate visual journey, not random picks.
 
     ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
-    - 6-7 scenes: use at least 5 distinct layouts. Max 2 scenes may share the same layout.
-    - 9-10 scenes (standard):    use at least 7 distinct layouts. Max 2 scenes may share the same layout.
-    - For any other length:    use at least ceil(total_scenes * 0.65) distinct layouts.
+    - short (7–10 scenes): use at least 7 distinct layouts. Max 2 scenes may share the same layout.
+    - medium (12–15 scenes): use at least 9 distinct layouts. Max 2 scenes may share the same layout.
+    - detailed (15–20 scenes): use at least 10 distinct layouts. Max 4 scenes may share the same layout.
+    - For any other length: use at least ceil(total_scenes * 0.7) distinct layouts.
     - These are MINIMUM targets — more variety is always better if the content supports it.
 
     ═══ DISTRIBUTION RULES ═══
@@ -142,6 +152,9 @@ class BlogToScript(dspy.Signature):
         "'storytelling' = narrative arc, emotional hooks, character/journey, story-driven. "
         "Write title, scene titles, narrations, and visual_description to match this style exactly."
     )
+    video_length: str = dspy.InputField(
+        desc="Video length category controlling scene count: auto | short | medium | detailed."
+    )
     layout_catalog: str = dspy.InputField(
         desc=(
             "Optional: template-specific layout catalog text. Either layout IDs and short descriptions for "
@@ -158,7 +171,7 @@ class BlogToScript(dspy.Signature):
     scenes_json: str = dspy.OutputField(
         desc=(
             'JSON array of scene objects. Each object has keys: "title" (str), '
-            '"narration" (str — length by video_style: promotional 5-12 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
+            '"narration" (str — length by video_style: promotional target 12-18 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
             '"visual_description" (str), "suggested_images" (list of str), '
             '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
             'FIRST scene title must be the actual blog title (never "Hero Opening"), '
@@ -193,12 +206,13 @@ class ScriptGenerator:
         hero_image: str = "",
         aspect_ratio: str = "landscape",
         video_style: str = "explainer",
+        video_length: str = "auto",
         layout_catalog: str = "",
         content_language: str = "English",
     ) -> dict:
         """
         Generate a video script from blog content (async).
-        The video duration is determined by the content length -- no artificial limit.
+        Scene count is controlled by `video_length` (auto/short/medium/detailed).
         video_style (explainer | promotional | storytelling) drives tone and structure.
 
         Returns:
@@ -210,29 +224,47 @@ class ScriptGenerator:
             hero_image=hero_image or "(no hero image available)",
             aspect_ratio=aspect_ratio or "landscape",
             video_style=(video_style or "explainer").strip().lower() or "explainer",
+            video_length=(video_length or "auto").strip().lower() or "auto",
             layout_catalog=layout_catalog or "",
             content_language=(content_language or "English").strip(),
         )
 
-        # Parse the scenes JSON and apply style-specific limits
+        # Parse the scenes JSON and apply limits
         style = (video_style or "explainer").strip().lower() or "explainer"
-        scenes = self._parse_scenes(result.scenes_json, video_style=style)
+        scenes = self._parse_scenes(
+            result.scenes_json,
+            video_style=style,
+            video_length=(video_length or "auto").strip().lower() or "auto",
+        )
 
         return {
             "title": result.title,
             "scenes": scenes,
         }
 
-    def _max_scenes_for_style(self, video_style: str) -> int:
-        """Maximum number of scenes allowed for the given video style."""
-        if video_style == "promotional":
-            return 7
-        if video_style in ("storytelling", "explainer"):
+    def _max_scenes_for_video_length(self, video_length: str) -> int:
+        """Maximum number of scenes allowed for the given video length category."""
+        vl = (video_length or "auto").strip().lower()
+        if vl == "short":
             return 10
-        return 10
+        if vl == "medium":
+            return 15
+        if vl == "detailed":
+            return 20
+        # auto: best-effort natural scene count, but never exceed 20 scenes
+        return 20
 
-    def _parse_scenes(self, scenes_json: str, video_style: str = "explainer") -> list[dict]:
-        """Parse and validate the scenes JSON output. Enforces style-specific scene limit and short narrations for promotional."""
+    def _parse_scenes(
+        self,
+        scenes_json: str,
+        video_style: str = "explainer",
+        video_length: str = "auto",
+    ) -> list[dict]:
+        """Parse and validate scenes JSON.
+
+        - Scene cap is driven by `video_length` (not by `video_style`).
+        - Promotional narration is truncated to a longer/detailed target (approx ~6s speech).
+        """
         try:
             # Try to extract JSON from the response (it might have markdown code fences)
             cleaned = scenes_json.strip()
@@ -245,13 +277,13 @@ class ScriptGenerator:
             if not isinstance(scenes, list):
                 scenes = [scenes]
 
-            max_scenes = self._max_scenes_for_style(video_style)
-            max_narration_words = 14 if video_style == "promotional" else None  # soft cap for truncation
+            max_scenes = self._max_scenes_for_video_length(video_length)
+            max_narration_words = 18 if video_style == "promotional" else None  # soft cap for truncation
 
             validated = []
             for i, scene in enumerate(scenes[:max_scenes]):
                 narration = scene.get("narration", "").strip()
-                # For promotional, keep narrations short: truncate to ~14 words if over
+                # For promotional, truncate to a longer/detailed target (approx ~6s speech)
                 if max_narration_words and narration:
                     words = narration.split()
                     if len(words) > max_narration_words:
