@@ -53,11 +53,11 @@ class BlogToScript(dspy.Signature):
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
-      and a SHORT narration (1 sentence, ~10-15 words maximum).
+      and a SHORT narration (1 sentence, ~14-16 words maximum).
     - The title of this scene MUST be the actual blog/video title (e.g. "Building a Reliable Text-to-SQL Pipeline").
       Do NOT use generic titles like "Hero Opening" or "Introduction" for scene 1.
     - The narration should be a brief, compelling hook, e.g. "Let's explore how X works." Keep it concise.
-    - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
+    - Set its duration to 6-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
     - If NO hero image is available (hero_image says "no hero image"), the first scene
       should use a BOLD TEXT BANNER with the title as large centered text on a colored
