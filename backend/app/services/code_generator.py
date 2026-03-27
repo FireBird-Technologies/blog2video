@@ -95,11 +95,11 @@ class GenerateSceneCode(dspy.Signature):
       plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
       ALWAYS set explicit width + height on image Img elements.
     - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
-      WITH image: split layout (image on one side, text on other), or full-bleed image with text overlay
-      WITHOUT image: text expands to fill the full scene, larger fonts, more breathing room, centered layout
+      WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
+      WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
       Both modes must look intentionally designed — not like something is missing.
-    - When props.imageUrl is ABSENT: use animated gradient background, floating particle dots, or
-      geometric decorative shapes as visual interest — never leave the scene empty.
+    - When props.imageUrl is ABSENT (hasImage is false): use animated gradient background, floating particle dots, or
+      geometric decorative shapes as visual interest — never leave the scene empty or with an empty 50% hole.
     - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
