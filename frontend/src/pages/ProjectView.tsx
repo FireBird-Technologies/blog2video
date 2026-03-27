@@ -34,6 +34,7 @@ import {
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
+import { useNoticeModal } from "../contexts/NoticeModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
@@ -324,6 +325,7 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
+  const { showNotice } = useNoticeModal();
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -864,7 +866,7 @@ export default function ProjectView() {
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
-        const { step, running, error: pipelineError, status } = res.data;
+        const { step, running, error: pipelineError, status, notice } = res.data;
 
         setPipelineStep(step);
 
@@ -896,6 +898,13 @@ export default function ProjectView() {
           }
           setPipelineRunning(false);
           stopPolling();
+          if (notice?.code === "video_shortened") {
+            showNotice(
+              notice.message ||
+                "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+              { title: "Video shortened" }
+            );
+          }
           await loadProject();
           return;
         }

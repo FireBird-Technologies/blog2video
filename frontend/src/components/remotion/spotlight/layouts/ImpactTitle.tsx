@@ -6,6 +6,38 @@ import {
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
 
+function normalizeTitleToken(word: string): string {
+  return word.toLowerCase().replace(/[.,!?:;]/g, "");
+}
+
+function resolveImpactTitleHighlightIndex(
+  words: string[],
+  highlightWord: string | undefined
+): number {
+  if (words.length === 0) return 0;
+  if (highlightWord?.trim()) {
+    const hw = normalizeTitleToken(highlightWord.trim());
+    const byExact = words.findIndex((w) => normalizeTitleToken(w) === hw);
+    if (byExact >= 0) return byExact;
+    const byIncludes = words.findIndex(
+      (w) =>
+        normalizeTitleToken(w).includes(hw) || hw.includes(normalizeTitleToken(w))
+    );
+    if (byIncludes >= 0) return byIncludes;
+  }
+  let best = 0;
+  let bestLen = 0;
+  words.forEach((w, i) => {
+    const len = normalizeTitleToken(w).replace(/[^a-z0-9]/gi, "").length;
+    if (len > bestLen && len >= 3) {
+      bestLen = len;
+      best = i;
+    }
+  });
+  if (bestLen >= 3) return best;
+  return 0;
+}
+
 /**
  * ImpactTitle — Slam-In Title
  *
@@ -17,6 +49,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
   imageUrl,
+  highlightWord,
   accentColor,
   textColor,
   bgColor,
@@ -58,6 +91,10 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   const imageOpacity = interpolate(frame, [10, 35], [0, 1], { extrapolateRight: "clamp" });
   const imageScale = spring({ frame: frame - 10, fps, config: { damping: 20, stiffness: 80 } });
 
+  const titleWords = title.trim().split(/\s+/).filter(Boolean);
+  const highlightIdx = resolveImpactTitleHighlightIndex(titleWords, highlightWord);
+  const baseTitleColor = textColor || "#FFFFFF";
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <SpotlightBackground bgColor={bgColor} />
@@ -94,7 +131,7 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
           style={{
             fontSize: titleFontSize ?? (p ? 87 : 100),
             fontWeight: 900,
-            color: accentColor,
+            color: baseTitleColor,
             fontFamily: displayFontFamily,
             textAlign: "center",
             lineHeight: 1.05,
@@ -105,7 +142,17 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
             maxWidth: "95%",
           }}
         >
-          {title}
+          {titleWords.map((word, i) => (
+            <span
+              key={i}
+              style={{
+                color: i === highlightIdx ? accentColor : baseTitleColor,
+              }}
+            >
+              {word}
+              {i < titleWords.length - 1 ? " " : ""}
+            </span>
+          ))}
         </h1>
 
         {narration && (

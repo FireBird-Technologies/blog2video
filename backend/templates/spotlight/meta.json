@@ -39,6 +39,12 @@
       },
       "fields": [
         {
+          "key": "highlightWord",
+          "label": "Accent word",
+          "type": "string",
+          "placeholder": "One word from the title (accent color)"
+        },
+        {
           "key": "titleFontSize",
           "label": "Title Font Size",
           "type": "number",
