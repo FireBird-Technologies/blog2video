@@ -499,6 +499,9 @@ export const discardTemplateAiPreview = (payload: TemplateAiPreviewSessionReques
 export const getTemplateAiVersions = (payload: ListTemplateAiVersionsRequest) =>
   api.post<ListTemplateAiVersionsResponse>("/template-studio/ai-edit/versions", payload);
 
+export const getFeaturedPublicTemplates = (ids: number[]) =>
+  api.get<any[]>(`/custom-templates/public/featured?ids=${ids.join(',')}`);
+
 // ─── Layout rebuild / create ──────────────────────────────────────────────────
 
 export interface PropDef {

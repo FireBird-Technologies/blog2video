@@ -468,7 +468,10 @@ async def _generate_scenes(project: Project, db: Session):
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
     # Re-load scenes to pick up voiceover changes from per-thread DB sessions
-    db.expire(project)
+    # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
+    # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
+    # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
+    db.expire_all()
     scenes = project.scenes
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
