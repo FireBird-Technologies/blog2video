@@ -25,6 +25,7 @@ import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
+const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error"]);
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -127,10 +128,12 @@ export default function Dashboard() {
       });
       setBulkStatuses((prev) => ({ ...prev, ...updates }));
 
-      // Consider a project done when we have an update and pipeline finished or terminal status
+      // Consider a project done only when it reaches a terminal project status.
+      // `running` can be false transiently (e.g. in-memory progress loss), so
+      // removing by `running === false` drops active projects from this list.
       const isDone = (id: number) => {
         const u = updates[id];
-        return u != null && (u.running === false || u.status === "generated" || u.status === "done");
+        return u != null && BULK_TERMINAL_STATUSES.has((u.status ?? "").toLowerCase());
       };
       const doneIds = new Set(bulkPendingIds.filter(isDone));
       const newPending = bulkPendingIds.filter((id) => !doneIds.has(id));

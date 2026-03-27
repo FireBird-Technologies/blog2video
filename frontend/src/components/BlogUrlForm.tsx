@@ -1709,7 +1709,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           Video Length
         </label>
         {renderVideoLengthDropdown(videoLength, setVideoLength)}
-        <p className="text-[11px] text-gray-500">Controls how many scenes are generated.</p>
+        <p className="text-[11px] text-gray-400">
+          If the scraped/uploaded content is very short, we may automatically shorten the video.
+        </p>
       </div>
 
       {/* Video colors */}
@@ -2435,7 +2437,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               return next;
             });
           })}
-          <p className="text-[11px] text-gray-500">Controls how many scenes are generated.</p>
+          <p className="text-[11px] text-gray-400">
+            If the scraped/uploaded content is very short, we may automatically shorten the video.
+          </p>
         </div>
         
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
