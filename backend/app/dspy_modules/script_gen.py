@@ -1,15 +1,7 @@
 import json
-import math
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
-
-WORDS_PER_SECOND_ESTIMATE = 2.5
-MIN_VOICEOVER_SECONDS = 6.5
-MAX_VOICEOVER_SECONDS = 15.0
-MIN_NARRATION_WORDS = math.ceil(WORDS_PER_SECOND_ESTIMATE * MIN_VOICEOVER_SECONDS)
-MAX_NARRATION_WORDS = math.ceil(WORDS_PER_SECOND_ESTIMATE * MAX_VOICEOVER_SECONDS)
-
 
 class BlogToScript(dspy.Signature):
     """
@@ -284,7 +276,7 @@ class ScriptGenerator:
         """Parse and validate scenes JSON.
 
         - Scene cap is driven by `video_length` (not by `video_style`).
-        - Narration text is enforced to a minimum length needed for >=6s voiceover.
+        - Narration text is normalized for whitespace only.
         """
         try:
             # Try to extract JSON from the response (it might have markdown code fences)
@@ -302,7 +294,7 @@ class ScriptGenerator:
             validated = []
             for i, scene in enumerate(scenes[:max_scenes]):
                 narration = scene.get("narration", "").strip()
-                narration = self._normalize_narration_words(narration)
+                narration = " ".join(narration.split())
                 validated.append({
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": narration,
@@ -320,28 +312,9 @@ class ScriptGenerator:
             return [
                 {
                     "title": "Main Content",
-                    "narration": self._normalize_narration_words(scenes_json[:500]),
+                    "narration": " ".join((scenes_json[:500] or "").split()),
                     "visual_description": "Display blog content with images",
                     "suggested_images": [],
                     "duration_seconds": 30,
                 }
             ]
-
-    def _normalize_narration_words(self, text: str) -> str:
-        """Clamp narration to a medium range suitable for concise voiceover."""
-        cleaned = (text or "").strip()
-        if not cleaned:
-            return cleaned
-        words = cleaned.split()
-        if len(words) > MAX_NARRATION_WORDS:
-            return " ".join(words[:MAX_NARRATION_WORDS])
-        if len(words) >= MIN_NARRATION_WORDS:
-            return cleaned
-
-        # Language-agnostic fallback: repeat existing wording until the minimum is met.
-        # This keeps the same language/content while guaranteeing minimum speech length.
-        needed = MIN_NARRATION_WORDS - len(words)
-        extension = []
-        while len(extension) < needed:
-            extension.extend(words)
-        return " ".join(words + extension[:needed])
