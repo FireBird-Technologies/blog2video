@@ -175,7 +175,7 @@ export default function CustomPreview({
     const imageProps = ogImage ? { imageUrl: ogImage } : previewImageUrl ? { imageUrl: previewImageUrl } : {};
     const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
-    const fontProps = { titleFontSize: 48, descriptionFontSize: 24 };
+    const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
 
     return sceneCodes.map((sc, idx) => {
       const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps, ...fontProps };
@@ -297,7 +297,7 @@ export default function CustomPreview({
         <div
           style={{
             fontFamily: `${theme.fonts.heading}, sans-serif`,
-            fontSize: 22,
+            fontSize: 34,
             fontWeight: 700,
             color: theme.colors.text,
             textAlign: "center",
@@ -308,7 +308,7 @@ export default function CustomPreview({
         <div
           style={{
             fontFamily: `${theme.fonts.body}, sans-serif`,
-            fontSize: 12,
+            fontSize: 20,
             color: theme.colors.muted,
             textAlign: "center",
           }}
@@ -414,7 +414,7 @@ export default function CustomPreview({
         >
           <span
             style={{
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: 600,
               color: "#fff",
               background: "rgba(0,0,0,0.5)",

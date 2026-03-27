@@ -81,21 +81,33 @@ class GenerateSceneCode(dspy.Signature):
     - NEVER render contentType as visible text/label/badge
 
     Images & Logo (MANDATORY — every scene MUST handle these):
-    - ALWAYS check props.logoUrl and render it when present: {props.logoUrl && <Img src={props.logoUrl} style={{...}} />}
-      Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it
-    - ALWAYS check props.imageUrl and render it prominently when present — NOT just a dim background.
+    - ALWAYS check props.logoUrl safely and render it when present:
+      {props.logoUrl && typeof props.logoUrl === 'string' && (
+        <Img src={props.logoUrl} style={{width: 80, height: 80, objectFit: "contain", ...}} />
+      )}
+      ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
+      Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it.
+    - ALWAYS check props.imageUrl safely and render it prominently when present — NOT just a dim background.
+      Use: const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
       Techniques: Ken Burns zoom (scale 1→1.08 over duration with slight pan), radial vignette reveal,
       slit/clipPath reveal, or hero card with perspective rotation. Always use objectFit:"cover".
       Layer gradient overlays for text readability: linear-gradient(to top, rgba(bg,0.95) 0%, transparent 70%)
       plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
-    - ADAPT LAYOUT based on image presence — use `const hasImage = !!props.imageUrl;`
+      ALWAYS set explicit width + height on image Img elements.
+    - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
       WITH image: split layout (image on one side, text on other), or full-bleed image with text overlay
       WITHOUT image: text expands to fill the full scene, larger fonts, more breathing room, centered layout
       Both modes must look intentionally designed — not like something is missing.
     - When props.imageUrl is ABSENT: use animated gradient background, floating particle dots, or
       geometric decorative shapes as visual interest — never leave the scene empty.
-    - If props.brandImages exists, render gallery/carousel elements from it
+    - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
+
+    Typography (MANDATORY for readability at 1920×1080):
+    - Main title / displayText: use fontSize: (props.titleFontSize ?? 88) (or scale proportionally in nested layouts, never below 56 for the primary headline).
+    - Subtitle / narration / body under the title: use fontSize: (props.descriptionFontSize ?? 44); supporting lines at least 32px.
+    - Bullet lists, card body text, quote body, metric labels: at least 30–36px so previews stay legible when scaled down in the UI.
+    - Do NOT hardcode tiny font sizes (e.g. 12–18px) for primary readable content.
 
     Text animations — bring words to life:
     - Word-by-word or line-by-line reveals: split text, stagger each word/line with spring(frame - i*8)
@@ -164,12 +176,11 @@ def _scene_reward(args, pred) -> float:
         print(f"[F7-DEBUG] [REFINE] FAILED: {err}")
         return 0.0
 
-    score = 1.0  # Start at max — deduct for real bugs only
+    # logoUrl, imageUrl, overflow:hidden, and interpolate monotonicity are now
+    # hard requirements in validate_component_code() — they return 0.0 above.
+    # Remaining soft checks are for quality issues that don't cause crashes.
 
-    # Bug: missing overflow hidden (content can escape frame)
-    if "overflow" not in code or "hidden" not in code:
-        score -= 0.3
-        print(f"[F7-DEBUG] [REFINE] -0.3: missing overflow:hidden")
+    score = 1.0
 
     # Bug: hardcoded sample data arrays (fake content in components)
     hardcoded_array = re.search(
@@ -191,27 +202,6 @@ def _scene_reward(args, pred) -> float:
     if re.search(r'sceneIndex\s*\+\s*1.*totalScenes|of.*totalScenes|\$\{.*sceneIndex', code):
         score -= 0.2
         print(f"[F7-DEBUG] [REFINE] -0.2: scene counter visible")
-
-    # Bug: not handling logoUrl prop (must conditionally render logo)
-    if "logoUrl" not in code:
-        score -= 0.2
-        print(f"[F7-DEBUG] [REFINE] -0.2: missing logoUrl handling")
-
-    # Bug: not handling imageUrl prop (must conditionally render images)
-    if "imageUrl" not in code:
-        score -= 0.2
-        print(f"[F7-DEBUG] [REFINE] -0.2: missing imageUrl handling")
-
-    # Bug: non-monotonic interpolate() inputRange — causes Remotion runtime crash
-    for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]', code):
-        try:
-            vals = [float(v.strip()) for v in m.group(1).split(',') if v.strip()]
-            if len(vals) >= 2 and any(vals[i] >= vals[i + 1] for i in range(len(vals) - 1)):
-                score -= 0.3
-                print(f"[F7-DEBUG] [REFINE] -0.3: non-monotonic interpolate inputRange {vals}")
-                break
-        except ValueError:
-            pass  # dynamic values — can't check statically
 
     line_count = code.count("\n") + 1
     print(f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | {line_count}L")
@@ -522,6 +512,12 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     )
 
     t_start = time.time()
+
+    codegen_lm = get_custom_lm()
+    _tok = (getattr(codegen_lm, "kwargs", None) or {}).get("max_tokens")
+    print(
+        f"[F7-DEBUG] [CODEGEN] LLM model={codegen_lm.model!r} max_tokens={_tok}"
+    )
 
     # Step 1: AI decides scene types for this brand
     loop = asyncio.get_event_loop()

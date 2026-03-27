@@ -207,9 +207,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 px-16 pt-4">
+        <div className="flex items-center justify-center gap-2 px-8 pt-4">
           {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
+            <div key={s} className={`flex items-center gap-2 ${s < 3 ? "flex-1" : ""}`}>
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                 s <= step ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-400"
               }`}>

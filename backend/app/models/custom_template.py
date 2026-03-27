@@ -22,7 +22,7 @@ class CustomTemplate(Base):
     intro_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     outro_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Multiple unique content scene variants (JSON array of code strings)
-    # Claude decides how many to generate (typically 4-8). Scenes cycle through them.
+    # The codegen LLM decides how many to generate (typically 4-8). Scenes cycle through them.
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
     content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
 

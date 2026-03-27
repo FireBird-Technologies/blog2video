@@ -100,4 +100,44 @@ def validate_component_code(code: str) -> tuple[bool, str | None]:
     if len(code) < 500:
         return False, "Code too short — likely missing animations and visual detail"
 
+    # Must have overflow:hidden to prevent content escaping the frame
+    if "overflow" not in code or "hidden" not in code:
+        return False, "Missing overflow:'hidden' on outermost container — content can escape frame"
+
+    # Must reference logoUrl as a conditional — not just any string match.
+    # Accepts: props.logoUrl &&, logoUrl &&, hasLogo, !!props.logoUrl, logoUrl ?
+    has_logo_conditional = bool(re.search(
+        r'(?:props\.logoUrl\s*&&|logoUrl\s*&&|hasLogo\b|!!props\.logoUrl|logoUrl\s*\?[^:])',
+        code,
+    ))
+    if not has_logo_conditional:
+        return False, (
+            "Missing conditional logoUrl rendering — scene must check props.logoUrl before rendering: "
+            "e.g. {props.logoUrl && <Img src={props.logoUrl} ... />}"
+        )
+
+    # Must reference imageUrl as a conditional — layout must adapt to its presence/absence.
+    # Accepts: hasImage, props.imageUrl &&, imageUrl &&, !!props.imageUrl, imageUrl ?
+    has_image_conditional = bool(re.search(
+        r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
+        code,
+    ))
+    if not has_image_conditional:
+        return False, (
+            "Missing conditional imageUrl rendering — scene must declare hasImage and adapt layout: "
+            "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
+        )
+
+    # Non-monotonic interpolate inputRange causes Remotion runtime crash
+    for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]\s*,\s*\[([^\]]+)\]', code):
+        try:
+            inputs = [float(v.strip()) for v in m.group(1).split(',') if v.strip()]
+            outputs = [float(v.strip()) for v in m.group(2).split(',') if v.strip()]
+            if len(inputs) >= 2 and any(inputs[i] >= inputs[i + 1] for i in range(len(inputs) - 1)):
+                return False, f"Non-monotonic interpolate inputRange: {inputs}"
+            if len(inputs) != len(outputs):
+                return False, f"interpolate inputRange/outputRange length mismatch: {len(inputs)} vs {len(outputs)}"
+        except ValueError:
+            pass
+
     return True, None
