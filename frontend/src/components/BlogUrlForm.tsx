@@ -38,7 +38,7 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-    videoLength?: "auto" | "short" | "medium" | "detailed",
+    videoLength?: "short" | "medium" | "detailed",
     contentLanguage?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
@@ -346,7 +346,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
-  const [bulkVideoLength, setBulkVideoLength] = useState<("auto" | "short" | "medium" | "detailed")[]>(["auto"]);
+  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
   const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
@@ -360,6 +360,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
   const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
+  const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
+  const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
   const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
   const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
@@ -369,7 +371,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
-  const [videoLength, setVideoLength] = useState<"auto" | "short" | "medium" | "detailed">("auto");
+  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -457,19 +459,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   );
 
   const renderVideoLengthDropdown = (
-    value: "auto" | "short" | "medium" | "detailed",
-    onSelect: (next: "auto" | "short" | "medium" | "detailed") => void
+    value: "short" | "medium" | "detailed",
+    onSelect: (next: "short" | "medium" | "detailed") => void
   ) => (
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
         <span>
-          {value === "auto"
-            ? "auto"
-            : value === "short"
-              ? "short (7-10 scenes)"
-              : value === "medium"
-                ? "medium (12-15 scenes)"
-                : "detailed (15-20 scenes)"}
+          {value === "short"
+            ? "short (7-10 scenes)"
+            : value === "medium"
+              ? "medium (12-15 scenes)"
+              : "detailed (15-20 scenes)"}
         </span>
         <svg
           className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
@@ -482,7 +482,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
-          {(["auto", "short", "medium", "detailed"] as const).map((opt) => (
+          {(["short", "medium", "detailed"] as const).map((opt) => (
             <button
               key={opt}
               type="button"
@@ -495,13 +495,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 value === opt ? "bg-purple-50 text-purple-700" : "text-gray-700"
               }`}
             >
-              {opt === "auto"
-                ? "auto"
-                : opt === "short"
-                  ? "short (7-10 scenes)"
-                  : opt === "medium"
-                    ? "medium (12-15 scenes)"
-                    : "detailed (15-20 scenes)"}
+              {opt === "short"
+                ? "short (7-10 scenes)"
+                : opt === "medium"
+                  ? "medium (12-15 scenes)"
+                  : "detailed (15-20 scenes)"}
             </button>
           ))}
         </div>
@@ -776,7 +774,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
-        setBulkVideoLength((prev) => resizeTo(prev, n, "auto"));
+        setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
         setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
@@ -810,7 +808,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkContentLanguage((prev) => [...prev, "auto"]);
-    setBulkVideoLength((prev) => [...prev, "auto"]);
+    setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [...prev, "promotional"]);
     setBulkTemplatePickerViews((prev) => [...prev, "style"]);
@@ -908,7 +906,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: bulkVideoStyles[i] ?? "promotional",
-        video_length: bulkVideoLength[i] ?? "auto",
+        video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
         accent_color:
@@ -953,7 +951,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
-      setBulkVideoLength(["auto"]);
+      setBulkVideoLength(["short"]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles(["promotional"]);
       setBulkTemplatePickerViews(["style"]);
@@ -964,11 +962,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkLogoPosition(["bottom_right"]);
       setBulkLogoOpacity([0.9]);
       setBulkActiveIndex(0);
+      setBulkApplyLengthAll(true);
+      setBulkLengthMasterIndex(0);
       setBulkApplyTemplateAll(true);
       setBulkTemplateMasterIndex(0);
       setBulkApplyVoiceAll(true);
       setBulkVoiceMasterIndex(0);
-      setVideoLength("auto");
+      setVideoLength("short");
       setContentLanguage("auto");
       return;
     }
@@ -1071,6 +1071,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
+  const bulkStep1ActiveIndex = Math.min(bulkActiveIndex, Math.max(0, bulkRows.length - 1));
+  const bulkStep1MasterIndex = Math.min(bulkLengthMasterIndex, Math.max(0, bulkRows.length - 1));
+  const bulkStep1RowVideoLength = bulkVideoLength[bulkStep1ActiveIndex] ?? "short";
+  const applyStep1LengthToAll = () => {
+    setBulkVideoLength((prev) => {
+      const next = resizeTo(prev, bulkRows.length, "short");
+      const value = next[bulkStep1ActiveIndex] ?? "short";
+      return next.map(() => value);
+    });
+  };
+
   const step1 = (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
@@ -1139,6 +1150,72 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           </div>
         )}
+
+        <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {bulkRows.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(i)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  i === bulkStep1ActiveIndex
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Video #{i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-start">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+                type="checkbox"
+                checked={bulkApplyLengthAll}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setBulkApplyLengthAll(checked);
+                  if (checked) {
+                    setBulkLengthMasterIndex(bulkStep1ActiveIndex);
+                    applyStep1LengthToAll();
+                  }
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
+              />
+            Apply video length to all
+          </label>
+        </div>
+        <div className="mt-1 space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Length
+          </label>
+          {renderVideoLengthDropdown(bulkStep1RowVideoLength, (value) => {
+            if (bulkApplyLengthAll && bulkStep1ActiveIndex !== bulkStep1MasterIndex) {
+              setBulkApplyLengthAll(false);
+              setBulkVideoLength((prev) => {
+                const next = resizeTo(prev, bulkRows.length, "short");
+                next[bulkStep1ActiveIndex] = value;
+                return next;
+              });
+              return;
+            }
+            if (bulkApplyLengthAll && bulkStep1ActiveIndex === bulkStep1MasterIndex) {
+              setBulkVideoLength((prev) => resizeTo(prev, bulkRows.length, "short").map(() => value));
+              return;
+            }
+            setBulkVideoLength((prev) => {
+              const next = resizeTo(prev, bulkRows.length, "short");
+              next[bulkStep1ActiveIndex] = value;
+              return next;
+            });
+          })}
+          <p className="text-[11px] text-gray-400 pb-10">
+            If the scraped/uploaded content is very short, we may shorten the video.
+          </p>
+        </div>
       </>)}
 
       {/* URL input */}
@@ -1298,6 +1375,16 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       {/* Format + Logo (single-link / upload only; bulk has per-row in step 3) */}
       {mode !== "bulk" && (
         <>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+              Video Length
+            </label>
+            {renderVideoLengthDropdown(videoLength, setVideoLength)}
+            <p className="mt-1 text-[11px] text-gray-400">
+              If the scraped/uploaded content is very short, we may shorten the video.
+            </p>
+          </div>
+
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
              Video Format
@@ -1704,16 +1791,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       </div>
 
-      <div className="mt-4 space-y-1.5">
-        <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-          Video Length
-        </label>
-        {renderVideoLengthDropdown(videoLength, setVideoLength)}
-        <p className="text-[11px] text-gray-400">
-          If the scraped/uploaded content is very short, we may automatically shorten the video.
-        </p>
-      </div>
-
       {/* Video colors */}
       <div>
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -1822,7 +1899,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         : defaultText;
     const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
     const activePickerView = bulkTemplatePickerViews[activeIndex] ?? "style";
-    const rowVideoLength = bulkVideoLength[activeIndex] ?? "auto";
+    const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
 
     const applyTemplateToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -2406,42 +2483,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Length
-          </label>
-          {renderVideoLengthDropdown(rowVideoLength, (value) => {
-            const targetIndices = indexed.map(({ i }) => i);
-            if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
-              setBulkApplyTemplateAll(false);
-              setBulkVideoLength((prev) => {
-                const next = [...prev];
-                next[activeIndex] = value;
-                return next;
-              });
-              return;
-            }
-            if (bulkApplyTemplateAll && activeIndex === masterIndex) {
-              setBulkVideoLength((prev) => {
-                const next = [...prev];
-                targetIndices.forEach((idx) => {
-                  next[idx] = value;
-                });
-                return next;
-              });
-              return;
-            }
-            setBulkVideoLength((prev) => {
-              const next = [...prev];
-              next[activeIndex] = value;
-              return next;
-            });
-          })}
-          <p className="text-[11px] text-gray-400">
-            If the scraped/uploaded content is very short, we may automatically shorten the video.
-          </p>
-        </div>
-        
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
         <div className="flex items-start justify-between gap-6">
           <div>
@@ -2832,7 +2873,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
     const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
-    const rowVideoLength = bulkVideoLength[activeIndex] ?? "auto";
+    const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
 
     const applyVoiceToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);

@@ -15,7 +15,7 @@ class GenerateDisplayText(dspy.Signature):
     ═══ INPUTS ═══
     - template_id: which visual template is being used (default, nightfall, spotlight,
       gridcraft, whiteboard, newspaper).
-    - video_style: explainer / promotional / storytelling (tone only).
+    - video_style: explainer / promotional / storytelling (STRICT tone and phrasing rules).
     - scene_title: title of this scene.
     - narration: the underlying narration_text for this scene (source of truth).
     - visual_description: visual hints and layout intent.
@@ -25,6 +25,12 @@ class GenerateDisplayText(dspy.Signature):
     - Paraphrase or compress the narration; you may slightly rephrase for punchiness.
     - Keep language simple and scannable on screen.
     - No markdown, no quotes, no bullet markers. Plain text sentences only.
+
+    ═══ STYLE TONE RULES (CRITICAL) ═══
+    - STRICTLY follow video_style; do not mix tones.
+    - promotional: text must feel like an ad/promo (benefit-first, persuasive, action-oriented).
+    - explainer: text must feel documentary and informative (clear, factual, polished, insight-driven).
+    - storytelling: text must feel narrative and sequential (scene-to-scene progression).
 
     ═══ TEMPLATE-SPECIFIC LENGTH RULES (CRITICAL) ═══
     1) NEWSPAPER + WHITEBOARD
@@ -55,7 +61,7 @@ class GenerateDisplayText(dspy.Signature):
         desc="Template ID in lowercase, e.g. default, nightfall, spotlight, gridcraft, whiteboard, newspaper"
     )
     video_style: str = dspy.InputField(
-        desc="Video style for tone only: explainer, promotional, or storytelling"
+        desc="Video style with strict tone rules: explainer, promotional, or storytelling"
     )
     scene_title: str = dspy.InputField(desc="Title of this scene")
     narration: str = dspy.InputField(desc="Full narration_text for this scene (source of truth)")

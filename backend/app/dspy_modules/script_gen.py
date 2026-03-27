@@ -3,7 +3,6 @@ import dspy
 
 from app.dspy_modules import ensure_dspy_configured
 
-
 class BlogToScript(dspy.Signature):
     """
     Given blog content, a list of image URLs from the blog, and a hero image path,
@@ -11,24 +10,38 @@ class BlogToScript(dspy.Signature):
     chosen video_style (explainer / promotional / storytelling). The script should be
     engaging, clear, and organized into scenes suitable for a Remotion-based video.
 
-    ═══ STYLE-SPECIFIC RULES (CRITICAL — follow for the given video_style) ═══
-    EXPLAINER:
-    - Cover the blog content thoroughly.
-    - Each major point can have its own scene. Combine only truly related minor points.
-    - Narrations: 1 sentence, 10–20 words max per scene (display text).
+    ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow the given video_style) ═══
+    - Treat video_style as a HARD CONSTRAINT.
+    - Do NOT mix styles in the same output.
+    - If video_style is promotional, every scene must feel like an ad/promo beat.
+    - If video_style is explainer, every scene must feel like a documentary-style explanation.
+    - If video_style is storytelling, every scene must feel like a story beat in sequence.
+
+    EXPLAINER (DOCUMENTARY MODE):
+    - Cover the blog content thoroughly with a documentary narrator tone.
+    - Use structured, detailed, factual phrasing with context and insight (not classroom instruction style).
+    - Scenes should progress logically: context -> key idea -> evidence/example -> takeaway.
+    - Narrations: 1-2 polished documentary-style sentences, target medium length (12-25 words).
+    - Avoid ad copy, hype language, and fictional storytelling dramatization.
+
     PROMOTIONAL:
-    - Be concise and punchy. Prioritize benefits and impact over detail.
-    - Tone must be strictly promotional.
-    - Narrations are longer than before to approximate ~6 seconds of speech per scene:
-      target 12–15 words per scene. One punchy line per scene. Avoid very long sentences.
-    - Structure: hook → 2–3 benefit/feature beats → clear call-to-action or closing.
+    - Tone must be strictly promotional/advertisement-like from start to end.
+    - Prioritize value proposition, benefits, transformation, and urgency over technical depth.
+    - Use persuasive sentence structures: hooks, benefit-led statements, social proof-style claims, and CTA language.
+    - Every scene should sound like a promo beat, not a neutral explanation.
+    - Narrations should be medium length (10-18 words), punchy but complete.
+    - Structure: hook -> problem -> solution/value -> key benefits/features -> CTA/closing push.
+
     STORYTELLING:
-    - Narrative arc: setup → development → payoff.
-    - Narrations should be slightly lengthier: about 15 words per scene (roughly 12–18 words). One full sentence per scene.
-    - Focus on journey, tension, or transformation; scenes should feel like story beats.
+    - Narrative arc is mandatory: setup -> inciting moment -> progression -> tension/challenge -> resolution/payoff.
+    - Scenes must build on each other step by step (clear continuity from previous scene).
+    - Use narrative connectors and progression cues naturally (then, next, after that, finally) in the target language.
+    - Narrations should be medium length (15-30 words), sounding like a human narrator telling a story.
+    - Avoid lecture tone and ad-slogan tone unless explicitly required by the source story context.
 
     GENERAL (all styles):
     - Scene count is controlled by `video_length`, not by `video_style`.
+    - Ensure title, scene titles, narrations, and visual_description all reflect the chosen style consistently.
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
     - video_length values: auto | short | medium | detailed
@@ -40,11 +53,11 @@ class BlogToScript(dspy.Signature):
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
-      and a SHORT narration (1 sentence, ~10-15 words maximum).
+      and a SHORT narration (1 sentence, ~14-16 words maximum).
     - The title of this scene MUST be the actual blog/video title (e.g. "Building a Reliable Text-to-SQL Pipeline").
       Do NOT use generic titles like "Hero Opening" or "Introduction" for scene 1.
     - The narration should be a brief, compelling hook, e.g. "Let's explore how X works." Keep it concise.
-    - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
+    - Set its duration to 6-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
     - If NO hero image is available (hero_image says "no hero image"), the first scene
       should use a BOLD TEXT BANNER with the title as large centered text on a colored
@@ -60,8 +73,8 @@ class BlogToScript(dspy.Signature):
       NOT side-by-side layouts. Avoid "split-screen" or "side-by-side" descriptions.
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
-    - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
-    - Narrations: explainer/promotional 10-20 words max; storytelling about 15 words (12-18) per scene. Display texts shown on screen.
+    - Keep narrations punchy but still ensure minimum voiceover viability.
+    - Narrations: explainer 12-25 words max; promotional 10-18 words max; storytelling about 15-30 words per scene. Display texts shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -81,7 +94,7 @@ class BlogToScript(dspy.Signature):
     - ALWAYS include the ACTUAL content to be visualized (real items, real code, real numbers)
 
     ═══ MAXIMIZE VISUAL VARIETY ═══
-    Your video should feel like a polished DOCUMENTARY, not a lecture. To achieve this:
+    Your video should feel polished and cinematic with strong visual variety. To achieve this:
     - EVERY scene should have a SPECIFIC visual layout hint in visual_description
     - Strongly prefer flow diagrams, bullet lists, metrics, comparisons, and timelines
     - Use plain text narration as an ABSOLUTE LAST RESORT — only if nothing else fits
@@ -171,12 +184,12 @@ class BlogToScript(dspy.Signature):
     scenes_json: str = dspy.OutputField(
         desc=(
             'JSON array of scene objects. Each object has keys: "title" (str), '
-            '"narration" (str — length by video_style: promotional target 12-18 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
+            '"narration" (str — length by video_style: explainer 12-25 words; promotional 10-18 words; storytelling about 15-30 words; so voiceover remains concise, and must strictly match selected style), '
             '"visual_description" (str), "suggested_images" (list of str), '
             '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
             'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-            'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
-            'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
+            'with a concise narration hook (12-15 words max, 1 sentence) and duration_seconds=6. '
+            'Narrations: storytelling (15-30) words per scene; explainer (12-25) words per scene; promotional (10-18) words max. '
             'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
             'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
             'Example with image: [{"title": "How AI is Changing Everything", '
@@ -263,7 +276,7 @@ class ScriptGenerator:
         """Parse and validate scenes JSON.
 
         - Scene cap is driven by `video_length` (not by `video_style`).
-        - Promotional narration is truncated to a longer/detailed target (approx ~6s speech).
+        - Narration text is normalized for whitespace only.
         """
         try:
             # Try to extract JSON from the response (it might have markdown code fences)
@@ -278,16 +291,10 @@ class ScriptGenerator:
                 scenes = [scenes]
 
             max_scenes = self._max_scenes_for_video_length(video_length)
-            max_narration_words = 18 if video_style == "promotional" else None  # soft cap for truncation
-
             validated = []
             for i, scene in enumerate(scenes[:max_scenes]):
                 narration = scene.get("narration", "").strip()
-                # For promotional, truncate to a longer/detailed target (approx ~6s speech)
-                if max_narration_words and narration:
-                    words = narration.split()
-                    if len(words) > max_narration_words:
-                        narration = " ".join(words[:max_narration_words])
+                narration = " ".join(narration.split())
                 validated.append({
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": narration,
@@ -305,7 +312,7 @@ class ScriptGenerator:
             return [
                 {
                     "title": "Main Content",
-                    "narration": scenes_json[:500],
+                    "narration": " ".join((scenes_json[:500] or "").split()),
                     "visual_description": "Display blog content with images",
                     "suggested_images": [],
                     "duration_seconds": 30,

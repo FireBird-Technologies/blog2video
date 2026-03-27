@@ -23,12 +23,35 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - Voiceover must not be very lengthy compared to text length
     - Maximum allowed size: 1.3× original word count
     - Prefer slightly longer or equal length when possible
+    - Length MUST follow style-specific word ranges:
+      - explainer: 15–25 words
+      - promotional: 15–20 words
+      - storytelling: 15–30 words
+    - Keep output medium-length and naturally speakable.
 
-    ═══ STYLE RULES ═══
-    - Match the video_style tone: explainer = clear and educational; promotional = persuasive, benefit-focused; storytelling = narrative, engaging.
-    - Natural spoken tone for that style
-    - Clean phrasing
-    - No elaboration beyond what fits the style
+    ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow video_style) ═══
+    - Treat video_style as a HARD CONSTRAINT.
+    - Do NOT mix tones across styles.
+
+    EXPLAINER (DOCUMENTARY MODE):
+    - Voice must sound like a polished documentary narrator: factual, composed, insightful.
+    - Use clear transitions and context-setting phrasing.
+    - Avoid classroom/lecture commands and avoid ad-like hype.
+
+    PROMOTIONAL:
+    - Voice must sound like a persuasive advertisement/promo.
+    - Keep a benefit-first, action-oriented cadence.
+    - Use confident, high-conviction phrasing with momentum.
+
+    STORYTELLING:
+    - Voice must sound like a human storyteller narrating events in sequence.
+    - Keep continuity and progression cues naturally (then, next, after that, finally).
+    - Maintain emotional flow without becoming promotional or instructional.
+
+    GENERAL STYLE GUARDRAILS:
+    - Natural spoken tone for the selected style.
+    - Clean phrasing.
+    - No elaboration beyond what fits the style.
 
     ═══ LANGUAGE RULE (CRITICAL) ═══
     - content_language is the language of the source content. Output expanded_voiceover EXCLUSIVELY in that language.
@@ -41,7 +64,7 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     scene_title: str = dspy.InputField(desc="Title of this scene (for context)")
     display_text: str = dspy.InputField(desc="Short display text shown on screen (1-2 sentences)")
     video_style: str = dspy.InputField(
-        desc="Video style: explainer (educational), promotional (persuasive, benefit-focused), storytelling (narrative). Match tone in the voiceover."
+        desc="Video style: explainer (documentary/informative), promotional (persuasive, benefit-focused), storytelling (narrative). Match tone in the voiceover."
     )
     content_language: str = dspy.InputField(
         desc="Language of the source content (e.g. 'English', 'Spanish'). Output expanded_voiceover in this language."
@@ -81,10 +104,10 @@ async def expand_narration_to_voiceover(
     if not (display_text and display_text.strip()):
         return ""
 
-    # If display text is already long (more than 50 words), assume it's already expanded enough
+    # If display text is already long, skip expansion.
     word_count = len(display_text.split())
     if word_count > 50:
-        return display_text.strip()
+        return " ".join(display_text.strip().split())
 
     predictor_async = _get_predictor()
 
@@ -98,23 +121,12 @@ async def expand_narration_to_voiceover(
             content_language=lang,
         )
         out = (result.expanded_voiceover or "").strip()
-        if not out:
-            return display_text.strip()
-        # Hard cap: if LLM exceeded 1.4× the input word count, truncate to fit
-        max_words = max(int(word_count * 1.4), word_count + 5)
-        out_words = out.split()
-        if len(out_words) > max_words:
-            out = " ".join(out_words[:max_words])
-            # Ensure we don't end mid-sentence — trim to last period/question/exclamation
-            for end in (". ", "? ", "! "):
-                last = out.rfind(end)
-                if last > len(out) * 0.6:
-                    out = out[: last + 1]
-                    break
-        return out
+        if out:
+            return " ".join(out.split())
+        return " ".join(display_text.strip().split())
     except Exception as e:
         logger.warning(
             "[VOICEOVER_EXPAND] Failed to expand narration: %s",
             e,
         )
-        return display_text.strip()
+        return " ".join(display_text.strip().split())
