@@ -43,7 +43,7 @@ export default function VideoPreview({
   logoOpacityOverride,
   logoPositionOverride,
 }: VideoPreviewProps) {
-  const config = getTemplateConfig(project.template);
+  const config = useMemo(() => getTemplateConfig(project.template), [project.template]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = (project.template || "").startsWith("custom_");
@@ -337,10 +337,25 @@ export default function VideoPreview({
 
   // Preload images and voiceover so they're in browser cache when Remotion renders
   const [mediaReady, setMediaReady] = useState(false);
+  const [isPreloadingMedia, setIsPreloadingMedia] = useState(false);
+  const mediaSources = useMemo(
+    () =>
+      scenes
+        .flatMap((s) => [s.imageUrl, s.voiceoverUrl])
+        .filter(Boolean) as string[],
+    [scenes],
+  );
+  const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
   useEffect(() => {
+    let cancelled = false;
     setMediaReady(false);
-    const imageUrls = scenes.map((s) => s.imageUrl).filter(Boolean) as string[];
-    const audioUrls = scenes.map((s) => s.voiceoverUrl).filter(Boolean) as string[];
+    setIsPreloadingMedia(true);
+    const imageUrls = mediaSources.filter((src) =>
+      /\.(png|jpe?g|webp|gif|svg)(\?|$)/i.test(src),
+    );
+    const audioUrls = mediaSources.filter((src) =>
+      /\.(mp3|wav|m4a|ogg)(\?|$)/i.test(src),
+    );
 
     const imagePromises = imageUrls.map(
       (src) =>
@@ -357,19 +372,26 @@ export default function VideoPreview({
         new Promise<void>((resolve) => {
           const audio = document.createElement("audio");
           audio.preload = "auto";
+          audio.muted = true;
           const done = () => resolve();
           audio.addEventListener("canplaythrough", done, { once: true });
           audio.addEventListener("error", done, { once: true });
           audio.src = src;
-          // Safety timeout — don't block forever
-          setTimeout(done, 5000);
+          // Safety timeout — keep generous to avoid starting before media is warm.
+          setTimeout(done, 15000);
         }),
     );
 
-    Promise.all([...imagePromises, ...audioPromises]).then(() =>
-      setMediaReady(true),
-    );
-  }, [scenes]);
+    Promise.all([...imagePromises, ...audioPromises]).then(() => {
+      if (cancelled) return;
+      setMediaReady(true);
+      setIsPreloadingMedia(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaSourcesKey]);
 
   const isPortrait = project.aspect_ratio === "portrait";
 
@@ -522,25 +544,53 @@ export default function VideoPreview({
 
   const Composition = (isCustom && CustomComposition) ? CustomComposition : config.component;
 
-  // Show compiling / preloading state
-  if ((isCustom && isCompiling) || !mediaReady) {
+  const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
+
+  // Show unified loader until template + media are fully ready.
+  if (isPreviewLoading) {
     return (
       <div
         style={{
           width: "100%",
           height: "100%",
+          minWidth: 0,
+          minHeight: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#1a1a2e",
-          borderRadius: 8,
-          color: "#9ca3af",
-          fontSize: 14,
         }}
       >
-        {isCustom && isCompiling
-          ? "Compiling custom template..."
-          : "Loading media..."}
+        <div
+          style={{
+            maxWidth: "min(100%, 90vw)",
+            maxHeight: "min(100%, 90vh)",
+            width: isPortrait ? "auto" : "100%",
+            height: isPortrait ? "max(100%, 80vh)" : "auto",
+            aspectRatio: isPortrait ? "9/16" : "16/9",
+            minWidth: 0,
+            minHeight: 0,
+            backgroundColor: "#1a1a2e",
+            borderRadius: 8,
+            color: "#9ca3af",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div
+            className="animate-spin"
+            style={{
+              width: 28,
+              height: 28,
+              border: "3px solid rgba(255,255,255,0.2)",
+              borderTopColor: "#ffffff",
+              borderRadius: "50%",
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -572,7 +622,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${project.updated_at ?? ""}-${project.scenes.length}-${project.assets.length}`}
+          key={`preview-${project.id}`}
           component={Composition}
           inputProps={inputProps}
           durationInFrames={totalDurationFrames}
