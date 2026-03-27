@@ -374,6 +374,9 @@ export default function VideoPreview({
           audio.preload = "auto";
           audio.muted = true;
           const done = () => resolve();
+          // Consider audio ready only once metadata/playability is available.
+          audio.addEventListener("loadedmetadata", done, { once: true });
+          audio.addEventListener("canplay", done, { once: true });
           audio.addEventListener("canplaythrough", done, { once: true });
           audio.addEventListener("error", done, { once: true });
           audio.src = src;
