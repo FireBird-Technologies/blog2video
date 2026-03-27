@@ -22,28 +22,6 @@ CUSTOM_ARRANGEMENTS = [
 HERO_ARRANGEMENT = "full-center"
 FALLBACK_ARRANGEMENT = "top-bottom"
 
-# Style descriptors for the prompt
-_STYLE_DESCRIPTIONS = {
-    "minimal": "Clean, lots of whitespace, thin borders (1px), subtle shadows, understated elegance. No gradients or heavy effects.",
-    "glass": "Frosted glass panels with backdrop-blur, semi-transparent surfaces (rgba backgrounds), subtle border glow. Depth through transparency layers.",
-    "bold": "Heavy borders (3-4px), strong color contrast, large type sizes, solid color fills. Confident and attention-grabbing.",
-    "neon": "Dark backgrounds, glowing accent borders/text with box-shadow glow effects, vibrant saturated colors. Cyberpunk energy.",
-    "soft": "Pastel color palette, large border-radius (16px+), gentle gradients, rounded shapes. Warm and approachable.",
-}
-
-_ANIMATION_DESCRIPTIONS = {
-    "fade": "Smooth opacity transitions (0→1 over 20-30 frames). Elements fade in sequentially with slight delays.",
-    "slide": "Elements slide in from edges (translateX/translateY). Title from top, content from bottom, side elements from left/right.",
-    "spring": "Spring physics animations with slight overshoot (damping: 15, stiffness: 120). Bouncy, energetic entrance.",
-    "typewriter": "Text appears character-by-character with a blinking cursor. Non-text elements use quick fade-in.",
-}
-
-_PATTERN_DENSITY_DESCRIPTIONS = {
-    "compact": "Tight padding (16-24px), small gaps between elements, dense information layout.",
-    "balanced": "Moderate padding (28-40px), comfortable spacing, standard readability.",
-    "spacious": "Generous padding (48-64px), large gaps, breathing room around every element.",
-}
-
 # Mapping: theme layout direction → preferred arrangements
 _DIRECTION_TO_ARRANGEMENTS = {
     "centered": ["full-center", "top-bottom", "stacked", "grid-2x2"],
@@ -84,9 +62,9 @@ def build_custom_prompt(theme: dict, name: str) -> str:
     layout_dir = layout_pat.get("direction", "centered")
     decorative = layout_pat.get("decorativeElements", ["none"])
 
-    style_desc = _STYLE_DESCRIPTIONS.get(style, _STYLE_DESCRIPTIONS["minimal"])
-    anim_desc = _ANIMATION_DESCRIPTIONS.get(animation, _ANIMATION_DESCRIPTIONS["fade"])
-    density_desc = _PATTERN_DENSITY_DESCRIPTIONS.get(density, _PATTERN_DENSITY_DESCRIPTIONS["balanced"])
+    style_desc = f'A "{style}" visual style — interpret this aesthetic and apply it consistently across all scenes.'
+    anim_desc = f'A "{animation}" animation approach — interpret this motion energy and timing.'
+    density_desc = f'A "{density}" spacing density — interpret this layout density for padding and gaps.'
 
     decorative_str = ", ".join(decorative) if decorative else "none"
     preferred_arrangements = _DIRECTION_TO_ARRANGEMENTS.get(layout_dir, CUSTOM_ARRANGEMENTS[:4])
@@ -179,6 +157,7 @@ Choose arrangements that match the template's layout direction ({layout_dir}).
 | `quote` | `quote`, `author?`, `highlightPhrase?` | Testimonials, key statements |
 | `timeline` | `items[]` (label/text, description?) | Chronological events, milestones |
 | `steps` | `items[]` (text, description?) | Processes, how-to, numbered sequences |
+| `comparison` | `items[]` (label, description) — exactly 2 items | Before/after, pros/cons, old way/new way |
 | `icon-text` | `items[]` (text, icon) | Simple lists with emoji icons |
 
 ---
@@ -300,23 +279,50 @@ Choose decorations that match the template's decorative elements ({decorative_st
 """
 
 
-def build_custom_meta(theme: dict, name: str, supported_video_style: str = "explainer") -> dict[str, Any]:
+def build_custom_meta(
+    theme: dict,
+    name: str,
+    supported_video_style: str = "explainer",
+    content_codes_count: int = 0,
+) -> dict[str, Any]:
     """
     Generate a meta.json equivalent for a custom template.
     Returns the same shape as filesystem-based meta.json files.
+    All custom templates use the GeneratedVideo composition.
+
+    When content_codes_count > 0 (AI-generated code exists), valid_layouts
+    exposes variant IDs (intro, content_0, ..., outro) instead of arrangement
+    IDs so the layout picker shows scene-type variants.
+
+    NOTE: build_custom_prompt() above is still used by the DSPy scene generation
+    pipeline for narration/visual hints. This meta dict is for pipeline routing
+    (composition selection, layout dropdown in SceneEditModal).
     """
     colors = theme.get("colors", {})
-    patterns = theme.get("patterns", {})
-    layout_dir = patterns.get("layout", {}).get("direction", "centered")
-    preferred = _DIRECTION_TO_ARRANGEMENTS.get(layout_dir, CUSTOM_ARRANGEMENTS[:4])
-
-    arrangements = list(CUSTOM_ARRANGEMENTS)
 
     style = (supported_video_style or "explainer").strip().lower()
     if style not in {"explainer", "promotional", "storytelling"}:
         style = "explainer"
 
-    return {
+    # When generated code exists, expose variant-based layouts instead of arrangements
+    if content_codes_count > 0:
+        variant_layouts = ["intro"]
+        layout_names = {"intro": "Intro Scene"}
+        for i in range(content_codes_count):
+            key = f"content_{i}"
+            variant_layouts.append(key)
+            layout_names[key] = f"Content Style {i + 1}"
+        variant_layouts.append("outro")
+        layout_names["outro"] = "Outro Scene"
+
+        valid_layouts = variant_layouts
+        no_image_layouts: list[str] = []
+    else:
+        valid_layouts = list(CUSTOM_ARRANGEMENTS)
+        layout_names = {}
+        no_image_layouts = ["full-center", "stacked"]
+
+    meta: dict[str, Any] = {
         "id": "custom",
         "name": name,
         "description": f"Custom template: {name}",
@@ -326,16 +332,13 @@ def build_custom_meta(theme: dict, name: str, supported_video_style: str = "expl
             "bg": colors.get("bg", "#FFFFFF"),
             "text": colors.get("text", "#1A1A2E"),
         },
-        "composition_id": "CustomVideo",
+        "composition_id": "GeneratedVideo",
         "hero_layout": HERO_ARRANGEMENT,
-        "hero_arrangement": HERO_ARRANGEMENT,
         "fallback_layout": FALLBACK_ARRANGEMENT,
-        "fallback_arrangement": FALLBACK_ARRANGEMENT,
-        "valid_arrangements": arrangements,
-        "preferred_arrangements": preferred,
-        "arrangements_without_image": ["full-center", "stacked"],
-        # Expose arrangements as valid_layouts so the existing API pipeline
-        # (get_valid_layouts, /layouts endpoint, SceneEditModal) works unchanged.
-        "valid_layouts": arrangements,
-        "layouts_without_image": ["full-center", "stacked"],
+        # valid_layouts is used by SceneEditModal's layout dropdown
+        "valid_layouts": valid_layouts,
+        "layouts_without_image": no_image_layouts,
     }
+    if layout_names:
+        meta["layout_names"] = layout_names
+    return meta

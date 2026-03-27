@@ -103,6 +103,11 @@ def user_prefix(user_id: int) -> str:
     return f"{_prefix()}users/{user_id}/"
 
 
+def brand_asset_key(user_id: int, brand_kit_id: int, filename: str) -> str:
+    """R2 object key for a brand kit asset (logo, image)."""
+    return f"{_prefix()}users/{user_id}/brand-kits/{brand_kit_id}/{filename}"
+
+
 def voice_preview_key(user_id: int, voice_id: str) -> str:
     """R2 object key for a custom voice preview (cloned voice TTS clip)."""
     return f"{_prefix()}users/{user_id}/voices/{voice_id}/preview.mp3"

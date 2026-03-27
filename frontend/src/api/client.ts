@@ -1031,8 +1031,8 @@ export interface CustomTemplateTheme {
   colors: { accent: string; bg: string; text: string; surface: string; muted: string };
   fonts: { heading: string; body: string; mono: string };
   borderRadius: number;
-  style: "minimal" | "glass" | "bold" | "neon" | "soft";
-  animationPreset: "fade" | "slide" | "spring" | "typewriter";
+  style: string;
+  animationPreset: string;
   category: string;
   patterns: {
     cards: { corners: string; shadowDepth: string; borderStyle: string };
@@ -1050,8 +1050,28 @@ export interface CustomTemplateItem {
   supported_video_style: VideoStyleId;
   theme: CustomTemplateTheme;
   preview_colors: { accent: string; bg: string; text: string };
+  component_code: string | null;
+  intro_code: string | null;
+  outro_code: string | null;
+  content_codes: string[] | null;
+  content_archetype_ids: (string | { id: string; best_for?: string[] })[] | null;
+  current_version_id: number | null;
+  preview_image_url: string | null;
+  logo_urls?: string[];
+  og_image?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TemplateVersionItem {
+  id: number;
+  label: string;
+  created_at: string;
+}
+
+export interface TemplateVersionsResponse {
+  current_version_id: number | null;
+  versions: TemplateVersionItem[];
 }
 
 export interface ExtractThemeResponse {
@@ -1059,6 +1079,9 @@ export interface ExtractThemeResponse {
   reason: string;
   theme: CustomTemplateTheme | null;
   template_name: string;
+  logo_urls: string[];
+  og_image: string;
+  screenshot_url: string;
 }
 
 export const listCustomTemplates = () =>
@@ -1072,6 +1095,10 @@ export const createCustomTemplate = (data: {
   source_url?: string;
   theme: CustomTemplateTheme;
   supported_video_style?: VideoStyleId;
+  logo_urls?: string[];
+  og_image?: string;
+  screenshot_url?: string;
+  reason?: string;
 }) => api.post<CustomTemplateItem>("/custom-templates", data);
 
 export const updateCustomTemplate = (
@@ -1084,6 +1111,49 @@ export const deleteCustomTemplate = (id: number, force = false) =>
 
 export const extractTheme = (url: string) =>
   api.post<ExtractThemeResponse>("/custom-templates/extract-theme", { url });
+
+export const generateTemplateCode = (templateId: number) =>
+  api.post<{ detail: string; template_id: number }>(`/custom-templates/${templateId}/generate-code`);
+
+export interface CodeGenStatus {
+  status: "generating" | "complete" | "error" | "unknown";
+  step: string;
+  running: boolean;
+  error: string | null;
+}
+
+export const getCodeGenerationStatus = (templateId: number) =>
+  api.get<CodeGenStatus>(`/custom-templates/${templateId}/generation-status`);
+
+export const getTemplateCode = (templateId: number) =>
+  api.get<{ component_code: string | null; intro_code: string | null; outro_code: string | null; content_codes: string[] | null }>(
+    `/custom-templates/${templateId}/code`
+  );
+
+// ─── Brand asset uploads ────────────────────────────────────
+
+export const uploadTemplateLogo = (templateId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return api.post<{ logo_url: string; template: CustomTemplateItem }>(
+    `/custom-templates/${templateId}/upload-logo`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+};
+
+// ─── Template versioning & regeneration ─────────────────────
+
+export const regenerateTemplateCode = (templateId: number) =>
+  api.post<CustomTemplateItem>(`/custom-templates/${templateId}/regenerate-code`);
+
+export const getTemplateVersions = (templateId: number) =>
+  api.get<TemplateVersionsResponse>(`/custom-templates/${templateId}/versions`);
+
+export const rollbackTemplateVersion = (templateId: number, versionId: number) =>
+  api.post<CustomTemplateItem>(
+    `/custom-templates/${templateId}/versions/${versionId}/rollback`
+  );
 
 // ─── ElevenLabs voices (default / available) ─────────────────
 
