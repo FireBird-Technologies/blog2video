@@ -1,20 +1,9 @@
 import dspy
-import math
 
 from app.dspy_modules import ensure_dspy_configured
 from app.observability.logging import get_logger
 
 logger = get_logger(__name__)
-WORDS_PER_SECOND_ESTIMATE = 2.5
-MIN_VOICEOVER_SECONDS = 6.0
-MAX_VOICEOVER_SECONDS = 15.0
-MIN_VOICEOVER_WORDS = math.ceil(WORDS_PER_SECOND_ESTIMATE * MIN_VOICEOVER_SECONDS)
-MAX_VOICEOVER_WORDS = math.ceil(WORDS_PER_SECOND_ESTIMATE * MAX_VOICEOVER_SECONDS)
-STYLE_WORD_LIMITS: dict[str, tuple[int, int]] = {
-    "explainer": (12, 25),
-    "promotional": (10, 18),
-    "storytelling": (15, 30),
-}
 
 
 class ExpandNarrationToVoiceover(dspy.Signature):
@@ -35,8 +24,8 @@ class ExpandNarrationToVoiceover(dspy.Signature):
     - Maximum allowed size: 1.3× original word count
     - Prefer slightly longer or equal length when possible
     - Length MUST follow style-specific word ranges:
-      - explainer: 12–25 words
-      - promotional: 10–20 words
+      - explainer: 15–25 words
+      - promotional: 15–20 words
       - storytelling: 15–30 words
     - Keep output medium-length and naturally speakable.
 
@@ -115,14 +104,10 @@ async def expand_narration_to_voiceover(
     if not (display_text and display_text.strip()):
         return ""
 
-    # If display text is already long, clamp to medium range and skip expansion.
+    # If display text is already long, skip expansion.
     word_count = len(display_text.split())
     if word_count > 50:
-        return _normalize_voiceover_words(
-            display_text.strip(),
-            display_text,
-            video_style,
-        )
+        return " ".join(display_text.strip().split())
 
     predictor_async = _get_predictor()
 
@@ -137,43 +122,11 @@ async def expand_narration_to_voiceover(
         )
         out = (result.expanded_voiceover or "").strip()
         if out:
-            return _normalize_voiceover_words(out, display_text, style)
-        return _normalize_voiceover_words(display_text.strip(), display_text, style)
+            return " ".join(out.split())
+        return " ".join(display_text.strip().split())
     except Exception as e:
         logger.warning(
             "[VOICEOVER_EXPAND] Failed to expand narration: %s",
             e,
         )
-        return _normalize_voiceover_words(display_text.strip(), display_text, style)
-
-
-def _style_word_limits(video_style: str) -> tuple[int, int]:
-    style = (video_style or "explainer").strip().lower() or "explainer"
-    return STYLE_WORD_LIMITS.get(style, (MIN_VOICEOVER_WORDS, MAX_VOICEOVER_WORDS))
-
-
-def _normalize_voiceover_words(text: str, fallback: str, video_style: str) -> str:
-    """Keep voiceover in a style-specific medium range."""
-    cleaned = (text or "").strip()
-    base = (fallback or "").strip()
-    if not cleaned:
-        cleaned = base
-    if not cleaned:
-        return ""
-
-    min_words, max_words = _style_word_limits(video_style)
-    words = cleaned.split()
-    if len(words) > max_words:
-        return " ".join(words[:max_words])
-    if len(words) >= min_words:
-        return cleaned
-
-    # Language-agnostic fallback: repeat source wording until minimum is reached.
-    source_words = base.split() if base else words
-    if not source_words:
-        source_words = words
-    needed = min_words - len(words)
-    extension = []
-    while len(extension) < needed:
-        extension.extend(source_words)
-    return " ".join(words + extension[:needed])
+        return " ".join(display_text.strip().split())
