@@ -172,7 +172,9 @@ export default function CustomPreview({
   const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
 
   const sceneSampleProps = useMemo(() => {
-    const imageProps = ogImage ? { imageUrl: ogImage } : previewImageUrl ? { imageUrl: previewImageUrl } : {};
+    // Only pass ogImage. Never use previewImageUrl as an image prop, as that is the template's
+    // own thumbnail and will cause a broken recursive image load, resulting in empty space.
+    const imageProps = ogImage ? { imageUrl: ogImage } : {};
     const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
     const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
     const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };

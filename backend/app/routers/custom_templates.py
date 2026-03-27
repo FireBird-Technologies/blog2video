@@ -154,7 +154,12 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
         bk = tpl.brand_kit
         try:
             logos_raw = json.loads(bk.logos) if isinstance(bk.logos, str) else (bk.logos or [])
-            logo_urls = [u for u in logos_raw if isinstance(u, str) and u]
+            logo_urls = []
+            for u in logos_raw:
+                if isinstance(u, str) and u:
+                    logo_urls.append(u)
+                elif isinstance(u, dict) and u.get("url"):
+                    logo_urls.append(u["url"])
         except (json.JSONDecodeError, TypeError):
             pass
         try:
