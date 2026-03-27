@@ -244,6 +244,36 @@ def _validate_supported_video_style(style: str | None) -> str:
 # ─── Endpoints ────────────────────────────────────────────────
 
 
+@router.get("/public/featured")
+def get_public_featured_templates(
+    ids: str = Query(..., description="Comma-separated template IDs, e.g. 13,18,7"),
+    db: Session = Depends(get_db)
+):
+    """Fetch specific custom templates publicly to showcase them."""
+    id_list = [int(x.strip()) for x in ids.split(',') if x.strip().isdigit()]
+    if not id_list:
+         return []
+    
+    templates = (
+        db.query(CustomTemplate)
+        .options(joinedload(CustomTemplate.brand_kit))
+        .filter(CustomTemplate.id.in_(id_list))
+        .all()
+    )
+    
+    tpl_map = {t.id: t for t in templates}
+    results = []
+    for tid in id_list:
+        if tid in tpl_map:
+            ser = _serialize_template(tpl_map[tid])
+            ser["intro_code"] = tpl_map[tid].intro_code
+            ser["content_codes"] = json.loads(tpl_map[tid].content_codes) if tpl_map[tid].content_codes else None
+            ser["outro_code"] = tpl_map[tid].outro_code
+            results.append(ser)
+            
+    return results
+
+
 @router.post("/extract-theme", response_model=ExtractThemeResponse)
 async def extract_theme(
     data: ExtractThemeRequest,

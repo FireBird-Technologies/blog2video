@@ -13,11 +13,140 @@ import {
   type SceneProps,
 } from "../utils/compileComponent";
 
+const StableCustomComposition: React.FC<any> = ({
+  isCustom,
+  compiledScenes,
+  scenes,
+  project,
+  numContentVariants,
+  resolvedFontFamily,
+}) => {
+  if (!isCustom || !compiledScenes) return null;
+
+  const brandColors: SceneProps["brandColors"] = project.custom_theme
+    ? {
+        primary: project.custom_theme.colors.accent,
+        secondary: project.custom_theme.colors.surface,
+        accent: project.custom_theme.colors.accent,
+        background: project.custom_theme.colors.bg,
+        text: project.custom_theme.colors.text,
+      }
+    : {
+        primary: project.accent_color || "#7C3AED",
+        secondary: "#F5F5F5",
+        accent: project.accent_color || "#7C3AED",
+        background: project.bg_color || "#FFFFFF",
+        text: project.text_color || "#1A1A2E",
+      };
+
+  const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
+  const totalScenes = scenes.length;
+  const FPS = 30;
+
+  const sceneAssignments: { type: string; variantKey: string }[] = [];
+  let contentIdx = 0;
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = project.scenes[i];
+    let sceneType = "content";
+    let variantIdx = 0;
+
+    if (scene?.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.sceneTypeOverride && ["intro", "content", "outro"].includes(desc.sceneTypeOverride)) {
+          sceneType = desc.sceneTypeOverride;
+        } else if (i === 0) {
+          sceneType = "intro";
+        } else if (i === totalScenes - 1 && totalScenes > 1) {
+          sceneType = "outro";
+        }
+        if (sceneType === "content" && typeof desc.contentVariantIndex === "number") {
+          variantIdx = desc.contentVariantIndex;
+        }
+      } catch { /* ignore */ }
+    } else {
+      if (i === 0) sceneType = "intro";
+      else if (i === totalScenes - 1 && totalScenes > 1) sceneType = "outro";
+    }
+
+    if (sceneType === "content") {
+      if (variantIdx === 0 && !scene?.remotion_code?.includes("contentVariantIndex")) {
+        variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
+      }
+      contentIdx++;
+      sceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
+    } else {
+      sceneAssignments.push({ type: sceneType, variantKey: sceneType });
+    }
+  }
+
+  const frameOffsets: number[] = [];
+  const frameDurations: number[] = [];
+  let offset = 0;
+  for (const s of scenes) {
+    frameOffsets.push(offset);
+    const dur = Math.max(1, Math.round(s.durationSeconds * FPS));
+    frameDurations.push(dur);
+    offset += dur;
+  }
+
+  return (
+    <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
+      {scenes.map((s: any, i: number) => {
+        const assignment = sceneAssignments[i];
+        const SceneComp =
+          compiledScenes[assignment.variantKey] ||
+          compiledScenes["intro"] ||
+          Object.values(compiledScenes)[0];
+
+        if (!SceneComp) return null;
+
+        const sc = (s.structuredContent || {}) as Record<string, unknown>;
+        const sceneProps: SceneProps = {
+          displayText: s.narration || s.title,
+          narrationText: s.narration || "",
+          imageUrl: s.imageUrl,
+          sceneIndex: i,
+          totalScenes,
+          logoUrl: project.logo_r2_url || undefined,
+          brandColors,
+          aspectRatio,
+          contentType: sc.contentType as SceneProps["contentType"],
+          bullets: sc.bullets as string[] | undefined,
+          metrics: sc.metrics as SceneProps["metrics"],
+          codeLines: sc.codeLines as string[] | undefined,
+          codeLanguage: sc.codeLanguage as string | undefined,
+          quote: sc.quote as string | undefined,
+          quoteAuthor: sc.quoteAuthor as string | undefined,
+          comparisonLeft: sc.comparisonLeft as SceneProps["comparisonLeft"],
+          comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
+          timelineItems: sc.timelineItems as SceneProps["timelineItems"],
+          steps: sc.steps as string[] | undefined,
+          titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
+          descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
+        };
+
+        return (
+          <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
+            <SceneComp {...sceneProps} />
+            {s.voiceoverUrl && <Audio src={s.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
 interface VideoPreviewProps {
   project: Project;
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
+  precompiledTemplateData?: {
+    intro_code: string | null;
+    content_codes: string[] | null;
+    outro_code: string | null;
+  };
 }
 
 interface SceneInput {
@@ -42,6 +171,7 @@ export default function VideoPreview({
   logoSizeOverride,
   logoOpacityOverride,
   logoPositionOverride,
+  precompiledTemplateData,
 }: VideoPreviewProps) {
   const config = useMemo(() => getTemplateConfig(project.template), [project.template]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
@@ -60,7 +190,7 @@ export default function VideoPreview({
 
     setIsCompiling(true);
     try {
-      const { data } = await getTemplateCode(templateId);
+      const data = precompiledTemplateData || (await getTemplateCode(templateId)).data;
       const map: CompiledSceneMap = {};
 
       // Compile intro
@@ -87,7 +217,7 @@ export default function VideoPreview({
     } finally {
       setIsCompiling(false);
     }
-  }, [isCustom, project.template]);
+  }, [isCustom, project.template, precompiledTemplateData]);
 
   useEffect(() => {
     compileCustomTemplate();
@@ -419,133 +549,7 @@ export default function VideoPreview({
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-  const CustomComposition: React.FC | null = useMemo(() => {
-    if (!isCustom || !compiledScenes) return null;
-
-    const brandColors: SceneProps["brandColors"] = project.custom_theme
-      ? {
-          primary: project.custom_theme.colors.accent,
-          secondary: project.custom_theme.colors.surface,
-          accent: project.custom_theme.colors.accent,
-          background: project.custom_theme.colors.bg,
-          text: project.custom_theme.colors.text,
-        }
-      : {
-          primary: project.accent_color || "#7C3AED",
-          secondary: "#F5F5F5",
-          accent: project.accent_color || "#7C3AED",
-          background: project.bg_color || "#FFFFFF",
-          text: project.text_color || "#1A1A2E",
-        };
-
-    const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
-    const totalScenes = scenes.length;
-    const FPS = 30;
-
-    // Determine scene type and variant for each scene
-    // Backend now persists contentVariantIndex to DB via content-aware matching
-    const sceneAssignments: { type: string; variantKey: string }[] = [];
-    let contentIdx = 0;
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = project.scenes[i];
-      let sceneType = "content";
-      let variantIdx = 0;
-
-      if (scene?.remotion_code) {
-        try {
-          const desc = JSON.parse(scene.remotion_code);
-          // Priority: sceneTypeOverride > position-based
-          if (desc.sceneTypeOverride && ["intro", "content", "outro"].includes(desc.sceneTypeOverride)) {
-            sceneType = desc.sceneTypeOverride;
-          } else if (i === 0) {
-            sceneType = "intro";
-          } else if (i === totalScenes - 1 && totalScenes > 1) {
-            sceneType = "outro";
-          }
-          // Read variant index directly — persisted by backend
-          if (sceneType === "content" && typeof desc.contentVariantIndex === "number") {
-            variantIdx = desc.contentVariantIndex;
-          }
-        } catch { /* ignore */ }
-      } else {
-        if (i === 0) sceneType = "intro";
-        else if (i === totalScenes - 1 && totalScenes > 1) sceneType = "outro";
-      }
-
-      if (sceneType === "content") {
-        // Legacy fallback: cycle evenly if no contentVariantIndex from DB
-        if (variantIdx === 0 && !scene?.remotion_code?.includes("contentVariantIndex")) {
-          variantIdx = numContentVariants > 0 ? contentIdx % numContentVariants : 0;
-        }
-        contentIdx++;
-        sceneAssignments.push({ type: "content", variantKey: `content_${variantIdx}` });
-      } else {
-        sceneAssignments.push({ type: sceneType, variantKey: sceneType });
-      }
-    }
-
-    // Pre-compute frame offsets for each scene
-    const frameOffsets: number[] = [];
-    const frameDurations: number[] = [];
-    let offset = 0;
-    for (const s of scenes) {
-      frameOffsets.push(offset);
-      const dur = Math.max(1, Math.round(s.durationSeconds * FPS));
-      frameDurations.push(dur);
-      offset += dur;
-    }
-
-    // Build the composition
-    const Comp: React.FC = () => (
-      <AbsoluteFill style={{ fontFamily: resolvedFontFamily || undefined }}>
-        {scenes.map((s, i) => {
-          const assignment = sceneAssignments[i];
-          const SceneComp =
-            compiledScenes[assignment.variantKey] ||
-            compiledScenes["intro"] ||
-            Object.values(compiledScenes)[0];
-
-          if (!SceneComp) return null;
-
-          const sc = (s.structuredContent || {}) as Record<string, unknown>;
-          const sceneProps: SceneProps = {
-            displayText: s.narration || s.title,
-            narrationText: s.narration || "",
-            imageUrl: s.imageUrl,
-            sceneIndex: i,
-            totalScenes,
-            logoUrl: project.logo_r2_url || undefined,
-            brandColors,
-            aspectRatio,
-            contentType: sc.contentType as SceneProps["contentType"],
-            bullets: sc.bullets as string[] | undefined,
-            metrics: sc.metrics as SceneProps["metrics"],
-            codeLines: sc.codeLines as string[] | undefined,
-            codeLanguage: sc.codeLanguage as string | undefined,
-            quote: sc.quote as string | undefined,
-            quoteAuthor: sc.quoteAuthor as string | undefined,
-            comparisonLeft: sc.comparisonLeft as SceneProps["comparisonLeft"],
-            comparisonRight: sc.comparisonRight as SceneProps["comparisonRight"],
-            timelineItems: sc.timelineItems as SceneProps["timelineItems"],
-            steps: sc.steps as string[] | undefined,
-            titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
-            descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
-          };
-
-          return (
-            <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
-              <SceneComp {...sceneProps} />
-              {s.voiceoverUrl && <Audio src={s.voiceoverUrl} />}
-            </Sequence>
-          );
-        })}
-      </AbsoluteFill>
-    );
-
-    return Comp;
-  }, [isCustom, compiledScenes, scenes, project, numContentVariants, resolvedFontFamily]);
-
-  const Composition = (isCustom && CustomComposition) ? CustomComposition : config.component;
+  const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
 
   const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
 
@@ -625,9 +629,17 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}`}
+          key={`preview-${project.id}-${mediaSourcesKey}`}
           component={Composition}
-          inputProps={inputProps}
+          inputProps={{
+            ...inputProps,
+            isCustom,
+            compiledScenes,
+            scenes,
+            project,
+            numContentVariants,
+            resolvedFontFamily,
+          }}
           durationInFrames={totalDurationFrames}
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
