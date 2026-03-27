@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db, SessionLocal
+from app.config import settings
 from app.auth import get_current_user
 from app.models.user import User
 from app.models.custom_template import CustomTemplate
@@ -549,6 +550,11 @@ async def generate_code(
 ):
     """Launch AI code generation in the background. Returns 202 immediately."""
     _check_ai_rate_limit(user.id)
+    if not (settings.ANTHROPIC_API_KEY or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
+        )
     tpl = _get_user_template(template_id, user.id, db)
 
     # Check if already running
@@ -679,6 +685,11 @@ async def regenerate_code(
     from app.services.code_generator import generate_component_code
 
     _check_ai_rate_limit(user.id)
+    if not (settings.ANTHROPIC_API_KEY or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="ANTHROPIC_API_KEY is required for AI template code generation.",
+        )
     tpl = _get_user_template(template_id, user.id, db)
 
     if not tpl.intro_code:

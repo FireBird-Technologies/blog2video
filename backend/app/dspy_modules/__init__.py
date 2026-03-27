@@ -34,12 +34,7 @@ def ensure_dspy_configured():
 
 
 def get_custom_lm() -> dspy.LM:
-    """Get or create the code generation LM (Sonnet 4.6, temp 0.7, 5120 max tokens).
-
-    Used for code generation in the custom template flow.
-    Higher temperature for creative diversity. 8192 tokens to accommodate larger scenes
-    (up to ~500 lines of JSX) without truncation causing unbalanced braces.
-    """
+    """Claude Sonnet 4.6 via LiteLLM for custom-template Remotion codegen (app.services.code_generator)."""
     global _codegen_lm
     if _codegen_lm is not None:
         return _codegen_lm
@@ -50,8 +45,7 @@ def get_custom_lm() -> dspy.LM:
             "anthropic/claude-sonnet-4-6",
             api_key=settings.ANTHROPIC_API_KEY,
             temperature=0.7,
-            max_tokens=8192,
-            cache_control_injection_points=[{"location": "message", "role": "system"}],
+            max_tokens=12000,
         )
         return _codegen_lm
 

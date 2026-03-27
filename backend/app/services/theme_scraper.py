@@ -3,6 +3,7 @@ Theme Scraper — Scrapes a URL using Firecrawl to extract HTML/CSS/metadata
 for theme analysis. Returns raw content for the ThemeExtractor DSPy module.
 """
 
+import base64
 import logging
 import time
 from dataclasses import dataclass, field
@@ -34,27 +35,72 @@ class ScrapedThemeData:
     branding: dict | None = None                          # Firecrawl branding format data (if plan supports it)
 
 
+_NAV_TAGS = {"header", "nav"}
+_NAV_ATTRS = {"header", "nav", "navbar", "navigation", "topbar", "top-bar", "site-header"}
+
+
+def _is_in_nav(tag) -> bool:  # type: ignore[no-untyped-def]
+    """Return True if this tag lives inside a <header> or <nav>, or a container
+    whose class/id contains nav-like keywords. These are almost certainly the
+    brand's own primary logo, not a partner/sponsor logo."""
+    for parent in tag.parents:
+        name = getattr(parent, "name", None)
+        if name in _NAV_TAGS:
+            return True
+        classes = " ".join(parent.get("class", [])).lower() if hasattr(parent, "get") else ""
+        pid = (parent.get("id", "") or "").lower() if hasattr(parent, "get") else ""
+        combined = classes + " " + pid
+        if any(kw in combined for kw in _NAV_ATTRS):
+            return True
+    return False
+
+
+def _svg_to_data_uri(svg_tag) -> str | None:  # type: ignore[no-untyped-def]
+    """Serialize a BeautifulSoup SVG tag to a base64 data URI. Returns None if too large."""
+    svg_str = str(svg_tag)
+    if len(svg_str) >= 50_000:
+        return None
+    b64 = base64.b64encode(svg_str.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{b64}"
+
+
 def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str]:
-    """Extract probable logo image URLs from HTML with multiple fallbacks."""
+    """Extract probable logo image URLs from HTML, ordered by confidence.
+
+    Priority buckets (index 0 = highest confidence = used as main logo):
+      Tier 1 — SVG logo inside header/nav             (brand's own inline SVG)
+      Tier 2 — <img> logo inside header/nav           (brand's own raster/SVG file)
+      Tier 3 — SVG logo anywhere on page              (likely brand, may be footer copy)
+      Tier 4 — <img> logo anywhere on page            (may include partner logos)
+      Tier 5 — apple-touch-icon                       (brand icon, no partner risk)
+      Tier 6 — og:image                               (open-graph brand image)
+      Tier 7 — <link rel="icon"> favicon              (tiny, last resort)
+      Tier 8 — /favicon.ico                           (absolute last resort)
+    """
     try:
         from bs4 import BeautifulSoup
     except ImportError:
         return []
 
-    logos: list[str] = []
+    # One list per tier — filled independently, merged at the end
+    tiers: list[list[str]] = [[] for _ in range(8)]
+
     try:
-        # Only parse first 100K — logos are in <head> or early <body>
         soup = BeautifulSoup(html[:100_000], "html.parser")
 
-        # <link rel="icon"> and apple-touch-icon
-        for link in soup.find_all("link", rel=True):
-            rels = link.get("rel", [])
-            if any(r in ("icon", "apple-touch-icon", "shortcut") for r in rels):
-                href = link.get("href", "")
-                if href:
-                    logos.append(urljoin(base_url, href))
+        # ── Tier 1 & 3: inline SVG logos ──────────────────────────────────
+        for svg in soup.find_all("svg"):
+            svg_attrs = " ".join([
+                " ".join(svg.get("class", [])),
+                svg.get("id", ""),
+                svg.get("aria-label", ""),
+            ]).lower()
+            if "logo" in svg_attrs:
+                uri = _svg_to_data_uri(svg)
+                if uri:
+                    (tiers[0] if _is_in_nav(svg) else tiers[2]).append(uri)
 
-        # <img> tags with logo-related attributes
+        # ── Tier 2 & 4: <img> tags with logo-related attributes ───────────
         for img in soup.find_all("img"):
             attrs_text = " ".join([
                 img.get("src", ""),
@@ -65,42 +111,38 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
             if "logo" in attrs_text:
                 src = img.get("src", "")
                 if src and not src.startswith("data:"):
-                    logos.append(urljoin(base_url, src))
+                    url = urljoin(base_url, src)
+                    (tiers[1] if _is_in_nav(img) else tiers[3]).append(url)
 
-        # SVG elements with logo-like classes/ids
-        for svg in soup.find_all("svg"):
-            svg_attrs = " ".join([
-                " ".join(svg.get("class", [])),
-                svg.get("id", ""),
-                svg.get("aria-label", ""),
-            ]).lower()
-            if "logo" in svg_attrs:
-                # SVG logos can't be used as URLs, but parent <a> may have an img nearby
-                parent = svg.find_parent("a")
-                if parent:
-                    nearby_img = parent.find("img")
-                    if nearby_img and nearby_img.get("src"):
-                        logos.append(urljoin(base_url, nearby_img["src"]))
+        # ── Tier 5: apple-touch-icon ───────────────────────────────────────
+        for link in soup.find_all("link", rel=True):
+            rels = link.get("rel", [])
+            href = link.get("href", "")
+            if not href:
+                continue
+            if any(r == "apple-touch-icon" for r in rels):
+                tiers[4].append(urljoin(base_url, href))
+            elif any(r in ("icon", "shortcut") for r in rels):
+                tiers[6].append(urljoin(base_url, href))
 
     except Exception:
         pass  # Never let logo extraction break the scrape
 
-    # Fallback: og:image as logo candidate
-    if og_image and og_image not in logos:
-        logos.append(og_image)
+    # ── Tier 6: og:image ──────────────────────────────────────────────────
+    if og_image:
+        tiers[5].append(og_image)
 
-    # Fallback: favicon.ico
-    favicon_url = urljoin(base_url, "/favicon.ico")
-    if favicon_url not in logos:
-        logos.append(favicon_url)
+    # ── Tier 8: /favicon.ico ──────────────────────────────────────────────
+    tiers[7].append(urljoin(base_url, "/favicon.ico"))
 
-    # Deduplicate and limit to 5
+    # Merge tiers in order, deduplicate, cap at 5
     seen: set[str] = set()
     result: list[str] = []
-    for url in logos:
-        if url not in seen and len(result) < 5:
-            seen.add(url)
-            result.append(url)
+    for tier in tiers:
+        for url in tier:
+            if url not in seen and len(result) < 5:
+                seen.add(url)
+                result.append(url)
     return result
 
 
