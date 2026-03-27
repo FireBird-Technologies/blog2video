@@ -39,35 +39,32 @@ ELEVENLABS_VOICE_META_URL = "https://api.elevenlabs.io/v1/voices/{voice_id}"
 def _voice_settings_for_video_style(video_style: str | None) -> dict | None:
     """Return ElevenLabs voice_settings tuned by video style.
 
-    Promotional  → punchy ad delivery: very low stability (high variation),
-                   high style exaggeration, strong speaker presence.
-    Storytelling → warm narrator: moderate stability, rich emotional style,
-                   enough consistency to sustain a long story.
-    Explainer    → clear lecture voice: high stability (steady pacing),
-                   minimal style exaggeration, authoritative but not robotic.
+    Promotional  → ad-like delivery: dynamic emphasis, high energy, punchy cadence.
+    Storytelling → cinematic narrator: expressive and warm, but coherent across scenes.
+    Explainer    → documentary narration: steady, authoritative, cinematic and clear.
     """
     style = (video_style or "explainer").strip().lower()
 
     if style == "promotional":
         return {
-            "stability": 0.30,
-            "similarity_boost": 0.75,
-            "style": 0.90,
+            "stability": 0.22,
+            "similarity_boost": 0.72,
+            "style": 0.95,
             "use_speaker_boost": True,
         }
 
     if style == "storytelling":
         return {
-            "stability": 0.45,
-            "similarity_boost": 0.80,
-            "style": 0.70,
+            "stability": 0.50,
+            "similarity_boost": 0.82,
+            "style": 0.82,
             "use_speaker_boost": True,
         }
         
     return {
-        "stability": 0.75,
-        "similarity_boost": 0.85,
-        "style": 0.20,
+        "stability": 0.82,
+        "similarity_boost": 0.90,
+        "style": 0.38,
         "use_speaker_boost": True,
     }
 
@@ -122,8 +119,279 @@ def _fetch_voice_meta(voice_id: str) -> dict | None:
 
 WORDS_PER_SECOND = 2.5  # average speaking pace for duration estimation
 
+SUPPORTED_CONTENT_LANGUAGE_CODES = {
+    "ar", "bn", "cs", "da", "de", "el", "en", "es", "fa", "fi", "fr", "gu",
+    "he", "hi", "hu", "id", "it", "ja", "ko", "ml", "mr", "nl", "no", "pa",
+    "pl", "pt", "ro", "ru", "sv", "ta", "te", "th", "tr", "uk", "ur", "vi",
+    "zh-cn", "zh-tw",
+}
 
-def _spell_digits_for_tts(text: str) -> str:
+
+def _normalize_language_key(content_language: str | None) -> str:
+    raw = (content_language or "").strip().lower()
+    if not raw:
+        return "en"
+    mapping = {
+        "en": "en",
+        "english": "en",
+        "es": "es",
+        "spanish": "es",
+        "fr": "fr",
+        "french": "fr",
+        "de": "de",
+        "german": "de",
+        "it": "it",
+        "italian": "it",
+        "pt": "pt",
+        "portuguese": "pt",
+        "hi": "hi",
+        "hindi": "hi",
+        "ar": "ar",
+        "arabic": "ar",
+        "bn": "bn",
+        "bengali": "bn",
+        "cs": "cs",
+        "czech": "cs",
+        "da": "da",
+        "danish": "da",
+        "el": "el",
+        "greek": "el",
+        "fa": "fa",
+        "persian": "fa",
+        "farsi": "fa",
+        "fi": "fi",
+        "finnish": "fi",
+        "gu": "gu",
+        "gujarati": "gu",
+        "he": "he",
+        "hebrew": "he",
+        "hu": "hu",
+        "hungarian": "hu",
+        "id": "id",
+        "indonesian": "id",
+        "ja": "ja",
+        "japanese": "ja",
+        "ko": "ko",
+        "korean": "ko",
+        "ml": "ml",
+        "malayalam": "ml",
+        "mr": "mr",
+        "marathi": "mr",
+        "nl": "nl",
+        "dutch": "nl",
+        "no": "no",
+        "norwegian": "no",
+        "pa": "pa",
+        "punjabi": "pa",
+        "pl": "pl",
+        "polish": "pl",
+        "ro": "ro",
+        "romanian": "ro",
+        "ru": "ru",
+        "russian": "ru",
+        "sv": "sv",
+        "swedish": "sv",
+        "ta": "ta",
+        "tamil": "ta",
+        "te": "te",
+        "telugu": "te",
+        "th": "th",
+        "thai": "th",
+        "tr": "tr",
+        "turkish": "tr",
+        "uk": "uk",
+        "ukrainian": "uk",
+        "ur": "ur",
+        "urdu": "ur",
+        "vi": "vi",
+        "vietnamese": "vi",
+        "zh-cn": "zh-cn",
+        "chinese (simplified)": "zh-cn",
+        "zh-tw": "zh-tw",
+        "chinese (traditional)": "zh-tw",
+    }
+    if raw in mapping:
+        return mapping[raw]
+    if raw in SUPPORTED_CONTENT_LANGUAGE_CODES:
+        return raw
+    base = raw.split("-")[0] if "-" in raw else raw
+    if base in SUPPORTED_CONTENT_LANGUAGE_CODES:
+        return base
+    return base or "en"
+
+
+def _number_lexicon(content_language: str | None) -> tuple[dict[str, str], dict[str, str]]:
+    """Return (digit_map, symbol_map) for TTS number expansion in target language."""
+    lang = _normalize_language_key(content_language)
+    lexicons: dict[str, tuple[dict[str, str], dict[str, str]]] = {
+        "en": (
+            {"0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine"},
+            {"$": "dollar", "€": "euro", "£": "pound", "₹": "rupee", ".": "point", "/": "slash", "-": "dash", "%": "percent"},
+        ),
+        "ar": (
+            {"0": "sifr", "1": "wahid", "2": "ithnan", "3": "thalatha", "4": "arbaa", "5": "khamsa", "6": "sitta", "7": "sabaa", "8": "thamaniya", "9": "tisaa"},
+            {"$": "dolar", "€": "yuro", "£": "jinayh", "₹": "rubiya", ".": "fasila", "/": "slash", "-": "waseela", "%": "bil mia"},
+        ),
+        "bn": (
+            {"0": "shunyo", "1": "ek", "2": "dui", "3": "tin", "4": "char", "5": "pach", "6": "chhoy", "7": "sat", "8": "at", "9": "noy"},
+            {"$": "dolar", "€": "euro", "£": "pound", "₹": "rupi", ".": "doshomik", "/": "slash", "-": "dash", "%": "shotangsho"},
+        ),
+        "cs": (
+            {"0": "nula", "1": "jedna", "2": "dva", "3": "tri", "4": "ctyri", "5": "pet", "6": "sest", "7": "sedm", "8": "osm", "9": "devet"},
+            {"$": "dolar", "€": "euro", "£": "libra", "₹": "rupie", ".": "carka", "/": "lomitko", "-": "pomlcka", "%": "procent"},
+        ),
+        "da": (
+            {"0": "nul", "1": "en", "2": "to", "3": "tre", "4": "fire", "5": "fem", "6": "seks", "7": "syv", "8": "otte", "9": "ni"},
+            {"$": "dollar", "€": "euro", "£": "pund", "₹": "rupi", ".": "komma", "/": "skraastreg", "-": "bindestreg", "%": "procent"},
+        ),
+        "es": (
+            {"0": "cero", "1": "uno", "2": "dos", "3": "tres", "4": "cuatro", "5": "cinco", "6": "seis", "7": "siete", "8": "ocho", "9": "nueve"},
+            {"$": "dolar", "€": "euro", "£": "libra", "₹": "rupia", ".": "coma", "/": "barra", "-": "guion", "%": "por ciento"},
+        ),
+        "el": (
+            {"0": "miden", "1": "ena", "2": "dyo", "3": "tria", "4": "tessera", "5": "pente", "6": "eksi", "7": "efta", "8": "okto", "9": "ennea"},
+            {"$": "dolario", "€": "evro", "£": "lira", "₹": "roupia", ".": "komma", "/": "kathestos", "-": "pavla", "%": "tois ekato"},
+        ),
+        "fa": (
+            {"0": "sefr", "1": "yek", "2": "do", "3": "se", "4": "chahar", "5": "panj", "6": "shesh", "7": "haft", "8": "hasht", "9": "noh"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupiye", ".": "momayez", "/": "slash", "-": "khat tire", "%": "darsad"},
+        ),
+        "fi": (
+            {"0": "nolla", "1": "yksi", "2": "kaksi", "3": "kolme", "4": "nelja", "5": "viisi", "6": "kuusi", "7": "seitseman", "8": "kahdeksan", "9": "yhdeksan"},
+            {"$": "dollari", "€": "euro", "£": "punta", "₹": "rupia", ".": "pilkku", "/": "kauttaviiva", "-": "tavuviiva", "%": "prosenttia"},
+        ),
+        "fr": (
+            {"0": "zero", "1": "un", "2": "deux", "3": "trois", "4": "quatre", "5": "cinq", "6": "six", "7": "sept", "8": "huit", "9": "neuf"},
+            {"$": "dollar", "€": "euro", "£": "livre", "₹": "roupie", ".": "virgule", "/": "barre", "-": "tiret", "%": "pour cent"},
+        ),
+        "gu": (
+            {"0": "shunya", "1": "ek", "2": "be", "3": "tran", "4": "char", "5": "panch", "6": "chh", "7": "sat", "8": "aath", "9": "nav"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupiyo", ".": "dashansh", "/": "slash", "-": "dash", "%": "takaa"},
+        ),
+        "he": (
+            {"0": "efes", "1": "echad", "2": "shtayim", "3": "shalosh", "4": "arba", "5": "chamesh", "6": "shesh", "7": "sheva", "8": "shmone", "9": "tesha"},
+            {"$": "dolar", "€": "euro", "£": "libra", "₹": "rupiya", ".": "nekuda", "/": "slash", "-": "makaf", "%": "ahuz"},
+        ),
+        "de": (
+            {"0": "null", "1": "eins", "2": "zwei", "3": "drei", "4": "vier", "5": "funf", "6": "sechs", "7": "sieben", "8": "acht", "9": "neun"},
+            {"$": "dollar", "€": "euro", "£": "pfund", "₹": "rupie", ".": "komma", "/": "schragstrich", "-": "bindestrich", "%": "prozent"},
+        ),
+        "hu": (
+            {"0": "nulla", "1": "egy", "2": "ketto", "3": "harom", "4": "negy", "5": "ot", "6": "hat", "7": "het", "8": "nyolc", "9": "kilenc"},
+            {"$": "dollar", "€": "euro", "£": "font", "₹": "rupia", ".": "vesszo", "/": "perjel", "-": "kotjel", "%": "szazalek"},
+        ),
+        "id": (
+            {"0": "nol", "1": "satu", "2": "dua", "3": "tiga", "4": "empat", "5": "lima", "6": "enam", "7": "tujuh", "8": "delapan", "9": "sembilan"},
+            {"$": "dolar", "€": "euro", "£": "pound", "₹": "rupee", ".": "koma", "/": "garis miring", "-": "tanda hubung", "%": "persen"},
+        ),
+        "it": (
+            {"0": "zero", "1": "uno", "2": "due", "3": "tre", "4": "quattro", "5": "cinque", "6": "sei", "7": "sette", "8": "otto", "9": "nove"},
+            {"$": "dollaro", "€": "euro", "£": "sterlina", "₹": "rupia", ".": "virgola", "/": "barra", "-": "trattino", "%": "per cento"},
+        ),
+        "ja": (
+            {"0": "rei", "1": "ichi", "2": "ni", "3": "san", "4": "yon", "5": "go", "6": "roku", "7": "nana", "8": "hachi", "9": "kyu"},
+            {"$": "doru", "€": "yuro", "£": "pondo", "₹": "rupi", ".": "ten", "/": "surasshu", "-": "haifun", "%": "pasento"},
+        ),
+        "ko": (
+            {"0": "yeong", "1": "il", "2": "i", "3": "sam", "4": "sa", "5": "o", "6": "yuk", "7": "chil", "8": "pal", "9": "gu"},
+            {"$": "dalleo", "€": "yuro", "£": "paundeu", "₹": "rupi", ".": "jeom", "/": "seullaesi", "-": "daesi", "%": "peosenteu"},
+        ),
+        "ml": (
+            {"0": "poojyam", "1": "onnu", "2": "randu", "3": "moonu", "4": "naalu", "5": "anchu", "6": "aaru", "7": "ezhu", "8": "ettu", "9": "onpathu"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupa", ".": "dashamsham", "/": "slash", "-": "dash", "%": "shatamanam"},
+        ),
+        "mr": (
+            {"0": "shunya", "1": "ek", "2": "don", "3": "teen", "4": "char", "5": "pach", "6": "saha", "7": "sat", "8": "aath", "9": "nau"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupaye", ".": "dashansh", "/": "slash", "-": "dash", "%": "takke"},
+        ),
+        "nl": (
+            {"0": "nul", "1": "een", "2": "twee", "3": "drie", "4": "vier", "5": "vijf", "6": "zes", "7": "zeven", "8": "acht", "9": "negen"},
+            {"$": "dollar", "€": "euro", "£": "pond", "₹": "roepie", ".": "komma", "/": "schuine streep", "-": "koppelteken", "%": "procent"},
+        ),
+        "no": (
+            {"0": "null", "1": "en", "2": "to", "3": "tre", "4": "fire", "5": "fem", "6": "seks", "7": "sju", "8": "atte", "9": "ni"},
+            {"$": "dollar", "€": "euro", "£": "pund", "₹": "rupi", ".": "komma", "/": "skraastrek", "-": "bindestrek", "%": "prosent"},
+        ),
+        "pa": (
+            {"0": "sifar", "1": "ikk", "2": "do", "3": "tin", "4": "char", "5": "panj", "6": "chhe", "7": "satt", "8": "ath", "9": "nau"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupai", ".": "dashamlav", "/": "slash", "-": "dash", "%": "pratishat"},
+        ),
+        "pl": (
+            {"0": "zero", "1": "jeden", "2": "dwa", "3": "trzy", "4": "cztery", "5": "piec", "6": "szesc", "7": "siedem", "8": "osiem", "9": "dziewiec"},
+            {"$": "dolar", "€": "euro", "£": "funt", "₹": "rupia", ".": "przecinek", "/": "ukosnik", "-": "myslnik", "%": "procent"},
+        ),
+        "pt": (
+            {"0": "zero", "1": "um", "2": "dois", "3": "tres", "4": "quatro", "5": "cinco", "6": "seis", "7": "sete", "8": "oito", "9": "nove"},
+            {"$": "dolar", "€": "euro", "£": "libra", "₹": "rupia", ".": "virgula", "/": "barra", "-": "hifen", "%": "por cento"},
+        ),
+        "ro": (
+            {"0": "zero", "1": "unu", "2": "doi", "3": "trei", "4": "patru", "5": "cinci", "6": "sase", "7": "sapte", "8": "opt", "9": "noua"},
+            {"$": "dolar", "€": "euro", "£": "lira", "₹": "rupie", ".": "virgula", "/": "slash", "-": "cratima", "%": "la suta"},
+        ),
+        "ru": (
+            {"0": "nol", "1": "odin", "2": "dva", "3": "tri", "4": "chetyre", "5": "pyat", "6": "shest", "7": "sem", "8": "vosem", "9": "devyat"},
+            {"$": "dollar", "€": "evro", "£": "funt", "₹": "rupi", ".": "zapyataya", "/": "slesh", "-": "tire", "%": "protsent"},
+        ),
+        "sv": (
+            {"0": "noll", "1": "ett", "2": "tva", "3": "tre", "4": "fyra", "5": "fem", "6": "sex", "7": "sju", "8": "atta", "9": "nio"},
+            {"$": "dollar", "€": "euro", "£": "pund", "₹": "rupi", ".": "komma", "/": "snedstreck", "-": "bindestreck", "%": "procent"},
+        ),
+        "ta": (
+            {"0": "poojyam", "1": "ondru", "2": "irandu", "3": "moondru", "4": "naangu", "5": "ainthu", "6": "aaru", "7": "ezhu", "8": "ettu", "9": "onpathu"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupai", ".": "dhasam", "/": "slash", "-": "dash", "%": "sathaveedam"},
+        ),
+        "te": (
+            {"0": "sunna", "1": "okati", "2": "rendu", "3": "moodu", "4": "naalugu", "5": "aidu", "6": "aaru", "7": "edu", "8": "enimidi", "9": "tommidi"},
+            {"$": "dolar", "€": "yuro", "£": "pound", "₹": "rupayi", ".": "dhashamsha", "/": "slash", "-": "dash", "%": "shatam"},
+        ),
+        "th": (
+            {"0": "soon", "1": "nueng", "2": "song", "3": "sam", "4": "si", "5": "ha", "6": "hok", "7": "chet", "8": "paet", "9": "kao"},
+            {"$": "dollar", "€": "euro", "£": "pound", "₹": "rupee", ".": "chut", "/": "slash", "-": "dash", "%": "percent"},
+        ),
+        "tr": (
+            {"0": "sifir", "1": "bir", "2": "iki", "3": "uc", "4": "dort", "5": "bes", "6": "alti", "7": "yedi", "8": "sekiz", "9": "dokuz"},
+            {"$": "dolar", "€": "euro", "£": "sterlin", "₹": "rupi", ".": "virgul", "/": "bolu", "-": "tire", "%": "yuzde"},
+        ),
+        "uk": (
+            {"0": "nul", "1": "odyn", "2": "dva", "3": "try", "4": "chotyry", "5": "pyat", "6": "shist", "7": "sim", "8": "visim", "9": "devyat"},
+            {"$": "dolar", "€": "yevro", "£": "funt", "₹": "rupiya", ".": "koma", "/": "slesh", "-": "tyre", "%": "vidsotok"},
+        ),
+        "ur": (
+            {"0": "sifar", "1": "aik", "2": "do", "3": "teen", "4": "char", "5": "panch", "6": "chhe", "7": "saat", "8": "aath", "9": "nau"},
+            {"$": "dolar", "€": "euro", "£": "pound", "₹": "rupay", ".": "ashariya", "/": "slash", "-": "dash", "%": "fi sad"},
+        ),
+        "vi": (
+            {"0": "khong", "1": "mot", "2": "hai", "3": "ba", "4": "bon", "5": "nam", "6": "sau", "7": "bay", "8": "tam", "9": "chin"},
+            {"$": "do la", "€": "euro", "£": "bang", "₹": "rupee", ".": "phay", "/": "gach cheo", "-": "gach ngang", "%": "phan tram"},
+        ),
+        "zh-cn": (
+            {"0": "ling", "1": "yi", "2": "er", "3": "san", "4": "si", "5": "wu", "6": "liu", "7": "qi", "8": "ba", "9": "jiu"},
+            {"$": "mei yuan", "€": "ou yuan", "£": "ying bang", "₹": "lu bi", ".": "dian", "/": "xie gang", "-": "heng gang", "%": "bai fen zhi"},
+        ),
+        "zh-tw": (
+            {"0": "ling", "1": "yi", "2": "er", "3": "san", "4": "si", "5": "wu", "6": "liu", "7": "qi", "8": "ba", "9": "jiu"},
+            {"$": "mei yuan", "€": "ou yuan", "£": "ying bang", "₹": "lu bi", ".": "dian", "/": "xie gang", "-": "heng gang", "%": "bai fen zhi"},
+        ),
+        "hi": (
+            {"0": "shunya", "1": "ek", "2": "do", "3": "teen", "4": "char", "5": "paanch", "6": "chhah", "7": "saat", "8": "aath", "9": "nau"},
+            {"$": "dolar", "€": "euro", "£": "pound", "₹": "rupaye", ".": "dashamlav", "/": "slash", "-": "dash", "%": "pratishat"},
+        ),
+    }
+    if lang in lexicons:
+        return lexicons[lang]
+
+    # For supported languages without custom word maps, use neutral tokenization.
+    # This avoids injecting English words while still separating numeric chunks
+    # so the TTS model can pronounce digits/symbols in the target language.
+    if lang in SUPPORTED_CONTENT_LANGUAGE_CODES:
+        neutral_digits = {str(i): str(i) for i in range(10)}
+        neutral_symbols = {"$": "$", "€": "€", "£": "£", "₹": "₹", ".": ".", "/": "/", "-": "-", "%": "%"}
+        return neutral_digits, neutral_symbols
+
+    return lexicons["en"]
+
+
+def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str:
     """Force numbers to be read clearly, digit-by-digit with separator words.
 
     Examples:
@@ -135,22 +403,13 @@ def _spell_digits_for_tts(text: str) -> str:
     if not text:
         return text
 
-    symbol_map = {
-        "$": "dollar",
-        "€": "euro",
-        "£": "pound",
-        "₹": "rupee",
-        ".": "point",
-        "/": "slash",
-        "-": "dash",
-        "%": "percent",
-    }
+    digit_map, symbol_map = _number_lexicon(content_language)
 
     def _expand_numeric_token(token: str) -> str:
         parts: list[str] = []
         for idx, ch in enumerate(token):
             if ch.isdigit():
-                parts.append(ch)
+                parts.append(digit_map.get(ch, ch))
             elif ch in symbol_map:
                 # Speak separators only when they are between digits.
                 # This avoids saying "point" for trailing punctuation like "2026."
@@ -250,7 +509,8 @@ def generate_voiceover(scene: Scene, db: Session, use_expanded: bool = False) ->
     voiceover_text = scene.narration_text
     if not voiceover_text or not voiceover_text.strip():
         return ""
-    voiceover_text = _spell_digits_for_tts(voiceover_text)
+    content_language = getattr(project, "content_language", None) if project else None
+    voiceover_text = _spell_digits_for_tts(voiceover_text, content_language)
     voiceover_text = _spell_abbreviations_for_tts(voiceover_text)
 
     # No-audio mode: estimate duration from word count, skip TTS
