@@ -4,10 +4,13 @@ Takes HTML/CSS + markdown and produces a structured theme JSON.
 """
 
 import json
+import logging
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured
+from app.dspy_modules import ensure_dspy_configured, get_theme_lm
 from app.services.theme_scraper import ScrapedThemeData
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractThemeFromContent(dspy.Signature):
@@ -32,23 +35,17 @@ class ExtractThemeFromContent(dspy.Signature):
     - Who is the audience? (professionals, consumers, developers, creatives, etc.)
     Use this analysis to guide EVERY choice below.
 
-    ═══ STYLE SELECTION (choose ONE — match the website's personality) ═══
-    - "minimal": Clean editorial sites, documentation, text-heavy blogs. Understated elegance.
-             Use for: The New Yorker, Medium, Notion docs, academic sites.
-    - "glass": Modern SaaS, fintech, AI products. Depth through transparency.
-             Use for: Linear, Stripe, Vercel, modern dashboards.
-    - "bold": Confident brands, news outlets, sports, agencies. Strong visual presence.
-             Use for: ESPN, Nike, design agencies, political sites, editorial magazines.
-    - "neon": Developer tools, gaming, nightlife, cyberpunk aesthetic. Dark + vibrant.
-             Use for: GitHub, Discord, gaming sites, crypto platforms.
-    - "soft": Lifestyle, food, wellness, children, friendly products. Warm and approachable.
-             Use for: Restaurants, Airbnb, wellness brands, recipe sites, e-commerce.
+    ═══ STYLE (free-form — describe the visual identity) ═══
+    Choose a style description that captures this website's unique visual identity.
+    Be specific — e.g. "warm rustic", "dark cyberpunk", "clean editorial", "glass morphism SaaS",
+    "bold sports", "zen minimal", "retro vintage", "corporate trust", "playful gradient".
+    Not limited to any preset list — invent a style that fits THIS brand.
 
-    ═══ ANIMATION PRESET (match the energy level) ═══
-    - "fade": Calm, editorial, thoughtful content (news, blogs, documentation)
-    - "slide": Modern, professional, product-focused (SaaS, corporate, portfolios)
-    - "spring": Energetic, dynamic, playful (sports, entertainment, social, food)
-    - "typewriter": Storytelling, educational, narrative-driven (courses, tutorials, stories)
+    ═══ ANIMATION FEEL (free-form — describe the motion energy) ═══
+    Choose an animation feel that matches the brand's energy level.
+    Be specific — e.g. "calm editorial fade", "bouncy playful spring", "sharp snappy slide",
+    "slow typewriter reveal", "energetic scale-pop", "smooth glass drift".
+    Not limited to any preset list.
 
     ═══ COLOR EXTRACTION ═══
     - accent: The primary brand/CTA color (buttons, links, highlights)
@@ -98,55 +95,45 @@ class ExtractThemeFromContent(dspy.Signature):
     ═══ EXAMPLES OF GOOD EXTRACTION ═══
 
     Restaurant website (warm, inviting, food-focused):
-      style: "soft", animation: "spring"
+      style: "warm rustic", animation: "bouncy playful spring"
       colors: warm accent (#E85D2C), cream bg (#FFF8F0), dark text
       fonts: heading=Playfair Display, body=Nunito, mono=Fira Code
-      corners: "pill", shadows: "medium", borders: "none"
-      density: "spacious", gridGap: 24, images: "full-bleed" + "gradient" overlay
-      decorative: ["gradients", "background-shapes"], direction: "centered"
+      patterns: pill corners, medium shadows, spacious density
 
     News/editorial site (authoritative, dense, text-heavy):
-      style: "bold", animation: "fade"
+      style: "sharp editorial", animation: "calm measured fade"
       colors: strong accent (#CC0000), white bg, near-black text
       fonts: heading=Merriweather, body=Georgia, mono=Courier
-      corners: "sharp", shadows: "none", borders: "thin"
-      density: "balanced", gridGap: 20, images: "full-bleed" + "none" overlay
-      decorative: ["accent-lines"], direction: "left-aligned"
+      patterns: sharp corners, no shadows, balanced density, accent-lines
 
     Tech startup (modern, trustworthy, product-focused):
-      style: "glass", animation: "slide"
+      style: "glass morphism SaaS", animation: "smooth polished slide"
       colors: blue/purple accent (#6366F1), light bg (#FAFAFE)
       fonts: heading=Space Grotesk, body=Inter, mono=JetBrains Mono
-      corners: "rounded", shadows: "medium", borders: "accent"
-      density: "balanced", gridGap: 16, images: "rounded" + "gradient" overlay
-      decorative: ["gradients", "dots"], direction: "left-aligned"
+      patterns: rounded corners, medium shadows, gradient decorations
 
     Sports blog (energetic, passionate, dynamic):
-      style: "bold", animation: "spring"
+      style: "bold high-energy", animation: "punchy fast spring"
       colors: team-inspired accent (#1E40AF), white bg
       fonts: heading=Oswald, body=Open Sans, mono=Source Code Pro
-      corners: "sharp", shadows: "heavy", borders: "accent"
-      density: "compact", gridGap: 12, images: "full-bleed" + "dark-scrim" overlay
-      decorative: ["accent-lines", "background-shapes"], direction: "asymmetric"
+      patterns: sharp corners, heavy shadows, compact density
 
     Fashion/lifestyle (elegant, visual, aspirational):
-      style: "soft", animation: "slide"
+      style: "elegant organic", animation: "gentle flowing slide"
       colors: muted accent (#8B5E3C), off-white bg (#FAF7F2)
       fonts: heading=Cormorant Garamond, body=Lato, mono=IBM Plex Mono
-      corners: "pill", shadows: "subtle", borders: "gradient"
-      density: "spacious", gridGap: 28, images: "full-bleed" + "color-wash" overlay
-      decorative: ["gradients", "dots"], direction: "asymmetric"
+      patterns: pill corners, subtle shadows, spacious density
 
     ═══ OUTPUT FORMAT ═══
     - extractable: true if there's enough content to understand the site's purpose and personality
     - reason: brief explanation of what was extracted and the website's personality
     - theme_json: VALID JSON string matching the schema (only when extractable=true)
     - patterns_json: VALID JSON string with visual patterns (only when extractable=true)
-    - template_name: A creative 2-3 word name capturing the site's essence
+    - template_name: The actual brand or company name from the website
     """
 
     url: str = dspy.InputField(desc="The source URL being analyzed")
-    html_content: str = dspy.InputField(desc="First 20K chars of rendered HTML with inline styles and CSS")
+    html_content: str = dspy.InputField(desc="First 40K chars of rendered HTML with inline styles and CSS")
     markdown_content: str = dspy.InputField(desc="First 5K chars of page content as markdown")
     page_title: str = dspy.InputField(desc="Page title from metadata")
     page_description: str = dspy.InputField(desc="Meta description from metadata")
@@ -161,19 +148,16 @@ class ExtractThemeFromContent(dspy.Signature):
         desc="Brief explanation: what was extracted, the website's personality, and key design choices made"
     )
     theme_json: str = dspy.OutputField(
-        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"minimal|glass|bold|neon|soft","animationPreset":"fade|slide|spring|typewriter","category":"educational|product|blog|creative|tech|corporate|lifestyle"}. Do NOT include patterns here. Return "{}" if not extractable.'
+        desc='Valid JSON: {"colors":{"accent":"#hex","bg":"#hex","text":"#hex","surface":"#hex","muted":"#hex"},"fonts":{"heading":"Name","body":"Name","mono":"Name"},"borderRadius":number,"style":"free-form string describing visual identity","animationPreset":"free-form string describing motion feel","category":"free-form string for industry/niche"}. Do NOT include patterns here. Return "{}" if not extractable.'
     )
     patterns_json: str = dspy.OutputField(
-        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"rounded|sharp|pill","shadowDepth":"none|subtle|medium|heavy","borderStyle":"none|thin|accent|gradient"},"spacing":{"density":"compact|balanced|spacious","gridGap":8-32},"images":{"treatment":"rounded|full-bleed|framed|circle","overlay":"none|gradient|dark-scrim|color-wash","captionStyle":"below|overlay|hidden"},"layout":{"direction":"centered|left-aligned|asymmetric","decorativeElements":["gradients","accent-lines","background-shapes","dots"]}}. decorativeElements MUST have at least one non-"none" value. Return "{}" if not extractable.'
+        desc='Valid JSON with visual design patterns. Schema: {"cards":{"corners":"string","shadowDepth":"string","borderStyle":"string"},"spacing":{"density":"string","gridGap":number},"images":{"treatment":"string","overlay":"string","captionStyle":"string"},"layout":{"direction":"string","decorativeElements":["string"]}}. Values are descriptive — use your best judgment. decorativeElements MUST have at least one value. Return "{}" if not extractable.'
     )
     template_name: str = dspy.OutputField(
-        desc='Creative 2-3 word name capturing the site\'s essence (e.g. "Editorial Authority", "Warm Kitchen", "Neon Dev"). Return "" if not extractable.'
+        desc='The actual brand or company name from the website (e.g. "Careem", "Nike", "Stripe", "The New York Times"). Extract the real name, not a creative description. Return "" if not extractable.'
     )
 
 
-VALID_STYLES = {"minimal", "glass", "bold", "neon", "soft"}
-VALID_ANIMATIONS = {"fade", "slide", "spring", "typewriter"}
-VALID_CATEGORIES = {"educational", "product", "blog", "creative", "tech", "corporate", "lifestyle"}
 
 
 class ThemeExtractor:
@@ -196,14 +180,18 @@ class ThemeExtractor:
                 "template_name": str or ""
             }
         """
+        # Use dedicated theme LM (lower temp, smaller token budget)
+        theme_lm = get_theme_lm()
+
         try:
-            result = await self.predictor(
-                url=scraped.url,
-                html_content=scraped.html,
-                markdown_content=scraped.markdown,
-                page_title=scraped.title,
-                page_description=scraped.description,
-            )
+            with dspy.context(lm=theme_lm):
+                result = await self.predictor(
+                    url=scraped.url,
+                    html_content=scraped.html,
+                    markdown_content=scraped.markdown,
+                    page_title=scraped.title,
+                    page_description=scraped.description,
+                )
         except Exception as e:
             return {
                 "extractable": False,
@@ -233,6 +221,16 @@ class ThemeExtractor:
                 "theme": None,
                 "template_name": "",
             }
+
+        colors = theme.get("colors", {})
+        fonts = theme.get("fonts", {})
+        print(
+            f"[F7-DEBUG] [THEME] Extracted: "
+            f"style='{theme.get('style')}', "
+            f"colors=[accent={colors.get('accent')}, bg={colors.get('bg')}], "
+            f"fonts=[{fonts.get('heading')}/{fonts.get('body')}], "
+            f"category='{theme.get('category')}'"
+        )
 
         return {
             "extractable": True,
@@ -284,14 +282,10 @@ class ThemeExtractor:
         if not isinstance(theme.get("borderRadius"), (int, float)):
             return None
 
-        if theme.get("style") not in VALID_STYLES:
-            return None
-
-        if theme.get("animationPreset") not in VALID_ANIMATIONS:
-            return None
-
-        if theme.get("category") not in VALID_CATEGORIES:
-            return None
+        # Style, animation, category must be non-empty strings (free-form, no enum)
+        for field in ("style", "animationPreset", "category"):
+            if not isinstance(theme.get(field), str) or not theme[field].strip():
+                return None
 
         # Parse patterns JSON
         if not patterns_json_str:
@@ -310,3 +304,4 @@ class ThemeExtractor:
         theme["patterns"] = patterns
 
         return theme
+

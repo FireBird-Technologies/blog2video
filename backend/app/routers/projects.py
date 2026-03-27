@@ -33,10 +33,10 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = get_logger(__name__)
 
 
-def _inject_custom_theme(project: Project) -> Project:
+def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
     if is_custom_template(project.template):
-        data = _load_custom_template_data(project.template)
+        data = _load_custom_template_data(project.template, db=db)
         project.custom_theme = data["theme"] if data else None
         project.custom_template_missing = data is None
     else:
@@ -1294,15 +1294,21 @@ def get_project_layouts(
     no_image_layouts = get_layouts_without_image(project.template)
     
     # Convert layout IDs to human-readable names
-    layout_names = {}
     meta = get_meta(project.template)
     schema = meta.get("layout_prop_schema", {}) if meta else {}
+
+    # Custom templates with generated code embed layout_names directly in meta
+    meta_layout_names = meta.get("layout_names", {}) if meta else {}
+    layout_names = {}
     for layout_id in valid_layouts:
-        # Prefer schema label, fallback to Title Case
-        layout_schema = schema.get(layout_id, {})
-        name = layout_schema.get("label") or layout_id.replace("_", " ").title()
-        layout_names[layout_id] = name
-    
+        if layout_id in meta_layout_names:
+            layout_names[layout_id] = meta_layout_names[layout_id]
+        else:
+            # Prefer schema label, fallback to Title Case
+            layout_schema = schema.get(layout_id, {})
+            name = layout_schema.get("label") or layout_id.replace("_", " ").title()
+            layout_names[layout_id] = name
+
     return {
         "layouts": sorted(list(valid_layouts)),
         "layout_names": layout_names,
@@ -1503,6 +1509,51 @@ async def regenerate_scene(
     has_description = bool(description and description.strip())
     needs_layout_regen = not keep_layout or has_description
 
+    # Detect variant switch for custom templates (intro/content_N/outro)
+    # Pure variant switches skip the AI call entirely — instant layout change.
+    is_variant_switch = False
+    if is_custom_template(project.template) and normalized_layout:
+        import re as _re
+        if normalized_layout in ("intro", "outro") or _re.match(r"content_\d+$", normalized_layout):
+            is_variant_switch = True
+
+    if is_variant_switch and not has_description:
+        # Pure variant switch: update remotion_code with override, skip AI
+        descriptor = current_descriptor if current_descriptor else {}
+        if normalized_layout == "intro":
+            descriptor["sceneTypeOverride"] = "intro"
+            descriptor.pop("contentVariantIndex", None)
+        elif normalized_layout == "outro":
+            descriptor["sceneTypeOverride"] = "outro"
+            descriptor.pop("contentVariantIndex", None)
+        else:
+            # content_N → extract N
+            variant_idx = int(normalized_layout.split("_")[1])
+            descriptor["sceneTypeOverride"] = "content"
+            descriptor["contentVariantIndex"] = variant_idx
+
+        scene.remotion_code = json.dumps(descriptor)
+        if hasattr(scene, "display_text"):
+            scene.display_text = new_display_text
+        track_scene_edit(
+            db,
+            project_id=project_id,
+            scene_id=scene.id,
+            field_name="remotion_code",
+            old_value=old_remotion_code,
+            new_value=scene.remotion_code,
+            is_ai_assisted=False,
+            user_instruction=f"Variant switch to {normalized_layout}",
+        )
+        db.commit()
+        print(f"[REGENERATE] Variant switch → {normalized_layout} (no AI call)")
+
+        # Rebuild workspace and return
+        scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order).all()
+        rebuild_workspace(project, scenes, db)
+        db.refresh(scene)
+        return scene
+
     # Regenerate visual_description only if description is provided
     if has_description:
         from app.dspy_modules.visual_description import regenerate_visual_description
@@ -1559,17 +1610,30 @@ async def regenerate_scene(
 
         from app.services.language_detection import get_content_language_for_project
         content_language = get_content_language_for_project(project)
-        descriptor = await template_gen.generate_regenerate_descriptor(
-            scene_title=scene.title,
-            narration=scene.narration_text or "",
-            visual_description=new_visual_description,
-            scene_index=scene.order - 1,
-            total_scenes=len(all_scenes),
-            other_scenes_layouts=other_scenes_layouts,
-            preferred_layout=effective_layout,
-            current_descriptor=current_descriptor,
-            content_language=content_language,
-        )
+
+        if is_custom_template(project.template):
+            # Custom templates: re-extract structured content for this single scene
+            from app.services.content_classifier import extract_structured_content_batch
+            single_result = await extract_structured_content_batch(
+                [{"title": scene.title, "narration": scene.narration_text or ""}],
+                content_language=content_language,
+            )
+            descriptor = current_descriptor.copy() if current_descriptor else {}
+            if single_result:
+                descriptor["structuredContent"] = single_result[0]
+            print(f"[F7-DEBUG] [REGENERATE] Custom template: re-extracted structured content for scene {scene.id}")
+        else:
+            descriptor = await template_gen.generate_regenerate_descriptor(
+                scene_title=scene.title,
+                narration=scene.narration_text or "",
+                visual_description=new_visual_description,
+                scene_index=scene.order - 1,
+                total_scenes=len(all_scenes),
+                other_scenes_layouts=other_scenes_layouts,
+                preferred_layout=effective_layout,
+                current_descriptor=current_descriptor,
+                content_language=content_language,
+            )
 
         # Preserve image assignment from old descriptor into the new one.
         # Applies to all templates. Custom templates use layoutConfig for
@@ -1631,6 +1695,19 @@ async def regenerate_scene(
                             is_ai_assisted=True,
                             user_instruction=narration_text,
                         )
+        # If variant switch + description: stamp the variant override after AI regen
+        if is_variant_switch and normalized_layout:
+            if normalized_layout == "intro":
+                descriptor["sceneTypeOverride"] = "intro"
+                descriptor.pop("contentVariantIndex", None)
+            elif normalized_layout == "outro":
+                descriptor["sceneTypeOverride"] = "outro"
+                descriptor.pop("contentVariantIndex", None)
+            else:
+                variant_idx = int(normalized_layout.split("_")[1])
+                descriptor["sceneTypeOverride"] = "content"
+                descriptor["contentVariantIndex"] = variant_idx
+
         scene.remotion_code = json.dumps(descriptor)
         track_scene_edit(
                         db,

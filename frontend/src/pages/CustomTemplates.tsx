@@ -3,8 +3,10 @@ import ReactDOM from "react-dom";
 import {
   listCustomTemplates,
   deleteCustomTemplate,
+  regenerateTemplateCode,
   type CustomTemplateItem,
 } from "../api/client";
+import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
@@ -21,9 +23,11 @@ export default function CustomTemplates() {
   const [deleting, setDeleting] = useState(false);
   const [deleteImpactCount, setDeleteImpactCount] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
 
   useEffect(() => {
     loadTemplates();
+    preloadBabel();
   }, []);
 
   const loadTemplates = async () => {
@@ -40,11 +44,27 @@ export default function CustomTemplates() {
   const handleCreated = (tpl: CustomTemplateItem) => {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
+    // Re-fetch after a delay to pick up the background-rendered thumbnail
+    setTimeout(() => loadTemplates(), 5000);
   };
 
   const handleSaved = (tpl: CustomTemplateItem) => {
     setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? tpl : t)));
     setEditTarget(null);
+  };
+
+  const handleRegenerate = async (tpl: CustomTemplateItem) => {
+    setRegeneratingId(tpl.id);
+    try {
+      const res = await regenerateTemplateCode(tpl.id);
+      setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? res.data : t)));
+      // Re-fetch after a delay to pick up the background-rendered thumbnail
+      setTimeout(() => loadTemplates(), 5000);
+    } catch (err) {
+      console.error("Failed to regenerate template code:", err);
+    } finally {
+      setRegeneratingId(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -148,7 +168,29 @@ export default function CustomTemplates() {
               <div key={tpl.id} className="glass-card overflow-hidden group">
                 {/* Template preview */}
                 <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
-                  <CustomPreview theme={tpl.theme} name={tpl.name} />
+                  {tpl.intro_code ? (
+                    <CustomPreview
+                      theme={tpl.theme}
+                      name={tpl.name}
+                      introCode={tpl.intro_code || undefined}
+                      outroCode={tpl.outro_code || undefined}
+                      contentCodes={tpl.content_codes || undefined}
+                      contentArchetypeIds={tpl.content_archetype_ids || undefined}
+                      previewImageUrl={tpl.preview_image_url}
+                      logoUrls={tpl.logo_urls}
+                      ogImage={tpl.og_image}
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex flex-col items-center justify-center gap-3"
+                      style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
+                    >
+                      <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${tpl.theme.colors.accent}40`, borderTopColor: "transparent" }} />
+                      <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
+                        Generating...
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4">
@@ -158,34 +200,51 @@ export default function CustomTemplates() {
                   </h3>
 
                   {/* Style + animation */}
-                  <div className="flex gap-1.5 mb-3">
-                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
                       {STYLE_LABELS[tpl.supported_video_style] ?? tpl.supported_video_style}
                     </span>
-                    <span className="text-[10px] text-gray-400">{tpl.theme.style}</span>
-                    <span className="text-[10px] text-gray-300">/</span>
-                    <span className="text-[10px] text-gray-400">{tpl.theme.animationPreset}</span>
+                    <span className="text-[10px] text-gray-400 truncate">{tpl.theme.style}</span>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setEditTarget(tpl)}
-                      className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDeleteTarget(tpl);
-                        setDeleteImpactCount(null);
-                        setDeleteError(null);
-                      }}
-                      className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {!tpl.intro_code ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      Generating template...
+                    </div>
+                  ) : regeneratingId === tpl.id ? (
+                    <div className="flex items-center gap-2 text-xs text-purple-500">
+                      <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      Regenerating...
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleRegenerate(tpl)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+                        title="Generate a completely new design for this brand"
+                      >
+                        Regenerate
+                      </button>
+                      <button
+                        onClick={() => setEditTarget(tpl)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeleteTarget(tpl);
+                          setDeleteImpactCount(null);
+                          setDeleteError(null);
+                        }}
+                        className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

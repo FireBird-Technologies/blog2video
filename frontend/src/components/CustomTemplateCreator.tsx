@@ -3,6 +3,9 @@ import ReactDOM from "react-dom";
 import {
   extractTheme,
   createCustomTemplate,
+  generateTemplateCode,
+  getCodeGenerationStatus,
+  getCustomTemplate,
   type CustomTemplateTheme,
   type CustomTemplateItem,
 } from "../api/client";
@@ -33,7 +36,7 @@ const DEFAULT_THEME: CustomTemplateTheme = {
 };
 
 export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,24 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
   const [saving, setSaving] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const styleRef = useRef<HTMLDivElement>(null);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [createdTemplate, setCreatedTemplate] = useState<CustomTemplateItem | null>(null);
+  const [codeGenError, setCodeGenError] = useState<string | null>(null);
+  const [scrapedLogoUrls, setScrapedLogoUrls] = useState<string[]>([]);
+  const [scrapedOgImage, setScrapedOgImage] = useState("");
+  const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState("");
+  const [extractedReason, setExtractedReason] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Elapsed timer for code generation
+  useEffect(() => {
+    if (!generatingCode) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [generatingCode]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -70,6 +91,11 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
       setSupportedVideoStyle("explainer");
       setTemplateName(res.data.template_name || "");
       setSourceUrl(url.trim());
+      setScrapedLogoUrls(res.data.logo_urls || []);
+      setScrapedOgImage(res.data.og_image || "");
+      setScrapedScreenshotUrl(res.data.screenshot_url || "");
+      setExtractedReason(res.data.reason || "");
+      console.log(`[F7-DEBUG] Theme extracted: accent=${res.data.theme?.colors?.accent}, category=${res.data.theme?.category}, reason='${(res.data.reason || '').slice(0, 100)}'`);
       setStep(2);
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to extract theme. Try another URL.");
@@ -78,7 +104,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     }
   };
 
-  // Step 2: Save template
+  // Step 2: Save template, then move to Step 3 for code generation
   const handleSave = async () => {
     if (!templateName.trim()) return;
     setSaving(true);
@@ -89,11 +115,77 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         source_url: sourceUrl || undefined,
         theme,
         supported_video_style: supportedVideoStyle,
+        logo_urls: scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined,
+        og_image: scrapedOgImage || undefined,
+        screenshot_url: scrapedScreenshotUrl || undefined,
+        reason: extractedReason || undefined,
       });
-      onCreated(res.data);
+      console.log(`[F7-DEBUG] Template created: id=${res.data.id}, name='${res.data.name}', reason passed='${(extractedReason || '').slice(0, 80)}'`);
+      setCreatedTemplate(res.data);
+      setStep(3);
+      // Trigger code generation
+      handleGenerateCode(res.data);
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to save template.");
-    } finally {
+      setSaving(false);
+    }
+  };
+
+  const [genStep, setGenStep] = useState<string>("");
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  // Step 3: Launch AI code generation (returns 202 immediately) then poll
+  const handleGenerateCode = async (template: CustomTemplateItem) => {
+    setGeneratingCode(true);
+    setCodeGenError(null);
+    setGenStep("Starting generation...");
+    try {
+      console.log(`[F7-DEBUG] [CODEGEN] Starting generation for template ${template.id}`);
+      await generateTemplateCode(template.id);
+      console.log(`[F7-DEBUG] [CODEGEN] 202 received — starting polling`);
+      // Start polling for status
+      pollingRef.current = setInterval(async () => {
+        try {
+          const statusRes = await getCodeGenerationStatus(template.id);
+          const s = statusRes.data;
+          console.log(`[F7-DEBUG] [CODEGEN] Poll: status=${s.status}, step=${s.step}`);
+          if (s.step === "design_system") setGenStep("Generating design system...");
+          else if (s.step === "generating_scenes") setGenStep("Generating scenes...");
+          else if (s.step === "saving") setGenStep("Saving results...");
+
+          if (s.status === "complete") {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            console.log(`[F7-DEBUG] [CODEGEN] Generation complete — fetching template`);
+            // Fetch the updated template
+            const updated = await getCustomTemplate(template.id);
+            setCreatedTemplate(updated.data);
+            setGeneratingCode(false);
+            setSaving(false);
+            setGenStep("");
+          } else if (s.status === "error") {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            console.error(`[F7-DEBUG] [CODEGEN] Generation failed: ${s.error}`);
+            setCodeGenError(s.error || "Code generation failed. You can retry or skip.");
+            setGeneratingCode(false);
+            setSaving(false);
+            setGenStep("");
+          }
+        } catch {
+          // Polling error — ignore, will retry
+        }
+      }, 2000);
+    } catch (err: any) {
+      setCodeGenError(err?.response?.data?.detail || "Code generation failed. You can retry or skip.");
+      setGeneratingCode(false);
       setSaving(false);
     }
   };
@@ -105,7 +197,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">
-            {step === 1 ? "Extract Theme" : "Review & Save"}
+            {step === 1 ? "Extract Theme" : step === 2 ? "Review & Save" : "Generating Template"}
           </h2>
           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,9 +207,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 px-6 pt-4">
-          {[1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
+        <div className="flex items-center justify-center gap-2 px-8 pt-4">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className={`flex items-center gap-2 ${s < 3 ? "flex-1" : ""}`}>
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                 s <= step ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-400"
               }`}>
@@ -127,7 +219,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                   </svg>
                 ) : s}
               </div>
-              {s < 2 && <div className={`flex-1 h-0.5 ${s < step ? "bg-purple-600" : "bg-gray-200"}`} />}
+              {s < 3 && <div className={`flex-1 h-0.5 ${s < step ? "bg-purple-600" : "bg-gray-200"}`} />}
             </div>
           ))}
         </div>
@@ -185,9 +277,21 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
           {/* Step 2: Review extracted theme & save */}
           {step === 2 && (
             <div className="space-y-5">
-              {/* Live preview */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                <CustomPreview theme={theme} name={templateName || undefined} />
+              {/* Preview placeholder — real preview appears in Step 3 after AI generation */}
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg }}>
+                <div style={{ aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "24px 32px" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                      <div key={key} style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
+                    ))}
+                  </div>
+                  <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 15, fontWeight: 700, color: theme.colors.text, textAlign: "center", margin: 0 }}>
+                    {templateName || "Your Template"}
+                  </p>
+                  <p style={{ fontFamily: `${theme.fonts.body}, sans-serif`, fontSize: 11, color: theme.colors.muted, textAlign: "center", margin: 0 }}>
+                    Live preview will appear after template generation
+                  </p>
+                </div>
               </div>
 
               {/* Template name */}
@@ -330,6 +434,60 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                   )}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Step 3: Code generation */}
+          {step === 3 && createdTemplate && (
+            <div className="space-y-5">
+              {/* Preview — shows Remotion player if code is ready, carousel otherwise */}
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                <CustomPreview
+                  theme={theme}
+                  name={templateName || undefined}
+                  introCode={createdTemplate.intro_code || undefined}
+                  outroCode={createdTemplate.outro_code || undefined}
+                  contentCodes={createdTemplate.content_codes || undefined}
+                  contentArchetypeIds={createdTemplate.content_archetype_ids || undefined}
+                  logoUrls={scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined}
+                  ogImage={scrapedOgImage || undefined}
+                  onRetry={() => handleGenerateCode(createdTemplate)}
+                />
+              </div>
+
+              {generatingCode && (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
+                  <p className="text-sm text-gray-500">{genStep || "Generating your unique template..."}</p>
+                  <p className="text-xs text-gray-400">You can close this dialog!</p>
+                  <p className="text-xs text-gray-300">Elapsed: {elapsedSeconds}s</p>
+                </div>
+              )}
+
+              {codeGenError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 space-y-2">
+                  <p>{codeGenError}</p>
+                  <button
+                    onClick={() => handleGenerateCode(createdTemplate)}
+                    className="px-3 py-1.5 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {!generatingCode && !codeGenError && createdTemplate.intro_code && (
+                <p className="text-sm text-green-600 text-center font-medium">
+                  Template generated successfully!
+                </p>
+              )}
+
+              <button
+                onClick={() => onCreated(createdTemplate)}
+                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                {generatingCode ? "Close & Generate in Background" : "Done"}
+              </button>
             </div>
           )}
         </div>
