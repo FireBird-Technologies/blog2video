@@ -8,6 +8,7 @@ import { SplitGlass } from "./SplitGlass";
 import { ChapterBreak } from "./ChapterBreak";
 import { GlassImage } from "./GlassImage";
 import { DataVisualization } from "./DataVisualization";
+import { EndingSocials } from "./EndingSocials";
 import type { NightfallLayoutType, NightfallLayoutProps } from "../types";
 
 export type { NightfallLayoutType, NightfallLayoutProps };
@@ -26,4 +27,5 @@ export const NIGHTFALL_LAYOUT_REGISTRY: Record<
   chapter_break: ChapterBreak,
   glass_image: GlassImage,
   data_visualization: DataVisualization,
+  ending_socials: EndingSocials,
 };

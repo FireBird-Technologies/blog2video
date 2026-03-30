@@ -22,7 +22,8 @@
     "comparison",
     "countdown_timer",
     "handwritten_equation",
-    "speech_bubble_dialogue"
+    "speech_bubble_dialogue",
+    "ending_socials"
   ],
   "layouts_without_image": [
     "drawn_title",
@@ -32,7 +33,8 @@
     "comparison",
     "countdown_timer",
     "handwritten_equation",
-    "speech_bubble_dialogue"
+    "speech_bubble_dialogue",
+    "ending_socials"
   ],
   "layout_prop_schema": {
     "drawn_title": {
@@ -410,7 +412,7 @@
         "stats": [
           {
             "label": "Compound Interest Formula",
-            "value": "A = P · (1 + r/n)^(n·t)"
+            "value": "A = P \u00b7 (1 + r/n)^(n\u00b7t)"
           },
           {
             "label": "Where:",
@@ -418,11 +420,11 @@
           },
           {
             "label": "Example:",
-            "value": "A = 1000 · (1 + 0.05/12)^(12·5)"
+            "value": "A = 1000 \u00b7 (1 + 0.05/12)^(12\u00b75)"
           },
           {
             "label": "Result:",
-            "value": "A ≈ $1,283.36"
+            "value": "A \u2248 $1,283.36"
           }
         ]
       },
@@ -535,6 +537,120 @@
               "label": "Unused (optional)"
             }
           ]
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending / Follow along",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 36
+        },
+        "hideImage": true,
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
         }
       ]
     }

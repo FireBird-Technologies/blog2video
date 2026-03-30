@@ -324,8 +324,28 @@ export default function CustomPreview({
   // ─── Still compiling all scenes — show once on initial load ───
   if (isCompiling) {
     return (
-      <div style={{ width: "100%", aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a2e", borderRadius: 8, color: "#9ca3af", fontSize: 14 }}>
-        Compiling preview...
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: "16/9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#1a1a2e",
+          borderRadius: 8,
+        }}
+      >
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            border: "2px solid rgba(156, 163, 175, 0.35)",
+            borderTopColor: "#8b5cf6",
+            animation: "spin 0.9s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }

@@ -335,6 +335,7 @@ async def _generate_script(project: Project, db: Session):
         )
         
     generator = ScriptGenerator()
+    include_ending_socials = not is_custom_template(template_id)
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -344,6 +345,7 @@ async def _generate_script(project: Project, db: Session):
         video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
+        include_ending_socials=include_ending_socials,
     )
 
     project.name = result["title"]
@@ -474,8 +476,33 @@ async def _generate_scenes(project: Project, db: Session):
     db.expire_all()
     scenes = project.scenes
 
+    # Default socials for the DSPy-generated ending scene.
+    # Enabled by default: Facebook + Instagram + YouTube.
+    ending_socials_default = {
+        "facebook": {"enabled": True, "label": "Facebook"},
+        "instagram": {"enabled": True, "label": "Instagram"},
+        "youtube": {"enabled": True, "label": "YouTube"},
+        "medium": {"enabled": False, "label": "Medium"},
+        "substack": {"enabled": False, "label": "Substack"},
+        "linkedin": {"enabled": False, "label": "LinkedIn"},
+        "tiktok": {"enabled": False, "label": "TikTok"},
+    }
+
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        # DSPy appends an ending scene with preferred_layout="ending_socials".
+        # We override the descriptor here so Remotion can render the themed ending consistently.
+        if getattr(scene, "preferred_layout", None) == "ending_socials":
+            descriptor = {
+                "layout": "ending_socials",
+                "layoutProps": {
+                    "hideImage": True,
+                    "socials": ending_socials_default,
+                    "showWebsiteButton": True,
+                    "websiteLink": "https://yourwebsite.com",
+                },
+            }
+
         has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:

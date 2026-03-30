@@ -7,6 +7,7 @@ import { ForkChoice } from "./ForkChoice";
 import { MatrixImage } from "./MatrixImage";
 import { Transmission } from "./Transmission";
 import { Awakening } from "./Awakening";
+import { EndingSocials } from "./EndingSocials";
 import type { MatrixLayoutType, MatrixLayoutProps } from "../types";
 
 export type { MatrixLayoutType, MatrixLayoutProps };
@@ -24,4 +25,5 @@ export const MATRIX_LAYOUT_REGISTRY: Record<
   matrix_image: MatrixImage,
   transmission: Transmission,
   awakening: Awakening,
+  ending_socials: EndingSocials,
 };

@@ -37,6 +37,7 @@ _studio_processes: dict[int, subprocess.Popen] = {}
 
 # Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
 _render_progress: dict[int, dict] = {}
+_RENDER_LOG_TAIL_MAX = 80
 
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
@@ -70,6 +71,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
     "src/fonts/nightfall-defaults.ts",
+    # Shared socials renderer used by multiple template layouts
+    "src/templates/SocialIcons.tsx",
 ]
 
 
@@ -644,7 +647,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         scene_images = raw_images[:1]
 
         # Short on-screen text (display_text) vs full voiceover narration (narration_text)
-        on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
+        # For the ending scene we must preserve an explicitly empty display_text (optional subtext).
+        display_text_val = getattr(scene, "display_text", None)
+        if layout == "ending_socials":
+            on_screen_text = display_text_val if display_text_val is not None else scene.narration_text
+        else:
+            on_screen_text = display_text_val or scene.narration_text
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
@@ -1091,6 +1099,7 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
         "_cmd": cmd,
         "_workspace": workspace,
         "_attempt": 1,
+        "_log_tail": [],
     }
 
     _launch_render_process(project.id, cmd, workspace)
@@ -1242,6 +1251,13 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     if not line:
         return
 
+    prog = _render_progress.get(project_id)
+    if prog is not None:
+        tail = prog.setdefault("_log_tail", [])
+        tail.append(line)
+        if len(tail) > _RENDER_LOG_TAIL_MAX:
+            del tail[:-_RENDER_LOG_TAIL_MAX]
+
     # Log non-progress lines (errors, warnings) for debugging
     if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
         logger.debug("[REMOTION][project %s] %s", project_id, line)
@@ -1333,13 +1349,16 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             attempt = prog.get("_attempt", 1)
             cmd = prog.get("_cmd")
             workspace = prog.get("_workspace")
+            tail_lines = prog.get("_log_tail") or []
+            tail_text = "\n".join(tail_lines[-20:])
 
             if attempt < MAX_RENDER_RETRIES and cmd and workspace:
                 next_attempt = attempt + 1
                 delay = 3 * attempt  # 3s, 6s backoff
                 logger.warning(
-                    "[REMOTION] Render failed (exit %s) for project %s, retrying %s/%s in %ss (bundle cache reused)",
+                    "[REMOTION] Render failed (exit %s) for project %s, retrying %s/%s in %ss (bundle cache reused). Recent output:\n%s",
                     retcode, project_id, next_attempt, MAX_RENDER_RETRIES, delay,
+                    tail_text or "(no process output captured)",
                 )
                 time.sleep(delay)
 
@@ -1360,7 +1379,8 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 _launch_render_process(project_id, cmd, workspace)
             else:
                 _render_progress[project_id]["error"] = (
-                    f"Render failed (exit code {retcode}) after {attempt} attempt(s)"
+                    f"Render failed (exit code {retcode}) after {attempt} attempt(s).\n"
+                    f"Recent output:\n{tail_text or '(no process output captured)'}"
                 )
                 _render_progress[project_id]["done"] = True
     except Exception as e:

@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 export type LayoutType =
   | "hero_image"
   | "text_narration"
@@ -8,7 +10,8 @@ export type LayoutType =
   | "metric"
   | "quote_callout"
   | "image_caption"
-  | "timeline";
+  | "timeline"
+  | "ending_socials";
 
 export interface SceneLayoutProps {
   title: string;
@@ -41,4 +44,7 @@ export interface SceneLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
 }

@@ -60,7 +60,7 @@ export const calculateDefaultMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS))
       );
-      const totalFrames = sceneFrames.reduce((a, b) => a + b, 0) + 60;
+      const totalFrames = sceneFrames.reduce((a, b) => a + b, 0);
 
       const isPortrait = data.aspectRatio === "portrait";
 
