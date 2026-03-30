@@ -7,6 +7,7 @@ import { Versus } from "./Versus";
 import { SpotlightImage } from "./SpotlightImage";
 import { RapidPoints } from "./RapidPoints";
 import { Closer } from "./Closer";
+import { EndingSocials } from "./EndingSocials";
 import type { SpotlightLayoutType, SpotlightLayoutProps } from "../types";
 
 export type { SpotlightLayoutType, SpotlightLayoutProps };
@@ -24,4 +25,5 @@ export const SPOTLIGHT_LAYOUT_REGISTRY: Record<
   spotlight_image: SpotlightImage,
   rapid_points: RapidPoints,
   closer: Closer,
+  ending_socials: EndingSocials,
 };

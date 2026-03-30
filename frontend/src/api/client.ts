@@ -969,6 +969,9 @@ export interface RenderStatus {
   done: boolean;
   error: string | null;
   time_remaining: string | null;
+  eta_seconds: number | null;
+  progress_unknown?: boolean;
+  render_attempt?: number | null;
   r2_video_url: string | null;
 }
 

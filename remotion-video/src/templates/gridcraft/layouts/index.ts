@@ -7,6 +7,7 @@ import { BentoCompare } from "./BentoCompare";
 import { BentoCode } from "./BentoCode";
 import { PullQuote } from "./PullQuote";
 import { BentoSteps } from "./BentoSteps";
+import { EndingSocials } from "./EndingSocials";
 import { GridcraftLayoutType } from "../types";
 
 export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
@@ -22,6 +23,7 @@ export const GRIDCRAFT_LAYOUT_REGISTRY: Record<
   bento_code: BentoCode,
   pull_quote: PullQuote,
   bento_steps: BentoSteps,
+  ending_socials: EndingSocials,
   
   // Backward compatibility alias if needed
   intro: BentoHero, 
@@ -36,3 +38,4 @@ export * from "./BentoCompare";
 export * from "./BentoCode";
 export * from "./PullQuote";
 export * from "./BentoSteps";
+export * from "./EndingSocials";

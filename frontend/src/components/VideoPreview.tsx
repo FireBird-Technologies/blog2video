@@ -462,7 +462,8 @@ export default function VideoPreview({
       return Math.max(1, Math.round((base + extra) * FPS));
     });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
-    return Math.max(sum + 60, 150);
+    // Keep duration aligned with Remotion metadata calculation (no extra padded tail).
+    return Math.max(sum, FPS * 5);
   }, [project.scenes]);
 
   // Preload images and voiceover so they're in browser cache when Remotion renders

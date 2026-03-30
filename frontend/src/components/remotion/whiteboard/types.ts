@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 export type WhiteboardLayoutType =
   | "drawn_title"
   | "marker_story"
@@ -7,7 +9,8 @@ export type WhiteboardLayoutType =
   | "comparison"
   | "countdown_timer"
   | "handwritten_equation"
-  | "speech_bubble_dialogue";
+  | "speech_bubble_dialogue"
+  | "ending_socials";
 
 export interface WhiteboardStatItem {
   label: string;
@@ -28,4 +31,7 @@ export interface WhiteboardLayoutProps {
   leftThought?: string;
   rightThought?: string;
   fontFamily?: string;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
 }

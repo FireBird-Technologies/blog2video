@@ -76,6 +76,21 @@ function buildProjectTourSteps(project: Project | null): Step[] {
   return steps;
 }
 
+/** Display string for ETA from total seconds (smoothed server/client estimate). */
+function formatEtaSecondsRounded(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return "";
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return `~${h}h ${mm}m`;
+  }
+  if (m > 0) return `~${m}m ${rs}s`;
+  return `~${rs}s`;
+}
+
 const PIPELINE_STEPS_URL = [
   { id: 1, label: "Scraping" },
   { id: 2, label: "Script" },
@@ -386,7 +401,7 @@ export default function ProjectView() {
   const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
-  const [renderTimeLeft, setRenderTimeLeft] = useState<string | null>(null);
+  const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
   const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const renderRetryCountRef = useRef(0); // how many times we've auto-retried render
   const MAX_RENDER_RETRIES = 20;
@@ -930,8 +945,15 @@ export default function ProjectView() {
     }
   };
 
-  // Track highest-seen render progress so we never go backward
+  // Track highest-seen render progress so we never go backward (also persisted while rendering)
   const renderHighWaterRef = useRef(0);
+  const renderResumeInitRef = useRef(false);
+  /** Wall time when we first saw rendered_frames > 0 (client ETA fallback only). */
+  const renderStartWallRef = useRef<number | null>(null);
+  // Monotonic ETA: once it has decreased at least once, never allow it to increase again.
+  const renderEtaLastSecRef = useRef<number | null>(null);
+  const renderEtaWentDownRef = useRef(false);
+  const lastRenderAttemptRef = useRef(1);
   const handleRenderRef = useRef<(force: boolean, onStart?: () => void) => Promise<void>>();
 
   const handleRender = async (
@@ -953,7 +975,19 @@ export default function ProjectView() {
       setRendered(false);
       setRendering(true);
       setHasError(false);
-      renderHighWaterRef.current = 0;
+      setRenderEtaLabel(null);
+      renderEtaLastSecRef.current = null;
+      renderEtaWentDownRef.current = false;
+      const key = `render_hw_${projectId}`;
+      const hw = sessionStorage.getItem(key);
+      if (hw) {
+        const n = parseInt(hw, 10);
+        if (!Number.isNaN(n)) {
+          renderHighWaterRef.current = n;
+          setRenderProgress(n);
+        }
+      }
+      renderStartWallRef.current = null;
       startRenderPollingLoop({ isResume: true });
       return;
     }
@@ -972,10 +1006,15 @@ export default function ProjectView() {
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
-    setRenderTimeLeft(null);
+    setRenderEtaLabel(null);
+    renderEtaLastSecRef.current = null;
+    renderEtaWentDownRef.current = false;
     setHasError(false);
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
+    sessionStorage.removeItem(`render_hw_${projectId}`);
+    renderStartWallRef.current = null;
+    lastRenderAttemptRef.current = 1;
 
     const startRenderAndPoll = async () => {
       try {
@@ -1034,17 +1073,94 @@ export default function ProjectView() {
             total_frames,
             done,
             error: renderErr,
-            time_remaining,
+            eta_seconds: etaSecondsApi,
+            progress_unknown: progressUnknown,
+            render_attempt: renderAttempt,
           } = status.data;
+
+          const attempt = renderAttempt ?? 1;
+          if (attempt > lastRenderAttemptRef.current) {
+            lastRenderAttemptRef.current = attempt;
+            renderHighWaterRef.current = 0;
+            setRenderProgress(0);
+            setRenderFrames({ rendered: 0, total: 0 });
+            sessionStorage.removeItem(`render_hw_${projectId}`);
+            renderStartWallRef.current = null;
+            renderEtaLastSecRef.current = null;
+            renderEtaWentDownRef.current = false;
+          }
+
+          if (rendered_frames > 0 && renderStartWallRef.current === null) {
+            renderStartWallRef.current = Date.now();
+          }
 
           if (progress >= renderHighWaterRef.current) {
             renderHighWaterRef.current = progress;
             setRenderProgress(progress);
+            if (progress > 0) {
+              sessionStorage.setItem(`render_hw_${projectId}`, String(progress));
+            }
           }
           if (rendered_frames > 0) {
             setRenderFrames({ rendered: rendered_frames, total: total_frames });
           }
-          if (time_remaining) setRenderTimeLeft(time_remaining);
+
+          // ETA: server uses seconds/frame from consecutive lines (linear in work left).
+          // Fallback: (remaining_frames / rendered_frames) × elapsed since first frame — not %, which mixed startup into elapsed.
+          if (!progressUnknown || progress > 0 || rendered_frames > 0) {
+            if (
+              etaSecondsApi != null &&
+              Number.isFinite(etaSecondsApi) &&
+              etaSecondsApi >= 1
+            ) {
+              let nextSec = etaSecondsApi;
+              const lastSec = renderEtaLastSecRef.current;
+              if (lastSec != null) {
+                if (nextSec < lastSec) renderEtaWentDownRef.current = true;
+                if (renderEtaWentDownRef.current && nextSec > lastSec) {
+                  nextSec = lastSec;
+                }
+              }
+              renderEtaLastSecRef.current = nextSec;
+              setRenderEtaLabel(formatEtaSecondsRounded(nextSec));
+            } else if (
+              rendered_frames > 0 &&
+              total_frames > 0 &&
+              rendered_frames < total_frames &&
+              renderStartWallRef.current != null
+            ) {
+              const elapsed = (Date.now() - renderStartWallRef.current) / 1000;
+              const rawEta =
+                (elapsed * (total_frames - rendered_frames)) / rendered_frames;
+              if (Number.isFinite(rawEta) && rawEta >= 1) {
+                let nextSec = rawEta;
+                const lastSec = renderEtaLastSecRef.current;
+                if (lastSec != null) {
+                  if (nextSec < lastSec) renderEtaWentDownRef.current = true;
+                  if (renderEtaWentDownRef.current && nextSec > lastSec) {
+                    nextSec = lastSec;
+                  }
+                }
+                renderEtaLastSecRef.current = nextSec;
+                setRenderEtaLabel(formatEtaSecondsRounded(nextSec));
+              } else {
+                // Avoid showing a misleading early "0s".
+                setRenderEtaLabel(null);
+              }
+            } else if (progress >= 100) {
+              setRenderEtaLabel("Almost done");
+            } else if (
+              progress >= 100 ||
+              (total_frames > 0 && rendered_frames >= total_frames)
+            ) {
+              setRenderEtaLabel("Almost done");
+            } else if (total_frames === 0 && progress === 0) {
+              setRenderEtaLabel(null);
+            } else {
+              // No meaningful ETA yet; don't keep an old "0s" value.
+              if (progress > 0 || rendered_frames > 0) setRenderEtaLabel(null);
+            }
+          }
 
           if (renderErr) {
             if (isResume) {
@@ -1106,10 +1222,37 @@ export default function ProjectView() {
 
       stopRenderPolling();
       poll(); // immediate first poll
-      renderPollingRef.current = setInterval(poll, 10_000);
+      renderPollingRef.current = setInterval(poll, 2000);
     },
     [projectId]
   );
+
+  // Resume render progress after refresh/navigation when the project is still rendering
+  useEffect(() => {
+    renderResumeInitRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!project || project.status !== "rendering" || project.r2_video_url) return;
+    if (renderPollingRef.current) return;
+    if (renderResumeInitRef.current) return;
+    renderResumeInitRef.current = true;
+    const key = `render_hw_${projectId}`;
+    const hw = sessionStorage.getItem(key);
+    if (hw) {
+      const n = parseInt(hw, 10);
+      if (!Number.isNaN(n)) {
+        renderHighWaterRef.current = Math.max(renderHighWaterRef.current, n);
+        setRenderProgress(renderHighWaterRef.current);
+      }
+    }
+    renderStartWallRef.current = null;
+    setRendering(true);
+    setRenderEtaLabel(null);
+    renderEtaLastSecRef.current = null;
+    renderEtaWentDownRef.current = false;
+    startRenderPollingLoop({ isResume: true });
+  }, [projectId, project?.status, project?.r2_video_url, startRenderPollingLoop]);
 
   const handleDownload = async () => {
     if (!project || !project.r2_video_url) {
@@ -1677,17 +1820,18 @@ export default function ProjectView() {
 
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>{renderProgress}%</span>
-                {renderTimeLeft ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    {renderTimeLeft} remaining
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    Encoding
-                  </span>
-                )}
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                  {renderEtaLabel
+                    ? renderEtaLabel.startsWith("~")
+                      ? `${renderEtaLabel} remaining`
+                      : renderEtaLabel
+                    : renderProgress > 0
+                      ? "Estimating…"
+                      : renderFrames.total > 0
+                        ? "Rendering…"
+                        : "Preparing…"}
+                </span>
               </div>
 
               <p className="mt-6 text-sm text-gray-400">
