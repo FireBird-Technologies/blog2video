@@ -1,4 +1,6 @@
 /** Matrix template layout types. */
+import type { SocialsMap } from "../SocialIcons";
+
 export type MatrixLayoutType =
   | "matrix_title"
   | "terminal_text"
@@ -8,7 +10,8 @@ export type MatrixLayoutType =
   | "fork_choice"
   | "matrix_image"
   | "transmission"
-  | "awakening";
+  | "awakening"
+  | "ending_socials";
 
 export interface MatrixLayoutProps {
   title: string;
@@ -40,4 +43,9 @@ export interface MatrixLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+
+  // ending_socials
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
 }

@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 /**
  * Blog2Video — shared prop interface.
  * Intentionally compatible with WhiteboardLayoutProps so both
@@ -41,6 +43,9 @@ export interface BlogLayoutProps {
 
   /** Project-level font override; when set, used for all text in the layout. */
   fontFamily?: string;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
 }
 
 export type NewspaperLayoutType =
@@ -49,4 +54,5 @@ export type NewspaperLayoutType =
   | "pull_quote"
   | "data_snapshot"
   | "fact_check"
-  | "news_timeline";
+  | "news_timeline"
+  | "ending_socials";

@@ -1,6 +1,7 @@
 /**
  * Newspaper template — layout prop interface and layout type.
  */
+import type { SocialsMap } from "../SocialIcons";
 export interface BlogLayoutProps {
   title: string;
   narration?: string;
@@ -18,6 +19,11 @@ export interface BlogLayoutProps {
 
   /** Project-level font override; when set, used for all text in the layout. */
   fontFamily?: string;
+
+  // ending_socials
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
 }
 
 export type NewspaperLayoutType =
@@ -26,4 +32,5 @@ export type NewspaperLayoutType =
   | "pull_quote"
   | "data_snapshot"
   | "fact_check"
-  | "news_timeline";
+  | "news_timeline"
+  | "ending_socials";

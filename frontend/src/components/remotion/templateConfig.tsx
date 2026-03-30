@@ -80,6 +80,7 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
+  "ending_socials",
 ]);
 
 const NIGHTFALL_LAYOUTS = new Set([
@@ -93,6 +94,7 @@ const NIGHTFALL_LAYOUTS = new Set([
   "chapter_break",
   "glass_image",
   "data_visualization",
+  "ending_socials",
 ]);
 
 const GRIDCRAFT_LAYOUTS = new Set([
@@ -105,6 +107,7 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
+  "ending_socials",
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
@@ -117,6 +120,7 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_image",
   "rapid_points",
   "closer",
+  "ending_socials",
 ]);
 
 const MATRIX_LAYOUTS = new Set([
@@ -129,6 +133,7 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
+  "ending_socials",
 ]);
 
 const WHITEBOARD_LAYOUTS = new Set([
@@ -141,6 +146,7 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
+  "ending_socials",
 ]);
 
 const NEWSPAPER_LAYOUTS = new Set([
@@ -150,6 +156,7 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
+  "ending_socials",
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {

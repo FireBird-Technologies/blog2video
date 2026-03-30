@@ -7,6 +7,7 @@ import { ComparisonThoughts } from "./ComparisonThoughts";
 import { CountdownTimer } from "./countdowntimer";
 import { HandwrittenEquation } from "./handwrittenequation";
 import { SpeechBubbleDialogue } from "./speechbubbledialogue";
+import { EndingSocials } from "./EndingSocials";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "../types";
 
 export type { WhiteboardLayoutType, WhiteboardLayoutProps };
@@ -24,4 +25,5 @@ export const WHITEBOARD_LAYOUT_REGISTRY: Record<
   countdown_timer: CountdownTimer,
   handwritten_equation: HandwrittenEquation,
   speech_bubble_dialogue: SpeechBubbleDialogue,
+  ending_socials: EndingSocials,
 };
