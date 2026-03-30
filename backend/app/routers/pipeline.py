@@ -762,23 +762,29 @@ def render_status_endpoint(
 
     # If no progress dict exists, check project status to determine state
     if not prog:
-        # If project is marked as RENDERING but no progress exists, the render
-        # process likely crashed or was lost (e.g. Cloud Run instance restart).
-        # Reset status to allow retry.
+        # Project is RENDERING but this worker has no in-memory progress: another
+        # server instance may be rendering, or the render just started. Do NOT reset
+        # DB status — that caused false "lost render" and 0% when load-balanced
+        # polls hit a cold instance.
         if project.status == ProjectStatus.RENDERING:
-            logger.warning("[RENDER] Project %s is RENDERING but no progress found — render was lost, resetting status", project_id)
-            project.status = ProjectStatus.GENERATED  # Back to pre-render state
-            db.commit()
+            logger.warning(
+                "[RENDER] Project %s is RENDERING but no progress dict on this worker — "
+                "continuing (another instance may hold progress, or render is starting)",
+                project_id,
+            )
             return {
                 "progress": 0,
                 "rendered_frames": 0,
                 "total_frames": 0,
                 "done": False,
-                "error": "Render process was lost. Please try rendering again.",
+                "error": None,
                 "time_remaining": None,
+                "eta_seconds": None,
+                "progress_unknown": True,
+                "render_attempt": None,
                 "r2_video_url": project.r2_video_url,
             }
-        
+
         # Project is not rendering — return default state
         return {
             "progress": 0,
@@ -787,6 +793,9 @@ def render_status_endpoint(
             "done": project.status == ProjectStatus.DONE,
             "error": None,
             "time_remaining": None,
+            "eta_seconds": None,
+            "progress_unknown": False,
+            "render_attempt": None,
             "r2_video_url": project.r2_video_url,
         }
 
@@ -803,6 +812,9 @@ def render_status_endpoint(
         "done": prog.get("done", False),
         "error": prog.get("error"),
         "time_remaining": prog.get("time_remaining"),
+        "eta_seconds": prog.get("eta_seconds"),
+        "progress_unknown": False,
+        "render_attempt": prog.get("_attempt", 1),
         "r2_video_url": project.r2_video_url,
     }
 
