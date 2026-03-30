@@ -335,6 +335,7 @@ async def _generate_script(project: Project, db: Session):
         )
         
     generator = ScriptGenerator()
+    include_ending_socials = not is_custom_template(template_id)
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -344,6 +345,7 @@ async def _generate_script(project: Project, db: Session):
         video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
+        include_ending_socials=include_ending_socials,
     )
 
     project.name = result["title"]
@@ -474,8 +476,33 @@ async def _generate_scenes(project: Project, db: Session):
     db.expire_all()
     scenes = project.scenes
 
+    # Default socials for the DSPy-generated ending scene.
+    # Enabled by default: Facebook + Instagram + YouTube.
+    ending_socials_default = {
+        "facebook": {"enabled": True, "label": "Facebook"},
+        "instagram": {"enabled": True, "label": "Instagram"},
+        "youtube": {"enabled": True, "label": "YouTube"},
+        "medium": {"enabled": False, "label": "Medium"},
+        "substack": {"enabled": False, "label": "Substack"},
+        "linkedin": {"enabled": False, "label": "LinkedIn"},
+        "tiktok": {"enabled": False, "label": "TikTok"},
+    }
+
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        # DSPy appends an ending scene with preferred_layout="ending_socials".
+        # We override the descriptor here so Remotion can render the themed ending consistently.
+        if getattr(scene, "preferred_layout", None) == "ending_socials":
+            descriptor = {
+                "layout": "ending_socials",
+                "layoutProps": {
+                    "hideImage": True,
+                    "socials": ending_socials_default,
+                    "showWebsiteButton": True,
+                    "websiteLink": "https://yourwebsite.com",
+                },
+            }
+
         has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:
@@ -762,23 +789,29 @@ def render_status_endpoint(
 
     # If no progress dict exists, check project status to determine state
     if not prog:
-        # If project is marked as RENDERING but no progress exists, the render
-        # process likely crashed or was lost (e.g. Cloud Run instance restart).
-        # Reset status to allow retry.
+        # Project is RENDERING but this worker has no in-memory progress: another
+        # server instance may be rendering, or the render just started. Do NOT reset
+        # DB status — that caused false "lost render" and 0% when load-balanced
+        # polls hit a cold instance.
         if project.status == ProjectStatus.RENDERING:
-            logger.warning("[RENDER] Project %s is RENDERING but no progress found — render was lost, resetting status", project_id)
-            project.status = ProjectStatus.GENERATED  # Back to pre-render state
-            db.commit()
+            logger.warning(
+                "[RENDER] Project %s is RENDERING but no progress dict on this worker — "
+                "continuing (another instance may hold progress, or render is starting)",
+                project_id,
+            )
             return {
                 "progress": 0,
                 "rendered_frames": 0,
                 "total_frames": 0,
                 "done": False,
-                "error": "Render process was lost. Please try rendering again.",
+                "error": None,
                 "time_remaining": None,
+                "eta_seconds": None,
+                "progress_unknown": True,
+                "render_attempt": None,
                 "r2_video_url": project.r2_video_url,
             }
-        
+
         # Project is not rendering — return default state
         return {
             "progress": 0,
@@ -787,6 +820,9 @@ def render_status_endpoint(
             "done": project.status == ProjectStatus.DONE,
             "error": None,
             "time_remaining": None,
+            "eta_seconds": None,
+            "progress_unknown": False,
+            "render_attempt": None,
             "r2_video_url": project.r2_video_url,
         }
 
@@ -803,6 +839,9 @@ def render_status_endpoint(
         "done": prog.get("done", False),
         "error": prog.get("error"),
         "time_remaining": prog.get("time_remaining"),
+        "eta_seconds": prog.get("eta_seconds"),
+        "progress_unknown": False,
+        "render_attempt": prog.get("_attempt", 1),
         "r2_video_url": project.r2_video_url,
     }
 

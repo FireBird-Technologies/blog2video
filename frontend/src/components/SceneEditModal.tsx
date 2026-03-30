@@ -484,6 +484,32 @@ export default function SceneEditModal({
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
+  const ENDING_SOCIALS_KEYS = [
+    "instagram",
+    "youtube",
+    "medium",
+    "substack",
+    "facebook",
+    "linkedin",
+    "tiktok",
+  ] as const;
+  const ENDING_SOCIALS_DEFAULT: Record<
+    typeof ENDING_SOCIALS_KEYS[number],
+    { enabled: boolean; label: string }
+  > = {
+    facebook: { enabled: true, label: "Facebook" },
+    instagram: { enabled: true, label: "Instagram" },
+    youtube: { enabled: true, label: "YouTube" },
+    medium: { enabled: false, label: "Medium" },
+    substack: { enabled: false, label: "Substack" },
+    linkedin: { enabled: false, label: "LinkedIn" },
+    tiktok: { enabled: false, label: "TikTok" },
+  };
+  const [endingSocials, setEndingSocials] = useState<
+    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
+  >(ENDING_SOCIALS_DEFAULT);
+  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
+  const [endingWebsiteLink, setEndingWebsiteLink] = useState("https://yourwebsite.com");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -541,6 +567,7 @@ export default function SceneEditModal({
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+  const isEndingScene = currentLayoutId === "ending_socials";
 
   const defaultFontSizes =
     getDefaultFontSizesFromSchema(
@@ -632,6 +659,32 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableLayoutProps(lpCopy);
+    if (isEndingScene) {
+      const lpSocials = (lpCopy as Record<string, unknown>).socials;
+      if (
+        lpSocials &&
+        typeof lpSocials === "object" &&
+        !Array.isArray(lpSocials)
+      ) {
+        setEndingSocials(lpSocials as Record<
+          typeof ENDING_SOCIALS_KEYS[number],
+          { enabled: boolean; label: string }
+        >);
+      } else {
+        setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      }
+      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
+      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
+      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
+      const normalizedWebsiteLink = typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+        ? lpWebsiteLink.trim()
+        : "https://yourwebsite.com";
+      setEndingWebsiteLink(normalizedWebsiteLink);
+    } else {
+      setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      setEndingShowWebsiteButton(true);
+      setEndingWebsiteLink("https://yourwebsite.com");
+    }
     // Initialize structured content for custom templates
     let scInit: Record<string, unknown> = {};
     if (scene.remotion_code) {
@@ -827,10 +880,71 @@ export default function SceneEditModal({
             else delete lp.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
             else delete lp.descriptionFontSize;
+            if (isEndingScene) {
+              lp.hideImage = true;
+              lp.socials = endingSocials;
+              lp.showWebsiteButton = endingShowWebsiteButton;
+              lp.websiteLink = (endingWebsiteLink || "https://yourwebsite.com").trim() || "https://yourwebsite.com";
+            }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
           }
         }
+
+        const derivedEndingNarrationText = (() => {
+          if (!isEndingScene) return null;
+          const titlePart = title.trim();
+          const displayPart = (displayText ?? "").trim();
+
+          const enabledKeys = ENDING_SOCIALS_KEYS.filter((k) => endingSocials[k]?.enabled);
+          const enabledNames = enabledKeys.map(
+            (k) => ENDING_SOCIALS_DEFAULT[k].label
+          );
+          const enabledNamesStr = enabledNames.join(", ");
+          const enabledNamesStrResolved =
+            enabledNamesStr || "our social channels";
+
+          const canonicalNames = ENDING_SOCIALS_KEYS.map(
+            (k) => ENDING_SOCIALS_DEFAULT[k].label
+          );
+
+          const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const re = new RegExp(`\\b(${canonicalNames.map(escapeRegex).join("|")})\\b`, "gi");
+
+          const prefix = titlePart.endsWith(".") || titlePart.endsWith("!") || titlePart.endsWith("?")
+            ? titlePart
+            : `${titlePart}.`;
+          const supportCta = `Support this creator by following on ${enabledNamesStrResolved}.`;
+
+          if (!displayPart) {
+            return `${prefix} ${supportCta}`;
+          }
+
+          // Replace the first..last social-name span inside the editable display text
+          // so the voiceover mentions only the enabled platforms.
+          let match: RegExpExecArray | null = null;
+          let firstStart = -1;
+          let lastEnd = -1;
+          while ((match = re.exec(displayPart)) !== null) {
+            const start = match.index ?? 0;
+            const end = start + match[0].length;
+            if (firstStart === -1) firstStart = start;
+            lastEnd = end;
+            if (re.lastIndex >= displayPart.length) break;
+          }
+
+          if (firstStart >= 0 && lastEnd > firstStart) {
+            const before = displayPart.slice(0, firstStart).trimEnd();
+            const after = displayPart.slice(lastEnd).trimStart();
+            const joined = [before, enabledNamesStrResolved, after]
+              .filter(Boolean)
+              .join(" ");
+            return `${prefix} ${joined} Support this creator by following.`;
+          }
+
+          return `${prefix} ${displayPart} ${supportCta}`;
+        })();
+
         const extraHoldVal = parseFloat(extraHoldSeconds.trim());
         const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
 
@@ -838,6 +952,9 @@ export default function SceneEditModal({
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
+          ...(derivedEndingNarrationText
+            ? { narration_text: derivedEndingNarrationText }
+            : {}),
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
           extra_hold_seconds: extraHold,
         });
@@ -1106,6 +1223,110 @@ export default function SceneEditModal({
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
+                if (isEndingScene) {
+                  return (
+                    <div className="space-y-3">
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Social media Links
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-gray-800">
+                              Website CTA Button
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                              }`}
+                              role="switch"
+                              aria-checked={endingShowWebsiteButton}
+                              aria-label="Toggle website call to action"
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          {endingShowWebsiteButton ? (
+                            <div>
+                              <input
+                                type="text"
+                                value={endingWebsiteLink}
+                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="https://yourwebsite.com"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Shown below the &quot;Get Started with →&quot; pill above social icons.
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+                        {ENDING_SOCIALS_KEYS.map((k) => {
+                          const item = endingSocials[k];
+                          const enabled = Boolean(item?.enabled ?? false);
+                          const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
+                          const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
+                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
+                          return (
+                            <div key={k} className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEndingSocials((prev) => ({
+                                      ...prev,
+                                      [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), enabled: !enabled },
+                                    }));
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    enabled ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={enabled}
+                                  aria-label={`Toggle ${platformLabel}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      enabled ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                <div className="text-sm font-medium text-gray-800">
+                                  {platformLabel}
+                                </div>
+                              </div>
+
+                              {enabled ? (
+                                <div>
+                                  <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      setEndingSocials((prev) => ({
+                                        ...prev,
+                                        [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), label: next },
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder={`Enter ${k} link or text`}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
                 const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
                 const layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
                 const knownKeys = new Set(layoutFields.map((f) => f.key));

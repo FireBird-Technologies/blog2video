@@ -140,6 +140,8 @@ class BlogToScript(dspy.Signature):
     ═══ TEMPLATE-SPECIFIC RULES ═══
     - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix):
     - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
+    - When include_ending_socials is true: assign preferred_layout "ending_socials" ONLY to the LAST scene in
+      scenes_json. No other scene may use "ending_socials" — not the first scene, not the middle, only the final index.
     - Follow the "Best for" / "When to Use" hints when deciding per scene.
     - Hero/opening scenes should use the template's hero layout (e.g. hero_image, news_headline).
     - For CUSTOM templates (universal layout engine):
@@ -180,6 +182,14 @@ class BlogToScript(dspy.Signature):
         desc="Language of the scraped content (e.g. 'English', 'Spanish', 'French'). Generate ALL output in this language."
     )
 
+    include_ending_socials: bool = dspy.InputField(
+        desc=(
+            "Built-in templates only. When true, DSPy MUST append exactly one final ending scene as the LAST "
+            "scene with preferred_layout='ending_socials'. All other scenes MUST NOT use preferred_layout="
+            "'ending_socials'. When false, output only the normal scenes."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc=(
@@ -200,6 +210,9 @@ class BlogToScript(dspy.Signature):
             '"narration": "Let\'s explore how AI transforms software development.", '
             '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
             '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
+            ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
+            'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
+            'In that ending scene object: "title" must be a strong call-to-action thank-you headline, and "narration" must explicitly ask viewers to support the creator by following on socials like Facebook, Instagram, and YouTube. '
         )
     )
 
@@ -222,6 +235,7 @@ class ScriptGenerator:
         video_length: str = "auto",
         layout_catalog: str = "",
         content_language: str = "English",
+        include_ending_socials: bool = False,
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -240,6 +254,7 @@ class ScriptGenerator:
             video_length=(video_length or "auto").strip().lower() or "auto",
             layout_catalog=layout_catalog or "",
             content_language=(content_language or "English").strip(),
+            include_ending_socials=bool(include_ending_socials),
         )
 
         # Parse the scenes JSON and apply limits
@@ -248,6 +263,7 @@ class ScriptGenerator:
             result.scenes_json,
             video_style=style,
             video_length=(video_length or "auto").strip().lower() or "auto",
+            include_ending_socials=include_ending_socials,
         )
 
         return {
@@ -267,11 +283,71 @@ class ScriptGenerator:
         # auto: best-effort natural scene count, but never exceed 20 scenes
         return 20
 
+    @staticmethod
+    def _norm_layout_key(raw: str | None) -> str:
+        return (raw or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+    def _apply_ending_socials_placement(
+        self,
+        scenes: list[dict],
+        *,
+        include_ending_socials: bool,
+        max_scenes: int,
+    ) -> list[dict]:
+        """
+        Enforce: `ending_socials` is assigned only to the final scene when enabled, and never otherwise.
+
+        - Strips accidental `ending_socials` from non-final scenes (or from all scenes when disabled).
+        - Reserves the last list slot for the ending when `include_ending_socials` (same as scene-cap logic).
+        - If the model returned no scenes but an ending is required, appends a minimal ending scene.
+        """
+        ENDING = "ending_socials"
+
+        if not scenes:
+            if not include_ending_socials:
+                return []
+            return [
+                {
+                    "title": "Thanks for watching",
+                    "narration": "Support this creator by following on Facebook, Instagram, and YouTube.",
+                    "visual_description": "Call-to-action ending screen thanking viewers and asking them to follow and support the creator on social media.",
+                    "suggested_images": [],
+                    "duration_seconds": 6,
+                    "preferred_layout": ENDING,
+                }
+            ]
+
+        if include_ending_socials:
+            # Keep the last scene as the single ending slot; cap body so total length <= max_scenes.
+            body = scenes[:-1][: max(0, max_scenes - 1)]
+            tail = [scenes[-1]]
+            trimmed = body + tail
+        else:
+            trimmed = scenes[:max_scenes]
+
+        out: list[dict] = []
+        last_i = len(trimmed) - 1
+        for i, scene in enumerate(trimmed):
+            pl_raw = (scene.get("preferred_layout") or "").strip()
+            pl_norm = self._norm_layout_key(pl_raw)
+
+            if include_ending_socials and i == last_i:
+                preferred_layout = ENDING
+            elif pl_norm == ENDING:
+                preferred_layout = None
+            else:
+                preferred_layout = pl_raw or None
+
+            out.append({**scene, "preferred_layout": preferred_layout})
+
+        return out
+
     def _parse_scenes(
         self,
         scenes_json: str,
         video_style: str = "explainer",
         video_length: str = "auto",
+        include_ending_socials: bool = False,
     ) -> list[dict]:
         """Parse and validate scenes JSON.
 
@@ -291,10 +367,21 @@ class ScriptGenerator:
                 scenes = [scenes]
 
             max_scenes = self._max_scenes_for_video_length(video_length)
+
+            kept = self._apply_ending_socials_placement(
+                scenes,
+                include_ending_socials=include_ending_socials,
+                max_scenes=max_scenes,
+            )
+
             validated = []
-            for i, scene in enumerate(scenes[:max_scenes]):
+            for i, scene in enumerate(kept):
                 narration = scene.get("narration", "").strip()
                 narration = " ".join(narration.split())
+
+                preferred_layout_raw = (scene.get("preferred_layout") or "").strip()
+                preferred_layout: str | None = preferred_layout_raw or None
+
                 validated.append({
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": narration,
@@ -302,7 +389,7 @@ class ScriptGenerator:
                     "suggested_images": scene.get("suggested_images", []),
                     "duration_seconds": scene.get("duration_seconds", 10),
                     # May be a layout ID (built-in templates) or an arrangement name (custom templates)
-                    "preferred_layout": (scene.get("preferred_layout") or "").strip() or None,
+                    "preferred_layout": preferred_layout,
                 })
 
             return validated
