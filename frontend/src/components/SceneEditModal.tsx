@@ -1520,18 +1520,42 @@ export default function SceneEditModal({
               {/* ── Structured content fields for custom templates ── */}
               {(() => {
                 if (!isCustomTemplate) return null;
-                const ct = (editableStructuredContent.contentType as string) || "";
+                const ct = (editableStructuredContent.contentType as string) || "plain";
                 const scFields = CUSTOM_CONTENT_FIELDS[ct];
-                if (!scFields || ct === "plain") return null;
                 const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                 const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                const contentTypeOptions = [
+                  { value: "plain", label: "Plain text" },
+                  { value: "bullets", label: "Bullet points" },
+                  { value: "steps", label: "Steps" },
+                  { value: "metrics", label: "Metrics" },
+                  { value: "quote", label: "Quote" },
+                  { value: "comparison", label: "Comparison" },
+                  { value: "timeline", label: "Timeline" },
+                  { value: "code", label: "Code" },
+                ];
                 return (
                   <div>
                     <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                      Structured content <span className="normal-case tracking-normal text-gray-300">({ct})</span>
+                      Structured content
                     </h4>
+                    <div className="mb-3">
+                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Content type</label>
+                      <select
+                        value={ct}
+                        onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, contentType: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      >
+                        {contentTypeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      {ct === "plain" && (
+                        <p className="text-[11px] text-gray-400 mt-1.5">Switch to a structured type above to add bullets, metrics, or other rich content that overrides template defaults.</p>
+                      )}
+                    </div>
                     <div className="space-y-4">
-                      {scFields.map((field) => {
+                      {(scFields || []).map((field) => {
                         if (field.type === "string") {
                           return (
                             <div key={field.key}>
