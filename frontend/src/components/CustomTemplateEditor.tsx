@@ -18,16 +18,21 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
   const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
   const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
-  const aiDecidedGradient = template.theme.colors.bg2 != null;
+  // const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [gradientOpen, setGradientOpen] = useState(false);
   const styleRef = useRef<HTMLDivElement>(null);
+  const gradientRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
         setStyleOpen(false);
+      }
+      if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
+        setGradientOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -135,30 +140,52 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
           </div>
 
-          {/* Gradient toggle */}
-          <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl">
-            <div>
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-medium text-gray-700">Gradient Background</p>
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide ${aiDecidedGradient ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-400"}`}>
-                  AI · {aiDecidedGradient ? "gradient" : "solid"}
+          {/* Gradient selector */}
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Background Style
+            </label>
+            <div ref={gradientRef} className="relative">
+              <div className="flex items-center gap-2">
+                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                  {useGradient ? "Gradient" : "Solid"}
                 </span>
+                {/* AI badge removed — confuses users */}
+                <button
+                  type="button"
+                  onClick={() => setGradientOpen(!gradientOpen)}
+                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                >
+                  <svg
+                    className={`w-4 h-4 transition-transform ${gradientOpen ? "rotate-180" : ""}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
               </div>
-              <p className="text-[10px] text-gray-400 mt-0.5">AI-decided · override with toggle</p>
+              {gradientOpen && (
+                <div className="absolute z-10 mt-1.5 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                  {[
+                    { value: false, label: "Solid"},
+                    { value: true, label: "Gradient"},
+                  ].map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => { setUseGradient(opt.value); setGradientOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${useGradient === opt.value ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setUseGradient((v) => !v)}
-              className={`relative w-10 h-5 rounded-full transition-colors ${useGradient ? "bg-purple-500" : "bg-gray-300"}`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${useGradient ? "translate-x-5" : "translate-x-0"}`}
-              />
-            </button>
           </div>
 
-          {/* Info pills */}
-          <div className="flex flex-wrap gap-2">
+          {/* Info pills — hidden */}
+          {/* <div className="flex flex-wrap gap-2">
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
               {theme.fonts.heading}
             </span>
@@ -168,7 +195,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
               {theme.animationPreset}
             </span>
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">

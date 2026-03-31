@@ -31,7 +31,7 @@ VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 # ─── Rate limiting ───────────────────────────────────────────
 # Per-user, per-day AI call counter: user_id -> (date_str, count)
 _ai_call_counts: dict[int, tuple[str, int]] = {}
-AI_DAILY_LIMIT = 5
+AI_DAILY_LIMIT = 20
 
 
 def _check_ai_rate_limit(user_id: int) -> None:
@@ -190,6 +190,7 @@ def _serialize_template(tpl: CustomTemplate) -> dict:
         "preview_image_url": tpl.preview_image_url,
         "logo_urls": logo_urls,
         "og_image": og_image,
+        "generation_failed": bool(tpl.generation_failed),
         "created_at": tpl.created_at.isoformat() if tpl.created_at else "",
         "updated_at": tpl.updated_at.isoformat() if tpl.updated_at else "",
     }
@@ -573,6 +574,16 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             "running": False,
             "error": str(e),
         }
+        # Persist failure state so frontend knows without time-based guessing
+        try:
+            _db = SessionLocal()
+            _tpl = _db.query(CustomTemplate).filter(CustomTemplate.id == template_id).first()
+            if _tpl:
+                _tpl.generation_failed = True
+                _db.commit()
+            _db.close()
+        except Exception:
+            pass
     finally:
         loop.close()
 
@@ -599,6 +610,11 @@ async def generate_code(
             status_code=202,
             content={"detail": "Code generation already in progress", "template_id": template_id},
         )
+
+    # Clear any previous failure state before retrying
+    if tpl.generation_failed:
+        tpl.generation_failed = False
+        db.commit()
 
     # Launch in background thread
     thread = threading.Thread(
