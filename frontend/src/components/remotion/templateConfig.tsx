@@ -163,15 +163,15 @@ const NEWSPAPER_LAYOUTS = new Set([
 ]);
 
 const NEWSCAST_LAYOUTS = new Set([
-  "cinematic_title",
-  "glass_narrative",
-  "glow_metric",
-  "glass_code",
-  "kinetic_insight",
-  "glass_stack",
-  "split_glass",
-  "chapter_break",
-  "glass_image",
+  "opening",
+  "anchor_narrative",
+  "live_metrics_board",
+  "briefing_code_panel",
+  "headline_insight",
+  "story_stack",
+  "side_by_side_brief",
+  "segment_break",
+  "field_image_focus",
   "data_visualization",
   "ending_socials",
 ]);
@@ -269,8 +269,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   },
   newscast: {
     component: NewscastVideoComposition as React.ComponentType<any>,
-    heroLayout: "cinematic_title",
-    fallbackLayout: "glass_narrative",
+    heroLayout: "opening",
+    fallbackLayout: "anchor_narrative",
     validLayouts: NEWSCAST_LAYOUTS,
     defaultColors: {
       accent: "#E82020",

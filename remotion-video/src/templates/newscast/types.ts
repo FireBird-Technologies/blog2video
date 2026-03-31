@@ -77,15 +77,15 @@ export interface NewscastLayoutProps {
 }
 
 export type NewscastLayoutType =
-  | "cinematic_title"
-  | "glass_narrative"
-  | "glow_metric"
-  | "glass_code"
-  | "kinetic_insight"
-  | "glass_stack"
-  | "split_glass"
-  | "chapter_break"
-  | "glass_image"
+  | "opening"
+  | "anchor_narrative"
+  | "live_metrics_board"
+  | "briefing_code_panel"
+  | "headline_insight"
+  | "story_stack"
+  | "side_by_side_brief"
+  | "segment_break"
+  | "field_image_focus"
   | "data_visualization"
   | "ending_socials";
 

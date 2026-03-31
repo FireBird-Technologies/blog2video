@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -14,6 +14,7 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
+import NewscastPreview from "./templatePreviews/NewscastPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
@@ -79,17 +80,6 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-const BlogDemoPlayer = lazy(() => import("./BlogDemoPlayer"));
-
-/** Same Remotion preview as `/templates/newscast` (`preview-newscast`), embedded in the step-2 card. */
-function NewscastBlogDemoPreview() {
-  return (
-    <Suspense fallback={<div className="aspect-video w-full bg-gray-200 animate-pulse" />}>
-      <BlogDemoPlayer sceneKey="preview-newscast" variant="embedded" />
-    </Suspense>
-  );
-}
-
 // Template preview component mapping (keyed by template ID from backend)
 const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   default: DefaultPreview,
@@ -99,7 +89,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
-  newscast: NewscastBlogDemoPreview,
+  newscast: NewscastPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {

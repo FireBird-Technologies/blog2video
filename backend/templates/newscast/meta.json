@@ -12,21 +12,32 @@
     "text": "#B8C8E0"
   },
   "composition_id": "NewscastVideo",
-  "hero_layout": "cinematic_title",
-  "fallback_layout": "glass_narrative",
+  "hero_layout": "opening",
+  "fallback_layout": "anchor_narrative",
   "valid_layouts": [
-    "cinematic_title",
-    "glass_narrative",
-    "glow_metric",
-    "glass_code",
-    "kinetic_insight",
-    "glass_stack",
-    "split_glass",
-    "chapter_break",
-    "glass_image",
+    "opening",
+    "anchor_narrative",
+    "live_metrics_board",
+    "briefing_code_panel",
+    "headline_insight",
+    "story_stack",
+    "side_by_side_brief",
+    "segment_break",
+    "field_image_focus",
     "data_visualization",
     "ending_socials"
   ],
+  "legacy_layout_aliases": {
+    "newscast_cinematic_title": "opening",
+    "newscast_glass_narrative": "anchor_narrative",
+    "newscast_glow_metric": "live_metrics_board",
+    "newscast_glass_code": "briefing_code_panel",
+    "newscast_kinetic_insight": "headline_insight",
+    "newscast_glass_stack": "story_stack",
+    "newscast_split_glass": "side_by_side_brief",
+    "newscast_chapter_break": "segment_break",
+    "newscast_glass_image": "field_image_focus"
+  },
   "layout_prop_schema": {
     "breaking_hero": {
       "label": "Breaking Hero",
@@ -439,8 +450,8 @@
         }
       ]
     },
-    "cinematic_title": {
-      "label": "Cinematic Title",
+    "opening": {
+      "label": "Newscast Opening",
       "defaults": {
         "tickerItems": [
           "LIVE BREAKING FEED",
@@ -476,8 +487,8 @@
         }
       ]
     },
-    "glass_narrative": {
-      "label": "Glass Narrative",
+    "anchor_narrative": {
+      "label": "Anchor Narrative",
       "defaults": {
         "tickerItems": [
           "BREAKING UPDATE",
@@ -519,8 +530,8 @@
         }
       ]
     },
-    "glow_metric": {
-      "label": "Glow Metric",
+    "live_metrics_board": {
+      "label": "Live Metrics Board",
       "defaults": {
         "tickerItems": [
           "KEY FIGURE UPDATE",
@@ -572,8 +583,8 @@
         }
       ]
     },
-    "glass_code": {
-      "label": "Glass Code",
+    "briefing_code_panel": {
+      "label": "Briefing Code Panel",
       "defaults": {
         "tickerItems": [
           "SYSTEM UPDATE",
@@ -627,8 +638,8 @@
         }
       ]
     },
-    "kinetic_insight": {
-      "label": "Kinetic Insight",
+    "headline_insight": {
+      "label": "Headline Insight",
       "defaults": {
         "tickerItems": [
           "KEY MOMENT UPDATE",
@@ -670,8 +681,8 @@
         }
       ]
     },
-    "glass_stack": {
-      "label": "Glass Stack",
+    "story_stack": {
+      "label": "Story Stack",
       "defaults": {
         "tickerItems": [
           "PROVISION SUMMARY",
@@ -724,8 +735,8 @@
         }
       ]
     },
-    "split_glass": {
-      "label": "Split Glass",
+    "side_by_side_brief": {
+      "label": "Side-by-Side Brief",
       "defaults": {
         "tickerItems": [
           "BEFORE VS AFTER",
@@ -761,8 +772,8 @@
         { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
       ]
     },
-    "chapter_break": {
-      "label": "Chapter Break",
+    "segment_break": {
+      "label": "Segment Break",
       "defaults": {
         "tickerItems": [
           "NEXT UP BRIEFING",
@@ -792,8 +803,8 @@
         { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
       ]
     },
-    "glass_image": {
-      "label": "Glass Image",
+    "field_image_focus": {
+      "label": "Field Image Focus",
       "defaults": {
         "tickerItems": [
           "LOCATION ESTABLISHING",

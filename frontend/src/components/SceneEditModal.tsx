@@ -15,6 +15,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -42,6 +43,18 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     glow_metric: { title: [28, 36], desc: [18, 20] },
     glass_stack: { title: [34, 42], desc: [16, 18] },
     kinetic_insight: { title: [80, 120], desc: [60, 72] },
+  },
+  newscast: {
+    opening: { title: [88, 140], desc: [26, 36] },
+    anchor_narrative: { title: [40, 52], desc: 25 },
+    field_image_focus: { title: [48, 64], desc: 28 },
+    briefing_code_panel: { title: [18, 22], desc: 22 },
+    side_by_side_brief: { title: [34, 46], desc: [20, 24] },
+    segment_break: { title: [36, 46], desc: [18, 24] },
+    data_visualization: { title: [34, 46], desc: 25 },
+    live_metrics_board: { title: [28, 36], desc: [18, 20] },
+    story_stack: { title: [34, 42], desc: [16, 18] },
+    headline_insight: { title: [80, 120], desc: [60, 72] },
   },
   spotlight: {
     impact_title: { title: [64, 100], desc: [18, 22] },
@@ -93,6 +106,24 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
   },
 };
 
+const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glass_image: "field_image_focus",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_stack: "story_stack",
+  newscast_kinetic_insight: "headline_insight",
+};
+
+function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
+  const normalizedTemplate = (template || "").toLowerCase();
+  if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return layoutId;
+  return LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+}
+
 export function getDefaultFontSizes(
   template: string,
   layoutId: string | null,
@@ -101,7 +132,7 @@ export function getDefaultFontSizes(
   const p = aspectRatio === "portrait";
   const raw = (template || "default").toLowerCase();
   const t = raw.startsWith("custom_") ? "custom" : raw;
-  const layout = layoutId || "text_narration";
+  const layout = layoutId ? normalizeLegacyNewscastLayoutId(t, layoutId) : "text_narration";
   const defs = LAYOUT_FONT_DEFAULTS[t]?.[layout] ?? LAYOUT_FONT_DEFAULTS.default?.text_narration ?? { title: [34, 44], desc: [20, 23] };
   const titleVal = defs.title;
   const descVal = defs.desc;
@@ -119,7 +150,8 @@ export function getDefaultFontSizesFromSchema(
   aspectRatio: string
 ): { title: number; desc: number } | null {
   if (!layoutId || !layoutPropSchema) return null;
-  const schema = layoutPropSchema[layoutId];
+  const canonicalLayoutId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+  const schema = layoutPropSchema[canonicalLayoutId];
   const defaults = schema?.defaults;
   if (!defaults) return null;
   const isPortrait = aspectRatio === "portrait";
@@ -135,7 +167,7 @@ export function getDefaultFontSizesFromSchema(
   const title = resolve(defaults.titleFontSize);
   const desc = resolve(defaults.descriptionFontSize);
   if (title == null && desc == null) return null;
-  const hardcoded = getDefaultFontSizes("", layoutId, aspectRatio);
+  const hardcoded = getDefaultFontSizes("", canonicalLayoutId, aspectRatio);
   return {
     title: title ?? hardcoded.title,
     desc: desc ?? hardcoded.desc,
@@ -227,6 +259,37 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   glow_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  // Newscast template
+  story_stack: [
+    { key: "sectionLabel", label: "Section label", type: "string" },
+    { key: "items", label: "Items", type: "string_array" },
+  ],
+  briefing_code_panel: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  side_by_side_brief: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftTitle", label: "Left title", type: "string" },
+    { key: "rightTitle", label: "Right title", type: "string" },
+    { key: "leftBody", label: "Left body", type: "text" },
+    { key: "rightBody", label: "Right body", type: "text" },
+  ],
+  segment_break: [
+    { key: "subtitle", label: "Subtitle", type: "string" },
+    { key: "chapterNumber", label: "Chapter number", type: "string" },
+    { key: "chapterLabel", label: "Chapter label", type: "string" },
+  ],
+  headline_insight: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "highlightWord", label: "Highlight word", type: "string" },
+    { key: "attribution", label: "Attribution", type: "string" },
+  ],
+  live_metrics_board: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  anchor_narrative: [{ key: "category", label: "Category", type: "string" }],
+  field_image_focus: [{ key: "category", label: "Category", type: "string" }],
   // Matrix template
   terminal_text: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
   glitch_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
@@ -416,7 +479,8 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
-  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[layoutId] ?? LAYOUT_TEXT_FIELDS[layoutId];
+  const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
+  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
@@ -575,7 +639,11 @@ export default function SceneEditModal({
     return null;
   })();
   const currentLayoutLabel = currentLayoutId
-    ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " "))
+    ? getSceneLayoutLabel(
+        project.template,
+        currentLayoutId,
+        layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
+      )
     : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
@@ -1966,7 +2034,11 @@ export default function SceneEditModal({
                       ? (currentLayoutLabel)
                       : selectedLayout === "__auto__"
                         ? "Auto (Let AI choose)"
-                        : (layouts?.layout_names[selectedLayout] || selectedLayout.replace(/[-_]/g, " "))}
+                        : getSceneLayoutLabel(
+                            project.template,
+                            selectedLayout,
+                            layouts?.layout_names[selectedLayout] || selectedLayout.replace(/[-_]/g, " ")
+                          )}
                   </span>
                   <button
                     type="button"
@@ -2023,7 +2095,11 @@ export default function SceneEditModal({
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
                           >
-                            {layouts.layout_names[layoutId] || layoutId.replace(/[-_]/g, " ")}
+                            {getSceneLayoutLabel(
+                              project.template,
+                              layoutId,
+                              layouts.layout_names[layoutId] || layoutId.replace(/[-_]/g, " ")
+                            )}
                             <span className={`ml-1 ${supportsImageForLayout ? "text-gray-500" : "text-gray-400 italic"}`}>
                               ({supportsImageForLayout ? "Supports images" : "Does not support images"})
                             </span>

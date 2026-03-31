@@ -11,7 +11,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 - Never use purple, green, or pastels.
 
 ## Optional scene image (`layoutProps.imageUrl`)
-- **Every layout** (including `cinematic_title` / Scene 0) may include `imageUrl` when a relevant image URL exists: a full-bleed background plate behind the NEWSCAST stack (globe, chrome, glass, type). Omit when no image is available or appropriate.
+- **Every layout** (including `opening` / Scene 0) may include `imageUrl` when a relevant image URL exists: a full-bleed background plate behind the NEWSCAST stack (globe, chrome, glass, type). Omit when no image is available or appropriate.
 
 ## Background field
 - Always `#060614` (deep space navy).
@@ -53,7 +53,9 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 ---
 # Layout Catalog
 
-## cinematic_title
+Legacy compatibility note: the renderer still accepts older IDs like `newscast_cinematic_title` and `newscast_glass_narrative`, but generated output should use canonical IDs listed below.
+
+## opening (Newscast Opening)
 **Visual:** Full dark canvas with radial blue glow. Red “BREAKING NEWS” badge with live dot. Giant centered title (Oswald 700, 80–120px) where main word is white and accent word is `#E82020`. Gold horizontal rule with center dot. Subtitle uses Barlow Condensed 300, steel color, heavy letter-spacing. Orbit rings float around the composition. **No glass card.**
 
 **Best for:** Scene 0 only.
@@ -65,7 +67,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## glass_narrative
+## anchor_narrative (Anchor Narrative)
 **Visual:** Single frosted navy glass card centered (60–65% width). Red top border (3px) + red left accent bar (4px). Gold corner tick marks. Red category tag above. Oswald uppercase title. Barlow Condensed body paragraph. Optional right image if `imageUrl` exists.
 
 **Best for:** narrative context; main story explanation.
@@ -77,7 +79,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## glow_metric
+## live_metrics_board (Live Metrics Board)
 **Visual:** 1–3 metric cards centered. Primary metric has dual counter-rotating rings and a large Oswald number (60–72px). Secondary metrics share the structure with blue top borders. Numbers count up from 0.
 
 **Best for:** 1–3 key numbers as the story.
@@ -95,7 +97,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## glass_code
+## briefing_code_panel (Briefing Code Panel)
 **Visual:** Frosted navy card with metallic terminal header (traffic-light buttons). Code typewrites in line-by-line with blinking red cursor. Red line numbers, syntax highlighting.
 
 **Best for:** terminal commands and code snippets.
@@ -110,7 +112,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## kinetic_insight
+## headline_insight (Headline Insight)
 **Visual:** No glass card; raw dark canvas. Gold rule top/bottom of quote zone. Oswald uppercase quote (50–65px). Highlight word in red with glow + underline accent. Attribution line in Rajdhani with wide letter-spacing.
 
 **Best for:** one powerful sentence.
@@ -126,7 +128,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## glass_stack
+## story_stack (Story Stack)
 **Visual:** 2–3 stacked frosted navy cards. Progressive right offsets. Each card has red left border, large red index number, and Barlow content text. Section label above stack in Rajdhani with a thin red divider line.
 
 **Best for:** 2–3 key provisions/features.
@@ -145,7 +147,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## split_glass
+## side_by_side_brief (Side-by-Side Brief)
 **Visual:** Two contrasting glass panels side-by-side. Left is red-tinted, right is blue-tinted. Center divider strip has gold-to-red glow. Each side includes gold uppercase label, Oswald title, and Barlow body text.
 
 **Best for:** before/after and problem/solution contrasts.
@@ -164,7 +166,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## chapter_break
+## segment_break (Segment Break)
 **Visual:** Minimal transition: giant ghost chapter number in low-opacity white. Ornamental corner frames. Rajdhani “CHAPTER TWO” label. Gold rule with red glow center. Oswald section title. Barlow subline. No glass cards.
 
 **Best for:** major section separators.
@@ -181,7 +183,7 @@ NEWSCAST is a premium broadcast news video template system. Every frame feels li
 
 ---
 
-## glass_image
+## field_image_focus (Field Image Focus)
 **Visual:** Full-canvas or 55% right image with multi-layer gradients. Ken Burns effect (slow zoom). Frosted caption slides up.
 
 **Best for:** image-focused scenes.
@@ -249,16 +251,16 @@ Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChar
 ---
 # Scene Flow Rules
 
-- **Scene 0:** ALWAYS `cinematic_title` (your hero styling).
-- **Scenes 1–2:** `glass_narrative` or `chapter_break`.
-- **Middle:** alternate glass layouts with impact moments (`kinetic_insight`).
-- **Final scene:** `glass_narrative`, `kinetic_insight`, or `glow_metric` for a strong close.
+- **Scene 0:** ALWAYS `opening` (your hero styling).
+- **Scenes 1–2:** `anchor_narrative` or `segment_break`.
+- **Middle:** alternate glass layouts with impact moments (`headline_insight`).
+- **Final scene:** `anchor_narrative`, `headline_insight`, or `live_metrics_board` for a strong close.
 
 **Variety requirements**
 - Never repeat the same layout consecutively.
-- `glass_narrative` max 2 per video.
-- `kinetic_insight` max 2 per video.
-- `chapter_break` max 2 per video.
+- `anchor_narrative` max 2 per video.
+- `headline_insight` max 2 per video.
+- `segment_break` max 2 per video.
 - Variety score ≥ 0.6 (unique layouts ÷ total scenes).
 
 ---
@@ -269,9 +271,9 @@ Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChar
 3. Category tags: 2–3 words, letter-spacing 3px, red background.
 4. Lower third headlines: short news-style noun phrases (no full sentences).
 5. Ticker content: match the scene topic; use `◆` as separator when rendering.
-6. Numbers belong in `glow_metric` (don’t bury them inside `glass_narrative`).
-7. Quotes/insights belong in `kinetic_insight` with `highlightWord`.
-8. Lists of 2–3 belong in `glass_stack`.
+6. Numbers belong in `live_metrics_board` (don’t bury them inside `anchor_narrative`).
+7. Quotes/insights belong in `headline_insight` with `highlightWord`.
+8. Lists of 2–3 belong in `story_stack`.
 
 ## Required chrome props (for every scene)
 - `tickerItems`: array of short ticker segments (strings). Extract from narration “update” fragments.
@@ -280,20 +282,20 @@ Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChar
 - `lowerThirdSub`: steel subtitle (5–12 words).
 
 ## Layout-specific extraction guidance
-- `cinematic_title`: split `title` into white + red accent; use `narration` as subtitle.
-- `glass_narrative`: use scene `title` + `narration` for the glass card; extract `lowerThird*` + `tickerItems`.
-- `glow_metric`: extract up to 3 numbers into `metrics[]` (value/label/suffix).
-- `split_glass`: extract contrasting statements into left/right fields.
-- `kinetic_insight`: extract one most powerful sentence into `quote`, then pick a single key word as `highlightWord`; attribution from narration when present.
-- `glass_stack`: extract 2–3 parallel provisions into `items[]` and a `sectionLabel`.
-- `chapter_break`: extract `chapterNumber` + `chapterLabel` when present; use scene `title`/`narration` for section title/subtitle when not.
-- `glass_image`: if image is available, use `imageUrl`, scene `title`, scene `narration`.
+- `opening`: split `title` into white + red accent; use `narration` as subtitle.
+- `anchor_narrative`: use scene `title` + `narration` for the glass card; extract `lowerThird*` + `tickerItems`.
+- `live_metrics_board`: extract up to 3 numbers into `metrics[]` (value/label/suffix).
+- `side_by_side_brief`: extract contrasting statements into left/right fields.
+- `headline_insight`: extract one most powerful sentence into `quote`, then pick a single key word as `highlightWord`; attribution from narration when present.
+- `story_stack`: extract 2–3 parallel provisions into `items[]` and a `sectionLabel`.
+- `segment_break`: extract `chapterNumber` + `chapterLabel` when present; use scene `title`/`narration` for section title/subtitle when not.
+- `field_image_focus`: if image is available, use `imageUrl`, scene `title`, scene `narration`.
 - `data_visualization`: extract chart data from narration into `barChartRows` **or** `lineChartLabels`+`lineChartDatasets` **or** `pieChartRows` (only one chart type per scene); include required chrome props.
 
 ---
 # Quality Checklist
 
-- [ ] Scene 0 is `cinematic_title`
+- [ ] Scene 0 is `opening`
 - [ ] Globe watermark present and at 7–12% opacity
 - [ ] All persistent chrome elements present (red band, side bands, live badge, timestamp, logo, ticker, lower third, corner chrome)
 - [ ] Metal emboss frame on outer canvas
@@ -301,6 +303,6 @@ Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChar
 - [ ] Titles use Oswald; body uses Barlow Condensed; labels/timestamps use Rajdhani
 - [ ] Ticker content matches scene topic
 - [ ] Lower-third tag is gold; headline is white Oswald; sub is steel Barlow
-- [ ] Numbers are in `glow_metric`
+- [ ] Numbers are in `live_metrics_board`
 - [ ] No consecutive repeated layouts
 
