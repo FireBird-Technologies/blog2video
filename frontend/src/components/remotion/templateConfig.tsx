@@ -80,6 +80,7 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
+  "data_visualization",
   "ending_socials",
 ]);
 

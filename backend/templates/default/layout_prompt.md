@@ -45,6 +45,10 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `timeline`  
   - **Best for**: Phases, version history, chronological steps. Vertical line with alternating items.
 
+- `data_visualization`  
+  - **Best for**: Quantitative stories: trends, distributions, comparisons across categories. Supports bar charts, line charts (series over time or categories), and histogram-style bin counts. Clean light card on the default template (no hero image).  
+  - **Data**: Use `barChartRows`, `lineChartLabels` / `lineChartDatasets`, and/or `histogramRows` in layout props as appropriate.
+
 Global variety rules for `preferred_layout`:
 
 - Scene 0 → **always** `hero_image` when possible.  
