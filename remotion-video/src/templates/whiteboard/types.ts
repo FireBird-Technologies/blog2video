@@ -38,4 +38,5 @@ export interface WhiteboardLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

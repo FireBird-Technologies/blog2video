@@ -24,6 +24,7 @@ export interface BlogLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }
 
 export type NewspaperLayoutType =

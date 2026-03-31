@@ -2,6 +2,10 @@ import json
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
+from app.services.social_content_signals import (
+    detect_social_platforms_in_text,
+    format_social_platforms_for_script_prompt,
+)
 
 class BlogToScript(dspy.Signature):
     """
@@ -142,6 +146,10 @@ class BlogToScript(dspy.Signature):
     - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
     - When include_ending_socials is true: assign preferred_layout "ending_socials" ONLY to the LAST scene in
       scenes_json. No other scene may use "ending_socials" — not the first scene, not the middle, only the final index.
+    - ENDING SCENE (when include_ending_socials is true): the LAST scene MUST be a call-to-action grounded in the
+      actual blog_content — title, narration, and visual_description should reflect the article's topic, takeaway,
+      or next step (not generic filler). Follow social_platforms_detected strictly: only name social platforms
+      listed there when inviting followers; if it says NONE, do not name Facebook, Instagram, YouTube, etc.
     - Follow the "Best for" / "When to Use" hints when deciding per scene.
     - Hero/opening scenes should use the template's hero layout (e.g. hero_image, news_headline).
     - For CUSTOM templates (universal layout engine):
@@ -190,6 +198,14 @@ class BlogToScript(dspy.Signature):
         )
     )
 
+    social_platforms_detected: str = dspy.InputField(
+        desc=(
+            "Summary of which social platforms are explicitly referenced in blog_content. "
+            "Follow this when writing the final ending scene: only invite followers to platforms "
+            "that are listed; if NONE, do not name social networks."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc=(
@@ -212,7 +228,14 @@ class BlogToScript(dspy.Signature):
             '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
             ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
             'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
-            'In that ending scene object: "title" must be a strong call-to-action thank-you headline, and "narration" must explicitly ask viewers to support the creator by following on socials like Facebook, Instagram, and YouTube. '
+            'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
+            'the blog topic; "narration" = CTA tied to the article (takeaway, next step, or follow-up) per video_style; '
+            '"visual_description" = CTA ending screen reflecting the topic. Use social_platforms_detected: only '
+            'mention social platforms listed there when inviting followers; if NONE, give a topic-based CTA without '
+            'naming Facebook, Instagram, YouTube, or other networks. '
+            'For that ending scene ONLY, also include "cta_button_text": a short pill label (2–6 words) for the '
+            'button above the website link — in content_language, grounded in the article topic (e.g. "Read the full guide", '
+            '"Explore the tutorial"), not generic English unless the content is English. '
         )
     )
 
@@ -245,6 +268,10 @@ class ScriptGenerator:
         Returns:
             dict with 'title' and 'scenes' (list of scene dicts)
         """
+        social_flags = detect_social_platforms_in_text(blog_content)
+        social_hint = format_social_platforms_for_script_prompt(social_flags)
+        fallback_ending = self._build_fallback_ending_scene(social_flags)
+
         result = await self.generator(
             blog_content=blog_content,
             blog_images=json.dumps(blog_images),
@@ -255,6 +282,7 @@ class ScriptGenerator:
             layout_catalog=layout_catalog or "",
             content_language=(content_language or "English").strip(),
             include_ending_socials=bool(include_ending_socials),
+            social_platforms_detected=social_hint,
         )
 
         # Parse the scenes JSON and apply limits
@@ -264,11 +292,48 @@ class ScriptGenerator:
             video_style=style,
             video_length=(video_length or "auto").strip().lower() or "auto",
             include_ending_socials=include_ending_socials,
+            fallback_ending_scene=fallback_ending,
         )
 
         return {
             "title": result.title,
             "scenes": scenes,
+        }
+
+    @staticmethod
+    def _build_fallback_ending_scene(social_flags: dict[str, bool]) -> dict:
+        """Minimal last scene when the model returns no JSON (still respects social detection)."""
+        order = [
+            ("facebook", "Facebook"),
+            ("instagram", "Instagram"),
+            ("youtube", "YouTube"),
+            ("medium", "Medium"),
+            ("substack", "Substack"),
+            ("linkedin", "LinkedIn"),
+            ("tiktok", "TikTok"),
+        ]
+        labels = [lab for key, lab in order if social_flags.get(key)]
+        if labels:
+            narration = (
+                "Thanks for watching. If you found this valuable, connect with us on "
+                + ", ".join(labels)
+                + "."
+            )
+        else:
+            narration = (
+                "Thanks for watching. Take these ideas forward and revisit the source when you need the details."
+            )
+        return {
+            "title": "Thanks for watching",
+            "narration": narration,
+            "visual_description": (
+                "Call-to-action ending grounded in the article: thank viewers and reinforce the main takeaway; "
+                "optional social follow only when relevant to the source material."
+            ),
+            "suggested_images": [],
+            "duration_seconds": 6,
+            "preferred_layout": "ending_socials",
+            "cta_button_text": "Learn more",
         }
 
     def _max_scenes_for_video_length(self, video_length: str) -> int:
@@ -293,6 +358,7 @@ class ScriptGenerator:
         *,
         include_ending_socials: bool,
         max_scenes: int,
+        fallback_ending_scene: dict | None = None,
     ) -> list[dict]:
         """
         Enforce: `ending_socials` is assigned only to the final scene when enabled, and never otherwise.
@@ -306,16 +372,7 @@ class ScriptGenerator:
         if not scenes:
             if not include_ending_socials:
                 return []
-            return [
-                {
-                    "title": "Thanks for watching",
-                    "narration": "Support this creator by following on Facebook, Instagram, and YouTube.",
-                    "visual_description": "Call-to-action ending screen thanking viewers and asking them to follow and support the creator on social media.",
-                    "suggested_images": [],
-                    "duration_seconds": 6,
-                    "preferred_layout": ENDING,
-                }
-            ]
+            return [fallback_ending_scene or self._build_fallback_ending_scene({})]
 
         if include_ending_socials:
             # Keep the last scene as the single ending slot; cap body so total length <= max_scenes.
@@ -348,6 +405,7 @@ class ScriptGenerator:
         video_style: str = "explainer",
         video_length: str = "auto",
         include_ending_socials: bool = False,
+        fallback_ending_scene: dict | None = None,
     ) -> list[dict]:
         """Parse and validate scenes JSON.
 
@@ -372,6 +430,7 @@ class ScriptGenerator:
                 scenes,
                 include_ending_socials=include_ending_socials,
                 max_scenes=max_scenes,
+                fallback_ending_scene=fallback_ending_scene,
             )
 
             validated = []
@@ -382,7 +441,8 @@ class ScriptGenerator:
                 preferred_layout_raw = (scene.get("preferred_layout") or "").strip()
                 preferred_layout: str | None = preferred_layout_raw or None
 
-                validated.append({
+                cta_btn = (scene.get("cta_button_text") or "").strip()
+                row = {
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": narration,
                     "visual_description": scene.get("visual_description", ""),
@@ -390,7 +450,10 @@ class ScriptGenerator:
                     "duration_seconds": scene.get("duration_seconds", 10),
                     # May be a layout ID (built-in templates) or an arrangement name (custom templates)
                     "preferred_layout": preferred_layout,
-                })
+                }
+                if preferred_layout == "ending_socials" and cta_btn:
+                    row["cta_button_text"] = cta_btn
+                validated.append(row)
 
             return validated
 

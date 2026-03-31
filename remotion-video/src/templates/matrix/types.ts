@@ -48,4 +48,5 @@ export interface MatrixLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }
