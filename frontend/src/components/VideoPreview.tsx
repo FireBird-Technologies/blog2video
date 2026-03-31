@@ -357,24 +357,27 @@ export default function VideoPreview({
       if (scene.remotion_code) {
         try {
           const descriptor = JSON.parse(scene.remotion_code);
-          if (descriptor.layoutConfig) {
-            // Universal layout engine (custom templates)
-            layoutConfig = descriptor.layoutConfig;
-            layout = descriptor.layoutConfig.arrangement || "full-center";
-            // Extract structured content for custom template scene components
+          if (isCustom) {
+            // Custom templates: always extract structuredContent
             if (descriptor.structuredContent) {
               structuredContent = descriptor.structuredContent;
             }
-            if (isCustom) {
-              console.log(`[VideoPreview] scene ${idx} ✅: layoutConfig found, arrangement=${layout}, elements=${descriptor.layoutConfig.elements?.length}, contentType=${structuredContent?.contentType || 'none'}`);
+            if (descriptor.layoutConfig) {
+              layoutConfig = descriptor.layoutConfig;
+              layout = descriptor.layoutConfig.arrangement || "full-center";
+            }
+            console.log(`[VideoPreview] scene ${idx}: custom template, arrangement=${layout}, contentType=${structuredContent?.contentType || 'none'}`);
+          } else if (descriptor.layoutConfig) {
+            // Built-in template with layoutConfig (unlikely but supported)
+            layoutConfig = descriptor.layoutConfig;
+            layout = descriptor.layoutConfig.arrangement || "full-center";
+            if (descriptor.structuredContent) {
+              structuredContent = descriptor.structuredContent;
             }
           } else {
             // Built-in templates: legacy layout + layoutProps
             layout = descriptor.layout || config.fallbackLayout;
             layoutProps = descriptor.layoutProps || {};
-            if (isCustom) {
-              console.error(`[VideoPreview] scene ${idx} ❌: custom template but NO layoutConfig in remotion_code! Keys: ${Object.keys(descriptor).join(", ")}. This means remotion.py overwrote it.`);
-            }
           }
         } catch {
           if (isCustom) {
