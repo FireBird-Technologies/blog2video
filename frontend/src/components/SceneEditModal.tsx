@@ -29,6 +29,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     code_block: { title: [26, 36] },
     timeline: { title: [30, 38], desc: [14, 16] },
     quote_callout: { title: [30, 38], desc: [16, 20] },
+    data_visualization: { title: [52, 44], desc: [28, 26] },
   },
   nightfall: {
     cinematic_title: { title: [88, 140], desc: [26, 36] },
@@ -364,6 +365,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
 const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
+  default: {
+    data_visualization: [
+      { key: "barChartRows", label: "Bar chart data", type: "object_array",
+        subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
+      { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
+      { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
+        subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 6 },
+      { key: "histogramRows", label: "Histogram bins", type: "object_array",
+        subFields: [{ key: "label", label: "Bin / range" }, { key: "value", label: "Count", placeholder: "Number" }], maxItems: 16 },
+    ],
+  },
   whiteboard: {
     comparison: [
       { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
@@ -656,6 +668,14 @@ export default function SceneEditModal({
             }));
             delete (lpCopy as Record<string, unknown>).lineChart;
           }
+          // Histogram: { labels, values } -> histogramRows
+          if (lpAny.histogram && typeof lpAny.histogram === "object") {
+            const hg = lpAny.histogram as { labels?: string[]; values?: number[] };
+            const hlabels = Array.isArray(hg.labels) ? hg.labels : [];
+            const hvalues = Array.isArray(hg.values) ? hg.values : [];
+            lpCopy.histogramRows = hlabels.map((label, i) => ({ label, value: String(hvalues[i] ?? "") }));
+            delete (lpCopy as Record<string, unknown>).histogram;
+          }
         }
       } catch { /* ignore */ }
     }
@@ -870,6 +890,14 @@ export default function SceneEditModal({
                 delete lp.lineChartLabels;
                 delete lp.lineChartDatasets;
               }
+              if (Array.isArray(lp.histogramRows)) {
+                const rows = lp.histogramRows as { label?: string; value?: string }[];
+                lp.histogram = {
+                  labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                  values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+                };
+                delete lp.histogramRows;
+              }
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -883,6 +911,10 @@ export default function SceneEditModal({
             const line = lp.lineChart as { labels?: unknown[]; datasets?: { values?: number[] }[] } | undefined;
             if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
               delete lp.lineChart;
+            }
+            const hist = lp.histogram as { labels?: unknown[]; values?: number[] } | undefined;
+            if (hist && (!Array.isArray(hist.labels) || !hist.labels.length || !Array.isArray(hist.values) || !hist.values.length || hist.values.every((v) => v === 0))) {
+              delete lp.histogram;
             }
             if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
             else delete lp.titleFontSize;
