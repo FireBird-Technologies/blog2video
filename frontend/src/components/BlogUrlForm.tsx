@@ -410,6 +410,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Load all templates once (filtering by style is done in UI)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  // Only show templates that have finished generating (intro_code exists)
+  const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
 
   const renderLanguageDropdown = (
@@ -1528,7 +1530,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
   );
-  const customTemplatesForStyle = customTemplates.filter(
+  const customTemplatesForStyle = readyCustomTemplates.filter(
     (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
   );
 
@@ -1634,7 +1636,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {templatePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = template === customId;
                 return (
@@ -2087,7 +2089,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const suggestedTemplates = sourceList.filter(
       (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
     );
-    const customTemplatesForStyle = customTemplates.filter(
+    const customTemplatesForStyle = readyCustomTemplates.filter(
       (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
     );
     const styleTemplateItems: Array<
@@ -2327,7 +2329,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {activePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = tpl === customId;
                 return (
