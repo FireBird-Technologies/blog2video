@@ -9,6 +9,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   socials,
   websiteLink,
   showWebsiteButton,
+  ctaButtonText,
   accentColor,
   textColor,
   fontFamily,
@@ -29,8 +30,10 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   const dividerOpacity = Math.min(1, (subOpacity ?? 0) * 1.2);
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "https://yourwebsite.com").trim() || "https://yourwebsite.com";
-  const showWebsiteCta = showWebsiteButton !== false;
+  const resolvedWebsiteLink = (websiteLink ?? "").trim();
+  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
+  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
+  const bodyFont = fontFamily ?? "'Inter, system-ui, sans-serif";
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#FFFFFF", overflow: "hidden" }}>
@@ -58,10 +61,10 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         >
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 70 : 88),
+              fontSize: titleFontSize ?? (p ? 88 : 79),
               fontWeight: 800,
               color: textColor || "#0A0A0A",
-              fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+              fontFamily: bodyFont,
               lineHeight: 1.05,
               letterSpacing: "-0.02em",
             }}
@@ -88,7 +91,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: p ? 8 : 10,
+              gap: p ? 10 : 12, // Slightly increased gap
             }}
           >
             <div
@@ -97,24 +100,24 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
                 alignItems: "center",
                 gap: 8,
                 borderRadius: 999,
-                padding: p ? "14px 28px" : "12px 24px", // Increased padding for portrait
+                padding: p ? "18px 36px" : "16px 32px", // Increased padding
                 backgroundColor: accentColor || "#7C3AED",
                 color: "#FFFFFF",
-                fontSize: p ? 24 : 22, // Increased font size for portrait
+                fontSize: p ? 28 : 26, // Increased font size
                 fontWeight: 700,
                 lineHeight: 1,
-                fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+                fontFamily: bodyFont,
               }}
             >
-              <span>Get Started with</span>
-              <span style={{ fontSize: p ? 26 : 24 }}>→</span> {/* Increased arrow font size for portrait */}
+              <span>{resolvedCta}</span>
+              <span style={{ fontSize: p ? 30 : 28 }}>→</span> {/* Increased arrow font size */}
             </div>
             <div
               style={{
-                fontSize: p ? 22 : 20, // Increased font size for portrait
+                fontSize: p ? 26 : 24, // Increased font size
                 fontWeight: 600,
                 color: textColor || "#404040",
-                fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+                fontFamily: bodyFont,
                 lineHeight: 1.2,
                 maxWidth: p ? 560 : 760,
                 wordBreak: "break-word",
@@ -131,11 +134,11 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
               opacity: subOpacity,
               transform: `translateY(${(1 - subOpacity) * 6}px)`,
               maxWidth: p ? 520 : 760,
-              fontSize: descriptionFontSize ?? (p ? 30 : 34),
+              fontSize: descriptionFontSize ?? (p ? 44 : 36),
               lineHeight: 1.25,
               fontWeight: 500,
               color: textColor || "#404040",
-              fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+              fontFamily: bodyFont,
             }}
           >
             {subtext}
@@ -143,7 +146,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         ) : null}
 
         <div style={{ marginTop: p ? 10 : 18, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} />
+          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} />
         </div>
       </div>
     </AbsoluteFill>

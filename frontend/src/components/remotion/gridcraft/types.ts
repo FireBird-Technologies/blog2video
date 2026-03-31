@@ -78,4 +78,5 @@ export interface GridcraftLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

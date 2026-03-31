@@ -141,6 +141,8 @@ export interface SocialIconsProps {
   textColor: string;
   /** Layout spacing */
   maxPerRow?: number;
+  /** When set, label text under icons uses this font (matches scene fontFamily). */
+  fontFamily?: string;
 }
 
 export const SocialIcons: React.FC<SocialIconsProps> = ({
@@ -148,6 +150,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
   accentColor,
   textColor,
   maxPerRow = 4,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
 
@@ -249,6 +252,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
+                  ...(fontFamily ? { fontFamily } : {}),
                 }}
               >
                 {label}
