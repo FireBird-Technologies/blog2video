@@ -15,11 +15,13 @@ import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition
 import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
+import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
   RemotionNewspaperVideoComposition,
+  RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
@@ -151,6 +153,19 @@ const NEWSPAPER_LAYOUTS = new Set([
   "fact_check",
   "news_timeline",
 ]);
+
+const NEWSCAST_LAYOUTS = new Set([
+  "cinematic_title",
+  "glass_narrative",
+  "glow_metric",
+  "glass_code",
+  "kinetic_insight",
+  "glass_stack",
+  "split_glass",
+  "chapter_break",
+  "glass_image",
+  "data_visualization",
+]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -243,9 +258,32 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1280,
     baseHeight: 720,
   },
+  newscast: {
+    component: NewscastVideoComposition as React.ComponentType<any>,
+    heroLayout: "cinematic_title",
+    fallbackLayout: "glass_narrative",
+    validLayouts: NEWSCAST_LAYOUTS,
+    defaultColors: {
+      accent: "#E82020",
+      bg: "#060614",
+      text: "#B8C8E0",
+    },
+    baseWidth: 1280,
+    baseHeight: 720,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
+
+/** Legacy template ids → current registry id (preview + render must match DB migrations). */
+const BUILTIN_TEMPLATE_ID_ALIASES: Record<string, string> = {
+  newsreport: "newscast",
+};
+
+export function normalizeBuiltInTemplateId(templateId: string | undefined): string {
+  const raw = (templateId ?? "default").trim().toLowerCase();
+  return BUILTIN_TEMPLATE_ID_ALIASES[raw] ?? raw;
+}
 
 type TemplateSource = "frontend" | "remotion";
 
@@ -253,7 +291,7 @@ export function getTemplateConfig(
   templateId: string | undefined,
   source: TemplateSource = "frontend",
 ): TemplateConfig {
-  const id = (templateId || "default").trim().toLowerCase();
+  const id = normalizeBuiltInTemplateId(templateId);
 
   const base = TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
 
@@ -273,6 +311,8 @@ export function getTemplateConfig(
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
                     ? RemotionNewspaperVideoComposition
+                    : id === "newscast"
+                      ? RemotionNewscastVideoComposition
                     : null;
 
     if (overrideComponent) {

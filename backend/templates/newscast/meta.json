@@ -1,0 +1,900 @@
+{
+  "id": "newscast",
+  "name": "News Report",
+  "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
+  "styles": [
+    "explainer",
+    "storytelling"
+  ],
+  "preview_colors": {
+    "accent": "#E82020",
+    "bg": "#060614",
+    "text": "#B8C8E0"
+  },
+  "composition_id": "NewscastVideo",
+  "hero_layout": "cinematic_title",
+  "fallback_layout": "glass_narrative",
+  "valid_layouts": [
+    "cinematic_title",
+    "glass_narrative",
+    "glow_metric",
+    "glass_code",
+    "kinetic_insight",
+    "glass_stack",
+    "split_glass",
+    "chapter_break",
+    "glass_image",
+    "data_visualization"
+  ],
+  "layout_prop_schema": {
+    "breaking_hero": {
+      "label": "Breaking Hero",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 82,
+          "landscape": 78
+        },
+        "descriptionFontSize": {
+          "portrait": 39,
+          "landscape": 35
+        },
+        "category": "BREAKING",
+        "leftThought": "breaking, update, report",
+        "stats": [
+          {
+            "value": "By Editorial Desk",
+            "label": ""
+          },
+          {
+            "value": "March 2026",
+            "label": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Headline Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subhead Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "category",
+          "label": "Category Tag",
+          "type": "string"
+        },
+        {
+          "key": "leftThought",
+          "label": "Highlight Words (comma-separated)",
+          "type": "string"
+        },
+        {
+          "key": "stats",
+          "label": "Byline / Date Rows",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label (optional)"
+            }
+          ]
+        }
+      ]
+    },
+    "main_headline": {
+      "label": "Main Headline Lead",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 67
+        },
+        "descriptionFontSize": {
+          "portrait": 35,
+          "landscape": 30
+        },
+        "stats": [
+          {
+            "value": "72",
+            "label": "Key stat"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Meta Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Lead Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Pull Stat Card",
+          "type": "object_array",
+          "maxItems": 1,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Caption"
+            }
+          ]
+        }
+      ]
+    },
+    "breaking_ticker": {
+      "label": "Breaking Ticker",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 70,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 22
+        },
+        "stories": [
+          {
+            "value": "Live update",
+            "label": "Officials confirm timeline"
+          },
+          {
+            "value": "Market pulse",
+            "label": "Volatility spikes briefly"
+          },
+          {
+            "value": "On the ground",
+            "label": "New details emerge"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Ticker Header Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Ticker Item Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stories",
+          "label": "Ticker Stories",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Headline"
+            },
+            {
+              "key": "label",
+              "label": "Detail"
+            }
+          ]
+        }
+      ]
+    },
+    "pull_quote": {
+      "label": "Pull Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 71
+        },
+        "descriptionFontSize": {
+          "portrait": 27,
+          "landscape": 23
+        },
+        "stats": [
+          {
+            "label": "Editorial Desk",
+            "value": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Source Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Source Row",
+          "type": "object_array",
+          "maxItems": 1,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Source"
+            },
+            {
+              "key": "value",
+              "label": "Value (optional)"
+            }
+          ]
+        }
+      ]
+    },
+    "fact_check": {
+      "label": "Fact Check",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 70,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 25
+        },
+        "leftThought": "Claim being made",
+        "rightThought": "Evidence-based correction",
+        "stats": [
+          {
+            "label": "CLAIMED",
+            "value": ""
+          },
+          {
+            "label": "THE FACTS",
+            "value": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Panel Text Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftThought",
+          "label": "Claimed",
+          "type": "text"
+        },
+        {
+          "key": "rightThought",
+          "label": "Facts",
+          "type": "text"
+        },
+        {
+          "key": "stats",
+          "label": "Column Labels",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value (optional)"
+            }
+          ]
+        }
+      ]
+    },
+    "news_timeline": {
+      "label": "News Timeline",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 76,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 23
+        },
+        "stats": [
+          {
+            "value": "Jan 2025",
+            "label": "Event begins"
+          },
+          {
+            "value": "Jul 2025",
+            "label": "Milestone reached"
+          },
+          {
+            "value": "Jan 2026",
+            "label": "Outcome announced"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Timeline Text Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Timeline Events",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Date"
+            },
+            {
+              "key": "label",
+              "label": "Description"
+            }
+          ]
+        }
+      ]
+    },
+    "breaking_outro": {
+      "label": "Breaking Outro",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 78
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 26
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Outro Headline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Outro Text Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 160,
+          "step": 1
+        }
+      ]
+    },
+    "cinematic_title": {
+      "label": "Cinematic Title",
+      "defaults": {
+        "tickerItems": [
+          "LIVE BREAKING FEED",
+          "TOP DEVELOPMENTS UPDATE",
+          "NEW DETAILS SURFACE",
+          "OFFICIALS CONFIRM TIMELINE"
+        ],
+        "lowerThirdTag": "LIVE COVERAGE",
+        "lowerThirdHeadline": "Correspondent Report",
+        "lowerThirdSub": "Reporting live from the broadcast desk"
+      },
+      "fields": [
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "glass_narrative": {
+      "label": "Glass Narrative",
+      "defaults": {
+        "tickerItems": [
+          "BREAKING UPDATE",
+          "LATEST ON THE STORY",
+          "KEY CONTEXT PROVIDED",
+          "OFFICIALS DELIVER NEWS"
+        ],
+        "lowerThirdTag": "CORRESPONDENT REPORT",
+        "lowerThirdHeadline": "Lead Narrative",
+        "lowerThirdSub": "Live briefing from the newsroom",
+        "category": "WORLD AFFAIRS"
+      },
+      "fields": [
+        {
+          "key": "category",
+          "label": "Category Tag",
+          "type": "string"
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "glow_metric": {
+      "label": "Glow Metric",
+      "defaults": {
+        "tickerItems": [
+          "KEY FIGURE UPDATE",
+          "LIVE METRICS RECAP",
+          "NUMBERS MOVE MARKETS",
+          "NEW BENCHMARKS"
+        ],
+        "lowerThirdTag": "KEY FIGURES",
+        "lowerThirdHeadline": "Live Metric Summary",
+        "lowerThirdSub": "On-air numbers and analysis",
+        "metrics": [
+          { "value": "142", "label": "Nations Signed", "suffix": "+" },
+          { "value": "2045", "label": "Target Year", "suffix": "" },
+          { "value": "40", "label": "Emissions Cut", "suffix": "%" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "metrics",
+          "label": "Metrics (up to 3)",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" },
+            { "key": "suffix", "label": "Suffix" }
+          ]
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "glass_code": {
+      "label": "Glass Code",
+      "defaults": {
+        "tickerItems": [
+          "SYSTEM UPDATE",
+          "LIVE TECH DETAILS",
+          "CODE EXPLANATION",
+          "LATEST CONFIG"
+        ],
+        "lowerThirdTag": "LIVE TECH",
+        "lowerThirdHeadline": "Terminal Breakdown",
+        "lowerThirdSub": "On-air implementation details",
+        "codeLanguage": "javascript",
+        "codeLines": [
+          "import NewsCast from 'newscast-sdk';",
+          "",
+          "const feed = new NewsCast({ key: API_KEY });",
+          "feed.subscribe('breaking', onAlert);"
+        ]
+      },
+      "fields": [
+        {
+          "key": "codeLanguage",
+          "label": "Code Language",
+          "type": "string"
+        },
+        {
+          "key": "codeLines",
+          "label": "Code Lines",
+          "type": "string_array",
+          "maxItems": 12
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "kinetic_insight": {
+      "label": "Kinetic Insight",
+      "defaults": {
+        "tickerItems": [
+          "KEY MOMENT UPDATE",
+          "LIVE INSIGHT FEED",
+          "STORY DEFINING LINE",
+          "OFFICIAL STATEMENT"
+        ],
+        "lowerThirdTag": "STATEMENT",
+        "lowerThirdHeadline": "Key Moment Live",
+        "lowerThirdSub": "Credibility and voice emphasis",
+        "quote": "This is not a pledge — this is a commitment the world will enforce",
+        "highlightWord": "commitment",
+        "attribution": "— UN Secretary-General · Geneva, March 2026"
+      },
+      "fields": [
+        { "key": "quote", "label": "Quote", "type": "text" },
+        { "key": "highlightWord", "label": "Highlight Word", "type": "string" },
+        { "key": "attribution", "label": "Attribution", "type": "string" },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "glass_stack": {
+      "label": "Glass Stack",
+      "defaults": {
+        "tickerItems": [
+          "PROVISION SUMMARY",
+          "LIVE DETAILS",
+          "THREE KEY POINTS",
+          "ON AIR BRIEFING"
+        ],
+        "lowerThirdTag": "IN DEPTH",
+        "lowerThirdHeadline": "Key Provisions",
+        "lowerThirdSub": "What the framework enforces",
+        "sectionLabel": "THREE KEY PROVISIONS",
+        "items": [
+          "Legally binding emissions targets with third-party verification",
+          "All sectors included — shipping, aviation, heavy industry",
+          "$2.4 trillion green transition fund established for 2025–2035"
+        ]
+      },
+      "fields": [
+        {
+          "key": "sectionLabel",
+          "label": "Section Label",
+          "type": "string"
+        },
+        {
+          "key": "items",
+          "label": "Stack Items (2–3)",
+          "type": "string_array",
+          "maxItems": 3
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
+    "split_glass": {
+      "label": "Split Glass",
+      "defaults": {
+        "tickerItems": [
+          "BEFORE VS AFTER",
+          "LIVE COMPARISON FEED",
+          "CONTRAST UPDATE",
+          "NEW FRAME DETAILS"
+        ],
+        "lowerThirdTag": "ANALYSIS",
+        "lowerThirdHeadline": "What Changes Next",
+        "lowerThirdSub": "Before/after overview on-air",
+        "leftLabel": "BEFORE",
+        "rightLabel": "AFTER",
+        "leftTitle": "Previous Framework",
+        "rightTitle": "New Geneva Accord",
+        "leftBody": "Voluntary pledges, no enforcement, sectors excluded",
+        "rightBody": "Legally binding, verified, all sectors, penalty mechanism"
+      },
+      "fields": [
+        { "key": "leftLabel", "label": "Left Label", "type": "string" },
+        { "key": "rightLabel", "label": "Right Label", "type": "string" },
+        { "key": "leftTitle", "label": "Left Title", "type": "string" },
+        { "key": "rightTitle", "label": "Right Title", "type": "string" },
+        { "key": "leftBody", "label": "Left Body", "type": "text" },
+        { "key": "rightBody", "label": "Right Body", "type": "text" },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
+        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
+        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+      ]
+    },
+    "chapter_break": {
+      "label": "Chapter Break",
+      "defaults": {
+        "tickerItems": [
+          "NEXT UP BRIEFING",
+          "CHAPTER TRANSITION",
+          "COMING SOON",
+          "STORY SEGMENT"
+        ],
+        "lowerThirdTag": "NEXT",
+        "lowerThirdHeadline": "Upcoming Coverage",
+        "lowerThirdSub": "What happens next for the world economy",
+        "chapterNumber": 2,
+        "chapterLabel": "CHAPTER TWO",
+        "subtitle": "What happens next for the world economy"
+      },
+      "fields": [
+        { "key": "chapterNumber", "label": "Chapter Number", "type": "number" },
+        { "key": "chapterLabel", "label": "Chapter Label", "type": "string" },
+        { "key": "subtitle", "label": "Subtitle Override", "type": "string" },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
+        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
+        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+      ]
+    },
+    "glass_image": {
+      "label": "Glass Image",
+      "defaults": {
+        "tickerItems": [
+          "LOCATION ESTABLISHING",
+          "LIVE VISUAL UPDATE",
+          "BACKGROUND CONTEXT",
+          "ON AIR IMAGE"
+        ],
+        "lowerThirdTag": "LIVE",
+        "lowerThirdHeadline": "On Scene Briefing",
+        "lowerThirdSub": "Caption and key context",
+        "category": "WORLD AFFAIRS"
+      },
+      "fields": [
+        { "key": "category", "label": "Category Tag", "type": "string" },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
+        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
+        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+      ]
+    },
+    "data_visualization": {
+      "label": "Data Visualization",
+      "defaults": {
+        "tickerItems": [
+          "DATA UPDATE",
+          "LIVE CHART SUMMARY",
+          "NUMBERS ON AIR",
+          "TRACKED METRICS"
+        ],
+        "lowerThirdTag": "DATA",
+        "lowerThirdHeadline": "Chart Overview",
+        "lowerThirdSub": "Charts update with extracted numbers",
+        "barChartRows": [
+          { "label": "Energy", "value": "45" },
+          { "label": "Transport", "value": "38" },
+          { "label": "Industry", "value": "30" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "barChartRows",
+          "label": "Bar Chart Rows",
+          "type": "object_array",
+          "maxItems": 8,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value" }
+          ]
+        },
+        {
+          "key": "lineChartLabels",
+          "label": "Line Chart Labels",
+          "type": "string_array",
+          "maxItems": 12
+        },
+        {
+          "key": "lineChartDatasets",
+          "label": "Line Chart Datasets",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            { "key": "label", "label": "Series Label" },
+            { "key": "valuesStr", "label": "Values (comma-separated)" }
+          ]
+        },
+        {
+          "key": "pieChartRows",
+          "label": "Pie Chart Rows",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value" }
+          ]
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
+        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
+        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+      ]
+    }
+  },
+  "layouts_without_image": [],
+  "features": [
+    "Optional full-bleed background image (layoutProps.imageUrl) on every layout",
+    "Breaking hero with category tag and headline highlights",
+    "Main headline lead with drop-cap style typography and optional pull stat",
+    "Live breaking ticker band for rapid updates",
+    "Pull quote for editorial emphasis",
+    "Fact-check panel (claim vs facts)",
+    "News timeline for chronology beats",
+    "Breaking outro to close the story beat"
+  ]
+}
+
