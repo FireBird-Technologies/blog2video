@@ -10,6 +10,7 @@ Uses ONE cheap Haiku call for ALL scenes instead of 16 expensive Sonnet calls.
 
 import json
 import logging
+import re
 from collections import Counter
 
 import dspy
@@ -123,6 +124,26 @@ async def extract_structured_content_batch(
         extracted = [{"contentType": "plain"} for _ in scenes_data]
     while len(extracted) < len(scenes_data):
         extracted.append({"contentType": "plain"})
+
+    # Validate array fields — LLM sometimes returns strings instead of arrays
+    ARRAY_FIELDS = ("bullets", "steps", "codeLines")
+    OBJECT_ARRAY_FIELDS = ("metrics", "timelineItems")
+    for sc in extracted:
+        for field in ARRAY_FIELDS:
+            val = sc.get(field)
+            if isinstance(val, str) and val.strip():
+                # LLM returned a string instead of array — split on newlines
+                items = [line.strip() for line in val.strip().splitlines() if line.strip()]
+                # Strip leading numbering like "1. ", "1) ", "- ", "* "
+                items = [re.sub(r'^(\d+[\.\)]\s*|[-*]\s+)', '', item) for item in items]
+                sc[field] = items if items else [val.strip()]
+                print(f"[F7-DEBUG] [CONTENT-EXTRACT] Fixed {field}: string → {len(sc[field])} items")
+            elif val is not None and not isinstance(val, list):
+                sc[field] = []
+        for field in OBJECT_ARRAY_FIELDS:
+            val = sc.get(field)
+            if val is not None and not isinstance(val, list):
+                sc[field] = []
 
     # Debug: log what was extracted
     for i, sc in enumerate(extracted[:len(scenes_data)]):

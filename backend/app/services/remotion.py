@@ -639,8 +639,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         if scene.remotion_code:
             try:
                 desc = json.loads(scene.remotion_code)
-                if "layoutConfig" in desc:
-                    # Universal layout engine (custom templates)
+                if is_custom_template(template_id):
+                    # Custom templates: use layoutConfig (may be empty dict)
+                    layout_config = desc.get("layoutConfig", {})
+                    # Custom templates also store image flags in layoutProps
+                    layout_props = desc.get("layoutProps", {})
+                elif "layoutConfig" in desc:
                     layout_config = desc["layoutConfig"]
                 else:
                     # Built-in templates: legacy layout + layoutProps
@@ -693,6 +697,15 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             # Built-in templates: legacy format
             scene_entry["layout"] = layout
             scene_entry["layoutProps"] = layout_props
+            # Still pass structuredContent if present (custom templates always have it)
+            if is_custom_template(template_id) and scene.remotion_code:
+                try:
+                    desc_parsed = json.loads(scene.remotion_code)
+                    sc = desc_parsed.get("structuredContent")
+                    if sc:
+                        scene_entry["structuredContent"] = sc
+                except (json.JSONDecodeError, TypeError):
+                    pass
             logger.info("[REMOTION] Scene %s: legacy → layout=%s, layoutProps keys=%s", i, layout, list(layout_props.keys()))
 
         scene_data.append(scene_entry)
