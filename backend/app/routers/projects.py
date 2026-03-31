@@ -972,7 +972,14 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        # Custom templates use layoutConfig; built-in templates use layoutProps
+        # Apply typography to every bucket that exists (descriptors may carry both).
+        if "layoutProps" in descriptor:
+            layout_props = descriptor.get("layoutProps", {}) or {}
+            if data.title_font_size is not None:
+                layout_props["titleFontSize"] = data.title_font_size
+            if data.description_font_size is not None:
+                layout_props["descriptionFontSize"] = data.description_font_size
+            descriptor["layoutProps"] = layout_props
         if "layoutConfig" in descriptor:
             layout_config = descriptor.get("layoutConfig", {}) or {}
             if data.title_font_size is not None:
@@ -980,8 +987,8 @@ def bulk_update_scene_typography(
             if data.description_font_size is not None:
                 layout_config["descriptionFontSize"] = data.description_font_size
             descriptor["layoutConfig"] = layout_config
-        else:
-            layout_props = descriptor.get("layoutProps", {}) or {}
+        if "layoutConfig" not in descriptor and "layoutProps" not in descriptor:
+            layout_props = {}
             if data.title_font_size is not None:
                 layout_props["titleFontSize"] = data.title_font_size
             if data.description_font_size is not None:
