@@ -1065,6 +1065,7 @@ export interface CustomTemplateItem {
   preview_image_url: string | null;
   logo_urls?: string[];
   og_image?: string;
+  generation_failed: boolean;
   created_at: string;
   updated_at: string;
 }

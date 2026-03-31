@@ -179,7 +179,8 @@ def _scene_reward(args, pred) -> float:
     code = clean_code(raw_code)
 
     # Must pass validation (hard requirement)
-    valid, err = validate_component_code(code)
+    scene_type = getattr(args, "scene_type", "content")
+    valid, err = validate_component_code(code, scene_type=scene_type)
     if not valid:
         print(f"[F7-DEBUG] [REFINE] FAILED: {err}")
         return 0.0
@@ -601,7 +602,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     # Final validation pass
     scene_types_simple = ["intro"] + ["content"] * num_content + ["outro"]
     for i, code in enumerate(scenes):
-        valid, err = validate_component_code(code)
+        valid, err = validate_component_code(code, scene_type=scene_types_simple[i])
         if not valid:
             raise RuntimeError(f"Scene {i} ({scene_types_simple[i]}) failed validation after Refine: {err}")
 
