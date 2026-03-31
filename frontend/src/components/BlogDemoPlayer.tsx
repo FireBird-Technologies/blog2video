@@ -1140,6 +1140,103 @@ const SCENE_SETS: Record<string, SceneSet> = {
     ],
   },
 
+  "preview-newscast": {
+    template: "newscast",
+    scenes: [
+      {
+        id: 1,
+        order: 1,
+        title: "Cinematic Title",
+        durationSeconds: 7,
+        narration:
+          "The Cinematic Title opens the Newscast template on a deep navy field with optional globe, scan line, and breaking headline treatment — the same on-air opener pattern used for briefings and lead stories.",
+        layout: "cinematic_title",
+        layoutProps: {
+          title: "Newscast Broadcast Desk",
+          tickerItems: ["BREAKING", "LIVE COVERAGE", "WORLD DESK", "UPDATES"],
+          lowerThirdTag: "LIVE",
+          lowerThirdHeadline: "Template preview",
+          lowerThirdSub: "Cinematic opener with globe, chrome, and glass stack",
+        },
+      },
+      {
+        id: 2,
+        order: 2,
+        title: "Glass Narrative",
+        durationSeconds: 8,
+        narration:
+          "Glass Narrative places your story on a frosted navy card with red top accent and category tag. It is built for the main explanatory paragraph of a briefing — readable, authoritative, and broadcast-paced.",
+        layout: "glass_narrative",
+        layoutProps: {
+          title: "Glass Narrative for briefings",
+          category: "WORLD AFFAIRS",
+          tickerItems: ["CONTEXT", "ANALYSIS", "ON THE RECORD"],
+          lowerThirdTag: "BRIEFING",
+          lowerThirdHeadline: "Main story beat",
+          lowerThirdSub: "Narrative glass card with editorial pacing",
+        },
+      },
+      {
+        id: 3,
+        order: 3,
+        title: "Glow Metric",
+        durationSeconds: 7,
+        narration:
+          "Glow Metric surfaces one to three key numbers with animated rings and steel labels — ideal for KPIs, poll results, and hard stats that need to anchor the segment.",
+        layout: "glow_metric",
+        layoutProps: {
+          metrics: [
+            { value: "48", label: "Markets up", suffix: "%" },
+            { value: "12", label: "Nations signed", suffix: "" },
+          ],
+          tickerItems: ["DATA", "MARKETS", "NUMBERS"],
+          lowerThirdTag: "DATA",
+          lowerThirdHeadline: "Key figures",
+          lowerThirdSub: "On-air metrics with glow treatment",
+        },
+      },
+      {
+        id: 4,
+        order: 4,
+        title: "Kinetic Insight",
+        durationSeconds: 7,
+        narration:
+          "Kinetic Insight animates a single quote with one highlighted word in crimson — the soundbite viewers remember from the segment.",
+        layout: "kinetic_insight",
+        layoutProps: {
+          quote: "The story is not the headline — it is the verification behind it.",
+          highlightWord: "verification",
+          attribution: "— Editor in Chief · March 2026",
+          tickerItems: ["QUOTE", "INSIGHT"],
+          lowerThirdTag: "TAKEAWAY",
+          lowerThirdHeadline: "Key line",
+          lowerThirdSub: "Pull quote with kinetic emphasis",
+        },
+      },
+      {
+        id: 5,
+        order: 5,
+        title: "Data Visualization",
+        durationSeconds: 8,
+        narration:
+          "Data Visualization renders bar, line, or pie data from your scene with grid, neon accents, and ticker rail — so charts feel like part of the broadcast, not a pasted slide.",
+        layout: "data_visualization",
+        layoutProps: {
+          title: "Segment share",
+          barChartRows: [
+            { label: "North", value: "40" },
+            { label: "South", value: "35" },
+            { label: "East", value: "25" },
+          ],
+          tickerItems: ["CHARTS", "LIVE DATA", "ON AIR"],
+          lowerThirdTag: "DATA",
+          lowerThirdHeadline: "Chart overview",
+          lowerThirdSub: "Bars update with extracted numbers",
+        },
+      },
+    ],
+  },
+
   "preview-default": {
     template: "default",
     scenes: [
@@ -1213,6 +1310,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   gridcraft: { accent: "#F97316", bg: "#FAFAFA", text: "#171717" },
   matrix: { accent: "#00FF41", bg: "#000000", text: "#00FF41" },
   newspaper: { accent: "#FFE34D", bg: "#FAFAF8", text: "#111111" },
+  newscast: { accent: "#E82020", bg: "#060614", text: "#B8C8E0" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -1223,6 +1321,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   gridcraft: "Gridcraft",
   matrix: "Matrix",
   newspaper: "Newspaper",
+  newscast: "Newscast",
 };
 
 interface BlogDemoPlayerProps {

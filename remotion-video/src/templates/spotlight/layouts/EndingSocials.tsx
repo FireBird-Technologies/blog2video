@@ -110,7 +110,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         ) : null}
 
         <div style={{ marginTop: p ? 26 : 34, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#FFFFFF"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} />
+          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#FFFFFF"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} aspectRatio={aspectRatio} />
         </div>
       </div>
     </AbsoluteFill>

@@ -12,6 +12,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   ctaButtonText,
   accentColor,
   textColor,
+  bgColor,
   fontFamily,
   aspectRatio,
   descriptionFontSize,
@@ -36,7 +37,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   const bodyFont = fontFamily ?? "'Inter, system-ui, sans-serif";
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#FFFFFF", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {/* Accent stripe */}
       <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 6, backgroundColor: accentColor }} />
 
@@ -146,7 +147,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         ) : null}
 
         <div style={{ marginTop: p ? 10 : 18, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} />
+          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} aspectRatio={aspectRatio} />
         </div>
       </div>
     </AbsoluteFill>

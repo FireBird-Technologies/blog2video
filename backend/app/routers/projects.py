@@ -980,8 +980,8 @@ def bulk_update_scene_typography(
             if data.description_font_size is not None:
                 layout_config["descriptionFontSize"] = data.description_font_size
             descriptor["layoutConfig"] = layout_config
-        else:
-            layout_props = descriptor.get("layoutProps", {}) or {}
+        if "layoutConfig" not in descriptor and "layoutProps" not in descriptor:
+            layout_props = {}
             if data.title_font_size is not None:
                 layout_props["titleFontSize"] = data.title_font_size
             if data.description_font_size is not None:
