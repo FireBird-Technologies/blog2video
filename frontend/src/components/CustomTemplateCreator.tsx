@@ -84,7 +84,10 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     try {
       const res = await extractTheme(url.trim());
       if (!res.data.extractable || !res.data.theme) {
-        setError(res.data.reason || "Could not extract theme from this URL.");
+        setError(
+          res.data.reason ||
+            "We couldn't pull a usable theme from this page. Try a different URL."
+        );
         return;
       }
       setTheme(res.data.theme);
@@ -98,7 +101,10 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
       console.log(`[F7-DEBUG] Theme extracted: accent=${res.data.theme?.colors?.accent}, category=${res.data.theme?.category}, reason='${(res.data.reason || '').slice(0, 100)}'`);
       setStep(2);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Failed to extract theme. Try another URL.");
+      setError(
+        err?.response?.data?.detail ||
+          "We couldn't load that website. Try another URL, or try again in a moment."
+      );
     } finally {
       setLoading(false);
     }

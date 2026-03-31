@@ -14,6 +14,22 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Shown to end users — never surface raw Firecrawl or stack traces in API responses.
+USER_THEME_SCRAPE_FAILED = (
+    "We couldn't load that website from here. Try another URL, or try again in a moment."
+)
+USER_THEME_SCRAPE_EMPTY = (
+    "We couldn't read any content from that page. Try a different URL."
+)
+USER_THEME_NOT_EXTRACTABLE = (
+    "We couldn't pull a usable theme from this page. Try a different URL."
+)
+USER_THEME_AI_ERROR = (
+    "Something went wrong while analyzing the page. Please try again."
+)
+USER_THEME_SCRAPE_NOT_CONFIGURED = (
+    "Theme extraction isn't available on this server. Please contact support."
+)
 
 _MAX_HTML_CHARS = 15_000
 _MAX_MARKDOWN_CHARS = 2_000
@@ -210,7 +226,7 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
     Focuses on HTML (for style/color info) and markdown (for content category).
     """
     if not settings.FIRECRAWL_API_KEY:
-        raise ValueError("FIRECRAWL_API_KEY is not configured")
+        raise ValueError(USER_THEME_SCRAPE_NOT_CONFIGURED)
 
     app = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
 
@@ -218,7 +234,13 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
     try:
         doc = app.scrape(url, formats=["html", "markdown"])
     except Exception as e:
-        raise RuntimeError(f"Firecrawl scrape failed for {url}: {e}") from e
+        logger.warning(
+            "Firecrawl scrape failed for %s: %s",
+            url,
+            e,
+            exc_info=True,
+        )
+        raise RuntimeError(USER_THEME_SCRAPE_FAILED) from e
 
     html_content = (getattr(doc, "html", None) or "").strip()
     markdown_text = (getattr(doc, "markdown", None) or "").strip()
@@ -227,7 +249,8 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
         metadata = metadata.__dict__ if hasattr(metadata, "__dict__") else {}
 
     if not html_content and not markdown_text:
-        raise RuntimeError(f"No content extracted from {url}")
+        logger.warning("Firecrawl returned no HTML or markdown for %s", url)
+        raise RuntimeError(USER_THEME_SCRAPE_EMPTY)
 
     # Extract OG image from metadata
     og_image = str(

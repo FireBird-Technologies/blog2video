@@ -8,7 +8,11 @@ import logging
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured, get_theme_lm
-from app.services.theme_scraper import ScrapedThemeData
+from app.services.theme_scraper import (
+    ScrapedThemeData,
+    USER_THEME_AI_ERROR,
+    USER_THEME_NOT_EXTRACTABLE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -193,9 +197,10 @@ class ThemeExtractor:
                     page_description=scraped.description,
                 )
         except Exception as e:
+            logger.warning("Theme LM call failed for %s: %s", scraped.url, e, exc_info=True)
             return {
                 "extractable": False,
-                "reason": f"Theme extraction failed: {e}",
+                "reason": USER_THEME_AI_ERROR,
                 "theme": None,
                 "template_name": "",
             }
@@ -205,9 +210,16 @@ class ThemeExtractor:
             extractable = extractable.lower().strip() in ("true", "yes", "1")
 
         if not extractable:
+            raw_reason = (result.reason or "").strip()
+            if raw_reason:
+                logger.info(
+                    "Theme not extractable for %s (model reason): %s",
+                    scraped.url,
+                    raw_reason[:500],
+                )
             return {
                 "extractable": False,
-                "reason": result.reason or "Site did not have enough visual data",
+                "reason": USER_THEME_NOT_EXTRACTABLE,
                 "theme": None,
                 "template_name": "",
             }
@@ -215,9 +227,15 @@ class ThemeExtractor:
         # Parse and validate theme + patterns JSON
         theme = self._parse_theme(result.theme_json, result.patterns_json)
         if theme is None:
+            logger.warning(
+                "Failed to parse theme JSON for %s (theme_json len=%s, patterns len=%s)",
+                scraped.url,
+                len(result.theme_json or ""),
+                len(result.patterns_json or ""),
+            )
             return {
                 "extractable": False,
-                "reason": "Failed to parse extracted theme JSON",
+                "reason": USER_THEME_AI_ERROR,
                 "theme": None,
                 "template_name": "",
             }
