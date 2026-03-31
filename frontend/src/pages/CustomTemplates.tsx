@@ -4,6 +4,7 @@ import {
   listCustomTemplates,
   deleteCustomTemplate,
   regenerateTemplateCode,
+  generateTemplateCode,
   type CustomTemplateItem,
 } from "../api/client";
 import { preloadBabel } from "../utils/compileComponent";
@@ -56,10 +57,15 @@ export default function CustomTemplates() {
   const handleRegenerate = async (tpl: CustomTemplateItem) => {
     setRegeneratingId(tpl.id);
     try {
-      const res = await regenerateTemplateCode(tpl.id);
-      setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? res.data : t)));
-      // Re-fetch after a delay to pick up the background-rendered thumbnail
-      setTimeout(() => loadTemplates(), 5000);
+      if (!tpl.intro_code) {
+        // First-time generation (failed previously) — fire and poll
+        await generateTemplateCode(tpl.id);
+        setTimeout(() => loadTemplates(), 5000);
+      } else {
+        const res = await regenerateTemplateCode(tpl.id);
+        setTemplates((prev) => prev.map((t) => (t.id === tpl.id ? res.data : t)));
+        setTimeout(() => loadTemplates(), 5000);
+      }
     } catch (err) {
       console.error("Failed to regenerate template code:", err);
     } finally {
@@ -180,17 +186,34 @@ export default function CustomTemplates() {
                       logoUrls={tpl.logo_urls}
                       ogImage={tpl.og_image}
                     />
-                  ) : (
-                    <div
-                      className="w-full h-full flex flex-col items-center justify-center gap-3"
-                      style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
-                    >
-                      <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${tpl.theme.colors.accent}40`, borderTopColor: "transparent" }} />
-                      <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
-                        Generating...
-                      </span>
-                    </div>
-                  )}
+                  ) : (() => {
+                    const ageMinutes = (Date.now() - new Date(tpl.created_at).getTime()) / 60000;
+                    const stale = ageMinutes > 10;
+                    return (
+                      <div
+                        className="w-full h-full flex flex-col items-center justify-center gap-3"
+                        style={{ background: tpl.theme.colors.bg, aspectRatio: "16/9" }}
+                      >
+                        {stale ? (
+                          <>
+                            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: tpl.theme.colors.muted }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
+                              Generation failed
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${tpl.theme.colors.accent}40`, borderTopColor: "transparent" }} />
+                            <span className="text-xs font-medium" style={{ color: tpl.theme.colors.muted }}>
+                              Generating...
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="p-4">
@@ -208,12 +231,26 @@ export default function CustomTemplates() {
                   </div>
 
                   {/* Actions */}
-                  {!tpl.intro_code ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                      Generating template...
-                    </div>
-                  ) : regeneratingId === tpl.id ? (
+                  {!tpl.intro_code ? (() => {
+                    const ageMinutes = (Date.now() - new Date(tpl.created_at).getTime()) / 60000;
+                    const stale = ageMinutes > 10;
+                    return stale ? (
+                      <button
+                        onClick={() => handleRegenerate(tpl)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry generation
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <div className="w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                        Generating template...
+                      </div>
+                    );
+                  })() : regeneratingId === tpl.id ? (
                     <div className="flex items-center gap-2 text-xs text-purple-500">
                       <div className="w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                       Regenerating...
