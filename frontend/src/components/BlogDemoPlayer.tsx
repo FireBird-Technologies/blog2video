@@ -1146,11 +1146,11 @@ const SCENE_SETS: Record<string, SceneSet> = {
       {
         id: 1,
         order: 1,
-        title: "Cinematic Title",
+        title: "Newscast Opening",
         durationSeconds: 7,
         narration:
-          "The Cinematic Title opens the Newscast template on a deep navy field with optional globe, scan line, and breaking headline treatment — the same on-air opener pattern used for briefings and lead stories.",
-        layout: "cinematic_title",
+          "Newscast Opening launches the template on a deep navy field with optional globe, scan line, and breaking headline treatment — the same on-air opener pattern used for briefings and lead stories.",
+        layout: "opening",
         layoutProps: {
           title: "Newscast Broadcast Desk",
           tickerItems: ["BREAKING", "LIVE COVERAGE", "WORLD DESK", "UPDATES"],
@@ -1162,13 +1162,13 @@ const SCENE_SETS: Record<string, SceneSet> = {
       {
         id: 2,
         order: 2,
-        title: "Glass Narrative",
+        title: "Anchor Narrative",
         durationSeconds: 8,
         narration:
-          "Glass Narrative places your story on a frosted navy card with red top accent and category tag. It is built for the main explanatory paragraph of a briefing — readable, authoritative, and broadcast-paced.",
-        layout: "glass_narrative",
+          "Anchor Narrative places your story on a frosted navy card with red top accent and category tag. It is built for the main explanatory paragraph of a briefing — readable, authoritative, and broadcast-paced.",
+        layout: "anchor_narrative",
         layoutProps: {
-          title: "Glass Narrative for briefings",
+          title: "Anchor Narrative for briefings",
           category: "WORLD AFFAIRS",
           tickerItems: ["CONTEXT", "ANALYSIS", "ON THE RECORD"],
           lowerThirdTag: "BRIEFING",
@@ -1179,11 +1179,11 @@ const SCENE_SETS: Record<string, SceneSet> = {
       {
         id: 3,
         order: 3,
-        title: "Glow Metric",
+        title: "Live Metrics Board",
         durationSeconds: 7,
         narration:
-          "Glow Metric surfaces one to three key numbers with animated rings and steel labels — ideal for KPIs, poll results, and hard stats that need to anchor the segment.",
-        layout: "glow_metric",
+          "Live Metrics Board surfaces one to three key numbers with animated rings and steel labels — ideal for KPIs, poll results, and hard stats that need to anchor the segment.",
+        layout: "live_metrics_board",
         layoutProps: {
           metrics: [
             { value: "48", label: "Markets up", suffix: "%" },
@@ -1198,11 +1198,11 @@ const SCENE_SETS: Record<string, SceneSet> = {
       {
         id: 4,
         order: 4,
-        title: "Kinetic Insight",
+        title: "Headline Insight",
         durationSeconds: 7,
         narration:
-          "Kinetic Insight animates a single quote with one highlighted word in crimson — the soundbite viewers remember from the segment.",
-        layout: "kinetic_insight",
+          "Headline Insight animates a single quote with one highlighted word in crimson — the soundbite viewers remember from the segment.",
+        layout: "headline_insight",
         layoutProps: {
           quote: "The story is not the headline — it is the verification behind it.",
           highlightWord: "verification",
@@ -1328,9 +1328,14 @@ interface BlogDemoPlayerProps {
   sceneKey: string;
   /** `embedded`: no outer margin; no inner border/shadow — for step-2 card where the parent supplies the frame. */
   variant?: "default" | "embedded";
+  controls?: boolean;
 }
 
-export default function BlogDemoPlayer({ sceneKey, variant = "default" }: BlogDemoPlayerProps) {
+export default function BlogDemoPlayer({
+  sceneKey,
+  variant = "default",
+  controls = true,
+}: BlogDemoPlayerProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -1379,7 +1384,7 @@ export default function BlogDemoPlayer({ sceneKey, variant = "default" }: BlogDe
               compositionWidth={1920}
               compositionHeight={1080}
               fps={30}
-              controls
+              controls={controls}
               autoPlay
               loop
               acknowledgeRemotionLicense

@@ -11,6 +11,59 @@ import { normalizeNewscastDataVizLayoutProps } from "./normalizeDataVizLayoutPro
 
 const TRANS_IN_SEC = 1.15;
 
+const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
+  opening: "opening",
+  anchor_narrative: "anchor_narrative",
+  live_metrics_board: "live_metrics_board",
+  briefing_code_panel: "briefing_code_panel",
+  headline_insight: "headline_insight",
+  story_stack: "story_stack",
+  side_by_side_brief: "side_by_side_brief",
+  segment_break: "segment_break",
+  field_image_focus: "field_image_focus",
+  cinematic_title: "opening",
+  glass_narrative: "anchor_narrative",
+  glow_metric: "live_metrics_board",
+  glass_code: "briefing_code_panel",
+  kinetic_insight: "headline_insight",
+  kinetix_insight: "headline_insight",
+  glass_stack: "story_stack",
+  split_glass: "side_by_side_brief",
+  chapter_break: "segment_break",
+  glass_image: "field_image_focus",
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_kinetic_insight: "headline_insight",
+  newscast_glass_stack: "story_stack",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glass_image: "field_image_focus",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const normalizeNewscastLayoutId = (layout: string): NewscastLayoutType =>
+  LEGACY_TO_NEWCAST_LAYOUT_ID[layout] ?? "anchor_narrative";
+
+const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
+  opening: "cinematic_title",
+  anchor_narrative: "glass_narrative",
+  live_metrics_board: "glow_metric",
+  briefing_code_panel: "glass_code",
+  headline_insight: "kinetic_insight",
+  story_stack: "glass_stack",
+  side_by_side_brief: "split_glass",
+  segment_break: "chapter_break",
+  field_image_focus: "glass_image",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
+  NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
+
 /** Per-sequence body: wires global `rotationFrame` so the globe never resets between scenes. */
 const NewscastSequenceInner: React.FC<{
   startFrame: number;
@@ -18,7 +71,7 @@ const NewscastSequenceInner: React.FC<{
   sceneIndex: number;
   sceneCount: number;
   isHero: boolean;
-  layoutType: NewscastLayoutType;
+  layoutType: string;
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverUrl?: string;
@@ -273,8 +326,8 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
-        const normalizedLayout =
-          scene.layout === "kinetix_insight" ? "kinetic_insight" : scene.layout;
+        const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
+        const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
         const startFrame = scenes
           .slice(0, index)
           .reduce((acc, s) => acc + Math.max(1, Math.round(s.durationSeconds * FPS)), 0);
@@ -283,7 +336,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
 
         const LayoutComponent =
           NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
-          NEWSCAST_LAYOUT_REGISTRY.glass_narrative;
+          NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const rawLp =
           normalizedLayout === "data_visualization"
@@ -307,8 +360,8 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
           globeRotationFrameOffset: startFrame,
         };
 
-        const layoutType = normalizedLayout as NewscastLayoutType;
-        const isHero = layoutType === "cinematic_title";
+        const layoutType = legacyLayout;
+        const isHero = normalizedLayout === "opening";
 
         return (
           <Sequence

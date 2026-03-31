@@ -8,9 +8,9 @@
     {
       "id": 1,
       "order": 1,
-      "title": "NEWS BULLETIN",
+      "title": "NEWSCAST OPENING",
       "narration": "A clear, editorial opening for live broadcast updates across the Geneva desk.",
-      "layout": "cinematic_title",
+      "layout": "opening",
       "layoutProps": {
         "tickerItems": [
           "LIVE BREAKING FEED",
@@ -29,9 +29,9 @@
     {
       "id": 2,
       "order": 2,
-      "title": "Historic Accord",
+      "title": "Anchor Narrative",
       "narration": "Negotiators outline the next steps and confirm commitments for emissions targets and verification.",
-      "layout": "glass_narrative",
+      "layout": "anchor_narrative",
       "layoutProps": {
         "category": "WORLD AFFAIRS",
         "tickerItems": [
@@ -50,9 +50,9 @@
     {
       "id": 3,
       "order": 3,
-      "title": "Glowing Metrics",
+      "title": "Live Metrics Board",
       "narration": "142 nations signed the framework by 2045 as emissions cuts reached 40 percent for key sectors.",
-      "layout": "glow_metric",
+      "layout": "live_metrics_board",
       "layoutProps": {
         "metrics": [
           { "value": "142", "label": "Nations Signed", "suffix": "+" },
@@ -75,9 +75,9 @@
     {
       "id": 4,
       "order": 4,
-      "title": "Split Comparison",
+      "title": "Side-by-Side Brief",
       "narration": "Officials contrast the previous framework with a legally binding, verified mechanism for all sectors.",
-      "layout": "split_glass",
+      "layout": "side_by_side_brief",
       "layoutProps": {
         "leftLabel": "BEFORE",
         "rightLabel": "AFTER",
@@ -101,9 +101,9 @@
     {
       "id": 5,
       "order": 5,
-      "title": "Defining Moment",
+      "title": "Headline Insight",
       "narration": "This is not a pledge — it is a commitment the world will enforce, says the UN Secretary-General.",
-      "layout": "kinetic_insight",
+      "layout": "headline_insight",
       "layoutProps": {
         "quote": "This is not a pledge — it is a commitment the world will enforce",
         "highlightWord": "commitment",
@@ -124,9 +124,9 @@
     {
       "id": 6,
       "order": 6,
-      "title": "Stacked Provisions",
+      "title": "Story Stack",
       "narration": "The agreement adds verification, covers all sectors, and establishes a transition fund across the decade.",
-      "layout": "glass_stack",
+      "layout": "story_stack",
       "layoutProps": {
         "sectionLabel": "THREE KEY PROVISIONS",
         "items": [
@@ -150,9 +150,9 @@
     {
       "id": 7,
       "order": 7,
-      "title": "Global Impact",
+      "title": "Segment Break",
       "narration": "What happens next for the world economy as the framework moves into implementation.",
-      "layout": "chapter_break",
+      "layout": "segment_break",
       "layoutProps": {
         "chapterNumber": 2,
         "chapterLabel": "CHAPTER TWO",
@@ -173,9 +173,9 @@
     {
       "id": 8,
       "order": 8,
-      "title": "On-Site Snapshot",
+      "title": "Field Image Focus",
       "narration": "A visual snapshot accompanies the update from the newsroom floor.",
-      "layout": "glass_image",
+      "layout": "field_image_focus",
       "layoutProps": {
         "category": "WORLD AFFAIRS",
         "tickerItems": [
