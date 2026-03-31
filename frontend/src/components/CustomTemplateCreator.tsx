@@ -331,6 +331,12 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                     </div>
                   ))}
                 </div>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide ${theme.colors.bg2 ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-400"}`}>
+                    AI · {theme.colors.bg2 ? "gradient" : "solid"}
+                  </span>
+                  <span className="text-[10px] text-gray-400">background · editable after creation</span>
+                </div>
               </div>
 
               {/* Extracted info pills */}
