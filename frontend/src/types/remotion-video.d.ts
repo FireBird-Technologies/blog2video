@@ -37,3 +37,9 @@ declare module "@remotion-video/templates/newspaper/layouts" {
   export type NewspaperLayoutType = string;
   export type BlogLayoutProps = Record<string, any>;
 }
+
+declare module "@remotion-video/templates/newscast/layouts" {
+  export const NEWSCAST_LAYOUT_REGISTRY: Record<string, any>;
+  export type NewscastLayoutType = string;
+  export type NewscastLayoutProps = Record<string, any>;
+}
