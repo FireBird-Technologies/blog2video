@@ -16,6 +16,9 @@ interface Props {
 export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
   const [name, setName] = useState(template.name);
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
+  const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
+  const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
+  const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
@@ -38,9 +41,15 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
     setSaving(true);
     setError(null);
     try {
+      const updatedColors = {
+        ...template.theme.colors,
+        accent: accentColor,
+        bg2: useGradient ? (template.theme.colors.bg2 ?? template.theme.colors.surface) : undefined,
+      };
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
         supported_video_style: supportedVideoStyle,
+        theme: { ...template.theme, colors: updatedColors },
       });
       onSaved(res.data);
     } catch (err: any) {
@@ -90,13 +99,30 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             />
           </div>
 
-          {/* Extracted colors (read-only) */}
+          {/* Theme Colors */}
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Theme Colors
             </label>
             <div className="flex items-center gap-3 flex-wrap">
-              {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+              {/* Accent — editable */}
+              <div className="flex flex-col items-center gap-1.5">
+                <label className="relative cursor-pointer">
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200"
+                    style={{ backgroundColor: accentColor }}
+                  />
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  />
+                </label>
+                <span className="text-[10px] text-purple-500 font-medium">accent ✎</span>
+              </div>
+              {/* Other colors — read-only */}
+              {(["bg", "text", "surface", "muted"] as const).map((key) => (
                 <div key={key} className="flex flex-col items-center gap-1.5">
                   <div
                     className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm"
@@ -106,6 +132,29 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
+          </div>
+
+          {/* Gradient toggle */}
+          <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-medium text-gray-700">Gradient Background</p>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide ${aiDecidedGradient ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-400"}`}>
+                  AI · {aiDecidedGradient ? "gradient" : "solid"}
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-0.5">AI-decided · override with toggle</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUseGradient((v) => !v)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${useGradient ? "bg-purple-500" : "bg-gray-300"}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${useGradient ? "translate-x-5" : "translate-x-0"}`}
+              />
+            </button>
           </div>
 
           {/* Info pills */}

@@ -99,6 +99,15 @@ export async function compileComponentCode(
       return { success: false, error: "Babel transform returned empty code" };
     }
 
+    // Safe wrapper around interpolate — ensures inputRange is strictly monotonic
+    // even when the LLM generates dynamic ranges that resolve to equal values at runtime.
+    const safeInterpolate: typeof interpolate = (frame, inputRange, outputRange, options?) => {
+      const safe = (inputRange as number[]).map((v, i) =>
+        i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
+      ) as typeof inputRange;
+      return interpolate(frame, safe, outputRange, options);
+    };
+
     // Create factory function that receives Remotion APIs as parameters
     // eslint-disable-next-line no-new-func
     const factory = new Function(
@@ -119,7 +128,7 @@ export async function compileComponentCode(
       React,
       useCurrentFrame,
       useVideoConfig,
-      interpolate,
+      safeInterpolate,
       spring,
       Easing,
       AbsoluteFill,
