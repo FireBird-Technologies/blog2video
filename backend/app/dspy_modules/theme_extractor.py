@@ -3,12 +3,17 @@ DSPy module for extracting visual themes from scraped website content.
 Takes HTML/CSS + markdown and produces a structured theme JSON.
 """
 
+import colorsys
 import json
 import logging
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured, get_theme_lm
-from app.services.theme_scraper import ScrapedThemeData
+from app.services.theme_scraper import (
+    ScrapedThemeData,
+    USER_THEME_AI_ERROR,
+    USER_THEME_NOT_EXTRACTABLE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +91,7 @@ class ExtractThemeFromContent(dspy.Signature):
     Layout Patterns — what's the content flow?
     - direction: "centered" (symmetric, calm), "left-aligned" (content-first, editorial), "asymmetric" (creative, dynamic)
     - decorativeElements: MUST include at least ONE non-"none" element. Choose based on personality:
-      * "gradients" — modern depth, SaaS, lifestyle (radial gradient orbs)
+      * "gradients" — ONLY if the site's background itself uses gradient colors (e.g. Stripe's purple-to-blue hero, Linear's dark gradient bg). Do NOT use for sites with solid white/dark backgrounds that merely feel "modern" or use gradient image overlays.
       * "accent-lines" — editorial elegance, structure (thin colored dividers)
       * "background-shapes" — playful, creative, approachable (geometric shapes)
       * "dots" — tech, data, structured patterns (dot grid textures)
@@ -160,6 +165,39 @@ class ExtractThemeFromContent(dspy.Signature):
 
 
 
+def _decide_gradient(theme: dict) -> bool:
+    """Decide whether this brand warrants a gradient background.
+
+    Only trusts decorativeElements — the most direct signal for background treatment.
+    borderStyle/overlay are too generic (e.g. image overlays on white-bg sites) and
+    produce false positives for solid-identity brands like Careem.
+    """
+    patterns = theme.get("patterns", {})
+    decorative = patterns.get("layout", {}).get("decorativeElements", [])
+
+    return "gradients" in decorative
+
+
+def _compute_bg2(bg_hex: str) -> str:
+    """Compute a subtle gradient endpoint from a bg color — stays on-brand, never jarring."""
+    try:
+        bg_hex = bg_hex.lstrip("#")
+        r, g, b = int(bg_hex[0:2], 16) / 255, int(bg_hex[2:4], 16) / 255, int(bg_hex[4:6], 16) / 255
+        h, l, s = colorsys.rgb_to_hls(r, g, b)
+
+        if l > 0.5:
+            # Light bg: darken slightly (-12% lightness) for a subtle gradient
+            l2 = max(0.0, l - 0.12)
+        else:
+            # Dark bg: lighten slightly (+10% lightness)
+            l2 = min(1.0, l + 0.10)
+
+        r2, g2, b2 = colorsys.hls_to_rgb(h, l2, s)
+        return "#{:02x}{:02x}{:02x}".format(int(r2 * 255), int(g2 * 255), int(b2 * 255))
+    except Exception:
+        return bg_hex  # Fallback: same color (effectively no gradient)
+
+
 class ThemeExtractor:
     """Extracts a visual theme from scraped website content using DSPy."""
 
@@ -193,9 +231,10 @@ class ThemeExtractor:
                     page_description=scraped.description,
                 )
         except Exception as e:
+            logger.warning("Theme LM call failed for %s: %s", scraped.url, e, exc_info=True)
             return {
                 "extractable": False,
-                "reason": f"Theme extraction failed: {e}",
+                "reason": USER_THEME_AI_ERROR,
                 "theme": None,
                 "template_name": "",
             }
@@ -205,9 +244,16 @@ class ThemeExtractor:
             extractable = extractable.lower().strip() in ("true", "yes", "1")
 
         if not extractable:
+            raw_reason = (result.reason or "").strip()
+            if raw_reason:
+                logger.info(
+                    "Theme not extractable for %s (model reason): %s",
+                    scraped.url,
+                    raw_reason[:500],
+                )
             return {
                 "extractable": False,
-                "reason": result.reason or "Site did not have enough visual data",
+                "reason": USER_THEME_NOT_EXTRACTABLE,
                 "theme": None,
                 "template_name": "",
             }
@@ -215,21 +261,40 @@ class ThemeExtractor:
         # Parse and validate theme + patterns JSON
         theme = self._parse_theme(result.theme_json, result.patterns_json)
         if theme is None:
+            logger.warning(
+                "Failed to parse theme JSON for %s (theme_json len=%s, patterns len=%s)",
+                scraped.url,
+                len(result.theme_json or ""),
+                len(result.patterns_json or ""),
+            )
             return {
                 "extractable": False,
-                "reason": "Failed to parse extracted theme JSON",
+                "reason": USER_THEME_AI_ERROR,
                 "theme": None,
                 "template_name": "",
             }
+
+        # AI-decide gradient vs solid based on extracted brand signals
+        use_gradient = _decide_gradient(theme)
+        decorative = theme.get("patterns", {}).get("layout", {}).get("decorativeElements", [])
+        print(
+            f"[F7-DEBUG] [GRADIENT-DECISION] brand='{theme.get('category')}' "
+            f"decorative={decorative} → {'GRADIENT' if use_gradient else 'SOLID'}"
+        )
+        if use_gradient:
+            bg_hex = theme["colors"].get("bg", "#000000")
+            bg2 = _compute_bg2(bg_hex)
+            theme["colors"]["bg2"] = bg2
+            print(f"[F7-DEBUG] [GRADIENT-DECISION] bg={theme['colors'].get('bg')} → bg2={bg2}")
 
         colors = theme.get("colors", {})
         fonts = theme.get("fonts", {})
         print(
             f"[F7-DEBUG] [THEME] Extracted: "
             f"style='{theme.get('style')}', "
-            f"colors=[accent={colors.get('accent')}, bg={colors.get('bg')}], "
+            f"colors=[accent={colors.get('accent')}, bg={colors.get('bg')}, bg2={colors.get('bg2')}], "
             f"fonts=[{fonts.get('heading')}/{fonts.get('body')}], "
-            f"category='{theme.get('category')}'"
+            f"category='{theme.get('category')}', gradient={colors.get('bg2') is not None}"
         )
 
         return {

@@ -29,6 +29,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     code_block: { title: [26, 36] },
     timeline: { title: [30, 38], desc: [14, 16] },
     quote_callout: { title: [30, 38], desc: [16, 20] },
+    data_visualization: { title: [52, 44], desc: [28, 26] },
   },
   nightfall: {
     cinematic_title: { title: [88, 140], desc: [26, 36] },
@@ -364,6 +365,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
 const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
+  default: {
+    data_visualization: [
+      { key: "barChartRows", label: "Bar chart data", type: "object_array",
+        subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
+      { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
+      { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
+        subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 6 },
+      { key: "histogramRows", label: "Histogram bins", type: "object_array",
+        subFields: [{ key: "label", label: "Bin / range" }, { key: "value", label: "Count", placeholder: "Number" }], maxItems: 16 },
+    ],
+  },
   whiteboard: {
     comparison: [
       { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
@@ -484,6 +496,33 @@ export default function SceneEditModal({
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
+  const ENDING_SOCIALS_KEYS = [
+    "instagram",
+    "youtube",
+    "medium",
+    "substack",
+    "facebook",
+    "linkedin",
+    "tiktok",
+  ] as const;
+  const ENDING_SOCIALS_DEFAULT: Record<
+    typeof ENDING_SOCIALS_KEYS[number],
+    { enabled: boolean; label: string }
+  > = {
+    facebook: { enabled: false, label: "Facebook" },
+    instagram: { enabled: false, label: "Instagram" },
+    youtube: { enabled: false, label: "YouTube" },
+    medium: { enabled: false, label: "Medium" },
+    substack: { enabled: false, label: "Substack" },
+    linkedin: { enabled: false, label: "LinkedIn" },
+    tiktok: { enabled: false, label: "TikTok" },
+  };
+  const [endingSocials, setEndingSocials] = useState<
+    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
+  >(ENDING_SOCIALS_DEFAULT);
+  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
+  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
+  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -541,6 +580,7 @@ export default function SceneEditModal({
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+  const isEndingScene = currentLayoutId === "ending_socials";
 
   const defaultFontSizes =
     getDefaultFontSizesFromSchema(
@@ -628,10 +668,51 @@ export default function SceneEditModal({
             }));
             delete (lpCopy as Record<string, unknown>).lineChart;
           }
+          // Histogram: { labels, values } -> histogramRows
+          if (lpAny.histogram && typeof lpAny.histogram === "object") {
+            const hg = lpAny.histogram as { labels?: string[]; values?: number[] };
+            const hlabels = Array.isArray(hg.labels) ? hg.labels : [];
+            const hvalues = Array.isArray(hg.values) ? hg.values : [];
+            lpCopy.histogramRows = hlabels.map((label, i) => ({ label, value: String(hvalues[i] ?? "") }));
+            delete (lpCopy as Record<string, unknown>).histogram;
+          }
         }
       } catch { /* ignore */ }
     }
     setEditableLayoutProps(lpCopy);
+    if (isEndingScene) {
+      const lpSocials = (lpCopy as Record<string, unknown>).socials;
+      if (
+        lpSocials &&
+        typeof lpSocials === "object" &&
+        !Array.isArray(lpSocials)
+      ) {
+        setEndingSocials(lpSocials as Record<
+          typeof ENDING_SOCIALS_KEYS[number],
+          { enabled: boolean; label: string }
+        >);
+      } else {
+        setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      }
+      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
+      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
+      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+      const normalizedWebsiteLink =
+        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+          ? lpWebsiteLink.trim()
+          : fallbackUrl;
+      setEndingWebsiteLink(normalizedWebsiteLink);
+      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
+      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
+    } else {
+      setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      setEndingShowWebsiteButton(true);
+      setEndingWebsiteLink("");
+      setEndingCtaButtonText("");
+    }
     // Initialize structured content for custom templates
     let scInit: Record<string, unknown> = {};
     if (scene.remotion_code) {
@@ -668,7 +749,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -809,6 +890,14 @@ export default function SceneEditModal({
                 delete lp.lineChartLabels;
                 delete lp.lineChartDatasets;
               }
+              if (Array.isArray(lp.histogramRows)) {
+                const rows = lp.histogramRows as { label?: string; value?: string }[];
+                lp.histogram = {
+                  labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                  values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+                };
+                delete lp.histogramRows;
+              }
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -823,14 +912,81 @@ export default function SceneEditModal({
             if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
               delete lp.lineChart;
             }
+            const hist = lp.histogram as { labels?: unknown[]; values?: number[] } | undefined;
+            if (hist && (!Array.isArray(hist.labels) || !hist.labels.length || !Array.isArray(hist.values) || !hist.values.length || hist.values.every((v) => v === 0))) {
+              delete lp.histogram;
+            }
             if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
             else delete lp.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
             else delete lp.descriptionFontSize;
+            if (isEndingScene) {
+              lp.hideImage = true;
+              lp.socials = endingSocials;
+              lp.showWebsiteButton = endingShowWebsiteButton;
+              lp.websiteLink = (endingWebsiteLink || "").trim();
+              lp.ctaButtonText = (endingCtaButtonText || "").trim();
+            }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
           }
         }
+
+        const derivedEndingNarrationText = (() => {
+          if (!isEndingScene) return null;
+          const titlePart = title.trim();
+          const displayPart = (displayText ?? "").trim();
+
+          const enabledKeys = ENDING_SOCIALS_KEYS.filter((k) => endingSocials[k]?.enabled);
+          const enabledNames = enabledKeys.map(
+            (k) => (endingSocials[k]?.label || ENDING_SOCIALS_DEFAULT[k].label)
+          );
+          const enabledNamesStr = enabledNames.join(", ");
+
+          const canonicalNames = ENDING_SOCIALS_KEYS.map(
+            (k) => ENDING_SOCIALS_DEFAULT[k].label
+          );
+
+          const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const re = new RegExp(`\\b(${canonicalNames.map(escapeRegex).join("|")})\\b`, "gi");
+
+          const prefix = titlePart.endsWith(".") || titlePart.endsWith("!") || titlePart.endsWith("?")
+            ? titlePart
+            : `${titlePart}.`;
+          const supportCta = enabledNamesStr
+            ? `Support this creator by following on ${enabledNamesStr}.`
+            : "";
+
+          if (!displayPart) {
+            return supportCta ? `${prefix} ${supportCta}` : prefix;
+          }
+
+          // Replace the first..last social-name span inside the editable display text
+          // so the voiceover mentions only the enabled platforms.
+          let match: RegExpExecArray | null = null;
+          let firstStart = -1;
+          let lastEnd = -1;
+          while ((match = re.exec(displayPart)) !== null) {
+            const start = match.index ?? 0;
+            const end = start + match[0].length;
+            if (firstStart === -1) firstStart = start;
+            lastEnd = end;
+            if (re.lastIndex >= displayPart.length) break;
+          }
+
+          if (firstStart >= 0 && lastEnd > firstStart && enabledNamesStr) {
+            const before = displayPart.slice(0, firstStart).trimEnd();
+            const after = displayPart.slice(lastEnd).trimStart();
+            const joined = [before, enabledNamesStr, after]
+              .filter(Boolean)
+              .join(" ");
+            return `${prefix} ${joined} Support this creator by following.`;
+          }
+
+          const tail = supportCta ? ` ${supportCta}` : "";
+          return `${prefix} ${displayPart}${tail}`.trim();
+        })();
+
         const extraHoldVal = parseFloat(extraHoldSeconds.trim());
         const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
 
@@ -838,6 +994,9 @@ export default function SceneEditModal({
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
+          ...(derivedEndingNarrationText
+            ? { narration_text: derivedEndingNarrationText }
+            : {}),
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
           extra_hold_seconds: extraHold,
         });
@@ -1106,6 +1265,130 @@ export default function SceneEditModal({
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
+                if (isEndingScene) {
+                  return (
+                    <div className="space-y-3">
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Social media Links
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-gray-800">
+                              Call to Action Button
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                              }`}
+                              role="switch"
+                              aria-checked={endingShowWebsiteButton}
+                              aria-label="Toggle website call to action"
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                CTA button label
+                              </label>
+                              <input
+                                type="text"
+                                value={endingCtaButtonText}
+                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="e.g. Read the full article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Short text on the pill above the link (matches the project font in the video).
+                              </p>
+                            </div>
+                          </div>
+                          {endingShowWebsiteButton ? (
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                Website URL
+                              </label>
+                              <input
+                                type="text"
+                                value={endingWebsiteLink}
+                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="https://example.com/article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Shown under the CTA pill when the toggle is on.
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+                        {ENDING_SOCIALS_KEYS.map((k) => {
+                          const item = endingSocials[k];
+                          const enabled = Boolean(item?.enabled ?? false);
+                          const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
+                          const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
+                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
+                          return (
+                            <div key={k} className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEndingSocials((prev) => ({
+                                      ...prev,
+                                      [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), enabled: !enabled },
+                                    }));
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    enabled ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={enabled}
+                                  aria-label={`Toggle ${platformLabel}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      enabled ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                <div className="text-sm font-medium text-gray-800">
+                                  {platformLabel}
+                                </div>
+                              </div>
+
+                              {enabled ? (
+                                <div>
+                                  <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      setEndingSocials((prev) => ({
+                                        ...prev,
+                                        [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), label: next },
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder={`Enter ${k} link or text`}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
                 const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
                 const layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
                 const knownKeys = new Set(layoutFields.map((f) => f.key));
@@ -1299,18 +1582,42 @@ export default function SceneEditModal({
               {/* ── Structured content fields for custom templates ── */}
               {(() => {
                 if (!isCustomTemplate) return null;
-                const ct = (editableStructuredContent.contentType as string) || "";
+                const ct = (editableStructuredContent.contentType as string) || "plain";
                 const scFields = CUSTOM_CONTENT_FIELDS[ct];
-                if (!scFields || ct === "plain") return null;
                 const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                 const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                const contentTypeOptions = [
+                  { value: "plain", label: "Plain text" },
+                  { value: "bullets", label: "Bullet points" },
+                  { value: "steps", label: "Steps" },
+                  { value: "metrics", label: "Metrics" },
+                  { value: "quote", label: "Quote" },
+                  { value: "comparison", label: "Comparison" },
+                  { value: "timeline", label: "Timeline" },
+                  { value: "code", label: "Code" },
+                ];
                 return (
                   <div>
                     <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
-                      Structured content <span className="normal-case tracking-normal text-gray-300">({ct})</span>
+                      Structured content
                     </h4>
+                    <div className="mb-3">
+                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Content type</label>
+                      <select
+                        value={ct}
+                        onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, contentType: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      >
+                        {contentTypeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      {ct === "plain" && (
+                        <p className="text-[11px] text-gray-400 mt-1.5">Switch to a structured type above to add bullets, metrics, or other rich content that overrides template defaults.</p>
+                      )}
+                    </div>
                     <div className="space-y-4">
-                      {scFields.map((field) => {
+                      {(scFields || []).map((field) => {
                         if (field.type === "string") {
                           return (
                             <div key={field.key}>

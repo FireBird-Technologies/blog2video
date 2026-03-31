@@ -1,3 +1,6 @@
+import type { SocialsMap } from "../SocialIcons";
+import type { BarChartData, LineChartData } from "../nightfall/types";
+
 export type LayoutType =
   | "hero_image"
   | "text_narration"
@@ -8,7 +11,9 @@ export type LayoutType =
   | "metric"
   | "quote_callout"
   | "image_caption"
-  | "timeline";
+  | "timeline"
+  | "data_visualization"
+  | "ending_socials";
 
 export interface SceneLayoutProps {
   title: string;
@@ -38,7 +43,15 @@ export interface SceneLayoutProps {
   rightDescription?: string;
   // timeline
   timelineItems?: { label: string; description: string }[];
+  // data_visualization
+  barChart?: BarChartData;
+  lineChart?: LineChartData;
+  histogram?: BarChartData;
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

@@ -77,6 +77,12 @@ class GenerateSceneCode(dspy.Signature):
     - NEVER use: eval, fetch, document, window, process, require, import, setTimeout, setInterval
     - ALWAYS add overflow: "hidden" on the outermost container
     - ALL displayed text MUST come from props — NEVER hardcode sample/placeholder content
+    - NEVER hardcode specific names, product names, service names, item labels, or example data
+    - NEVER use fallback arrays with hardcoded data: do NOT write `props.bullets || [{name:'...'}]`
+      or `bullets && bullets.length ? bullets : [{title:'Feature 1'}]` or any similar pattern
+    - If props.bullets / props.steps / props.metrics is empty or undefined:
+      fall back to splitting props.displayText into sentences, or render props.displayText as a
+      single item — NEVER invent example items
     - NEVER render sceneIndex/totalScenes as visible UI
     - NEVER render contentType as visible text/label/badge
 
@@ -98,8 +104,10 @@ class GenerateSceneCode(dspy.Signature):
       WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
       WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
       Both modes must look intentionally designed — not like something is missing.
-    - When props.imageUrl is ABSENT (hasImage is false): use animated gradient background, floating particle dots, or
-      geometric decorative shapes as visual interest — never leave the scene empty or with an empty 50% hole.
+    - When props.imageUrl is ABSENT (hasImage is false): use floating particle dots or geometric decorative shapes
+      as visual interest — ALWAYS respect the brand_context background instruction (solid vs gradient).
+      If brand_context says "solid backgrounds only", use the solid bg color. If it says "gradient", use the gradient.
+      Never leave the scene empty or with an empty 50% hole.
     - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
@@ -184,7 +192,7 @@ def _scene_reward(args, pred) -> float:
 
     # Bug: hardcoded sample data arrays (fake content in components)
     hardcoded_array = re.search(
-        r'(?:const|let|var)\s+\w+\s*=\s*\[[\s\S]{20,}?(?:text|icon|label|description)\s*:',
+        r'(?:const|let|var)\s+\w+\s*=\s*\[[\s\S]{20,}?(?:text|icon|label|description|name|desc|title|heading)\s*:',
         code,
     )
     if hardcoded_array and not re.search(
@@ -192,6 +200,11 @@ def _scene_reward(args, pred) -> float:
     ):
         score -= 0.3
         print(f"[F7-DEBUG] [REFINE] -0.3: hardcoded sample data")
+
+    # Bug: fallback hardcoded arrays — props.x || [{...}] or props.x ?? [{...}]
+    if re.search(r'props\.\w+\s*(?:\|\||\?\?)\s*\[', code):
+        score -= 0.3
+        print(f"[F7-DEBUG] [REFINE] -0.3: hardcoded fallback array (props.x || [...])")
 
     # Bug: contentType rendered as visible text
     if re.search(r'>\s*\{[^}]*contentType[^}]*\}', code):
@@ -280,6 +293,12 @@ def _build_brand_context(
             for key in ("vibe", "density", "shapes"):
                 if dl.get(key):
                     ctx += f"{key.title()}: {dl[key]}\n"
+
+    use_gradient = colors.get("bg2") is not None
+    if use_gradient:
+        ctx += f"Background: gradient from {colors.get('bg')} to {colors.get('bg2')} — use gradient backgrounds\n"
+    else:
+        ctx += f"Background: solid color {colors.get('bg')} — use SOLID backgrounds only, NO gradients\n"
 
     if source_url:
         ctx += f"Website: {source_url}\n"
