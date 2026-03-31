@@ -77,6 +77,12 @@ class GenerateSceneCode(dspy.Signature):
     - NEVER use: eval, fetch, document, window, process, require, import, setTimeout, setInterval
     - ALWAYS add overflow: "hidden" on the outermost container
     - ALL displayed text MUST come from props — NEVER hardcode sample/placeholder content
+    - NEVER hardcode specific names, product names, service names, item labels, or example data
+    - NEVER use fallback arrays with hardcoded data: do NOT write `props.bullets || [{name:'...'}]`
+      or `bullets && bullets.length ? bullets : [{title:'Feature 1'}]` or any similar pattern
+    - If props.bullets / props.steps / props.metrics is empty or undefined:
+      fall back to splitting props.displayText into sentences, or render props.displayText as a
+      single item — NEVER invent example items
     - NEVER render sceneIndex/totalScenes as visible UI
     - NEVER render contentType as visible text/label/badge
 
@@ -184,7 +190,7 @@ def _scene_reward(args, pred) -> float:
 
     # Bug: hardcoded sample data arrays (fake content in components)
     hardcoded_array = re.search(
-        r'(?:const|let|var)\s+\w+\s*=\s*\[[\s\S]{20,}?(?:text|icon|label|description)\s*:',
+        r'(?:const|let|var)\s+\w+\s*=\s*\[[\s\S]{20,}?(?:text|icon|label|description|name|desc|title|heading)\s*:',
         code,
     )
     if hardcoded_array and not re.search(
@@ -192,6 +198,11 @@ def _scene_reward(args, pred) -> float:
     ):
         score -= 0.3
         print(f"[F7-DEBUG] [REFINE] -0.3: hardcoded sample data")
+
+    # Bug: fallback hardcoded arrays — props.x || [{...}] or props.x ?? [{...}]
+    if re.search(r'props\.\w+\s*(?:\|\||\?\?)\s*\[', code):
+        score -= 0.3
+        print(f"[F7-DEBUG] [REFINE] -0.3: hardcoded fallback array (props.x || [...])")
 
     # Bug: contentType rendered as visible text
     if re.search(r'>\s*\{[^}]*contentType[^}]*\}', code):

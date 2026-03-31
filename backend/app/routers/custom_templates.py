@@ -390,7 +390,7 @@ def list_custom_templates(
     templates = (
         db.query(CustomTemplate)
         .options(joinedload(CustomTemplate.brand_kit))
-        .filter(CustomTemplate.user_id == user.id)
+        .filter(CustomTemplate.user_id == user.id, CustomTemplate.intro_code.isnot(None))
         .order_by(CustomTemplate.created_at.desc())
         .all()
     )
