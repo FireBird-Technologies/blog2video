@@ -1034,7 +1034,7 @@ export const getChatHistory = (id: number) =>
 // ─── Custom Templates API (Pro only) ─────────────────────
 
 export interface CustomTemplateTheme {
-  colors: { accent: string; bg: string; text: string; surface: string; muted: string };
+  colors: { accent: string; bg: string; text: string; surface: string; muted: string; bg2?: string };
   fonts: { heading: string; body: string; mono: string };
   borderRadius: number;
   style: string;

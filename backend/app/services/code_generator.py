@@ -104,8 +104,10 @@ class GenerateSceneCode(dspy.Signature):
       WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
       WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
       Both modes must look intentionally designed — not like something is missing.
-    - When props.imageUrl is ABSENT (hasImage is false): use animated gradient background, floating particle dots, or
-      geometric decorative shapes as visual interest — never leave the scene empty or with an empty 50% hole.
+    - When props.imageUrl is ABSENT (hasImage is false): use floating particle dots or geometric decorative shapes
+      as visual interest — ALWAYS respect the brand_context background instruction (solid vs gradient).
+      If brand_context says "solid backgrounds only", use the solid bg color. If it says "gradient", use the gradient.
+      Never leave the scene empty or with an empty 50% hole.
     - If props.brandImages exists (Array.isArray(props.brandImages)), render gallery/carousel elements from it
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
@@ -291,6 +293,12 @@ def _build_brand_context(
             for key in ("vibe", "density", "shapes"):
                 if dl.get(key):
                     ctx += f"{key.title()}: {dl[key]}\n"
+
+    use_gradient = colors.get("bg2") is not None
+    if use_gradient:
+        ctx += f"Background: gradient from {colors.get('bg')} to {colors.get('bg2')} — use gradient backgrounds\n"
+    else:
+        ctx += f"Background: solid color {colors.get('bg')} — use SOLID backgrounds only, NO gradients\n"
 
     if source_url:
         ctx += f"Website: {source_url}\n"
