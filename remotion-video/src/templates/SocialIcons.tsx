@@ -135,6 +135,11 @@ const SOCIAL_ICONS: Record<SocialKey, React.FC<{ size: number }>> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/** Landscape / square canvases — original default. */
+const DEFAULT_ICON_SIZE_LANDSCAPE = 46;
+/** Portrait (9:16) — larger tap targets and balance with taller typography. */
+const DEFAULT_ICON_SIZE_PORTRAIT = 64;
+
 export interface SocialIconsProps {
   socials?: SocialsMap | SocialsRow[];
   accentColor: string;
@@ -143,6 +148,10 @@ export interface SocialIconsProps {
   maxPerRow?: number;
   /** When set, label text under icons uses this font (matches scene fontFamily). */
   fontFamily?: string;
+  /** Pass scene `aspectRatio` so portrait uses a larger default icon size. */
+  aspectRatio?: string;
+  /** Pixel size for every brand icon SVG. If omitted, uses 52 (portrait) or 40 (landscape). */
+  iconSize?: number;
 }
 
 export const SocialIcons: React.FC<SocialIconsProps> = ({
@@ -151,8 +160,17 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
   textColor,
   maxPerRow = 4,
   fontFamily,
+  aspectRatio,
+  iconSize,
 }) => {
   const frame = useCurrentFrame();
+  const defaultSize =
+    aspectRatio === "portrait" ? DEFAULT_ICON_SIZE_PORTRAIT : DEFAULT_ICON_SIZE_LANDSCAPE;
+  let resolved: number =
+    iconSize === undefined || iconSize === null ? defaultSize : Number(iconSize);
+  if (!Number.isFinite(resolved)) resolved = defaultSize;
+  const size = Math.max(16, Math.min(128, resolved));
+  const containerSize = size + 14;
 
   const fade = interpolate(frame, [8, 32], [0, 1], {
     extrapolateRight: "clamp",
@@ -226,9 +244,9 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
           >
             <div
               style={{
-                width: 54,
-                height: 54,
-                borderRadius: 16,
+                width: containerSize,
+                height: containerSize,
+                borderRadius: Math.min(16, size * 0.4),
                 border: `1px solid ${accentColor}40`,
                 background: `${accentColor}14`,
                 display: "flex",
@@ -237,7 +255,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
                 overflow: "hidden",
               }}
             >
-              <IconComponent size={40} />
+              <IconComponent size={size} />
             </div>
             {label ? (
               <div
