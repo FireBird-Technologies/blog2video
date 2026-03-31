@@ -187,6 +187,7 @@ export const EndingSocials: React.FC<GridcraftLayoutProps> = ({
             textColor={textColor || "#171717"} 
             maxPerRow={p ? 3 : 4} 
             fontFamily={bodyFont} 
+            aspectRatio={aspectRatio}
           />
         </div>
       </div>

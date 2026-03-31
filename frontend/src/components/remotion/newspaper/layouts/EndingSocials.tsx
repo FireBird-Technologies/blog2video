@@ -221,6 +221,7 @@ export const EndingSocials: React.FC<
             textColor={textColor ?? "#111111"}
             maxPerRow={p ? 3 : 4}
             fontFamily={bodyFace}
+            aspectRatio={aspectRatio}
           />
         </div>
       </div>

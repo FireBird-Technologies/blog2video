@@ -147,7 +147,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
         ) : null}
 
         <div style={{ marginTop: p ? 10 : 18, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} />
+          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} aspectRatio={aspectRatio} />
         </div>
       </div>
     </AbsoluteFill>

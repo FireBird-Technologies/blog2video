@@ -67,9 +67,9 @@ const MAX_BULK_LINKS = (() => {
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
 const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
-  short: "Short  ~  1:00–1:40 mins",
-  medium: "Medium  ~  1:50–2:40 mins",
-  detailed: "Detailed  ~  3:00–4:20 mins",
+  short: "Short  ~  30 sec – 1 min",
+  medium: "Medium  ~  1 - 3 mins",
+  detailed: "Detailed  ~  3 – 8 mins",
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
