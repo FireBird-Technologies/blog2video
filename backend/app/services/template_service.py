@@ -299,6 +299,8 @@ def validate_template_id(template_id: str | None, db: Session | None = None) -> 
 
     # Built-in templates
     tid = tid.lower()
+    if tid == "newsreport":
+        tid = "newscast"
     registry = _load_registry()
     if tid in registry:
         return tid
