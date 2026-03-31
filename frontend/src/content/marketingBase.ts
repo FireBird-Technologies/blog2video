@@ -123,6 +123,43 @@ export const templateProfiles: TemplateProfile[] = [
     idealFor: ["Developer tutorials and code walkthroughs", "AI and machine learning explainers", "Cybersecurity content and demos", "CLI tool and developer tooling launches", "Technical comparison and evaluation content"],
     exampleTopics: ["Building a CLI tool in Rust: from zero to publish", "How our ML pipeline processes 1M predictions per day", "Red team vs blue team: a cybersecurity primer"],
   },
+  {
+    slug: "newscast",
+    name: "Newscast",
+    description:
+      "A broadcast news package with desk-style glass panels, ticker, lower third, and crimson-navy visuals.",
+    bestFor: "Briefings, updates, explainers, and stories that should feel like television news — not print.",
+    differentiator:
+      "Puts your article into a live-broadcast frame: globe, chrome, and on-air typography without stock b-roll.",
+    styleFit: "Best for summaries, fact-first updates, and editorial storytelling with a TV desk rhythm.",
+    previewSceneKey: "preview-newscast",
+    layouts: [
+      "cinematic_title",
+      "glass_narrative",
+      "glow_metric",
+      "glass_code",
+      "kinetic_insight",
+      "glass_stack",
+      "split_glass",
+      "chapter_break",
+      "glass_image",
+      "data_visualization",
+    ],
+    longDescription:
+      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from cinematic openers and glass narrative cards to glow metrics, code on glass, kinetic quotes, split comparisons, chapter breaks, image-forward beats, and data visualization — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
+    idealFor: [
+      "Weekly briefings and industry roundups",
+      "Policy and regulatory explainers",
+      "Crisis or fast-moving story updates",
+      "Data-backed segments with charts and metrics",
+      "Editorial voiceovers that need a serious broadcast tone",
+    ],
+    exampleTopics: [
+      "Markets close higher after central bank signals",
+      "Five takeaways from the climate summit",
+      "What the new rules mean for your sector",
+    ],
+  },
 ];
 
 export const templateBySlug = Object.fromEntries(
