@@ -118,8 +118,6 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
             textColor={textColor || "#00FF41"}
             maxPerRow={p ? 3 : 4}
             fontFamily={resolvedFontFamily}
-            iconSize={p ? 60 : 48} // Increased size for portrait mode
-            textFontSize={p ? 28 : 22} // Increased font size for portrait mode
           />
         </div>
 
