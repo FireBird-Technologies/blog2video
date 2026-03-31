@@ -36,10 +36,14 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
 - `data_visualization`
   - Best for: Chart-driven content (bar/line/pie).
 
+- `ending_socials`
+  - Best for: **Final scene only** — follow-along, social handles, and website CTA (when the script pipeline reserves the last scene for the ending).
+  - Rule: Use **only** on the last scene when `preferred_layout` is set to `ending_socials` for that scene; do not use it elsewhere.
+
 Global selection rules:
 - Scene 0 -> `cinematic_title` always.
 - Prefer `glass_narrative` or `chapter_break` for scenes 1–2.
-- Final scene (last index) should be a strong close: `glass_narrative`, `kinetic_insight`, or `glow_metric`.
+- When the last scene is the pipeline ending: use `ending_socials` for that scene. Otherwise the final scene should be a strong close: `glass_narrative`, `kinetic_insight`, or `glow_metric`.
 - Never repeat the same layout in consecutive scenes.
 - Prefer variety: glass cards and impact moments alternating.
 

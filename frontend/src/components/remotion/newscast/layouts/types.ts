@@ -70,5 +70,6 @@ export type NewscastLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
-  | "data_visualization";
+  | "data_visualization"
+  | "ending_socials";
 

@@ -9,6 +9,7 @@ import { GlassStack } from "./GlassStack";
 import { GlowMetric } from "./GlowMetric";
 import { KineticInsight } from "./KineticInsight";
 import { SplitGlass } from "./SplitGlass";
+import { EndingSocials } from "./EndingSocials";
 
 import type React from "react";
 
@@ -28,5 +29,6 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   chapter_break: ChapterBreak,
   glass_image: GlassImage,
   data_visualization: DataVisualization,
+  ending_socials: EndingSocials,
 };
 
