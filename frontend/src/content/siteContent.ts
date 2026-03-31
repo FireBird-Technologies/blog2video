@@ -59,6 +59,7 @@ export const footerGroups = [
     title: "Templates",
     links: [
       "/templates/nightfall",
+      "/templates/newscast",
       "/templates/spotlight",
       "/templates/whiteboard",
       "/templates/gridcraft",
