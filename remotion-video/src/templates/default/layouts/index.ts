@@ -8,6 +8,7 @@ import { Metric } from "./Metric";
 import { QuoteCallout } from "./QuoteCallout";
 import { ImageCaption } from "./ImageCaption";
 import { Timeline } from "./Timeline";
+import { DataVisualization } from "./DataVisualization";
 import { EndingSocials } from "./EndingSocials";
 import type { LayoutType, SceneLayoutProps } from "../types";
 
@@ -24,5 +25,6 @@ export const LAYOUT_REGISTRY: Record<LayoutType, React.FC<SceneLayoutProps>> = {
   quote_callout: QuoteCallout,
   image_caption: ImageCaption,
   timeline: Timeline,
+  data_visualization: DataVisualization,
   ending_socials: EndingSocials,
 };
