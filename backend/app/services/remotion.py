@@ -292,7 +292,7 @@ import React from "react";
 import {{
   useCurrentFrame,
   useVideoConfig,
-  interpolate,
+  interpolate as _interpolate,
   spring,
   Easing,
   AbsoluteFill,
@@ -301,6 +301,14 @@ import {{
   random,
 }} from "remotion";
 import type {{ GeneratedSceneProps }} from "./types";
+
+// Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
+const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
+  const safe = (inputRange as number[]).map((v: number, i: number) =>
+    i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
+  ) as typeof inputRange;
+  return _interpolate(frame, safe, outputRange, options);
+}};
 
 {raw_code}
 
