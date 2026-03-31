@@ -48,4 +48,5 @@ export interface SpotlightLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

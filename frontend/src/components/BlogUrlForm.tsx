@@ -65,6 +65,13 @@ const MAX_BULK_LINKS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 })();
 
+/** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
+const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
+  short: "Short  ~  1:00–1:40 mins",
+  medium: "Medium  ~  1:50–2:40 mins",
+  detailed: "Detailed  ~  3:00–4:20 mins",
+};
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -464,13 +471,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   ) => (
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
-        <span>
-          {value === "short"
-            ? "short (7-10 scenes)"
-            : value === "medium"
-              ? "medium (12-15 scenes)"
-              : "detailed (15-20 scenes)"}
-        </span>
+        <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
         <svg
           className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
           fill="none"
@@ -495,11 +496,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 value === opt ? "bg-purple-50 text-purple-700" : "text-gray-700"
               }`}
             >
-              {opt === "short"
-                ? "short (7-10 scenes)"
-                : opt === "medium"
-                  ? "medium (12-15 scenes)"
-                  : "detailed (15-20 scenes)"}
+              {VIDEO_LENGTH_DURATION_LABELS[opt]}
             </button>
           ))}
         </div>
@@ -1185,12 +1182,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 }}
                 className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
               />
-            Apply video length to all
+            Apply duration to all
           </label>
         </div>
         <div className="mt-1 space-y-1.5">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-            Video Length
+            Estimated duration
           </label>
           {renderVideoLengthDropdown(bulkStep1RowVideoLength, (value) => {
             if (bulkApplyLengthAll && bulkStep1ActiveIndex !== bulkStep1MasterIndex) {
@@ -1212,8 +1209,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               return next;
             });
           })}
-          <p className="text-[11px] text-gray-400 pb-10">
-            If the scraped/uploaded content is very short, we may shorten the video.
+          <p className="text-[10px] text-gray-400 pb-10 leading-relaxed">
+            Actual length may vary depending on content size and video style. If the scraped or uploaded content is
+            very short, video might get shorten automatically.
           </p>
         </div>
       </>)}
@@ -1372,22 +1370,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       )}
 
-      {/* Format + Logo (single-link / upload only; bulk has per-row in step 3) */}
+      {/* Format, duration + Logo (single-link / upload only; bulk has per-row in step 3) */}
       {mode !== "bulk" && (
         <>
           <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-              Video Length
-            </label>
-            {renderVideoLengthDropdown(videoLength, setVideoLength)}
-            <p className="mt-1 text-[11px] text-gray-400">
-              If the scraped/uploaded content is very short, we may shorten the video.
-            </p>
-          </div>
-
-          <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-             Video Format
+              Video Format
             </label>
             <div className="flex gap-2">
               {([
@@ -1411,6 +1399,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+              Estimated duration
+            </label>
+            {renderVideoLengthDropdown(videoLength, setVideoLength)}
+            <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
+              Actual length may vary depending on content size and video style. If the scraped or uploaded content is
+              very short, we may shorten the video.
+            </p>
           </div>
 
           <div>

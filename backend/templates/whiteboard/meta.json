@@ -412,7 +412,7 @@
         "stats": [
           {
             "label": "Compound Interest Formula",
-            "value": "A = P \u00b7 (1 + r/n)^(n\u00b7t)"
+            "value": "A = P · (1 + r/n)^(n·t)"
           },
           {
             "label": "Where:",
@@ -420,11 +420,11 @@
           },
           {
             "label": "Example:",
-            "value": "A = 1000 \u00b7 (1 + 0.05/12)^(12\u00b75)"
+            "value": "A = 1000 · (1 + 0.05/12)^(12·5)"
           },
           {
             "label": "Result:",
-            "value": "A \u2248 $1,283.36"
+            "value": "A ≈ $1,283.36"
           }
         ]
       },
@@ -545,11 +545,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 88,
-          "landscape": 72
+          "landscape": 69
         },
         "descriptionFontSize": {
           "portrait": 44,
-          "landscape": 36
+          "landscape": 31
         },
         "hideImage": true,
         "socials": [

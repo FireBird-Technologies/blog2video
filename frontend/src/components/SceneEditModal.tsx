@@ -497,9 +497,9 @@ export default function SceneEditModal({
     typeof ENDING_SOCIALS_KEYS[number],
     { enabled: boolean; label: string }
   > = {
-    facebook: { enabled: true, label: "Facebook" },
-    instagram: { enabled: true, label: "Instagram" },
-    youtube: { enabled: true, label: "YouTube" },
+    facebook: { enabled: false, label: "Facebook" },
+    instagram: { enabled: false, label: "Instagram" },
+    youtube: { enabled: false, label: "YouTube" },
     medium: { enabled: false, label: "Medium" },
     substack: { enabled: false, label: "Substack" },
     linkedin: { enabled: false, label: "LinkedIn" },
@@ -509,7 +509,8 @@ export default function SceneEditModal({
     Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
   >(ENDING_SOCIALS_DEFAULT);
   const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
-  const [endingWebsiteLink, setEndingWebsiteLink] = useState("https://yourwebsite.com");
+  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
+  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -676,14 +677,21 @@ export default function SceneEditModal({
       const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
       setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
       const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
-      const normalizedWebsiteLink = typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
-        ? lpWebsiteLink.trim()
-        : "https://yourwebsite.com";
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+      const normalizedWebsiteLink =
+        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+          ? lpWebsiteLink.trim()
+          : fallbackUrl;
       setEndingWebsiteLink(normalizedWebsiteLink);
+      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
+      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
     } else {
       setEndingSocials(ENDING_SOCIALS_DEFAULT);
       setEndingShowWebsiteButton(true);
-      setEndingWebsiteLink("https://yourwebsite.com");
+      setEndingWebsiteLink("");
+      setEndingCtaButtonText("");
     }
     // Initialize structured content for custom templates
     let scInit: Record<string, unknown> = {};
@@ -721,7 +729,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -884,7 +892,8 @@ export default function SceneEditModal({
               lp.hideImage = true;
               lp.socials = endingSocials;
               lp.showWebsiteButton = endingShowWebsiteButton;
-              lp.websiteLink = (endingWebsiteLink || "https://yourwebsite.com").trim() || "https://yourwebsite.com";
+              lp.websiteLink = (endingWebsiteLink || "").trim();
+              lp.ctaButtonText = (endingCtaButtonText || "").trim();
             }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
@@ -898,11 +907,9 @@ export default function SceneEditModal({
 
           const enabledKeys = ENDING_SOCIALS_KEYS.filter((k) => endingSocials[k]?.enabled);
           const enabledNames = enabledKeys.map(
-            (k) => ENDING_SOCIALS_DEFAULT[k].label
+            (k) => (endingSocials[k]?.label || ENDING_SOCIALS_DEFAULT[k].label)
           );
           const enabledNamesStr = enabledNames.join(", ");
-          const enabledNamesStrResolved =
-            enabledNamesStr || "our social channels";
 
           const canonicalNames = ENDING_SOCIALS_KEYS.map(
             (k) => ENDING_SOCIALS_DEFAULT[k].label
@@ -914,10 +921,12 @@ export default function SceneEditModal({
           const prefix = titlePart.endsWith(".") || titlePart.endsWith("!") || titlePart.endsWith("?")
             ? titlePart
             : `${titlePart}.`;
-          const supportCta = `Support this creator by following on ${enabledNamesStrResolved}.`;
+          const supportCta = enabledNamesStr
+            ? `Support this creator by following on ${enabledNamesStr}.`
+            : "";
 
           if (!displayPart) {
-            return `${prefix} ${supportCta}`;
+            return supportCta ? `${prefix} ${supportCta}` : prefix;
           }
 
           // Replace the first..last social-name span inside the editable display text
@@ -933,16 +942,17 @@ export default function SceneEditModal({
             if (re.lastIndex >= displayPart.length) break;
           }
 
-          if (firstStart >= 0 && lastEnd > firstStart) {
+          if (firstStart >= 0 && lastEnd > firstStart && enabledNamesStr) {
             const before = displayPart.slice(0, firstStart).trimEnd();
             const after = displayPart.slice(lastEnd).trimStart();
-            const joined = [before, enabledNamesStrResolved, after]
+            const joined = [before, enabledNamesStr, after]
               .filter(Boolean)
               .join(" ");
             return `${prefix} ${joined} Support this creator by following.`;
           }
 
-          return `${prefix} ${displayPart} ${supportCta}`;
+          const tail = supportCta ? ` ${supportCta}` : "";
+          return `${prefix} ${displayPart}${tail}`.trim();
         })();
 
         const extraHoldVal = parseFloat(extraHoldSeconds.trim());
@@ -1233,7 +1243,7 @@ export default function SceneEditModal({
                         <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-sm font-medium text-gray-800">
-                              Website CTA Button
+                              Call to Action Button
                             </div>
                             <button
                               type="button"
@@ -1252,17 +1262,37 @@ export default function SceneEditModal({
                               />
                             </button>
                           </div>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                CTA button label
+                              </label>
+                              <input
+                                type="text"
+                                value={endingCtaButtonText}
+                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="e.g. Read the full article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Short text on the pill above the link (matches the project font in the video).
+                              </p>
+                            </div>
+                          </div>
                           {endingShowWebsiteButton ? (
                             <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                Website URL
+                              </label>
                               <input
                                 type="text"
                                 value={endingWebsiteLink}
                                 onChange={(e) => setEndingWebsiteLink(e.target.value)}
                                 className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                placeholder="https://yourwebsite.com"
+                                placeholder="https://example.com/article"
                               />
                               <p className="mt-1 text-[11px] text-gray-500">
-                                Shown below the &quot;Get Started with →&quot; pill above social icons.
+                                Shown under the CTA pill when the toggle is on.
                               </p>
                             </div>
                           ) : null}

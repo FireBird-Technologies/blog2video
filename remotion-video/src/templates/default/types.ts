@@ -48,4 +48,6 @@ export interface SceneLayoutProps {
   socials?: SocialsMap;
   websiteLink?: string;
   showWebsiteButton?: boolean;
+  /** Short label on the CTA pill above the link (from script / editor). */
+  ctaButtonText?: string;
 }
