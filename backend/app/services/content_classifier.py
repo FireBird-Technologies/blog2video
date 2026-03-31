@@ -27,30 +27,35 @@ class BatchContentExtractor(dspy.Signature):
     2. structured fields — parsed data the component needs to render
 
     Content types:
-    - "bullets" — narration lists multiple items/features/benefits
-    - "steps" — narration describes a sequential process
+    - "bullets" — narration lists multiple items/features/benefits/services/products
+    - "steps" — narration describes a sequential process or ordered instructions
     - "metrics" — narration contains specific numbers/statistics/KPIs
     - "code" — narration contains code snippets or technical syntax
     - "quote" — narration contains a direct quote or testimonial
     - "comparison" — narration compares two things (vs, before/after, old/new)
     - "timeline" — narration describes events in chronological order
-    - "plain" — general narrative text, none of the above
+    - "plain" — general narrative text where NO distinct items can be extracted
 
     Extraction rules:
     - Extract ONLY content present in the narration — NEVER invent data
-    - For bullets/steps: extract ALL mentioned items as string arrays
+    - For bullets: extract when narration mentions 2+ distinct named items, services, products,
+      features, or benefits — even in prose form (e.g. "offers three services: Go for rides,
+      Eat for food, and Get for groceries" → bullets: ["Go for rides", "Eat for food", "Get for groceries"])
+    - For bullets/steps: extract ALL mentioned items as string arrays, preserving their names
+    - STRONGLY prefer "bullets" over "plain" when 2 or more distinct items/things can be named
+    - STRONGLY prefer "steps" over "plain" when a process or sequence is described
     - For metrics: extract value + label pairs (e.g., {"value": "3x", "label": "Growth"})
     - For quotes: extract the quoted text and author if mentioned
     - For code: extract code lines as string array
     - For comparison: extract left and right sides with label + description
     - For timeline: extract items with label + description
-    - For plain: just set contentType to "plain", no extra fields needed
+    - For plain: ONLY use when narration is pure prose with no extractable items, steps, or data
 
     Output MUST be a valid JSON array with one object per scene.
     """
 
     scenes_json: str = dspy.InputField(
-        desc="JSON array of scenes: [{title, narration, scene_index}]"
+        desc="JSON array of scenes: [{title, narration, visual_description, scene_index}]. Use BOTH narration AND visual_description to determine content type and extract items — visual_description often explicitly names the items that should appear on screen."
     )
     content_language: str = dspy.InputField(
         desc="Target language for extracted content"
@@ -81,6 +86,7 @@ async def extract_structured_content_batch(
             "scene_index": i,
             "title": s.get("title", ""),
             "narration": s.get("narration", ""),
+            "visual_description": s.get("visual_description", ""),
         }
         for i, s in enumerate(scenes_data)
     ]
