@@ -75,6 +75,45 @@ export const RemotionDefaultVideoComposition: React.FC<
   const FPS = 30;
   let currentFrame = 0;
 
+  const convertDefaultDataVizProps = (lp: Record<string, unknown>): Record<string, unknown> => {
+    const out = { ...lp };
+    if (Array.isArray(out.barChartRows)) {
+      const rows = out.barChartRows as { label?: string; value?: string }[];
+      out.barChart = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.barChartRows;
+    }
+    if (Array.isArray(out.histogramRows)) {
+      const rows = out.histogramRows as { label?: string; value?: string }[];
+      out.histogram = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.histogramRows;
+    }
+    if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
+      const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+      const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map(
+        (d) => ({
+          label: (d && d.label != null ? String(d.label) : "") as string,
+          values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+            .split(",")
+            .map((s) => Number(s.trim()) || 0),
+        }),
+      );
+      out.lineChart = { labels, datasets };
+      delete out.lineChartLabels;
+      delete out.lineChartDatasets;
+    }
+    return out;
+  };
+
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily }}>
       {scenes.map((scene) => {
@@ -89,7 +128,13 @@ export const RemotionDefaultVideoComposition: React.FC<
           REMOTION_DEFAULT_LAYOUT_REGISTRY[scene.layout] ??
           REMOTION_DEFAULT_LAYOUT_REGISTRY.text_narration;
 
+        const rawLayoutProps =
+          scene.layout === "data_visualization"
+            ? convertDefaultDataVizProps(scene.layoutProps as Record<string, unknown>)
+            : scene.layoutProps;
+
         const layoutProps: RemotionDefaultSceneLayoutProps = {
+          ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
@@ -98,7 +143,6 @@ export const RemotionDefaultVideoComposition: React.FC<
           textColor,
           aspectRatio,
           fontFamily,
-          ...scene.layoutProps,
         };
 
         return (
