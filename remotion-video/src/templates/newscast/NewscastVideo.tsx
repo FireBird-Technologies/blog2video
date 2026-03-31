@@ -81,7 +81,7 @@ const NewscastSequenceInner: React.FC<{
   const glassImageSlowExitT = Math.pow(exitT, 1.16);
 
   const globeTranslateXIn =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? entryT * -220
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowT * -188
@@ -99,7 +99,7 @@ const NewscastSequenceInner: React.FC<{
         ? entryT * -90
         : 0;
   const globeTranslateXOut =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? exitT * -220
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowExitT * -188
@@ -117,7 +117,7 @@ const NewscastSequenceInner: React.FC<{
         ? exitT * -90
         : 0;
   const globeTranslateYIn =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? entryT * -26
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowT * 54 + Math.sin(entryT * Math.PI) * -5
@@ -135,7 +135,7 @@ const NewscastSequenceInner: React.FC<{
         ? entryT * 16
         : 0;
   const globeTranslateYOut =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? exitT * -26
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowExitT * 54 + Math.sin(exitT * Math.PI) * -5

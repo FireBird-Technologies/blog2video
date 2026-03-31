@@ -144,6 +144,7 @@ export const templateProfiles: TemplateProfile[] = [
       "chapter_break",
       "glass_image",
       "data_visualization",
+      "ending_socials",
     ],
     longDescription:
       "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from cinematic openers and glass narrative cards to glow metrics, code on glass, kinetic quotes, split comparisons, chapter breaks, image-forward beats, and data visualization — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",

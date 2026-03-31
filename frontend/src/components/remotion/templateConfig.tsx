@@ -173,6 +173,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "chapter_break",
   "glass_image",
   "data_visualization",
+  "ending_socials",
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {

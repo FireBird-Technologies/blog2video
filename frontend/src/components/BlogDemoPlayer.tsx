@@ -1326,9 +1326,11 @@ const TEMPLATE_LABELS: Record<string, string> = {
 
 interface BlogDemoPlayerProps {
   sceneKey: string;
+  /** `embedded`: no outer margin; no inner border/shadow — for step-2 card where the parent supplies the frame. */
+  variant?: "default" | "embedded";
 }
 
-export default function BlogDemoPlayer({ sceneKey }: BlogDemoPlayerProps) {
+export default function BlogDemoPlayer({ sceneKey, variant = "default" }: BlogDemoPlayerProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -1357,9 +1359,17 @@ export default function BlogDemoPlayer({ sceneKey }: BlogDemoPlayerProps) {
     aspectRatio: "landscape",
   };
 
+  const embedded = variant === "embedded";
+
   return (
-    <div className="my-8">
-      <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-lg">
+    <div className={embedded ? "w-full" : "my-8"}>
+      <div
+        className={
+          embedded
+            ? "overflow-hidden rounded-none border-0 shadow-none"
+            : "overflow-hidden rounded-2xl border border-gray-200 shadow-lg"
+        }
+      >
         <div style={{ aspectRatio: "16/9", width: "100%", background: colors.bg }}>
           {mounted ? (
             <Player
@@ -1387,15 +1397,6 @@ export default function BlogDemoPlayer({ sceneKey }: BlogDemoPlayerProps) {
           )}
         </div>
       </div>
-      <p className="mt-2 text-center text-xs italic text-gray-400">
-        Made using{" "}
-        <a
-          href="https://blog2video.app"
-          className="text-purple-500 underline hover:text-purple-600"
-        >
-          blog2video.app
-        </a>
-      </p>
     </div>
   );
 }

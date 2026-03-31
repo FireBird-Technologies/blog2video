@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 export interface NewscastLayoutProps {
   title: string;
   narration?: string;
@@ -66,6 +68,12 @@ export interface NewscastLayoutProps {
   imageUrl?: string;
 
   fontFamily?: string;
+
+  /** ending_socials */
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }
 
 export type NewscastLayoutType =
@@ -78,5 +86,6 @@ export type NewscastLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
-  | "data_visualization";
+  | "data_visualization"
+  | "ending_socials";
 

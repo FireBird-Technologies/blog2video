@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, lazy, Suspense } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -14,7 +14,6 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
-import NewscastPreview from "./templatePreviews/NewscastPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
@@ -80,6 +79,17 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
+const BlogDemoPlayer = lazy(() => import("./BlogDemoPlayer"));
+
+/** Same Remotion preview as `/templates/newscast` (`preview-newscast`), embedded in the step-2 card. */
+function NewscastBlogDemoPreview() {
+  return (
+    <Suspense fallback={<div className="aspect-video w-full bg-gray-200 animate-pulse" />}>
+      <BlogDemoPlayer sceneKey="preview-newscast" variant="embedded" />
+    </Suspense>
+  );
+}
+
 // Template preview component mapping (keyed by template ID from backend)
 const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   default: DefaultPreview,
@@ -89,7 +99,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
-  newscast: NewscastPreview,
+  newscast: NewscastBlogDemoPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -568,10 +578,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template when user hasn't chosen one: Newscast first, then Nightfall, etc.
+  // Preferred built-in template when user hasn't chosen one: Nightfall first, then Newscast, etc.
   const preferredTemplateId =
-    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
     "default";
 
@@ -579,8 +589,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   useEffect(() => {
     if (templates.length === 0) return;
     const preferred =
-      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
       // Single/upload flow: set template if still default or custom placeholder.
