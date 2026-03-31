@@ -187,6 +187,7 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
               textColor={textColor || "#E2E8F0"} 
               maxPerRow={p ? 3 : 4} 
               fontFamily={bodyFont} 
+              aspectRatio={aspectRatio}
             />
           </div>
         </div>
