@@ -28,7 +28,7 @@ export const templateProfiles: TemplateProfile[] = [
       "Keeps complex concepts readable with deliberate hierarchy and diagram-friendly layouts.",
     styleFit: "Best when clarity matters more than cinematic flair.",
     previewSceneKey: "preview-default",
-    layouts: ["hero_image", "text_narration", "code_block", "bullet_list", "flow_diagram", "comparison", "metric", "quote_callout", "image_caption", "timeline"],
+    layouts: ["hero_image", "text_narration", "code_block", "bullet_list", "flow_diagram", "comparison", "metric", "quote_callout", "image_caption", "timeline", "data_visualization"],
     longDescription: "The Geometric Explainer template uses clean lines, structured grids, and deliberate hierarchy to present tutorials, walkthroughs, and technical lessons. Every layout prioritizes readability over decoration, making it ideal for content where comprehension matters more than visual flair. The template handles code blocks, bullet lists, flow diagrams, comparisons, and metrics natively, so technical articles convert into video without losing their structure.",
     idealFor: ["Technical tutorials and how-to guides", "Product onboarding walkthroughs", "Step-by-step educational breakdowns", "API and SDK documentation explainers", "Process and workflow demonstrations"],
     exampleTopics: ["How to set up a CI/CD pipeline", "Getting started with a new API", "Product feature walkthrough for onboarding"],
@@ -122,6 +122,43 @@ export const templateProfiles: TemplateProfile[] = [
     longDescription: "Matrix is a cyberpunk terminal template designed for developer audiences and technically-minded viewers. Green-on-black monospace typography, typewriter text animations, glitch effects, and data stream layouts create a visual identity that feels native to engineering culture. The template includes layouts for terminal-style typewritten text, incoming data streams, red-pill/blue-pill fork choices, cipher-decoded metrics, and intercepted-signal transmissions. Every layout keeps content readable while leaning into a sharper, more experimental aesthetic.",
     idealFor: ["Developer tutorials and code walkthroughs", "AI and machine learning explainers", "Cybersecurity content and demos", "CLI tool and developer tooling launches", "Technical comparison and evaluation content"],
     exampleTopics: ["Building a CLI tool in Rust: from zero to publish", "How our ML pipeline processes 1M predictions per day", "Red team vs blue team: a cybersecurity primer"],
+  },
+  {
+    slug: "newscast",
+    name: "Newscast",
+    description:
+      "A broadcast news package with desk-style glass panels, ticker, lower third, and crimson-navy visuals.",
+    bestFor: "Briefings, updates, explainers, and stories that should feel like television news — not print.",
+    differentiator:
+      "Puts your article into a live-broadcast frame: globe, chrome, and on-air typography without stock b-roll.",
+    styleFit: "Best for summaries, fact-first updates, and editorial storytelling with a TV desk rhythm.",
+    previewSceneKey: "preview-newscast",
+    layouts: [
+      "cinematic_title",
+      "glass_narrative",
+      "glow_metric",
+      "glass_code",
+      "kinetic_insight",
+      "glass_stack",
+      "split_glass",
+      "chapter_break",
+      "glass_image",
+      "data_visualization",
+    ],
+    longDescription:
+      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from cinematic openers and glass narrative cards to glow metrics, code on glass, kinetic quotes, split comparisons, chapter breaks, image-forward beats, and data visualization — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
+    idealFor: [
+      "Weekly briefings and industry roundups",
+      "Policy and regulatory explainers",
+      "Crisis or fast-moving story updates",
+      "Data-backed segments with charts and metrics",
+      "Editorial voiceovers that need a serious broadcast tone",
+    ],
+    exampleTopics: [
+      "Markets close higher after central bank signals",
+      "Five takeaways from the climate summit",
+      "What the new rules mean for your sector",
+    ],
   },
 ];
 

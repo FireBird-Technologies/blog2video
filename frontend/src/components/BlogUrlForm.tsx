@@ -14,6 +14,7 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
+import NewscastPreview from "./templatePreviews/NewscastPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
@@ -67,9 +68,9 @@ const MAX_BULK_LINKS = (() => {
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
 const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
-  short: "Short  ~  1:00–1:40 mins",
-  medium: "Medium  ~  1:50–2:40 mins",
-  detailed: "Detailed  ~  3:00–4:20 mins",
+  short: "Short  ~  30 sec – 1 min",
+  medium: "Medium  ~  1 - 3 mins",
+  detailed: "Detailed  ~  3 – 8 mins",
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
@@ -88,6 +89,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
+  newscast: NewscastPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -98,6 +100,10 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
   whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
+  newscast: {
+    title: "Newscast",
+    subtitle: "Broadcast news package — ticker, lower third, glass panels, and data beats",
+  },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -564,16 +570,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template (Nightfall when available) for single and bulk flows.
+  // Preferred built-in template when user hasn't chosen one: Newscast first, then Nightfall, etc.
   const preferredTemplateId =
+    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
     templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
     "default";
 
-  // Prefer Nightfall as the initial built-in template when templates load.
+  // Apply preferred template once templates load (only replaces initial "default" / custom placeholder).
   useEffect(() => {
     if (templates.length === 0) return;
     const preferred =
+      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
@@ -586,7 +594,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           setTextColor(preferred.preview_colors.text);
         }
       }
-      // Multi-link (bulk) flow: set any "default" slots to preferred so step 2 shows Nightfall.
+      // Multi-link (bulk) flow: set any "default" slots to preferred.
       setBulkTemplates((prev) =>
         prev.map((t) => (t === "default" ? preferred.id : t))
       );

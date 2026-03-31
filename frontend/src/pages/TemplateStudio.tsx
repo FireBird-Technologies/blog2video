@@ -42,27 +42,57 @@ function humanize(value: string): string {
   return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+const TYPOGRAPHY_FIELDS: LayoutPropField[] = [
+  { key: "titleFontSize", label: "Title Font Size", type: "number", responsive: true, min: 20, max: 180, step: 1 },
+  { key: "descriptionFontSize", label: "Description Font Size", type: "number", responsive: true, min: 12, max: 100, step: 1 },
+];
+
+const TYPOGRAPHY_DEFAULTS: Record<string, ResponsiveValue> = {
+  titleFontSize: { portrait: 56, landscape: 76 },
+  descriptionFontSize: { portrait: 24, landscape: 34 },
+};
+
+function withTypographyControls(schema: LayoutPropSchema): LayoutPropSchema {
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const hasTitleField = fields.some((field) => field.key === "titleFontSize" && field.responsive);
+  const hasDescriptionField = fields.some((field) => field.key === "descriptionFontSize" && field.responsive);
+  if (hasTitleField && hasDescriptionField) return schema;
+
+  const defaults = { ...(schema.defaults ?? {}) } as Record<string, unknown>;
+  if (!isResponsiveValue(defaults.titleFontSize)) defaults.titleFontSize = TYPOGRAPHY_DEFAULTS.titleFontSize;
+  if (!isResponsiveValue(defaults.descriptionFontSize)) defaults.descriptionFontSize = TYPOGRAPHY_DEFAULTS.descriptionFontSize;
+
+  return {
+    ...schema,
+    defaults,
+    fields: [
+      ...(hasTitleField ? [] : [TYPOGRAPHY_FIELDS[0]]),
+      ...(hasDescriptionField ? [] : [TYPOGRAPHY_FIELDS[1]]),
+      ...fields,
+    ],
+  };
+}
+
 function getSchema(
   template: TemplateMeta | null,
   layoutId: string | null
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
   const explicit = template.layout_prop_schema?.[layoutId];
-  if (explicit) return explicit;
+  if (explicit) {
+    return normalizeTemplateId(template.id) === "newscast"
+      ? withTypographyControls(explicit)
+      : explicit;
+  }
 
-  const responsiveFields: LayoutPropField[] = [
-    { key: "titleFontSize", label: "Title Font Size", type: "number", responsive: true, min: 20, max: 180, step: 1 },
-    { key: "descriptionFontSize", label: "Description Font Size", type: "number", responsive: true, min: 12, max: 100, step: 1 },
-  ];
-
-  return {
+  const fallbackSchema: LayoutPropSchema = {
     label: humanize(layoutId),
-    defaults: {
-      titleFontSize: { portrait: 56, landscape: 76 },
-      descriptionFontSize: { portrait: 24, landscape: 34 },
-    },
-    fields: responsiveFields,
+    defaults: TYPOGRAPHY_DEFAULTS,
+    fields: TYPOGRAPHY_FIELDS,
   };
+  return normalizeTemplateId(template.id) === "newscast"
+    ? withTypographyControls(fallbackSchema)
+    : fallbackSchema;
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────

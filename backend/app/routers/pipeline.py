@@ -48,7 +48,13 @@ from app.services.social_content_signals import detect_social_platforms_in_text
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id, get_layout_prompt, is_custom_template, _load_custom_template_data
+from app.services.template_service import (
+    validate_template_id,
+    get_layout_prompt,
+    get_valid_layouts,
+    is_custom_template,
+    _load_custom_template_data,
+)
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -337,7 +343,12 @@ async def _generate_script(project: Project, db: Session):
         )
         
     generator = ScriptGenerator()
-    include_ending_socials = not is_custom_template(template_id)
+    # Only append an ending / follow-along scene when the template declares `ending_socials`
+    # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
+    include_ending_socials = (
+        not is_custom_template(template_id)
+        and "ending_socials" in get_valid_layouts(template_id)
+    )
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -412,6 +423,7 @@ async def _generate_scenes(project: Project, db: Session):
     db.refresh(project)
     template_id = validate_template_id(project.template if project.template else "default")
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
+    supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
@@ -507,9 +519,9 @@ async def _generate_scenes(project: Project, db: Session):
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
-        # DSPy appends an ending scene with preferred_layout="ending_socials".
+        # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
         # We override the descriptor here so Remotion can render the themed ending consistently.
-        if getattr(scene, "preferred_layout", None) == "ending_socials":
+        if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
             cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
             cta = (cta_from_visual or "").strip()
             try:

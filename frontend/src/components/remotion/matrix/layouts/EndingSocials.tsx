@@ -118,6 +118,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
             textColor={textColor || "#00FF41"}
             maxPerRow={p ? 3 : 4}
             fontFamily={resolvedFontFamily}
+            aspectRatio={aspectRatio}
           />
         </div>
 

@@ -28,6 +28,10 @@ import {
   calculateNewspaperMetadata,
 } from "./templates/newspaper/NewspaperVideo";
 import {
+  NewscastVideo,
+  calculateNewscastMetadata,
+} from "./templates/newscast/NewscastVideo";
+import {
   GeneratedVideo,
   calculateGeneratedMetadata,
 } from "./templates/generated/GeneratedVideo";
@@ -118,6 +122,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateNewspaperMetadata}
+      />
+      <Composition
+        id="NewscastVideo"
+        component={NewscastVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateNewscastMetadata}
       />
       <Composition
         id="GeneratedVideo"

@@ -6,7 +6,7 @@ import {
   Audio,
 } from "remotion";
 import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
-import { getTemplateConfig } from "./remotion/templateConfig";
+import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import {
   compileComponentCode,
@@ -173,10 +173,11 @@ export default function VideoPreview({
   logoPositionOverride,
   precompiledTemplateData,
 }: VideoPreviewProps) {
-  const config = useMemo(() => getTemplateConfig(project.template), [project.template]);
+  const templateId = normalizeBuiltInTemplateId(project.template);
+  const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
-  const isCustom = (project.template || "").startsWith("custom_");
+  const isCustom = templateId.startsWith("custom_");
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
