@@ -141,6 +141,7 @@ export interface SocialIconsProps {
   textColor: string;
   /** Layout spacing */
   maxPerRow?: number;
+  fontFamily?: string;
 }
 
 export const SocialIcons: React.FC<SocialIconsProps> = ({
@@ -148,6 +149,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
   accentColor,
   textColor,
   maxPerRow = 4,
+  fontFamily,
 }) => {
   const frame = useCurrentFrame();
 
@@ -249,6 +251,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
+                  ...(fontFamily ? { fontFamily } : {}),
                 }}
               >
                 {label}

@@ -43,6 +43,8 @@ from app.services.remotion import (
     get_workspace_dir,
 )
 from app.services import r2_storage
+from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
+from app.services.social_content_signals import detect_social_platforms_in_text
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
@@ -362,12 +364,17 @@ async def _generate_script(project: Project, db: Session):
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
+        vd = scene_data["visual_description"]
+        if scene_data.get("preferred_layout") == "ending_socials":
+            cta = (scene_data.get("cta_button_text") or "").strip()
+            if cta:
+                vd = prepend_b2v_cta_to_visual(cta, vd)
         scene = Scene(
             project_id=project.id,
             order=i + 1,
             title=scene_data["title"],
             narration_text=scene_data["narration"],
-            visual_description=scene_data["visual_description"],
+            visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
             preferred_layout=scene_data.get("preferred_layout"),
@@ -389,15 +396,17 @@ async def _generate_scenes(project: Project, db: Session):
     scenes = project.scenes
 
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
-    scenes_data = [
-        {
-            "title": s.title,
-            "narration": s.narration_text,
-            "visual_description": s.visual_description,
-            "preferred_layout": getattr(s, "preferred_layout", None),
-        }
-        for s in scenes
-    ]
+    scenes_data = []
+    for s in scenes:
+        _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
+        scenes_data.append(
+            {
+                "title": s.title,
+                "narration": s.narration_text,
+                "visual_description": vis,
+                "preferred_layout": getattr(s, "preferred_layout", None),
+            }
+        )
 
     # Prepare scene descriptor generator
     db.refresh(project)
@@ -476,30 +485,51 @@ async def _generate_scenes(project: Project, db: Session):
     db.expire_all()
     scenes = project.scenes
 
-    # Default socials for the DSPy-generated ending scene.
-    # Enabled by default: Facebook + Instagram + YouTube.
+    # Ending scene social icons: only enable platforms that appear in scraped content.
+    social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
     ending_socials_default = {
-        "facebook": {"enabled": True, "label": "Facebook"},
-        "instagram": {"enabled": True, "label": "Instagram"},
-        "youtube": {"enabled": True, "label": "YouTube"},
-        "medium": {"enabled": False, "label": "Medium"},
-        "substack": {"enabled": False, "label": "Substack"},
-        "linkedin": {"enabled": False, "label": "LinkedIn"},
-        "tiktok": {"enabled": False, "label": "TikTok"},
+        "facebook": {"enabled": bool(social_flags.get("facebook")), "label": "Facebook"},
+        "instagram": {"enabled": bool(social_flags.get("instagram")), "label": "Instagram"},
+        "youtube": {"enabled": bool(social_flags.get("youtube")), "label": "YouTube"},
+        "medium": {"enabled": bool(social_flags.get("medium")), "label": "Medium"},
+        "substack": {"enabled": bool(social_flags.get("substack")), "label": "Substack"},
+        "linkedin": {"enabled": bool(social_flags.get("linkedin")), "label": "LinkedIn"},
+        "tiktok": {"enabled": bool(social_flags.get("tiktok")), "label": "TikTok"},
     }
+
+    raw_blog_url = (getattr(project, "blog_url", None) or "").strip()
+    source_link = (
+        raw_blog_url
+        if raw_blog_url and not raw_blog_url.startswith("upload://")
+        else ""
+    )
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
         # DSPy appends an ending scene with preferred_layout="ending_socials".
         # We override the descriptor here so Remotion can render the themed ending consistently.
         if getattr(scene, "preferred_layout", None) == "ending_socials":
+            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+            cta = (cta_from_visual or "").strip()
+            try:
+                if scene.remotion_code:
+                    old_desc = json.loads(scene.remotion_code)
+                    old_lp = old_desc.get("layoutProps") or {}
+                    old_cta = old_lp.get("ctaButtonText")
+                    if isinstance(old_cta, str) and old_cta.strip():
+                        cta = old_cta.strip()
+            except (json.JSONDecodeError, TypeError):
+                pass
+            if not cta:
+                cta = "Get started"
             descriptor = {
                 "layout": "ending_socials",
                 "layoutProps": {
                     "hideImage": True,
                     "socials": ending_socials_default,
-                    "showWebsiteButton": True,
-                    "websiteLink": "https://yourwebsite.com",
+                    "showWebsiteButton": bool(source_link),
+                    "websiteLink": source_link,
+                    "ctaButtonText": cta,
                 },
             }
 

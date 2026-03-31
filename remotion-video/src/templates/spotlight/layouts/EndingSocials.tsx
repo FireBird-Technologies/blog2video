@@ -10,6 +10,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   socials,
   websiteLink,
   showWebsiteButton,
+  ctaButtonText,
   accentColor,
   bgColor,
   textColor,
@@ -32,8 +33,10 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   });
 
   const subtext = (narration ?? "").trim();
-  const resolvedWebsiteLink = (websiteLink ?? "https://yourwebsite.com").trim() || "https://yourwebsite.com";
-  const showWebsiteCta = showWebsiteButton !== false;
+  const resolvedWebsiteLink = (websiteLink ?? "").trim();
+  const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
+  const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
+  const bodyFont = fontFamily ?? "'Inter, system-ui, sans-serif";
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -57,7 +60,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
             fontSize: titleFontSize ?? (p ? 97 : 86),
             fontWeight: 800,
             color: textColor || "#FFFFFF",
-            fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+            fontFamily: bodyFont,
             letterSpacing: "-0.02em",
             lineHeight: 1.05,
             opacity: titleOpacity,
@@ -79,11 +82,11 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
 
         {showWebsiteCta ? (
           <div style={{ marginTop: p ? 16 : 20, display: "flex", flexDirection: "column", alignItems: "center", gap: p ? 10 : 10 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, padding: p ? "14px 28px" : "12px 24px", backgroundColor: accentColor || "#7C3AED", color: "#FFFFFF", fontSize: p ? 24 : 22, fontWeight: 700, lineHeight: 1, fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif" }}>
-              <span>Get Started with</span>
-              <span style={{ fontSize: p ? 26 : 24 }}>→</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, padding: p ? "18px 36px" : "16px 32px", backgroundColor: accentColor || "#7C3AED", color: "#FFFFFF", fontSize: p ? 28 : 26, fontWeight: 700, lineHeight: 1, fontFamily: bodyFont }}>
+              <span>{resolvedCta}</span>
+              <span style={{ fontSize: p ? 30 : 28 }}>→</span>
             </div>
-            <div style={{ fontSize: p ? 22 : 20, fontWeight: 600, color: textColor || "#FFFFFF", fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif", lineHeight: 1.2, maxWidth: p ? 560 : 760, wordBreak: "break-word" }}>
+            <div style={{ fontSize: p ? 26 : 24, fontWeight: 600, color: textColor || "#FFFFFF", fontFamily: bodyFont, lineHeight: 1.2, maxWidth: p ? 560 : 760, wordBreak: "break-word" }}>
               {resolvedWebsiteLink}
             </div>
           </div>
@@ -93,13 +96,13 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
           <div
             style={{
               marginTop: p ? 20 : 25,
-              fontSize: descriptionFontSize ?? (p ? 44 : 36),
+              fontSize: descriptionFontSize ?? (p ? 44 : 41),
               fontWeight: 500,
               color: `${textColor || "#FFFFFF"}CC`,
               lineHeight: 1.35,
               maxWidth: p ? 560 : 860,
               opacity: subOpacity,
-              fontFamily: fontFamily ?? "'Inter, system-ui, sans-serif",
+              fontFamily: bodyFont,
             }}
           >
             {subtext}
@@ -107,7 +110,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
         ) : null}
 
         <div style={{ marginTop: p ? 26 : 34, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#FFFFFF"} maxPerRow={p ? 3 : 4} />
+          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#FFFFFF"} maxPerRow={p ? 3 : 4} fontFamily={bodyFont} />
         </div>
       </div>
     </AbsoluteFill>
