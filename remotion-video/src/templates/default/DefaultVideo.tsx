@@ -13,6 +13,44 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
 
+/** Schema rows → barChart / lineChart / histogram for data_visualization */
+function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...lp };
+  if (Array.isArray(out.barChartRows)) {
+    const rows = out.barChartRows as { label?: string; value?: string }[];
+    out.barChart = {
+      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+      values: rows.map((r) =>
+        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+      ),
+    };
+    delete out.barChartRows;
+  }
+  if (Array.isArray(out.histogramRows)) {
+    const rows = out.histogramRows as { label?: string; value?: string }[];
+    out.histogram = {
+      labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+      values: rows.map((r) =>
+        r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+      ),
+    };
+    delete out.histogramRows;
+  }
+  if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
+    const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+    const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map((d) => ({
+      label: (d && d.label != null ? String(d.label) : "") as string,
+      values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+        .split(",")
+        .map((s) => Number(s.trim()) || 0),
+    }));
+    out.lineChart = { labels, datasets };
+    delete out.lineChartLabels;
+    delete out.lineChartDatasets;
+  }
+  return out;
+}
+
 // ─── Types ───────────────────────────────────────────────────
 
 interface SceneData {
@@ -60,7 +98,7 @@ export const calculateDefaultMetadata: CalculateMetadataFunction<VideoProps> =
       const sceneFrames = data.scenes.map((s) =>
         Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS))
       );
-      const totalFrames = sceneFrames.reduce((a, b) => a + b, 0) + 60;
+      const totalFrames = sceneFrames.reduce((a, b) => a + b, 0);
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -221,10 +259,15 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        const rawLayoutProps =
+          scene.layout === "data_visualization"
+            ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
+            : scene.layoutProps;
+
         // Build props for the layout component
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
         const layoutProps: SceneLayoutProps = {
-          ...scene.layoutProps,
+          ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           accentColor: data.accentColor || "#7C3AED",

@@ -104,7 +104,15 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
           }}
         />
 
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)", zIndex: 2 }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(135deg, rgba(235, 225, 210, 0.42) 0%, rgba(245, 238, 225, 0.38) 50%, rgba(225, 215, 195, 0.42) 100%)",
+            zIndex: 2,
+          }}
+        />
 
         {/* Content Container */}
         <div
@@ -174,8 +182,8 @@ export const DataSnapshot: React.FC<BlogLayoutProps> = ({
                 >
                   <div style={{ 
                     fontFamily: fontFamily ?? H_FONT, 
-                    // Modified: In portrait mode, stats size is +7 the description font size
-                    fontSize: p ? (resolvedDescriptionFontSize + 7) : 58,
+                    // Adjusted: Stats font size is now resolvedDescriptionFontSize + 10 for both portrait and landscape
+                    fontSize: resolvedDescriptionFontSize + 20,
                     fontWeight: 900, 
                     color: textColor, 
                     lineHeight: 1, 

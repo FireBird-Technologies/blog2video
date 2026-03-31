@@ -37,6 +37,7 @@ _studio_processes: dict[int, subprocess.Popen] = {}
 
 # Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
 _render_progress: dict[int, dict] = {}
+_RENDER_LOG_TAIL_MAX = 80
 
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
@@ -70,6 +71,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
     "src/fonts/nightfall-defaults.ts",
+    # Shared socials renderer used by multiple template layouts
+    "src/templates/SocialIcons.tsx",
 ]
 
 
@@ -289,7 +292,7 @@ import React from "react";
 import {{
   useCurrentFrame,
   useVideoConfig,
-  interpolate,
+  interpolate as _interpolate,
   spring,
   Easing,
   AbsoluteFill,
@@ -298,6 +301,14 @@ import {{
   random,
 }} from "remotion";
 import type {{ GeneratedSceneProps }} from "./types";
+
+// Safe wrapper — ensures inputRange is strictly monotonic even when dynamic values resolve equal
+const interpolate: typeof _interpolate = (frame, inputRange, outputRange, options?) => {{
+  const safe = (inputRange as number[]).map((v: number, i: number) =>
+    i === 0 ? v : Math.max(v, (inputRange as number[])[i - 1] + 1)
+  ) as typeof inputRange;
+  return _interpolate(frame, safe, outputRange, options);
+}};
 
 {raw_code}
 
@@ -644,7 +655,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         scene_images = raw_images[:1]
 
         # Short on-screen text (display_text) vs full voiceover narration (narration_text)
-        on_screen_text = getattr(scene, "display_text", None) or scene.narration_text
+        # For the ending scene we must preserve an explicitly empty display_text (optional subtext).
+        display_text_val = getattr(scene, "display_text", None)
+        if layout == "ending_socials":
+            on_screen_text = display_text_val if display_text_val is not None else scene.narration_text
+        else:
+            on_screen_text = display_text_val or scene.narration_text
 
         extra_hold = getattr(scene, "extra_hold_seconds", None) or 0.0
         effective_duration = scene.duration_seconds + extra_hold
@@ -1082,9 +1098,16 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
         "error": None,
         "output_path": output_path,
         "time_remaining": None,
+        "eta_seconds": None,
+        "_first_frame_at": None,
+        "_ema_eta_seconds": None,
+        # After the ETA estimate has decreased once, don't allow it to rise again.
+        # This prevents the UI from oscillating (e.g. 3m → 2m → 4m).
+        "_eta_went_down": False,
         "_cmd": cmd,
         "_workspace": workspace,
         "_attempt": 1,
+        "_log_tail": [],
     }
 
     _launch_render_process(project.id, cmd, workspace)
@@ -1092,22 +1115,23 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
 
 def _launch_render_process(project_id: int, cmd: list[str], workspace: str) -> None:
     """Spawn the Remotion render subprocess and wire up stream readers + waiter."""
+    # Merge stderr into stdout so one stream cannot fill its OS buffer and deadlock the
+    # child on Windows (classic PIPE deadlock when only one pipe is drained).
     process = subprocess.Popen(
         cmd,
         cwd=workspace,
         shell=(os.name == "nt"),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
     )
 
-    for stream in (process.stdout, process.stderr):
-        t = threading.Thread(
-            target=_read_render_stream,
-            args=(project_id, stream),
-            daemon=True,
-        )
-        t.start()
+    t = threading.Thread(
+        target=_read_render_stream,
+        args=(project_id, process.stdout),
+        daemon=True,
+    )
+    t.start()
 
     threading.Thread(
         target=_wait_render, args=(project_id, process), daemon=True
@@ -1150,11 +1174,97 @@ def _read_render_stream(project_id: int, stream) -> None:
         pass
 
 
+def _update_render_eta(project_id: int, rendered: int, total: int) -> None:
+    """Stable, monotonic ETA estimate.
+
+    Compute average frame time using (elapsed since first rendered frame) / rendered,
+    then multiply by remaining frames: avg_time_per_frame × (total - rendered).
+
+    The displayed ETA should never *increase* once it has decreased once.
+    """
+    prog = _render_progress.get(project_id)
+    if not prog:
+        return
+
+    if total <= 0:
+        prog["eta_seconds"] = None
+        prog["_ema_eta_seconds"] = None
+        return
+
+    if rendered <= 0:
+        prog["eta_seconds"] = None
+        return
+
+    if rendered >= total:
+        prog["eta_seconds"] = 0
+        prog["_ema_eta_seconds"] = 0.0
+        return
+
+    first_at = prog.get("_first_frame_at")
+    if first_at is None:
+        prog["eta_seconds"] = None
+        return
+
+    now = time.time()
+    elapsed = now - first_at
+    if elapsed < 1.0:
+        prog["eta_seconds"] = None
+        return
+
+    # Require enough frames that average rate is meaningful (avoids early noise).
+    min_frames = max(5, min(24, max(1, total // 50)))
+    if rendered < min_frames:
+        prog["eta_seconds"] = None
+        return
+
+    remaining_frames = total - rendered
+    raw_remaining = (elapsed / float(rendered)) * remaining_frames
+
+    ema_prev = prog.get("_ema_eta_seconds")
+    ema_next = raw_remaining if ema_prev is None else raw_remaining
+
+    if ema_prev is None:
+        ema_next = raw_remaining
+    else:
+        # Asymmetric EMA: follow drops faster than rises, but we still cap rises after
+        # the estimate has decreased once.
+        alpha_down = 0.16  # catch up when estimate drops
+        alpha_up = 0.05  # resist spikes when raw estimate rises
+        if raw_remaining < ema_prev:
+            ema_next = (1.0 - alpha_down) * ema_prev + alpha_down * raw_remaining
+        else:
+            ema_next = (1.0 - alpha_up) * ema_prev + alpha_up * raw_remaining
+
+    went_down = bool(prog.get("_eta_went_down", False))
+    if ema_prev is not None and ema_next < ema_prev:
+        went_down = True
+        prog["_eta_went_down"] = True
+
+    # Once it has gone down at least once, never allow it to rise again.
+    if went_down and ema_prev is not None and ema_next > ema_prev:
+        ema_next = ema_prev
+
+    prog["_ema_eta_seconds"] = ema_next
+
+    # Avoid rendering an early "0s" ETA.
+    if ema_next < 1.0:
+        prog["eta_seconds"] = None
+    else:
+        prog["eta_seconds"] = int(min(max(0.0, ema_next), 86400.0))
+
+
 def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     """Parse a single line of Remotion render output for progress info."""
     line = line.strip()
     if not line:
         return
+
+    prog = _render_progress.get(project_id)
+    if prog is not None:
+        tail = prog.setdefault("_log_tail", [])
+        tail.append(line)
+        if len(tail) > _RENDER_LOG_TAIL_MAX:
+            del tail[:-_RENDER_LOG_TAIL_MAX]
 
     # Log non-progress lines (errors, warnings) for debugging
     if "error" in line.lower() or "Error" in line or "Cannot" in line or "Module not found" in line:
@@ -1164,15 +1274,17 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
     if m:
         rendered = int(m.group(1))
         total = int(m.group(2))
-        _render_progress[project_id]["rendered_frames"] = rendered
-        _render_progress[project_id]["total_frames"] = total
+        prog = _render_progress[project_id]
+        prog["rendered_frames"] = rendered
+        prog["total_frames"] = total
         if total > 0:
-            _render_progress[project_id]["progress"] = round(
-                (rendered / total) * 100
-            )
+            prog["progress"] = round((rendered / total) * 100)
+        if rendered > 0 and total > 0 and prog.get("_first_frame_at") is None:
+            prog["_first_frame_at"] = time.time()
         tm = time_pat.search(line)
         if tm:
-            _render_progress[project_id]["time_remaining"] = tm.group(1).strip()
+            prog["time_remaining"] = tm.group(1).strip()
+        _update_render_eta(project_id, rendered, total)
 
 
 def _wait_render(project_id: int, process: subprocess.Popen) -> None:
@@ -1245,13 +1357,16 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             attempt = prog.get("_attempt", 1)
             cmd = prog.get("_cmd")
             workspace = prog.get("_workspace")
+            tail_lines = prog.get("_log_tail") or []
+            tail_text = "\n".join(tail_lines[-20:])
 
             if attempt < MAX_RENDER_RETRIES and cmd and workspace:
                 next_attempt = attempt + 1
                 delay = 3 * attempt  # 3s, 6s backoff
                 logger.warning(
-                    "[REMOTION] Render failed (exit %s) for project %s, retrying %s/%s in %ss (bundle cache reused)",
+                    "[REMOTION] Render failed (exit %s) for project %s, retrying %s/%s in %ss (bundle cache reused). Recent output:\n%s",
                     retcode, project_id, next_attempt, MAX_RENDER_RETRIES, delay,
+                    tail_text or "(no process output captured)",
                 )
                 time.sleep(delay)
 
@@ -1263,12 +1378,17 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                     "done": False,
                     "error": None,
                     "time_remaining": None,
+                    "eta_seconds": None,
+                    "_eta_went_down": False,
+                    "_first_frame_at": None,
+                    "_ema_eta_seconds": None,
                     "_attempt": next_attempt,
                 })
                 _launch_render_process(project_id, cmd, workspace)
             else:
                 _render_progress[project_id]["error"] = (
-                    f"Render failed (exit code {retcode}) after {attempt} attempt(s)"
+                    f"Render failed (exit code {retcode}) after {attempt} attempt(s).\n"
+                    f"Recent output:\n{tail_text or '(no process output captured)'}"
                 )
                 _render_progress[project_id]["done"] = True
     except Exception as e:

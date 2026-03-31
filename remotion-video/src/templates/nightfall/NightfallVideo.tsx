@@ -130,7 +130,7 @@ export const calculateNightfallMetadata: CalculateMetadataFunction<VideoProps> =
         (sum, s) => sum + (s.durationSeconds || 5),
         0
       );
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
+      const totalFrames = Math.ceil(totalSeconds * FPS);
 
       const isPortrait = data.aspectRatio === "portrait";
 

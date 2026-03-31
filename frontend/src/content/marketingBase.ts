@@ -28,7 +28,7 @@ export const templateProfiles: TemplateProfile[] = [
       "Keeps complex concepts readable with deliberate hierarchy and diagram-friendly layouts.",
     styleFit: "Best when clarity matters more than cinematic flair.",
     previewSceneKey: "preview-default",
-    layouts: ["hero_image", "text_narration", "code_block", "bullet_list", "flow_diagram", "comparison", "metric", "quote_callout", "image_caption", "timeline"],
+    layouts: ["hero_image", "text_narration", "code_block", "bullet_list", "flow_diagram", "comparison", "metric", "quote_callout", "image_caption", "timeline", "data_visualization"],
     longDescription: "The Geometric Explainer template uses clean lines, structured grids, and deliberate hierarchy to present tutorials, walkthroughs, and technical lessons. Every layout prioritizes readability over decoration, making it ideal for content where comprehension matters more than visual flair. The template handles code blocks, bullet lists, flow diagrams, comparisons, and metrics natively, so technical articles convert into video without losing their structure.",
     idealFor: ["Technical tutorials and how-to guides", "Product onboarding walkthroughs", "Step-by-step educational breakdowns", "API and SDK documentation explainers", "Process and workflow demonstrations"],
     exampleTopics: ["How to set up a CI/CD pipeline", "Getting started with a new API", "Product feature walkthrough for onboarding"],

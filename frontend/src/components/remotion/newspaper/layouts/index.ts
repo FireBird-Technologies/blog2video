@@ -4,6 +4,7 @@ import { PullQuote } from "./PullQuote";
 import { DataSnapshot } from "./DataSnapshot";
 import { FactCheck } from "./FactCheck";
 import { NewsTimeline } from "./NewsTimeline";
+import { EndingSocials } from "./EndingSocials";
 import type { NewspaperLayoutType, BlogLayoutProps } from "../types";
 
 export type { NewspaperLayoutType, BlogLayoutProps };
@@ -18,4 +19,5 @@ export const NEWSPAPER_LAYOUT_REGISTRY: Record<
   data_snapshot: DataSnapshot,
   fact_check: FactCheck,
   news_timeline: NewsTimeline,
+  ending_socials: EndingSocials,
 };
