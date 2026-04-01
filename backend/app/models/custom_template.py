@@ -26,6 +26,9 @@ class CustomTemplate(Base):
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
     content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
 
+    # Set to True when background code generation permanently fails
+    generation_failed: Mapped[bool] = mapped_column(default=False)
+
     # Link to BrandKit (optional — existing templates have no brand kit)
     brand_kit_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("brand_kits.id"), nullable=True, index=True)
 

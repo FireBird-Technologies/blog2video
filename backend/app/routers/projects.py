@@ -972,16 +972,9 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        # Apply typography to every bucket that exists (descriptors may carry both).
-        if "layoutProps" in descriptor:
-            layout_props = descriptor.get("layoutProps", {}) or {}
-            if data.title_font_size is not None:
-                layout_props["titleFontSize"] = data.title_font_size
-            if data.description_font_size is not None:
-                layout_props["descriptionFontSize"] = data.description_font_size
-            descriptor["layoutProps"] = layout_props
-        if "layoutConfig" in descriptor:
-            layout_config = descriptor.get("layoutConfig", {}) or {}
+        # Custom templates use layoutConfig; built-in templates use layoutProps
+        if is_custom_template(project.template):
+            layout_config = descriptor.get("layoutConfig") or {}
             if data.title_font_size is not None:
                 layout_config["titleFontSize"] = data.title_font_size
             if data.description_font_size is not None:
@@ -1625,10 +1618,11 @@ async def regenerate_scene(
                 [{"title": scene.title, "narration": scene.narration_text or ""}],
                 content_language=content_language,
             )
-            descriptor = current_descriptor.copy() if current_descriptor else {}
+            descriptor = current_descriptor.copy() if current_descriptor else {"layoutConfig": {}}
+            if "layoutConfig" not in descriptor:
+                descriptor["layoutConfig"] = {}
             if single_result:
                 descriptor["structuredContent"] = single_result[0]
-            print(f"[F7-DEBUG] [REGENERATE] Custom template: re-extracted structured content for scene {scene.id}")
         else:
             descriptor = await template_gen.generate_regenerate_descriptor(
                 scene_title=scene.title,

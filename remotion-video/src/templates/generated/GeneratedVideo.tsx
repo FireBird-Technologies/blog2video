@@ -178,6 +178,10 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }, [dataUrl, fontHandle]);
 
   const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
+  // Resolve heading/body fonts: user override (font ID) gets resolved via registry,
+  // theme font names (e.g. "Inter") are used as-is.
+  const headingFont = resolveFontFamily(data?.headingFont ?? null) || data?.headingFont || undefined;
+  const bodyFont = resolveFontFamily(data?.bodyFont ?? null) || data?.bodyFont || undefined;
 
   if (!data || !fontsReady) {
     return (
@@ -262,6 +266,8 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           steps: sc.steps as string[] | undefined,
           titleFontSize: scene.layoutConfig?.titleFontSize as number | undefined,
           descriptionFontSize: scene.layoutConfig?.descriptionFontSize as number | undefined,
+          headingFont,
+          bodyFont,
         };
 
         const transitionDuration = 15;

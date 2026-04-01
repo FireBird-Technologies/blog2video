@@ -9,7 +9,6 @@ import {
   type CustomTemplateTheme,
   type CustomTemplateItem,
 } from "../api/client";
-import CustomPreview from "./templatePreviews/CustomPreview";
 import {
   VIDEO_STYLE_OPTIONS,
   type VideoStyleId,
@@ -36,11 +35,12 @@ const DEFAULT_THEME: CustomTemplateTheme = {
 };
 
 export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<CustomTemplateTheme>(DEFAULT_THEME);
+  const [accentColor, setAccentColor] = useState(DEFAULT_THEME.colors.accent);
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>("explainer");
   const [templateName, setTemplateName] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -55,25 +55,26 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
   const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState("");
   const [extractedReason, setExtractedReason] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [genStep, setGenStep] = useState<string>("");
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Elapsed timer for code generation
   useEffect(() => {
-    if (!generatingCode) {
-      setElapsedSeconds(0);
-      return;
-    }
+    if (!generatingCode) { setElapsedSeconds(0); return; }
     const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(interval);
   }, [generatingCode]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
-        setStyleOpen(false);
-      }
+      if (styleRef.current && !styleRef.current.contains(e.target as Node)) setStyleOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
   // Step 1: Extract theme from URL
@@ -84,13 +85,11 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     try {
       const res = await extractTheme(url.trim());
       if (!res.data.extractable || !res.data.theme) {
-        setError(
-          res.data.reason ||
-            "We couldn't pull a usable theme from this page. Try a different URL."
-        );
+        setError(res.data.reason || "We couldn't pull a usable theme from this page. Try a different URL.");
         return;
       }
       setTheme(res.data.theme);
+      setAccentColor(res.data.theme.colors.accent);
       setSupportedVideoStyle("explainer");
       setTemplateName(res.data.template_name || "");
       setSourceUrl(url.trim());
@@ -98,38 +97,32 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
       setScrapedOgImage(res.data.og_image || "");
       setScrapedScreenshotUrl(res.data.screenshot_url || "");
       setExtractedReason(res.data.reason || "");
-      console.log(`[F7-DEBUG] Theme extracted: accent=${res.data.theme?.colors?.accent}, category=${res.data.theme?.category}, reason='${(res.data.reason || '').slice(0, 100)}'`);
       setStep(2);
     } catch (err: any) {
-      setError(
-        err?.response?.data?.detail ||
-          "We couldn't load that website. Try another URL, or try again in a moment."
-      );
+      setError(err?.response?.data?.detail || "We couldn't load that website. Try another URL, or try again in a moment.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Save template, then move to Step 3 for code generation
+  // Step 2: Save template then trigger generation inline
   const handleSave = async () => {
     if (!templateName.trim()) return;
     setSaving(true);
     setError(null);
     try {
+      const updatedTheme = { ...theme, colors: { ...theme.colors, accent: accentColor } };
       const res = await createCustomTemplate({
         name: templateName.trim(),
         source_url: sourceUrl || undefined,
-        theme,
+        theme: updatedTheme,
         supported_video_style: supportedVideoStyle,
         logo_urls: scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined,
         og_image: scrapedOgImage || undefined,
         screenshot_url: scrapedScreenshotUrl || undefined,
         reason: extractedReason || undefined,
       });
-      console.log(`[F7-DEBUG] Template created: id=${res.data.id}, name='${res.data.name}', reason passed='${(extractedReason || '').slice(0, 80)}'`);
       setCreatedTemplate(res.data);
-      setStep(3);
-      // Trigger code generation
       handleGenerateCode(res.data);
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to save template.");
@@ -137,31 +130,16 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     }
   };
 
-  const [genStep, setGenStep] = useState<string>("");
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Clean up polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
-
-  // Step 3: Launch AI code generation (returns 202 immediately) then poll
   const handleGenerateCode = async (template: CustomTemplateItem) => {
     setGeneratingCode(true);
     setCodeGenError(null);
     setGenStep("Starting generation...");
     try {
-      console.log(`[F7-DEBUG] [CODEGEN] Starting generation for template ${template.id}`);
       await generateTemplateCode(template.id);
-      console.log(`[F7-DEBUG] [CODEGEN] 202 received — starting polling`);
-      // Start polling for status
       pollingRef.current = setInterval(async () => {
         try {
           const statusRes = await getCodeGenerationStatus(template.id);
           const s = statusRes.data;
-          console.log(`[F7-DEBUG] [CODEGEN] Poll: status=${s.status}, step=${s.step}`);
           if (s.step === "design_system") setGenStep("Generating design system...");
           else if (s.step === "generating_scenes") setGenStep("Generating scenes...");
           else if (s.step === "saving") setGenStep("Saving results...");
@@ -169,8 +147,6 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
           if (s.status === "complete") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
-            console.log(`[F7-DEBUG] [CODEGEN] Generation complete — fetching template`);
-            // Fetch the updated template
             const updated = await getCustomTemplate(template.id);
             setCreatedTemplate(updated.data);
             setGeneratingCode(false);
@@ -179,15 +155,12 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
           } else if (s.status === "error") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
-            console.error(`[F7-DEBUG] [CODEGEN] Generation failed: ${s.error}`);
             setCodeGenError(s.error || "Code generation failed. You can retry or skip.");
             setGeneratingCode(false);
             setSaving(false);
             setGenStep("");
           }
-        } catch {
-          // Polling error — ignore, will retry
-        }
+        } catch { /* ignore polling errors */ }
       }, 2000);
     } catch (err: any) {
       setCodeGenError(err?.response?.data?.detail || "Code generation failed. You can retry or skip.");
@@ -196,6 +169,9 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     }
   };
 
+  const isGenerating = saving || generatingCode;
+  const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
+
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
@@ -203,7 +179,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">
-            {step === 1 ? "Extract Theme" : step === 2 ? "Review & Save" : "Generating Template"}
+            {step === 1 ? "Extract Theme" : "Review & Save"}
           </h2>
           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,30 +188,29 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
           </button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 px-8 pt-4">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className={`flex items-center gap-2 ${s < 3 ? "flex-1" : ""}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                s <= step ? "bg-purple-600 text-white" : "bg-gray-200 text-gray-400"
-              }`}>
-                {s < step ? (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : s}
+        {/* Step indicator — 2 steps only */}
+        <div className="flex items-center justify-center pt-4">
+          <div className="flex items-center gap-0">
+            {[1, 2].map((s) => (
+              <div key={s} className="flex items-center">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  s <= step ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-400"
+                }`}>
+                  {s < step ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : s}
+                </div>
+                {s < 2 && <div className={`w-10 h-0.5 transition-colors ${s < step ? "bg-purple-600" : "bg-gray-200"}`} />}
               </div>
-              {s < 3 && <div className={`flex-1 h-0.5 ${s < step ? "bg-purple-600" : "bg-gray-200"}`} />}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {/* Error */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-              {error}
-            </div>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
           )}
 
           {/* Step 1: URL input */}
@@ -268,9 +243,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Extracting theme...
                   </>
-                ) : (
-                  "Extract Theme"
-                )}
+                ) : "Extract Theme"}
               </button>
               {loading && (
                 <p className="text-xs text-gray-400 text-center">
@@ -280,24 +253,19 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
             </div>
           )}
 
-          {/* Step 2: Review extracted theme & save */}
-          {step === 2 && (
+          {/* Step 2: Review form (pre-save) */}
+          {step === 2 && !createdTemplate && (
             <div className="space-y-5">
-              {/* Preview placeholder — real preview appears in Step 3 after AI generation */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg }}>
-                <div style={{ aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "24px 32px" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
-                      <div key={key} style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
-                    ))}
-                  </div>
-                  <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 15, fontWeight: 700, color: theme.colors.text, textAlign: "center", margin: 0 }}>
-                    {templateName || "Your Template"}
-                  </p>
-                  <p style={{ fontFamily: `${theme.fonts.body}, sans-serif`, fontSize: 11, color: theme.colors.muted, textAlign: "center", margin: 0 }}>
-                    Live preview will appear after template generation
-                  </p>
+              {/* Brand color palette preview */}
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                    <div key={key} style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: key === "accent" ? accentColor : theme.colors[key], border: `1.5px solid ${theme.colors.text}15` }} />
+                  ))}
                 </div>
+                <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 14, fontWeight: 700, color: theme.colors.text, margin: 0 }}>
+                  {templateName || "Your Template"}
+                </p>
               </div>
 
               {/* Template name */}
@@ -309,56 +277,48 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                   type="text"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="e.g., Ocean Tech, Brand Dark..."
+                  placeholder="e.g., Stripe Dark, Careem Green..."
                   className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
                   autoFocus
                 />
               </div>
 
-              {/* Extracted colors (read-only display) */}
+              {/* Extracted colors — accent editable */}
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
                   Extracted Colors
                 </label>
                 <div className="flex items-center gap-3 flex-wrap">
-                  {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
-                    <div key={key} className="flex flex-col items-center gap-1.5">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <label className="relative cursor-pointer">
                       <div
-                        className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm"
-                        style={{ backgroundColor: theme.colors[key] }}
+                        className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200"
+                        style={{ backgroundColor: accentColor }}
                       />
+                      <input
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      />
+                    </label>
+                    <span className="text-[10px] text-purple-500 font-medium">accent ✎</span>
+                  </div>
+                  {(["bg", "text", "surface", "muted"] as const).map((key) => (
+                    <div key={key} className="flex flex-col items-center gap-1.5">
+                      <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
                       <span className="text-[10px] text-gray-400 capitalize">{key}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide ${theme.colors.bg2 ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-400"}`}>
-                    AI · {theme.colors.bg2 ? "gradient" : "solid"}
-                  </span>
-                  <span className="text-[10px] text-gray-400">background · editable after creation</span>
-                </div>
+                <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
               </div>
 
-              {/* Extracted info pills */}
-              <div className="flex flex-wrap gap-2">
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
-                  {theme.fonts.heading}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
-                  {theme.style}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
-                  {theme.animationPreset}
-                </span>
-              </div>
-
+              {/* Video style */}
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
                   Video Style
                 </label>
-                <p className="text-[11px] text-gray-500 mb-2">
-                  This sets script and voice tone (Explainer/Promotional/Storytelling). Your template appears in its matching style tab and in Custom Templates.
-                </p>
                 <div ref={styleRef} className="relative">
                   <div className="flex items-center gap-2">
                     <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
@@ -369,10 +329,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                       onClick={() => setStyleOpen(!styleOpen)}
                       className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                     >
-                      <svg
-                        className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
+                      <svg className={`w-4 h-4 transition-transform ${styleOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
@@ -384,9 +341,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                           key={style.id}
                           type="button"
                           onClick={() => { setSupportedVideoStyle(style.id); setStyleOpen(false); }}
-                          className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${
-                            supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                          }`}
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${supportedVideoStyle === style.id ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"}`}
                         >
                           {style.label}
                           <span className="ml-1 text-gray-400">— {style.subtitle}</span>
@@ -397,33 +352,36 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                 </div>
               </div>
 
-              {/* Visual patterns (if extracted) */}
-              {theme.patterns && (
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                    Visual Patterns
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                      {theme.patterns.cards?.corners || "rounded"} cards
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                      {theme.patterns.cards?.shadowDepth || "subtle"} shadow
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                      {theme.patterns.spacing?.density || "balanced"} spacing
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                      {theme.patterns.images?.treatment || "rounded"} images
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
-                      {theme.patterns.layout?.direction || "centered"}
-                    </span>
-                  </div>
+              {/* Brand info */}
+              <div className="space-y-3">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.fonts.heading}</span>
+                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">
+                    {theme.colors.bg2 ? "Gradient" : "Solid"}
+                  </span>
+                  {/* style + animationPreset — internal AI signals, not user-facing */}
+                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.style}</span> */}
+                  {/* <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.animationPreset}</span> */}
                 </div>
-              )}
+                {theme.patterns && (
+                  <>
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        `${theme.patterns.cards?.corners || "rounded"} cards`,
+                        `${theme.patterns.spacing?.density || "balanced"} spacing`,
+                        `${theme.patterns.images?.treatment || "rounded"} images`,
+                        theme.patterns.layout?.direction || "centered",
+                      ].map((tag) => (
+                        <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
-              {/* Nav */}
+              {/* Actions */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep(1)}
@@ -441,64 +399,60 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Saving...
                     </>
-                  ) : (
-                    "Save Template"
-                  )}
+                  ) : "Save Template"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Code generation */}
-          {step === 3 && createdTemplate && (
-            <div className="space-y-5">
-              {/* Preview — shows Remotion player if code is ready, carousel otherwise */}
-              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                <CustomPreview
-                  theme={theme}
-                  name={templateName || undefined}
-                  introCode={createdTemplate.intro_code || undefined}
-                  outroCode={createdTemplate.outro_code || undefined}
-                  contentCodes={createdTemplate.content_codes || undefined}
-                  contentArchetypeIds={createdTemplate.content_archetype_ids || undefined}
-                  logoUrls={scrapedLogoUrls.length > 0 ? scrapedLogoUrls : undefined}
-                  ogImage={scrapedOgImage || undefined}
-                  onRetry={() => handleGenerateCode(createdTemplate)}
-                />
+          {/* Step 2: Generation progress (post-save) */}
+          {step === 2 && createdTemplate && (
+            <div className="space-y-6">
+              {/* Large generation preview */}
+              <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ background: theme.colors.bg, aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+                {isGenerating ? (
+                  <>
+                    <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}40`, borderTopColor: accentColor }} />
+                    <p className="text-sm font-medium" style={{ color: theme.colors.text }}>
+                      {genStep || "Generating template..."}
+                    </p>
+                    <p className="text-xs" style={{ color: theme.colors.muted }}>{elapsedSeconds}s elapsed</p>
+                  </>
+                ) : codeGenError ? (
+                  <div className="flex flex-col items-center gap-3 px-6 text-center">
+                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    </svg>
+                    <p className="text-sm text-red-500">{codeGenError}</p>
+                    <button onClick={() => handleGenerateCode(createdTemplate)} className="px-4 py-2 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors">
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-sm font-semibold text-green-600">Template generated!</p>
+                  </div>
+                )}
               </div>
 
-              {generatingCode && (
-                <div className="flex flex-col items-center gap-3 py-4">
-                  <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
-                  <p className="text-sm text-gray-500">{genStep || "Generating your unique template..."}</p>
-                  <p className="text-xs text-gray-400">You can close this dialog!</p>
-                  <p className="text-xs text-gray-300">Elapsed: {elapsedSeconds}s</p>
+              {/* Template summary */}
+              <div className="flex items-center gap-3 px-1">
+                <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{createdTemplate.name}</p>
+                  <p className="text-xs text-gray-400">{VIDEO_STYLE_OPTIONS.find((s) => s.id === createdTemplate.supported_video_style)?.label} · {theme.fonts.heading}</p>
                 </div>
-              )}
+              </div>
 
-              {codeGenError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 space-y-2">
-                  <p>{codeGenError}</p>
-                  <button
-                    onClick={() => handleGenerateCode(createdTemplate)}
-                    className="px-3 py-1.5 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
-
-              {!generatingCode && !codeGenError && createdTemplate.intro_code && (
-                <p className="text-sm text-green-600 text-center font-medium">
-                  Template generated successfully!
-                </p>
-              )}
-
+              {/* Action */}
               <button
                 onClick={() => onCreated(createdTemplate)}
                 className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
               >
-                {generatingCode ? "Close & Generate in Background" : "Done"}
+                {isGenerating ? "Close & Generate in Background" : "Done"}
               </button>
             </div>
           )}

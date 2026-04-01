@@ -465,11 +465,12 @@ async def _generate_scenes(project: Project, db: Session):
             )
 
             # Build descriptors in the format the rest of the pipeline expects
-            # Only structuredContent — no layoutConfig (it was always ignored anyway)
+            # layoutConfig must be present so downstream checks detect custom template scenes
             descriptors = []
             for sc in structured_contents:
                 descriptors.append({
                     "structuredContent": sc,
+                    "layoutConfig": {},
                 })
 
             print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")

@@ -56,10 +56,11 @@ def clean_code(raw: str) -> str:
     return code.strip()
 
 
-def validate_component_code(code: str) -> tuple[bool, str | None]:
+def validate_component_code(code: str, scene_type: str = "content") -> tuple[bool, str | None]:
     """Validate a generated component code string.
 
     Returns (True, None) if valid, or (False, error_message) if invalid.
+    scene_type: 'intro', 'content', or 'outro' — intro/outro skip the hasImage requirement.
     """
     if not code or not code.strip():
         return False, "Code is empty"
@@ -117,16 +118,18 @@ def validate_component_code(code: str) -> tuple[bool, str | None]:
         )
 
     # Must reference imageUrl as a conditional — layout must adapt to its presence/absence.
+    # Intro and outro are branded scenes (logo/title/CTA) — image support is optional there.
     # Accepts: hasImage, props.imageUrl &&, imageUrl &&, !!props.imageUrl, imageUrl ?
-    has_image_conditional = bool(re.search(
-        r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
-        code,
-    ))
-    if not has_image_conditional:
-        return False, (
-            "Missing conditional imageUrl rendering — scene must declare hasImage and adapt layout: "
-            "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
-        )
+    if scene_type == "content":
+        has_image_conditional = bool(re.search(
+            r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
+            code,
+        ))
+        if not has_image_conditional:
+            return False, (
+                "Missing conditional imageUrl rendering — scene must declare hasImage and adapt layout: "
+                "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
+            )
 
     # Non-monotonic interpolate inputRange causes Remotion runtime crash
     for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]\s*,\s*\[([^\]]+)\]', code):
