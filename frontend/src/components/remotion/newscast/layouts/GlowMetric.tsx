@@ -7,6 +7,7 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
+  resolveNewscastNumberFontPx,
   resolveNewscastDescriptionSize,
   resolveNewscastTitleSize,
   scaleNewscastPx,
@@ -153,6 +154,29 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                 const suffix = m.suffix ?? "";
                 const label = m.label ?? "";
                 const display = target == null ? m.value : Math.round(target * countT).toString();
+                const cardWidth = primary ? (isNarrow ? 210 : 280) : isNarrow ? 180 : 230;
+                const cardHeight = isNarrow ? 190 : 210;
+                const cardPadding = isNarrow ? 18 : 22;
+                const baseNumberPx = primary ? (isNarrow ? 58 : 68) : isNarrow ? 46 : 56;
+                const fitText = `${display}${suffix}`;
+                const numberFontSize = resolveNewscastNumberFontPx({
+                  basePx: baseNumberPx,
+                  descriptionFontSize,
+                  portraitScale,
+                  text: fitText,
+                  maxWidth: cardWidth - cardPadding * 2 - 10,
+                  maxHeight: cardHeight - cardPadding * 2 - 44,
+                  lineHeight: 1,
+                  proportionalDamp: 0.68,
+                  proportionalMin: 0.86,
+                  proportionalMax: 1.2,
+                  fitMin: 0.52,
+                  fitMax: 1,
+                  paddingX: 4,
+                  paddingY: 2,
+                });
+                const baseScaledNumberPx = scaleNewscastPx(baseNumberPx, portraitScale);
+                const staticScaleRatio = numberFontSize / Math.max(1, baseScaledNumberPx);
                 const ringOpacity = primary ? 1 : 0.6;
                 const flyInStart = idx * 4;
                 const flyInY = interpolate(frame, [flyInStart, flyInStart + 14, flyInStart + 24], [120, -14, 0], {
@@ -184,7 +208,16 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                 const metricThunderX = Math.sin(frame * (2.4 + idx * 0.4)) * (primary ? 3.8 : 2.4) * metricThunderWindow;
                 const metricThunderY = Math.cos(frame * (2.9 + idx * 0.35)) * (primary ? 2.6 : 1.7) * metricThunderWindow;
                 const metricThunderGlow = (0.14 + 0.22 * (0.5 + 0.5 * Math.sin(frame * (2.2 + idx * 0.25)))) * metricThunderWindow;
-                const metricCardScale = primary ? primaryNumScale : 1 + metricThunderWindow * 0.03;
+                const cardScaleCap =
+                  staticScaleRatio < 0.98
+                    ? Math.max(1, (1 / Math.max(staticScaleRatio, 0.52)) * 0.94)
+                    : primary
+                      ? 1.2
+                      : 1.06;
+                const metricCardScale = Math.min(primary ? primaryNumScale : 1 + metricThunderWindow * 0.03, cardScaleCap);
+                const primaryValueScaleCap =
+                  staticScaleRatio < 0.98 ? Math.max(1, (1 / Math.max(staticScaleRatio, 0.52)) * 0.92) : 1.2;
+                const primaryValueScale = Math.min(primaryFocusBoost, primaryValueScaleCap);
 
                 return (
                   <div
@@ -245,10 +278,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                       <div
                         style={{
                           fontFamily: newscastFont(fontFamily, "title"),
-                          fontSize: scaleNewscastPx(
-                            primary ? (isNarrow ? 58 : 68) : isNarrow ? 46 : 56,
-                            portraitScale,
-                          ),
+                          fontSize: numberFontSize,
                           fontWeight: 700,
                           color: "white",
                           letterSpacing: 0.5,
@@ -257,7 +287,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                             : "0 0 16px rgba(30,95,212,0.25)",
                           lineHeight: 1,
                           transform: primary
-                            ? `translate(${primaryCrackleX}px, ${primaryCrackleY}px) scale(${primaryFocusBoost})`
+                            ? `translate(${primaryCrackleX}px, ${primaryCrackleY}px) scale(${primaryValueScale})`
                             : undefined,
                           transformOrigin: "50% 55%",
                         }}
