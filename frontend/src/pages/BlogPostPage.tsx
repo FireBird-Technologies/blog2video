@@ -74,13 +74,14 @@ export default function BlogPostPage() {
               </div>
             )}
             {(post.slug === "custom-video-template-from-your-website" ||
-              post.slug === "translate-blog-to-video-50-languages") && (
+              post.slug === "translate-blog-to-video-50-languages" ||
+              post.slug === "why-custom-video-templates-matter-for-content-teams") && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
                   width="100%"
                   height="100%"
-                  src="https://www.youtube.com/embed/rsLViHuZGpw"
-                  title="Blog2Video March 2026 Update — 50+ Languages & Custom Templates"
+                  src="https://www.youtube.com/embed/Zw_g6eEHUc0"
+                  title="Blog2Video custom templates"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
