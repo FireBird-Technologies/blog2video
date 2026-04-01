@@ -1,15 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { topNavLinks } from "../../content/siteContent";
-import { templateProfiles } from "../../content/marketingBase";
+import { templateMenuLinks, topNavLinks } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
-
-const templateLinks = templateProfiles.map((t) => ({
-  href: `/templates/${t.slug}`,
-  label: t.name,
-  description: t.bestFor.split(",")[0].trim(),
-}));
 
 export default function PublicHeader() {
   const { user } = useAuth();
@@ -35,7 +28,9 @@ export default function PublicHeader() {
 
   if (user) return null;
 
-  const isTemplatesActive = location.pathname.startsWith("/templates");
+  const isTemplatesActive =
+    location.pathname.startsWith("/templates") ||
+    location.pathname === "/custom-branded-video-templates";
 
   return (
     <nav className="bg-white/70 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/60">
@@ -80,7 +75,7 @@ export default function PublicHeader() {
 
                 {open && (
                   <div className="absolute left-1/2 top-full mt-3 w-80 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
-                    {templateLinks.map((t) => (
+                    {templateMenuLinks.map((t) => (
                       <Link
                         key={t.href}
                         to={t.href}
@@ -147,7 +142,7 @@ export default function PublicHeader() {
                   Templates
                 </p>
                 <div className="space-y-1 pl-2">
-                  {templateLinks.map((t) => (
+                  {templateMenuLinks.map((t) => (
                     <Link
                       key={t.href}
                       to={t.href}
