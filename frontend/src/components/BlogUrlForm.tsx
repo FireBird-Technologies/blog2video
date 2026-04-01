@@ -904,7 +904,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
         const rowSelectedVoiceId = bulkCustomVoiceId[i]?.trim();
         const selectedVoice = myVoicesList.find((v) => v.voice_id === rowSelectedVoiceId);
-        const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? bulkVoiceGender[i];
+        const rowGender = bulkVoiceGender[i] ?? "female";
+        const inferredGender =
+          rowGender === "none"
+            ? "none"
+            : (normalizeVoiceGender(selectedVoice?.gender) ?? rowGender);
         const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? bulkVoiceAccent[i];
         const effectiveCustomVoiceId = rowSelectedVoiceId || firstSavedVoiceId;
 
@@ -987,7 +991,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return;
       }
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
-      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredGender =
+        voiceGender === "none"
+          ? "none"
+          : (normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender);
       const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
       const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       await onSubmit(
@@ -1020,7 +1027,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return;
       }
       const selectedVoice = myVoicesList.find((v) => v.voice_id === customVoiceId.trim());
-      const inferredGender = normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender;
+      const inferredGender =
+        voiceGender === "none"
+          ? "none"
+          : (normalizeVoiceGender(selectedVoice?.gender) ?? voiceGender);
       const inferredAccent = normalizeVoiceAccent(selectedVoice?.accent) ?? voiceAccent;
       const effectiveCustomVoiceId = customVoiceId.trim() || myVoicesList[0]?.voice_id || "";
       for (const url of validUrls) {
@@ -2713,7 +2723,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <input
           type="checkbox"
           checked={voiceGender === "none"}
-          onChange={(e) => setVoiceGender(e.target.checked ? "none" : "female")}
+          onChange={(e) => {
+            const noVoice = e.target.checked;
+            if (noVoice) {
+              setVoiceGender("none");
+              return;
+            }
+            const id = customVoiceId.trim();
+            const saved = id ? myVoicesList.find((v) => v.voice_id === id) : undefined;
+            setVoiceGender(normalizeVoiceGender(saved?.gender) ?? "female");
+            const a = normalizeVoiceAccent(saved?.accent);
+            if (a) setVoiceAccent(a);
+          }}
           className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
         />
         <div>
@@ -2998,38 +3019,56 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             type="checkbox"
             checked={rowVoiceGender === "none"}
             onChange={(e) => {
-              const value = e.target.checked ? "none" : "female";
+              const noVoice = e.target.checked;
               const targetIndices = indexed.map(({ i }) => i);
+
+              const applyNoVoiceoverToggle = (indices: number[]) => {
+                if (noVoice) {
+                  setBulkVoiceGender((prev) => {
+                    const next = [...prev];
+                    indices.forEach((idx) => {
+                      next[idx] = "none";
+                    });
+                    return next;
+                  });
+                  return;
+                }
+                setBulkVoiceGender((prev) => {
+                  const next = [...prev];
+                  indices.forEach((idx) => {
+                    const vid = (bulkCustomVoiceId[idx] ?? "").trim();
+                    const saved = vid ? myVoicesList.find((v) => v.voice_id === vid) : undefined;
+                    next[idx] = normalizeVoiceGender(saved?.gender) ?? "female";
+                  });
+                  return next;
+                });
+                setBulkVoiceAccent((prev) => {
+                  const next = [...prev];
+                  indices.forEach((idx) => {
+                    const vid = (bulkCustomVoiceId[idx] ?? "").trim();
+                    const saved = vid ? myVoicesList.find((v) => v.voice_id === vid) : undefined;
+                    const a = normalizeVoiceAccent(saved?.accent);
+                    if (a) next[idx] = a;
+                  });
+                  return next;
+                });
+              };
 
               if (bulkApplyVoiceAll && activeIndex !== masterIndex) {
                 // Editing a non-master video breaks the global sync.
                 setBulkApplyVoiceAll(false);
-                setBulkVoiceGender((prev) => {
-                  const next = [...prev];
-                  next[activeIndex] = value;
-                  return next;
-                });
+                applyNoVoiceoverToggle([activeIndex]);
                 return;
               }
 
               if (bulkApplyVoiceAll && activeIndex === masterIndex) {
                 // Master row change: keep all videos in sync.
-                setBulkVoiceGender((prev) => {
-                  const next = [...prev];
-                  targetIndices.forEach((idx) => {
-                    next[idx] = value;
-                  });
-                  return next;
-                });
+                applyNoVoiceoverToggle(targetIndices);
                 return;
               }
 
               // No global sync: only update this row.
-              setBulkVoiceGender((prev) => {
-                const next = [...prev];
-                next[activeIndex] = value;
-                return next;
-              });
+              applyNoVoiceoverToggle([activeIndex]);
             }}
             className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
           />
