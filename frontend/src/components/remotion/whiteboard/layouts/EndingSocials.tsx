@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { WhiteboardBackground } from "../WhiteboardBackground";
 import type { WhiteboardLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
@@ -20,16 +20,33 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   descriptionFontSize
 }) => {
   const frame = useCurrentFrame();
-  const { fps } = { fps: 30 }; // Assuming 30fps, adjust if needed
+  const { fps } = useVideoConfig();
   const p = aspectRatio === "portrait";
 
-  // Animations
-  const fade = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
-  const titleOpacity = interpolate(frame, [8, 28], [0, 1], { extrapolateRight: "clamp" });
-  const subOpacity = interpolate(frame, [14, 40], [0, 1], { extrapolateRight: "clamp" });
+  // --- Animation Timings ---
+  const fade = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
+  const entrance = interpolate(frame, [10, 40], [0, 1], { extrapolateRight: "clamp" });
+  const stickmanPop = spring({ frame: frame - 15, fps, config: { damping: 12 } });
 
-  // Pop-in effect for the stickman
-  const stickmanPop = spring({ frame: frame - 20, fps, config: { damping: 12 } });
+// --- Physics & Motion Logic ---
+// 1. Slow down the entrance of the motion (changed 50 to 90)
+const presentProgress = interpolate(frame, [20, 90], [0, 1], { 
+  extrapolateRight: "clamp" 
+});
+
+// 2. Slow down the frequency (changed 0.15 to 0.07)
+// This makes the bobbing and swaying happen at half the original speed
+const motionSpeed = 0.07; 
+
+// Vertical Bobbing
+const heavyBobRaw = Math.sin(frame * motionSpeed) * 7;
+const heavyBob = heavyBobRaw * presentProgress;
+
+// Horizontal Shifting
+const legSway = Math.cos(frame * motionSpeed) * 4 * presentProgress;
+
+// Rotation of the board
+const swayRotation = interpolate(heavyBob, [-7, 7], [-4, 4]);
 
   const subtext = (narration ?? "").trim();
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
@@ -37,8 +54,16 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const markerFont = (fontFamily ?? "").trim() || "'Patrick Hand', system-ui, sans-serif";
 
+  // --- Stickman Bone Map ---
+  const hipX = 50 + legSway;
+  const hipY = 90 + heavyBob;
+  const shoulderX = hipX + (legSway * 0.5);
+  const shoulderY = 60 + (heavyBob * 0.4);
+  const headX = shoulderX + (legSway * 0.2);
+  const headY = 30 + (heavyBob * 0.2);
+
   return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <WhiteboardBackground bgColor={bgColor} />
 
       <div
@@ -52,122 +77,129 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
           padding: p ? "12% 8%" : "8% 10%",
           textAlign: "center",
           opacity: fade,
-          transform: "translateX(3%)", // Move container slightly to the right
         }}
       >
         {/* Title Section */}
-        <div
-          style={{
-            fontSize: titleFontSize ?? (p ? 88 : 69),
+        <div style={{
+            fontSize: titleFontSize ?? (p ? 80 : 64),
             fontWeight: 700,
             color: textColor || "#111111",
             fontFamily: markerFont,
-            textShadow: `0 2px 0 ${accentColor}22`,
-            opacity: titleOpacity,
-            lineHeight: 1.02,
-          }}
-        >
+            opacity: entrance,
+            transform: `translateY(${interpolate(entrance, [0, 1], [20, 0])}px)`,
+            lineHeight: 1.1,
+          }}>
           {title}
         </div>
 
-        <div
-          style={{
+        {/* Separator Line */}
+        <div style={{
             height: 6,
-            width: p ? 240 : 320,
+            width: p ? 200 : 280,
             borderRadius: 999,
             backgroundColor: `${accentColor}55`,
-            marginTop: p ? 14 : 18,
-            opacity: Math.min(1, titleOpacity * 1.2),
+            marginTop: 15,
+            opacity: entrance,
           }}
         />
 
-        {/* STICKMAN CTA SECTION */}
+        {/* CARRYING SECTION */}
         {showWebsiteCta ? (
-          <div // Wrapper for board, stickman AND ground
-            style={{
-              marginTop: p ? 30 : 40,
+          <div style={{
+              marginTop: 40,
               display: "flex",
-              flexDirection: "column", // Stack elements vertically
-              alignItems: "center",     // Center horizontally
+              flexDirection: "column",
+              alignItems: "center",
               transform: `scale(${stickmanPop})`,
               opacity: stickmanPop,
-            }}
-          >
-            {/* The website link, moved above the board and stickman */}
+            }}>
+            
+            {/* Website URL (Static) */}
             <div style={{
               fontSize: p ? 20 : 22,
               fontWeight: 600,
               color: textColor || "#111111",
               fontFamily: markerFont,
-              marginBottom: p ? 15 : 20,
-              textAlign: "center"
+              marginBottom: 20,
             }}>
               {resolvedWebsiteLink}
             </div>
 
-            <div // Container for just the board and stickman, aligned to their bottoms
-              style={{
-                display: "flex",
-                alignItems: "flex-end", // Aligns the board and stickman bases
-              }}
-            >
-              {/* The CTA Board */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "flex-end",
+              position: "relative",
+              height: 160
+            }}>
+              
+              {/* STICKMAN (Behind) */}
+              <svg
+                width={120}
+                height={160}
+                viewBox="0 0 100 150"
+                style={{ 
+                  position: "absolute",
+                  left: -60,
+                  zIndex: 1,
+                  overflow: "visible"
+                }}
+              >
+                <g fill="none" stroke={textColor || "#111"} strokeWidth="4" strokeLinecap="round">
+                  {/* Feet stay on ground, legs stretch to moving hips */}
+                  <line x1={hipX} y1={hipY} x2="35" y2="145" />
+                  <line x1={hipX} y1={hipY} x2="65" y2="145" />
+                  
+                  {/* Spine */}
+                  <line x1={hipX} y1={hipY} x2={shoulderX} y2={shoulderY} />
+                  
+                  {/* Head */}
+                  <circle cx={headX} cy={headY} r="15" />
+
+                  {/* Carrying Arm (Reaching into the board) */}
+                  <line 
+                    x1={shoulderX} 
+                    y1={shoulderY} 
+                    x2={shoulderX + 50 + legSway} 
+                    y2={shoulderY + 10} 
+                  />
+                  
+                  {/* Back Arm */}
+                  <line x1={shoulderX} y1={shoulderY} x2={shoulderX - 20} y2={shoulderY + 30} />
+                </g>
+              </svg>
+
+              {/* CARDBOARD (Front) */}
+              <div style={{ 
+                zIndex: 2,
+                transform: `translate(${legSway * 1.2}px, ${heavyBob * 0.8}px) rotate(${swayRotation}deg)`,
+                marginLeft: 20,
+                marginBottom: 40
+              }}>
                  <div style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 12,
+                    padding: p ? "12px 20px" : "15px 30px",
                     border: `4px solid ${textColor || "#111"}`,
                     borderRadius: 12,
-                    padding: p ? "15px 25px" : "12px 30px",
                     backgroundColor: "#FFFFFF",
                     color: textColor || "#111",
                     fontSize: p ? 24 : 28,
                     fontWeight: 800,
                     fontFamily: markerFont,
-                    boxShadow: `8px 8px 0px ${accentColor}44`,
-                    position: "relative",
-                    top: p ? -60 : -80 // MODIFIED: Move the board up
+                    boxShadow: `6px 6px 0px ${accentColor}44`,
                   }}>
-                    <span style={{ fontSize: p ? 28 : 32 }}>←</span>
                     <span>{resolvedCta}</span>
-
-                    {/* Board Post/Handle - REMOVED */}
                   </div>
               </div>
-
-              {/* The Stickman (Standing at the Right) */}
-              <svg
-                width={p ? 100 : 120}
-                height={p ? 140 : 160}
-                viewBox="0 0 100 150"
-                style={{ marginLeft: -10, zIndex: -1 }}
-              >
-                <g fill="none" stroke={textColor || "#111"} strokeWidth="4" strokeLinecap="round">
-                  {/* Head */}
-                  <circle cx="50" cy="30" r="15" />
-                  {/* Body */}
-                  <line x1="50" y1="45" x2="50" y2="90" />
-                  {/* Arm holding board (stickman's right arm, reaching up and left) */}
-                  <line x1="50" y1="60" x2="10" y2="50" /> {/* MODIFIED */}
-                  {/* Other arm (stickman's left arm, relaxed downward) */}
-                  <line x1="50" y1="60" x2="75" y2="75" />
-                  {/* Legs */}
-                  <line x1="50" y1="90" x2="30" y2="140" />
-                  <line x1="50" y1="90" x2="70" y2="140" />
-                </g>
-              </svg>
             </div>
 
-            {/* Ground below the stickman and board */}
-            <div
-              style={{
-                width: p ? 300 : 400, // Ground width
-                height: 10,
-                backgroundColor: textColor || "#111",
-                borderRadius: 5,
-                marginTop: -5, // Adjust to make it visually connect with stickman's feet
-                boxShadow: `0 4px 0 ${accentColor}44`,
+            {/* Ground Line */}
+            <div style={{
+                width: p ? 280 : 360,
+                height: 4,
+                backgroundColor: `${textColor || "#111"}33`,
+                borderRadius: 2,
+                marginTop: -8,
               }}
             />
           </div>
@@ -175,24 +207,28 @@ export const EndingSocials: React.FC<WhiteboardLayoutProps> = ({
 
         {/* Subtext Section */}
         {subtext ? (
-          <div
-            style={{
-              marginTop: p ? 25 : 30,
-              fontSize: descriptionFontSize ?? (p ? 44 : 31),
-              fontWeight: 500,
+          <div style={{
+              marginTop: 30,
+              fontSize: descriptionFontSize ?? (p ? 36 : 28),
               color: `${textColor || "#111111"}CC`,
-              lineHeight: 1.25,
               fontFamily: markerFont,
-              opacity: subOpacity,
-              maxWidth: p ? 560 : 820,
-            }}
-          >
+              opacity: entrance,
+              maxWidth: 700,
+            }}>
             {subtext}
           </div>
         ) : null}
 
-        <div style={{ marginTop: p ? 28 : 34, width: "100%" }}>
-          <SocialIcons socials={socials} accentColor={accentColor} textColor={textColor || "#111"} maxPerRow={p ? 3 : 4} fontFamily={markerFont} aspectRatio={aspectRatio} />
+        {/* Social Icons */}
+        <div style={{ marginTop: 30, width: "100%", opacity: entrance }}>
+          <SocialIcons 
+            socials={socials} 
+            accentColor={accentColor} 
+            textColor={textColor || "#111"} 
+            maxPerRow={p ? 3 : 4} 
+            fontFamily={markerFont} 
+            aspectRatio={aspectRatio} 
+          />
         </div>
       </div>
     </AbsoluteFill>
