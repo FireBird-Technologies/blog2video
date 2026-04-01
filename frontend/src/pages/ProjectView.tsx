@@ -46,6 +46,7 @@ import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
@@ -2683,16 +2684,18 @@ export default function ProjectView() {
                                 {scene.remotion_code && (() => {
                                   try {
                                     const desc = JSON.parse(scene.remotion_code);
+                                    const layoutId =
+                                      desc.layout ||
+                                      desc.contentArchetype ||
+                                      desc.layoutConfig?.arrangement ||
+                                      null;
                                     return (
                                       <div>
                                         <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                           Layout
                                         </h4>
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                          {desc.layout?.replace(/_/g, " ")
-                                          || desc.contentArchetype?.replace(/_/g, " ")
-                                          || desc.layoutConfig?.arrangement?.replace(/_/g, " ")
-                                          || "text narration"}
+                                          {getSceneLayoutLabel(project.template, layoutId, layoutId?.replace(/_/g, " ")) || "text narration"}
                                         </span>
                                       </div>
                                     );

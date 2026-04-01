@@ -9,6 +9,7 @@ import {
   getTemplateProfile,
 } from "../content/siteContent";
 import { templateProfiles } from "../content/marketingBase";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
@@ -152,7 +153,7 @@ export default function TemplatePageView() {
                     key={layout}
                     className="rounded-xl border border-gray-200 bg-white px-5 py-4 text-sm font-medium text-gray-800"
                   >
-                    {layout.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {getSceneLayoutLabel(templateProfile.slug, layout)}
                   </div>
                 ))}
               </div>

@@ -1,6 +1,6 @@
 {
   "id": "newscast",
-  "name": "News Report",
+  "name": "Newscast",
   "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
   "styles": [
     "explainer",
@@ -12,20 +12,32 @@
     "text": "#B8C8E0"
   },
   "composition_id": "NewscastVideo",
-  "hero_layout": "cinematic_title",
-  "fallback_layout": "glass_narrative",
+  "hero_layout": "opening",
+  "fallback_layout": "anchor_narrative",
   "valid_layouts": [
-    "cinematic_title",
-    "glass_narrative",
-    "glow_metric",
-    "glass_code",
-    "kinetic_insight",
-    "glass_stack",
-    "split_glass",
-    "chapter_break",
-    "glass_image",
-    "data_visualization"
+    "opening",
+    "anchor_narrative",
+    "live_metrics_board",
+    "briefing_code_panel",
+    "headline_insight",
+    "story_stack",
+    "side_by_side_brief",
+    "segment_break",
+    "field_image_focus",
+    "data_visualization",
+    "ending_socials"
   ],
+  "legacy_layout_aliases": {
+    "newscast_cinematic_title": "opening",
+    "newscast_glass_narrative": "anchor_narrative",
+    "newscast_glow_metric": "live_metrics_board",
+    "newscast_glass_code": "briefing_code_panel",
+    "newscast_kinetic_insight": "headline_insight",
+    "newscast_glass_stack": "story_stack",
+    "newscast_split_glass": "side_by_side_brief",
+    "newscast_chapter_break": "segment_break",
+    "newscast_glass_image": "field_image_focus"
+  },
   "layout_prop_schema": {
     "breaking_hero": {
       "label": "Breaking Hero",
@@ -438,8 +450,8 @@
         }
       ]
     },
-    "cinematic_title": {
-      "label": "Cinematic Title",
+    "opening": {
+      "label": "Newscast Opening",
       "defaults": {
         "tickerItems": [
           "LIVE BREAKING FEED",
@@ -475,8 +487,8 @@
         }
       ]
     },
-    "glass_narrative": {
-      "label": "Glass Narrative",
+    "anchor_narrative": {
+      "label": "Anchor Narrative",
       "defaults": {
         "tickerItems": [
           "BREAKING UPDATE",
@@ -518,8 +530,8 @@
         }
       ]
     },
-    "glow_metric": {
-      "label": "Glow Metric",
+    "live_metrics_board": {
+      "label": "Live Metrics Board",
       "defaults": {
         "tickerItems": [
           "KEY FIGURE UPDATE",
@@ -571,8 +583,8 @@
         }
       ]
     },
-    "glass_code": {
-      "label": "Glass Code",
+    "briefing_code_panel": {
+      "label": "Briefing Code Panel",
       "defaults": {
         "tickerItems": [
           "SYSTEM UPDATE",
@@ -626,8 +638,8 @@
         }
       ]
     },
-    "kinetic_insight": {
-      "label": "Kinetic Insight",
+    "headline_insight": {
+      "label": "Headline Insight",
       "defaults": {
         "tickerItems": [
           "KEY MOMENT UPDATE",
@@ -669,8 +681,8 @@
         }
       ]
     },
-    "glass_stack": {
-      "label": "Glass Stack",
+    "story_stack": {
+      "label": "Story Stack",
       "defaults": {
         "tickerItems": [
           "PROVISION SUMMARY",
@@ -723,8 +735,8 @@
         }
       ]
     },
-    "split_glass": {
-      "label": "Split Glass",
+    "side_by_side_brief": {
+      "label": "Side-by-Side Brief",
       "defaults": {
         "tickerItems": [
           "BEFORE VS AFTER",
@@ -760,8 +772,8 @@
         { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
       ]
     },
-    "chapter_break": {
-      "label": "Chapter Break",
+    "segment_break": {
+      "label": "Segment Break",
       "defaults": {
         "tickerItems": [
           "NEXT UP BRIEFING",
@@ -791,8 +803,8 @@
         { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
       ]
     },
-    "glass_image": {
-      "label": "Glass Image",
+    "field_image_focus": {
+      "label": "Field Image Focus",
       "defaults": {
         "tickerItems": [
           "LOCATION ESTABLISHING",
@@ -883,9 +895,96 @@
         { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
         { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
       ]
+    },
+    "ending_socials": {
+      "label": "Ending / Follow along",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 36,
+          "landscape": 36
+        },
+        "hideImage": true,
+        "tickerItems": ["FOLLOW", "SOCIAL", "WEB", "UPDATES"],
+        "lowerThirdTag": "STAY CONNECTED",
+        "lowerThirdHeadline": "Follow the story",
+        "lowerThirdSub": "Links and handles below",
+        "socials": [
+          { "platform": "facebook", "enabled": "true", "label": "Facebook" },
+          { "platform": "instagram", "enabled": "true", "label": "Instagram" },
+          { "platform": "youtube", "enabled": "true", "label": "YouTube" },
+          { "platform": "medium", "enabled": "false", "label": "Medium" },
+          { "platform": "substack", "enabled": "false", "label": "Substack" },
+          { "platform": "linkedin", "enabled": "false", "label": "LinkedIn" },
+          { "platform": "tiktok", "enabled": "false", "label": "TikTok" }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
+        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
+        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            { "key": "enabled", "label": "Enabled (true/false)" },
+            { "key": "label", "label": "Label / handle / URL text" }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            { "label": "Enabled", "value": "true" },
+            { "label": "Disabled", "value": "false" }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        }
+      ]
     }
   },
-  "layouts_without_image": [],
+  "layouts_without_image": ["ending_socials"],
   "features": [
     "Optional full-bleed background image (layoutProps.imageUrl) on every layout",
     "Breaking hero with category tag and headline highlights",

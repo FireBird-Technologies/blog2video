@@ -5,41 +5,48 @@ Layout catalog for Newscast template
 
 Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes using the `newscast` template.
 
-- `cinematic_title`
+- `opening` (Newscast Opening)
   - Best for: Scene 0 hero (ALWAYS).
   - Rule: Use only for the opening scene.
 
-- `glass_narrative`
+- `anchor_narrative` (Anchor Narrative)
   - Best for: Story context / main explanation scenes.
 
-- `glow_metric`
+- `live_metrics_board` (Live Metrics Board)
   - Best for: 1–3 key numeric metrics and statistics.
 
-- `glass_code`
+- `briefing_code_panel` (Briefing Code Panel)
   - Best for: Code snippets / terminal / config examples.
 
-- `kinetic_insight`
+- `headline_insight` (Headline Insight)
   - Best for: One powerful sentence / quote / defining moment.
 
-- `glass_stack`
+- `story_stack` (Story Stack)
   - Best for: 2–3 key provisions/features presented as a short list.
 
-- `split_glass`
+- `side_by_side_brief` (Side-by-Side Brief)
   - Best for: Before/after, problem/solution, or other two-sided contrasts.
 
-- `chapter_break`
+- `segment_break` (Segment Break)
   - Best for: Major section transitions / pacing breaks.
 
-- `glass_image`
+- `field_image_focus` (Field Image Focus)
   - Best for: Image-dominant scenes with Ken Burns effect and caption.
 
 - `data_visualization`
   - Best for: Chart-driven content (bar/line/pie).
 
+- `ending_socials`
+  - Best for: **Final scene only** — follow-along, social handles, and website CTA (when the script pipeline reserves the last scene for the ending).
+  - Rule: Use **only** on the last scene when `preferred_layout` is set to `ending_socials` for that scene; do not use it elsewhere.
+
+Legacy compatibility note:
+- Older IDs like `newscast_cinematic_title` and `newscast_glass_narrative` are still accepted by the renderer, but prompts should emit canonical IDs above.
+
 Global selection rules:
-- Scene 0 -> `cinematic_title` always.
-- Prefer `glass_narrative` or `chapter_break` for scenes 1–2.
-- Final scene (last index) should be a strong close: `glass_narrative`, `kinetic_insight`, or `glow_metric`.
+- Scene 0 -> `opening` always.
+- Prefer `anchor_narrative` or `segment_break` for scenes 1–2.
+- When the last scene is the pipeline ending: use `ending_socials` for that scene. Otherwise the final scene should be a strong close: `anchor_narrative`, `headline_insight`, or `live_metrics_board`.
 - Never repeat the same layout in consecutive scenes.
 - Prefer variety: glass cards and impact moments alternating.
 

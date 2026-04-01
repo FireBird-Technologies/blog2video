@@ -570,10 +570,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template when user hasn't chosen one: Newscast first, then Nightfall, etc.
+  // Preferred built-in template when user hasn't chosen one: Nightfall first, then Newscast, etc.
   const preferredTemplateId =
-    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
     "default";
 
@@ -581,8 +581,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   useEffect(() => {
     if (templates.length === 0) return;
     const preferred =
-      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
       // Single/upload flow: set template if still default or custom placeholder.
