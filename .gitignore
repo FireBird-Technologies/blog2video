@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 *.db
+.claude/
 
 # Node
 node_modules/
