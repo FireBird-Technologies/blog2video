@@ -997,13 +997,13 @@ export default function TemplateStudio() {
 
   const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
   const [studioResolution, setStudioResolution] = useState<"1080p" | "720p">(
-    () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newspaper" ? "720p" : "1080p"),
+    () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newscast" ||selectedTemplateId === "newspaper" ? "720p" : "1080p"),
   );
 
   // Default resolution per template: Stickman/Whiteboard/Newspaper => 720p, others => 1080p
   useEffect(() => {
     if (!selectedTemplateId) return;
-    if (selectedTemplateId === "whiteboard" || selectedTemplateId === "newspaper" || selectedTemplateId === "stickman") {
+    if (selectedTemplateId === "whiteboard" || selectedTemplateId === "newscast" || selectedTemplateId === "newspaper" || selectedTemplateId === "stickman") {
       setStudioResolution("720p");
     } else {
       setStudioResolution("1080p");
