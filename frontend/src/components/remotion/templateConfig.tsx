@@ -15,13 +15,13 @@ import { SpotlightVideoComposition } from "./spotlight/SpotlightVideoComposition
 import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
-import { CustomVideoComposition } from "./custom/CustomVideoComposition";
+import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import {
-  RemotionCustomVideoComposition,
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
   RemotionNewspaperVideoComposition,
+  RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
@@ -82,6 +82,8 @@ const DEFAULT_LAYOUTS = new Set([
   "quote_callout",
   "image_caption",
   "timeline",
+  "data_visualization",
+  "ending_socials",
 ]);
 
 const NIGHTFALL_LAYOUTS = new Set([
@@ -95,6 +97,7 @@ const NIGHTFALL_LAYOUTS = new Set([
   "chapter_break",
   "glass_image",
   "data_visualization",
+  "ending_socials",
 ]);
 
 const GRIDCRAFT_LAYOUTS = new Set([
@@ -107,6 +110,7 @@ const GRIDCRAFT_LAYOUTS = new Set([
   "bento_code",
   "pull_quote",
   "bento_steps",
+  "ending_socials",
 ]);
 
 const SPOTLIGHT_LAYOUTS = new Set([
@@ -119,6 +123,7 @@ const SPOTLIGHT_LAYOUTS = new Set([
   "spotlight_image",
   "rapid_points",
   "closer",
+  "ending_socials",
 ]);
 
 const MATRIX_LAYOUTS = new Set([
@@ -131,6 +136,7 @@ const MATRIX_LAYOUTS = new Set([
   "matrix_image",
   "transmission",
   "awakening",
+  "ending_socials",
 ]);
 
 const WHITEBOARD_LAYOUTS = new Set([
@@ -143,6 +149,7 @@ const WHITEBOARD_LAYOUTS = new Set([
   "countdown_timer",
   "handwritten_equation",
   "speech_bubble_dialogue",
+  "ending_socials",
 ]);
 
 const NEWSPAPER_LAYOUTS = new Set([
@@ -152,19 +159,22 @@ const NEWSPAPER_LAYOUTS = new Set([
   "data_snapshot",
   "fact_check",
   "news_timeline",
-]);
-const CUSTOM_ARRANGEMENTS = new Set([
-  "full-center",
-  "split-left",
-  "split-right",
-  "top-bottom",
-  "grid-2x2",
-  "grid-3",
-  "asymmetric-left",
-  "asymmetric-right",
-  "stacked",
+  "ending_socials",
 ]);
 
+const NEWSCAST_LAYOUTS = new Set([
+  "opening",
+  "anchor_narrative",
+  "live_metrics_board",
+  "briefing_code_panel",
+  "headline_insight",
+  "story_stack",
+  "side_by_side_brief",
+  "segment_break",
+  "field_image_focus",
+  "data_visualization",
+  "ending_socials",
+]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -257,22 +267,32 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1280,
     baseHeight: 720,
   },
-  custom: {
-    component: CustomVideoComposition as React.ComponentType<any>,
-    heroLayout: "full-center",
-    fallbackLayout: "full-center",
-    validLayouts: CUSTOM_ARRANGEMENTS,
+  newscast: {
+    component: NewscastVideoComposition as React.ComponentType<any>,
+    heroLayout: "opening",
+    fallbackLayout: "anchor_narrative",
+    validLayouts: NEWSCAST_LAYOUTS,
     defaultColors: {
-      accent: "#7C3AED",
-      bg: "#FFFFFF",
-      text: "#1A1A2E",
+      accent: "#E82020",
+      bg: "#060614",
+      text: "#B8C8E0",
     },
-    baseWidth: 1920,
-    baseHeight: 1080,
+    baseWidth: 1280,
+    baseHeight: 720,
   },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
+
+/** Legacy template ids → current registry id (preview + render must match DB migrations). */
+const BUILTIN_TEMPLATE_ID_ALIASES: Record<string, string> = {
+  newsreport: "newscast",
+};
+
+export function normalizeBuiltInTemplateId(templateId: string | undefined): string {
+  const raw = (templateId ?? "default").trim().toLowerCase();
+  return BUILTIN_TEMPLATE_ID_ALIASES[raw] ?? raw;
+}
 
 type TemplateSource = "frontend" | "remotion";
 
@@ -280,12 +300,7 @@ export function getTemplateConfig(
   templateId: string | undefined,
   source: TemplateSource = "frontend",
 ): TemplateConfig {
-  const id = (templateId || "default").trim().toLowerCase();
-
-  // Route "custom_42", "custom_123" etc. to the custom template config
-  if (id.startsWith("custom_")) {
-    return TEMPLATE_REGISTRY.custom;
-  }
+  const id = normalizeBuiltInTemplateId(templateId);
 
   const base = TEMPLATE_REGISTRY[id] ?? DEFAULT_CONFIG;
 
@@ -305,9 +320,9 @@ export function getTemplateConfig(
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
                     ? RemotionNewspaperVideoComposition
-                    : id === "custom"
-                      ? RemotionCustomVideoComposition
-                      : null;
+                    : id === "newscast"
+                      ? RemotionNewscastVideoComposition
+                    : null;
 
     if (overrideComponent) {
       return {

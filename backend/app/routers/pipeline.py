@@ -3,6 +3,7 @@ import json
 import asyncio
 import logging
 import traceback
+import re
 import requests
 from datetime import timedelta
 
@@ -42,10 +43,18 @@ from app.services.remotion import (
     get_workspace_dir,
 )
 from app.services import r2_storage
+from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
+from app.services.social_content_signals import detect_social_platforms_in_text
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
-from app.services.template_service import validate_template_id, get_layout_prompt, is_custom_template, _load_custom_template_data
+from app.services.template_service import (
+    validate_template_id,
+    get_layout_prompt,
+    get_valid_layouts,
+    is_custom_template,
+    _load_custom_template_data,
+)
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -96,7 +105,7 @@ async def generate_video(
         return {"detail": "Already generated", "status": project.status.value}
 
     # Initialize progress
-    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None}
+    _pipeline_progress[project_id] = {"step": 0, "running": True, "error": None, "notice": None}
 
     # Run pipeline in a thread pool so the event loop is not blocked (scrape, voiceover, write_remotion_data are sync).
     # Other API requests remain responsive while generation runs.
@@ -139,6 +148,7 @@ def get_pipeline_status(
         "step": step,
         "running": running,
         "error": progress.get("error"),
+        "notice": progress.get("notice"),
         "studio_port": project.studio_port,
     }
 
@@ -274,15 +284,81 @@ async def _generate_script(project: Project, db: Session):
         layout_catalog = ""
 
     content_language = get_content_language_for_project(project)
+    requested_video_length = getattr(project, "video_length", "auto") or "auto"
+    video_style = getattr(project, "video_style", "explainer") or "explainer"
+
+    def _effective_video_length_for_content(
+        blog_content: str | None, requested: str, style: str
+    ) -> str:
+        """Prevent hallucination: if content is short, downshift scene count.
+
+        Only applies when user explicitly requests a longer video length.
+        """
+        req = (requested or "auto").strip().lower()
+        if req not in {"detailed", "medium", "short", "auto"}:
+            return "auto"
+        if req in {"auto", "short"}:
+            return req
+
+        text = (blog_content or "").strip()
+        # Count words in prose-ish content; keep it simple and robust.
+        words = len([w for w in re.split(r"\s+", text) if w])
+
+        # Heuristic thresholds:
+        # - Very short posts can't support 15–20 distinct scenes without invention.
+        # - This keeps output grounded in the actual source.
+        if req == "medium":
+            return "short" if words < 250 else "medium"
+
+        # req == "detailed"
+        if words < 250:
+            return "short"
+        if words < 600:
+            return "medium"
+        return "detailed"
+
+    effective_video_length = _effective_video_length_for_content(
+        getattr(project, "blog_content", None), requested_video_length, video_style
+    )
+
+    if effective_video_length != requested_video_length:
+        try:
+            if project.id in _pipeline_progress:
+                _pipeline_progress[project.id]["notice"] = {
+                    "code": "video_shortened",
+                    "message": "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+                    "requested_video_length": requested_video_length,
+                    "effective_video_length": effective_video_length,
+                    "video_style": video_style,
+                }
+        except Exception:
+            pass
+        logger.info(
+            "[PIPELINE] Project %s: content too short for video_length=%s (style=%s). Using effective video_length=%s for script generation.",
+            project.id,
+            requested_video_length,
+            video_style,
+            effective_video_length,
+            extra={"project_id": project.id, "user_id": project.user_id},
+        )
+        
     generator = ScriptGenerator()
+    # Only append an ending / follow-along scene when the template declares `ending_socials`
+    # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
+    include_ending_socials = (
+        not is_custom_template(template_id)
+        and "ending_socials" in get_valid_layouts(template_id)
+    )
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
         aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
-        video_style=getattr(project, "video_style", "explainer") or "explainer",
+        video_style=video_style,
+        video_length=effective_video_length,
         layout_catalog=layout_catalog,
         content_language=content_language,
+        include_ending_socials=include_ending_socials,
     )
 
     project.name = result["title"]
@@ -299,12 +375,17 @@ async def _generate_script(project: Project, db: Session):
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
+        vd = scene_data["visual_description"]
+        if scene_data.get("preferred_layout") == "ending_socials":
+            cta = (scene_data.get("cta_button_text") or "").strip()
+            if cta:
+                vd = prepend_b2v_cta_to_visual(cta, vd)
         scene = Scene(
             project_id=project.id,
             order=i + 1,
             title=scene_data["title"],
             narration_text=scene_data["narration"],
-            visual_description=scene_data["visual_description"],
+            visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
             preferred_layout=scene_data.get("preferred_layout"),
@@ -326,20 +407,23 @@ async def _generate_scenes(project: Project, db: Session):
     scenes = project.scenes
 
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
-    scenes_data = [
-        {
-            "title": s.title,
-            "narration": s.narration_text,
-            "visual_description": s.visual_description,
-            "preferred_layout": getattr(s, "preferred_layout", None),
-        }
-        for s in scenes
-    ]
+    scenes_data = []
+    for s in scenes:
+        _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
+        scenes_data.append(
+            {
+                "title": s.title,
+                "narration": s.narration_text,
+                "visual_description": vis,
+                "preferred_layout": getattr(s, "preferred_layout", None),
+            }
+        )
 
     # Prepare scene descriptor generator
     db.refresh(project)
     template_id = validate_template_id(project.template if project.template else "default")
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
+    supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
@@ -371,26 +455,97 @@ async def _generate_scenes(project: Project, db: Session):
     # ── Task 2: Scene descriptors (pure LLM, no DB writes) ──────
     async def _descriptor_task():
         content_lang = get_content_language_for_project(project)
-        result = await scene_gen.generate_all_scenes(
-            scenes_data,
-            image_filenames,
-            accent_color=project.accent_color or "#7C3AED",
-            bg_color=project.bg_color or "#FFFFFF",
-            text_color=project.text_color or "#000000",
-            animation_instructions=project.animation_instructions or "",
-            content_language=content_lang,
-        )
-        return result
+
+        if is_custom_template(template_id):
+            # NEW: Single batch call replaces 16 per-scene DSPy calls
+            from app.services.content_classifier import extract_structured_content_batch
+            structured_contents = await extract_structured_content_batch(
+                scenes_data,
+                content_language=content_lang,
+            )
+
+            # Build descriptors in the format the rest of the pipeline expects
+            # layoutConfig must be present so downstream checks detect custom template scenes
+            descriptors = []
+            for sc in structured_contents:
+                descriptors.append({
+                    "structuredContent": sc,
+                    "layoutConfig": {},
+                })
+
+            print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")
+            return descriptors
+        else:
+            # Built-in templates: keep existing DSPy per-scene generation (works well)
+            result = await scene_gen.generate_all_scenes(
+                scenes_data,
+                image_filenames,
+                accent_color=project.accent_color or "#7C3AED",
+                bg_color=project.bg_color or "#FFFFFF",
+                text_color=project.text_color or "#000000",
+                animation_instructions=project.animation_instructions or "",
+                content_language=content_lang,
+            )
+            return result
 
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
     # Re-load scenes to pick up voiceover changes from per-thread DB sessions
-    db.expire(project)
+    # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
+    # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
+    # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
+    db.expire_all()
     scenes = project.scenes
+
+    # Ending scene social icons: only enable platforms that appear in scraped content.
+    social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
+    ending_socials_default = {
+        "facebook": {"enabled": bool(social_flags.get("facebook")), "label": "Facebook"},
+        "instagram": {"enabled": bool(social_flags.get("instagram")), "label": "Instagram"},
+        "youtube": {"enabled": bool(social_flags.get("youtube")), "label": "YouTube"},
+        "medium": {"enabled": bool(social_flags.get("medium")), "label": "Medium"},
+        "substack": {"enabled": bool(social_flags.get("substack")), "label": "Substack"},
+        "linkedin": {"enabled": bool(social_flags.get("linkedin")), "label": "LinkedIn"},
+        "tiktok": {"enabled": bool(social_flags.get("tiktok")), "label": "TikTok"},
+    }
+
+    raw_blog_url = (getattr(project, "blog_url", None) or "").strip()
+    source_link = (
+        raw_blog_url
+        if raw_blog_url and not raw_blog_url.startswith("upload://")
+        else ""
+    )
 
     # Store descriptors as JSON in remotion_code, preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):
+        # DSPy appends an ending scene with preferred_layout="ending_socials" when the template supports it.
+        # We override the descriptor here so Remotion can render the themed ending consistently.
+        if getattr(scene, "preferred_layout", None) == "ending_socials" and supports_ending_socials:
+            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+            cta = (cta_from_visual or "").strip()
+            try:
+                if scene.remotion_code:
+                    old_desc = json.loads(scene.remotion_code)
+                    old_lp = old_desc.get("layoutProps") or {}
+                    old_cta = old_lp.get("ctaButtonText")
+                    if isinstance(old_cta, str) and old_cta.strip():
+                        cta = old_cta.strip()
+            except (json.JSONDecodeError, TypeError):
+                pass
+            if not cta:
+                cta = "Get started"
+            descriptor = {
+                "layout": "ending_socials",
+                "layoutProps": {
+                    "hideImage": True,
+                    "socials": ending_socials_default,
+                    "showWebsiteButton": bool(source_link),
+                    "websiteLink": source_link,
+                    "ctaButtonText": cta,
+                },
+            }
+
         has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:
@@ -608,7 +763,7 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-    if is_custom_template(project.template) and _load_custom_template_data(project.template) is None:
+    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
         raise HTTPException(
             status_code=409,
             detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
@@ -677,23 +832,29 @@ def render_status_endpoint(
 
     # If no progress dict exists, check project status to determine state
     if not prog:
-        # If project is marked as RENDERING but no progress exists, the render
-        # process likely crashed or was lost (e.g. Cloud Run instance restart).
-        # Reset status to allow retry.
+        # Project is RENDERING but this worker has no in-memory progress: another
+        # server instance may be rendering, or the render just started. Do NOT reset
+        # DB status — that caused false "lost render" and 0% when load-balanced
+        # polls hit a cold instance.
         if project.status == ProjectStatus.RENDERING:
-            logger.warning("[RENDER] Project %s is RENDERING but no progress found — render was lost, resetting status", project_id)
-            project.status = ProjectStatus.GENERATED  # Back to pre-render state
-            db.commit()
+            logger.warning(
+                "[RENDER] Project %s is RENDERING but no progress dict on this worker — "
+                "continuing (another instance may hold progress, or render is starting)",
+                project_id,
+            )
             return {
                 "progress": 0,
                 "rendered_frames": 0,
                 "total_frames": 0,
                 "done": False,
-                "error": "Render process was lost. Please try rendering again.",
+                "error": None,
                 "time_remaining": None,
+                "eta_seconds": None,
+                "progress_unknown": True,
+                "render_attempt": None,
                 "r2_video_url": project.r2_video_url,
             }
-        
+
         # Project is not rendering — return default state
         return {
             "progress": 0,
@@ -702,6 +863,9 @@ def render_status_endpoint(
             "done": project.status == ProjectStatus.DONE,
             "error": None,
             "time_remaining": None,
+            "eta_seconds": None,
+            "progress_unknown": False,
+            "render_attempt": None,
             "r2_video_url": project.r2_video_url,
         }
 
@@ -718,6 +882,9 @@ def render_status_endpoint(
         "done": prog.get("done", False),
         "error": prog.get("error"),
         "time_remaining": prog.get("time_remaining"),
+        "eta_seconds": prog.get("eta_seconds"),
+        "progress_unknown": False,
+        "render_attempt": prog.get("_attempt", 1),
         "r2_video_url": project.r2_video_url,
     }
 

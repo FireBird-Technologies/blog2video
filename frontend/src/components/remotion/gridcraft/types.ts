@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 /** Gridcraft template layout types (frontend mirror). */
 export type GridcraftLayoutType =
   | "bento_hero"
@@ -8,7 +10,8 @@ export type GridcraftLayoutType =
   | "bento_compare"
   | "bento_code"
   | "pull_quote"
-  | "bento_steps";
+  | "bento_steps"
+  | "ending_socials";
 
 export interface DataPoint {
   label: string;
@@ -72,4 +75,8 @@ export interface GridcraftLayoutProps {
   titleFontSize?: number;
   descriptionFontSize?: number;
   categoryFontSize?: number;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

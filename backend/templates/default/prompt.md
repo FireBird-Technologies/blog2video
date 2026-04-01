@@ -56,6 +56,17 @@ Geometric Explainer is a clean, modern video style for technical and educational
 **Best for:** Phases, version history, ordered milestones, chronological steps. Max 4 items.
 **Props:** timelineItems (array of {label: string, description: string}) — max 4 items
 
+## data_visualization
+**Visual:** Light page background with a white rounded card, subtle shadow, and a thin accent gradient line along the top. One or more charts: **bar** (grouped bars), **line** (one or more series over shared X labels), and/or **histogram** (adjacent bins, no gaps between bars). Charts stagger-animate in; title above the card; optional longer narration below a divider when the narration is substantive.
+**Best for:** Numbers over categories, trends over time or ordered categories, frequency distributions / bin counts. No scene image — charts are the focus.
+**Props (put these in `layoutProps` when `preferred_layout` is `data_visualization`):**
+- **barChartRows** — `array of { label: string, value: string }` — each `value` is a numeric string (e.g. `"24"`). Up to **12** rows. Use for category comparisons.
+- **lineChartLabels** — `string[]` — X-axis labels (e.g. months, quarters, steps). Up to **12** labels. Must align in length with each series’ values.
+- **lineChartDatasets** — `array of { label: string, valuesStr: string }` — `valuesStr` is comma-separated numbers in the **same order** as `lineChartLabels` (same count). Up to **6** series. Example: `valuesStr: "10, 20, 15"` for three labels.
+- **histogramRows** — `array of { label: string, value: string }` — bin or range label + count as numeric string. Up to **16** bins. Use for distributions (e.g. `"0–10"`, `"11–20"`).
+
+Include only the chart blocks that match the narration. You may combine bar + line + histogram in one scene if the content supports it.
+
 ---
 
 ## hero_image
@@ -89,12 +100,31 @@ Geometric Explainer is a clean, modern video style for technical and educational
 
 ---
 
+## data_visualization
+**Visual:** Clean explainer-style data panel: white card on a light neutral background, accent-colored chart elements, dark text. Bar and histogram use animated bars; line chart draws series with points and connecting lines.
+
+**Props (required shape for the scene generator — names must match exactly):**
+- `barChartRows` — object_array: each row `{ "label": "<category>", "value": "<number as string>" }`.
+- `lineChartLabels` — string_array: shared X labels for every line series.
+- `lineChartDatasets` — object_array: each `{ "label": "<series name>", "valuesStr": "<comma-separated numbers>" }`. The number of values after splitting by comma must equal `lineChartLabels.length`.
+- `histogramRows` — object_array: each `{ "label": "<bin or range>", "value": "<count as string>" }`.
+
+**When to Use:** Use `data_visualization` when the blog content implies charts: statistics by category, trends over periods, or frequency distributions. Prefer it over `metric` when you need multiple points or a full series, not just 1–3 headline numbers.
+
+**Avoid When:** Avoid when there are no numeric series to plot — use `metric` or `bullet_list` instead.
+
+**Notes:**
+- Values in `barChartRows`, `histogramRows`, and inside `valuesStr` must be plausible numbers derived from the source text; do not invent data that contradicts the article.
+- If only one chart type is needed, omit the other props entirely (do not send empty arrays unless the schema expects them).
+
+---
+
 # Scene Flow Rules
 
 - **Scene 0:** Always hero_image. No exceptions.
 - **Opening (scenes 1–2):** Prefer text_narration or bullet_list for setup. Avoid starting with metric or code_block.
-- **Middle:** Alternate between data-heavy (metric, code_block), visual (image_caption, flow_diagram), and impact (quote_callout, comparison). Vary the rhythm.
-- **Closing:** Prefer quote_callout for the key takeaway, or editorial_body if the conclusion is longer.
+- **Middle:** Alternate between data-heavy (metric, code_block, **data_visualization**), visual (image_caption, flow_diagram), and impact (quote_callout, comparison). Vary the rhythm.
+- **Closing:** Prefer quote_callout for the key takeaway, or text_narration if the conclusion needs a longer plain paragraph (use sparingly).
 - **text_narration:** Use at most 1 time in the entire video. Ideally zero.
 
 ---
@@ -108,6 +138,7 @@ Geometric Explainer is a clean, modern video style for technical and educational
 - **comparison:** Extract the ACTUAL two sides. Clear contrasting labels and 1–2 sentence descriptions each.
 - **quote_callout:** Extract the KEY insight or quotable statement. 1–2 impactful sentences. Never fabricate.
 - **timeline:** Extract 3–4 chronological phases with short labels and 1-line descriptions.
+- **data_visualization:** Extract **real numbers** from the article for charts. Build `barChartRows` for category-vs-value data; `lineChartLabels` + `lineChartDatasets` when the text gives a trend or sequence over named steps or time periods (comma-separated values must match label count); `histogramRows` when the content describes frequencies, buckets, or binned counts. Use short axis/bin labels. If the source only gives approximate figures, state them consistently — do not contradict the narration.
 
 ---
 

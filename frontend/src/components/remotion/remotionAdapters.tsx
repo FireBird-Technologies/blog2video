@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Sequence } from "remotion";
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
@@ -33,9 +33,184 @@ import {
   type NewspaperLayoutType as RemotionNewspaperLayoutType,
   type BlogLayoutProps as RemotionNewspaperLayoutProps,
 } from "@remotion-video/templates/newspaper/layouts";
-import { UniversalScene } from "@remotion-video/templates/custom/UniversalScene";
-import type { CustomTheme, SceneLayoutConfig } from "@remotion-video/templates/custom/types";
 
+import {
+  NEWSCAST_LAYOUT_REGISTRY as REMOTION_NEWSCAST_LAYOUT_REGISTRY,
+  type NewscastLayoutType as RemotionNewscastLayoutType,
+  type NewscastLayoutProps as RemotionNewscastLayoutProps,
+} from "@remotion-video/templates/newscast/layouts";
+import { NewsCastBackground } from "./newscast/NewsCastBackground";
+import { NewsCastChrome } from "./newscast/NewsCastChrome";
+import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
+
+const TRANS_IN_SEC = 0.52;
+
+const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = {
+  opening: "opening",
+  anchor_narrative: "anchor_narrative",
+  live_metrics_board: "live_metrics_board",
+  briefing_code_panel: "briefing_code_panel",
+  headline_insight: "headline_insight",
+  story_stack: "story_stack",
+  side_by_side_brief: "side_by_side_brief",
+  segment_break: "segment_break",
+  field_image_focus: "field_image_focus",
+  cinematic_title: "opening",
+  glass_narrative: "anchor_narrative",
+  glow_metric: "live_metrics_board",
+  glass_code: "briefing_code_panel",
+  kinetic_insight: "headline_insight",
+  kinetix_insight: "headline_insight",
+  glass_stack: "story_stack",
+  split_glass: "side_by_side_brief",
+  chapter_break: "segment_break",
+  glass_image: "field_image_focus",
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_kinetic_insight: "headline_insight",
+  newscast_glass_stack: "story_stack",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glass_image: "field_image_focus",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const normalizeNewscastLayoutId = (layout: string): RemotionNewscastLayoutType =>
+  LEGACY_TO_NEWCAST_LAYOUT_ID[layout] ?? "anchor_narrative";
+
+const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> = {
+  opening: "cinematic_title",
+  anchor_narrative: "glass_narrative",
+  live_metrics_board: "glow_metric",
+  briefing_code_panel: "glass_code",
+  headline_insight: "kinetic_insight",
+  story_stack: "glass_stack",
+  side_by_side_brief: "split_glass",
+  segment_break: "chapter_break",
+  field_image_focus: "glass_image",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const toLegacyNewscastLayoutId = (layout: RemotionNewscastLayoutType): string =>
+  NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
+
+const RemotionNewscastSequenceInner: React.FC<{
+  startFrame: number;
+  durationInFrames: number;
+  sceneIndex: number;
+  isHero: boolean;
+  layoutType: string;
+  layoutProps: RemotionNewscastLayoutProps;
+  LayoutComponent: React.ComponentType<RemotionNewscastLayoutProps>;
+  voiceoverUrl?: string;
+}> = ({
+  startFrame,
+  durationInFrames,
+  sceneIndex,
+  isHero,
+  layoutType,
+  layoutProps,
+  LayoutComponent,
+  voiceoverUrl,
+}) => {
+  const localFrame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const rotationFrame = startFrame + localFrame;
+
+  // Entrance motion window matches the timing used by `NewscastSceneZTransition`.
+  const capHalf = Math.max(1, Math.floor(durationInFrames / 2));
+  const transInFrames = Math.min(
+    Math.round(TRANS_IN_SEC * fps),
+    Math.max(3, Math.floor(durationInFrames * 0.26)),
+    capHalf,
+  );
+  const entryT = interpolate(localFrame, [0, transInFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const globeTranslateX =
+    !isHero && layoutType === "glass_narrative"
+      ? entryT * -220
+      : !isHero && layoutType === "kinetic_insight"
+        ? Math.sin(entryT * Math.PI) * -110 + entryT * -210
+      : !isHero && layoutType === "glass_image"
+        ? Math.sin(entryT * Math.PI) * -64 + entryT * -290
+      : !isHero && layoutType === "glass_code"
+        ? entryT * -240
+      : !isHero && layoutType === "glow_metric"
+      ? entryT * -260
+      : !isHero && layoutType === "chapter_break"
+        ? entryT * -300
+      : !isHero && layoutType === "glass_stack"
+        ? entryT * -90
+        : 0;
+  const globeTranslateY =
+    !isHero && layoutType === "glass_narrative"
+      ? entryT * -26
+      : !isHero && layoutType === "kinetic_insight"
+        ? Math.sin(entryT * Math.PI) * -62 + entryT * 24
+      : !isHero && layoutType === "glass_image"
+        ? Math.sin(entryT * Math.PI) * -66 + entryT * 104
+      : !isHero && layoutType === "glass_code"
+        ? Math.sin(entryT * Math.PI) * -34 + entryT * 12
+      : !isHero && layoutType === "glow_metric"
+      ? Math.sin(entryT * Math.PI) * -52 + entryT * 20
+      : !isHero && layoutType === "chapter_break"
+        ? Math.sin(entryT * Math.PI) * -72 + entryT * 28
+      : !isHero && layoutType === "glass_stack"
+        ? entryT * 16
+        : 0;
+  const glassStackGlobeT = Math.pow(entryT, 1.5);
+  const chapterGlobeT = Math.pow(entryT, 1.9);
+  const finalGlobeTranslateX =
+    !isHero && layoutType === "chapter_break"
+      ? chapterGlobeT * -300
+      : !isHero && layoutType === "glass_stack"
+        ? Math.sin(glassStackGlobeT * Math.PI) * -74 + glassStackGlobeT * -100
+        : globeTranslateX;
+  const finalGlobeTranslateY =
+    !isHero && layoutType === "chapter_break"
+      ? Math.sin(chapterGlobeT * Math.PI) * -72 + chapterGlobeT * 28
+      : !isHero && layoutType === "glass_stack"
+        ? Math.sin(glassStackGlobeT * Math.PI) * -48 + glassStackGlobeT * 22
+      : globeTranslateY;
+
+  return (
+    <AbsoluteFill>
+      <NewscastSceneZTransition durationInFrames={durationInFrames} sceneIndex={sceneIndex} layoutType={layoutType}>
+        <NewsCastBackground
+          variant="hero"
+          globeOpacity={0.44}
+          globePosition="right"
+          rotationFrame={rotationFrame}
+          globeTranslateX={finalGlobeTranslateX}
+          globeTranslateY={finalGlobeTranslateY}
+          solidBackground
+        />
+        {!isHero ? (
+          <NewsCastChrome
+            tickerItems={layoutProps.tickerItems}
+            lowerThirdTag={layoutProps.lowerThirdTag}
+            lowerThirdHeadline={layoutProps.lowerThirdHeadline}
+            lowerThirdSub={layoutProps.lowerThirdSub}
+            aspectRatio={layoutProps.aspectRatio}
+            accentColor={layoutProps.accentColor}
+            textColor={layoutProps.textColor}
+            descriptionFontSize={layoutProps.descriptionFontSize}
+            fontFamily={layoutProps.fontFamily}
+          />
+        ) : null}
+        <LayoutComponent {...layoutProps} />
+      </NewscastSceneZTransition>
+      {voiceoverUrl ? <Audio src={voiceoverUrl} /> : null}
+    </AbsoluteFill>
+  );
+};
 export interface RemotionDefaultSceneInput {
   id: number;
   order: number;
@@ -78,6 +253,45 @@ export const RemotionDefaultVideoComposition: React.FC<
   const FPS = 30;
   let currentFrame = 0;
 
+  const convertDefaultDataVizProps = (lp: Record<string, unknown>): Record<string, unknown> => {
+    const out = { ...lp };
+    if (Array.isArray(out.barChartRows)) {
+      const rows = out.barChartRows as { label?: string; value?: string }[];
+      out.barChart = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.barChartRows;
+    }
+    if (Array.isArray(out.histogramRows)) {
+      const rows = out.histogramRows as { label?: string; value?: string }[];
+      out.histogram = {
+        labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+        values: rows.map((r) =>
+          r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0,
+        ),
+      };
+      delete out.histogramRows;
+    }
+    if (Array.isArray(out.lineChartLabels) && Array.isArray(out.lineChartDatasets)) {
+      const labels = (out.lineChartLabels as string[]).map((l) => (l != null ? String(l) : ""));
+      const datasets = (out.lineChartDatasets as { label?: string; valuesStr?: string }[]).map(
+        (d) => ({
+          label: (d && d.label != null ? String(d.label) : "") as string,
+          values: (d && d.valuesStr != null ? String(d.valuesStr) : "")
+            .split(",")
+            .map((s) => Number(s.trim()) || 0),
+        }),
+      );
+      out.lineChart = { labels, datasets };
+      delete out.lineChartLabels;
+      delete out.lineChartDatasets;
+    }
+    return out;
+  };
+
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily }}>
       {scenes.map((scene) => {
@@ -92,7 +306,13 @@ export const RemotionDefaultVideoComposition: React.FC<
           REMOTION_DEFAULT_LAYOUT_REGISTRY[scene.layout] ??
           REMOTION_DEFAULT_LAYOUT_REGISTRY.text_narration;
 
+        const rawLayoutProps =
+          scene.layout === "data_visualization"
+            ? convertDefaultDataVizProps(scene.layoutProps as Record<string, unknown>)
+            : scene.layoutProps;
+
         const layoutProps: RemotionDefaultSceneLayoutProps = {
+          ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
@@ -101,7 +321,6 @@ export const RemotionDefaultVideoComposition: React.FC<
           textColor,
           aspectRatio,
           fontFamily,
-          ...scene.layoutProps,
         };
 
         return (
@@ -747,24 +966,21 @@ export const RemotionNewspaperVideoComposition: React.FC<
   );
 };
 
-export interface RemotionCustomSceneInput {
+export interface RemotionNewscastSceneInput {
   id: number;
   order: number;
   title: string;
   narration: string;
-  layout: string;
-  layoutProps: {
-    layoutConfig?: SceneLayoutConfig;
-    theme?: CustomTheme;
-    [key: string]: unknown;
-  };
+  layout: RemotionNewscastLayoutType | string;
+  layoutProps: Record<string, unknown>;
+  layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number };
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
 }
 
-export interface RemotionCustomVideoCompositionProps {
-  scenes: RemotionCustomSceneInput[];
+export interface RemotionNewscastVideoCompositionProps {
+  scenes: RemotionNewscastSceneInput[];
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -776,8 +992,8 @@ export interface RemotionCustomVideoCompositionProps {
   fontFamily?: string;
 }
 
-export const RemotionCustomVideoComposition: React.FC<
-  RemotionCustomVideoCompositionProps
+export const RemotionNewscastVideoComposition: React.FC<
+  RemotionNewscastVideoCompositionProps
 > = ({
   scenes,
   accentColor,
@@ -791,81 +1007,70 @@ export const RemotionCustomVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
-  let currentFrame = 0;
-
-  const baseTheme: CustomTheme = {
-    colors: {
-      accent: accentColor,
-      bg: bgColor,
-      text: textColor,
-      surface: "#F5F5F5",
-      muted: "#9CA3AF",
-    },
-    fonts: { heading: fontFamily || "Inter", body: fontFamily || "Inter", mono: "JetBrains Mono" },
-    borderRadius: 12,
-    style: "minimal",
-    animationPreset: "slide",
-    category: "general",
-    patterns: {
-      cards: { corners: "rounded", shadowDepth: "subtle", borderStyle: "thin" },
-      spacing: { density: "balanced", gridGap: 20 },
-      images: { treatment: "rounded", overlay: "none", captionStyle: "below" },
-      layout: { direction: "centered", decorativeElements: ["none"] },
-    },
-  };
 
   return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: bgColor,
-        fontFamily,
-      }}
-    >
-      {scenes.map((scene) => {
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
+      {scenes.map((scene, index) => {
+        const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
+        const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
+        const startFrame = scenes
+          .slice(0, index)
+          .reduce(
+            (acc, s) =>
+              acc +
+              Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
+            0,
+          );
+
         const durationFrames = Math.max(
           1,
           Math.round((scene.durationSeconds || 5) * FPS),
         );
-        const startFrame = currentFrame;
-        currentFrame += durationFrames;
 
-        const cfg = scene.layoutProps.layoutConfig;
-        const sceneTheme = scene.layoutProps.theme || baseTheme;
+        const LayoutComponent =
+          REMOTION_NEWSCAST_LAYOUT_REGISTRY[
+            normalizedLayout as RemotionNewscastLayoutType
+          ] ?? REMOTION_NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
+
+        const lc = scene.layoutConfig;
+        const lp = scene.layoutProps as Partial<RemotionNewscastLayoutProps>;
+        const layoutProps: RemotionNewscastLayoutProps = {
+          ...lp,
+          titleFontSize: lp.titleFontSize ?? lc?.titleFontSize,
+          descriptionFontSize: lp.descriptionFontSize ?? lc?.descriptionFontSize,
+          title: scene.title,
+          narration: scene.narration,
+          // Prefer top-level scene image; fall back to layoutProps.imageUrl (editor / JSON often set it only on layoutProps).
+          imageUrl: scene.imageUrl ?? lp.imageUrl,
+          accentColor: accentColor || "#FF3B30",
+          bgColor: bgColor || "#FAFAF8",
+          textColor: textColor || "#111111",
+          aspectRatio:
+            (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
+          globeRotationFrameOffset: startFrame,
+        };
+
+        const layoutType = legacyLayout;
+        const isHero = normalizedLayout === "opening";
 
         return (
           <Sequence
-            key={scene.id}
+            key={`${scene.id}-${index}`}
             from={startFrame}
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <UniversalScene
-              config={
-                cfg || {
-                  arrangement: "full-center",
-                  elements: [
-                    {
-                      type: "heading",
-                      content: {},
-                      emphasis: "primary",
-                    },
-                    {
-                      type: "body-text",
-                      content: {},
-                      emphasis: "secondary",
-                    },
-                  ],
-                  decorations: ["accent-bar-bottom"],
-                }
-              }
-              theme={sceneTheme}
-              title={scene.title}
-              narration={scene.narration}
-              imageUrl={scene.imageUrl}
-              aspectRatio={aspectRatio || "landscape"}
-              fontFamily={fontFamily}
+            <RemotionNewscastSequenceInner
+              startFrame={startFrame}
+              durationInFrames={durationFrames}
+              sceneIndex={index}
+              isHero={isHero}
+              layoutType={layoutType}
+              layoutProps={layoutProps}
+              LayoutComponent={LayoutComponent}
+              voiceoverUrl={scene.voiceoverUrl}
             />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
           </Sequence>
         );
       })}

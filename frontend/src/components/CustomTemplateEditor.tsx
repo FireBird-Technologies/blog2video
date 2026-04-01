@@ -16,15 +16,23 @@ interface Props {
 export default function CustomTemplateEditor({ template, onSaved, onCancel }: Props) {
   const [name, setName] = useState(template.name);
   const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(template.supported_video_style);
+  const [accentColor, setAccentColor] = useState(template.theme.colors.accent);
+  const [useGradient, setUseGradient] = useState(template.theme.colors.bg2 != null);
+  // const aiDecidedGradient = template.theme.colors.bg2 != null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
+  const [gradientOpen, setGradientOpen] = useState(false);
   const styleRef = useRef<HTMLDivElement>(null);
+  const gradientRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (styleRef.current && !styleRef.current.contains(e.target as Node)) {
         setStyleOpen(false);
+      }
+      if (gradientRef.current && !gradientRef.current.contains(e.target as Node)) {
+        setGradientOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -38,9 +46,15 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
     setSaving(true);
     setError(null);
     try {
+      const updatedColors = {
+        ...template.theme.colors,
+        accent: accentColor,
+        bg2: useGradient ? (template.theme.colors.bg2 ?? template.theme.colors.surface) : undefined,
+      };
       const res = await updateCustomTemplate(template.id, {
         name: name.trim(),
         supported_video_style: supportedVideoStyle,
+        theme: { ...template.theme, colors: updatedColors },
       });
       onSaved(res.data);
     } catch (err: any) {
@@ -73,7 +87,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
 
           {/* Live preview */}
           <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-            <CustomPreview theme={theme} name={name || undefined} />
+            <CustomPreview theme={theme} name={name || undefined} introCode={template.intro_code || undefined} outroCode={template.outro_code || undefined} contentCodes={template.content_codes || undefined} contentArchetypeIds={template.content_archetype_ids || undefined} previewImageUrl={template.preview_image_url} logoUrls={template.logo_urls} ogImage={template.og_image} />
           </div>
 
           {/* Name */}
@@ -90,13 +104,30 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             />
           </div>
 
-          {/* Extracted colors (read-only) */}
+          {/* Theme Colors */}
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Theme Colors
             </label>
             <div className="flex items-center gap-3 flex-wrap">
-              {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+              {/* Accent — editable */}
+              <div className="flex flex-col items-center gap-1.5">
+                <label className="relative cursor-pointer">
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200"
+                    style={{ backgroundColor: accentColor }}
+                  />
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  />
+                </label>
+                <span className="text-[10px] text-purple-500 font-medium">accent ✎</span>
+              </div>
+              {/* Other colors — read-only */}
+              {(["bg", "text", "surface", "muted"] as const).map((key) => (
                 <div key={key} className="flex flex-col items-center gap-1.5">
                   <div
                     className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm"
@@ -106,10 +137,55 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-gray-400 mt-2">Click the accent swatch to change the brand color</p>
           </div>
 
-          {/* Info pills */}
-          <div className="flex flex-wrap gap-2">
+          {/* Gradient selector */}
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              Background Style
+            </label>
+            <div ref={gradientRef} className="relative">
+              <div className="flex items-center gap-2">
+                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                  {useGradient ? "Gradient" : "Solid"}
+                </span>
+                {/* AI badge removed — confuses users */}
+                <button
+                  type="button"
+                  onClick={() => setGradientOpen(!gradientOpen)}
+                  className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                >
+                  <svg
+                    className={`w-4 h-4 transition-transform ${gradientOpen ? "rotate-180" : ""}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+              {gradientOpen && (
+                <div className="absolute z-10 mt-1.5 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                  {[
+                    { value: false, label: "Solid"},
+                    { value: true, label: "Gradient"},
+                  ].map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => { setUseGradient(opt.value); setGradientOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-purple-50 transition-colors ${useGradient === opt.value ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info pills — hidden */}
+          {/* <div className="flex flex-wrap gap-2">
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
               {theme.fonts.heading}
             </span>
@@ -119,7 +195,7 @@ export default function CustomTemplateEditor({ template, onSaved, onCancel }: Pr
             <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
               {theme.animationPreset}
             </span>
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">

@@ -22,7 +22,7 @@ VALID_ARRANGEMENTS = {
 
 VALID_ELEMENT_TYPES = {
     "heading", "body-text", "card-grid", "code-block", "metric-row",
-    "image", "quote", "timeline", "steps", "icon-text",
+    "image", "quote", "timeline", "steps", "icon-text", "comparison",
 }
 
 
@@ -428,6 +428,117 @@ class TemplateSceneGenerator:
                 )
             return {}
 
+    @staticmethod
+    def _extract_structured_content(layout_config: dict) -> dict:
+        """Extract structured content from layout_config elements for scene props.
+
+        Maps element types (card-grid, metric-row, quote, etc.) to flat structured
+        fields that AI-generated scene components can render.
+        """
+        elements = layout_config.get("elements", [])
+        if not isinstance(elements, list):
+            return {"contentType": "plain"}
+
+        el_types = {el.get("type") for el in elements if isinstance(el, dict)}
+
+        # Priority order: most specific content type wins
+        for el in elements:
+            if not isinstance(el, dict):
+                continue
+            el_type = el.get("type", "")
+            content = el.get("content", {}) if isinstance(el.get("content"), dict) else {}
+
+            if el_type == "metric-row":
+                items = content.get("items", [])
+                if isinstance(items, list) and items:
+                    metrics = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            metrics.append({
+                                "value": str(item.get("value", "")),
+                                "label": str(item.get("label", "")),
+                                "suffix": str(item.get("suffix", "")) if item.get("suffix") else None,
+                            })
+                    if metrics:
+                        return {"contentType": "metrics", "metrics": metrics}
+
+            if el_type == "code-block":
+                lines = content.get("codeLines", []) or content.get("lines", [])
+                if isinstance(lines, list) and lines:
+                    return {
+                        "contentType": "code",
+                        "codeLines": [str(line) for line in lines],
+                        "codeLanguage": str(content.get("codeLanguage", "") or content.get("language", "")) or None,
+                    }
+
+            if el_type == "comparison":
+                items = content.get("items", [])
+                if isinstance(items, list) and len(items) >= 2:
+                    return {
+                        "contentType": "comparison",
+                        "comparisonLeft": {
+                            "label": str(items[0].get("label", "")),
+                            "description": str(items[0].get("description", "")),
+                        },
+                        "comparisonRight": {
+                            "label": str(items[1].get("label", "")),
+                            "description": str(items[1].get("description", "")),
+                        },
+                    }
+
+            if el_type == "quote":
+                text = content.get("quote", "") or content.get("text", "")
+                if text:
+                    return {
+                        "contentType": "quote",
+                        "quote": str(text),
+                        "quoteAuthor": str(content.get("author", "")) or None,
+                    }
+
+            if el_type == "timeline":
+                items = content.get("items", [])
+                if isinstance(items, list) and items:
+                    timeline_items = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            timeline_items.append({
+                                "label": str(item.get("label", "")),
+                                "description": str(item.get("description", "")),
+                            })
+                    if timeline_items:
+                        return {"contentType": "timeline", "timelineItems": timeline_items}
+
+            if el_type == "steps":
+                items = content.get("items", [])
+                if isinstance(items, list) and items:
+                    step_texts = []
+                    for s in items:
+                        if isinstance(s, dict):
+                            text = s.get("text") or s.get("label") or s.get("title", "")
+                            desc = s.get("description", "")
+                            # Combine text + description so the component has full context
+                            step_texts.append(f"{text}: {desc}" if desc else str(text))
+                        elif isinstance(s, str):
+                            step_texts.append(s)
+                    if step_texts:
+                        return {"contentType": "steps", "steps": step_texts}
+
+            if el_type in ("card-grid", "icon-text"):
+                items = content.get("items", [])
+                if isinstance(items, list) and items:
+                    bullets = []
+                    for item in items:
+                        if isinstance(item, dict):
+                            text = item.get("text") or item.get("label") or item.get("title", "")
+                            if text:
+                                bullets.append(str(text))
+                        elif isinstance(item, str):
+                            bullets.append(item)
+                    if bullets:
+                        return {"contentType": "bullets", "bullets": bullets}
+
+        return {"contentType": "plain"}
+
     def _validate_config(self, config: dict) -> dict:
         fallback_arr = getattr(self, "_fallback_arrangement", "top-bottom")
         arrangement = config.get("arrangement", fallback_arr)
@@ -482,20 +593,9 @@ class TemplateSceneGenerator:
             preferred_layout,
         )
 
-        # Scene 0 hero
+        # Scene 0 still prefers full-center but the AI chooses elements, decorations, and background
         if scene_index == 0 and not preferred_layout:
-            hero_config = {
-                "arrangement": "full-center",
-                "elements": [
-                    {"type": "heading", "content": {"text": scene_title}, "emphasis": "primary"},
-                    {"type": "body-text", "content": {"text": narration[:200] if narration else ""}, "emphasis": "subtle"},
-                ],
-                "background": {"type": "gradient", "gradientAngle": 135},
-                "decorations": ["gradient-orb", "accent-bar-bottom"],
-            }
-            self.variety_tracker.record("full-center")
-            logger.info("[SCENE_GEN] Scene 0 → hero (full-center)")
-            return {"layoutConfig": hero_config}
+            preferred_layout = "full-center"  # hint, not forced
 
         preferred_arr = None
         if preferred_layout:
@@ -582,7 +682,8 @@ class TemplateSceneGenerator:
                 best_score,
                 len(best_result.get("elements", [])),
             )
-            return {"layoutConfig": best_result}
+            structured = self._extract_structured_content(best_result)
+            return {"layoutConfig": best_result, "structuredContent": structured}
 
         logger.warning(
             "[SCENE_GEN] Scene %s FALLBACK: all attempts failed, using %s",
@@ -598,7 +699,7 @@ class TemplateSceneGenerator:
             "decorations": ["accent-bar-bottom"],
         }
         self.variety_tracker.record(self._fallback_arrangement)
-        return {"layoutConfig": fallback}
+        return {"layoutConfig": fallback, "structuredContent": {"contentType": "plain"}}
 
     async def generate_regenerate_descriptor(
         self,
@@ -626,16 +727,9 @@ class TemplateSceneGenerator:
                 preferred_layout, current_descriptor, content_language,
             )
 
+        # Scene 0 still prefers full-center but the AI chooses elements, decorations, and background
         if scene_index == 0 and not preferred_layout:
-            return {"layoutConfig": {
-                "arrangement": "full-center",
-                "elements": [
-                    {"type": "heading", "content": {"text": scene_title}, "emphasis": "primary"},
-                    {"type": "body-text", "content": {"text": narration[:200] if narration else ""}, "emphasis": "subtle"},
-                ],
-                "background": {"type": "gradient", "gradientAngle": 135},
-                "decorations": ["gradient-orb", "accent-bar-bottom"],
-            }}
+            preferred_layout = "full-center"  # hint, not forced
 
         preferred_arr = None
         if preferred_layout:
@@ -661,14 +755,15 @@ class TemplateSceneGenerator:
         except Exception as e:
             if self.debug:
                 logger.warning("[SCENE_GEN] [Regenerate] DSPy error: %s", e)
-            return {"layoutConfig": {
+            err_config = {
                 "arrangement": preferred_arr or self._fallback_arrangement,
                 "elements": [
                     {"type": "heading", "content": {"text": scene_title}},
                     {"type": "body-text", "content": {"text": narration[:200] if narration else ""}},
                 ],
                 "decorations": ["accent-bar-bottom"],
-            }}
+            }
+            return {"layoutConfig": err_config, "structuredContent": {"contentType": "plain"}}
 
         config = self._parse_config_json(result.layout_config_json)
         if preferred_arr:
@@ -680,7 +775,8 @@ class TemplateSceneGenerator:
             validated["arrangement"],
             el_types,
         )
-        return {"layoutConfig": validated}
+        structured = self._extract_structured_content(validated)
+        return {"layoutConfig": validated, "structuredContent": structured}
 
     async def generate_all_scenes(
         self,
@@ -738,7 +834,7 @@ class TemplateSceneGenerator:
                             {"type": "heading", "content": {"text": scenes_data[i]["title"]}, "emphasis": "primary"},
                         ],
                         "decorations": ["accent-bar-bottom"],
-                    }}
+                    }, "structuredContent": {"contentType": "plain"}}
                 results[i] = res
 
                 if self.debug:

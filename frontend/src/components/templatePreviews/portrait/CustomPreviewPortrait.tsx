@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../../api/client";
 
-// ─── Portrait scale wrapper (9:16)
-const INTERNAL_W = 270;
-const INTERNAL_H = 480;
+const W = 270;
+const H = 480;
 
 function ScaledCanvas({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -11,261 +10,319 @@ function ScaledCanvas({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
+    const update = () => setScale(el.getBoundingClientRect().width / W);
     update();
     const obs = new ResizeObserver(update);
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
   return (
-    <div ref={ref} style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}>
-      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
-        {children}
-      </div>
+    <div ref={ref} style={{ width: "100%", aspectRatio: `${W}/${H}`, overflow: "hidden", position: "relative" }}>
+      <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>{children}</div>
     </div>
   );
 }
 
-// ─── Style helpers (same as landscape)
-function getStyleBg(theme: CustomTemplateTheme): React.CSSProperties {
+function bg(theme: CustomTemplateTheme): React.CSSProperties {
   const s = theme.style;
-  if (s === "glass") return { background: `linear-gradient(135deg, ${theme.colors.bg}ee, ${theme.colors.surface}cc)`, backdropFilter: "blur(20px)" };
-  if (s === "neon") return { background: theme.colors.bg, boxShadow: `inset 0 0 60px ${theme.colors.accent}15` };
-  if (s === "bold") return { background: theme.colors.bg };
+  if (s === "glass") return { background: `linear-gradient(180deg, ${theme.colors.bg}ee, ${theme.colors.surface}cc)` };
+  if (s === "neon") return { background: theme.colors.bg, boxShadow: `inset 0 0 80px ${theme.colors.accent}10` };
   if (s === "soft") return { background: `linear-gradient(180deg, ${theme.colors.bg}, ${theme.colors.surface})` };
   return { background: theme.colors.bg };
 }
 
-function getCardStyle(theme: CustomTemplateTheme): React.CSSProperties {
-  const corners = theme.patterns?.cards?.corners;
-  const shadow = theme.patterns?.cards?.shadowDepth;
-  const border = theme.patterns?.cards?.borderStyle;
-  return {
-    borderRadius: corners === "sharp" ? 4 : corners === "pill" ? 20 : theme.borderRadius,
-    backgroundColor: theme.colors.surface,
-    border: border === "accent" ? `2px solid ${theme.colors.accent}`
-      : border === "gradient" ? `2px solid ${theme.colors.accent}60`
-      : theme.style === "neon" ? `1px solid ${theme.colors.accent}30` : `1px solid ${theme.colors.text}08`,
-    boxShadow: shadow === "heavy" ? `0 4px 16px ${theme.colors.muted}33`
-      : shadow === "medium" ? `0 2px 8px ${theme.colors.muted}22`
-      : shadow === "subtle" ? `0 1px 4px ${theme.colors.muted}15`
-      : theme.style === "neon" ? `0 0 8px ${theme.colors.accent}15` : "none",
-  };
-}
-
-function getDecorations(theme: CustomTemplateTheme): React.ReactNode {
-  const elems = theme.patterns?.layout?.decorativeElements || ["none"];
-  const nodes: React.ReactNode[] = [];
-  if (elems.includes("gradients")) {
-    nodes.push(<div key="grad" style={{ position: "absolute", top: -40, right: -40, width: 140, height: 140, borderRadius: "50%", background: `radial-gradient(circle, ${theme.colors.accent}20, transparent 70%)` }} />);
-  }
-  if (elems.includes("accent-lines")) {
-    nodes.push(<div key="line" style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", backgroundColor: theme.colors.accent }} />);
-  }
-  if (elems.includes("dots")) {
-    nodes.push(<div key="dots" style={{ position: "absolute", bottom: 10, right: 10, width: 60, height: 60, opacity: 0.1, backgroundImage: `radial-gradient(${theme.colors.accent} 1.5px, transparent 1.5px)`, backgroundSize: "8px 8px" }} />);
-  }
-  if (nodes.length === 0) {
-    nodes.push(<div key="circle" style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", border: `2px solid ${theme.colors.accent}20` }} />);
-  }
-  return <>{nodes}</>;
-}
-
-// ─── Slide 1: Hero
-function SlideHero({ active, theme, name }: { active: boolean; theme: CustomTemplateTheme; name?: string }) {
-  const [titleVis, setTitleVis] = useState(false);
-  const [barW, setBarW] = useState(0);
-  const [subVis, setSubVis] = useState(false);
+// ─── Slide 1: Cinematic vertical title ──────────────────────────────
+function SlideTitleCard({ active, theme, name }: { active: boolean; theme: CustomTemplateTheme; name?: string }) {
+  const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    if (!active) { setTitleVis(false); setBarW(0); setSubVis(false); return; }
-    const t1 = setTimeout(() => setBarW(80), 100);
-    const t2 = setTimeout(() => setTitleVis(true), 300);
-    const t3 = setTimeout(() => setSubVis(true), 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    if (!active) { setPhase(0); return; }
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 400);
+    const t3 = setTimeout(() => setPhase(3), 700);
+    const t4 = setTimeout(() => setPhase(4), 1100);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, [active]);
 
-  const br = theme.borderRadius;
+  const a = theme.colors.accent;
+  const title = name || "Your Brand";
 
   return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-      padding: "0 28px", textAlign: "center",
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", ...bg(theme) }}>
+      {/* Gradient orb */}
+      <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, ${a}18, transparent 70%)`, filter: "blur(30px)" }} />
+      <div style={{ position: "absolute", bottom: -40, left: -40, width: 140, height: 140, borderRadius: "50%", background: `radial-gradient(circle, ${a}10, transparent 70%)`, filter: "blur(20px)" }} />
 
+      {/* Decorative ring */}
       <div style={{
-        width: barW, height: 3, backgroundColor: theme.colors.accent, borderRadius: 2, marginBottom: 18, alignSelf: "center",
-        transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
+        position: "absolute", top: 30, right: 24, width: 60, height: 60, borderRadius: "50%",
+        border: `1.5px solid ${a}20`,
+        opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? "scale(1)" : "scale(0.5)",
+        transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)",
+      }} />
+      <div style={{
+        position: "absolute", top: 52, right: 46, width: 8, height: 8, borderRadius: "50%",
+        backgroundColor: a, opacity: phase >= 3 ? 0.5 : 0,
+        transition: "all 0.4s ease",
       }} />
 
+      {/* Content — centered vertically */}
       <div style={{
-        fontSize: 32, fontWeight: 800, color: theme.colors.text, lineHeight: 1.2,
-        fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
-        opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(20px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-        letterSpacing: theme.style === "bold" ? "-0.04em" : "-0.02em",
+        position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+        justifyContent: "center", alignItems: "center", padding: "0 30px", textAlign: "center",
       }}>
-        {name || "Custom Template"}
-      </div>
+        {/* Accent line */}
+        <div style={{
+          width: phase >= 1 ? 40 : 0, height: 3, backgroundColor: a, borderRadius: 2, marginBottom: 20,
+          transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
+        }} />
 
-      <div style={{
-        fontSize: 13, color: theme.colors.muted, marginTop: 10,
-        fontFamily: `${theme.fonts.body}, system-ui, sans-serif`, fontWeight: 400,
-        opacity: subVis ? 1 : 0, transform: subVis ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-        display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
-      }}>
-        <span style={{
-          display: "inline-block", padding: "2px 8px", borderRadius: br / 2,
-          backgroundColor: `${theme.colors.accent}18`, color: theme.colors.accent,
-          fontSize: 11, fontWeight: 600, textTransform: "capitalize",
+        {/* Title */}
+        <div style={{
+          fontSize: 36, fontWeight: 800, color: theme.colors.text, lineHeight: 1.1,
+          fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
+          letterSpacing: "-0.03em",
+          opacity: phase >= 2 ? 1 : 0, transform: phase >= 2 ? "translateY(0)" : "translateY(20px)",
+          transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
         }}>
-          {theme.style}
-        </span>
-        <span>{theme.category || "custom"} template</span>
+          {title}
+        </div>
+
+        {/* Subtitle */}
+        <div style={{
+          fontSize: 12, color: theme.colors.muted, marginTop: 12,
+          fontFamily: `${theme.fonts.body}, system-ui, sans-serif`,
+          opacity: phase >= 3 ? 1 : 0, transform: phase >= 3 ? "translateY(0)" : "translateY(10px)",
+          transition: "all 0.5s ease",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{
+            padding: "2px 8px", borderRadius: theme.borderRadius / 2,
+            backgroundColor: `${a}18`, color: a, fontSize: 10, fontWeight: 600,
+            textTransform: "capitalize" as const,
+          }}>
+            {theme.style}
+          </span>
+          <span>template</span>
+        </div>
+
+        {/* Color palette */}
+        <div style={{
+          display: "flex", gap: 6, marginTop: 24,
+          opacity: phase >= 4 ? 1 : 0, transition: "opacity 0.5s ease",
+        }}>
+          {[theme.colors.accent, theme.colors.bg, theme.colors.text, theme.colors.surface].map((c, i) => (
+            <div key={i} style={{
+              width: 16, height: 16, borderRadius: "50%", backgroundColor: c,
+              border: `1.5px solid ${theme.colors.text}12`,
+              transform: phase >= 4 ? "scale(1)" : "scale(0.5)",
+              transition: `transform 0.3s ease ${i * 0.05}s`,
+            }} />
+          ))}
+        </div>
       </div>
 
+      {/* Bottom accent */}
       <div style={{
-        display: "flex", gap: 6, marginTop: 18, opacity: subVis ? 1 : 0,
-        transition: "opacity 0.5s ease 0.2s", alignItems: "center", justifyContent: "center", flexWrap: "wrap",
-      }}>
-        {[theme.colors.accent, theme.colors.bg, theme.colors.text, theme.colors.surface, theme.colors.muted].map((c, i) => (
-          <div key={i} style={{
-            width: 16, height: 16, borderRadius: "50%",
-            backgroundColor: c, border: `1.5px solid ${theme.colors.text}15`,
-          }} />
-        ))}
-      </div>
-
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, backgroundColor: theme.colors.accent }} />
+        position: "absolute", bottom: 0, left: 0, height: 3,
+        width: phase >= 2 ? "100%" : "0%", backgroundColor: a,
+        transition: "width 0.8s cubic-bezier(0.16,1,0.3,1)",
+      }} />
     </div>
   );
 }
 
-// ─── Slide 2: Content — stacked cards for portrait
-function SlideContent({ active, theme, name }: { active: boolean; theme: CustomTemplateTheme; name?: string }) {
-  const [visible, setVisible] = useState<number[]>([]);
-  const [titleVis, setTitleVis] = useState(false);
-
-  const items = [
-    "AI-powered script generation",
-    "Automatic scene detection",
-    "Professional narration voices",
-  ];
+// ─── Slide 2: Scene grid — shows multiple generated video scenes ────
+function SlideSceneGrid({ active, theme }: { active: boolean; theme: CustomTemplateTheme }) {
+  const [phase, setPhase] = useState(0);
+  const [revealed, setRevealed] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!active) { setVisible([]); setTitleVis(false); return; }
-    const t0 = setTimeout(() => setTitleVis(true), 100);
-    const timers = items.map((_, i) =>
-      setTimeout(() => setVisible((v) => [...v, i]), 260 + i * 160)
+    if (!active) { setPhase(0); setRevealed([]); return; }
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 400);
+    const timers = Array.from({ length: 6 }, (_, i) =>
+      setTimeout(() => setRevealed((r) => [...r, i]), 500 + i * 120)
     );
-    return () => { clearTimeout(t0); timers.forEach(clearTimeout); };
+    return () => { clearTimeout(t1); clearTimeout(t2); timers.forEach(clearTimeout); };
   }, [active]);
 
-  const density = theme.patterns?.spacing?.density || "balanced";
-  const gap = density === "compact" ? 8 : density === "spacious" ? 16 : 12;
-  const cardStyles = getCardStyle(theme);
+  const a = theme.colors.accent;
+  const card = theme.colors.surface;
+
+  const scenes = [
+    { label: "Intro", accent: a },
+    { label: "Problem", accent: `${a}cc` },
+    { label: "Solution", accent: a },
+    { label: "Features", accent: `${a}cc` },
+    { label: "Demo", accent: a },
+    { label: "CTA", accent: `${a}cc` },
+  ];
 
   return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "24px 22px", gap,
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
-
-      <div style={{
-        textAlign: "center", marginBottom: 4,
-        opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-      }}>
-        <div style={{ fontSize: 9, color: theme.colors.accent, fontWeight: 700, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 4 }}>Key Features</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`, lineHeight: 1.2 }}>
-          {name || "Custom Template"}
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", ...bg(theme) }}>
+      {/* Header */}
+      <div style={{ padding: "24px 24px 16px", textAlign: "center" }}>
+        <div style={{
+          fontSize: 9, fontWeight: 700, color: a, letterSpacing: "0.14em", textTransform: "uppercase" as const,
+          fontFamily: `${theme.fonts.body}, sans-serif`, marginBottom: 6,
+          opacity: phase >= 1 ? 1 : 0, transition: "opacity 0.4s ease",
+        }}>
+          Generated Scenes
+        </div>
+        <div style={{
+          fontSize: 22, fontWeight: 800, color: theme.colors.text, lineHeight: 1.2,
+          fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
+          opacity: phase >= 1 ? 1 : 0, transform: phase >= 1 ? "translateY(0)" : "translateY(8px)",
+          transition: "all 0.4s ease 0.05s",
+        }}>
+          6 scenes ready
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap, width: "100%" }}>
-        {items.map((item, i) => (
+      {/* Scene grid 2x3 */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "0 20px", flex: 1,
+        alignContent: "center",
+      }}>
+        {scenes.map((scene, i) => (
           <div key={i} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
-            ...cardStyles,
-            opacity: visible.includes(i) ? 1 : 0,
-            transform: visible.includes(i) ? "translateX(0)" : "translateX(16px)",
-            transition: "opacity 0.4s ease, transform 0.4s ease",
+            backgroundColor: card, borderRadius: theme.borderRadius * 0.7,
+            border: `1px solid ${theme.colors.text}08`, overflow: "hidden",
+            opacity: revealed.includes(i) ? 1 : 0,
+            transform: revealed.includes(i) ? "scale(1)" : "scale(0.85)",
+            transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: theme.colors.accent, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500 }}>{item}</span>
+            {/* Scene thumbnail */}
+            <div style={{
+              height: 48, background: `linear-gradient(135deg, ${scene.accent}20, ${scene.accent}08)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${scene.accent}40`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 0, height: 0, borderLeft: `6px solid ${scene.accent}60`, borderTop: "4px solid transparent", borderBottom: "4px solid transparent", marginLeft: 2 }} />
+              </div>
+            </div>
+            {/* Scene label */}
+            <div style={{ padding: "6px 8px" }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif` }}>{scene.label}</div>
+              <div style={{ fontSize: 7, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 1 }}>Scene {i + 1}</div>
+            </div>
           </div>
         ))}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, backgroundColor: theme.colors.accent }} />
+      {/* Timeline bar */}
+      <div style={{ padding: "12px 20px 16px" }}>
+        <div style={{ height: 3, borderRadius: 2, backgroundColor: `${a}15`, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 2, backgroundColor: a,
+            width: phase >= 2 ? "100%" : "0%",
+            transition: "width 1.8s cubic-bezier(0.16,1,0.3,1) 0.5s",
+          }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          <span style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.mono}, monospace` }}>0:00</span>
+          <span style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.mono}, monospace` }}>1:42</span>
+        </div>
+      </div>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, backgroundColor: a }} />
     </div>
   );
 }
 
-// ─── Slide 3: Typography
-function SlideTypo({ active, theme }: { active: boolean; theme: CustomTemplateTheme }) {
-  const [vis, setVis] = useState(false);
+// ─── Slide 3: Stats / impact ────────────────────────────────────────
+function SlideImpact({ active, theme }: { active: boolean; theme: CustomTemplateTheme }) {
+  const [phase, setPhase] = useState(0);
+  const [count, setCount] = useState(0);
+
   useEffect(() => {
-    if (!active) { setVis(false); return; }
-    const t = setTimeout(() => setVis(true), 200);
-    return () => clearTimeout(t);
+    if (!active) { setPhase(0); setCount(0); return; }
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 400);
+    const t3 = setTimeout(() => setPhase(3), 700);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [active]);
 
-  const br = theme.borderRadius;
+  useEffect(() => {
+    if (phase < 2) return;
+    let n = 0;
+    const id = setInterval(() => {
+      n += 4;
+      setCount(Math.min(n, 98));
+      if (n >= 98) clearInterval(id);
+    }, 30);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  const a = theme.colors.accent;
 
   return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
-      padding: "0 28px", gap: 18, textAlign: "center",
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: "0 28px", textAlign: "center", ...bg(theme) }}>
+      {/* Decorative */}
+      <div style={{ position: "absolute", top: -40, left: -40, width: 120, height: 120, borderRadius: "50%", background: `radial-gradient(circle, ${a}15, transparent 70%)` }} />
 
-      <div style={{ opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)", transition: "opacity 0.5s ease, transform 0.5s ease" }}>
-        <div style={{ fontSize: 9, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 4 }}>Heading</div>
-        <div style={{ fontSize: 26, fontWeight: 800, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`, lineHeight: 1.2 }}>{theme.fonts.heading}</div>
+      <div style={{
+        fontSize: 9, fontWeight: 700, color: a, letterSpacing: "0.14em", textTransform: "uppercase" as const,
+        fontFamily: `${theme.fonts.body}, sans-serif`,
+        opacity: phase >= 1 ? 1 : 0, transition: "opacity 0.4s ease",
+      }}>
+        Brand Match Score
       </div>
 
-      <div style={{ opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)", transition: "opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s" }}>
-        <div style={{ fontSize: 9, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 4 }}>Body</div>
-        <div style={{ fontSize: 13, fontWeight: 400, color: theme.colors.text, fontFamily: `${theme.fonts.body}, system-ui, sans-serif`, lineHeight: 1.5 }}>
-          {theme.fonts.body} — The quick brown fox
-        </div>
-      </div>
-
-      <div style={{ opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)", transition: "opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s", width: "100%" }}>
-        <div style={{ fontSize: 9, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 4 }}>Mono</div>
+      {/* Circular progress */}
+      <div style={{
+        position: "relative", width: 120, height: 120,
+        opacity: phase >= 1 ? 1 : 0, transform: phase >= 1 ? "scale(1)" : "scale(0.8)",
+        transition: "all 0.5s cubic-bezier(0.16,1,0.3,1)",
+      }}>
+        <svg viewBox="0 0 120 120" style={{ width: 120, height: 120, transform: "rotate(-90deg)" }}>
+          <circle cx="60" cy="60" r="50" fill="none" stroke={`${a}15`} strokeWidth="6" />
+          <circle cx="60" cy="60" r="50" fill="none" stroke={a} strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 50}`}
+            strokeDashoffset={`${2 * Math.PI * 50 * (1 - count / 100)}`}
+            style={{ transition: "stroke-dashoffset 0.1s linear" }}
+          />
+        </svg>
         <div style={{
-          fontSize: 11, color: theme.colors.accent, fontFamily: `${theme.fonts.mono}, monospace`,
-          padding: "6px 10px", borderRadius: br / 2,
-          backgroundColor: `${theme.colors.accent}10`,
+          position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
         }}>
-          const theme = extractFromURL()
+          <span style={{
+            fontSize: 36, fontWeight: 800, color: theme.colors.text,
+            fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
+            fontFeatureSettings: "'tnum'", lineHeight: 1,
+          }}>
+            {count}%
+          </span>
+          <span style={{ fontSize: 9, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>accuracy</span>
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, backgroundColor: theme.colors.accent }} />
+      {/* Mini stats */}
+      <div style={{ display: "flex", gap: 16, opacity: phase >= 3 ? 1 : 0, transition: "opacity 0.5s ease" }}>
+        {[{ label: "Colors", value: "5" }, { label: "Fonts", value: "3" }, { label: "Scenes", value: "12" }].map((stat, i) => (
+          <div key={i} style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, sans-serif`, lineHeight: 1 }}>{stat.value}</div>
+            <div style={{ fontSize: 8, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, marginTop: 2 }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 3, backgroundColor: a }} />
     </div>
   );
 }
 
-// ─── Dots
-function SlideDots({ total, current, accent, onDotClick }: { total: number; current: number; accent: string; onDotClick: (i: number) => void }) {
+// ─── Dots ────────────────────────────────────────────────────────────
+function SlideDots({ total, current, accent }: { total: number; current: number; accent: string }) {
   return (
     <div style={{ display: "flex", gap: 5, position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
       {Array.from({ length: total }, (_, i) => (
-        <button key={i} onClick={() => onDotClick(i)} style={{
+        <div key={i} style={{
           width: i === current ? 16 : 5, height: 5, borderRadius: 3,
           background: i === current ? accent : `${accent}40`,
-          border: "none", cursor: "pointer", padding: 0,
           transition: "all 0.3s ease",
         }} />
       ))}
@@ -273,16 +330,18 @@ function SlideDots({ total, current, accent, onDotClick }: { total: number; curr
   );
 }
 
-// ─── Main
+// ─── Main ────────────────────────────────────────────────────────────
 const SLIDE_DURATION = 3500;
 
-interface CustomPreviewPortraitProps {
+interface Props {
   theme: CustomTemplateTheme;
   name?: string;
 }
 
-export default function CustomPreviewPortrait({ theme, name }: CustomPreviewPortraitProps) {
-  const slides = [SlideHero, SlideContent, SlideTypo];
+const TRANSITION_MS = 400;
+
+export default function CustomPreviewPortrait({ theme, name }: Props) {
+  const slides = [SlideTitleCard, SlideSceneGrid, SlideImpact];
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
@@ -293,27 +352,39 @@ export default function CustomPreviewPortrait({ theme, name }: CustomPreviewPort
 
   useEffect(() => {
     const id = setInterval(() => {
-      setActive(false);
-      setTimeout(() => {
-        setCurrent((c) => (c + 1) % slides.length);
-        setActive(true);
-      }, 150);
+      setCurrent((c) => (c + 1) % slides.length);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
   }, [slides.length]);
 
-  const handleDot = (i: number) => {
+  // Re-trigger active state on slide change so CSS transition fires
+  useEffect(() => {
     setActive(false);
-    setTimeout(() => { setCurrent(i); setActive(true); }, 100);
-  };
-
-  const SlideComp = slides[current];
+    const t = setTimeout(() => setActive(true), 30);
+    return () => clearTimeout(t);
+  }, [current]);
 
   return (
     <ScaledCanvas>
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        <SlideComp active={active} theme={theme} name={name} />
-        <SlideDots total={slides.length} current={current} accent={theme.colors.accent} onDotClick={handleDot} />
+        {/* All slides mounted as overlapping layers for smooth crossfade */}
+        {slides.map((SlideComp, idx) => (
+          <div
+            key={idx}
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: idx === current && active ? 1 : 0,
+              transform: idx === current && active ? "scale(1)" : idx === current ? "scale(0.98)" : "scale(1.02)",
+              transition: `opacity ${TRANSITION_MS}ms ease-out, transform ${TRANSITION_MS}ms ease-out`,
+              zIndex: idx === current ? 2 : 1,
+              pointerEvents: idx === current ? "auto" : "none",
+            }}
+          >
+            <SlideComp active={idx === current && active} theme={theme} name={name} />
+          </div>
+        ))}
+        <SlideDots total={slides.length} current={current} accent={theme.colors.accent} />
       </div>
     </ScaledCanvas>
   );

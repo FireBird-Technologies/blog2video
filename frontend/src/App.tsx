@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
+import { NoticeModalProvider } from "./contexts/NoticeModalContext";
 import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
@@ -121,7 +122,9 @@ function App() {
   return (
     <AuthProvider>
       <ErrorModalProvider>
-        <AppRoutes />
+        <NoticeModalProvider>
+          <AppRoutes />
+        </NoticeModalProvider>
       </ErrorModalProvider>
     </AuthProvider>
   );

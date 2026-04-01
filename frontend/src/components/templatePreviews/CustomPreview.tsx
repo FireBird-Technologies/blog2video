@@ -1,472 +1,477 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { CustomTemplateTheme } from "../../api/client";
+import { compileComponentCode, type SceneProps } from "../../utils/compileComponent";
 
-// ─── Scale wrapper (matches other preview components)
-const INTERNAL_W = 480;
-const INTERNAL_H = 270;
+const RemotionPreviewPlayer = lazy(() => import("../RemotionPreviewPlayer"));
 
-function ScaledCanvas({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
+type ContentSampleData = Partial<SceneProps> & { displayText: string; narrationText: string };
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => setScale(el.getBoundingClientRect().width / INTERNAL_W);
-    update();
-    const obs = new ResizeObserver(update);
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+/** Map archetype best_for tags to rich sample data so previews look realistic */
+function buildArchetypeSampleData(
+  brandName: string,
+  bestFor?: string[],
+): ContentSampleData {
+  const n = brandName || "Our Brand";
+  const tag = bestFor?.[0] || "plain";
 
-  return (
-    <div
-      ref={ref}
-      style={{ width: "100%", aspectRatio: `${INTERNAL_W}/${INTERNAL_H}`, overflow: "hidden", position: "relative" }}
-    >
-      <div style={{ width: INTERNAL_W, height: INTERNAL_H, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute" }}>
-        {children}
-      </div>
-    </div>
-  );
+  switch (tag) {
+    case "metrics":
+      return {
+        displayText: `${n} by the Numbers`,
+        narrationText: `Here's a look at the key metrics that define ${n}'s success and growth trajectory.`,
+        contentType: "metrics",
+        metrics: [
+          { value: "3.2M", label: "Active Users", suffix: "+12%" },
+          { value: "99.9%", label: "Uptime SLA" },
+          { value: "4.8", label: "Rating", suffix: "/5" },
+          { value: "150+", label: "Countries" },
+        ],
+      };
+    case "bullets":
+      return {
+        displayText: `What Makes ${n} Different`,
+        narrationText: `From cutting-edge technology to world-class support, here's what sets ${n} apart from the competition.`,
+        contentType: "bullets",
+        bullets: [
+          "Enterprise-grade security and compliance built in",
+          "Real-time collaboration across distributed teams",
+          "AI-powered insights and automated workflows",
+          "24/7 dedicated customer success support",
+        ],
+      };
+    case "quote":
+      return {
+        displayText: `What People Say About ${n}`,
+        narrationText: `Industry leaders share their experience working with ${n} and the impact it has had.`,
+        contentType: "quote",
+        quote: `${n} completely transformed how we approach our workflow. The results speak for themselves.`,
+        quoteAuthor: "Industry Leader",
+      };
+    case "comparison":
+      return {
+        displayText: `${n} vs Traditional`,
+        narrationText: `See how ${n} stacks up against the traditional approach across key dimensions.`,
+        contentType: "comparison",
+        comparisonLeft: { label: "Traditional", description: "Manual processes, slow iteration, limited visibility" },
+        comparisonRight: { label: n, description: "Automated workflows, real-time insights, full transparency" },
+      };
+    case "timeline":
+      return {
+        displayText: `The ${n} Journey`,
+        narrationText: `From inception to industry leadership, here's how ${n} has evolved over the years.`,
+        contentType: "timeline",
+        timelineItems: [
+          { label: "Founded", description: "Started with a vision to transform the industry" },
+          { label: "First Launch", description: "Released our flagship product to early adopters" },
+          { label: "Scale", description: "Expanded to serve enterprise customers globally" },
+          { label: "Today", description: "Industry-leading platform trusted by millions" },
+        ],
+      };
+    case "steps":
+      return {
+        displayText: `How ${n} Works`,
+        narrationText: `Getting started with ${n} is simple. Follow these steps to unlock the full potential.`,
+        contentType: "steps",
+        steps: [
+          "Connect your existing tools and data sources",
+          "Configure your workspace and invite your team",
+          "Let AI analyze patterns and surface insights",
+          "Take action on recommendations and track results",
+        ],
+      };
+    case "code":
+      return {
+        displayText: `Get Started with ${n}`,
+        narrationText: `Integrating ${n} into your workflow takes just a few lines of code.`,
+        contentType: "code",
+        codeLines: [
+          `import { ${n.replace(/\s/g, "")} } from '${n.toLowerCase().replace(/\s/g, "-")}';`,
+          "",
+          `const client = new ${n.replace(/\s/g, "")}({ apiKey: "..." });`,
+          `const result = await client.analyze(data);`,
+          `console.log(result.insights);`,
+        ],
+        codeLanguage: "typescript",
+      };
+    default:
+      return {
+        displayText: `The ${n} Experience`,
+        narrationText: `Discover what makes ${n} a trusted choice for teams and organizations worldwide. Built with quality and innovation at its core.`,
+        contentType: "plain",
+      };
+  }
 }
 
-// ─── Style helpers
-function getStyleBg(theme: CustomTemplateTheme): React.CSSProperties {
-  const s = theme.style;
-  if (s === "glass") return { background: `linear-gradient(135deg, ${theme.colors.bg}ee, ${theme.colors.surface}cc)`, backdropFilter: "blur(20px)" };
-  if (s === "neon") return { background: theme.colors.bg, boxShadow: `inset 0 0 60px ${theme.colors.accent}15` };
-  if (s === "bold") return { background: theme.colors.bg };
-  if (s === "soft") return { background: `linear-gradient(180deg, ${theme.colors.bg}, ${theme.colors.surface})` };
-  return { background: theme.colors.bg }; // minimal
-}
-
-function getCardStyle(theme: CustomTemplateTheme): React.CSSProperties {
-  const corners = theme.patterns?.cards?.corners;
-  const shadow = theme.patterns?.cards?.shadowDepth;
-  const border = theme.patterns?.cards?.borderStyle;
-  return {
-    borderRadius: corners === "sharp" ? 4 : corners === "pill" ? 20 : theme.borderRadius,
-    backgroundColor: theme.colors.surface,
-    border: border === "accent" ? `2px solid ${theme.colors.accent}`
-      : border === "gradient" ? `2px solid ${theme.colors.accent}60`
-      : theme.style === "neon" ? `1px solid ${theme.colors.accent}30` : `1px solid ${theme.colors.text}08`,
-    boxShadow: shadow === "heavy" ? `0 4px 16px ${theme.colors.muted}33`
-      : shadow === "medium" ? `0 2px 8px ${theme.colors.muted}22`
-      : shadow === "subtle" ? `0 1px 4px ${theme.colors.muted}15`
-      : theme.style === "neon" ? `0 0 8px ${theme.colors.accent}15` : "none",
-  };
-}
-
-function getDecorations(theme: CustomTemplateTheme): React.ReactNode {
-  const elems = theme.patterns?.layout?.decorativeElements || ["none"];
-  const nodes: React.ReactNode[] = [];
-
-  if (elems.includes("gradients")) {
-    nodes.push(
-      <div key="grad" style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: `radial-gradient(circle, ${theme.colors.accent}20, transparent 70%)` }} />
-    );
-  }
-  if (elems.includes("accent-lines")) {
-    nodes.push(
-      <div key="line" style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", backgroundColor: theme.colors.accent }} />
-    );
-  }
-  if (elems.includes("dots")) {
-    nodes.push(
-      <div key="dots" style={{ position: "absolute", bottom: 10, right: 10, width: 60, height: 60, opacity: 0.1, backgroundImage: `radial-gradient(${theme.colors.accent} 1.5px, transparent 1.5px)`, backgroundSize: "8px 8px" }} />
-    );
-  }
-  if (elems.includes("background-shapes")) {
-    nodes.push(
-      <div key="shape" style={{ position: "absolute", bottom: -20, left: -20, width: 100, height: 100, borderRadius: theme.borderRadius, backgroundColor: `${theme.colors.accent}08`, transform: "rotate(15deg)" }} />
-    );
-  }
-
-  // Always add a subtle accent circle if nothing else
-  if (nodes.length === 0) {
-    nodes.push(
-      <div key="circle" style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", border: `2px solid ${theme.colors.accent}20` }} />
-    );
-  }
-
-  return <>{nodes}</>;
-}
-
-// ─── Slide 1: Hero with template name
-function SlideHero({ active, theme, name }: { active: boolean; theme: CustomTemplateTheme; name?: string }) {
-  const [titleVis, setTitleVis] = useState(false);
-  const [barW, setBarW] = useState(0);
-  const [subVis, setSubVis] = useState(false);
-
-  useEffect(() => {
-    if (!active) { setTitleVis(false); setBarW(0); setSubVis(false); return; }
-    const t1 = setTimeout(() => setBarW(100), 100);
-    const t2 = setTimeout(() => setTitleVis(true), 300);
-    const t3 = setTimeout(() => setSubVis(true), 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [active]);
-
-  const br = theme.borderRadius;
-  const direction = theme.patterns?.layout?.direction || "centered";
-  const isLeft = direction === "left-aligned" || direction === "asymmetric";
-
-  return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column",
-      justifyContent: "center",
-      alignItems: isLeft ? "flex-start" : "center",
-      padding: isLeft ? "0 48px" : "0 60px",
-      textAlign: isLeft ? "left" : "center",
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
-
-      {/* Accent bar */}
-      <div style={{
-        width: barW, height: 4, backgroundColor: theme.colors.accent, borderRadius: 2, marginBottom: 20,
-        transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
-        ...(isLeft ? {} : { alignSelf: "center" }),
-      }} />
-
-      {/* Title */}
-      <div style={{
-        fontSize: 38, fontWeight: 800, color: theme.colors.text, lineHeight: 1.2,
-        fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
-        opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(24px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-        letterSpacing: theme.style === "bold" ? "-0.04em" : "-0.02em",
-      }}>
-        {name || "Custom Template"}
-      </div>
-
-      {/* Subtitle */}
-      <div style={{
-        fontSize: 16, color: theme.colors.muted, marginTop: 12,
-        fontFamily: `${theme.fonts.body}, system-ui, sans-serif`, fontWeight: 400,
-        opacity: subVis ? 1 : 0, transform: subVis ? "translateY(0)" : "translateY(12px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-        display: "flex", alignItems: "center", gap: 8,
-        ...(isLeft ? {} : { justifyContent: "center" }),
-      }}>
-        <span style={{
-          display: "inline-block", padding: "2px 8px", borderRadius: br / 2,
-          backgroundColor: `${theme.colors.accent}18`, color: theme.colors.accent,
-          fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-        }}>
-          {theme.style}
-        </span>
-        <span>{theme.category || "custom"} template</span>
-      </div>
-
-      {/* Color swatches + pattern pills */}
-      <div style={{
-        display: "flex", gap: 6, marginTop: 20, opacity: subVis ? 1 : 0,
-        transition: "opacity 0.5s ease 0.2s", alignItems: "center", flexWrap: "wrap",
-        ...(isLeft ? {} : { justifyContent: "center" }),
-      }}>
-        {[theme.colors.accent, theme.colors.bg, theme.colors.text, theme.colors.surface, theme.colors.muted].map((c, i) => (
-          <div key={i} style={{
-            width: 18, height: 18, borderRadius: "50%",
-            backgroundColor: c, border: `1.5px solid ${theme.colors.text}15`,
-          }} />
-        ))}
-        {theme.patterns && (
-          <>
-            <div style={{ width: 1, height: 14, backgroundColor: `${theme.colors.text}20`, margin: "0 4px" }} />
-            {[
-              theme.patterns.cards?.corners,
-              theme.patterns.spacing?.density,
-              theme.patterns.images?.treatment,
-            ].filter(Boolean).map((label, i) => (
-              <span key={i} style={{
-                fontSize: 8, padding: "1px 5px", borderRadius: 6,
-                backgroundColor: `${theme.colors.accent}15`, color: theme.colors.accent,
-                fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 600,
-                textTransform: "capitalize",
-              }}>
-                {label}
-              </span>
-            ))}
-          </>
-        )}
-      </div>
-
-      {/* Bottom accent */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: theme.colors.accent }} />
-    </div>
-  );
-}
-
-// ─── Slide 2: Content preview — layout varies by theme patterns
-function SlideContent({ active, theme, name }: { active: boolean; theme: CustomTemplateTheme; name?: string }) {
-  const [visible, setVisible] = useState<number[]>([]);
-  const [titleVis, setTitleVis] = useState(false);
-
-  const items = [
-    { text: "AI-powered script generation", icon: "pen" },
-    { text: "Automatic scene detection", icon: "eye" },
-    { text: "Professional narration voices", icon: "mic" },
+function buildFallbackSamples(brandName: string): ContentSampleData[] {
+  const n = brandName || "Our Brand";
+  return [
+    { displayText: `Why ${n} Stands Out`, narrationText: `Here's what makes ${n} different from the rest.` },
+    { displayText: `The ${n} Experience`, narrationText: `Discover what sets ${n} apart in the industry.` },
+    { displayText: `Built for You by ${n}`, narrationText: `Everything at ${n} is designed with our customers in mind.` },
+    { displayText: `${n} at a Glance`, narrationText: `A closer look at what ${n} has to offer.` },
+    { displayText: `The Future of ${n}`, narrationText: `See where ${n} is headed next.` },
   ];
-
-  useEffect(() => {
-    if (!active) { setVisible([]); setTitleVis(false); return; }
-    const t0 = setTimeout(() => setTitleVis(true), 100);
-    const timers = items.map((_, i) =>
-      setTimeout(() => setVisible((v) => [...v, i]), 250 + i * 150)
-    );
-    return () => { clearTimeout(t0); timers.forEach(clearTimeout); };
-  }, [active]);
-
-  const direction = theme.patterns?.layout?.direction || "centered";
-  const density = theme.patterns?.spacing?.density || "balanced";
-  const gap = density === "compact" ? 6 : density === "spacious" ? 14 : 10;
-  const cardStyles = getCardStyle(theme);
-
-  // Choose arrangement based on theme direction
-  if (direction === "left-aligned") {
-    // Split layout: title left, cards right
-    return (
-      <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", display: "flex", ...getStyleBg(theme) }}>
-        {getDecorations(theme)}
-        <div style={{ flex: "0 0 42%", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-          <div style={{
-            fontSize: 10, color: theme.colors.accent, fontWeight: 700,
-            fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8,
-            opacity: titleVis ? 1 : 0, transition: "opacity 0.4s ease",
-          }}>Key Features</div>
-          <div style={{
-            fontSize: 24, fontWeight: 800, color: theme.colors.text, lineHeight: 1.2,
-            fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
-            opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(12px)",
-            transition: "opacity 0.5s ease, transform 0.5s ease",
-          }}>{name || "Custom Template"}</div>
-        </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 24px 0 0", gap }}>
-          {items.map((item, i) => (
-            <div key={i} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-              ...cardStyles,
-              opacity: visible.includes(i) ? 1 : 0,
-              transform: visible.includes(i) ? "translateX(0)" : "translateX(20px)",
-              transition: "opacity 0.4s ease, transform 0.4s ease",
-            }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: theme.colors.accent, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500 }}>{item.text}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: theme.colors.accent }} />
-      </div>
-    );
-  }
-
-  if (direction === "asymmetric") {
-    // Asymmetric: large title top-left, smaller cards scattered right
-    return (
-      <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", padding: "24px 32px", ...getStyleBg(theme) }}>
-        {getDecorations(theme)}
-        <div style={{
-          opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(16px)",
-          transition: "opacity 0.5s ease, transform 0.5s ease",
-          marginBottom: 16,
-        }}>
-          <div style={{
-            fontSize: 28, fontWeight: 800, color: theme.colors.text, lineHeight: 1.15,
-            fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
-            maxWidth: "55%",
-          }}>{name || "Custom Template"}</div>
-        </div>
-        <div style={{ display: "flex", gap, flexWrap: "wrap" }}>
-          {items.map((item, i) => (
-            <div key={i} style={{
-              padding: "10px 16px", flex: i === 0 ? "1 1 55%" : "1 1 40%",
-              ...cardStyles,
-              opacity: visible.includes(i) ? 1 : 0,
-              transform: visible.includes(i) ? "translateY(0)" : "translateY(14px)",
-              transition: `opacity 0.4s ease ${i * 0.1}s, transform 0.4s ease ${i * 0.1}s`,
-            }}>
-              <div style={{ fontSize: 10, color: theme.colors.accent, fontWeight: 700, fontFamily: `${theme.fonts.body}, sans-serif`, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                Feature {i + 1}
-              </div>
-              <div style={{ fontSize: 13, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500 }}>{item.text}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: theme.colors.accent }} />
-      </div>
-    );
-  }
-
-  // "centered" (default): stacked centered layout
-  return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "20px 40px", textAlign: "center",
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
-      <div style={{
-        fontSize: 10, color: theme.colors.accent, fontWeight: 700,
-        fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6,
-        opacity: titleVis ? 1 : 0, transition: "opacity 0.4s ease",
-      }}>Key Features</div>
-      <div style={{
-        fontSize: 22, fontWeight: 800, color: theme.colors.text, lineHeight: 1.2, marginBottom: 16,
-        fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`,
-        opacity: titleVis ? 1 : 0, transform: titleVis ? "translateY(0)" : "translateY(10px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-      }}>{name || "Custom Template"}</div>
-      <div style={{ display: "flex", gap, width: "100%", justifyContent: "center" }}>
-        {items.map((item, i) => (
-          <div key={i} style={{
-            flex: "1 1 0", padding: "12px 10px", textAlign: "center", maxWidth: 140,
-            ...cardStyles,
-            opacity: visible.includes(i) ? 1 : 0,
-            transform: visible.includes(i) ? "scale(0.9)" : "scale(1)",
-            transition: `opacity 0.4s ease ${i * 0.12}s, transform 0.3s ease ${i * 0.12}s`,
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: theme.colors.accent, margin: "0 auto 8px" }} />
-            <div style={{ fontSize: 11, color: theme.colors.text, fontFamily: `${theme.fonts.body}, sans-serif`, fontWeight: 500, lineHeight: 1.3 }}>{item.text}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: theme.colors.accent }} />
-    </div>
-  );
 }
-
-// ─── Slide 3: Typography showcase
-function SlideTypo({ active, theme }: { active: boolean; theme: CustomTemplateTheme }) {
-  const [vis, setVis] = useState(false);
-
-  useEffect(() => {
-    if (!active) { setVis(false); return; }
-    const t = setTimeout(() => setVis(true), 200);
-    return () => clearTimeout(t);
-  }, [active]);
-
-  const br = theme.borderRadius;
-  const direction = theme.patterns?.layout?.direction || "centered";
-  const isCenter = direction === "centered";
-
-  return (
-    <div style={{
-      width: "100%", height: "100%", position: "relative", overflow: "hidden",
-      display: "flex", flexDirection: "column", justifyContent: "center",
-      padding: "0 48px", gap: 16,
-      alignItems: isCenter ? "center" : "flex-start",
-      textAlign: isCenter ? "center" : "left",
-      ...getStyleBg(theme),
-    }}>
-      {getDecorations(theme)}
-      <div style={{
-        opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)",
-        transition: "opacity 0.5s ease, transform 0.5s ease",
-      }}>
-        <div style={{ fontSize: 10, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-          Heading
-        </div>
-        <div style={{ fontSize: 32, fontWeight: 800, color: theme.colors.text, fontFamily: `${theme.fonts.heading}, system-ui, sans-serif`, lineHeight: 1.2 }}>
-          {theme.fonts.heading}
-        </div>
-      </div>
-      <div style={{
-        opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)",
-        transition: "opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s",
-      }}>
-        <div style={{ fontSize: 10, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-          Body
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 400, color: theme.colors.text, fontFamily: `${theme.fonts.body}, system-ui, sans-serif` }}>
-          {theme.fonts.body} — The quick brown fox jumps over the lazy dog
-        </div>
-      </div>
-      <div style={{
-        opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(16px)",
-        transition: "opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s",
-      }}>
-        <div style={{ fontSize: 10, color: theme.colors.muted, fontFamily: `${theme.fonts.body}, sans-serif`, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-          Mono
-        </div>
-        <div style={{
-          fontSize: 14, color: theme.colors.accent, fontFamily: `${theme.fonts.mono}, monospace`,
-          padding: "6px 10px", borderRadius: br / 2,
-          backgroundColor: `${theme.colors.accent}10`,
-        }}>
-          const theme = extractFromURL()
-        </div>
-      </div>
-
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: 4, backgroundColor: theme.colors.accent }} />
-    </div>
-  );
-}
-
-// ─── Slide indicator dots
-function SlideDots({ total, current, accent, onDotClick }: { total: number; current: number; accent: string; onDotClick: (i: number) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 5, position: "absolute", bottom: 12, right: 14, zIndex: 10 }}>
-      {Array.from({ length: total }, (_, i) => (
-        <button
-          key={i}
-          onClick={() => onDotClick(i)}
-          style={{
-            width: i === current ? 16 : 6, height: 6, borderRadius: 3,
-            background: i === current ? accent : `${accent}40`,
-            border: "none", cursor: "pointer", padding: 0,
-            transition: "all 0.3s ease",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Main
-const SLIDE_DURATION = 3500;
 
 interface CustomPreviewProps {
   theme: CustomTemplateTheme;
   name?: string;
+  introCode?: string;
+  outroCode?: string;
+  contentCodes?: string[];
+  contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  previewImageUrl?: string | null;
+  logoUrls?: string[];
+  ogImage?: string;
+  onRetry?: () => void;
+  onAllScenesEnded?: () => void;
 }
 
-export default function CustomPreview({ theme, name }: CustomPreviewProps) {
-  const slides = [SlideHero, SlideContent, SlideTypo];
-  const [current, setCurrent] = useState(0);
-  const [active, setActive] = useState(false);
+export default function CustomPreview({
+  theme,
+  name,
+  introCode,
+  outroCode,
+  contentCodes,
+  contentArchetypeIds,
+  previewImageUrl,
+  logoUrls,
+  ogImage,
+  onRetry,
+  onAllScenesEnded,
+}: CustomPreviewProps) {
+  const [activeScene, setActiveScene] = useState(0);
+  const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
+  const [compiledMap, setCompiledMap] = useState<Map<number, React.FC<SceneProps>>>(new Map());
+  const [isCompiling, setIsCompiling] = useState(true);
+  const [compileError, setCompileError] = useState(false);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const compileTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Build ordered list of scene codes: intro, content variants, outro
+  const sceneCodes = useMemo(() => {
+    const codes: { code: string; label: string }[] = [];
+    if (introCode) codes.push({ code: introCode, label: "Intro" });
+    if (contentCodes && contentCodes.length > 0) {
+      contentCodes.forEach((c, i) => {
+        const rawArch = contentArchetypeIds?.[i];
+        const archId = typeof rawArch === "string" ? rawArch : rawArch?.id;
+        const archetypeLabel = archId
+          ?.replace(/_/g, " ")
+          ?.replace(/\b\w/g, (ch: string) => ch.toUpperCase());
+        codes.push({ code: c, label: archetypeLabel || `Content ${i + 1}` });
+      });
+    }
+    if (outroCode) codes.push({ code: outroCode, label: "Outro" });
+    return codes;
+  }, [introCode, outroCode, contentCodes, contentArchetypeIds]);
+
+  const hasCode = sceneCodes.length > 0;
+  const hasMultipleScenes = sceneCodes.length > 1;
+
+  // Pre-compute stable sampleProps for each scene so object references don't change
+  // between re-renders (avoids Remotion Player restarting animation mid-playback)
+  const fallbackSamples = useMemo(() => buildFallbackSamples(name || ""), [name]);
+
+  const sceneSampleProps = useMemo(() => {
+    // Only pass ogImage. Never use previewImageUrl as an image prop, as that is the template's
+    // own thumbnail and will cause a broken recursive image load, resulting in empty space.
+    const imageProps = ogImage ? { imageUrl: ogImage } : {};
+    const logoProps = logoUrls && logoUrls.length > 0 ? { logoUrl: logoUrls[0] } : {};
+    const brandImageProps = logoUrls && logoUrls.length > 0 ? { brandImages: logoUrls } : ogImage ? { brandImages: [ogImage] } : {};
+    const fontProps = { titleFontSize: 88, descriptionFontSize: 44 };
+
+    return sceneCodes.map((sc, idx) => {
+      const base = { sceneIndex: idx, totalScenes: sceneCodes.length, ...imageProps, ...logoProps, ...brandImageProps, ...fontProps };
+      const n = name || "Our Brand";
+
+      if (sc.label === "Intro") {
+        return { displayText: n, narrationText: `Discover what makes ${n} special.`, ...base };
+      }
+      if (sc.label === "Outro") {
+        return { displayText: n, narrationText: `Learn more at ${n}. Thank you for watching.`, ...base };
+      }
+      // Use archetype-aware sample data when available
+      const contentIdx = idx - (introCode ? 1 : 0);
+      const rawArch = contentArchetypeIds?.[contentIdx];
+      const bestFor = typeof rawArch === "object" ? rawArch?.best_for : undefined;
+      if (bestFor && bestFor.length > 0) {
+        const sample = buildArchetypeSampleData(n, bestFor);
+        return { ...sample, ...base };
+      }
+      const fallback = fallbackSamples[contentIdx % fallbackSamples.length];
+      return { ...fallback, ...base };
+    });
+  }, [sceneCodes, name, ogImage, previewImageUrl, logoUrls, introCode, contentArchetypeIds, fallbackSamples]);
+
+  // Pre-compile ALL scene codes on mount (eliminates per-scene "Compiling preview..." flash)
   useEffect(() => {
-    const t = setTimeout(() => setActive(true), 200);
-    return () => clearTimeout(t);
+    if (sceneCodes.length === 0) {
+      setIsCompiling(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsCompiling(true);
+    setCompileError(false);
+    setActiveScene(0);
+    setOutgoingScene(null);
+
+    // 8s timeout — if Babel hangs, show error instead of infinite spinner
+    compileTimeoutRef.current = setTimeout(() => {
+      if (!cancelled) {
+        setIsCompiling(false);
+        setCompileError(true);
+        console.error("[F7-DEBUG] CustomPreview: compile timeout after 8s");
+      }
+    }, 8000);
+
+    const compileAll = async () => {
+      console.log(`[F7-DEBUG] CustomPreview: pre-compiling ${sceneCodes.length} scenes...`);
+      const map = new Map<number, React.FC<SceneProps>>();
+      for (let i = 0; i < sceneCodes.length; i++) {
+        if (cancelled) return;
+        const result = await compileComponentCode(sceneCodes[i].code);
+        if (result.success) {
+          map.set(i, result.component);
+        } else {
+          console.error(`[F7-DEBUG] CustomPreview: scene ${i} compile failed:`, result.error);
+        }
+      }
+      if (!cancelled) {
+        clearTimeout(compileTimeoutRef.current);
+        console.log(`[F7-DEBUG] CustomPreview: all ${map.size}/${sceneCodes.length} scenes compiled`);
+        setCompiledMap(map);
+        setIsCompiling(false);
+      }
+    };
+
+    compileAll();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(compileTimeoutRef.current);
+    };
+  }, [sceneCodes]);
+
+  // Cleanup fade timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(fadeTimerRef.current);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setActive(false);
-      setTimeout(() => {
-        setCurrent((c) => (c + 1) % slides.length);
-        setActive(true);
-      }, 150);
-    }, SLIDE_DURATION);
-    return () => clearInterval(id);
+  // Scene transition with crossfade — both outgoing and incoming mounted during transition
+  const switchScene = useCallback((getNext: (prev: number) => number) => {
+    setActiveScene((prev) => {
+      const next = getNext(prev);
+      if (next === prev) return prev;
+      setOutgoingScene(prev);
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = setTimeout(() => setOutgoingScene(null), 400);
+      return next;
+    });
   }, []);
 
-  const handleDot = (i: number) => {
-    setActive(false);
-    setTimeout(() => { setCurrent(i); setActive(true); }, 100);
-  };
+  const handleSceneEnded = useCallback(() => {
+    if (hasMultipleScenes) {
+      switchScene((prev) => {
+        const isLast = prev === sceneCodes.length - 1;
+        if (isLast && onAllScenesEnded) onAllScenesEnded();
+        return (prev + 1) % sceneCodes.length;
+      });
+    }
+  }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded]);
 
-  const SlideComp = slides[current];
+  const goToScene = useCallback((idx: number) => {
+    switchScene(() => idx);
+  }, [switchScene]);
+
+  // ─── No code yet — show blank placeholder ─────────────────────
+  if (!hasCode) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: "16/9",
+          background: theme.colors.bg,
+          borderRadius: 8,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: `${theme.fonts.heading}, sans-serif`,
+            fontSize: 34,
+            fontWeight: 700,
+            color: theme.colors.text,
+            textAlign: "center",
+          }}
+        >
+          {name || "Your Template"}
+        </div>
+        <div
+          style={{
+            fontFamily: `${theme.fonts.body}, sans-serif`,
+            fontSize: 20,
+            color: theme.colors.muted,
+            textAlign: "center",
+          }}
+        >
+          Preview will appear after generation
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Still compiling all scenes — show once on initial load ───
+  if (isCompiling) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: "16/9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#1a1a2e",
+          borderRadius: 8,
+        }}
+      >
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            border: "2px solid rgba(156, 163, 175, 0.35)",
+            borderTopColor: "#8b5cf6",
+            animation: "spin 0.9s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ─── Compile error / timeout ────────────────────────────────
+  if (compileError || compiledMap.size === 0) {
+    return (
+      <div style={{ width: "100%", aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a2e", border: "1px solid #ef4444", borderRadius: 8, padding: 16, gap: 8 }}>
+        <span style={{ color: "#ef4444", fontSize: 13 }}>
+          {compileError ? "Preview compilation timed out" : "Preview compilation failed"}
+        </span>
+        {onRetry && (
+          <button onClick={onRetry} style={{ marginTop: 4, padding: "4px 12px", fontSize: 12, borderRadius: 4, border: "1px solid #6366f1", background: "transparent", color: "#6366f1", cursor: "pointer" }}>
+            Regenerate
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const fallback = previewImageUrl ? (
+    <img
+      src={previewImageUrl}
+      alt="Loading preview..."
+      style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 8, display: "block" }}
+    />
+  ) : (
+    <div style={{ width: "100%", aspectRatio: "16/9", background: "#1a1a2e", borderRadius: 8 }} />
+  );
+
+  const currentScene = sceneCodes[activeScene] || sceneCodes[0];
 
   return (
-    <ScaledCanvas>
-      <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        <SlideComp active={active} theme={theme} name={name} />
-        <SlideDots total={slides.length} current={current} accent={theme.colors.accent} onDotClick={handleDot} />
-      </div>
-    </ScaledCanvas>
+    <div style={{ position: "relative" }}>
+      {/* Scene layers — div wrappers always mounted so CSS transitions work on opacity */}
+      <Suspense fallback={fallback}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: 8, overflow: "hidden" }}>
+          {sceneCodes.map((_, idx) => {
+            const isActive = idx === activeScene;
+            const isOutgoing = idx === outgoingScene;
+            const compiled = compiledMap.get(idx);
+            const shouldRenderPlayer = (isActive || isOutgoing) && compiled;
+
+            return (
+              <div
+                key={`scene-${idx}`}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  opacity: isActive ? 1 : 0,
+                  transform: isActive ? "scale(1)" : isOutgoing ? "scale(1.02)" : "scale(0.98)",
+                  transition: "opacity 300ms ease-out, transform 300ms ease-out",
+                  zIndex: isActive ? 2 : 1,
+                  pointerEvents: isActive ? "auto" : "none",
+                }}
+              >
+                {shouldRenderPlayer && (
+                  <RemotionPreviewPlayer
+                    compiledComponent={compiled}
+                    theme={theme}
+                    sampleProps={sceneSampleProps[idx]}
+                    durationSeconds={5}
+                    loop={!hasMultipleScenes}
+                    onRetry={onRetry}
+                    onEnded={isActive ? handleSceneEnded : undefined}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Suspense>
+
+      {/* Scene navigation dots + label */}
+      {hasMultipleScenes && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 8,
+            left: 0,
+            right: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            zIndex: 10,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#fff",
+              background: "rgba(0,0,0,0.5)",
+              padding: "2px 8px",
+              borderRadius: 8,
+              marginRight: 4,
+            }}
+          >
+            {currentScene.label}
+          </span>
+          {sceneCodes.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => goToScene(idx)}
+              style={{
+                width: idx === activeScene ? 16 : 6,
+                height: 6,
+                borderRadius: 3,
+                background: idx === activeScene ? "#fff" : "rgba(255,255,255,0.4)",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                transition: "all 0.2s",
+              }}
+              title={sceneCodes[idx].label}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
