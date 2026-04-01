@@ -28,9 +28,13 @@ import {
   calculateNewspaperMetadata,
 } from "./templates/newspaper/NewspaperVideo";
 import {
-  CustomVideo,
-  calculateCustomMetadata,
-} from "./templates/custom/CustomVideo";
+  NewscastVideo,
+  calculateNewscastMetadata,
+} from "./templates/newscast/NewscastVideo";
+import {
+  GeneratedVideo,
+  calculateGeneratedMetadata,
+} from "./templates/generated/GeneratedVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -120,8 +124,20 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateNewspaperMetadata}
       />
       <Composition
-        id="CustomVideo"
-        component={CustomVideo}
+        id="NewscastVideo"
+        component={NewscastVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateNewscastMetadata}
+      />
+      <Composition
+        id="GeneratedVideo"
+        component={GeneratedVideo}
         durationInFrames={30 * 300}
         fps={30}
         width={1920}
@@ -129,7 +145,7 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           dataUrl: "/data.json",
         }}
-        calculateMetadata={calculateCustomMetadata}
+        calculateMetadata={calculateGeneratedMetadata}
       />
     </>
   );

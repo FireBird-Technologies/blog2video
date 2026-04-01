@@ -1,4 +1,6 @@
 /** Nightfall template layout types. */
+import type { SocialsMap } from "../SocialIcons";
+
 export type NightfallLayoutType =
   | "cinematic_title"
   | "glass_narrative"
@@ -9,7 +11,8 @@ export type NightfallLayoutType =
   | "split_glass"
   | "chapter_break"
   | "glass_image"
-  | "data_visualization";
+  | "data_visualization"
+  | "ending_socials";
 
 // Chart data types
 export interface BarChartData {
@@ -67,4 +70,9 @@ export interface NightfallLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  // ending_socials
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

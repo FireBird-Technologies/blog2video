@@ -32,6 +32,19 @@ export const topNavLinks = [
   { href: "/pricing", label: "Pricing" },
 ];
 
+export const templateMenuLinks = [
+  ...templateProfiles.map((template) => ({
+    href: `/templates/${template.slug}`,
+    label: template.name,
+    description: template.bestFor.split(",")[0].trim(),
+  })),
+  {
+    href: "/custom-branded-video-templates",
+    label: "Custom Templates",
+    description: "Create a reusable branded template from your website or brand system.",
+  },
+];
+
 export const footerGroups = [
   {
     title: "Core Workflows",
@@ -59,12 +72,14 @@ export const footerGroups = [
     title: "Templates",
     links: [
       "/templates/nightfall",
+      "/templates/newscast",
       "/templates/spotlight",
       "/templates/whiteboard",
       "/templates/gridcraft",
       "/templates/matrix",
       "/templates/newspaper",
       "/templates/geometric-explainer",
+      "/custom-branded-video-templates",
     ],
   },
   {

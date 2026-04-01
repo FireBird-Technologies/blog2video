@@ -38,11 +38,8 @@ declare module "@remotion-video/templates/newspaper/layouts" {
   export type BlogLayoutProps = Record<string, any>;
 }
 
-declare module "@remotion-video/templates/custom/UniversalScene" {
-  export const UniversalScene: any;
-}
-
-declare module "@remotion-video/templates/custom/types" {
-  export type CustomTheme = Record<string, any>;
-  export type SceneLayoutConfig = Record<string, any>;
+declare module "@remotion-video/templates/newscast/layouts" {
+  export const NEWSCAST_LAYOUT_REGISTRY: Record<string, any>;
+  export type NewscastLayoutType = string;
+  export type NewscastLayoutProps = Record<string, any>;
 }

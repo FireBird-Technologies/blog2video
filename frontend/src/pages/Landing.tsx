@@ -8,6 +8,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import FullTemplateShowcase from "../components/FullTemplateShowcase";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
+// import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
@@ -463,6 +464,13 @@ export default function Landing() {
           <CustomTemplateShowcase />
         </div>
       </section>
+
+      {/* ─── Featured User Templates showcase ─── */}
+      {/* <section className="pb-20 border-t border-gray-100 pt-10">
+        <div className="max-w-6xl mx-auto px-6">
+          <FeaturedUserTemplates />
+        </div>
+      </section> */}
 
       {/* ─── Voice showcase ─── */}
       <section className="py-20 border-t border-gray-100">
