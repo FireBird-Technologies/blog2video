@@ -124,6 +124,7 @@ interface CustomPreviewProps {
   logoUrls?: string[];
   ogImage?: string;
   onRetry?: () => void;
+  onAllScenesEnded?: () => void;
 }
 
 export default function CustomPreview({
@@ -137,6 +138,7 @@ export default function CustomPreview({
   logoUrls,
   ogImage,
   onRetry,
+  onAllScenesEnded,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
   const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
@@ -271,9 +273,13 @@ export default function CustomPreview({
 
   const handleSceneEnded = useCallback(() => {
     if (hasMultipleScenes) {
-      switchScene((prev) => (prev + 1) % sceneCodes.length);
+      switchScene((prev) => {
+        const isLast = prev === sceneCodes.length - 1;
+        if (isLast && onAllScenesEnded) onAllScenesEnded();
+        return (prev + 1) % sceneCodes.length;
+      });
     }
-  }, [hasMultipleScenes, sceneCodes.length, switchScene]);
+  }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded]);
 
   const goToScene = useCallback((idx: number) => {
     switchScene(() => idx);

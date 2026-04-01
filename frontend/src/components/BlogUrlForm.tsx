@@ -68,9 +68,9 @@ const MAX_BULK_LINKS = (() => {
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
 const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
-  short: "Short  ~  1:00–1:40 mins",
-  medium: "Medium  ~  1:50–2:40 mins",
-  detailed: "Detailed  ~  3:00–4:20 mins",
+  short: "Short  ~  30 sec – 1 min",
+  medium: "Medium  ~  1 - 3 mins",
+  detailed: "Detailed  ~  3 – 8 mins",
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
@@ -416,6 +416,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Load all templates once (filtering by style is done in UI)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  // Only show templates that have finished generating (intro_code exists)
+  const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
 
   const renderLanguageDropdown = (
@@ -568,10 +570,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template when user hasn't chosen one: Newscast first, then Nightfall, etc.
+  // Preferred built-in template when user hasn't chosen one: Nightfall first, then Newscast, etc.
   const preferredTemplateId =
-    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
     "default";
 
@@ -579,8 +581,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   useEffect(() => {
     if (templates.length === 0) return;
     const preferred =
-      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
       // Single/upload flow: set template if still default or custom placeholder.
@@ -1536,7 +1538,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
   );
-  const customTemplatesForStyle = customTemplates.filter(
+  const customTemplatesForStyle = readyCustomTemplates.filter(
     (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
   );
 
@@ -1642,7 +1644,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {templatePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = template === customId;
                 return (
@@ -2095,7 +2097,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const suggestedTemplates = sourceList.filter(
       (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
     );
-    const customTemplatesForStyle = customTemplates.filter(
+    const customTemplatesForStyle = readyCustomTemplates.filter(
       (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
     );
     const styleTemplateItems: Array<
@@ -2335,7 +2337,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {activePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = tpl === customId;
                 return (

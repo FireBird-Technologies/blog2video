@@ -112,8 +112,12 @@ class GenerateSceneCode(dspy.Signature):
     - Missing image handling is a BUG — the reward function penalizes scenes that ignore these props
 
     Typography (MANDATORY for readability at 1920×1080):
-    - Main title / displayText: use fontSize: (props.titleFontSize ?? 88) (or scale proportionally in nested layouts, never below 56 for the primary headline).
-    - Subtitle / narration / body under the title: use fontSize: (props.descriptionFontSize ?? 44); supporting lines at least 32px.
+    - NEVER hardcode fontFamily strings like "Inter" or "Roboto" — fonts are passed as props.
+      For headings/titles use: fontFamily: props.headingFont || "inherit"
+      For body/description text use: fontFamily: props.bodyFont || "inherit"
+      This lets users change fonts from Settings without regenerating templates.
+    - Main title / displayText: use fontSize: (props.titleFontSize ?? 75) (or scale proportionally in nested layouts, never below 48 for the primary headline).
+    - Subtitle / narration / body under the title: use fontSize: (props.descriptionFontSize ?? 37); supporting lines at least 28px.
     - Bullet lists, card body text, quote body, metric labels: at least 30–36px so previews stay legible when scaled down in the UI.
     - Do NOT hardcode tiny font sizes (e.g. 12–18px) for primary readable content.
 
@@ -149,6 +153,7 @@ class GenerateSceneCode(dspy.Signature):
       logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text },
       aspectRatio: "landscape" | "portrait",
       titleFontSize?: number, descriptionFontSize?: number,
+      headingFont?: string, bodyFont?: string,
       contentType?: "plain"|"bullets"|"metrics"|"code"|"quote"|"comparison"|"timeline"|"steps",
       bullets?: string[], metrics?: {value,label,suffix?}[], codeLines?: string[],
       codeLanguage?: string, quote?: string, quoteAuthor?: string,
@@ -179,7 +184,8 @@ def _scene_reward(args, pred) -> float:
     code = clean_code(raw_code)
 
     # Must pass validation (hard requirement)
-    valid, err = validate_component_code(code)
+    scene_type = getattr(args, "scene_type", "content")
+    valid, err = validate_component_code(code, scene_type=scene_type)
     if not valid:
         print(f"[F7-DEBUG] [REFINE] FAILED: {err}")
         return 0.0
@@ -601,7 +607,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
     # Final validation pass
     scene_types_simple = ["intro"] + ["content"] * num_content + ["outro"]
     for i, code in enumerate(scenes):
-        valid, err = validate_component_code(code)
+        valid, err = validate_component_code(code, scene_type=scene_types_simple[i])
         if not valid:
             raise RuntimeError(f"Scene {i} ({scene_types_simple[i]}) failed validation after Refine: {err}")
 

@@ -47,6 +47,8 @@ export interface SceneProps {
   steps?: string[];
   titleFontSize?: number;
   descriptionFontSize?: number;
+  headingFont?: string;
+  bodyFont?: string;
 }
 
 export type CompileResult =
@@ -79,10 +81,10 @@ export function preloadBabel(): void {
 export async function compileComponentCode(
   code: string
 ): Promise<CompileResult> {
-  console.log("[F7-DEBUG] compileComponentCode called: code length =", code.length, "chars");
+  // console.log("[F7-DEBUG] compileComponentCode called: code length =", code.length, "chars");
   try {
     const Babel = await loadBabel();
-    console.log("[F7-DEBUG] Babel loaded successfully");
+    // console.log("[F7-DEBUG] Babel loaded successfully");
 
     // Strip any import/export statements the LLM might have added
     const cleaned = code
@@ -138,14 +140,14 @@ export async function compileComponentCode(
     );
 
     if (typeof SceneComponent !== "function") {
-      console.error("[F7-DEBUG] SceneComponent is not a function, got:", typeof SceneComponent);
+      // console.error("[F7-DEBUG] SceneComponent is not a function, got:", typeof SceneComponent);
       return {
         success: false,
         error: "Generated code did not produce a valid SceneComponent function",
       };
     }
 
-    console.log("[F7-DEBUG] Compilation SUCCESS — SceneComponent is a valid function");
+    // console.log("[F7-DEBUG] Compilation SUCCESS — SceneComponent is a valid function");
     return { success: true, component: SceneComponent as React.FC<SceneProps> };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -46,6 +46,7 @@ import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
@@ -2683,16 +2684,18 @@ export default function ProjectView() {
                                 {scene.remotion_code && (() => {
                                   try {
                                     const desc = JSON.parse(scene.remotion_code);
+                                    const layoutId =
+                                      desc.layout ||
+                                      desc.contentArchetype ||
+                                      desc.layoutConfig?.arrangement ||
+                                      null;
                                     return (
                                       <div>
                                         <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                           Layout
                                         </h4>
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                          {desc.layout?.replace(/_/g, " ")
-                                          || desc.contentArchetype?.replace(/_/g, " ")
-                                          || desc.layoutConfig?.arrangement?.replace(/_/g, " ")
-                                          || "text narration"}
+                                          {getSceneLayoutLabel(project.template, layoutId, layoutId?.replace(/_/g, " ")) || "text narration"}
                                         </span>
                                       </div>
                                     );
@@ -2719,8 +2722,9 @@ export default function ProjectView() {
                                     const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
                                     const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
                                     const override = sceneFontOverrides[scene.id];
-                                    const storedTitle = desc.layoutConfig?.titleFontSize ?? desc.layoutProps?.titleFontSize;
-                                    const storedDesc = desc.layoutConfig?.descriptionFontSize ?? desc.layoutProps?.descriptionFontSize;
+                                    const isCustomTpl = (template).startsWith("custom_");
+                                    const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
+                                    const storedDesc = isCustomTpl ? desc.layoutConfig?.descriptionFontSize : desc.layoutProps?.descriptionFontSize;
                                     const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
                                     const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
                                     const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
@@ -2738,8 +2742,11 @@ export default function ProjectView() {
                                         if (!sc?.remotion_code) return;
                                         setSavingFontSizes(sceneId);
                                         try {
-                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown> };
-                                          const next = { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown>; layoutConfig?: Record<string, unknown> };
+                                          const isCustom = (proj.template || "").startsWith("custom_");
+                                          const next = isCustom
+                                            ? { ...d, layoutConfig: { ...(d.layoutConfig ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } }
+                                            : { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
                                           updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
                                             loadProject();
                                             setSceneFontOverrides((prev) => {

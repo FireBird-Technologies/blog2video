@@ -7,6 +7,7 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
+  resolveNewscastNumberFontPx,
   resolveNewscastDescriptionSize,
   resolveNewscastTitleSize,
   scaleNewscastPx,
@@ -164,50 +165,67 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {safeItems.map((txt, idx) => (
-                <div
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={idx}
-                  style={{
-                    position: "relative",
-                    padding: isNarrow ? "11px 16px" : "12px 18px",
-                    borderRadius: 10,
-                    background: "rgba(10,42,110,0.25)",
-                    border: "1px solid rgba(200,220,255,0.20)",
-                    borderLeft: `4px solid ${RED}`,
-                    backdropFilter: "blur(6px)",
-                  transformStyle: "preserve-3d",
-                    zIndex: 10 + idx,
-                    opacity: interpolate(frame, [idx * dropStagger, idx * dropStagger + 10], [0, 1], {
-                      extrapolateRight: "clamp",
-                    }),
-                    transform: (() => {
-                      const start = idx * dropStagger;
-                      const dropY = interpolate(
-                        frame,
-                        [start, start + 11, start + 20, start + 30],
-                        [-dropDistance, 36, -16, 0],
-                        { extrapolateRight: "clamp" }
-                      );
-                      const landScale = interpolate(
-                        frame,
-                        [start + 11, start + 20, start + 32],
-                        [1.1, 0.9, 1.0],
-                        { extrapolateRight: "clamp" }
-                      );
-                      const pileT = interpolate(frame, [start + 10, start + 30], [1, 0], {
+              {safeItems.map((txt, idx) => {
+                const indexLabel = String(idx + 1).padStart(2, "0");
+                const indexBasePx = isNarrow ? 24 : 28;
+                const indexFontSize = resolveNewscastNumberFontPx({
+                  basePx: indexBasePx,
+                  descriptionFontSize,
+                  portraitScale,
+                  text: indexLabel,
+                  maxWidth: isNarrow ? 34 : 40,
+                  maxHeight: isNarrow ? 34 : 38,
+                  lineHeight: 1,
+                  proportionalDamp: 0.68,
+                  proportionalMin: 0.88,
+                  proportionalMax: 1.18,
+                  fitMin: 0.66,
+                  fitMax: 1,
+                });
+                return (
+                  <div
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={idx}
+                    style={{
+                      position: "relative",
+                      padding: isNarrow ? "11px 16px" : "12px 18px",
+                      borderRadius: 10,
+                      background: "rgba(10,42,110,0.25)",
+                      border: "1px solid rgba(200,220,255,0.20)",
+                      borderLeft: `4px solid ${RED}`,
+                      backdropFilter: "blur(6px)",
+                      transformStyle: "preserve-3d",
+                      zIndex: 10 + idx,
+                      opacity: interpolate(frame, [idx * dropStagger, idx * dropStagger + 10], [0, 1], {
                         extrapolateRight: "clamp",
-                      });
-                      const fanX = (idx - 1) * 120 * prismLock;
-                      const fanY = (idx - 1) * -34 * prismLock;
-                      const fanRot = (idx - 1) * 11 * prismLock;
-                      return `translateX(${idx * 10 + fanX}px) translateY(${dropY - idx * pileOffsetY * pileT + fanY}px) perspective(900px) rotateY(${zRotY * 0.65 + fanRot}deg) rotateX(${
-                        -zRotY * 0.35
-                      }deg) translateZ(${zEnter * 18 + prismLock * 18}px) scale(${landScale * lockPulse})`;
-                    })(),
-                    overflow: "hidden",
-                  }}
-                >
+                      }),
+                      transform: (() => {
+                        const start = idx * dropStagger;
+                        const dropY = interpolate(
+                          frame,
+                          [start, start + 11, start + 20, start + 30],
+                          [-dropDistance, 36, -16, 0],
+                          { extrapolateRight: "clamp" }
+                        );
+                        const landScale = interpolate(
+                          frame,
+                          [start + 11, start + 20, start + 32],
+                          [1.1, 0.9, 1.0],
+                          { extrapolateRight: "clamp" }
+                        );
+                        const pileT = interpolate(frame, [start + 10, start + 30], [1, 0], {
+                          extrapolateRight: "clamp",
+                        });
+                        const fanX = (idx - 1) * 120 * prismLock;
+                        const fanY = (idx - 1) * -34 * prismLock;
+                        const fanRot = (idx - 1) * 11 * prismLock;
+                        return `translateX(${idx * 10 + fanX}px) translateY(${dropY - idx * pileOffsetY * pileT + fanY}px) perspective(900px) rotateY(${zRotY * 0.65 + fanRot}deg) rotateX(${
+                          -zRotY * 0.35
+                        }deg) translateZ(${zEnter * 18 + prismLock * 18}px) scale(${landScale * lockPulse})`;
+                      })(),
+                      overflow: "hidden",
+                    }}
+                  >
                   <div
                     aria-hidden
                     style={{
@@ -222,16 +240,16 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                     <div
                       style={{
                         fontFamily: newscastFont(fontFamily, "title"),
-                        fontSize: scaleNewscastPx(isNarrow ? 24 : 28, portraitScale),
+                        fontSize: indexFontSize,
                         fontWeight: 700,
                         color: RED,
                         opacity: 0.8,
-                        minWidth: 30,
+                        minWidth: isNarrow ? 30 : 34,
                         textAlign: "center",
                         paddingTop: 2,
                       }}
                     >
-                      {String(idx + 1).padStart(2, "0")}
+                      {indexLabel}
                     </div>
                     <div
                       style={{
@@ -249,7 +267,8 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
