@@ -753,7 +753,7 @@ async def render_video_endpoint(
     project = _get_project(project_id, user.id, db)
 
     # Render at 720p for whiteboard (stickman) and newspaper templates
-    resolution = "720p" if project.template in ("whiteboard", "newspaper","newscast") else "1080p"
+    resolution = "720p" if project.template in ("whiteboard", "newspaper") else "1080p"
 
     # Already rendered and available in R2 — skip re-render unless force_render (re-render with latest changes)
     if project.r2_video_url and not force_render:
