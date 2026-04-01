@@ -2196,7 +2196,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         # 720p for whiteboard/newspaper, 1080p for all others.
         resolution = (payload.resolution or "").strip().lower()
         if resolution not in ("720p", "1080p"):
-            resolution = "720p" if template_id in ("whiteboard", "newspaper","newscast") else "1080p"
+            resolution = "720p" if template_id in ("whiteboard", "newspaper") else "1080p"
         cmd = _build_render_cmd(
             npx,
             output_path,
