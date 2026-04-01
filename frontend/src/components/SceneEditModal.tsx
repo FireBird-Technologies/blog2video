@@ -829,8 +829,9 @@ export default function SceneEditModal({
             } catch { /* ignore */ }
           }
           // Custom templates use layoutConfig — skip layoutProps editing
-          if (desc.layoutConfig) {
-            // For custom templates, only persist font size overrides in layoutConfig
+          if (isCustomTemplate) {
+            // Ensure layoutConfig exists for custom templates
+            if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
             if (tsNum !== null && tsNum !== defTitle) config.titleFontSize = tsNum;
             else delete config.titleFontSize;
