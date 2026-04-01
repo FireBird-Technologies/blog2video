@@ -34,7 +34,7 @@ export const EndingSocials: React.FC<SceneLayoutProps> = ({
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
   const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-  const bodyFont = fontFamily ?? "'Inter, system-ui, sans-serif";
+  const bodyFont = fontFamily ?? "'Roboto Slab', serif";
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
