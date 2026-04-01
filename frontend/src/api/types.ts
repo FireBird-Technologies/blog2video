@@ -212,5 +212,10 @@ export interface RenderStatus {
   done: boolean;
   error: string | null;
   time_remaining: string | null;
+  /** Stable ETA from elapsed time and % complete (seconds). */
+  eta_seconds: number | null;
+  /** True when this API instance has no progress state (e.g. load-balanced poll). */
+  progress_unknown?: boolean;
+  render_attempt?: number | null;
   r2_video_url: string | null;
 }

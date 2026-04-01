@@ -1,64 +1,30 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { CustomTemplateTheme } from "../api/client";
-import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
-import CustomPreviewPortrait from "./templatePreviews/portrait/CustomPreviewPortrait";
+import { getFeaturedPublicTemplates } from "../api/client";
+import CustomPreview from "./templatePreviews/CustomPreview";
 
-const BRAND_THEMES: { theme: CustomTemplateTheme; name: string; url: string }[] = [
-  {
-    name: "Vercel",
-    url: "https://vercel.com",
-    theme: {
-      colors: { accent: "#000000", bg: "#FAFAFA", text: "#171717", surface: "#FFFFFF", muted: "#A1A1AA" },
-      fonts: { heading: "Geist", body: "Geist", mono: "Geist Mono" },
-      borderRadius: 8,
-      style: "bold",
-      animationPreset: "spring",
-      category: "tech",
-      patterns: {
-        cards: { corners: "rounded", shadowDepth: "subtle", borderStyle: "thin" },
-        spacing: { density: "comfortable", gridGap: 24 },
-        images: { treatment: "rounded", overlay: "none", captionStyle: "below" },
-        layout: { direction: "centered", decorativeElements: ["accent-lines"] },
-      },
-    },
-  },
-  {
-    name: "Linear",
-    url: "https://linear.app",
-    theme: {
-      colors: { accent: "#5E6AD2", bg: "#0A0B10", text: "#F1F0EE", surface: "#15161E", muted: "#7C7F8A" },
-      fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
-      borderRadius: 10,
-      style: "glass",
-      animationPreset: "spring",
-      category: "saas",
-      patterns: {
-        cards: { corners: "rounded", shadowDepth: "medium", borderStyle: "accent" },
-        spacing: { density: "compact", gridGap: 16 },
-        images: { treatment: "rounded", overlay: "gradient", captionStyle: "below" },
-        layout: { direction: "centered", decorativeElements: ["gradients"] },
-      },
-    },
-  },
-  {
-    name: "Stripe",
-    url: "https://stripe.com",
-    theme: {
-      colors: { accent: "#635BFF", bg: "#F6F9FC", text: "#0A2540", surface: "#FFFFFF", muted: "#8898AA" },
-      fonts: { heading: "Sohne", body: "Sohne", mono: "Sohne Mono" },
-      borderRadius: 12,
-      style: "soft",
-      animationPreset: "fade",
-      category: "fintech",
-      patterns: {
-        cards: { corners: "rounded", shadowDepth: "medium", borderStyle: "thin" },
-        spacing: { density: "spacious", gridGap: 24 },
-        images: { treatment: "rounded", overlay: "gradient", captionStyle: "below" },
-        layout: { direction: "centered", decorativeElements: ["gradients", "dots"] },
-      },
-    },
-  },
-];
+interface FeaturedTemplate {
+  id: number;
+  name: string;
+  theme: CustomTemplateTheme;
+  intro_code: string | null;
+  content_codes: string[] | null;
+  outro_code: string | null;
+  content_archetype_ids: any;
+  preview_image_url: string;
+  logo_urls: string[];
+  og_image: string;
+}
+
+const SHOWCASE_IDS = [44, 38, 46, 13];
+
+// URL to show in the typing animation per template ID
+const TEMPLATE_URLS: Record<number, string> = {
+  44: "https://anthropic.com",
+  38: "https://stripe.com/",
+  46: "https://mckinsey.com",
+  13: "https://firebirdtech.com",
+};
 
 const CYCLE_INTERVAL = 6000;
 const TYPING_SPEED = 50;
@@ -91,7 +57,7 @@ function StepFlow({
   onUrlDone,
 }: {
   step: 1 | 2 | 3;
-  brand: (typeof BRAND_THEMES)[0];
+  brand: { theme: CustomTemplateTheme; name: string; url: string };
   onUrlDone: () => void;
 }) {
   const { displayed, done: typingDone } = useTypingAnimation(brand.url, step === 1);
@@ -248,21 +214,22 @@ function StepFlow({
   );
 }
 
-// ─── Brand selector pills ───────────────────────────────────────────
-function BrandSelector({
-  themes,
+// ─── Template selector pills ────────────────────────────────────────
+function TemplateSelector({
+  templates,
   current,
   onSelect,
 }: {
-  themes: typeof BRAND_THEMES;
+  templates: FeaturedTemplate[];
   current: number;
   onSelect: (i: number) => void;
 }) {
+  if (templates.length === 0) return null;
   return (
-    <div className="flex items-center justify-center gap-2 mt-6">
-      {themes.map((t, i) => (
+    <div className="flex items-center justify-center gap-2 mt-6 flex-wrap">
+      {templates.map((t, i) => (
         <button
-          key={i}
+          key={t.id}
           onClick={() => onSelect(i)}
           className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 ${
             i === current
@@ -272,7 +239,7 @@ function BrandSelector({
         >
           <div
             className="w-2.5 h-2.5 rounded-full transition-all duration-300 group-hover:scale-110"
-            style={{ backgroundColor: t.theme.colors.accent }}
+            style={{ backgroundColor: t.theme?.colors?.accent ?? "#a855f7" }}
           />
           {t.name}
         </button>
@@ -283,22 +250,62 @@ function BrandSelector({
 
 // ─── Main component ─────────────────────────────────────────────────
 export default function CustomTemplateShowcase() {
-  const [brandIdx, setBrandIdx] = useState(0);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [fading, setFading] = useState(false);
   const cycleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const brand = BRAND_THEMES[brandIdx];
+  const [templates, setTemplates] = useState<FeaturedTemplate[]>([]);
+  const [templateIdx, setTemplateIdx] = useState(0);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fetch the 4 showcase templates on mount
+  useEffect(() => {
+    getFeaturedPublicTemplates(SHOWCASE_IDS)
+      .then((res) => setTemplates(res.data || []))
+      .catch((err) => console.error("[F7-DEBUG] CustomTemplateShowcase: failed to fetch templates:", err));
+  }, []);
+
+  const currentTemplate = templates[templateIdx];
+
+  // Derive brand for left-side StepFlow from the current template
+  const brand = currentTemplate
+    ? {
+        name: currentTemplate.name,
+        url: TEMPLATE_URLS[currentTemplate.id] ?? `https://${currentTemplate.name.toLowerCase().replace(/\s+/g, "")}.com`,
+        theme: currentTemplate.theme,
+      }
+    : null;
+
+  // When templateIdx changes, reset left-side step animation to 1
+  useEffect(() => {
+    setStep(1);
+  }, [templateIdx]);
+
+  // Fallback timer for single-scene templates (which loop and never fire onAllScenesEnded).
+  // Only starts if the current template has 0 or 1 scene codes total.
+  useEffect(() => {
+    if (!currentTemplate || templates.length === 0) return;
+    const sceneCount =
+      (currentTemplate.intro_code ? 1 : 0) +
+      (currentTemplate.content_codes?.length ?? 0) +
+      (currentTemplate.outro_code ? 1 : 0);
+    if (sceneCount > 1) return; // multi-scene: onAllScenesEnded handles it
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    fallbackTimerRef.current = setTimeout(() => {
+      setTemplateIdx((prev) => (prev + 1) % templates.length);
+    }, 10000);
+    return () => { if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current); };
+  }, [templateIdx, templates.length, currentTemplate]);
+
+  const handleAllScenesEnded = useCallback(() => {
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    setTemplateIdx((prev) => (prev + 1) % templates.length);
+  }, [templates.length]);
+
+  // Left side: step 3 → loop back to step 1 after CYCLE_INTERVAL (stays in sync with current template)
   useEffect(() => {
     if (step !== 3) return;
     cycleRef.current = setTimeout(() => {
-      setFading(true);
-      setTimeout(() => {
-        setBrandIdx((prev) => (prev + 1) % BRAND_THEMES.length);
-        setStep(1);
-        setFading(false);
-      }, 350);
+      setStep(1);
     }, CYCLE_INTERVAL);
     return () => { if (cycleRef.current) clearTimeout(cycleRef.current); };
   }, [step]);
@@ -309,12 +316,6 @@ export default function CustomTemplateShowcase() {
       return () => clearTimeout(t);
     }
   }, [step]);
-
-  const handleBrandSelect = useCallback((i: number) => {
-    if (cycleRef.current) clearTimeout(cycleRef.current);
-    setFading(true);
-    setTimeout(() => { setBrandIdx(i); setStep(1); setFading(false); }, 250);
-  }, []);
 
   const advanceToStep2 = useCallback(() => setStep(2), []);
 
@@ -339,31 +340,37 @@ export default function CustomTemplateShowcase() {
 
       {/* Main showcase card */}
       <div className="glass-card p-6 sm:p-8 rounded-xl hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all max-w-5xl mx-auto">
-        <div
-          className="transition-opacity duration-300"
-          style={{ opacity: fading ? 0 : 1 }}
-        >
+        <div>
           {/* Two-column: steps left, preview right */}
           <div className="grid md:grid-cols-[0.85fr_1.15fr] gap-6 lg:gap-10 items-start">
             {/* Left: step flow */}
             <div className="order-2 md:order-1 pt-1">
-              <StepFlow step={step} brand={brand} onUrlDone={advanceToStep2} />
+              {brand && <StepFlow step={step} brand={brand} onUrlDone={advanceToStep2} />}
             </div>
 
-            {/* Right: live preview */}
+            {/* Right: real template preview */}
             <div className="order-1 md:order-2">
-              <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-                {/* Landscape */}
-                <div className="rounded-xl overflow-hidden border border-gray-200/60 bg-white shadow-sm">
-                  <div className="relative w-full aspect-video overflow-hidden">
-                    <CustomPreviewLandscape theme={brand.theme} name={brand.name} />
-                  </div>
-                </div>
-                {/* Portrait — smaller, tucked to the right */}
-                <div className="hidden sm:block rounded-xl overflow-hidden border border-gray-200/60 shadow-sm" style={{ width: 100 }}>
-                  <div style={{ aspectRatio: "9/16" }}>
-                    <CustomPreviewPortrait theme={brand.theme} name={brand.name} />
-                  </div>
+              <div className="rounded-xl overflow-hidden border border-gray-200/60 bg-white shadow-sm">
+                <div className="relative w-full aspect-video overflow-hidden">
+                  {currentTemplate ? (
+                    <CustomPreview
+                      key={templateIdx}
+                      theme={currentTemplate.theme}
+                      name={currentTemplate.name}
+                      introCode={currentTemplate.intro_code || undefined}
+                      outroCode={currentTemplate.outro_code || undefined}
+                      contentCodes={currentTemplate.content_codes || undefined}
+                      contentArchetypeIds={currentTemplate.content_archetype_ids || undefined}
+                      previewImageUrl={currentTemplate.preview_image_url}
+                      logoUrls={currentTemplate.logo_urls}
+                      ogImage={currentTemplate.og_image}
+                      onAllScenesEnded={handleAllScenesEnded}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                      <div className="w-7 h-7 rounded-full border-2 border-purple-200 border-t-purple-600 animate-spin" />
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Live label */}
@@ -376,8 +383,8 @@ export default function CustomTemplateShowcase() {
                   <span className="text-[10px] text-gray-400 font-medium">Live preview</span>
                 </div>
                 <span className="text-[10px] text-gray-300">|</span>
-                <span className="text-[10px] font-semibold transition-colors duration-500" style={{ color: brand.theme.colors.accent }}>
-                  {brand.name}
+                <span className="text-[10px] font-semibold transition-colors duration-500" style={{ color: currentTemplate?.theme?.colors?.accent ?? "#a855f7" }}>
+                  {currentTemplate?.name ?? ""}
                 </span>
               </div>
             </div>
@@ -385,8 +392,8 @@ export default function CustomTemplateShowcase() {
         </div>
       </div>
 
-      {/* Brand selector */}
-      <BrandSelector themes={BRAND_THEMES} current={brandIdx} onSelect={handleBrandSelect} />
+      {/* Template selector pills (right side) + Brand selector (left side) */}
+      <TemplateSelector templates={templates} current={templateIdx} onSelect={setTemplateIdx} />
 
       <style>{`
         @keyframes ctsBlink {

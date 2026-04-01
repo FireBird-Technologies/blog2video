@@ -2,7 +2,10 @@ import json
 import dspy
 
 from app.dspy_modules import ensure_dspy_configured
-
+from app.services.social_content_signals import (
+    detect_social_platforms_in_text,
+    format_social_platforms_for_script_prompt,
+)
 
 class BlogToScript(dspy.Signature):
     """
@@ -11,24 +14,38 @@ class BlogToScript(dspy.Signature):
     chosen video_style (explainer / promotional / storytelling). The script should be
     engaging, clear, and organized into scenes suitable for a Remotion-based video.
 
-    ═══ STYLE-SPECIFIC RULES (CRITICAL — follow for the given video_style) ═══
-    EXPLAINER:
-    - Cover the blog content thoroughly.
-    - Each major point can have its own scene. Combine only truly related minor points.
-    - Narrations: 1 sentence, 10–20 words max per scene (display text).
+    ═══ STYLE-SPECIFIC RULES (CRITICAL — STRICTLY follow the given video_style) ═══
+    - Treat video_style as a HARD CONSTRAINT.
+    - Do NOT mix styles in the same output.
+    - If video_style is promotional, every scene must feel like an ad/promo beat.
+    - If video_style is explainer, every scene must feel like a documentary-style explanation.
+    - If video_style is storytelling, every scene must feel like a story beat in sequence.
+
+    EXPLAINER (DOCUMENTARY MODE):
+    - Cover the blog content thoroughly with a documentary narrator tone.
+    - Use structured, detailed, factual phrasing with context and insight (not classroom instruction style).
+    - Scenes should progress logically: context -> key idea -> evidence/example -> takeaway.
+    - Narrations: 1-2 polished documentary-style sentences, target medium length (12-25 words).
+    - Avoid ad copy, hype language, and fictional storytelling dramatization.
+
     PROMOTIONAL:
-    - Be concise and punchy. Prioritize benefits and impact over detail.
-    - Tone must be strictly promotional.
-    - Narrations are longer than before to approximate ~6 seconds of speech per scene:
-      target 12–15 words per scene. One punchy line per scene. Avoid very long sentences.
-    - Structure: hook → 2–3 benefit/feature beats → clear call-to-action or closing.
+    - Tone must be strictly promotional/advertisement-like from start to end.
+    - Prioritize value proposition, benefits, transformation, and urgency over technical depth.
+    - Use persuasive sentence structures: hooks, benefit-led statements, social proof-style claims, and CTA language.
+    - Every scene should sound like a promo beat, not a neutral explanation.
+    - Narrations should be medium length (10-18 words), punchy but complete.
+    - Structure: hook -> problem -> solution/value -> key benefits/features -> CTA/closing push.
+
     STORYTELLING:
-    - Narrative arc: setup → development → payoff.
-    - Narrations should be slightly lengthier: about 15 words per scene (roughly 12–18 words). One full sentence per scene.
-    - Focus on journey, tension, or transformation; scenes should feel like story beats.
+    - Narrative arc is mandatory: setup -> inciting moment -> progression -> tension/challenge -> resolution/payoff.
+    - Scenes must build on each other step by step (clear continuity from previous scene).
+    - Use narrative connectors and progression cues naturally (then, next, after that, finally) in the target language.
+    - Narrations should be medium length (15-30 words), sounding like a human narrator telling a story.
+    - Avoid lecture tone and ad-slogan tone unless explicitly required by the source story context.
 
     GENERAL (all styles):
     - Scene count is controlled by `video_length`, not by `video_style`.
+    - Ensure title, scene titles, narrations, and visual_description all reflect the chosen style consistently.
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
     - video_length values: auto | short | medium | detailed
@@ -40,11 +57,11 @@ class BlogToScript(dspy.Signature):
 
     FIRST SCENE RULE:
     - The FIRST scene displays the hero/banner image with the blog title overlaid
-      and a SHORT narration (1 sentence, ~10-15 words maximum).
+      and a SHORT narration (1 sentence, ~14-16 words maximum).
     - The title of this scene MUST be the actual blog/video title (e.g. "Building a Reliable Text-to-SQL Pipeline").
       Do NOT use generic titles like "Hero Opening" or "Introduction" for scene 1.
     - The narration should be a brief, compelling hook, e.g. "Let's explore how X works." Keep it concise.
-    - Set its duration to 5-7 seconds. This scene WILL have a voiceover.
+    - Set its duration to 6-7 seconds. This scene WILL have a voiceover.
     - The second scene continues with the main introduction/content.
     - If NO hero image is available (hero_image says "no hero image"), the first scene
       should use a BOLD TEXT BANNER with the title as large centered text on a colored
@@ -60,8 +77,8 @@ class BlogToScript(dspy.Signature):
       NOT side-by-side layouts. Avoid "split-screen" or "side-by-side" descriptions.
     - For portrait flow diagrams: use VERTICAL flows (top to bottom), not horizontal.
     - For portrait comparisons: use STACKED layout (top vs bottom), not side-by-side.
-    - Keep narrations slightly shorter for portrait — mobile viewers prefer punchy content.
-    - Narrations: explainer/promotional 10-20 words max; storytelling about 15 words (12-18) per scene. Display texts shown on screen.
+    - Keep narrations punchy but still ensure minimum voiceover viability.
+    - Narrations: explainer 12-25 words max; promotional 10-18 words max; storytelling about 15-30 words per scene. Display texts shown on screen.
 
     Duration calculation: Each scene's duration_seconds should be based on narration
     word count: roughly 1 second per 2.5 words, minimum 5 seconds per scene.
@@ -81,7 +98,7 @@ class BlogToScript(dspy.Signature):
     - ALWAYS include the ACTUAL content to be visualized (real items, real code, real numbers)
 
     ═══ MAXIMIZE VISUAL VARIETY ═══
-    Your video should feel like a polished DOCUMENTARY, not a lecture. To achieve this:
+    Your video should feel polished and cinematic with strong visual variety. To achieve this:
     - EVERY scene should have a SPECIFIC visual layout hint in visual_description
     - Strongly prefer flow diagrams, bullet lists, metrics, comparisons, and timelines
     - Use plain text narration as an ABSOLUTE LAST RESORT — only if nothing else fits
@@ -127,6 +144,12 @@ class BlogToScript(dspy.Signature):
     ═══ TEMPLATE-SPECIFIC RULES ═══
     - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix):
     - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
+    - When include_ending_socials is true: assign preferred_layout "ending_socials" ONLY to the LAST scene in
+      scenes_json. No other scene may use "ending_socials" — not the first scene, not the middle, only the final index.
+    - ENDING SCENE (when include_ending_socials is true): the LAST scene MUST be a call-to-action grounded in the
+      actual blog_content — title, narration, and visual_description should reflect the article's topic, takeaway,
+      or next step (not generic filler). Follow social_platforms_detected strictly: only name social platforms
+      listed there when inviting followers; if it says NONE, do not name Facebook, Instagram, YouTube, etc.
     - Follow the "Best for" / "When to Use" hints when deciding per scene.
     - Hero/opening scenes should use the template's hero layout (e.g. hero_image, news_headline).
     - For CUSTOM templates (universal layout engine):
@@ -167,16 +190,32 @@ class BlogToScript(dspy.Signature):
         desc="Language of the scraped content (e.g. 'English', 'Spanish', 'French'). Generate ALL output in this language."
     )
 
+    include_ending_socials: bool = dspy.InputField(
+        desc=(
+            "Built-in templates only. When true, DSPy MUST append exactly one final ending scene as the LAST "
+            "scene with preferred_layout='ending_socials'. All other scenes MUST NOT use preferred_layout="
+            "'ending_socials'. When false, output only the normal scenes."
+        )
+    )
+
+    social_platforms_detected: str = dspy.InputField(
+        desc=(
+            "Summary of which social platforms are explicitly referenced in blog_content. "
+            "Follow this when writing the final ending scene: only invite followers to platforms "
+            "that are listed; if NONE, do not name social networks."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc=(
             'JSON array of scene objects. Each object has keys: "title" (str), '
-            '"narration" (str — length by video_style: promotional target 12-18 words, explainer 10-20 words, storytelling about 15 words [12-18]), '
+            '"narration" (str — length by video_style: explainer 12-25 words; promotional 10-18 words; storytelling about 15-30 words; so voiceover remains concise, and must strictly match selected style), '
             '"visual_description" (str), "suggested_images" (list of str), '
             '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
             'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-            'with a concise narration hook (10-15 words max, 1 sentence) and duration_seconds=6. '
-            'Narrations: storytelling ~15 words per scene; explainer/promotional 10-20 words max. '
+            'with a concise narration hook (12-15 words max, 1 sentence) and duration_seconds=6. '
+            'Narrations: storytelling (15-30) words per scene; explainer (12-25) words per scene; promotional (10-18) words max. '
             'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
             'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
             'Example with image: [{"title": "How AI is Changing Everything", '
@@ -187,6 +226,16 @@ class BlogToScript(dspy.Signature):
             '"narration": "Let\'s explore how AI transforms software development.", '
             '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
             '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
+            ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
+            'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
+            'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
+            'the blog topic; "narration" = CTA tied to the article (takeaway, next step, or follow-up) per video_style; '
+            '"visual_description" = CTA ending screen reflecting the topic. Use social_platforms_detected: only '
+            'mention social platforms listed there when inviting followers; if NONE, give a topic-based CTA without '
+            'naming Facebook, Instagram, YouTube, or other networks. '
+            'For that ending scene ONLY, also include "cta_button_text": a short pill label (2–6 words) for the '
+            'button above the website link — in content_language, grounded in the article topic (e.g. "Read the full guide", '
+            '"Explore the tutorial"), not generic English unless the content is English. '
         )
     )
 
@@ -209,6 +258,7 @@ class ScriptGenerator:
         video_length: str = "auto",
         layout_catalog: str = "",
         content_language: str = "English",
+        include_ending_socials: bool = False,
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -218,6 +268,10 @@ class ScriptGenerator:
         Returns:
             dict with 'title' and 'scenes' (list of scene dicts)
         """
+        social_flags = detect_social_platforms_in_text(blog_content)
+        social_hint = format_social_platforms_for_script_prompt(social_flags)
+        fallback_ending = self._build_fallback_ending_scene(social_flags)
+
         result = await self.generator(
             blog_content=blog_content,
             blog_images=json.dumps(blog_images),
@@ -227,6 +281,8 @@ class ScriptGenerator:
             video_length=(video_length or "auto").strip().lower() or "auto",
             layout_catalog=layout_catalog or "",
             content_language=(content_language or "English").strip(),
+            include_ending_socials=bool(include_ending_socials),
+            social_platforms_detected=social_hint,
         )
 
         # Parse the scenes JSON and apply limits
@@ -235,11 +291,49 @@ class ScriptGenerator:
             result.scenes_json,
             video_style=style,
             video_length=(video_length or "auto").strip().lower() or "auto",
+            include_ending_socials=include_ending_socials,
+            fallback_ending_scene=fallback_ending,
         )
 
         return {
             "title": result.title,
             "scenes": scenes,
+        }
+
+    @staticmethod
+    def _build_fallback_ending_scene(social_flags: dict[str, bool]) -> dict:
+        """Minimal last scene when the model returns no JSON (still respects social detection)."""
+        order = [
+            ("facebook", "Facebook"),
+            ("instagram", "Instagram"),
+            ("youtube", "YouTube"),
+            ("medium", "Medium"),
+            ("substack", "Substack"),
+            ("linkedin", "LinkedIn"),
+            ("tiktok", "TikTok"),
+        ]
+        labels = [lab for key, lab in order if social_flags.get(key)]
+        if labels:
+            narration = (
+                "Thanks for watching. If you found this valuable, connect with us on "
+                + ", ".join(labels)
+                + "."
+            )
+        else:
+            narration = (
+                "Thanks for watching. Take these ideas forward and revisit the source when you need the details."
+            )
+        return {
+            "title": "Thanks for watching",
+            "narration": narration,
+            "visual_description": (
+                "Call-to-action ending grounded in the article: thank viewers and reinforce the main takeaway; "
+                "optional social follow only when relevant to the source material."
+            ),
+            "suggested_images": [],
+            "duration_seconds": 6,
+            "preferred_layout": "ending_socials",
+            "cta_button_text": "Learn more",
         }
 
     def _max_scenes_for_video_length(self, video_length: str) -> int:
@@ -254,16 +348,69 @@ class ScriptGenerator:
         # auto: best-effort natural scene count, but never exceed 20 scenes
         return 20
 
+    @staticmethod
+    def _norm_layout_key(raw: str | None) -> str:
+        return (raw or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+    def _apply_ending_socials_placement(
+        self,
+        scenes: list[dict],
+        *,
+        include_ending_socials: bool,
+        max_scenes: int,
+        fallback_ending_scene: dict | None = None,
+    ) -> list[dict]:
+        """
+        Enforce: `ending_socials` is assigned only to the final scene when enabled, and never otherwise.
+
+        - Strips accidental `ending_socials` from non-final scenes (or from all scenes when disabled).
+        - Reserves the last list slot for the ending when `include_ending_socials` (same as scene-cap logic).
+        - If the model returned no scenes but an ending is required, appends a minimal ending scene.
+        """
+        ENDING = "ending_socials"
+
+        if not scenes:
+            if not include_ending_socials:
+                return []
+            return [fallback_ending_scene or self._build_fallback_ending_scene({})]
+
+        if include_ending_socials:
+            # Keep the last scene as the single ending slot; cap body so total length <= max_scenes.
+            body = scenes[:-1][: max(0, max_scenes - 1)]
+            tail = [scenes[-1]]
+            trimmed = body + tail
+        else:
+            trimmed = scenes[:max_scenes]
+
+        out: list[dict] = []
+        last_i = len(trimmed) - 1
+        for i, scene in enumerate(trimmed):
+            pl_raw = (scene.get("preferred_layout") or "").strip()
+            pl_norm = self._norm_layout_key(pl_raw)
+
+            if include_ending_socials and i == last_i:
+                preferred_layout = ENDING
+            elif pl_norm == ENDING:
+                preferred_layout = None
+            else:
+                preferred_layout = pl_raw or None
+
+            out.append({**scene, "preferred_layout": preferred_layout})
+
+        return out
+
     def _parse_scenes(
         self,
         scenes_json: str,
         video_style: str = "explainer",
         video_length: str = "auto",
+        include_ending_socials: bool = False,
+        fallback_ending_scene: dict | None = None,
     ) -> list[dict]:
         """Parse and validate scenes JSON.
 
         - Scene cap is driven by `video_length` (not by `video_style`).
-        - Promotional narration is truncated to a longer/detailed target (approx ~6s speech).
+        - Narration text is normalized for whitespace only.
         """
         try:
             # Try to extract JSON from the response (it might have markdown code fences)
@@ -278,25 +425,35 @@ class ScriptGenerator:
                 scenes = [scenes]
 
             max_scenes = self._max_scenes_for_video_length(video_length)
-            max_narration_words = 18 if video_style == "promotional" else None  # soft cap for truncation
+
+            kept = self._apply_ending_socials_placement(
+                scenes,
+                include_ending_socials=include_ending_socials,
+                max_scenes=max_scenes,
+                fallback_ending_scene=fallback_ending_scene,
+            )
 
             validated = []
-            for i, scene in enumerate(scenes[:max_scenes]):
+            for i, scene in enumerate(kept):
                 narration = scene.get("narration", "").strip()
-                # For promotional, truncate to a longer/detailed target (approx ~6s speech)
-                if max_narration_words and narration:
-                    words = narration.split()
-                    if len(words) > max_narration_words:
-                        narration = " ".join(words[:max_narration_words])
-                validated.append({
+                narration = " ".join(narration.split())
+
+                preferred_layout_raw = (scene.get("preferred_layout") or "").strip()
+                preferred_layout: str | None = preferred_layout_raw or None
+
+                cta_btn = (scene.get("cta_button_text") or "").strip()
+                row = {
                     "title": scene.get("title", f"Scene {i + 1}"),
                     "narration": narration,
                     "visual_description": scene.get("visual_description", ""),
                     "suggested_images": scene.get("suggested_images", []),
                     "duration_seconds": scene.get("duration_seconds", 10),
                     # May be a layout ID (built-in templates) or an arrangement name (custom templates)
-                    "preferred_layout": (scene.get("preferred_layout") or "").strip() or None,
-                })
+                    "preferred_layout": preferred_layout,
+                }
+                if preferred_layout == "ending_socials" and cta_btn:
+                    row["cta_button_text"] = cta_btn
+                validated.append(row)
 
             return validated
 
@@ -305,7 +462,7 @@ class ScriptGenerator:
             return [
                 {
                     "title": "Main Content",
-                    "narration": scenes_json[:500],
+                    "narration": " ".join((scenes_json[:500] or "").split()),
                     "visual_description": "Display blog content with images",
                     "suggested_images": [],
                     "duration_seconds": 30,

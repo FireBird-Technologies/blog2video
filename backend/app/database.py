@@ -20,6 +20,7 @@ else:
     engine_kwargs["pool_size"] = 5
     engine_kwargs["max_overflow"] = 10
     engine_kwargs["pool_pre_ping"] = True  # reconnect on stale connections
+    engine_kwargs["pool_recycle"] = 300  # recycle connections after 5 min to avoid SSL drops
 
     # Neon requires SSL
     if "sslmode" not in settings.DATABASE_URL:
@@ -137,6 +138,7 @@ def _migrate_sqlite(eng) -> None:
             "duration_seconds": "REAL DEFAULT 10.0",
             "preferred_layout": "VARCHAR(64)",
             "extra_hold_seconds": "REAL",
+            "scene_type": "VARCHAR(20)",
         }
         with eng.begin() as conn:
             for col_name, col_def in scene_migrations.items():
@@ -169,6 +171,13 @@ def _migrate_sqlite(eng) -> None:
             "theme": "TEXT",
             "generated_prompt": "TEXT",
             "preview_image_url": "VARCHAR(2048)",
+            "component_code": "TEXT",
+            "intro_code": "TEXT",
+            "outro_code": "TEXT",
+            "brand_kit_id": "INTEGER",
+            "current_version_id": "INTEGER",
+            "content_codes": "TEXT",
+            "content_archetype_ids": "TEXT",
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():
@@ -263,6 +272,19 @@ def _migrate_sqlite(eng) -> None:
                         text(f"ALTER TABLE project_edit_history ADD COLUMN {col_name} {col_def}")
                     )
 
+    # ─── Template versions table ──────────────────────────────────────
+    if "template_versions" in insp.get_table_names():
+        tv_cols = {c["name"] for c in insp.get_columns("template_versions")}
+        tv_migrations = {
+            "content_codes": "TEXT",
+        }
+        with eng.begin() as conn:
+            for col_name, col_def in tv_migrations.items():
+                if col_name not in tv_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE template_versions ADD COLUMN {col_name} {col_def}")
+                    )
+
     # ─── Prebuilt voices table ──────────────────────────────────────
     if "prebuilt_voices" in insp.get_table_names():
         pb_cols = {c["name"] for c in insp.get_columns("prebuilt_voices")}
@@ -332,6 +354,7 @@ def init_db():
     """
     from app.models import (  # noqa: F401
         Asset,
+        BrandKit,
         ChatMessage,
         CustomTemplate,
         Project,
@@ -343,6 +366,7 @@ def init_db():
         User,
         ProjectEditHistory,
         SceneEditHistory,
+        TemplateVersion,
         # Ensure SQLite creates the prebuilt_voices table in dev/local.
         PrebuiltVoice,
         Review,

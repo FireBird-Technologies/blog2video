@@ -10,9 +10,14 @@ of the filesystem, returning the same shapes as built-in templates.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 # Path to backend/templates/ (relative to this file: app/services/template_service.py)
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
@@ -34,80 +39,103 @@ def _parse_custom_id(template_id: str) -> int | None:
         return None
 
 
-# Simple in-memory cache for custom template data within a request lifecycle.
-# Avoids repeated DB queries when write_remotion_data calls get_fallback_layout,
-# get_hero_layout, get_layouts_without_image, etc. in a single request.
-_custom_template_cache: dict[str, dict[str, Any] | None] = {}
+def _build_template_result(tpl) -> dict[str, Any]:
+    """Build the template data dict from a CustomTemplate ORM object."""
+    theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
+    style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
+    if style not in {"explainer", "promotional", "storytelling"}:
+        style = "explainer"
+    # Load brand kit data if linked
+    brand_kit_data = None
+    if tpl.brand_kit_id and tpl.brand_kit:
+        bk = tpl.brand_kit
+        brand_kit_data = {
+            "colors": json.loads(bk.colors) if bk.colors else {},
+            "fonts": json.loads(bk.fonts) if bk.fonts else {},
+            "logos": json.loads(bk.logos) if bk.logos else [],
+            "design_language": json.loads(bk.design_language) if bk.design_language else {},
+            "images": json.loads(bk.images) if bk.images else [],
+        }
+
+    # Parse content_codes JSON if present
+    content_codes = None
+    if tpl.content_codes:
+        try:
+            content_codes = json.loads(tpl.content_codes)
+        except (json.JSONDecodeError, TypeError):
+            content_codes = None
+
+    return {
+        "theme": theme,
+        "generated_prompt": tpl.generated_prompt or "",
+        "name": tpl.name,
+        "category": tpl.category or "blog",
+        "supported_video_style": style,
+        "has_generated_code": bool(content_codes),
+        "intro_code": tpl.intro_code,
+        "outro_code": tpl.outro_code,
+        "content_codes": content_codes,
+        "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
+        "brand_kit": brand_kit_data,
+    }
 
 
-def _load_custom_template_data(template_id: str) -> dict[str, Any] | None:
+def _load_custom_template_data(
+    template_id: str, db: Session | None = None
+) -> dict[str, Any] | None:
     """
     Load a custom template's theme + generated_prompt from DB.
     Returns a dict with keys: theme, generated_prompt, name, category, supported_video_style.
-    Returns None if not found. Results are cached for the process lifetime
-    to avoid repeated DB queries within a single request.
-    """
-    if template_id in _custom_template_cache:
-        return _custom_template_cache[template_id]
+    Returns None if not found.
 
+    If a `db` session is provided, it is used directly (no new connection).
+    Otherwise a short-lived SessionLocal is created and closed automatically.
+    """
     custom_id = _parse_custom_id(template_id)
     if custom_id is None:
         return None
 
-    # Lazy import to avoid circular dependencies
-    from app.database import SessionLocal
     from app.models.custom_template import CustomTemplate
 
-    db = SessionLocal()
-    try:
+    if db is not None:
         tpl = db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
         if not tpl:
-            _custom_template_cache[template_id] = None
             return None
-        theme = json.loads(tpl.theme) if isinstance(tpl.theme, str) else tpl.theme
-        style = (getattr(tpl, "supported_video_style", None) or "").strip().lower()
-        if style not in {"explainer", "promotional", "storytelling"}:
-            style = "explainer"
-        result = {
-            "theme": theme,
-            "generated_prompt": tpl.generated_prompt or "",
-            "name": tpl.name,
-            "category": tpl.category or "blog",
-            "supported_video_style": style,
-        }
-        _custom_template_cache[template_id] = result
-        return result
+        return _build_template_result(tpl)
+
+    # No session provided — create a short-lived one
+    from app.database import SessionLocal
+
+    own_db = SessionLocal()
+    try:
+        tpl = own_db.query(CustomTemplate).filter(CustomTemplate.id == custom_id).first()
+        if not tpl:
+            return None
+        return _build_template_result(tpl)
     finally:
-        db.close()
+        own_db.close()
 
 
-def invalidate_custom_template_cache(template_id: str | None = None) -> None:
-    """Clear the custom template cache. Call after template updates."""
-    if template_id:
-        _custom_template_cache.pop(template_id, None)
-    else:
-        _custom_template_cache.clear()
-
-
-def _get_custom_meta(template_id: str) -> dict[str, Any] | None:
+def _get_custom_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
     """Build a meta.json equivalent for a custom template from DB data."""
-    data = _load_custom_template_data(template_id)
+    data = _load_custom_template_data(template_id, db=db)
     if not data:
         return None
     from app.services.custom_prompt_builder import build_custom_meta
+    content_codes = data.get("content_codes") or []
     return build_custom_meta(
         data["theme"],
         data["name"],
         supported_video_style=data.get("supported_video_style", "explainer"),
+        content_codes_count=len(content_codes),
     )
 
 
-def _get_custom_prompt(template_id: str) -> str:
-    """Get the cached generated prompt for a custom template."""
-    data = _load_custom_template_data(template_id)
+def _get_custom_prompt(template_id: str, db: Session | None = None) -> str:
+    """Get the generated prompt for a custom template."""
+    data = _load_custom_template_data(template_id, db=db)
     if not data:
         return ""
-    # If prompt was cached, return it; otherwise generate on the fly
     if data["generated_prompt"]:
         return data["generated_prompt"]
     from app.services.custom_prompt_builder import build_custom_prompt
@@ -127,10 +155,10 @@ def _load_registry() -> list[str]:
     return data if isinstance(data, list) else ["default"]
 
 
-def _load_meta(template_id: str) -> dict[str, Any] | None:
+def _load_meta(template_id: str, db: Session | None = None) -> dict[str, Any] | None:
     """Load meta.json for a template. Returns None if not found."""
     if is_custom_template(template_id):
-        return _get_custom_meta(template_id)
+        return _get_custom_meta(template_id, db=db)
     path = _TEMPLATES_DIR / template_id / "meta.json"
     if not path.exists():
         return None
@@ -138,10 +166,10 @@ def _load_meta(template_id: str) -> dict[str, Any] | None:
         return json.load(f)
 
 
-def _load_prompt(template_id: str) -> str:
+def _load_prompt(template_id: str, db: Session | None = None) -> str:
     """Load prompt.md content for a template. Returns empty string if not found."""
     if is_custom_template(template_id):
-        return _get_custom_prompt(template_id)
+        return _get_custom_prompt(template_id, db=db)
     path = _TEMPLATES_DIR / template_id / "prompt.md"
     if not path.exists():
         return ""
@@ -255,7 +283,7 @@ def get_preview_colors(template_id: str) -> dict[str, str] | None:
     return pc
 
 
-def validate_template_id(template_id: str | None) -> str:
+def validate_template_id(template_id: str | None, db: Session | None = None) -> str:
     """Return template_id if valid, else 'default'.
     Accepts both built-in IDs and 'custom_N' format."""
     if not template_id or not isinstance(template_id, str):
@@ -264,13 +292,15 @@ def validate_template_id(template_id: str | None) -> str:
 
     # Custom templates: validate format and existence in DB
     if is_custom_template(tid):
-        data = _load_custom_template_data(tid)
+        data = _load_custom_template_data(tid, db=db)
         if data is not None:
             return tid
         return "default"
 
     # Built-in templates
     tid = tid.lower()
+    if tid == "newsreport":
+        tid = "newscast"
     registry = _load_registry()
     if tid in registry:
         return tid

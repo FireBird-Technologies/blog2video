@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     )
 
     # Scene timing: minimum duration so animations can complete before transition.
-    MIN_SCENE_DURATION_SECONDS: float = float(os.environ.get("MIN_SCENE_DURATION_SECONDS", "7.5"))
+    MIN_SCENE_DURATION_SECONDS: float = float(os.environ.get("MIN_SCENE_DURATION_SECONDS", "7"))
 
     # Media storage
     MEDIA_DIR: str = os.path.join(

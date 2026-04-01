@@ -9,6 +9,7 @@ from app.database import Base
 # Import models so Base.metadata is fully populated for autogenerate.
 from app.models import (  # noqa: F401
     Asset,
+    BrandKit,
     ChatMessage,
     CustomTemplate,
     Project,
@@ -17,8 +18,9 @@ from app.models import (  # noqa: F401
     SubscriptionPlan,
     User,
     ProjectEditHistory,
-    SceneEditHistory
+    SceneEditHistory,
 )
+from app.models.template_version import TemplateVersion  # noqa: F401
 
 config = context.config
 
