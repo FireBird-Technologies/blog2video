@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, Sequence } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
+import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 
@@ -33,7 +34,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   
   // Use a single font family for all texts
-  const resolvedFontFamily = (fontFamily ?? "").trim() || "Inter, system-ui, sans-serif";
+  const resolvedFontFamily = (fontFamily ?? "").trim() || MATRIX_DEFAULT_FONT_FAMILY;
 
   // Timing for CTA text animation
   const ctaAnimationStartFrame = 45; // Start animation after other elements have settled
