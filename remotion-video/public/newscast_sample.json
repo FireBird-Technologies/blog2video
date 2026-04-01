@@ -1,0 +1,241 @@
+{
+  "projectName": "Newscast sample",
+  "accentColor": "#E82020",
+  "bgColor": "#060614",
+  "textColor": "#B8C8E0",
+  "aspectRatio": "landscape",
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "NEWSCAST OPENING",
+      "narration": "A clear, editorial opening for live broadcast updates across the Geneva desk.",
+      "layout": "opening",
+      "layoutProps": {
+        "tickerItems": [
+          "LIVE BREAKING FEED",
+          "TOP DEVELOPMENTS UPDATE",
+          "NEW DETAILS SURFACE",
+          "OFFICIAL CONFIRMATIONS"
+        ],
+        "lowerThirdTag": "LIVE COVERAGE",
+        "lowerThirdHeadline": "Correspondent Report",
+        "lowerThirdSub": "Reporting live from the broadcast desk"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "Anchor Narrative",
+      "narration": "Negotiators outline the next steps and confirm commitments for emissions targets and verification.",
+      "layout": "anchor_narrative",
+      "layoutProps": {
+        "category": "WORLD AFFAIRS",
+        "tickerItems": [
+          "BREAKING UPDATE",
+          "LATEST ON THE STORY",
+          "KEY CONTEXT PROVIDED"
+        ],
+        "lowerThirdTag": "CORRESPONDENT REPORT",
+        "lowerThirdHeadline": "Lead Narrative",
+        "lowerThirdSub": "Live briefing from the newsroom"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Live Metrics Board",
+      "narration": "142 nations signed the framework by 2045 as emissions cuts reached 40 percent for key sectors.",
+      "layout": "live_metrics_board",
+      "layoutProps": {
+        "metrics": [
+          { "value": "142", "label": "Nations Signed", "suffix": "+" },
+          { "value": "2045", "label": "Target Year", "suffix": "" },
+          { "value": "40", "label": "Emissions Cut", "suffix": "%" }
+        ],
+        "tickerItems": [
+          "KEY FIGURE UPDATE",
+          "LIVE METRICS RECAP",
+          "NUMBERS MOVE MARKETS"
+        ],
+        "lowerThirdTag": "KEY FIGURES",
+        "lowerThirdHeadline": "Live Metric Summary",
+        "lowerThirdSub": "On-air numbers and analysis"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 4,
+      "order": 4,
+      "title": "Side-by-Side Brief",
+      "narration": "Officials contrast the previous framework with a legally binding, verified mechanism for all sectors.",
+      "layout": "side_by_side_brief",
+      "layoutProps": {
+        "leftLabel": "BEFORE",
+        "rightLabel": "AFTER",
+        "leftTitle": "Previous Framework",
+        "rightTitle": "Geneva Accord",
+        "leftBody": "Voluntary pledges, no enforcement, sectors excluded",
+        "rightBody": "Legally binding, verified, all sectors, penalty mechanism",
+        "tickerItems": [
+          "BEFORE VS AFTER",
+          "LIVE COMPARISON FEED",
+          "CONTRAST UPDATE"
+        ],
+        "lowerThirdTag": "ANALYSIS",
+        "lowerThirdHeadline": "What Changes Next",
+        "lowerThirdSub": "Before/after overview on-air"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 5,
+      "order": 5,
+      "title": "Headline Insight",
+      "narration": "This is not a pledge — it is a commitment the world will enforce, says the UN Secretary-General.",
+      "layout": "headline_insight",
+      "layoutProps": {
+        "quote": "This is not a pledge — it is a commitment the world will enforce",
+        "highlightWord": "commitment",
+        "attribution": "— UN Secretary-General · Geneva, March 2026",
+        "tickerItems": [
+          "KEY MOMENT UPDATE",
+          "LIVE INSIGHT FEED",
+          "STORY DEFINING LINE"
+        ],
+        "lowerThirdTag": "STATEMENT",
+        "lowerThirdHeadline": "Key Moment Live",
+        "lowerThirdSub": "Credibility and voice emphasis"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 6,
+      "order": 6,
+      "title": "Story Stack",
+      "narration": "The agreement adds verification, covers all sectors, and establishes a transition fund across the decade.",
+      "layout": "story_stack",
+      "layoutProps": {
+        "sectionLabel": "THREE KEY PROVISIONS",
+        "items": [
+          "Legally binding emissions targets with third-party verification",
+          "All sectors included — shipping, aviation, heavy industry",
+          "$2.4 trillion green transition fund established for 2025–2035"
+        ],
+        "tickerItems": [
+          "PROVISION SUMMARY",
+          "LIVE DETAILS",
+          "THREE KEY POINTS"
+        ],
+        "lowerThirdTag": "IN DEPTH",
+        "lowerThirdHeadline": "Key Provisions",
+        "lowerThirdSub": "What the framework enforces"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 7,
+      "order": 7,
+      "title": "Segment Break",
+      "narration": "What happens next for the world economy as the framework moves into implementation.",
+      "layout": "segment_break",
+      "layoutProps": {
+        "chapterNumber": 2,
+        "chapterLabel": "CHAPTER TWO",
+        "subtitle": "What happens next for the world economy",
+        "tickerItems": [
+          "NEXT UP BRIEFING",
+          "CHAPTER TRANSITION",
+          "COMING SOON"
+        ],
+        "lowerThirdTag": "NEXT",
+        "lowerThirdHeadline": "Upcoming Coverage",
+        "lowerThirdSub": "What happens next for the world economy"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 8,
+      "order": 8,
+      "title": "Field Image Focus",
+      "narration": "A visual snapshot accompanies the update from the newsroom floor.",
+      "layout": "field_image_focus",
+      "layoutProps": {
+        "category": "WORLD AFFAIRS",
+        "tickerItems": [
+          "LOCATION ESTABLISHING",
+          "LIVE VISUAL UPDATE",
+          "BACKGROUND CONTEXT"
+        ],
+        "lowerThirdTag": "LIVE",
+        "lowerThirdHeadline": "On Scene Briefing",
+        "lowerThirdSub": "Caption and key context"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 9,
+      "order": 9,
+      "title": "Chart Overview",
+      "narration": "A chart summarizes reported energy, transport, and industry shares from the latest briefings.",
+      "layout": "data_visualization",
+      "layoutProps": {
+        "barChartRows": [
+          { "label": "Energy", "value": "45" },
+          { "label": "Transport", "value": "38" },
+          { "label": "Industry", "value": "30" }
+        ],
+        "tickerItems": [
+          "DATA UPDATE",
+          "LIVE CHART SUMMARY",
+          "NUMBERS ON AIR"
+        ],
+        "lowerThirdTag": "DATA",
+        "lowerThirdHeadline": "Chart Overview",
+        "lowerThirdSub": "Charts update with extracted numbers"
+      },
+      "durationSeconds": 2.0,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 10,
+      "order": 10,
+      "title": "Trend Line",
+      "narration": "Nested Nightfall-style lineChart in layoutProps is normalized at playback.",
+      "layout": "data_visualization",
+      "layoutProps": {
+        "lineChart": {
+          "labels": ["Q1", "Q2", "Q3", "Q4"],
+          "datasets": [{ "label": "Units", "values": [12, 18, 15, 22] }]
+        },
+        "tickerItems": ["TREND", "LIVE DATA"],
+        "lowerThirdTag": "DATA",
+        "lowerThirdHeadline": "Quarterly Trend",
+        "lowerThirdSub": "Nested lineChart object (no flat keys)"
+      },
+      "durationSeconds": 3.0,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}
+

@@ -15,6 +15,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -29,6 +30,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     code_block: { title: [26, 36] },
     timeline: { title: [30, 38], desc: [14, 16] },
     quote_callout: { title: [30, 38], desc: [16, 20] },
+    data_visualization: { title: [52, 44], desc: [28, 26] },
   },
   nightfall: {
     cinematic_title: { title: [88, 140], desc: [26, 36] },
@@ -41,6 +43,18 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     glow_metric: { title: [28, 36], desc: [18, 20] },
     glass_stack: { title: [34, 42], desc: [16, 18] },
     kinetic_insight: { title: [80, 120], desc: [60, 72] },
+  },
+  newscast: {
+    opening: { title: [88, 140], desc: [26, 36] },
+    anchor_narrative: { title: [40, 52], desc: 25 },
+    field_image_focus: { title: [48, 64], desc: 28 },
+    briefing_code_panel: { title: [18, 22], desc: 22 },
+    side_by_side_brief: { title: [34, 46], desc: [20, 24] },
+    segment_break: { title: [36, 46], desc: [18, 24] },
+    data_visualization: { title: [34, 46], desc: 25 },
+    live_metrics_board: { title: [28, 36], desc: [18, 20] },
+    story_stack: { title: [34, 42], desc: [16, 18] },
+    headline_insight: { title: [80, 120], desc: [60, 72] },
   },
   spotlight: {
     impact_title: { title: [64, 100], desc: [18, 22] },
@@ -79,7 +93,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     news_timeline: { title: [36, 48], desc: [15, 18] },
   },
   custom: {
-    // Universal arrangements (font sizes are approximate — UniversalScene handles sizing)
+    // Custom template arrangements (font sizes are approximate)
     "full-center": { title: [36, 48], desc: [18, 22] },
     "split-left": { title: [32, 42], desc: [16, 20] },
     "split-right": { title: [32, 42], desc: [16, 20] },
@@ -92,6 +106,24 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
   },
 };
 
+const LEGACY_NEWSCAST_LAYOUT_ID_ALIASES: Record<string, string> = {
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glass_image: "field_image_focus",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_stack: "story_stack",
+  newscast_kinetic_insight: "headline_insight",
+};
+
+function normalizeLegacyNewscastLayoutId(template: string, layoutId: string): string {
+  const normalizedTemplate = (template || "").toLowerCase();
+  if (normalizedTemplate !== "newscast" && normalizedTemplate !== "newsreport") return layoutId;
+  return LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+}
+
 export function getDefaultFontSizes(
   template: string,
   layoutId: string | null,
@@ -100,7 +132,7 @@ export function getDefaultFontSizes(
   const p = aspectRatio === "portrait";
   const raw = (template || "default").toLowerCase();
   const t = raw.startsWith("custom_") ? "custom" : raw;
-  const layout = layoutId || "text_narration";
+  const layout = layoutId ? normalizeLegacyNewscastLayoutId(t, layoutId) : "text_narration";
   const defs = LAYOUT_FONT_DEFAULTS[t]?.[layout] ?? LAYOUT_FONT_DEFAULTS.default?.text_narration ?? { title: [34, 44], desc: [20, 23] };
   const titleVal = defs.title;
   const descVal = defs.desc;
@@ -118,7 +150,8 @@ export function getDefaultFontSizesFromSchema(
   aspectRatio: string
 ): { title: number; desc: number } | null {
   if (!layoutId || !layoutPropSchema) return null;
-  const schema = layoutPropSchema[layoutId];
+  const canonicalLayoutId = LEGACY_NEWSCAST_LAYOUT_ID_ALIASES[layoutId] ?? layoutId;
+  const schema = layoutPropSchema[canonicalLayoutId];
   const defaults = schema?.defaults;
   if (!defaults) return null;
   const isPortrait = aspectRatio === "portrait";
@@ -134,7 +167,7 @@ export function getDefaultFontSizesFromSchema(
   const title = resolve(defaults.titleFontSize);
   const desc = resolve(defaults.descriptionFontSize);
   if (title == null && desc == null) return null;
-  const hardcoded = getDefaultFontSizes("", layoutId, aspectRatio);
+  const hardcoded = getDefaultFontSizes("", canonicalLayoutId, aspectRatio);
   return {
     title: title ?? hardcoded.title,
     desc: desc ?? hardcoded.desc,
@@ -187,6 +220,7 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "codeLines", label: "Code lines", type: "string_array" },
   ],
   // Spotlight template
+  impact_title: [{ key: "highlightWord", label: "Accent word (title)", type: "string" }],
   statement: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
   word_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
   cascade_list: [{ key: "items", label: "Items", type: "string_array" }],
@@ -225,6 +259,37 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   ],
   glow_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  // Newscast template
+  story_stack: [
+    { key: "sectionLabel", label: "Section label", type: "string" },
+    { key: "items", label: "Items", type: "string_array" },
+  ],
+  briefing_code_panel: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  side_by_side_brief: [
+    { key: "leftLabel", label: "Left label", type: "string" },
+    { key: "rightLabel", label: "Right label", type: "string" },
+    { key: "leftTitle", label: "Left title", type: "string" },
+    { key: "rightTitle", label: "Right title", type: "string" },
+    { key: "leftBody", label: "Left body", type: "text" },
+    { key: "rightBody", label: "Right body", type: "text" },
+  ],
+  segment_break: [
+    { key: "subtitle", label: "Subtitle", type: "string" },
+    { key: "chapterNumber", label: "Chapter number", type: "string" },
+    { key: "chapterLabel", label: "Chapter label", type: "string" },
+  ],
+  headline_insight: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "highlightWord", label: "Highlight word", type: "string" },
+    { key: "attribution", label: "Attribution", type: "string" },
+  ],
+  live_metrics_board: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix" }], maxItems: 3 }],
+  anchor_narrative: [{ key: "category", label: "Category", type: "string" }],
+  field_image_focus: [{ key: "category", label: "Category", type: "string" }],
   // Matrix template
   terminal_text: [{ key: "highlightWord", label: "Highlight word", type: "string" }],
   glitch_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
@@ -363,6 +428,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
 
 /** Template-specific overrides for layout fields (when same layout id exists in multiple templates with different props). */
 const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
+  default: {
+    data_visualization: [
+      { key: "barChartRows", label: "Bar chart data", type: "object_array",
+        subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
+      { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
+      { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
+        subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 6 },
+      { key: "histogramRows", label: "Histogram bins", type: "object_array",
+        subFields: [{ key: "label", label: "Bin / range" }, { key: "value", label: "Count", placeholder: "Number" }], maxItems: 16 },
+    ],
+  },
   whiteboard: {
     comparison: [
       { key: "leftThought", label: "Left thought", type: "text", placeholder: "e.g. Option A or first idea" },
@@ -376,10 +452,35 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
   },
 };
 
+/** Structured content fields for AI-generated custom template scenes. */
+const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
+  bullets: [{ key: "bullets", label: "Bullet points", type: "string_array", maxItems: 8 }],
+  metrics: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 4 }],
+  code: [
+    { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. python" },
+    { key: "codeLines", label: "Code lines", type: "string_array" },
+  ],
+  quote: [
+    { key: "quote", label: "Quote", type: "text" },
+    { key: "quoteAuthor", label: "Author", type: "string" },
+  ],
+  comparison: [
+    { key: "comparisonLeft.label", label: "Left label", type: "string" },
+    { key: "comparisonLeft.description", label: "Left description", type: "text" },
+    { key: "comparisonRight.label", label: "Right label", type: "string" },
+    { key: "comparisonRight.description", label: "Right description", type: "text" },
+  ],
+  timeline: [{ key: "timelineItems", label: "Timeline items", type: "object_array",
+    subFields: [{ key: "label", label: "Label" }, { key: "description", label: "Description" }], maxItems: 6 }],
+  steps: [{ key: "steps", label: "Steps", type: "string_array", maxItems: 8 }],
+};
+
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
-  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[layoutId] ?? LAYOUT_TEXT_FIELDS[layoutId];
+  const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
+  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
@@ -456,8 +557,36 @@ export default function SceneEditModal({
   const [titleFontSize, setTitleFontSize] = useState<string>("");
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
+  const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
   const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
+  const ENDING_SOCIALS_KEYS = [
+    "instagram",
+    "youtube",
+    "medium",
+    "substack",
+    "facebook",
+    "linkedin",
+    "tiktok",
+  ] as const;
+  const ENDING_SOCIALS_DEFAULT: Record<
+    typeof ENDING_SOCIALS_KEYS[number],
+    { enabled: boolean; label: string }
+  > = {
+    facebook: { enabled: false, label: "Facebook" },
+    instagram: { enabled: false, label: "Instagram" },
+    youtube: { enabled: false, label: "YouTube" },
+    medium: { enabled: false, label: "Medium" },
+    substack: { enabled: false, label: "Substack" },
+    linkedin: { enabled: false, label: "LinkedIn" },
+    tiktok: { enabled: false, label: "TikTok" },
+  };
+  const [endingSocials, setEndingSocials] = useState<
+    Record<typeof ENDING_SOCIALS_KEYS[number], { enabled: boolean; label: string }>
+  >(ENDING_SOCIALS_DEFAULT);
+  const [endingShowWebsiteButton, setEndingShowWebsiteButton] = useState(true);
+  const [endingWebsiteLink, setEndingWebsiteLink] = useState("");
+  const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -495,6 +624,13 @@ export default function SceneEditModal({
     try {
       if (scene.remotion_code) {
         const desc = JSON.parse(scene.remotion_code);
+        // Custom templates: check for variant override first
+        if (desc.sceneTypeOverride) {
+          if (desc.sceneTypeOverride === "content" && typeof desc.contentVariantIndex === "number") {
+            return `content_${desc.contentVariantIndex}`;
+          }
+          return desc.sceneTypeOverride; // "intro" or "outro"
+        }
         // Custom templates store arrangement in layoutConfig
         if (desc.layoutConfig?.arrangement) return desc.layoutConfig.arrangement;
         return desc.layout || null;
@@ -503,11 +639,16 @@ export default function SceneEditModal({
     return null;
   })();
   const currentLayoutLabel = currentLayoutId
-    ? (layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " "))
+    ? getSceneLayoutLabel(
+        project.template,
+        currentLayoutId,
+        layouts?.layout_names[currentLayoutId] || currentLayoutId.replace(/[-_]/g, " ")
+      )
     : "Current layout";
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
+  const isEndingScene = currentLayoutId === "ending_socials";
 
   const defaultFontSizes =
     getDefaultFontSizesFromSchema(
@@ -595,10 +736,73 @@ export default function SceneEditModal({
             }));
             delete (lpCopy as Record<string, unknown>).lineChart;
           }
+          // Histogram: { labels, values } -> histogramRows
+          if (lpAny.histogram && typeof lpAny.histogram === "object") {
+            const hg = lpAny.histogram as { labels?: string[]; values?: number[] };
+            const hlabels = Array.isArray(hg.labels) ? hg.labels : [];
+            const hvalues = Array.isArray(hg.values) ? hg.values : [];
+            lpCopy.histogramRows = hlabels.map((label, i) => ({ label, value: String(hvalues[i] ?? "") }));
+            delete (lpCopy as Record<string, unknown>).histogram;
+          }
         }
       } catch { /* ignore */ }
     }
     setEditableLayoutProps(lpCopy);
+    if (isEndingScene) {
+      const lpSocials = (lpCopy as Record<string, unknown>).socials;
+      if (
+        lpSocials &&
+        typeof lpSocials === "object" &&
+        !Array.isArray(lpSocials)
+      ) {
+        setEndingSocials(lpSocials as Record<
+          typeof ENDING_SOCIALS_KEYS[number],
+          { enabled: boolean; label: string }
+        >);
+      } else {
+        setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      }
+      const lpShowWebsiteButton = (lpCopy as Record<string, unknown>).showWebsiteButton;
+      setEndingShowWebsiteButton(lpShowWebsiteButton !== false);
+      const lpWebsiteLink = (lpCopy as Record<string, unknown>).websiteLink;
+      const projectUrl = (project.blog_url || "").trim();
+      const fallbackUrl =
+        projectUrl && !projectUrl.startsWith("upload://") ? projectUrl : "";
+      const normalizedWebsiteLink =
+        typeof lpWebsiteLink === "string" && lpWebsiteLink.trim()
+          ? lpWebsiteLink.trim()
+          : fallbackUrl;
+      setEndingWebsiteLink(normalizedWebsiteLink);
+      const lpCta = (lpCopy as Record<string, unknown>).ctaButtonText;
+      setEndingCtaButtonText(typeof lpCta === "string" ? lpCta : "");
+    } else {
+      setEndingSocials(ENDING_SOCIALS_DEFAULT);
+      setEndingShowWebsiteButton(true);
+      setEndingWebsiteLink("");
+      setEndingCtaButtonText("");
+    }
+    // Initialize structured content for custom templates
+    let scInit: Record<string, unknown> = {};
+    if (scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.structuredContent && typeof desc.structuredContent === "object") {
+          scInit = { ...desc.structuredContent };
+          // Flatten comparison objects for dot-key editing
+          if (scInit.comparisonLeft && typeof scInit.comparisonLeft === "object") {
+            const cl = scInit.comparisonLeft as Record<string, string>;
+            scInit["comparisonLeft.label"] = cl.label || "";
+            scInit["comparisonLeft.description"] = cl.description || "";
+          }
+          if (scInit.comparisonRight && typeof scInit.comparisonRight === "object") {
+            const cr = scInit.comparisonRight as Record<string, string>;
+            scInit["comparisonRight.label"] = cr.label || "";
+            scInit["comparisonRight.description"] = cr.description || "";
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    setEditableStructuredContent(scInit);
     const schemaDefaults = getDefaultFontSizesFromSchema(
       layouts?.layout_prop_schema,
       layoutId,
@@ -613,7 +817,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -693,13 +897,34 @@ export default function SceneEditModal({
             } catch { /* ignore */ }
           }
           // Custom templates use layoutConfig — skip layoutProps editing
-          if (desc.layoutConfig) {
-            // For custom templates, only persist font size overrides in layoutConfig
+          if (isCustomTemplate) {
+            // Ensure layoutConfig exists for custom templates
+            if (!desc.layoutConfig) desc.layoutConfig = {};
             const config = desc.layoutConfig as Record<string, unknown>;
             if (tsNum !== null && tsNum !== defTitle) config.titleFontSize = tsNum;
             else delete config.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) config.descriptionFontSize = dsNum;
             else delete config.descriptionFontSize;
+            // Merge edited structured content back
+            if (editableStructuredContent.contentType && editableStructuredContent.contentType !== "plain") {
+              const sc = { ...editableStructuredContent };
+              // Rebuild comparison objects from dot-key fields
+              if (sc.contentType === "comparison") {
+                sc.comparisonLeft = {
+                  label: String(sc["comparisonLeft.label"] || ""),
+                  description: String(sc["comparisonLeft.description"] || ""),
+                };
+                sc.comparisonRight = {
+                  label: String(sc["comparisonRight.label"] || ""),
+                  description: String(sc["comparisonRight.description"] || ""),
+                };
+                delete sc["comparisonLeft.label"];
+                delete sc["comparisonLeft.description"];
+                delete sc["comparisonRight.label"];
+                delete sc["comparisonRight.description"];
+              }
+              desc.structuredContent = sc;
+            }
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
@@ -734,6 +959,14 @@ export default function SceneEditModal({
                 delete lp.lineChartLabels;
                 delete lp.lineChartDatasets;
               }
+              if (Array.isArray(lp.histogramRows)) {
+                const rows = lp.histogramRows as { label?: string; value?: string }[];
+                lp.histogram = {
+                  labels: rows.map((r) => (r && r.label != null ? String(r.label) : "")),
+                  values: rows.map((r) => (r && r.value != null && r.value !== "" ? Number(r.value) || 0 : 0)),
+                };
+                delete lp.histogramRows;
+              }
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -748,14 +981,81 @@ export default function SceneEditModal({
             if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
               delete lp.lineChart;
             }
+            const hist = lp.histogram as { labels?: unknown[]; values?: number[] } | undefined;
+            if (hist && (!Array.isArray(hist.labels) || !hist.labels.length || !Array.isArray(hist.values) || !hist.values.length || hist.values.every((v) => v === 0))) {
+              delete lp.histogram;
+            }
             if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
             else delete lp.titleFontSize;
             if (dsNum !== null && dsNum !== defDesc) lp.descriptionFontSize = dsNum;
             else delete lp.descriptionFontSize;
+            if (isEndingScene) {
+              lp.hideImage = true;
+              lp.socials = endingSocials;
+              lp.showWebsiteButton = endingShowWebsiteButton;
+              lp.websiteLink = (endingWebsiteLink || "").trim();
+              lp.ctaButtonText = (endingCtaButtonText || "").trim();
+            }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
           }
         }
+
+        const derivedEndingNarrationText = (() => {
+          if (!isEndingScene) return null;
+          const titlePart = title.trim();
+          const displayPart = (displayText ?? "").trim();
+
+          const enabledKeys = ENDING_SOCIALS_KEYS.filter((k) => endingSocials[k]?.enabled);
+          const enabledNames = enabledKeys.map(
+            (k) => (endingSocials[k]?.label || ENDING_SOCIALS_DEFAULT[k].label)
+          );
+          const enabledNamesStr = enabledNames.join(", ");
+
+          const canonicalNames = ENDING_SOCIALS_KEYS.map(
+            (k) => ENDING_SOCIALS_DEFAULT[k].label
+          );
+
+          const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const re = new RegExp(`\\b(${canonicalNames.map(escapeRegex).join("|")})\\b`, "gi");
+
+          const prefix = titlePart.endsWith(".") || titlePart.endsWith("!") || titlePart.endsWith("?")
+            ? titlePart
+            : `${titlePart}.`;
+          const supportCta = enabledNamesStr
+            ? `Support this creator by following on ${enabledNamesStr}.`
+            : "";
+
+          if (!displayPart) {
+            return supportCta ? `${prefix} ${supportCta}` : prefix;
+          }
+
+          // Replace the first..last social-name span inside the editable display text
+          // so the voiceover mentions only the enabled platforms.
+          let match: RegExpExecArray | null = null;
+          let firstStart = -1;
+          let lastEnd = -1;
+          while ((match = re.exec(displayPart)) !== null) {
+            const start = match.index ?? 0;
+            const end = start + match[0].length;
+            if (firstStart === -1) firstStart = start;
+            lastEnd = end;
+            if (re.lastIndex >= displayPart.length) break;
+          }
+
+          if (firstStart >= 0 && lastEnd > firstStart && enabledNamesStr) {
+            const before = displayPart.slice(0, firstStart).trimEnd();
+            const after = displayPart.slice(lastEnd).trimStart();
+            const joined = [before, enabledNamesStr, after]
+              .filter(Boolean)
+              .join(" ");
+            return `${prefix} ${joined} Support this creator by following.`;
+          }
+
+          const tail = supportCta ? ` ${supportCta}` : "";
+          return `${prefix} ${displayPart}${tail}`.trim();
+        })();
+
         const extraHoldVal = parseFloat(extraHoldSeconds.trim());
         const extraHold = !Number.isNaN(extraHoldVal) && extraHoldVal >= 0 ? extraHoldVal : 0;
 
@@ -763,6 +1063,9 @@ export default function SceneEditModal({
           title,
           // Update only the on-screen display text here; narration_text continues to drive voiceover.
           display_text: displayText,
+          ...(derivedEndingNarrationText
+            ? { narration_text: derivedEndingNarrationText }
+            : {}),
           ...(remotionCode !== undefined && { remotion_code: remotionCode }),
           extra_hold_seconds: extraHold,
         });
@@ -1031,6 +1334,130 @@ export default function SceneEditModal({
 
               {/* ── Layout content fields (dynamic per layout type, with extras) ── */}
               {(() => {
+                if (isEndingScene) {
+                  return (
+                    <div className="space-y-3">
+                      <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                        Social media Links
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/40">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-gray-800">
+                              Call to Action Button
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEndingShowWebsiteButton((prev) => !prev)}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                endingShowWebsiteButton ? "bg-purple-600" : "bg-gray-200"
+                              }`}
+                              role="switch"
+                              aria-checked={endingShowWebsiteButton}
+                              aria-label="Toggle website call to action"
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                  endingShowWebsiteButton ? "translate-x-4" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                CTA button label
+                              </label>
+                              <input
+                                type="text"
+                                value={endingCtaButtonText}
+                                onChange={(e) => setEndingCtaButtonText(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="e.g. Read the full article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Short text on the pill above the link (matches the project font in the video).
+                              </p>
+                            </div>
+                          </div>
+                          {endingShowWebsiteButton ? (
+                            <div>
+                              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                                Website URL
+                              </label>
+                              <input
+                                type="text"
+                                value={endingWebsiteLink}
+                                onChange={(e) => setEndingWebsiteLink(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="https://example.com/article"
+                              />
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                Shown under the CTA pill when the toggle is on.
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+                        {ENDING_SOCIALS_KEYS.map((k) => {
+                          const item = endingSocials[k];
+                          const enabled = Boolean(item?.enabled ?? false);
+                          const label = (item?.label ?? ENDING_SOCIALS_DEFAULT[k].label) as string;
+                          const platformLabel = ENDING_SOCIALS_DEFAULT[k].label;
+                          const platformInitials = platformLabel.slice(0, 2).toUpperCase();
+                          return (
+                            <div key={k} className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEndingSocials((prev) => ({
+                                      ...prev,
+                                      [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), enabled: !enabled },
+                                    }));
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${
+                                    enabled ? "bg-purple-600" : "bg-gray-200"
+                                  }`}
+                                  role="switch"
+                                  aria-checked={enabled}
+                                  aria-label={`Toggle ${platformLabel}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                                      enabled ? "translate-x-4" : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                                <div className="text-sm font-medium text-gray-800">
+                                  {platformLabel}
+                                </div>
+                              </div>
+
+                              {enabled ? (
+                                <div>
+                                  <input
+                                    type="text"
+                                    value={label}
+                                    onChange={(e) => {
+                                      const next = e.target.value;
+                                      setEndingSocials((prev) => ({
+                                        ...prev,
+                                        [k]: { ...(prev[k] ?? ENDING_SOCIALS_DEFAULT[k]), label: next },
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder={`Enter ${k} link or text`}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
                 const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
                 const layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
                 const knownKeys = new Set(layoutFields.map((f) => f.key));
@@ -1219,6 +1646,190 @@ export default function SceneEditModal({
                   </div>
                 </div>
               );
+              })()}
+
+              {/* ── Structured content fields for custom templates ── */}
+              {(() => {
+                if (!isCustomTemplate) return null;
+                const ct = (editableStructuredContent.contentType as string) || "plain";
+                const scFields = CUSTOM_CONTENT_FIELDS[ct];
+                const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+                const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                const contentTypeOptions = [
+                  { value: "plain", label: "Plain text" },
+                  { value: "bullets", label: "Bullet points" },
+                  { value: "steps", label: "Steps" },
+                  { value: "metrics", label: "Metrics" },
+                  { value: "quote", label: "Quote" },
+                  { value: "comparison", label: "Comparison" },
+                  { value: "timeline", label: "Timeline" },
+                  { value: "code", label: "Code" },
+                ];
+                return (
+                  <div>
+                    <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Structured content
+                    </h4>
+                    <div className="mb-3">
+                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">Content type</label>
+                      <select
+                        value={ct}
+                        onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, contentType: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      >
+                        {contentTypeOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      {ct === "plain" && (
+                        <p className="text-[11px] text-gray-400 mt-1.5">Switch to a structured type above to add bullets, metrics, or other rich content that overrides template defaults.</p>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      {(scFields || []).map((field) => {
+                        if (field.type === "string") {
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <input
+                                type="text"
+                                value={String(editableStructuredContent[field.key] ?? "")}
+                                onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className={inputClass}
+                              />
+                            </div>
+                          );
+                        }
+                        if (field.type === "text") {
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <AutoGrowTextarea
+                                value={String(editableStructuredContent[field.key] ?? "")}
+                                onChange={(e) => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className={textareaClass}
+                                minRows={2}
+                              />
+                            </div>
+                          );
+                        }
+                        if (field.type === "string_array") {
+                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as string[];
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <div className="space-y-2">
+                                {items.map((item, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 tabular-nums">{i + 1}.</span>
+                                    <input
+                                      type="text"
+                                      value={item}
+                                      onChange={(e) => {
+                                        const updated = [...items];
+                                        updated[i] = e.target.value;
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className={`flex-1 ${inputClass}`}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!field.maxItems || items.length < field.maxItems) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, ""] }))}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Add {field.label.toLowerCase().replace(/s$/, "")}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (field.type === "object_array" && field.subFields) {
+                          const items = (Array.isArray(editableStructuredContent[field.key]) ? editableStructuredContent[field.key] : []) as Record<string, string>[];
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <div className="space-y-3">
+                                {items.map((item, i) => (
+                                  <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                    <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
+                                    <div className="flex-1 space-y-2">
+                                      {field.subFields!.map((sf) => (
+                                        <div key={sf.key}>
+                                          <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1 block">{sf.label}</label>
+                                          <input
+                                            type="text"
+                                            value={item[sf.key] ?? ""}
+                                            placeholder={sf.placeholder || sf.label}
+                                            onChange={(e) => {
+                                              const updated = [...items];
+                                              updated[i] = { ...updated[i], [sf.key]: e.target.value };
+                                              setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                            }}
+                                            className={inputClass}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = items.filter((_, j) => j !== i);
+                                        setEditableStructuredContent((prev) => ({ ...prev, [field.key]: updated }));
+                                      }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100 mt-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!field.maxItems || items.length < field.maxItems) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const empty: Record<string, string> = {};
+                                      field.subFields!.forEach((sf) => { empty[sf.key] = ""; });
+                                      setEditableStructuredContent((prev) => ({ ...prev, [field.key]: [...items, empty] }));
+                                    }}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Add {field.label.toLowerCase().replace(/s$/, "")}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  </div>
+                );
               })()}
 
               <div>
@@ -1424,7 +2035,11 @@ export default function SceneEditModal({
                       ? (currentLayoutLabel)
                       : selectedLayout === "__auto__"
                         ? "Auto (Let AI choose)"
-                        : (layouts?.layout_names[selectedLayout] || selectedLayout.replace(/[-_]/g, " "))}
+                        : getSceneLayoutLabel(
+                            project.template,
+                            selectedLayout,
+                            layouts?.layout_names[selectedLayout] || selectedLayout.replace(/[-_]/g, " ")
+                          )}
                   </span>
                   <button
                     type="button"
@@ -1457,15 +2072,17 @@ export default function SceneEditModal({
                         </span>
                       )}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
-                        selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
-                      }`}
-                    >
-                      Auto (Let AI choose)
-                    </button>
+                    {!isCustomTemplate && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayout("__auto__"); setLayoutOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${
+                          selectedLayout === "__auto__" ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
+                        }`}
+                      >
+                        Auto (Let AI choose)
+                      </button>
+                    )}
                     {layouts?.layouts
                       .filter((id) => id !== currentLayoutId)
                       .map((layoutId) => {
@@ -1479,7 +2096,11 @@ export default function SceneEditModal({
                               selectedLayout === layoutId ? "text-purple-600 font-medium bg-purple-50/50" : "text-gray-600"
                             }`}
                           >
-                            {layouts.layout_names[layoutId] || layoutId.replace(/[-_]/g, " ")}
+                            {getSceneLayoutLabel(
+                              project.template,
+                              layoutId,
+                              layouts.layout_names[layoutId] || layoutId.replace(/[-_]/g, " ")
+                            )}
                             <span className={`ml-1 ${supportsImageForLayout ? "text-gray-500" : "text-gray-400 italic"}`}>
                               ({supportsImageForLayout ? "Supports images" : "Does not support images"})
                             </span>

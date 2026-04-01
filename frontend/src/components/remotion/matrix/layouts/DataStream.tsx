@@ -30,11 +30,14 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   const resolvedFontFamily = fontFamily ?? MATRIX_DEFAULT_FONT_FAMILY;
 
   const displayItems = items || [title];
-  const framesPerLine = 40; // Duration for one full line to appear word by word
-  const framesPerWord = 4;  // Delay between words in a line
+  // Modified: Reduced framesPerLine for faster display of each line
+  const framesPerLine = 25; // Duration for one full line to appear word by word (reduced from 40)
+  // Modified: Reduced framesPerWord for faster word-by-word reveal
+  const framesPerWord = 2;  // Delay between words in a line (reduced from 4)
   const initialImageDelay = 0; // Image starts immediately
   const imageAnimationDuration = 60; // How long image takes to fully animate in (2 seconds)
-  const textAnimationDelayAfterImage = 15; // Delay before text starts animating after image is done
+  // Modified: Reduced delay before text starts animating after image is done
+  const textAnimationDelayAfterImage = 5; // Delay before text starts animating after image is done (reduced from 15)
 
   // --- Image Animation ---
   const imageAnimationProgress = spring({
@@ -51,8 +54,14 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
   const imageBlur = interpolate(imageAnimationProgress, [0, 1], [10, 0]); // Clears depth-of-field blur
   const imageScale = interpolate(imageAnimationProgress, [0, 1], [1.05, 1]); // Starts slightly larger
 
+  // User Instruction: Currently the first item is showed after 2 seconds of the scene start,
+  // show it as soon as the scene start within 0.2 seconds.
+  // This means the text animation should start at frame 6 (0.2 seconds * 30 fps).
+  // The text will now start independently of the image animation finishing.
+  const initialTextEntryDelay = 6; // First text item appears after 0.2 seconds
+  const textStartFrame = initialTextEntryDelay;
+
   // Determine current active line for dimming effect
-  const textStartFrame = initialImageDelay + imageAnimationDuration + textAnimationDelayAfterImage;
   const currentLineIdx = Math.min(
     Math.floor((frame - textStartFrame) / framesPerLine),
     displayItems.length - 1
@@ -83,7 +92,8 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "flex-start",
+          // User instruction: For the portrait mode, bring the items at the center of screen.
+          justifyContent: p ? "center" : "flex-start",
           padding: `${stackPaddingTop}px ${stackPaddingX}px ${stackPaddingBottom}px`,
           boxSizing: "border-box",
           zIndex: 20,
@@ -121,7 +131,8 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: p ? 14 : 18,
+            // User Instruction: increase the gap between the items.
+            gap: p ? 24 : 30,
           }}
         >
         {displayItems.map((item, i) => {

@@ -14,7 +14,9 @@ import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
+import NewscastPreview from "./templatePreviews/NewscastPreview";
 import CustomPreview from "./templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
@@ -37,6 +39,7 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
+    videoLength?: "short" | "medium" | "detailed",
     contentLanguage?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
@@ -63,6 +66,13 @@ const MAX_BULK_LINKS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
 })();
 
+/** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
+const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
+  short: "Short  ~  30 sec – 1 min",
+  medium: "Medium  ~  1 - 3 mins",
+  detailed: "Detailed  ~  3 – 8 mins",
+};
+
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -79,6 +89,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
+  newscast: NewscastPreview,
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -89,6 +100,10 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
   whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
+  newscast: {
+    title: "Newscast",
+    subtitle: "Broadcast news package — ticker, lower third, glass panels, and data beats",
+  },
 };
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -245,7 +260,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           {/* Video content */}
           <div className="bg-black">
             {customTemplate ? (
-              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} />
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} logoUrls={customTemplate.logo_urls} ogImage={customTemplate.og_image} />
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -344,6 +359,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
+  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
   const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
@@ -357,6 +373,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkLogoOpacity, setBulkLogoOpacity] = useState<number[]>([0.9]);
   const [bulkLogoRowIndex, setBulkLogoRowIndex] = useState<number | null>(null);
   const bulkLogoInputRef = useRef<HTMLInputElement>(null);
+  const [bulkApplyLengthAll, setBulkApplyLengthAll] = useState(true);
+  const [bulkLengthMasterIndex, setBulkLengthMasterIndex] = useState(0);
   const [bulkApplyTemplateAll, setBulkApplyTemplateAll] = useState(true);
   const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
   const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
@@ -366,6 +384,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
+  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -397,6 +416,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Load all templates once (filtering by style is done in UI)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  // Only show templates that have finished generating (intro_code exists)
+  const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
 
   const renderLanguageDropdown = (
@@ -445,6 +466,45 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               }`}
             >
               {lang.code} - {lang.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+
+  const renderVideoLengthDropdown = (
+    value: "short" | "medium" | "detailed",
+    onSelect: (next: "short" | "medium" | "detailed") => void
+  ) => (
+    <details className="relative group">
+      <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
+        <span>{VIDEO_LENGTH_DURATION_LABELS[value]}</span>
+        <svg
+          className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </summary>
+      <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+        <div className="max-h-[18.5rem] overflow-y-auto py-1">
+          {(["short", "medium", "detailed"] as const).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={(e) => {
+                onSelect(opt);
+                const details = (e.currentTarget.closest("details") as HTMLDetailsElement | null);
+                details?.removeAttribute("open");
+              }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 ${
+                value === opt ? "bg-purple-50 text-purple-700" : "text-gray-700"
+              }`}
+            >
+              {VIDEO_LENGTH_DURATION_LABELS[opt]}
             </button>
           ))}
         </div>
@@ -510,17 +570,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template (Nightfall when available) for single and bulk flows.
+  // Preferred built-in template when user hasn't chosen one: Nightfall first, then Newscast, etc.
   const preferredTemplateId =
     templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
+    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
     templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
     "default";
 
-  // Prefer Nightfall as the initial built-in template when templates load.
+  // Apply preferred template once templates load (only replaces initial "default" / custom placeholder).
   useEffect(() => {
     if (templates.length === 0) return;
     const preferred =
       templates.find((t) => t.id.toLowerCase() === "nightfall") ||
+      templates.find((t) => t.id.toLowerCase() === "newscast") ||
       templates.find((t) => t.id.toLowerCase() === "whiteboard");
     if (preferred) {
       // Single/upload flow: set template if still default or custom placeholder.
@@ -532,7 +594,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           setTextColor(preferred.preview_colors.text);
         }
       }
-      // Multi-link (bulk) flow: set any "default" slots to preferred so step 2 shows Nightfall.
+      // Multi-link (bulk) flow: set any "default" slots to preferred.
       setBulkTemplates((prev) =>
         prev.map((t) => (t === "default" ? preferred.id : t))
       );
@@ -719,6 +781,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
+        setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
         setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
         setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
@@ -752,6 +815,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkContentLanguage((prev) => [...prev, "auto"]);
+    setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
     setBulkVideoStyles((prev) => [...prev, "promotional"]);
     setBulkTemplatePickerViews((prev) => [...prev, "style"]);
@@ -772,6 +836,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkVoiceAccent((prev) => prev.filter((_, i) => i !== index));
     setBulkCustomVoiceId((prev) => prev.filter((_, i) => i !== index));
     setBulkContentLanguage((prev) => prev.filter((_, i) => i !== index));
+    setBulkVideoLength((prev) => prev.filter((_, i) => i !== index));
     setBulkAspectRatio((prev) => prev.filter((_, i) => i !== index));
     setBulkVideoStyles((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplatePickerViews((prev) => prev.filter((_, i) => i !== index));
@@ -848,6 +913,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
         video_style: bulkVideoStyles[i] ?? "promotional",
+        video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
         accent_color:
@@ -892,6 +958,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
+      setBulkVideoLength(["short"]);
       setBulkAspectRatio(["landscape"]);
       setBulkVideoStyles(["promotional"]);
       setBulkTemplatePickerViews(["style"]);
@@ -902,10 +969,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkLogoPosition(["bottom_right"]);
       setBulkLogoOpacity([0.9]);
       setBulkActiveIndex(0);
+      setBulkApplyLengthAll(true);
+      setBulkLengthMasterIndex(0);
       setBulkApplyTemplateAll(true);
       setBulkTemplateMasterIndex(0);
       setBulkApplyVoiceAll(true);
       setBulkVoiceMasterIndex(0);
+      setVideoLength("short");
       setContentLanguage("auto");
       return;
     }
@@ -937,6 +1007,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         docFiles,
         template !== "default" ? template : undefined,
         videoStyle,
+        videoLength,
         contentLanguage === "auto" ? null : contentLanguage
       );
       setDocFiles([]);
@@ -970,6 +1041,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           undefined,
           template !== "default" ? template : undefined,
           videoStyle,
+          videoLength,
           contentLanguage === "auto" ? null : contentLanguage
         );
       }
@@ -1006,6 +1078,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   };
 
   // ─── Step 1: Project (URL or Upload) ─────────────────────────
+  const bulkStep1ActiveIndex = Math.min(bulkActiveIndex, Math.max(0, bulkRows.length - 1));
+  const bulkStep1MasterIndex = Math.min(bulkLengthMasterIndex, Math.max(0, bulkRows.length - 1));
+  const bulkStep1RowVideoLength = bulkVideoLength[bulkStep1ActiveIndex] ?? "short";
+  const applyStep1LengthToAll = () => {
+    setBulkVideoLength((prev) => {
+      const next = resizeTo(prev, bulkRows.length, "short");
+      const value = next[bulkStep1ActiveIndex] ?? "short";
+      return next.map(() => value);
+    });
+  };
+
   const step1 = (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 flex flex-col space-y-5 min-h-0">
@@ -1074,6 +1157,73 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           </div>
         )}
+
+        <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
+            {bulkRows.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setBulkActiveIndex(i)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  i === bulkStep1ActiveIndex
+                    ? "bg-white text-purple-600 shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                Video #{i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-start">
+          <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
+            <input
+                type="checkbox"
+                checked={bulkApplyLengthAll}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setBulkApplyLengthAll(checked);
+                  if (checked) {
+                    setBulkLengthMasterIndex(bulkStep1ActiveIndex);
+                    applyStep1LengthToAll();
+                  }
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300 accent-purple-600 focus:ring-purple-500"
+              />
+            Apply duration to all
+          </label>
+        </div>
+        <div className="mt-1 space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Estimated duration
+          </label>
+          {renderVideoLengthDropdown(bulkStep1RowVideoLength, (value) => {
+            if (bulkApplyLengthAll && bulkStep1ActiveIndex !== bulkStep1MasterIndex) {
+              setBulkApplyLengthAll(false);
+              setBulkVideoLength((prev) => {
+                const next = resizeTo(prev, bulkRows.length, "short");
+                next[bulkStep1ActiveIndex] = value;
+                return next;
+              });
+              return;
+            }
+            if (bulkApplyLengthAll && bulkStep1ActiveIndex === bulkStep1MasterIndex) {
+              setBulkVideoLength((prev) => resizeTo(prev, bulkRows.length, "short").map(() => value));
+              return;
+            }
+            setBulkVideoLength((prev) => {
+              const next = resizeTo(prev, bulkRows.length, "short");
+              next[bulkStep1ActiveIndex] = value;
+              return next;
+            });
+          })}
+          <p className="text-[10px] text-gray-400 pb-10 leading-relaxed">
+            Actual length may vary depending on content size and video style. If the scraped or uploaded content is
+            very short, video might get shorten automatically.
+          </p>
+        </div>
       </>)}
 
       {/* URL input */}
@@ -1230,12 +1380,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
       )}
 
-      {/* Format + Logo (single-link / upload only; bulk has per-row in step 3) */}
+      {/* Format, duration + Logo (single-link / upload only; bulk has per-row in step 3) */}
       {mode !== "bulk" && (
         <>
           <div>
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-             Video Format
+              Video Format
             </label>
             <div className="flex gap-2">
               {([
@@ -1259,6 +1409,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+              Estimated duration
+            </label>
+            {renderVideoLengthDropdown(videoLength, setVideoLength)}
+            <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
+              Actual length may vary depending on content size and video style. If the scraped or uploaded content is
+              very short, we may shorten the video.
+            </p>
           </div>
 
           <div>
@@ -1377,7 +1538,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const suggestedTemplates = sourceList.filter(
     (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
   );
-  const customTemplatesForStyle = customTemplates.filter(
+  const customTemplatesForStyle = readyCustomTemplates.filter(
     (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
   );
 
@@ -1405,7 +1566,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
             {selectedCustom ? (
-              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} key={`selected-custom-${selectedCustom.id}-${step}`} />
+              <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
             ) : (
@@ -1483,7 +1644,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {templatePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = template === customId;
                 return (
@@ -1497,7 +1658,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1566,7 +1727,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-${step}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1747,6 +1908,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         : defaultText;
     const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
     const activePickerView = bulkTemplatePickerViews[activeIndex] ?? "style";
+    const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
 
     const applyTemplateToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -1783,6 +1945,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const next = [...prev];
         targetIndices.forEach((idx) => {
           next[idx] = text;
+        });
+        return next;
+      });
+      setBulkVideoLength((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVideoLength;
         });
         return next;
       });
@@ -1928,7 +2097,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const suggestedTemplates = sourceList.filter(
       (t) => t.styles?.some((s) => s.toLowerCase() === styleLower)
     );
-    const customTemplatesForStyle = customTemplates.filter(
+    const customTemplatesForStyle = readyCustomTemplates.filter(
       (ct) => normalizeVideoStyle(ct.supported_video_style) === styleLower
     );
     const styleTemplateItems: Array<
@@ -2033,7 +2202,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
             <div className="relative">
               {selectedCustomBulk ? (
-                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
+                <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
               ) : SelectedPreviewComp ? (
                 <SelectedPreviewComp key={`selected-bulk-${tpl}-${activeIndex}-${step}`} />
               ) : (
@@ -2164,12 +2333,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
           </div>
         </div>
-
         {/* Templates list filtered by style */}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {activePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
-              {customTemplates.map((ct) => {
+              {readyCustomTemplates.map((ct) => {
                 const customId = `custom_${ct.id}`;
                 const isSelected = tpl === customId;
                 return (
@@ -2183,7 +2351,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                      <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2252,7 +2420,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        <CustomPreview theme={ct.theme} name={ct.name} key={`${customId}-bulk-${activeIndex}`} />
+                        <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2714,6 +2882,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rowVoiceAccent = bulkVoiceAccent[activeIndex] ?? "american";
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
     const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
+    const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
 
     const applyVoiceToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -2742,6 +2911,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         const next = [...prev];
         targetIndices.forEach((idx) => {
           next[idx] = rowContentLanguage;
+        });
+        return next;
+      });
+      setBulkVideoLength((prev) => {
+        const next = [...prev];
+        targetIndices.forEach((idx) => {
+          next[idx] = rowVideoLength;
         });
         return next;
       });

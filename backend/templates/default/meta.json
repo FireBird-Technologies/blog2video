@@ -24,7 +24,9 @@
     "metric",
     "quote_callout",
     "image_caption",
-    "timeline"
+    "timeline",
+    "data_visualization",
+    "ending_socials"
   ],
   "layout_prop_schema": {
     "hero_image": {
@@ -527,6 +529,203 @@
           ]
         }
       ]
+    },
+    "data_visualization": {
+      "label": "Data visualization",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 28
+        },
+        "barChartRows": [
+          { "label": "Q1", "value": "18" },
+          { "label": "Q2", "value": "24" },
+          { "label": "Q3", "value": "21" }
+        ],
+        "lineChartLabels": ["Jan", "Feb", "Mar", "Apr"],
+        "lineChartDatasets": [
+          { "label": "Trend", "valuesStr": "12, 18, 22, 19" }
+        ],
+        "histogramRows": [
+          { "label": "0–10", "value": "4" },
+          { "label": "10–20", "value": "12" },
+          { "label": "20–30", "value": "8" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "barChartRows",
+          "label": "Bar chart",
+          "type": "object_array",
+          "maxItems": 12,
+          "subFields": [
+            { "key": "label", "label": "Label" },
+            { "key": "value", "label": "Value" }
+          ]
+        },
+        {
+          "key": "lineChartLabels",
+          "label": "Line chart — X labels",
+          "type": "string_array",
+          "maxItems": 12
+        },
+        {
+          "key": "lineChartDatasets",
+          "label": "Line chart — series",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            { "key": "label", "label": "Series" },
+            { "key": "valuesStr", "label": "Values (comma-separated)" }
+          ]
+        },
+        {
+          "key": "histogramRows",
+          "label": "Histogram bins",
+          "type": "object_array",
+          "maxItems": 16,
+          "subFields": [
+            { "key": "label", "label": "Bin / range" },
+            { "key": "value", "label": "Count" }
+          ]
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending / Follow along",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 79
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 36
+        },
+        "hideImage": true,
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        }
+      ]
     }
   },
   "layouts_without_image": [
@@ -535,6 +734,8 @@
     "flow_diagram",
     "comparison",
     "metric",
-    "quote_callout"
+    "quote_callout",
+    "data_visualization",
+    "ending_socials"
   ]
 }

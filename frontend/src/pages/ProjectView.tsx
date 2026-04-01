@@ -34,6 +34,7 @@ import {
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
+import { useNoticeModal } from "../contexts/NoticeModalContext";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
@@ -45,6 +46,7 @@ import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
+import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 
@@ -73,6 +75,21 @@ function buildProjectTourSteps(project: Project | null): Step[] {
   const steps: Step[] = [TABS_CONTAINER_STEP];
   if (project?.scenes?.length) steps.push(SCENE_EDIT_FIRST_STEP);
   return steps;
+}
+
+/** Display string for ETA from total seconds (smoothed server/client estimate). */
+function formatEtaSecondsRounded(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return "";
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return `~${h}h ${mm}m`;
+  }
+  if (m > 0) return `~${m}m ${rs}s`;
+  return `~${rs}s`;
 }
 
 const PIPELINE_STEPS_URL = [
@@ -324,6 +341,7 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
+  const { showNotice } = useNoticeModal();
   const [logoSaving, setLogoSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -384,7 +402,7 @@ export default function ProjectView() {
   const [downloadingStudio, setDownloadingStudio] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
-  const [renderTimeLeft, setRenderTimeLeft] = useState<string | null>(null);
+  const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
   const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const renderRetryCountRef = useRef(0); // how many times we've auto-retried render
   const MAX_RENDER_RETRIES = 20;
@@ -864,7 +882,7 @@ export default function ProjectView() {
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
-        const { step, running, error: pipelineError, status } = res.data;
+        const { step, running, error: pipelineError, status, notice } = res.data;
 
         setPipelineStep(step);
 
@@ -896,6 +914,13 @@ export default function ProjectView() {
           }
           setPipelineRunning(false);
           stopPolling();
+          if (notice?.code === "video_shortened") {
+            showNotice(
+              notice.message ||
+                "We shortened the video because the scraped/uploaded content was too short for your selected length.",
+              { title: "Video shortened" }
+            );
+          }
           await loadProject();
           return;
         }
@@ -921,8 +946,15 @@ export default function ProjectView() {
     }
   };
 
-  // Track highest-seen render progress so we never go backward
+  // Track highest-seen render progress so we never go backward (also persisted while rendering)
   const renderHighWaterRef = useRef(0);
+  const renderResumeInitRef = useRef(false);
+  /** Wall time when we first saw rendered_frames > 0 (client ETA fallback only). */
+  const renderStartWallRef = useRef<number | null>(null);
+  // Monotonic ETA: once it has decreased at least once, never allow it to increase again.
+  const renderEtaLastSecRef = useRef<number | null>(null);
+  const renderEtaWentDownRef = useRef(false);
+  const lastRenderAttemptRef = useRef(1);
   const handleRenderRef = useRef<(force: boolean, onStart?: () => void) => Promise<void>>();
 
   const handleRender = async (
@@ -944,7 +976,19 @@ export default function ProjectView() {
       setRendered(false);
       setRendering(true);
       setHasError(false);
-      renderHighWaterRef.current = 0;
+      setRenderEtaLabel(null);
+      renderEtaLastSecRef.current = null;
+      renderEtaWentDownRef.current = false;
+      const key = `render_hw_${projectId}`;
+      const hw = sessionStorage.getItem(key);
+      if (hw) {
+        const n = parseInt(hw, 10);
+        if (!Number.isNaN(n)) {
+          renderHighWaterRef.current = n;
+          setRenderProgress(n);
+        }
+      }
+      renderStartWallRef.current = null;
       startRenderPollingLoop({ isResume: true });
       return;
     }
@@ -963,10 +1007,15 @@ export default function ProjectView() {
     setRendering(true);
     setRenderProgress(0);
     setRenderFrames({ rendered: 0, total: 0 });
-    setRenderTimeLeft(null);
+    setRenderEtaLabel(null);
+    renderEtaLastSecRef.current = null;
+    renderEtaWentDownRef.current = false;
     setHasError(false);
     renderHighWaterRef.current = 0;
     renderRetryCountRef.current = 0;
+    sessionStorage.removeItem(`render_hw_${projectId}`);
+    renderStartWallRef.current = null;
+    lastRenderAttemptRef.current = 1;
 
     const startRenderAndPoll = async () => {
       try {
@@ -1025,17 +1074,94 @@ export default function ProjectView() {
             total_frames,
             done,
             error: renderErr,
-            time_remaining,
+            eta_seconds: etaSecondsApi,
+            progress_unknown: progressUnknown,
+            render_attempt: renderAttempt,
           } = status.data;
+
+          const attempt = renderAttempt ?? 1;
+          if (attempt > lastRenderAttemptRef.current) {
+            lastRenderAttemptRef.current = attempt;
+            renderHighWaterRef.current = 0;
+            setRenderProgress(0);
+            setRenderFrames({ rendered: 0, total: 0 });
+            sessionStorage.removeItem(`render_hw_${projectId}`);
+            renderStartWallRef.current = null;
+            renderEtaLastSecRef.current = null;
+            renderEtaWentDownRef.current = false;
+          }
+
+          if (rendered_frames > 0 && renderStartWallRef.current === null) {
+            renderStartWallRef.current = Date.now();
+          }
 
           if (progress >= renderHighWaterRef.current) {
             renderHighWaterRef.current = progress;
             setRenderProgress(progress);
+            if (progress > 0) {
+              sessionStorage.setItem(`render_hw_${projectId}`, String(progress));
+            }
           }
           if (rendered_frames > 0) {
             setRenderFrames({ rendered: rendered_frames, total: total_frames });
           }
-          if (time_remaining) setRenderTimeLeft(time_remaining);
+
+          // ETA: server uses seconds/frame from consecutive lines (linear in work left).
+          // Fallback: (remaining_frames / rendered_frames) × elapsed since first frame — not %, which mixed startup into elapsed.
+          if (!progressUnknown || progress > 0 || rendered_frames > 0) {
+            if (
+              etaSecondsApi != null &&
+              Number.isFinite(etaSecondsApi) &&
+              etaSecondsApi >= 1
+            ) {
+              let nextSec = etaSecondsApi;
+              const lastSec = renderEtaLastSecRef.current;
+              if (lastSec != null) {
+                if (nextSec < lastSec) renderEtaWentDownRef.current = true;
+                if (renderEtaWentDownRef.current && nextSec > lastSec) {
+                  nextSec = lastSec;
+                }
+              }
+              renderEtaLastSecRef.current = nextSec;
+              setRenderEtaLabel(formatEtaSecondsRounded(nextSec));
+            } else if (
+              rendered_frames > 0 &&
+              total_frames > 0 &&
+              rendered_frames < total_frames &&
+              renderStartWallRef.current != null
+            ) {
+              const elapsed = (Date.now() - renderStartWallRef.current) / 1000;
+              const rawEta =
+                (elapsed * (total_frames - rendered_frames)) / rendered_frames;
+              if (Number.isFinite(rawEta) && rawEta >= 1) {
+                let nextSec = rawEta;
+                const lastSec = renderEtaLastSecRef.current;
+                if (lastSec != null) {
+                  if (nextSec < lastSec) renderEtaWentDownRef.current = true;
+                  if (renderEtaWentDownRef.current && nextSec > lastSec) {
+                    nextSec = lastSec;
+                  }
+                }
+                renderEtaLastSecRef.current = nextSec;
+                setRenderEtaLabel(formatEtaSecondsRounded(nextSec));
+              } else {
+                // Avoid showing a misleading early "0s".
+                setRenderEtaLabel(null);
+              }
+            } else if (progress >= 100) {
+              setRenderEtaLabel("Almost done");
+            } else if (
+              progress >= 100 ||
+              (total_frames > 0 && rendered_frames >= total_frames)
+            ) {
+              setRenderEtaLabel("Almost done");
+            } else if (total_frames === 0 && progress === 0) {
+              setRenderEtaLabel(null);
+            } else {
+              // No meaningful ETA yet; don't keep an old "0s" value.
+              if (progress > 0 || rendered_frames > 0) setRenderEtaLabel(null);
+            }
+          }
 
           if (renderErr) {
             if (isResume) {
@@ -1097,10 +1223,37 @@ export default function ProjectView() {
 
       stopRenderPolling();
       poll(); // immediate first poll
-      renderPollingRef.current = setInterval(poll, 10_000);
+      renderPollingRef.current = setInterval(poll, 2000);
     },
     [projectId]
   );
+
+  // Resume render progress after refresh/navigation when the project is still rendering
+  useEffect(() => {
+    renderResumeInitRef.current = false;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!project || project.status !== "rendering" || project.r2_video_url) return;
+    if (renderPollingRef.current) return;
+    if (renderResumeInitRef.current) return;
+    renderResumeInitRef.current = true;
+    const key = `render_hw_${projectId}`;
+    const hw = sessionStorage.getItem(key);
+    if (hw) {
+      const n = parseInt(hw, 10);
+      if (!Number.isNaN(n)) {
+        renderHighWaterRef.current = Math.max(renderHighWaterRef.current, n);
+        setRenderProgress(renderHighWaterRef.current);
+      }
+    }
+    renderStartWallRef.current = null;
+    setRendering(true);
+    setRenderEtaLabel(null);
+    renderEtaLastSecRef.current = null;
+    renderEtaWentDownRef.current = false;
+    startRenderPollingLoop({ isResume: true });
+  }, [projectId, project?.status, project?.r2_video_url, startRenderPollingLoop]);
 
   const handleDownload = async () => {
     if (!project || !project.r2_video_url) {
@@ -1668,17 +1821,18 @@ export default function ProjectView() {
 
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>{renderProgress}%</span>
-                {renderTimeLeft ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    {renderTimeLeft} remaining
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                    Encoding
-                  </span>
-                )}
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                  {renderEtaLabel
+                    ? renderEtaLabel.startsWith("~")
+                      ? `${renderEtaLabel} remaining`
+                      : renderEtaLabel
+                    : renderProgress > 0
+                      ? "Estimating…"
+                      : renderFrames.total > 0
+                        ? "Rendering…"
+                        : "Preparing…"}
+                </span>
               </div>
 
               <p className="mt-6 text-sm text-gray-400">
@@ -2530,13 +2684,18 @@ export default function ProjectView() {
                                 {scene.remotion_code && (() => {
                                   try {
                                     const desc = JSON.parse(scene.remotion_code);
+                                    const layoutId =
+                                      desc.layout ||
+                                      desc.contentArchetype ||
+                                      desc.layoutConfig?.arrangement ||
+                                      null;
                                     return (
                                       <div>
                                         <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                                           Layout
                                         </h4>
                                         <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
-                                          {desc.layout?.replace(/_/g, " ") || "text narration"}
+                                          {getSceneLayoutLabel(project.template, layoutId, layoutId?.replace(/_/g, " ")) || "text narration"}
                                         </span>
                                       </div>
                                     );
@@ -2563,8 +2722,9 @@ export default function ProjectView() {
                                     const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
                                     const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
                                     const override = sceneFontOverrides[scene.id];
-                                    const storedTitle = desc.layoutConfig?.titleFontSize ?? desc.layoutProps?.titleFontSize;
-                                    const storedDesc = desc.layoutConfig?.descriptionFontSize ?? desc.layoutProps?.descriptionFontSize;
+                                    const isCustomTpl = (template).startsWith("custom_");
+                                    const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
+                                    const storedDesc = isCustomTpl ? desc.layoutConfig?.descriptionFontSize : desc.layoutProps?.descriptionFontSize;
                                     const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
                                     const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
                                     const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
@@ -2582,8 +2742,11 @@ export default function ProjectView() {
                                         if (!sc?.remotion_code) return;
                                         setSavingFontSizes(sceneId);
                                         try {
-                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown> };
-                                          const next = { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown>; layoutConfig?: Record<string, unknown> };
+                                          const isCustom = (proj.template || "").startsWith("custom_");
+                                          const next = isCustom
+                                            ? { ...d, layoutConfig: { ...(d.layoutConfig ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } }
+                                            : { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
                                           updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
                                             loadProject();
                                             setSceneFontOverrides((prev) => {

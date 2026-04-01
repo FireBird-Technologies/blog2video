@@ -22,6 +22,7 @@ class Scene(Base):
     extra_hold_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Optional hint for template_scene_gen: layout ID or arrangement name suggested by script generator.
     preferred_layout: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scene_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # "intro"/"content"/"outro"; NULL = "content"
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )

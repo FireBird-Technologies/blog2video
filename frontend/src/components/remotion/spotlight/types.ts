@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 /** Spotlight template layout types. */
 export type SpotlightLayoutType =
   | "impact_title"
@@ -8,7 +10,8 @@ export type SpotlightLayoutType =
   | "versus"
   | "spotlight_image"
   | "rapid_points"
-  | "closer";
+  | "closer"
+  | "ending_socials";
 
 export interface SpotlightLayoutProps {
   title: string;
@@ -19,7 +22,7 @@ export interface SpotlightLayoutProps {
   textColor: string;
   aspectRatio?: string;
   fontFamily?: string;
-  // statement
+  // statement / impact_title
   highlightWord?: string;
   // word_punch
   word?: string;
@@ -40,4 +43,8 @@ export interface SpotlightLayoutProps {
   // typography overrides
   titleFontSize?: number;
   descriptionFontSize?: number;
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }
