@@ -1623,7 +1623,6 @@ async def regenerate_scene(
                 descriptor["layoutConfig"] = {}
             if single_result:
                 descriptor["structuredContent"] = single_result[0]
-            print(f"[F7-DEBUG] [REGENERATE] Custom template: re-extracted structured content for scene {scene.id}")
         else:
             descriptor = await template_gen.generate_regenerate_descriptor(
                 scene_title=scene.title,

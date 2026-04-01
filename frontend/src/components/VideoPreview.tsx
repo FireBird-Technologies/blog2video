@@ -23,21 +23,21 @@ const StableCustomComposition: React.FC<any> = ({
 }) => {
   if (!isCustom || !compiledScenes) return null;
 
-  const brandColors: SceneProps["brandColors"] = project.custom_theme
-    ? {
-        primary: project.custom_theme.colors.accent,
-        secondary: project.custom_theme.colors.surface,
-        accent: project.custom_theme.colors.accent,
-        background: project.custom_theme.colors.bg,
-        text: project.custom_theme.colors.text,
-      }
-    : {
-        primary: project.accent_color || "#7C3AED",
-        secondary: "#F5F5F5",
-        accent: project.accent_color || "#7C3AED",
-        background: project.bg_color || "#FFFFFF",
-        text: project.text_color || "#1A1A2E",
+  // Project-level color overrides (from Settings > Colors) take precedence
+  // over the template's default theme colors.
+  const themeColors = project.custom_theme?.colors;
+  const brandColors: SceneProps["brandColors"] = {
+        primary: project.accent_color || themeColors?.accent || "#7C3AED",
+        secondary: themeColors?.surface || "#F5F5F5",
+        accent: project.accent_color || themeColors?.accent || "#7C3AED",
+        background: project.bg_color || themeColors?.bg || "#FFFFFF",
+        text: project.text_color || themeColors?.text || "#1A1A2E",
       };
+
+  // Font props: user override (resolvedFontFamily) takes precedence over template theme fonts.
+  const themeFonts = project.custom_theme?.fonts;
+  const headingFont = resolvedFontFamily || themeFonts?.heading || undefined;
+  const bodyFont = resolvedFontFamily || themeFonts?.body || undefined;
 
   const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
   const totalScenes = scenes.length;
@@ -124,8 +124,11 @@ const StableCustomComposition: React.FC<any> = ({
           steps: sc.steps as string[] | undefined,
           titleFontSize: (s.layoutConfig as any)?.titleFontSize as number | undefined,
           descriptionFontSize: (s.layoutConfig as any)?.descriptionFontSize as number | undefined,
+          headingFont,
+          bodyFont,
         };
 
+        // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
         return (
           <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
             <SceneComp {...sceneProps} />
@@ -367,7 +370,8 @@ export default function VideoPreview({
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";
             }
-            console.log(`[VideoPreview] scene ${idx}: custom template, arrangement=${layout}, contentType=${structuredContent?.contentType || 'none'}`);
+            // console.log(`[VideoPreview] scene ${idx}: custom template, arrangement=${layout}, contentType=${structuredContent?.contentType || 'none'}`);
+            // console.log(`[F7-DEBUG] [VideoPreview] scene ${idx} PARSED: structuredContent=${JSON.stringify(structuredContent)?.substring(0,150)}, layoutConfig=${JSON.stringify(layoutConfig)?.substring(0,100)}`);
           } else if (descriptor.layoutConfig) {
             // Built-in template with layoutConfig (unlikely but supported)
             layoutConfig = descriptor.layoutConfig;
@@ -481,6 +485,16 @@ export default function VideoPreview({
     [scenes],
   );
   const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
+
+  // Recompute when scene descriptor data changes (title, display_text, remotion_code)
+  // so the Player remounts and shows the latest content.
+  const sceneDataKey = useMemo(
+    () => {
+      const key = project.scenes.map((s) => `${s.id}:${s.title}:${s.display_text ?? ""}:${s.remotion_code ?? ""}`).join("|");
+      return key;
+    },
+    [project.scenes, isCustom],
+  );
   useEffect(() => {
     let cancelled = false;
     setMediaReady(false);
@@ -634,7 +648,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${mediaSourcesKey}`}
+          key={`preview-${project.id}-${mediaSourcesKey}-${sceneDataKey}`}
           component={Composition}
           inputProps={{
             ...inputProps,
