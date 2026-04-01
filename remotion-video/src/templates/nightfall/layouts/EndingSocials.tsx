@@ -59,7 +59,7 @@ export const EndingSocials: React.FC<NightfallLayoutProps> = ({
   const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const markerFont = (fontFamily ?? "").trim() || "'Playfair Display', Georgia, serif";
-  const bodyFont = (fontFamily ?? "").trim() || "'Inter', system-ui, sans-serif";
+  const bodyFont = (fontFamily ?? "").trim() || "'Playfair Display', Georgia, serif";
 
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>

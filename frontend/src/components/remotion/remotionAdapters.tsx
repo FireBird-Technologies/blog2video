@@ -13,6 +13,8 @@ import {
 import {
   GRIDCRAFT_LAYOUT_REGISTRY as REMOTION_GRIDCRAFT_LAYOUT_REGISTRY,
 } from "@remotion-video/templates/gridcraft/layouts";
+import { Blobs } from "@remotion-video/templates/gridcraft/components/Blobs";
+import { COLORS as GRIDCRAFT_COLORS } from "@remotion-video/templates/gridcraft/utils/styles";
 import {
   SPOTLIGHT_LAYOUT_REGISTRY as REMOTION_SPOTLIGHT_LAYOUT_REGISTRY,
   type SpotlightLayoutType as RemotionSpotlightLayoutType,
@@ -529,7 +531,13 @@ export const RemotionGridcraftVideoComposition: React.FC<
   let currentFrame = 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#0b0b10", fontFamily }}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: bgColor || GRIDCRAFT_COLORS.BG,
+        fontFamily,
+      }}
+    >
+      <Blobs />
       {scenes.map((scene, index) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
@@ -543,9 +551,9 @@ export const RemotionGridcraftVideoComposition: React.FC<
           ...scene.layoutProps,
           title: scene.title,
           narration: scene.narration,
-          accentColor: accentColor || textColor,
-          bgColor: bgColor,
-          textColor,
+          accentColor: accentColor || GRIDCRAFT_COLORS.ACCENT,
+          bgColor: bgColor || GRIDCRAFT_COLORS.BG,
+          textColor: textColor || GRIDCRAFT_COLORS.DARK,
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
           fontFamily,
@@ -558,7 +566,7 @@ export const RemotionGridcraftVideoComposition: React.FC<
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <AbsoluteFill>
+            <AbsoluteFill style={{ zIndex: 1 }}>
               <LayoutComponent {...layoutProps} />
             </AbsoluteFill>
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
@@ -566,7 +574,7 @@ export const RemotionGridcraftVideoComposition: React.FC<
               <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <AbsoluteFill
                   style={{
-                    backgroundColor: bgColor,
+                    backgroundColor: bgColor || GRIDCRAFT_COLORS.BG,
                     opacity: 0.9,
                   }}
                 />
@@ -577,13 +585,15 @@ export const RemotionGridcraftVideoComposition: React.FC<
       })}
 
       {logo && (
-        <LogoOverlay
-          src={logo}
-          position={logoPosition || "bottom_right"}
-          maxOpacity={logoOpacity ?? 0.9}
-          size={logoSize ?? 100}
-          aspectRatio={aspectRatio || "landscape"}
-        />
+        <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
+          <LogoOverlay
+            src={logo}
+            position={logoPosition || "bottom_right"}
+            maxOpacity={logoOpacity ?? 0.9}
+            size={logoSize ?? 100}
+            aspectRatio={aspectRatio || "landscape"}
+          />
+        </AbsoluteFill>
       )}
     </AbsoluteFill>
   );
