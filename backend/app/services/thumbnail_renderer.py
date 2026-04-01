@@ -101,7 +101,8 @@ def render_template_thumbnail(template_id: int, user_id: int) -> str | None:
             "--frame", "0",
             "--width", "854",
             "--height", "480",
-            "--gl", "swiftshader",  
+            "--gl", "swiftshader",
+            "--chromium-flags", "--disable-software-rasterizer=false --use-gl=swiftshader",
             "--timeout", "30000",
             "--bundle-cache", "true",
         ]
