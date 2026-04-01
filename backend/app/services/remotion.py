@@ -1041,7 +1041,7 @@ def _build_render_cmd(
         npx, "remotion", "render", composition_id, output_path,
         "--concurrency", "100%",              # use all CPU cores
         "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
-        "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
+         "--gl", "swiftshader",                      # faster OpenGL on Linux/Cloud Run
         "--jpeg-quality", "70",               # faster encoding, minimal quality loss
         "--bundle-cache", "true",             # reuse webpack bundle across renders
         "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
