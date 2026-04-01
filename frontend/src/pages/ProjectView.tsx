@@ -2719,8 +2719,9 @@ export default function ProjectView() {
                                     const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
                                     const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
                                     const override = sceneFontOverrides[scene.id];
-                                    const storedTitle = desc.layoutConfig?.titleFontSize ?? desc.layoutProps?.titleFontSize;
-                                    const storedDesc = desc.layoutConfig?.descriptionFontSize ?? desc.layoutProps?.descriptionFontSize;
+                                    const isCustomTpl = (template).startsWith("custom_");
+                                    const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
+                                    const storedDesc = isCustomTpl ? desc.layoutConfig?.descriptionFontSize : desc.layoutProps?.descriptionFontSize;
                                     const titleFontSize = override?.title ?? storedTitle ?? defaults.title;
                                     const descFontSize = override?.desc ?? storedDesc ?? defaults.desc;
                                     const titleClamped = Math.min(200, Math.max(20, Number(titleFontSize) || defaults.title));
@@ -2738,8 +2739,11 @@ export default function ProjectView() {
                                         if (!sc?.remotion_code) return;
                                         setSavingFontSizes(sceneId);
                                         try {
-                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown> };
-                                          const next = { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
+                                          const d = JSON.parse(sc.remotion_code) as { layout?: string; layoutProps?: Record<string, unknown>; layoutConfig?: Record<string, unknown> };
+                                          const isCustom = (proj.template || "").startsWith("custom_");
+                                          const next = isCustom
+                                            ? { ...d, layoutConfig: { ...(d.layoutConfig ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } }
+                                            : { ...d, layoutProps: { ...(d.layoutProps ?? {}), titleFontSize: pending.title, descriptionFontSize: pending.desc } };
                                           updateScene(proj.id, sceneId, { remotion_code: JSON.stringify(next) }).then(() => {
                                             loadProject();
                                             setSceneFontOverrides((prev) => {

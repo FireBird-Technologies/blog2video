@@ -30,6 +30,8 @@ export interface GeneratedSceneProps {
   steps?: string[];
   titleFontSize?: number;
   descriptionFontSize?: number;
+  headingFont?: string;
+  bodyFont?: string;
 }
 
 export interface GeneratedVideoData {
@@ -46,6 +48,10 @@ export interface GeneratedVideoData {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string | null;
+  /** Font for headings/titles (from theme or user override) */
+  headingFont?: string | null;
+  /** Font for body/description text (from theme or user override) */
+  bodyFont?: string | null;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {

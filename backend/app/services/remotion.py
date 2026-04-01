@@ -756,12 +756,14 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             theme_colors = custom_data["theme"].get("colors", {})
             logger.info("[REMOTION] Custom theme loaded for %s: style=%s, accent=%s", template_id, custom_data["theme"].get("style"), theme_colors.get("accent"))
 
+            # Project-level color overrides (from Settings > Colors) take
+            # precedence over the template's default theme colors.
             data["brandColors"] = {
-                "primary": theme_colors.get("accent", "#7C3AED"),
+                "primary": project.accent_color or theme_colors.get("accent", "#7C3AED"),
                 "secondary": theme_colors.get("surface", "#F5F5F5"),
-                "accent": theme_colors.get("accent", "#7C3AED"),
-                "background": theme_colors.get("bg", "#FFFFFF"),
-                "text": theme_colors.get("text", "#1A1A2E"),
+                "accent": project.accent_color or theme_colors.get("accent", "#7C3AED"),
+                "background": project.bg_color or theme_colors.get("bg", "#FFFFFF"),
+                "text": project.text_color or theme_colors.get("text", "#1A1A2E"),
             }
             # Tag each scene with a sceneType for GeneratedVideo
             total = len(scene_data)
@@ -769,6 +771,13 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             archetype_ids = custom_data.get("content_archetype_ids") or []
             num_content_variants = len(content_codes) if content_codes else 1
             data["contentVariantCount"] = num_content_variants
+
+            # Font props: user override (project.font_family) takes precedence
+            # over template theme fonts. Components use these as props, not hardcoded.
+            theme_fonts = custom_data["theme"].get("fonts", {})
+            resolved_font = getattr(project, "font_family", None)
+            data["headingFont"] = resolved_font or theme_fonts.get("heading")
+            data["bodyFont"] = resolved_font or theme_fonts.get("body")
 
             # Assign scene types first
             for idx, sd in enumerate(scene_data):
@@ -839,7 +848,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                         else:
                             scene_data[scene_idx]["contentArchetype"] = "unknown"
 
-                print(f"[F7-DEBUG] [REMOTION] Content-aware matching: {len(assignments)} scenes matched to archetypes")
             else:
                 # Fallback: cycle evenly (for templates without archetype metadata)
                 content_idx = 0
@@ -871,8 +879,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     scene_obj.remotion_code = json.dumps(desc)
 
             db.commit()
-            print(f"[F7-DEBUG] [REMOTION] Persisted variant assignments to DB for {len(scene_data)} scenes")
-
             logger.info(
                 "GeneratedVideo: brandColors and sceneTypes set for %d scenes (%d content variants)",
                 total, num_content_variants,
