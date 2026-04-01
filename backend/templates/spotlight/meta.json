@@ -397,12 +397,12 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 97,
-          "landscape": 100
+          "portrait": 95,
+          "landscape": 113
         },
         "descriptionFontSize": {
           "portrait": 44,
-          "landscape": 41
+          "landscape": 32
         },
         "hideImage": true,
         "socials": [
