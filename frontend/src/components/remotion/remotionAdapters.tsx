@@ -45,12 +45,65 @@ import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
 
 const TRANS_IN_SEC = 0.52;
 
+const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = {
+  opening: "opening",
+  anchor_narrative: "anchor_narrative",
+  live_metrics_board: "live_metrics_board",
+  briefing_code_panel: "briefing_code_panel",
+  headline_insight: "headline_insight",
+  story_stack: "story_stack",
+  side_by_side_brief: "side_by_side_brief",
+  segment_break: "segment_break",
+  field_image_focus: "field_image_focus",
+  cinematic_title: "opening",
+  glass_narrative: "anchor_narrative",
+  glow_metric: "live_metrics_board",
+  glass_code: "briefing_code_panel",
+  kinetic_insight: "headline_insight",
+  kinetix_insight: "headline_insight",
+  glass_stack: "story_stack",
+  split_glass: "side_by_side_brief",
+  chapter_break: "segment_break",
+  glass_image: "field_image_focus",
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_kinetic_insight: "headline_insight",
+  newscast_glass_stack: "story_stack",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glass_image: "field_image_focus",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const normalizeNewscastLayoutId = (layout: string): RemotionNewscastLayoutType =>
+  LEGACY_TO_NEWCAST_LAYOUT_ID[layout] ?? "anchor_narrative";
+
+const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> = {
+  opening: "cinematic_title",
+  anchor_narrative: "glass_narrative",
+  live_metrics_board: "glow_metric",
+  briefing_code_panel: "glass_code",
+  headline_insight: "kinetic_insight",
+  story_stack: "glass_stack",
+  side_by_side_brief: "split_glass",
+  segment_break: "chapter_break",
+  field_image_focus: "glass_image",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const toLegacyNewscastLayoutId = (layout: RemotionNewscastLayoutType): string =>
+  NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
+
 const RemotionNewscastSequenceInner: React.FC<{
   startFrame: number;
   durationInFrames: number;
   sceneIndex: number;
   isHero: boolean;
-  layoutType: RemotionNewscastLayoutType;
+  layoutType: string;
   layoutProps: RemotionNewscastLayoutProps;
   LayoutComponent: React.ComponentType<RemotionNewscastLayoutProps>;
   voiceoverUrl?: string;
@@ -130,16 +183,15 @@ const RemotionNewscastSequenceInner: React.FC<{
   return (
     <AbsoluteFill>
       <NewscastSceneZTransition durationInFrames={durationInFrames} sceneIndex={sceneIndex} layoutType={layoutType}>
-        {!isHero ? (
-          <NewsCastBackground
-            variant="hero"
-            globeOpacity={0.44}
-            globePosition="right"
-            rotationFrame={rotationFrame}
-            globeTranslateX={finalGlobeTranslateX}
-            globeTranslateY={finalGlobeTranslateY}
-          />
-        ) : null}
+        <NewsCastBackground
+          variant="hero"
+          globeOpacity={0.44}
+          globePosition="right"
+          rotationFrame={rotationFrame}
+          globeTranslateX={finalGlobeTranslateX}
+          globeTranslateY={finalGlobeTranslateY}
+          solidBackground
+        />
         {!isHero ? (
           <NewsCastChrome
             tickerItems={layoutProps.tickerItems}
@@ -959,8 +1011,8 @@ export const RemotionNewscastVideoComposition: React.FC<
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
-        const normalizedLayout =
-          scene.layout === "kinetix_insight" ? "kinetic_insight" : scene.layout;
+        const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
+        const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
         const startFrame = scenes
           .slice(0, index)
           .reduce(
@@ -978,7 +1030,7 @@ export const RemotionNewscastVideoComposition: React.FC<
         const LayoutComponent =
           REMOTION_NEWSCAST_LAYOUT_REGISTRY[
             normalizedLayout as RemotionNewscastLayoutType
-          ] ?? REMOTION_NEWSCAST_LAYOUT_REGISTRY.glass_narrative;
+          ] ?? REMOTION_NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const lc = scene.layoutConfig;
         const lp = scene.layoutProps as Partial<RemotionNewscastLayoutProps>;
@@ -999,8 +1051,8 @@ export const RemotionNewscastVideoComposition: React.FC<
           globeRotationFrameOffset: startFrame,
         };
 
-        const layoutType = normalizedLayout as RemotionNewscastLayoutType;
-        const isHero = layoutType === "cinematic_title";
+        const layoutType = legacyLayout;
+        const isHero = normalizedLayout === "opening";
 
         return (
           <Sequence

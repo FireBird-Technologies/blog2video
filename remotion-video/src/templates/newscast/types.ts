@@ -1,3 +1,5 @@
+import type { SocialsMap } from "../SocialIcons";
+
 export interface NewscastLayoutProps {
   title: string;
   narration?: string;
@@ -66,17 +68,24 @@ export interface NewscastLayoutProps {
   imageUrl?: string;
 
   fontFamily?: string;
+
+  /** ending_socials */
+  socials?: SocialsMap;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }
 
 export type NewscastLayoutType =
-  | "cinematic_title"
-  | "glass_narrative"
-  | "glow_metric"
-  | "glass_code"
-  | "kinetic_insight"
-  | "glass_stack"
-  | "split_glass"
-  | "chapter_break"
-  | "glass_image"
-  | "data_visualization";
+  | "opening"
+  | "anchor_narrative"
+  | "live_metrics_board"
+  | "briefing_code_panel"
+  | "headline_insight"
+  | "story_stack"
+  | "side_by_side_brief"
+  | "segment_break"
+  | "field_image_focus"
+  | "data_visualization"
+  | "ending_socials";
 

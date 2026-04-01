@@ -21,13 +21,66 @@ import { normalizeNewscastDataVizLayoutProps } from "./normalizeDataVizLayoutPro
 
 const TRANS_IN_SEC = 1.15;
 
+const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
+  opening: "opening",
+  anchor_narrative: "anchor_narrative",
+  live_metrics_board: "live_metrics_board",
+  briefing_code_panel: "briefing_code_panel",
+  headline_insight: "headline_insight",
+  story_stack: "story_stack",
+  side_by_side_brief: "side_by_side_brief",
+  segment_break: "segment_break",
+  field_image_focus: "field_image_focus",
+  cinematic_title: "opening",
+  glass_narrative: "anchor_narrative",
+  glow_metric: "live_metrics_board",
+  glass_code: "briefing_code_panel",
+  kinetic_insight: "headline_insight",
+  kinetix_insight: "headline_insight",
+  glass_stack: "story_stack",
+  split_glass: "side_by_side_brief",
+  chapter_break: "segment_break",
+  glass_image: "field_image_focus",
+  newscast_cinematic_title: "opening",
+  newscast_glass_narrative: "anchor_narrative",
+  newscast_glow_metric: "live_metrics_board",
+  newscast_glass_code: "briefing_code_panel",
+  newscast_kinetic_insight: "headline_insight",
+  newscast_glass_stack: "story_stack",
+  newscast_split_glass: "side_by_side_brief",
+  newscast_chapter_break: "segment_break",
+  newscast_glass_image: "field_image_focus",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const normalizeNewscastLayoutId = (layout: string): NewscastLayoutType =>
+  LEGACY_TO_NEWCAST_LAYOUT_ID[layout] ?? "anchor_narrative";
+
+const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
+  opening: "cinematic_title",
+  anchor_narrative: "glass_narrative",
+  live_metrics_board: "glow_metric",
+  briefing_code_panel: "glass_code",
+  headline_insight: "kinetic_insight",
+  story_stack: "glass_stack",
+  side_by_side_brief: "split_glass",
+  segment_break: "chapter_break",
+  field_image_focus: "glass_image",
+  data_visualization: "data_visualization",
+  ending_socials: "ending_socials",
+};
+
+const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
+  NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
+
 const NewscastSequenceInner: React.FC<{
   startFrame: number;
   durationInFrames: number;
   sceneIndex: number;
   sceneCount: number;
   isHero: boolean;
-  layoutType: NewscastLayoutType;
+  layoutType: string;
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverSrc?: string;
@@ -81,7 +134,7 @@ const NewscastSequenceInner: React.FC<{
   const glassImageSlowExitT = Math.pow(exitT, 1.16);
 
   const globeTranslateXIn =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? entryT * -220
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowT * -188
@@ -99,7 +152,7 @@ const NewscastSequenceInner: React.FC<{
         ? entryT * -90
         : 0;
   const globeTranslateXOut =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? exitT * -220
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowExitT * -188
@@ -117,7 +170,7 @@ const NewscastSequenceInner: React.FC<{
         ? exitT * -90
         : 0;
   const globeTranslateYIn =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? entryT * -26
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowT * 54 + Math.sin(entryT * Math.PI) * -5
@@ -135,7 +188,7 @@ const NewscastSequenceInner: React.FC<{
         ? entryT * 16
         : 0;
   const globeTranslateYOut =
-    !isHero && layoutType === "glass_narrative"
+    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
       ? exitT * -26
       : !isHero && layoutType === "kinetic_insight"
         ? kineticSlowExitT * 54 + Math.sin(exitT * Math.PI) * -5
@@ -248,6 +301,7 @@ interface SceneData {
   durationSeconds: number;
   voiceoverFile: string | null;
   images: string[];
+  imageUrl?: string;
 }
 
 interface VideoData {
@@ -317,7 +371,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               order: 1,
               title: "NEWS BULLETIN",
               narration: "A clear, editorial opening for live broadcast updates.",
-              layout: "cinematic_title",
+              layout: "opening",
               layoutProps: {
                 tickerItems: [
                   "LIVE BREAKING FEED",
@@ -352,15 +406,15 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, sceneIndex) => {
-        const normalizedLayout =
-          scene.layout === "kinetix_insight" ? "kinetic_insight" : scene.layout;
+        const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
+        const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
         const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
         const LayoutComponent =
           NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
-          NEWSCAST_LAYOUT_REGISTRY.glass_narrative;
+          NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const imageUrlFromAssets = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
         const lp = (scene.layoutProps ?? {}) as Record<string, unknown>;
@@ -381,13 +435,16 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           bgColor: data.bgColor || "#FAFAF8",
           textColor: data.textColor || "#111111",
           aspectRatio: (data.aspectRatio as "landscape" | "portrait") || "landscape",
-          imageUrl: imageUrlFromAssets ?? (typeof lp.imageUrl === "string" ? lp.imageUrl : undefined),
+          imageUrl:
+            imageUrlFromAssets ??
+            scene.imageUrl ??
+            (typeof lp.imageUrl === "string" ? lp.imageUrl : undefined),
           fontFamily: resolvedFontFamily || undefined,
           globeRotationFrameOffset: startFrame,
         };
 
-        const layoutType = normalizedLayout as NewscastLayoutType;
-        const isHero = layoutType === "cinematic_title";
+        const layoutType = legacyLayout;
+        const isHero = normalizedLayout === "opening";
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>

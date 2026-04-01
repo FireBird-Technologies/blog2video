@@ -141,7 +141,12 @@ function resolveLayoutTransitionStyle(layoutType?: string): NewscastTransitionSt
     return "zoom_soft";
   }
 
-  if (layoutType === "glass_narrative" || layoutType === "chapter_break" || layoutType === "glass_code") {
+  if (
+    layoutType === "glass_narrative" ||
+    layoutType === "ending_socials" ||
+    layoutType === "chapter_break" ||
+    layoutType === "glass_code"
+  ) {
     return "fade_cross";
   }
 
@@ -455,14 +460,14 @@ export const NewscastSceneZTransition: React.FC<{
         })
       : 0;
   const glassNarrativeCamX =
-    layoutType === "glass_narrative"
+    layoutType === "glass_narrative" || layoutType === "ending_socials"
       ? interpolate(frame, [0, transInFrames], [-66 * layoutFxStrength, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 0;
   const glassNarrativeCamRotY =
-    layoutType === "glass_narrative"
+    layoutType === "glass_narrative" || layoutType === "ending_socials"
       ? interpolate(frame, [0, transInFrames], [8 * layoutFxStrength, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
@@ -517,7 +522,7 @@ export const NewscastSceneZTransition: React.FC<{
                 ? `translateY(${translateY + glassCodeCamY}px) translateX(${translateX}px) scale(${scale * glassCodeCamScale}) rotateZ(${rotateZ}deg)`
               : layoutType === "glass_stack"
                 ? `translateX(${translateX + glassStackCamX}px) translateY(${translateY + glassStackCamY}px) scale(${scale * glassStackCamScale}) rotateZ(${glassStackCamRoll + rotateZ}deg)`
-              : layoutType === "glass_narrative"
+              : layoutType === "glass_narrative" || layoutType === "ending_socials"
                 ? `translateX(${translateX + glassNarrativeCamX}px) translateY(${translateY}px) scale(${scale}) rotateY(${glassNarrativeCamRotY}deg) rotateZ(${rotateZ}deg)`
               : layoutType === "chapter_break"
                 ? `translateY(${translateY + chapterBreakCamY}px) translateX(${translateX + chapterBreakCamX + chapterBreakShakeX}px) scale(${scale * chapterBreakCamScale}) rotateZ(${chapterBreakCamRoll + rotateZ}deg)`

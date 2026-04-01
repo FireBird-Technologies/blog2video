@@ -9,6 +9,7 @@ import { GlassStack } from "./GlassStack";
 import { GlowMetric } from "./GlowMetric";
 import { KineticInsight } from "./KineticInsight";
 import { SplitGlass } from "./SplitGlass";
+import { EndingSocials } from "./EndingSocials";
 
 import type React from "react";
 
@@ -18,15 +19,16 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   NewscastLayoutType,
   React.FC<NewscastLayoutProps>
 > = {
-  cinematic_title: CinematicTitle,
-  glass_narrative: GlassNarrative,
-  glow_metric: GlowMetric,
-  glass_code: GlassCode,
-  kinetic_insight: KineticInsight,
-  glass_stack: GlassStack,
-  split_glass: SplitGlass,
-  chapter_break: ChapterBreak,
-  glass_image: GlassImage,
+  opening: CinematicTitle,
+  anchor_narrative: GlassNarrative,
+  live_metrics_board: GlowMetric,
+  briefing_code_panel: GlassCode,
+  headline_insight: KineticInsight,
+  story_stack: GlassStack,
+  side_by_side_brief: SplitGlass,
+  segment_break: ChapterBreak,
+  field_image_focus: GlassImage,
   data_visualization: DataVisualization,
+  ending_socials: EndingSocials,
 };
 
