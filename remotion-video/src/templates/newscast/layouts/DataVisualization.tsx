@@ -7,6 +7,7 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
+  resolveNewscastNumberFontPx,
   resolveNewscastDescriptionSize,
   resolveNewscastTitleSize,
   scaleNewscastPx,
@@ -217,6 +218,21 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                   const h = fullH * barOvershootT;
                   const y = 190 - h;
                   const fill = i % 2 === 0 ? RED : BLUE;
+                  const barLabelFontSize = resolveNewscastNumberFontPx({
+                    basePx: 12,
+                    descriptionFontSize,
+                    portraitScale,
+                    text: lab,
+                    maxWidth: barW * 0.92,
+                    maxHeight: 22,
+                    lineHeight: 1,
+                    proportionalDamp: 0.66,
+                    proportionalMin: 0.88,
+                    proportionalMax: 1.16,
+                    fitMin: 0.72,
+                    fitMax: 1,
+                    paddingX: 2,
+                  });
 
                   return (
                     <g key={lab || i}>
@@ -245,7 +261,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                         y={225}
                         textAnchor="middle"
                         fontFamily={newscastFont(fontFamily, "label")}
-                        fontSize={scaleNewscastPx(12, portraitScale)}
+                        fontSize={barLabelFontSize}
                         fill={STEEL_COLOR}
                         opacity={labelOpacity}
                       >
@@ -274,6 +290,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                   const xAt = (i: number) =>
                     n <= 1 ? plotLeft + plotW / 2 : plotLeft + (i / Math.max(n - 1, 1)) * plotW;
                   const yAt = (v: number) => plotBot - ((v - vmin) / vspan) * plotH;
+                  const lineLabelSlotWidth = n <= 1 ? plotW * 0.8 : (plotW / Math.max(n - 1, 1)) * 0.8;
                   return (
                     <>
                       {line.datasets.map((ds, di) => {
@@ -311,7 +328,21 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                           y={225}
                           textAnchor="middle"
                           fontFamily={newscastFont(fontFamily, "label")}
-                          fontSize={scaleNewscastPx(12, portraitScale)}
+                          fontSize={resolveNewscastNumberFontPx({
+                            basePx: 12,
+                            descriptionFontSize,
+                            portraitScale,
+                            text: lab,
+                            maxWidth: lineLabelSlotWidth,
+                            maxHeight: 22,
+                            lineHeight: 1,
+                            proportionalDamp: 0.66,
+                            proportionalMin: 0.88,
+                            proportionalMax: 1.16,
+                            fitMin: 0.68,
+                            fitMax: 1,
+                            paddingX: 2,
+                          })}
                           fill={STEEL_COLOR}
                           opacity={labelOpacity}
                         >
@@ -341,6 +372,8 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                     angle = end;
                     const path = pieSlicePath(cx, cy, r, start, end);
                     const fill = LINE_COLORS[i % LINE_COLORS.length];
+                    const arcSpanRad = ((end - start) * Math.PI) / 180;
+                    const arcLabelWidth = Math.max(26, r * 0.55 * arcSpanRad * 0.9);
                     return (
                       <g key={lab || `pie-${i}`}>
                         <path d={path} fill={fill} opacity={0.75 * lineStrokeOpacity} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
@@ -350,7 +383,21 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fontFamily={newscastFont(fontFamily, "label")}
-                          fontSize={scaleNewscastPx(11, portraitScale)}
+                          fontSize={resolveNewscastNumberFontPx({
+                            basePx: 11,
+                            descriptionFontSize,
+                            portraitScale,
+                            text: lab,
+                            maxWidth: arcLabelWidth,
+                            maxHeight: 20,
+                            lineHeight: 1,
+                            proportionalDamp: 0.64,
+                            proportionalMin: 0.88,
+                            proportionalMax: 1.14,
+                            fitMin: 0.62,
+                            fitMax: 1,
+                            paddingX: 2,
+                          })}
                           fill="white"
                           opacity={labelOpacity}
                         >

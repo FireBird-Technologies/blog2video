@@ -7,6 +7,7 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
+  resolveNewscastNumberFontPx,
   resolveNewscastDescriptionSize,
   resolveNewscastTitleSize,
   scaleNewscastPx,
@@ -39,8 +40,23 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
-  const watermarkNum =
-    height > width ? Math.min(scaleNewscastPx(230, portraitScale), height * 0.22) : 230;
+  const numStr = String(chapterNumber).padStart(2, "0");
+  const watermarkNum = resolveNewscastNumberFontPx({
+    basePx: 230,
+    descriptionFontSize,
+    portraitScale,
+    text: numStr,
+    maxWidth: width * 0.56,
+    maxHeight: height > width ? height * 0.22 : height * 0.3,
+    lineHeight: 1,
+    proportionalDamp: 0.7,
+    proportionalMin: 0.86,
+    proportionalMax: 1.18,
+    fitMin: 0.58,
+    fitMax: 1,
+    paddingX: 10,
+    paddingY: 6,
+  });
   const opacity = interpolate(frame, [0, 24], [0, 1], { extrapolateRight: "clamp" });
   const tumble = panelTumbleUpErupt(frame);
   const labelPop = chapterBreakHeadlinePop(frame, 0);
@@ -65,8 +81,16 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-
-  const numStr = String(chapterNumber).padStart(2, "0");
+  const watermarkBasePx = scaleNewscastPx(230, portraitScale);
+  const watermarkFitRatio = watermarkNum / Math.max(1, watermarkBasePx);
+  const pulseCap =
+    watermarkFitRatio < 0.98
+      ? Math.max(1.02, (1 / Math.max(watermarkFitRatio, 0.58)) * 0.9)
+      : height > width
+        ? 1.28
+        : 1.42;
+  const safeNumberPulse = Math.min(numberPulse, pulseCap);
+  const safeBgNumScale = Math.min(bgNumScale, height > width ? 1.08 : 1.12);
   const labelStr = chapterLabel ?? `CHAPTER TWO`;
   const subStr = subtitle ?? narration ?? "";
   const RED = accentColor || DEFAULT_NEWSCAST_ACCENT;
@@ -114,7 +138,7 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
             letterSpacing: -6,
             color: "rgba(255,255,255,0.16)",
             userSelect: "none",
-            transform: `translate(-50%, -50%) translateX(${numberShakeX}px) scale(${bgNumScale * numberPulse})`,
+            transform: `translate(-50%, -50%) translateX(${numberShakeX}px) scale(${safeBgNumScale * safeNumberPulse})`,
             textShadow: `0 0 90px rgba(232,32,32,${0.45 + numberCrackle * 0.35}), 0 0 46px rgba(180,220,255,${numberCrackle * 0.25})`,
           }}
         >
