@@ -4,4 +4,3 @@ Config.setVideoImageFormat("jpeg");
 Config.setOverwriteOutput(true);
 Config.setCodec("h264");
 Config.setPixelFormat("yuv420p");
-Config.setChromiumOpenGlRenderer("swiftshader");
