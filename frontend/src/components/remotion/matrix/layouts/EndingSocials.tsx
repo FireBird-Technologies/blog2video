@@ -1,9 +1,62 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, Sequence } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+
+const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
+
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+}
+
+const DecodeText: React.FC<{
+  text: string;
+  startFrame: number;
+  decodeFramesPerChar: number;
+  accent: string;
+  fontFamily: string;
+  style?: React.CSSProperties;
+}> = ({ text, startFrame, decodeFramesPerChar, accent, fontFamily, style }) => {
+  const frame = useCurrentFrame();
+  const chars = text.split("");
+
+  return (
+    <div style={{ ...style, fontFamily }}>
+      {chars.map((char, i) => {
+        const charRevealFrame = startFrame + i * decodeFramesPerChar;
+        const isRevealed = frame >= charRevealFrame;
+        const isDecoding = frame >= charRevealFrame - 8 && !isRevealed;
+
+        let displayChar = char;
+        if (char === " ") {
+          displayChar = " ";
+        } else if (isDecoding) {
+          const glitchIdx = Math.floor(
+            seededRandom(i * 100 + frame * 7) * GLITCH_CHARS.length
+          );
+          displayChar = GLITCH_CHARS[glitchIdx];
+        } else if (!isRevealed) {
+          displayChar = " ";
+        }
+
+        return (
+          <span
+            key={i}
+            style={{
+              opacity: char === " " ? 1 : isRevealed || isDecoding ? 1 : 0,
+              color: isDecoding ? `${accent}66` : "inherit",
+            }}
+          >
+            {displayChar}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
 
 export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   title,
@@ -21,176 +74,171 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   descriptionFontSize,
 }) => {
   const frame = useCurrentFrame();
+  const fps = 30;
   const p = aspectRatio === "portrait";
-
-  const bgOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  const fade = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
-  const titleOpacity = interpolate(frame, [10, 28], [0, 1], { extrapolateRight: "clamp" });
-  const subOpacity = interpolate(frame, [14, 42], [0, 1], { extrapolateRight: "clamp" });
+  const accent = accentColor || "#00FF41";
+  const resolvedFontFamily = (fontFamily ?? "").trim() || MATRIX_DEFAULT_FONT_FAMILY;
 
   const subtext = (narration ?? "").trim();
   const resolvedWebsiteLink = (websiteLink ?? "").trim();
   const showWebsiteCta = showWebsiteButton !== false && resolvedWebsiteLink.length > 0;
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
-  
-  // Use a single font family for all texts
-  const resolvedFontFamily = (fontFamily ?? "").trim() || MATRIX_DEFAULT_FONT_FAMILY;
 
-  // Timing for CTA text animation
-  const ctaAnimationStartFrame = 45; // Start animation after other elements have settled
+  // --- Dynamic Sizing ---
+  const resolvedTitleSize = titleFontSize ?? (p ? 80 : 64);
+  const resolvedCtaSize = resolvedTitleSize * 1.2;
+
+  // --- Timing logic ---
+  const titleStart = 10;
+  const decodeSpeed = 2; 
+  const titleDuration = title.length * decodeSpeed;
+  
+  const subtextStart = titleStart + titleDuration + 5;
+  const socialStart = subtextStart + 8;
+  const ctaStart = socialStart + 10;
+
+  const subtextPop = spring({
+    frame: frame - subtextStart,
+    fps,
+    config: { damping: 12, stiffness: 100 },
+  });
+
+  const bgOpacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
+  const otherElementsOpacity = interpolate(frame, [socialStart, socialStart + 10], [0, 1], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ overflow: "hidden" }}>
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: bgColor }}>
       <MatrixBackground bgColor={bgColor} opacity={0.25 * bgOpacity} fontFamily={resolvedFontFamily} />
 
-      <div
-        style={{
+      {/* 1. TOP GROUP: Moved significantly lower toward center */}
+      <div style={{
+        position: "absolute",
+        top: p ? "22%" : "18%", // Increased from 12%/10% to move toward center
+        left: 0,
+        right: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "0 10%",
+        zIndex: 1,
+      }}>
+        {/* Title */}
+        <DecodeText
+          text={title}
+          startFrame={titleStart}
+          decodeFramesPerChar={decodeSpeed}
+          accent={accent}
+          fontFamily={resolvedFontFamily}
+          style={{
+            fontSize: resolvedTitleSize,
+            fontWeight: 900,
+            color: accent,
+            textTransform: "uppercase",
+            letterSpacing: "-0.02em",
+            lineHeight: 1.04,
+            textAlign: "center",
+            textShadow: `0 0 18px ${accent}66, 0 0 42px ${accent}22`,
+          }}
+        />
+        
+        {/* Separator */}
+        <div style={{
+          marginTop: 8,
+          width: p ? 120 : 160, 
+          height: 3,
+          borderRadius: 999,
+          backgroundColor: `${accent}55`,
+          opacity: interpolate(frame, [titleStart, titleStart + 10], [0, 1]),
+        }} />
+
+        {/* Narration */}
+        {subtext && (
+          <div style={{
+            marginTop: 35,
+            fontSize: descriptionFontSize ?? (p ? 32 : 26),
+            fontWeight: 500,
+            color: `${textColor || "#00FF41"}CC`,
+            lineHeight: 1.3,
+            maxWidth: 750,
+            fontFamily: resolvedFontFamily,
+            textAlign: "center",
+            opacity: subtextPop,
+            transform: `scale(${interpolate(subtextPop, [0, 1], [0.95, 1])}) translateY(${interpolate(subtextPop, [0, 1], [5, 0])}px)`,
+          }}>
+            {subtext}
+          </div>
+        )}
+
+        {/* Social Icons */}
+        <div style={{ 
+          marginTop: 25,
+          width: "100%", 
+          display: "flex", 
+          justifyContent: "center",
+          opacity: otherElementsOpacity,
+        }}>
+          <SocialIcons 
+            socials={socials} 
+            accentColor={accent} 
+            textColor={textColor || "#00FF41"} 
+            maxPerRow={p ? 4 : 10} 
+            fontFamily={resolvedFontFamily} 
+            aspectRatio={aspectRatio} 
+          />
+        </div>
+      </div>
+
+      {/* 2. BOTTOM GROUP: Moved significantly higher toward center */}
+      {showWebsiteCta && (
+        <div style={{
           position: "absolute",
-          inset: 0,
+          bottom: p ? "18%" : "15%", // Increased from 8%/7% to move toward center
+          left: 0,
+          right: 0,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center", // Changed to center content vertically
-          padding: p ? "9% 8%" : "8% 12%",
-          textAlign: "center",
-          opacity: fade,
-          gap: p ? 40 : 50, // General gap between content blocks
-        }}
-      >
-        {/* Top Content: Title, Separator, Narration */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            width: "100%", // Ensure it takes full width for centering
-          }}
-        >
-          <div
-            style={{
-              fontSize: titleFontSize ?? (p ? 97 : 72),
-              fontWeight: 900,
-              color: accentColor,
-              fontFamily: resolvedFontFamily,
-              textTransform: "uppercase",
-              letterSpacing: "-0.02em",
-              lineHeight: 1.04,
-              opacity: titleOpacity,
-              textShadow: `0 0 18px ${accentColor}66, 0 0 42px ${accentColor}22`,
-            }}
-          >
-            {title}
+          zIndex: 2,
+        }}>
+          {/* Large CTA Button */}
+          <div style={{
+            padding: p ? "15px 35px" : "12px 28px",
+            border: `2px solid ${accent}66`,
+            borderRadius: 12,
+            boxShadow: `0 0 25px ${accent}44`,
+            background: "rgba(0,0,0,0.5)",
+          }}>
+             <DecodeText
+                text={resolvedCta}
+                startFrame={ctaStart}
+                decodeFramesPerChar={2}
+                accent={accent}
+                fontFamily={resolvedFontFamily}
+                style={{
+                  color: accent,
+                  fontSize: resolvedCtaSize,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  lineHeight: 1,
+                  letterSpacing: "0.02em",
+                }}
+              />
           </div>
-
-          <div
-            style={{
-              marginTop: p ? 14 : 18,
-              width: p ? 240 : 340,
-              height: 6,
-              borderRadius: 999,
-              backgroundColor: `${accentColor}55`,
-              opacity: Math.min(1, titleOpacity * 1.2),
-            }}
-          />
-
-          {subtext ? (
-            <div
-              style={{
-                marginTop: p ? 30 : 40, // Consistent margin after separator
-                fontSize: descriptionFontSize ?? (p ? 44 : 36),
-                fontWeight: 500,
-                color: `${textColor || "#00FF41"}CC`,
-                lineHeight: 1.35,
-                maxWidth: p ? 560 : 900,
-                opacity: subOpacity,
-                fontFamily: resolvedFontFamily,
-              }}
-            >
-              {subtext}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Social Icons (Moved above CTA) */}
-        <div style={{ width: "100%" }}>
-          <SocialIcons
-            socials={socials}
-            accentColor={accentColor}
-            textColor={textColor || "#00FF41"}
-            maxPerRow={p ? 3 : 4}
-            fontFamily={resolvedFontFamily}
-            aspectRatio={aspectRatio}
-          />
-        </div>
-
-        {/* CTA Button and Website Link (Moved above) */}
-        {showWebsiteCta ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: p ? 20 : 10, // Gap between button and link, increased for portrait
-            }}
-          >
-            {/* CTA Button with text animation */}
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                borderRadius: 12, // Changed from 999 to 12 for a rectangular shape
-                padding: p ? "24px 36px" : "12px 28px", // Increased padding for portrait
-                backgroundColor: "transparent", // Changed to transparent for an underlined button appearance
-                color: accentColor || "#7C3AED", // Text color matches accent for highlighting
-                fontSize: p ? 32 : 22, // Increased font size for portrait
-                fontWeight: 700,
-                lineHeight: 1,
-                fontFamily: resolvedFontFamily,
-                minWidth: p ? 300 : 280, // Increased min-width for portrait
-                // Slightly highlighted effect
-                boxShadow: `0 0 10px ${accentColor || "#7C3AED"}AA, 0 0 20px ${accentColor || "#7C3AED"}55`,
-              }}
-            >
-              {resolvedCta.split("").map((char, i) => {
-                const charFade = interpolate(
-                  frame,
-                  [ctaAnimationStartFrame + i * 2, ctaAnimationStartFrame + i * 2 + 8], // Delay each character's fade-in
-                  [0, 1],
-                  { extrapolateRight: "clamp" }
-                );
-                return (
-                  <span
-                    key={i}
-                    style={{
-                      opacity: charFade,
-                    }}
-                  >
-                    {char}
-                  </span>
-                );
-              })}
-              {/* Arrow always visible */}
-              <span style={{ fontSize: p ? 34 : 24, marginLeft: 8 }}>→</span> {/* Increased arrow size for portrait */}
-            </div>
-            {/* Website Link */}
-            <div
-              style={{
-                fontSize: p ? 26 : 20, // Increased font size for portrait
-                fontWeight: 600,
-                color: textColor || "#00FF41",
-                fontFamily: resolvedFontFamily,
-                lineHeight: 1.2,
-                maxWidth: p ? 560 : 760,
-                wordBreak: "break-word",
-              }}
-            >
-              {resolvedWebsiteLink}
-            </div>
+          
+          {/* Website Link */}
+          <div style={{ 
+            marginTop: 10,
+            fontSize: p ? 24 : 20, 
+            color: textColor || "#00FF41", 
+            opacity: otherElementsOpacity,
+            fontFamily: resolvedFontFamily,
+            letterSpacing: "0.05em",
+            fontWeight: 600,
+          }}>
+            {resolvedWebsiteLink}
           </div>
-        ) : null}
-      </div>
+        </div>
+      )}
     </AbsoluteFill>
   );
 };
