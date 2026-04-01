@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     ELEVENLABS_VOICE_ID: str = "21m00Tcm4TlvDq8ikWAM"
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""    # Cloudflare API token with Browser Rendering permission
+    CLOUDFLARE_ACCOUNT_ID: str = ""   # Cloudflare account ID (visible in dashboard URL)
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_CODE_MODEL: str = "gemini-2.5-flash"

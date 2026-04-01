@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
+import requests
 from firecrawl import Firecrawl
 from app.config import settings
 
@@ -178,7 +179,6 @@ def _extract_css_content(html: str, base_url: str = "") -> str:
         return ""
 
     import re
-    import requests as _requests
 
     css_parts: list[str] = []
     total = 0
@@ -207,7 +207,7 @@ def _extract_css_content(html: str, base_url: str = "") -> str:
             if total >= _MAX_CSS_CHARS:
                 break
             try:
-                resp = _requests.get(css_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+                resp = requests.get(css_url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
                 if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("text/css"):
                     remaining = _MAX_CSS_CHARS - total
                     text = resp.text[:remaining].strip()
@@ -220,26 +220,156 @@ def _extract_css_content(html: str, base_url: str = "") -> str:
     return "\n".join(css_parts)
 
 
+_CF_BROWSER_BASE = "https://api.cloudflare.com/client/v4/accounts/{account_id}/browser-rendering"
+_CF_REQUEST_TIMEOUT = 30  # seconds per HTTP call
+
+
+def _scrape_with_cloudflare_browser(url: str) -> ScrapedThemeData:
+    """
+    Scrape a URL using the Cloudflare Browser Rendering REST API.
+
+    Makes two sequential POST requests:
+      - /render   → JavaScript-rendered HTML (full DOM after JS execution)
+      - /markdown → markdown version of the same page
+
+    Raises RuntimeError on any failure — caller catches and falls back to Firecrawl.
+    """
+    from bs4 import BeautifulSoup
+
+    account_id = settings.CLOUDFLARE_ACCOUNT_ID
+    api_token  = settings.CLOUDFLARE_API_TOKEN
+    base       = _CF_BROWSER_BASE.format(account_id=account_id)
+    headers    = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+    payload    = {"url": url}
+
+    print(f"[F7-DEBUG] [CF-SCRAPE] Attempting Cloudflare Browser Rendering for {url}")
+    t_start = time.time()
+
+    # ── Fetch rendered HTML (/render) ─────────────────────────────────────
+    try:
+        html_resp = requests.post(
+            f"{base}/content",
+            json=payload,
+            headers=headers,
+            timeout=_CF_REQUEST_TIMEOUT,
+        )
+        if not html_resp.ok:
+            print(f"[F7-DEBUG] [CF-SCRAPE] /content error body: {html_resp.text[:500]}")
+        html_resp.raise_for_status()
+    except Exception as e:
+        raise RuntimeError(f"Cloudflare /content failed: {e}") from e
+
+    html_content = (html_resp.json().get("result") or "").strip()
+    print(f"[F7-DEBUG] [CF-SCRAPE] /content done in {time.time()-t_start:.1f}s — HTML={len(html_content)} chars")
+
+    if not html_content:
+        raise RuntimeError("Cloudflare /content returned empty HTML")
+
+    # ── Extract plain text from HTML (no second API call needed) ─────────
+    # Parse the full HTML but extract from <body> only — skips <head> which
+    # is mostly <script> bundles. This avoids the 27-char problem on SPAs
+    # where the first 200K chars is entirely JS bundles with no visible text.
+    try:
+        from bs4 import BeautifulSoup as _BS
+        _soup = _BS(html_content, "html.parser")
+        for tag in _soup(["script", "style", "noscript"]):
+            tag.decompose()
+        _body = _soup.find("body") or _soup
+        markdown_text = _body.get_text(separator="\n", strip=True)
+    except Exception:
+        markdown_text = ""
+    print(f"[F7-DEBUG] [CF-SCRAPE] text extracted from HTML — {len(markdown_text)} chars")
+
+    # ── Parse metadata from fully rendered DOM ────────────────────────────
+    title = description = og_image = ""
+    if html_content:
+        try:
+            soup = BeautifulSoup(html_content[:100_000], "html.parser")
+
+            title_tag = soup.find("title")
+            title = title_tag.get_text(strip=True) if title_tag else ""
+
+            desc_tag = (
+                soup.find("meta", attrs={"name": "description"})
+                or soup.find("meta", attrs={"property": "og:description"})
+            )
+            description = (desc_tag.get("content") or "") if desc_tag else ""
+
+            og_tag = soup.find("meta", attrs={"property": "og:image"})
+            og_image = (og_tag.get("content") or "") if og_tag else ""
+        except Exception:
+            pass  # Never let metadata parsing break the scrape
+
+    print(
+        f"[F7-DEBUG] [CF-SCRAPE] metadata — title={repr(title[:40])} "
+        f"desc={len(description)} chars og_image={'yes' if og_image else 'no'}"
+    )
+
+    # ── Reuse existing helpers on the fully rendered HTML ─────────────────
+    css_content   = _extract_css_content(html_content, base_url=url)
+    html_with_css = (f"<style>{css_content}</style>\n" + html_content) if css_content else html_content
+    logo_urls     = _extract_logo_urls(html_content, url, og_image=og_image)
+
+    print(
+        f"[F7-DEBUG] [CF-SCRAPE] CSS extracted: {len(css_content)} chars | "
+        f"logos found: {len(logo_urls)} | total time: {time.time()-t_start:.1f}s"
+    )
+
+    return ScrapedThemeData(
+        url=url,
+        html=html_with_css[:_MAX_HTML_CHARS],
+        markdown=markdown_text[:_MAX_MARKDOWN_CHARS],
+        title=title,
+        description=description,
+        logo_urls=logo_urls,
+        og_image=og_image,
+        screenshot_url="",
+        branding=None,
+    )
+
+
 def scrape_for_theme(url: str) -> ScrapedThemeData:
     """
-    Scrape a URL using Firecrawl and return raw content for theme extraction.
-    Focuses on HTML (for style/color info) and markdown (for content category).
+    Scrape a URL and return raw content for theme extraction.
+
+    Scraper priority:
+      1. Cloudflare Browser Rendering REST API  (if CLOUDFLARE_API_TOKEN +
+         CLOUDFLARE_ACCOUNT_ID are both set) — renders full JS, captures all
+         external CSS and dynamic logos Firecrawl misses.
+      2. Firecrawl (fallback)                  — if FIRECRAWL_API_KEY is set.
+
+    Raises ValueError  if neither scraper is configured (→ HTTP 400 at router).
+    Raises RuntimeError if a configured scraper fails   (→ HTTP 502 at router).
     """
-    if not settings.FIRECRAWL_API_KEY:
+    cf_configured = bool(settings.CLOUDFLARE_API_TOKEN and settings.CLOUDFLARE_ACCOUNT_ID)
+    fc_configured = bool(settings.FIRECRAWL_API_KEY)
+
+    if not cf_configured and not fc_configured:
         raise ValueError(USER_THEME_SCRAPE_NOT_CONFIGURED)
 
-    app = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
+    # ── Attempt 1: Cloudflare Browser Rendering REST API ─────────────────
+    if cf_configured:
+        try:
+            return _scrape_with_cloudflare_browser(url)
+        except Exception as e:
+            print(f"[F7-DEBUG] [CF-SCRAPE] FAILED — {e} — {'falling back to Firecrawl' if fc_configured else 'no fallback available'}")
+            logger.warning(
+                "Cloudflare Browser Rendering failed for %s: %s — falling back to Firecrawl",
+                url, e, exc_info=True,
+            )
+            if not fc_configured:
+                raise RuntimeError(USER_THEME_SCRAPE_FAILED) from e
+    else:
+        print(f"[F7-DEBUG] [SCRAPE] Cloudflare not configured — using Firecrawl directly")
 
+    # ── Attempt 2: Firecrawl (fallback or sole scraper) ───────────────────
+    print(f"[F7-DEBUG] [SCRAPE] Attempting Firecrawl for {url}")
     t_scrape_start = time.time()
     try:
+        app = Firecrawl(api_key=settings.FIRECRAWL_API_KEY)
         doc = app.scrape(url, formats=["html", "markdown"])
     except Exception as e:
-        logger.warning(
-            "Firecrawl scrape failed for %s: %s",
-            url,
-            e,
-            exc_info=True,
-        )
+        logger.warning("Firecrawl scrape failed for %s: %s", url, e, exc_info=True)
         raise RuntimeError(USER_THEME_SCRAPE_FAILED) from e
 
     html_content = (getattr(doc, "html", None) or "").strip()
@@ -252,18 +382,9 @@ def scrape_for_theme(url: str) -> ScrapedThemeData:
         logger.warning("Firecrawl returned no HTML or markdown for %s", url)
         raise RuntimeError(USER_THEME_SCRAPE_EMPTY)
 
-    # Extract OG image from metadata
-    og_image = str(
-        metadata.get("ogImage", "")
-        or metadata.get("og:image", "")
-        or ""
-    )
-
-    # Extract CSS from full HTML (inline + external stylesheets) and prepend to truncated HTML
+    og_image = str(metadata.get("ogImage", "") or metadata.get("og:image", "") or "")
     css_content = _extract_css_content(html_content, base_url=url)
     html_with_css = (f"<style>{css_content}</style>\n" + html_content) if css_content else html_content
-
-    # Extract logos from HTML (with og:image and favicon fallbacks)
     logo_urls = _extract_logo_urls(html_content, url, og_image=og_image)
 
     t_scrape_total = time.time() - t_scrape_start
