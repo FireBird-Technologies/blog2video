@@ -1043,7 +1043,7 @@ def _build_render_cmd(
         # Newscast uses a WebGL globe. On no-GPU cloud runtimes, software GL is more reliable.
         cmd = [
             npx, "remotion", "render", composition_id, output_path,
-            "--concurrency", "25%",              # cap workers to avoid CPU saturation with software GL
+            "--concurrency", "1",                # fixed minimum for low-CPU quotas (avoids <1 from %)
             "--gl", "swangle",                   # cloud-safe WebGL backend for no-GPU environments
             "--disallow-parallel-encoding",      # reduce CPU/memory contention while rendering frames
             "--jpeg-quality", "70",              # faster encoding, minimal quality loss
