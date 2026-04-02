@@ -17,7 +17,6 @@ from app.services import r2_storage
 
 logger = logging.getLogger(__name__)
 
-
 def render_template_thumbnail(template_id: int, user_id: int) -> str | None:
     """
     Render a single frame of a custom template as a PNG thumbnail.
@@ -101,8 +100,9 @@ def render_template_thumbnail(template_id: int, user_id: int) -> str | None:
             "--frame", "0",
             "--width", "854",
             "--height", "480",
-            "--gl", "angle",
-            "--timeout", "30000",
+            "--gl", "swangle",
+            "--concurrency", "1",
+            "--timeout", "60000",
             "--bundle-cache", "true",
         ]
 
