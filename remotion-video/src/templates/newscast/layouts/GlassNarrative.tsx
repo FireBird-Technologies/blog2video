@@ -6,8 +6,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -40,6 +38,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
 
   const isNarrow = width < 900;
 
@@ -200,7 +199,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               <h2
                 style={{
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: resolveNewscastTitleSize(titleFontSize, 30, portraitScale),
+                  fontSize: titleFontSize ?? (p ? 39 : 30),
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   textTransform: "uppercase",
@@ -220,7 +219,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
                 <div
                   style={{
                     fontFamily: newscastFont(fontFamily, "body"),
-                    fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 16, portraitScale),
+                    fontSize: descriptionFontSize ?? (p ? 20 : 16),
                     fontWeight: 500,
                     color: "rgba(232,238,248,0.95)",
                     lineHeight: 1.6,
@@ -294,7 +293,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "title"), fontSize: scaleNewscastPx(22, portraitScale), fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.05 }}>
                 {safeLowerHeadline}
               </div>
-              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), color: STEEL, lineHeight: 1.5 }}>
+              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: scaleNewscastPx(13, portraitScale), color: STEEL, lineHeight: 1.5 }}>
                 {safeLowerSub}
               </div>
             </div>
@@ -318,7 +317,7 @@ export const GlassNarrative: React.FC<NewscastLayoutProps> = ({
               <div style={{ height: 1, marginTop: 8, background: `linear-gradient(90deg, transparent, ${RED}, ${GOLD})`, opacity: 0.8 }} />
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                 {(safeTickerItems.length ? safeTickerItems : ["LIVE BREAKING FEED", "LATEST UPDATES", "OFFICIAL CONFIRMATIONS"]).slice(0, 3).map((t, i) => (
-                  <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL, fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), lineHeight: 1.3 }}>
+                  <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL, fontSize: scaleNewscastPx(13, portraitScale), lineHeight: 1.3 }}>
                     <div style={{ width: 6, height: 6, borderRadius: 999, background: i === 0 ? RED : "#1E5FD4", boxShadow: i === 0 ? "0 0 14px rgba(232,32,32,0.35)" : "0 0 14px rgba(30,95,212,0.35)" }} />
                     <div style={{ flex: 1 }}>{t}</div>
                   </div>
