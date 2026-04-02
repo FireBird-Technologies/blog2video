@@ -1633,8 +1633,7 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
                 return None
 
             user_id = project.user_id
-            # Use a versioned key so each render (including re-render) gets a new URL.
-            # That way the project's URL updates and caches don't serve the old video.
+            # Use a versioned key so each render (including re-render) gets a new URL..
             version = str(int(time.time()))
             if project.r2_video_key:
                 r2_storage.delete_object(project.r2_video_key)
