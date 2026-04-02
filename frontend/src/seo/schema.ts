@@ -78,6 +78,43 @@ export function homepageSchema() {
 }
 
 export function pricingSchema() {
+  const sharedOfferFields = {
+    availability: "https://schema.org/OnlineOnly",
+    hasMerchantReturnPolicy: {
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "US",
+      returnPolicyCategory:
+        "https://schema.org/MerchantReturnNotPermitted",
+    },
+    shippingDetails: {
+      "@type": "OfferShippingDetails",
+      shippingRate: {
+        "@type": "MonetaryAmount",
+        value: "0",
+        currency: "USD",
+      },
+      shippingDestination: {
+        "@type": "DefinedRegion",
+        addressCountry: "US",
+      },
+      deliveryTime: {
+        "@type": "ShippingDeliveryTime",
+        handlingTime: {
+          "@type": "QuantitativeValue",
+          minValue: 0,
+          maxValue: 0,
+          unitCode: "DAY",
+        },
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: 0,
+          maxValue: 0,
+          unitCode: "DAY",
+        },
+      },
+    },
+  };
+
   return [
     {
       "@context": "https://schema.org",
@@ -85,8 +122,9 @@ export function pricingSchema() {
       name: "Blog2Video",
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
+      image: defaultOgImage,
       brand: {
-        "@type": "Organization",
+        "@type": "Brand",
         name: organizationName,
       },
       offers: [
@@ -95,24 +133,28 @@ export function pricingSchema() {
           name: "Free",
           price: "0",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Per Video",
           price: "3",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Standard",
           price: "25",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Pro",
           price: "50",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
       ],
     },
