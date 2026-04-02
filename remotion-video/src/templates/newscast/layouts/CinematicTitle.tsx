@@ -7,8 +7,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
   toRgba,
 } from "../themeUtils";
@@ -47,6 +45,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const heroBarH = Math.max(36, Math.ceil(36 * portraitScale));
   const heroTickerBottomPad = 36 + (heroBarH - 36);
   const fadeIn = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
@@ -472,7 +471,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           <h1
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: resolveNewscastTitleSize(titleFontSize, 72, portraitScale),
+              fontSize: titleFontSize ?? (p ? 94 : 72),
               fontWeight: HEADLINE_WEIGHT,
               textTransform: "uppercase",
               letterSpacing: 1,
@@ -510,7 +509,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 18, portraitScale),
+                fontSize: descriptionFontSize ?? (p ? 23 : 18),
                 fontWeight: 400,
                 lineHeight: 1.65,
                 color: STEEL,
@@ -593,7 +592,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+                fontSize: scaleNewscastPx(13, portraitScale),
                 fontWeight: 400,
                 color: STEEL,
                 letterSpacing: 0.3,
@@ -616,7 +615,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
             padding: "0 16px",
             background: RED,
             fontFamily: newscastFont(fontFamily, "title"),
-            fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+            fontSize: scaleNewscastPx(13, portraitScale),
             fontWeight: 700,
             letterSpacing: 2.5,
             color: "white",
@@ -647,7 +646,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
               whiteSpace: "nowrap",
               gap: 0,
               fontFamily: newscastFont(fontFamily, "body"),
-              fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+              fontSize: scaleNewscastPx(14, portraitScale),
               fontWeight: 500,
               color: STEEL,
               letterSpacing: 0.3,
@@ -661,7 +660,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
               <React.Fragment key={`${txt}-${idx}`}>
                 <span style={{ padding: "0 20px" }}>{txt}</span>
                 {idx !== arr.length - 1 ? (
-                  <span style={{ color: RED, fontWeight: 700, fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 12, portraitScale), padding: "0 4px" }}>◆</span>
+                  <span style={{ color: RED, fontWeight: 700, fontSize: scaleNewscastPx(12, portraitScale), padding: "0 4px" }}>◆</span>
                 ) : null}
               </React.Fragment>
             ))}

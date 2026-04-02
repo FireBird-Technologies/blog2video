@@ -1027,6 +1027,8 @@ RESOLUTION_PRESETS = {
     },
 }
 
+NEWSCAST_COMPOSITION_ID = "NewscastVideo"
+
 
 def _build_render_cmd(
     npx: str, output_path: str, resolution: str = "1080p",
@@ -1035,17 +1037,29 @@ def _build_render_cmd(
 ) -> list[str]:
     """Build the Remotion render command with resolution scaling and optimizations."""
     """Build the Remotion render command. Always renders at native 1080p — no --scale."""
-    is_portrait = aspect_ratio == "portrait"
+    is_newscast = composition_id == NEWSCAST_COMPOSITION_ID
 
-    cmd = [
-        npx, "remotion", "render", composition_id, output_path,
-        "--concurrency", "100%",              # use all CPU cores
-        "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
-        "--gl", "angle",                     # faster OpenGL on Linux/Cloud Run
-        "--jpeg-quality", "70",               # faster encoding, minimal quality loss
-        "--bundle-cache", "true",             # reuse webpack bundle across renders
-        "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
-    ]
+    if is_newscast:
+        # Newscast uses a WebGL globe. On no-GPU cloud runtimes, software GL is more reliable.
+        cmd = [
+            npx, "remotion", "render", composition_id, output_path,
+            "--concurrency", "25%",              # cap workers to avoid CPU saturation with software GL
+            "--gl", "swangle",                   # cloud-safe WebGL backend for no-GPU environments
+            "--disallow-parallel-encoding",      # reduce CPU/memory contention while rendering frames
+            "--jpeg-quality", "70",              # faster encoding, minimal quality loss
+            "--bundle-cache", "true",            # reuse webpack bundle across renders
+            "--timeout", "90000",                # give software GL frames more time before timeout
+        ]
+    else:
+        cmd = [
+            npx, "remotion", "render", composition_id, output_path,
+            "--concurrency", "100%",              # use all CPU cores
+            "--enable-multiprocess-on-linux",     # separate processes per frame (avoids GIL)
+            "--gl", "angle",                      # faster OpenGL on Linux/Cloud Run
+            "--jpeg-quality", "70",               # faster encoding, minimal quality loss
+            "--bundle-cache", "true",             # reuse webpack bundle across renders
+            "--timeout", "60000",                 # 60s timeout for delayRender (font loading)
+        ]
 
     # Always use explicit --width / --height to guarantee integer dimensions
     # Presets already handle both landscape and portrait correctly
@@ -1107,7 +1121,15 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
 
     npx = shutil.which("npx") or "npx"
     cmd = _build_render_cmd(npx, output_path, resolution, aspect_ratio, composition_id)
-    logger.info("[RENDER] project=%s template=%s resolution=%s aspect_ratio=%s", project.id, project.template, resolution, aspect_ratio)
+    logger.info(
+        "[RENDER] project=%s template=%s composition=%s resolution=%s aspect_ratio=%s profile=%s",
+        project.id,
+        project.template,
+        composition_id,
+        resolution,
+        aspect_ratio,
+        "newscast-cloud-safe" if composition_id == NEWSCAST_COMPOSITION_ID else "default",
+    )
 
     _render_progress[project.id] = {
         "progress": 0,
