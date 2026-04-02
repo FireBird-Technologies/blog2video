@@ -8,8 +8,6 @@ import {
   getNewscastPortraitTypeScale,
   newscastFont,
   resolveNewscastNumberFontPx,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -42,6 +40,7 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const sceneFadeFrames = 16;
   const sceneOpacity = interpolate(
     frame,
@@ -134,7 +133,7 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 12,
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: resolveNewscastTitleSize(titleFontSize, 24, portraitScale),
+                  fontSize: titleFontSize ?? (p ? 31 : 24),
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   textTransform: "uppercase",
@@ -151,7 +150,7 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                   style={{
                     marginTop: 8,
                     fontFamily: newscastFont(fontFamily, "body"),
-                    fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                    fontSize: descriptionFontSize ?? (p ? 18 : 14),
                     color: STEEL,
                     lineHeight: 1.5,
                     opacity: 0.95,
@@ -326,7 +325,7 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 6,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+                  fontSize: scaleNewscastPx(13, portraitScale),
                   color: STEEL,
                   lineHeight: 1.5,
                 }}
@@ -383,7 +382,7 @@ export const GlassStack: React.FC<NewscastLayoutProps> = ({
                         gap: 10,
                         fontFamily: newscastFont(fontFamily, "body"),
                         color: STEEL,
-                        fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+                        fontSize: scaleNewscastPx(13, portraitScale),
                         lineHeight: 1.3,
                       }}
                     >

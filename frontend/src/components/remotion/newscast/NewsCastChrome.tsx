@@ -6,7 +6,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
   scaleNewscastPx,
   toRgba,
 } from "./themeUtils";
@@ -46,7 +45,7 @@ export const NewsCastChrome: React.FC<
   lowerThirdSub,
   accentColor,
   textColor,
-  descriptionFontSize,
+  descriptionFontSize: _descriptionFontSize,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -82,10 +81,10 @@ export const NewsCastChrome: React.FC<
   const sep = "◆";
   const RED = accentColor || DEFAULT_NEWSCAST_ACCENT;
   const STEEL = textColor || DEFAULT_NEWSCAST_TEXT;
-  const display13 = resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale);
-  const display12 = resolveNewscastDescriptionSize(descriptionFontSize, 12, portraitScale);
-  const display10 = resolveNewscastDescriptionSize(descriptionFontSize, 10, portraitScale);
-  const display9 = resolveNewscastDescriptionSize(descriptionFontSize, 9, portraitScale);
+  const display13 = scaleNewscastPx(13, portraitScale);
+  const display12 = scaleNewscastPx(12, portraitScale);
+  const display10 = scaleNewscastPx(10, portraitScale);
+  const display9 = scaleNewscastPx(9, portraitScale);
   const channelWordmark = scaleNewscastPx(22, portraitScale);
   const lowerThirdTitle = scaleNewscastPx(22, portraitScale);
   const padLowerThird = `${scaleNewscastPx(8, portraitScale)}px ${scaleNewscastPx(16, portraitScale)}px ${scaleNewscastPx(10, portraitScale)}px`;

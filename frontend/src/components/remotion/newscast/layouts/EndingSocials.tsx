@@ -7,8 +7,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 
@@ -101,7 +99,7 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
           <div
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: resolveNewscastTitleSize(titleFontSize, p ? 36 : 40, portraitScale),
+              fontSize: titleFontSize ?? (p ? 52 : 40),
               fontWeight: 800,
               color: "#fff",
               lineHeight: 1.1,
@@ -115,7 +113,7 @@ export const EndingSocials: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 16, portraitScale),
+                fontSize: descriptionFontSize ?? (p ? 20 : 16),
                 color: STEEL,
                 lineHeight: 1.45,
                 maxWidth: 640,
