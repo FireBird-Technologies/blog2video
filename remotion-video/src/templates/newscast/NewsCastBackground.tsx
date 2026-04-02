@@ -1,5 +1,5 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
-import { AbsoluteFill, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import React, { useLayoutEffect } from "react";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { AmbientLight, Color, DirectionalLight, MeshPhongMaterial } from "three";
 
@@ -75,9 +75,11 @@ const GLOBE_BUMP_TEXTURE_SVG = `
 
 const GLOBE_BUMP_TEXTURE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GLOBE_BUMP_TEXTURE_SVG)}`;
 
-/** NASA blue marble + topology bump — bundled locally to avoid network fetches during cloud renders. */
-const HERO_GLOBE_IMAGE_URL = staticFile("globe/earth-blue-marble.jpg");
-const HERO_BUMP_IMAGE_URL = staticFile("globe/earth-topology.png");
+/** NASA blue marble + topology bump — official `three-globe` example assets (used by react-globe.gl demos). */
+const HERO_GLOBE_IMAGE_URL =
+  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg";
+const HERO_BUMP_IMAGE_URL =
+  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png";
 
 /** Camera target: Europe / North Africa — mostly land at scene start (avoids Pacific-heavy framing). Same every scene (frame 0). */
 const GLOBE_POV = { lat: 28, lng: 18 } as const;
@@ -125,21 +127,6 @@ export const NewsCastBackground: React.FC<{
   const globeImageUrl = isHero ? HERO_GLOBE_IMAGE_URL : GLOBE_TEXTURE_DATA_URL;
   const bumpImageUrl = isHero ? HERO_BUMP_IMAGE_URL : GLOBE_BUMP_TEXTURE_DATA_URL;
 
-  const [globeHandle] = useState(() =>
-    delayRender("Waiting for globe WebGL scene", { timeoutInMilliseconds: 12_000 }),
-  );
-  const [globeReady, setGlobeReady] = useState(false);
-  const [globeFailed, setGlobeFailed] = useState(false);
-
-  useEffect(() => {
-    if (globeReady) return;
-    const timer = setTimeout(() => {
-      setGlobeFailed(true);
-      if (!globeReady) continueRender(globeHandle);
-    }, 8_000);
-    return () => clearTimeout(timer);
-  }, [globeReady, globeHandle]);
-
   const pos = globePosition ?? "center";
   const globeLeft = pos === "right" ? "68%" : pos === "left" ? "32%" : "50%";
   const globeTop = pos === "right" ? "52%" : pos === "left" ? "52%" : "50%";
@@ -168,7 +155,7 @@ export const NewsCastBackground: React.FC<{
     [],
   );
 
-  const webglSupported = React.useMemo(() => {
+  const canUseGlobe = React.useMemo(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return false;
     try {
       const canvas = document.createElement("canvas");
@@ -178,14 +165,6 @@ export const NewsCastBackground: React.FC<{
       return false;
     }
   }, []);
-  const canUseGlobe = webglSupported && !globeFailed;
-
-  useEffect(() => {
-    if (!webglSupported && !globeReady) {
-      setGlobeReady(true);
-      continueRender(globeHandle);
-    }
-  }, [webglSupported, globeReady, globeHandle]);
   const globeRef = React.useRef<GlobeMethods | undefined>(undefined);
   const povRef = React.useRef({ lat: spinLat, lng: spinLngWrapped, alt: isHero ? 1.42 : 1.35 });
   povRef.current = { lat: spinLat, lng: spinLngWrapped, alt: isHero ? 1.42 : 1.35 };
@@ -212,11 +191,7 @@ export const NewsCastBackground: React.FC<{
     } catch {
       // ignore
     }
-    if (!globeReady) {
-      setGlobeReady(true);
-      continueRender(globeHandle);
-    }
-  }, [isHero, globeReady, globeHandle]);
+  }, [isHero]);
 
   useLayoutEffect(() => {
     if (!canUseGlobe || !globeRef.current) return;
