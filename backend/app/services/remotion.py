@@ -38,6 +38,7 @@ _studio_processes: dict[int, subprocess.Popen] = {}
 # Render progress tracker: project_id -> { progress, total_frames, rendered_frames, done, error }
 _render_progress: dict[int, dict] = {}
 _RENDER_LOG_TAIL_MAX = 80
+_render_progress_last_upload_at: dict[int, float] = {}
 
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
@@ -1009,6 +1010,74 @@ def get_render_progress(project_id: int) -> dict:
     return _render_progress.get(project_id, {})
 
 
+def _progress_snapshot(
+    project_id: int,
+    prog: dict,
+    *,
+    r2_video_url: str | None = None,
+    progress_unknown: bool = False,
+) -> dict:
+    """Build the JSON payload used by /render-status and persisted to R2."""
+    return {
+        "project_id": project_id,
+        "progress": int(prog.get("progress", 0) or 0),
+        "rendered_frames": int(prog.get("rendered_frames", 0) or 0),
+        "total_frames": int(prog.get("total_frames", 0) or 0),
+        "done": bool(prog.get("done", False)),
+        "error": prog.get("error"),
+        "time_remaining": prog.get("time_remaining"),
+        "eta_seconds": prog.get("eta_seconds"),
+        "progress_unknown": progress_unknown,
+        "render_attempt": int(prog.get("_attempt", 1) or 1),
+        "r2_video_url": r2_video_url,
+        "updated_at_epoch": time.time(),
+        "state": "done" if prog.get("done") and not prog.get("error") else ("failed" if prog.get("error") else "rendering"),
+    }
+
+
+def _upload_render_progress(project_id: int, *, force: bool = False, r2_video_url: str | None = None) -> None:
+    """Upload progress snapshot to R2 at a throttled interval."""
+    prog = _render_progress.get(project_id)
+    if not prog:
+        return
+    user_id = prog.get("_user_id")
+    if not user_id:
+        return
+    now = time.time()
+    if not force:
+        last = _render_progress_last_upload_at.get(project_id, 0.0)
+        min_interval = max(1, int(getattr(settings, "RENDER_PROGRESS_UPLOAD_INTERVAL_SECONDS", 10)))
+        if now - last < min_interval:
+            return
+    try:
+        payload = _progress_snapshot(project_id, prog, r2_video_url=r2_video_url)
+        r2_storage.upload_render_progress_json(int(user_id), project_id, payload)
+        _render_progress_last_upload_at[project_id] = now
+    except Exception:
+        logger.debug("[RENDER] Failed uploading progress snapshot for project %s", project_id, exc_info=True)
+
+
+def delete_render_progress_snapshot(project_id: int) -> None:
+    """Delete temporary render progress file from R2."""
+    prog = _render_progress.get(project_id, {})
+    user_id = prog.get("_user_id")
+    if not user_id:
+        return
+    try:
+        r2_storage.delete_render_progress_json(int(user_id), project_id)
+    except Exception:
+        logger.debug("[RENDER] Failed deleting progress snapshot for project %s", project_id, exc_info=True)
+
+
+def get_render_progress_from_r2(project_id: int, user_id: int) -> dict:
+    """Read shared render progress from R2."""
+    try:
+        payload = r2_storage.download_render_progress_json(user_id, project_id)
+        return payload or {}
+    except Exception:
+        return {}
+
+
 # Resolution presets: label -> (width, height, scale)
 # Landscape: base is 1920x1080; Portrait: base is 1080x1920
 # Scale values must produce exact integer dimensions to avoid Remotion errors.
@@ -1093,10 +1162,12 @@ MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 
 def start_render_async(project: Project, resolution: str = "1080p") -> None:
     """Kick off the Remotion render as a background subprocess with progress tracking."""
-    # Ensure workspace has ALL templates before rendering (Root.tsx imports them all)
-    template_id = validate_template_id(getattr(project, "template", "default"))
-    provision_workspace(project.id, template_id)
     workspace = get_workspace_dir(project.id)
+    # /render endpoint rebuilds workspace immediately before calling this.
+    # Keep a safety fallback for unusual call paths.
+    if not os.path.exists(os.path.join(workspace, "public", "data.json")):
+        template_id = validate_template_id(getattr(project, "template", "default"))
+        provision_workspace(project.id, template_id)
     output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/output")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1116,7 +1187,7 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
         "done": False,
         "error": None,
         "output_path": output_path,
-        "time_remaining": None,
+        "time_remaining": "Preparing render bundle...",
         "eta_seconds": None,
         "_first_frame_at": None,
         "_ema_eta_seconds": None,
@@ -1127,7 +1198,10 @@ def start_render_async(project: Project, resolution: str = "1080p") -> None:
         "_workspace": workspace,
         "_attempt": 1,
         "_log_tail": [],
+        "_user_id": project.user_id,
+        "_last_progress_change_at": time.time(),
     }
+    _upload_render_progress(project.id, force=True, r2_video_url=getattr(project, "r2_video_url", None))
 
     _launch_render_process(project.id, cmd, workspace)
 
@@ -1294,31 +1368,105 @@ def _parse_render_line(project_id: int, line: str, frame_pat, time_pat) -> None:
         rendered = int(m.group(1))
         total = int(m.group(2))
         prog = _render_progress[project_id]
+        prev_rendered = int(prog.get("rendered_frames", 0) or 0)
+        prev_total = int(prog.get("total_frames", 0) or 0)
+        prev_progress = int(prog.get("progress", 0) or 0)
         prog["rendered_frames"] = rendered
         prog["total_frames"] = total
         if total > 0:
             prog["progress"] = round((rendered / total) * 100)
+        if rendered != prev_rendered or total != prev_total or int(prog.get("progress", 0) or 0) != prev_progress:
+            prog["_last_progress_change_at"] = time.time()
         if rendered > 0 and total > 0 and prog.get("_first_frame_at") is None:
             prog["_first_frame_at"] = time.time()
         tm = time_pat.search(line)
         if tm:
             prog["time_remaining"] = tm.group(1).strip()
+        elif rendered > 0:
+            prog["time_remaining"] = None
         _update_render_eta(project_id, rendered, total)
+        _upload_render_progress(project_id, force=False)
+
+
+def _terminate_render_process(process: subprocess.Popen) -> None:
+    """Best-effort terminate for stuck render processes."""
+    try:
+        if os.name == "nt":
+            process.terminate()
+        else:
+            process.terminate()
+        process.wait(timeout=10)
+    except Exception:
+        try:
+            process.kill()
+        except Exception:
+            pass
+
+
+def _set_project_status_generated(project_id: int) -> None:
+    """Move project back to generated after terminal render failure."""
+    try:
+        from app.database import SessionLocal
+        db = SessionLocal()
+        try:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project:
+                project.status = ProjectStatus.GENERATED
+                db.commit()
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("[REMOTION] Failed setting project %s to generated", project_id)
 
 
 def _wait_render(project_id: int, process: subprocess.Popen) -> None:
     """Wait for the render process to finish. Auto-retry on failure using cached bundle."""
-    import time
+    timed_out = False
+    timeout_msg = ""
+    started = time.time()
 
     try:
-        # Wait for the render process to fully exit on its own.
-        # Do NOT try to terminate early — after all frames are rendered,
-        # Remotion still needs time to encode/mux the final MP4.
-        process.wait()  # block until process exits naturally
+        max_seconds = max(60, int(getattr(settings, "RENDER_MAX_SECONDS", 5400)))
+        stall_seconds = max(30, int(getattr(settings, "RENDER_STALL_SECONDS", 300)))
+        while True:
+            try:
+                process.wait(timeout=5)
+                break
+            except subprocess.TimeoutExpired:
+                prog_for_stall = _render_progress.get(project_id, {})
+                last_change = float(
+                    prog_for_stall.get("_last_progress_change_at")
+                    or started
+                )
+                stalled_for = time.time() - last_change
+                if stalled_for > stall_seconds:
+                    timed_out = True
+                    timeout_msg = (
+                        f"Render stalled: no progress change for {stall_seconds} seconds"
+                    )
+                    logger.error(
+                        "[REMOTION] %s for project %s; terminating process",
+                        timeout_msg,
+                        project_id,
+                    )
+                    _terminate_render_process(process)
+                    break
+                if (time.time() - started) > max_seconds:
+                    timed_out = True
+                    timeout_msg = f"Render timed out after {max_seconds} seconds"
+                    logger.error("[REMOTION] %s for project %s; terminating process", timeout_msg, project_id)
+                    _terminate_render_process(process)
+                    break
 
-        retcode = process.returncode
+        retcode = process.returncode if process.returncode is not None else -1
         prog = _render_progress.get(project_id, {})
         output_path = prog.get("output_path", "")
+
+        if timed_out:
+            tail = prog.setdefault("_log_tail", [])
+            tail.append(timeout_msg)
+            prog["error"] = timeout_msg
+            _upload_render_progress(project_id, force=True)
 
         if retcode == 0 and output_path and os.path.exists(output_path) and _is_valid_mp4(output_path):
             _render_progress[project_id]["progress"] = 100
@@ -1331,7 +1479,6 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             if not r2_url:
                 try:
                     from app.database import SessionLocal
-                    from app.models.project import Project, ProjectStatus
                     db = SessionLocal()
                     try:
                         project = db.query(Project).filter(Project.id == project_id).first()
@@ -1360,17 +1507,20 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 except Exception as e:
                     logger.exception("[REMOTION] Failed to update project status: %s", e)
 
+            _render_progress[project_id]["done"] = True
+            _upload_render_progress(project_id, force=True, r2_video_url=r2_url)
+            delete_render_progress_snapshot(project_id)
+            _render_progress_last_upload_at.pop(project_id, None)
+
             # Clean up the workspace to free disk space
             workspace = get_workspace_dir(project_id)
             safe_remove_workspace(workspace)
             logger.info("[REMOTION] Cleaned up workspace for project %s", project_id)
-
-            # NOW mark as done in progress dict for polling endpoint
-            _render_progress[project_id]["done"] = True
         elif retcode == 0:
             # Process exited OK but no valid MP4 found
             _render_progress[project_id]["error"] = "Render completed but no valid video file was produced"
             _render_progress[project_id]["done"] = True
+            _upload_render_progress(project_id, force=True)
         else:
             # ── Render failed — auto-retry with cached bundle ──
             attempt = prog.get("_attempt", 1)
@@ -1402,17 +1552,22 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                     "_first_frame_at": None,
                     "_ema_eta_seconds": None,
                     "_attempt": next_attempt,
+                    "_last_progress_change_at": time.time(),
                 })
+                _upload_render_progress(project_id, force=True)
                 _launch_render_process(project_id, cmd, workspace)
             else:
                 _render_progress[project_id]["error"] = (
-                    f"Render failed (exit code {retcode}) after {attempt} attempt(s).\n"
+                    f"Render failed after {attempt} attempt(s). Please try rendering again.\n"
                     f"Recent output:\n{tail_text or '(no process output captured)'}"
                 )
                 _render_progress[project_id]["done"] = True
+                _upload_render_progress(project_id, force=True)
+                _set_project_status_generated(project_id)
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True
+        _upload_render_progress(project_id, force=True)
 
 
 def _is_valid_mp4(path: str) -> bool:
