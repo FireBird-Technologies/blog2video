@@ -52,15 +52,36 @@ const TYPOGRAPHY_DEFAULTS: Record<string, ResponsiveValue> = {
   descriptionFontSize: { portrait: 24, landscape: 34 },
 };
 
-function withTypographyControls(schema: LayoutPropSchema): LayoutPropSchema {
+const NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue }> = {
+  opening: { titleFontSize: { portrait: 94, landscape: 72 }, descriptionFontSize: { portrait: 23, landscape: 18 } },
+  anchor_narrative: { titleFontSize: { portrait: 39, landscape: 30 }, descriptionFontSize: { portrait: 20, landscape: 16 } },
+  live_metrics_board: { titleFontSize: { portrait: 23, landscape: 18 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
+  briefing_code_panel: { titleFontSize: { portrait: 23, landscape: 18 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
+  headline_insight: { titleFontSize: { portrait: 75, landscape: 58 }, descriptionFontSize: { portrait: 17, landscape: 13 } },
+  story_stack: { titleFontSize: { portrait: 31, landscape: 24 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
+  side_by_side_brief: { titleFontSize: { portrait: 34, landscape: 26 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
+  segment_break: { titleFontSize: { portrait: 47, landscape: 36 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
+  field_image_focus: { titleFontSize: { portrait: 34, landscape: 26 }, descriptionFontSize: { portrait: 19, landscape: 15 } },
+  data_visualization: { titleFontSize: { portrait: 29, landscape: 22 }, descriptionFontSize: { portrait: 17, landscape: 13 } },
+  ending_socials: { titleFontSize: { portrait: 52, landscape: 40 }, descriptionFontSize: { portrait: 20, landscape: 16 } },
+};
+
+function withTypographyControls(
+  schema: LayoutPropSchema,
+  options?: { defaultTypography?: { titleFontSize: ResponsiveValue; descriptionFontSize: ResponsiveValue } },
+): LayoutPropSchema {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const hasTitleField = fields.some((field) => field.key === "titleFontSize" && field.responsive);
   const hasDescriptionField = fields.some((field) => field.key === "descriptionFontSize" && field.responsive);
   if (hasTitleField && hasDescriptionField) return schema;
 
+  const defaultTypography = options?.defaultTypography ?? {
+    titleFontSize: TYPOGRAPHY_DEFAULTS.titleFontSize,
+    descriptionFontSize: TYPOGRAPHY_DEFAULTS.descriptionFontSize,
+  };
   const defaults = { ...(schema.defaults ?? {}) } as Record<string, unknown>;
-  if (!isResponsiveValue(defaults.titleFontSize)) defaults.titleFontSize = TYPOGRAPHY_DEFAULTS.titleFontSize;
-  if (!isResponsiveValue(defaults.descriptionFontSize)) defaults.descriptionFontSize = TYPOGRAPHY_DEFAULTS.descriptionFontSize;
+  if (!isResponsiveValue(defaults.titleFontSize)) defaults.titleFontSize = defaultTypography.titleFontSize;
+  if (!isResponsiveValue(defaults.descriptionFontSize)) defaults.descriptionFontSize = defaultTypography.descriptionFontSize;
 
   return {
     ...schema,
@@ -79,9 +100,13 @@ function getSchema(
 ): LayoutPropSchema | undefined {
   if (!template || !layoutId) return undefined;
   const explicit = template.layout_prop_schema?.[layoutId];
+  const newscastTypographyDefaults =
+    normalizeTemplateId(template.id) === "newscast" && layoutId
+      ? NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT[layoutId]
+      : undefined;
   if (explicit) {
     return normalizeTemplateId(template.id) === "newscast"
-      ? withTypographyControls(explicit)
+      ? withTypographyControls(explicit, { defaultTypography: newscastTypographyDefaults })
       : explicit;
   }
 
@@ -91,7 +116,7 @@ function getSchema(
     fields: TYPOGRAPHY_FIELDS,
   };
   return normalizeTemplateId(template.id) === "newscast"
-    ? withTypographyControls(fallbackSchema)
+    ? withTypographyControls(fallbackSchema, { defaultTypography: newscastTypographyDefaults })
     : fallbackSchema;
 }
 

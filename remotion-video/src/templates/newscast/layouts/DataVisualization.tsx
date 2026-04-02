@@ -8,8 +8,6 @@ import {
   getNewscastPortraitTypeScale,
   newscastFont,
   resolveNewscastNumberFontPx,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -79,6 +77,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
   const cardOpacity = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const isNarrow = width < 900;
 
   const zEnter = chartT; // tie Z entrance to chart reveal
@@ -173,7 +172,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
           <div
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: resolveNewscastTitleSize(titleFontSize, 22, portraitScale),
+              fontSize: titleFontSize ?? (p ? 29 : 22),
               fontWeight: HEADLINE_WEIGHT,
               color: "white",
               textTransform: "uppercase",
@@ -476,7 +475,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
               <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "title"), fontSize: scaleNewscastPx(22, portraitScale), fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.05 }}>
                 {safeLowerHeadline}
               </div>
-              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), color: STEEL_COLOR, lineHeight: 1.5 }}>
+              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: descriptionFontSize ?? (p ? 17 : 13), color: STEEL_COLOR, lineHeight: 1.5 }}>
                 {safeLowerSub}
               </div>
             </div>
@@ -502,7 +501,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = ({
                 {(safeTickerItems.length ? safeTickerItems : ["LIVE BREAKING FEED", "LATEST UPDATES", "OFFICIAL CONFIRMATIONS"])
                   .slice(0, 3)
                   .map((t, i) => (
-                    <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL_COLOR, fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), lineHeight: 1.3 }}>
+                    <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL_COLOR, fontSize: scaleNewscastPx(13, portraitScale), lineHeight: 1.3 }}>
                       <div style={{ width: 6, height: 6, borderRadius: 999, background: i === 0 ? RED : "#1E5FD4", boxShadow: i === 0 ? "0 0 14px rgba(232,32,32,0.35)" : "0 0 14px rgba(30,95,212,0.35)" }} />
                       <div style={{ flex: 1 }}>{t}</div>
                     </div>
