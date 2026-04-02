@@ -1543,6 +1543,8 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
             _render_progress[project_id]["error"] = "Render completed but no valid video file was produced"
             _render_progress[project_id]["done"] = True
             _upload_render_progress(project_id, force=True)
+            delete_render_progress_snapshot(project_id)
+            _render_progress_last_upload_at.pop(project_id, None)
         else:
             # ── Render failed — auto-retry with cached bundle ──
             attempt = prog.get("_attempt", 1)
@@ -1586,10 +1588,14 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                 _render_progress[project_id]["done"] = True
                 _upload_render_progress(project_id, force=True)
                 _set_project_status_generated(project_id)
+                delete_render_progress_snapshot(project_id)
+                _render_progress_last_upload_at.pop(project_id, None)
     except Exception as e:
         _render_progress[project_id]["error"] = str(e)
         _render_progress[project_id]["done"] = True
         _upload_render_progress(project_id, force=True)
+        delete_render_progress_snapshot(project_id)
+        _render_progress_last_upload_at.pop(project_id, None)
 
 
 def _is_valid_mp4(path: str) -> bool:
