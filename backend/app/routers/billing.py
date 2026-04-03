@@ -550,6 +550,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
     event_type = event["type"]
     data = event["data"]["object"]
+    # Fix for Stripe SDK v3+: convert StripeObject to plain dict so .get() works
+    if hasattr(data, "to_dict"):
+        data = data.to_dict()
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data, db)
