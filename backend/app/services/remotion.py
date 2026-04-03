@@ -1112,12 +1112,13 @@ def _build_render_cmd(
         # Newscast uses a WebGL globe. On no-GPU cloud runtimes, software GL is more reliable.
         cmd = [
             npx, "remotion", "render", composition_id, output_path,
-            "--concurrency", "1",                # fixed minimum for low-CPU quotas (avoids <1 from %)
-            "--gl", "swangle",                   # cloud-safe WebGL backend for no-GPU environments
-            "--disallow-parallel-encoding",      # reduce CPU/memory contention while rendering frames
-            "--jpeg-quality", "70",              # faster encoding, minimal quality loss
-            "--bundle-cache", "true",            # reuse webpack bundle across renders
-            "--timeout", "90000",                # give software GL frames more time before timeout
+            "--concurrency", "100%",                  # use all CPU cores
+            "--enable-multiprocess-on-linux",         # better parallelism on Linux
+            "--gl", "swangle",                        # cloud-safe WebGL backend for no-GPU environments
+            "--disallow-parallel-encoding",           # reduce CPU/memory contention while rendering frames
+            "--jpeg-quality", "60",                   # faster encoding, minimal quality loss
+            "--bundle-cache", "true",                 # reuse webpack bundle across renders
+            "--timeout", "120000",                    # more time for software GL frames
         ]
     else:
         cmd = [
