@@ -958,9 +958,16 @@ export const renderVideo = (
   id: number,
   forceReRender = false
 ) =>
-  api.post(
+  api.post<RenderStartResponse>(
     `/projects/${id}/render?force_render=${forceReRender}`
   );
+
+export interface RenderStartResponse {
+  detail: string;
+  progress: number;
+  resolution?: string;
+  render_run_id?: string | null;
+}
 
 export interface RenderStatus {
   progress: number;
@@ -972,11 +979,15 @@ export interface RenderStatus {
   eta_seconds: number | null;
   progress_unknown?: boolean;
   render_attempt?: number | null;
+  render_run_id?: string | null;
   r2_video_url: string | null;
 }
 
 export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
+
+export const cancelRender = (id: number) =>
+  api.post<{ detail: string; cancelled: boolean }>(`/projects/${id}/cancel-render`);
 
 /** Fetch video as blob for playback. Returns object URL; caller must revoke it. */
 export const fetchVideoBlob = async (id: number): Promise<string> => {
