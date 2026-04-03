@@ -51,7 +51,6 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     briefing_code_panel: { title: [18, 22], desc: 22 },
     side_by_side_brief: { title: [34, 46], desc: [20, 24] },
     segment_break: { title: [36, 46], desc: [18, 24] },
-    data_visualization: { title: [34, 46], desc: 25 },
     live_metrics_board: { title: [28, 36], desc: [18, 20] },
     story_stack: { title: [34, 42], desc: [16, 18] },
     headline_insight: { title: [80, 120], desc: [60, 72] },

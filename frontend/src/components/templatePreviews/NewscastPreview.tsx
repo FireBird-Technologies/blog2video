@@ -27,7 +27,7 @@ const NEWCAST_PREVIEW_SCENES: DemoScene[] = [
       tickerItems: ["BREAKING", "LIVE COVERAGE", "WORLD DESK", "UPDATES"],
       lowerThirdTag: "LIVE",
       lowerThirdHeadline: "Template preview",
-      lowerThirdSub: "Cinematic opener with globe, chrome, and glass stack",
+      lowerThirdSub: "Cinematic opener with map backdrop, chrome, and glass stack",
     },
   },
   {

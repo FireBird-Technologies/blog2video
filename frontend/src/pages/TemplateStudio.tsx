@@ -62,7 +62,6 @@ const NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: Re
   side_by_side_brief: { titleFontSize: { portrait: 34, landscape: 26 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
   segment_break: { titleFontSize: { portrait: 47, landscape: 36 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
   field_image_focus: { titleFontSize: { portrait: 34, landscape: 26 }, descriptionFontSize: { portrait: 19, landscape: 15 } },
-  data_visualization: { titleFontSize: { portrait: 29, landscape: 22 }, descriptionFontSize: { portrait: 17, landscape: 13 } },
   ending_socials: { titleFontSize: { portrait: 52, landscape: 40 }, descriptionFontSize: { portrait: 20, landscape: 16 } },
 };
 
