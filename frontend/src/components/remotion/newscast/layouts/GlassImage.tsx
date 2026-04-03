@@ -6,8 +6,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
   toRgba,
 } from "../themeUtils";
@@ -36,6 +34,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
 
   const zoom = interpolate(frame, [0, fps * 8], [1, 1.05], { extrapolateRight: "clamp" });
   const yShift = interpolate(frame, [0, fps * 8], [0, -8], { extrapolateRight: "clamp" });
@@ -123,7 +122,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
         <div
           style={{
             fontFamily: newscastFont(fontFamily, "title"),
-            fontSize: resolveNewscastTitleSize(titleFontSize, 26, portraitScale),
+            fontSize: titleFontSize ?? (p ? 34 : 26),
             fontWeight: HEADLINE_WEIGHT,
             color: "white",
             textTransform: "uppercase",
@@ -140,7 +139,7 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
           <div
             style={{
               fontFamily: newscastFont(fontFamily, "body"),
-              fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 15, portraitScale),
+              fontSize: descriptionFontSize ?? (p ? 19 : 15),
               fontWeight: 400,
               color: STEEL,
               letterSpacing: 0.3,

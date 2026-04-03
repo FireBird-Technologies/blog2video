@@ -7,8 +7,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -45,6 +43,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
   const settle = interpolate(frame, [0, 25], [0.96, 1], { extrapolateRight: "clamp" });
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const isNarrow = width < 900;
 
   const safeLeftBody = leftBody ?? "";
@@ -137,7 +136,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
               style={{
                 marginTop: 8,
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: resolveNewscastTitleSize(titleFontSize, 26, portraitScale),
+                fontSize: titleFontSize ?? (p ? 34 : 26),
                 fontWeight: HEADLINE_WEIGHT,
                 textTransform: "uppercase",
                 color: "white",
@@ -153,7 +152,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 10,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
                   lineHeight: 1.5,
                   color: "rgba(255,255,255,0.86)",
                 }}
@@ -197,7 +196,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
               style={{
                 marginTop: 8,
                 fontFamily: newscastFont(fontFamily, "title"),
-                fontSize: resolveNewscastTitleSize(titleFontSize, 26, portraitScale),
+                fontSize: titleFontSize ?? (p ? 34 : 26),
                 fontWeight: HEADLINE_WEIGHT,
                 textTransform: "uppercase",
                 color: "white",
@@ -213,7 +212,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 10,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
                   lineHeight: 1.5,
                   color: "rgba(255,255,255,0.86)",
                 }}
@@ -248,7 +247,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
             <div style={{ position: "relative" }}>
               <div style={{ fontFamily: newscastFont(fontFamily, "label"), fontSize: scaleNewscastPx(10, portraitScale), letterSpacing: 4, fontWeight: 600, color: "#B8C8E0", textTransform: "uppercase" }}>{safeLowerTag}</div>
               <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "title"), fontSize: scaleNewscastPx(22, portraitScale), fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: 0.5, lineHeight: 1.05 }}>{safeLowerHeadline}</div>
-              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), color: STEEL, lineHeight: 1.5 }}>{safeLowerSub}</div>
+              <div style={{ marginTop: 6, fontFamily: newscastFont(fontFamily, "body"), fontSize: scaleNewscastPx(13, portraitScale), color: STEEL, lineHeight: 1.5 }}>{safeLowerSub}</div>
             </div>
           </div>
 
@@ -258,7 +257,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
               <div style={{ height: 1, marginTop: 8, background: `linear-gradient(90deg, transparent, ${RED}, ${GOLD})`, opacity: 0.8 }} />
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                 {(safeTickerItems.length ? safeTickerItems : ["LIVE BREAKING FEED", "LATEST UPDATES", "OFFICIAL CONFIRMATIONS"]).slice(0, 3).map((t, i) => (
-                  <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL, fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale), lineHeight: 1.3 }}>
+                  <div key={`${t}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: newscastFont(fontFamily, "body"), color: STEEL, fontSize: scaleNewscastPx(13, portraitScale), lineHeight: 1.3 }}>
                     <div style={{ width: 6, height: 6, borderRadius: 999, background: i === 0 ? RED : "#1E5FD4", boxShadow: i === 0 ? "0 0 14px rgba(232,32,32,0.35)" : "0 0 14px rgba(30,95,212,0.35)" }} />
                     <div style={{ flex: 1 }}>{t}</div>
                   </div>

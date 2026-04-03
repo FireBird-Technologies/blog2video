@@ -2,7 +2,7 @@ import type { BlogLayoutProps } from "../../newspaper/types";
 
 /**
  * Props for NEWSCAST layouts. Extends `BlogLayoutProps`, including optional `imageUrl`
- * for a full-bleed editorial background on **every** layout (hero through data viz).
+ * for a full-bleed editorial background on **every** layout.
  */
 export interface NewscastLayoutProps extends BlogLayoutProps {
   /**
@@ -50,14 +50,6 @@ export interface NewscastLayoutProps extends BlogLayoutProps {
   chapterNumber?: number;
   chapterLabel?: string;
   subtitle?: string;
-
-  /** data_visualization (nightfall-compatible schema keys) */
-  barChartRows?: Array<{ label?: string; value?: string }>;
-  /** Same data as `barChartRows` but `{ labels, values }` (AI / Nightfall exports). */
-  barChart?: { labels?: string[]; values?: (string | number)[] };
-  lineChartLabels?: string[];
-  lineChartDatasets?: Array<{ label?: string; valuesStr?: string; color?: string }>;
-  pieChartRows?: Array<{ label?: string; value?: string }>;
 }
 
 export type NewscastLayoutType =
@@ -70,6 +62,5 @@ export type NewscastLayoutType =
   | "side_by_side_brief"
   | "segment_break"
   | "field_image_focus"
-  | "data_visualization"
   | "ending_socials";
 

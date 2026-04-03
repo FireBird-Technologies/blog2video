@@ -7,8 +7,6 @@ import {
   DEFAULT_NEWSCAST_TEXT,
   getNewscastPortraitTypeScale,
   newscastFont,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
   toRgba,
 } from "../themeUtils";
@@ -37,6 +35,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const t = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
   const impactY = interpolate(frame, [0, 6, 18], [-220, 16, 0], { extrapolateRight: "clamp" });
   const impactScale = interpolate(frame, [0, 6, 18], [1.22, 0.96, 1], { extrapolateRight: "clamp" });
@@ -84,7 +83,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
               letterSpacing: 1,
               color: "white",
               textShadow: shadows.light,
-              fontSize: resolveNewscastTitleSize(titleFontSize, 18, portraitScale),
+              fontSize: titleFontSize ?? (p ? 23 : 18),
               ...headlinePopStyle(titlePop),
             }}
           >
@@ -136,7 +135,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
                   <div
                     style={{
                       color: /[0-9]/.test(line ?? "") ? "rgba(255,232,160,0.96)" : "rgba(232,238,248,0.92)",
-                      fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                      fontSize: descriptionFontSize ?? (p ? 18 : 14),
                     }}
                   >
                     {line || " "}

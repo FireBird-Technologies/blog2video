@@ -72,6 +72,17 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Render reliability/progress controls
+    RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
+    RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))
+    RENDER_PROGRESS_UPLOAD_INTERVAL_SECONDS: int = int(
+        os.environ.get("RENDER_PROGRESS_UPLOAD_INTERVAL_SECONDS", "10")
+    )
+    # If shared render progress file stops updating for this long, treat render as dead.
+    RENDER_PROGRESS_STALE_SECONDS: int = int(
+        os.environ.get("RENDER_PROGRESS_STALE_SECONDS", "360")
+    )
+
 
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported

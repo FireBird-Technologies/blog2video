@@ -4,6 +4,7 @@ import asyncio
 import logging
 import traceback
 import re
+import time
 import requests
 from datetime import timedelta
 
@@ -40,7 +41,13 @@ from app.services.remotion import (
     render_video,
     start_render_async,
     get_render_progress,
+    get_render_progress_from_r2,
+    seed_render_progress,
+    set_render_phase_message,
+    fail_render_start,
+    cancel_running_render,
     get_workspace_dir,
+    safe_remove_workspace,
 )
 from app.services import r2_storage
 from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
@@ -723,6 +730,8 @@ def _rebuild_workspace_sync(project_id: int) -> None:
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return
+        # Start from a clean workspace so canceled/previous runs cannot leave stale files behind.
+        safe_remove_workspace(get_workspace_dir(project_id))
         scenes = (
             db.query(Scene)
             .filter(Scene.project_id == project_id)
@@ -780,10 +789,29 @@ async def render_video_endpoint(
         user_row.videos_used_this_period += 1
         db.commit()
 
-    # Don't restart if already rendering
+    # Don't restart if already rendering (guard by DB status so stale shared payloads
+    # from a previous run don't block a fresh render after cancellation).
+    is_rendering_state = project.status == ProjectStatus.RENDERING
     prog = get_render_progress(project_id)
-    if prog and not prog.get("done", True):
-        return {"detail": "Render already running", "progress": prog.get("progress", 0)}
+    if is_rendering_state and prog and not prog.get("done", True):
+        return {
+            "detail": "Render already running",
+            "progress": prog.get("progress", 0),
+            "render_run_id": prog.get("_run_id"),
+        }
+    shared_prog = get_render_progress_from_r2(project_id, user.id)
+    if is_rendering_state and shared_prog and not shared_prog.get("done", True):
+        return {
+            "detail": "Render already running",
+            "progress": int(shared_prog.get("progress", 0) or 0),
+            "render_run_id": shared_prog.get("render_run_id"),
+        }
+    # If DB says not rendering but we still see an active shared payload, treat it as stale.
+    if (not is_rendering_state) and shared_prog and not shared_prog.get("done", True):
+        try:
+            r2_storage.delete_render_progress_json(user.id, project_id)
+        except Exception:
+            pass
 
     scenes = (
         db.query(Scene)
@@ -794,24 +822,38 @@ async def render_video_endpoint(
     if not scenes:
         raise HTTPException(status_code=400, detail="No scenes found. Generate the video first.")
 
+    # Mark as rendering immediately so status polling can show startup phases
+    # while workspace prep is still running.
+    project.status = ProjectStatus.RENDERING
+    db.commit()
+    render_run_id = seed_render_progress(project_id, user.id, phase_message="Preparing workspace...")
+
     # Rebuild workspace in thread pool so the event loop is not blocked (file I/O, copy, etc.).
     loop = asyncio.get_event_loop()
     try:
         await loop.run_in_executor(None, _rebuild_workspace_sync, project_id)
     except Exception as e:
+        msg = f"Failed to prepare workspace: {str(e)}. Please try again."
+        fail_render_start(project_id, msg)
+        project.status = ProjectStatus.GENERATED
+        db.commit()
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to prepare workspace: {str(e)}. Please try again.",
+            detail=msg,
         )
-
-    project.status = ProjectStatus.RENDERING
-    db.commit()
+    set_render_phase_message(project_id, "Preparing render bundle...")
 
     try:
-        start_render_async(project, resolution=resolution)
-        return {"detail": "Render started", "progress": 0, "resolution": resolution}
+        start_render_async(project, resolution=resolution, run_id=render_run_id)
+        return {
+            "detail": "Render started",
+            "progress": 0,
+            "resolution": resolution,
+            "render_run_id": render_run_id,
+        }
     except Exception as e:
         logger.exception("[RENDER] Failed to start render for project %s: %s", project_id, e)
+        fail_render_start(project_id, f"Failed to start render: {str(e)}. Please try again.")
         project.status = ProjectStatus.GENERATED
         db.commit()
         raise HTTPException(
@@ -830,8 +872,58 @@ def render_status_endpoint(
     project = _get_project(project_id, user.id, db)
     prog = get_render_progress(project_id)
 
-    # If no progress dict exists, check project status to determine state
+    # If no progress dict exists, try shared progress payload first (R2).
     if not prog:
+        shared = get_render_progress_from_r2(project_id, user.id)
+        if shared:
+            try:
+                is_rendering = project.status == ProjectStatus.RENDERING
+                shared_done = bool(shared.get("done", False))
+                updated_at = float(shared.get("updated_at_epoch") or 0.0)
+                stale_after = max(60, int(getattr(settings, "RENDER_PROGRESS_STALE_SECONDS", 360)))
+                is_stale = updated_at > 0 and (time.time() - updated_at) > stale_after
+
+                # Owner instance likely died: shared progress stopped heartbeating while DB still says RENDERING.
+                if is_rendering and (not shared_done) and is_stale:
+                    project.status = ProjectStatus.GENERATED
+                    db.commit()
+                    # Best effort cleanup of stale progress payload.
+                    try:
+                        r2_storage.delete_render_progress_json(user.id, project_id)
+                    except Exception:
+                        pass
+                    return {
+                        "progress": int(shared.get("progress", 0) or 0),
+                        "rendered_frames": int(shared.get("rendered_frames", 0) or 0),
+                        "total_frames": int(shared.get("total_frames", 0) or 0),
+                        "done": True,
+                        "error": "Render failed because the render worker became unavailable. Please try rendering again.",
+                        "time_remaining": None,
+                        "eta_seconds": None,
+                        "progress_unknown": False,
+                        "render_attempt": shared.get("render_attempt", None),
+                        "render_run_id": shared.get("render_run_id", None),
+                        "r2_video_url": project.r2_video_url,
+                    }
+            except Exception:
+                # Fall back to returning shared payload if stale detection fails.
+                pass
+            
+            return {
+                "progress": int(shared.get("progress", 0) or 0),
+                "rendered_frames": int(shared.get("rendered_frames", 0) or 0),
+                "total_frames": int(shared.get("total_frames", 0) or 0),
+                "done": bool(shared.get("done", False)),
+                "error": shared.get("error"),
+                "time_remaining": shared.get("time_remaining"),
+                "eta_seconds": shared.get("eta_seconds"),
+                "progress_unknown": bool(shared.get("progress_unknown", False)),
+                "render_attempt": shared.get("render_attempt", None),
+                "render_run_id": shared.get("render_run_id", None),
+                "r2_video_url": shared.get("r2_video_url") or project.r2_video_url,
+            }
+
+        # If no shared progress exists, check project status to determine state.
         # Project is RENDERING but this worker has no in-memory progress: another
         # server instance may be rendering, or the render just started. Do NOT reset
         # DB status — that caused false "lost render" and 0% when load-balanced
@@ -852,6 +944,7 @@ def render_status_endpoint(
                 "eta_seconds": None,
                 "progress_unknown": True,
                 "render_attempt": None,
+                "render_run_id": None,
                 "r2_video_url": project.r2_video_url,
             }
 
@@ -866,6 +959,7 @@ def render_status_endpoint(
             "eta_seconds": None,
             "progress_unknown": False,
             "render_attempt": None,
+            "render_run_id": None,
             "r2_video_url": project.r2_video_url,
         }
 
@@ -874,6 +968,7 @@ def render_status_endpoint(
         project.status = ProjectStatus.DONE
         db.commit()
         db.refresh(project)
+
 
     return {
         "progress": prog.get("progress", 0),
@@ -885,7 +980,35 @@ def render_status_endpoint(
         "eta_seconds": prog.get("eta_seconds"),
         "progress_unknown": False,
         "render_attempt": prog.get("_attempt", 1),
+        "render_run_id": prog.get("_run_id"),
         "r2_video_url": project.r2_video_url,
+    }
+
+
+@router.post("/cancel-render")
+def cancel_render_endpoint(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cancel an active render process for this project."""
+    project = _get_project(project_id, user.id, db)
+    cancelled = cancel_running_render(project_id, reason="Render cancelled by user.")
+    # If cancelling a re-render and an older video already exists, keep DONE.
+    # Otherwise fall back to GENERATED.
+    if project.status == ProjectStatus.RENDERING:
+        has_existing_video = bool(project.r2_video_url)
+        project.status = (
+            ProjectStatus.DONE if has_existing_video else ProjectStatus.GENERATED
+        )
+        db.commit()
+    if cancelled:
+        return {"detail": "Render cancelled", "cancelled": True}
+    # Even if this instance didn't own the subprocess, forcing status to GENERATED
+    # triggers cross-instance worker self-termination via periodic DB health check.
+    return {
+        "detail": "Cancel requested; render worker will stop after next health check",
+        "cancelled": True,
     }
 
 
