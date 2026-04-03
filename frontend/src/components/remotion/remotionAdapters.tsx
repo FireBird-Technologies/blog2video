@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
@@ -44,8 +44,7 @@ import {
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
-
-const TRANS_IN_SEC = 0.52;
+import { NEWSCAST_BACKGROUND_VARIANT } from "./newscast/backgroundVariant";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = {
   opening: "opening",
@@ -120,78 +119,18 @@ const RemotionNewscastSequenceInner: React.FC<{
   voiceoverUrl,
 }) => {
   const localFrame = useCurrentFrame();
-  const { fps } = useVideoConfig();
   const rotationFrame = startFrame + localFrame;
-
-  // Entrance motion window matches the timing used by `NewscastSceneZTransition`.
-  const capHalf = Math.max(1, Math.floor(durationInFrames / 2));
-  const transInFrames = Math.min(
-    Math.round(TRANS_IN_SEC * fps),
-    Math.max(3, Math.floor(durationInFrames * 0.26)),
-    capHalf,
-  );
-  const entryT = interpolate(localFrame, [0, transInFrames], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const globeTranslateX =
-    !isHero && layoutType === "glass_narrative"
-      ? entryT * -220
-      : !isHero && layoutType === "kinetic_insight"
-        ? Math.sin(entryT * Math.PI) * -110 + entryT * -210
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -64 + entryT * -290
-      : !isHero && layoutType === "glass_code"
-        ? entryT * -240
-      : !isHero && layoutType === "glow_metric"
-      ? entryT * -260
-      : !isHero && layoutType === "chapter_break"
-        ? entryT * -300
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * -90
-        : 0;
-  const globeTranslateY =
-    !isHero && layoutType === "glass_narrative"
-      ? entryT * -26
-      : !isHero && layoutType === "kinetic_insight"
-        ? Math.sin(entryT * Math.PI) * -62 + entryT * 24
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -66 + entryT * 104
-      : !isHero && layoutType === "glass_code"
-        ? Math.sin(entryT * Math.PI) * -34 + entryT * 12
-      : !isHero && layoutType === "glow_metric"
-      ? Math.sin(entryT * Math.PI) * -52 + entryT * 20
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(entryT * Math.PI) * -72 + entryT * 28
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * 16
-        : 0;
-  const glassStackGlobeT = Math.pow(entryT, 1.5);
-  const chapterGlobeT = Math.pow(entryT, 1.9);
-  const finalGlobeTranslateX =
-    !isHero && layoutType === "chapter_break"
-      ? chapterGlobeT * -300
-      : !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -74 + glassStackGlobeT * -100
-        : globeTranslateX;
-  const finalGlobeTranslateY =
-    !isHero && layoutType === "chapter_break"
-      ? Math.sin(chapterGlobeT * Math.PI) * -72 + chapterGlobeT * 28
-      : !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -48 + glassStackGlobeT * 22
-      : globeTranslateY;
 
   return (
     <AbsoluteFill>
       <NewscastSceneZTransition durationInFrames={durationInFrames} sceneIndex={sceneIndex} layoutType={layoutType}>
         <NewsCastBackground
-          variant="hero"
+          variant={NEWSCAST_BACKGROUND_VARIANT}
           globeOpacity={0.44}
-          globePosition="right"
           rotationFrame={rotationFrame}
-          globeTranslateX={finalGlobeTranslateX}
-          globeTranslateY={finalGlobeTranslateY}
+          sceneFrame={localFrame}
+          sceneDurationInFrames={durationInFrames}
+          sceneLayoutType={layoutType}
           solidBackground
         />
         {!isHero ? (
