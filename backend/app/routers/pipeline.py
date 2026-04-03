@@ -47,6 +47,7 @@ from app.services.remotion import (
     fail_render_start,
     cancel_running_render,
     get_workspace_dir,
+    safe_remove_workspace,
 )
 from app.services import r2_storage
 from app.scene_cta import prepend_b2v_cta_to_visual, strip_b2v_cta_from_visual
@@ -729,6 +730,8 @@ def _rebuild_workspace_sync(project_id: int) -> None:
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return
+        # Start from a clean workspace so canceled/previous runs cannot leave stale files behind.
+        safe_remove_workspace(get_workspace_dir(project_id))
         scenes = (
             db.query(Scene)
             .filter(Scene.project_id == project_id)
