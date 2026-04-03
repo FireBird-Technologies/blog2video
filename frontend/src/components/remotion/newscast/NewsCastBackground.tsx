@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { AmbientLight, Color, DirectionalLight, MeshPhongMaterial } from "three";
 
@@ -75,11 +75,9 @@ const GLOBE_BUMP_TEXTURE_SVG = `
 
 const GLOBE_BUMP_TEXTURE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GLOBE_BUMP_TEXTURE_SVG)}`;
 
-/** NASA blue marble + topology bump — official `three-globe` example assets (used by react-globe.gl demos). */
-const HERO_GLOBE_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg";
-const HERO_BUMP_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png";
+/** NASA blue marble + topology bump — now served from local static assets for speed and reliability. */
+const HERO_GLOBE_IMAGE_URL = staticFile("assets/earth-blue-marble.jpg");
+const HERO_BUMP_IMAGE_URL = staticFile("assets/earth-topology.png");
 
 /** Camera target: Europe / North Africa — mostly land at scene start (avoids Pacific-heavy framing). Same every scene (frame 0). */
 const GLOBE_POV = { lat: 28, lng: 18 } as const;
