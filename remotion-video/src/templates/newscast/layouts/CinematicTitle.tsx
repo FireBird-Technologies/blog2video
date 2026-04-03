@@ -62,7 +62,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
 
   // Hero needs to be self-contained: include ticker + lower-third + chrome-like bands.
   return (
-    <AbsoluteFill style={{ backgroundColor: hasBgImage ? "transparent" : "#060614", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: "transparent", overflow: "hidden" }}>
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
