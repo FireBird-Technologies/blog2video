@@ -445,6 +445,7 @@ export default function ProjectView() {
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
+  const [showCancelRenderWarning, setShowCancelRenderWarning] = useState(false);
   const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -1969,7 +1970,7 @@ export default function ProjectView() {
               {!hasError && (
                 <div className="mt-4">
                   <button
-                    onClick={handleCancelRender}
+                    onClick={() => setShowCancelRenderWarning(true)}
                     disabled={cancellingRender}
                     className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 disabled:opacity-60 text-gray-800 text-xs font-medium rounded-lg transition-colors"
                   >
@@ -2442,6 +2443,56 @@ export default function ProjectView() {
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Cancel render warning */}
+      {showCancelRenderWarning && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              if (!cancellingRender) setShowCancelRenderWarning(false);
+            }}
+          />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel rendering?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will stop your current render process. You can start rendering again anytime.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={async () => {
+                  await handleCancelRender();
+                  setShowCancelRenderWarning(false);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
+              >
+                {cancellingRender ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Cancelling…
+                  </>
+                ) : (
+                  "Yes, cancel render"
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={() => setShowCancelRenderWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-60"
+              >
+                Keep rendering
               </button>
             </div>
           </div>
