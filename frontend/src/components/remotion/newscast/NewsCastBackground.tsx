@@ -86,6 +86,10 @@ const GLOBE_POV = { lat: 28, lng: 18 } as const;
 const ROT_SPEED_HERO = 64;
 const ROT_SPEED_DEFAULT = 46;
 
+// Global quality profile for all Newscast scenes (optimized for cloud software GL).
+const GLOBE_CURVATURE_RESOLUTION = 8;
+const GLOBE_RENDERER_PIXEL_RATIO = 0.85;
+
 /** Inline SVG fallback: extra Y so stylized “continent” art faces the viewer at frame 0. */
 const SVG_LAND_BIAS_DEG = 38;
 
@@ -123,7 +127,8 @@ export const NewsCastBackground: React.FC<{
 
   const isHero = variant === "hero";
   const globeImageUrl = isHero ? HERO_GLOBE_IMAGE_URL : GLOBE_TEXTURE_DATA_URL;
-  const bumpImageUrl = isHero ? HERO_BUMP_IMAGE_URL : GLOBE_BUMP_TEXTURE_DATA_URL;
+  // Disable bump maps globally in Newscast for faster software WebGL rendering.
+  const bumpImageUrl: string | undefined = undefined;
 
   const pos = globePosition ?? "center";
   const globeLeft = pos === "right" ? "68%" : pos === "left" ? "32%" : "50%";
@@ -144,11 +149,11 @@ export const NewsCastBackground: React.FC<{
     () =>
       new MeshPhongMaterial({
         color: new Color(0xe8f2ff),
-        specular: new Color(0x3a4f72),
+        specular: new Color(0x2a3f5a),
         emissive: new Color(0x1a3a6a),
-        emissiveIntensity: 0.06,
-        shininess: 10,
-        bumpScale: 0.22,
+        emissiveIntensity: 0.04,
+        shininess: 5,
+        bumpScale: 0,
       }),
     [],
   );
@@ -184,6 +189,12 @@ export const NewsCastBackground: React.FC<{
       const dir = new DirectionalLight(0x6ab0ff, isHero ? 1.15 : 1.05);
       dir.position.set(1.2, 1.0, 1.0);
       g.lights([ambient, dir]);
+      const renderer = (
+        g as unknown as {
+          renderer?: () => { setPixelRatio?: (pixelRatio: number) => void };
+        }
+      ).renderer?.();
+      renderer?.setPixelRatio?.(GLOBE_RENDERER_PIXEL_RATIO);
       const p = povRef.current;
       g.pointOfView({ lat: p.lat, lng: p.lng, altitude: p.alt }, 0);
     } catch {
@@ -265,10 +276,11 @@ export const NewsCastBackground: React.FC<{
               globeImageUrl={globeImageUrl}
               bumpImageUrl={bumpImageUrl}
               globeMaterial={isHero ? heroPhongMaterial : undefined}
+              globeCurvatureResolution={GLOBE_CURVATURE_RESOLUTION}
               backgroundColor="rgba(0,0,0,0)"
               backgroundImageUrl={null}
               showGlobe
-              showGraticules={isHero}
+              showGraticules={false}
               showAtmosphere={false}
               atmosphereColor={isHero ? "rgba(90,160,240,0.28)" : "rgba(55,130,255,0.32)"}
               atmosphereAltitude={isHero ? 0.18 : 0.2}
