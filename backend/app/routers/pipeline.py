@@ -4,6 +4,7 @@ import asyncio
 import logging
 import traceback
 import re
+import time
 import requests
 from datetime import timedelta
 
@@ -40,6 +41,7 @@ from app.services.remotion import (
     render_video,
     start_render_async,
     get_render_progress,
+    get_render_progress_from_r2,
     get_workspace_dir,
 )
 from app.services import r2_storage
@@ -784,6 +786,9 @@ async def render_video_endpoint(
     prog = get_render_progress(project_id)
     if prog and not prog.get("done", True):
         return {"detail": "Render already running", "progress": prog.get("progress", 0)}
+    shared_prog = get_render_progress_from_r2(project_id, user.id)
+    if shared_prog and not shared_prog.get("done", True):
+        return {"detail": "Render already running", "progress": int(shared_prog.get("progress", 0) or 0)}
 
     scenes = (
         db.query(Scene)
@@ -830,8 +835,55 @@ def render_status_endpoint(
     project = _get_project(project_id, user.id, db)
     prog = get_render_progress(project_id)
 
-    # If no progress dict exists, check project status to determine state
+    # If no progress dict exists, try shared progress payload first (R2).
     if not prog:
+        shared = get_render_progress_from_r2(project_id, user.id)
+        if shared:
+            try:
+                is_rendering = project.status == ProjectStatus.RENDERING
+                shared_done = bool(shared.get("done", False))
+                updated_at = float(shared.get("updated_at_epoch") or 0.0)
+                stale_after = max(60, int(getattr(settings, "RENDER_PROGRESS_STALE_SECONDS", 360)))
+                is_stale = updated_at > 0 and (time.time() - updated_at) > stale_after
+
+                # Owner instance likely died: shared progress stopped heartbeating while DB still says RENDERING.
+                if is_rendering and (not shared_done) and is_stale:
+                    project.status = ProjectStatus.GENERATED
+                    db.commit()
+                    # Best effort cleanup of stale progress payload.
+                    try:
+                        r2_storage.delete_render_progress_json(user.id, project_id)
+                    except Exception:
+                        pass
+                    return {
+                        "progress": int(shared.get("progress", 0) or 0),
+                        "rendered_frames": int(shared.get("rendered_frames", 0) or 0),
+                        "total_frames": int(shared.get("total_frames", 0) or 0),
+                        "done": True,
+                        "error": "Render failed because the render worker became unavailable. Please try rendering again.",
+                        "time_remaining": None,
+                        "eta_seconds": None,
+                        "progress_unknown": False,
+                        "render_attempt": shared.get("render_attempt", None),
+                        "r2_video_url": project.r2_video_url,
+                    }
+            except Exception:
+                # Fall back to returning shared payload if stale detection fails.
+                pass
+            return {
+                "progress": int(shared.get("progress", 0) or 0),
+                "rendered_frames": int(shared.get("rendered_frames", 0) or 0),
+                "total_frames": int(shared.get("total_frames", 0) or 0),
+                "done": bool(shared.get("done", False)),
+                "error": shared.get("error"),
+                "time_remaining": shared.get("time_remaining"),
+                "eta_seconds": shared.get("eta_seconds"),
+                "progress_unknown": bool(shared.get("progress_unknown", False)),
+                "render_attempt": shared.get("render_attempt", None),
+                "r2_video_url": shared.get("r2_video_url") or project.r2_video_url,
+            }
+
+        # If no shared progress exists, check project status to determine state.
         # Project is RENDERING but this worker has no in-memory progress: another
         # server instance may be rendering, or the render just started. Do NOT reset
         # DB status — that caused false "lost render" and 0% when load-balanced

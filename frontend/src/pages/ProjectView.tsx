@@ -403,7 +403,7 @@ export default function ProjectView() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
-  const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const renderPollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const renderRetryCountRef = useRef(0); // how many times we've auto-retried render
   const MAX_RENDER_RETRIES = 20;
 
@@ -942,6 +942,7 @@ export default function ProjectView() {
   const stopRenderPolling = () => {
     if (renderPollingRef.current) {
       clearInterval(renderPollingRef.current);
+      clearTimeout(renderPollingRef.current);
       renderPollingRef.current = null;
     }
   };
@@ -1074,6 +1075,7 @@ export default function ProjectView() {
             total_frames,
             done,
             error: renderErr,
+            time_remaining: timeRemaining,
             eta_seconds: etaSecondsApi,
             progress_unknown: progressUnknown,
             render_attempt: renderAttempt,
@@ -1104,6 +1106,13 @@ export default function ProjectView() {
           }
           if (rendered_frames > 0) {
             setRenderFrames({ rendered: rendered_frames, total: total_frames });
+          }
+
+          if (!done && !renderErr && rendered_frames === 0 && total_frames === 0 && progress === 0) {
+            const prep = typeof timeRemaining === "string" && timeRemaining.trim()
+              ? timeRemaining.trim()
+              : "Preparing render...";
+            setRenderEtaLabel(prep);
           }
 
           // ETA: server uses seconds/frame from consecutive lines (linear in work left).
@@ -1164,21 +1173,11 @@ export default function ProjectView() {
           }
 
           if (renderErr) {
-            if (isResume) {
-              showError("Render failed. Please try re-rendering.");
-              setHasError(true);
-              setRendering(false);
-              stopRenderPolling();
-              return;
-            }
-            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
-              renderRetryCountRef.current++;
-              stopRenderPolling();
-              await new Promise((r) => setTimeout(r, 3000));
-              handleRenderRef.current?.(true);
-              return;
-            }
-            showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist.");
+            const msg =
+              typeof renderErr === "string" && renderErr.trim()
+                ? renderErr
+                : "Render failed after multiple attempts. Please try re-rendering.";
+            showError(msg);
             setHasError(true);
             setRendering(false);
             stopRenderPolling();
@@ -1222,8 +1221,21 @@ export default function ProjectView() {
       };
 
       stopRenderPolling();
+      const pollStartedAt = Date.now();
+      let currentIntervalMs = 2000;
+
+      const schedule = () => {
+        renderPollingRef.current = setTimeout(async () => {
+          await poll();
+          const stillInWarmup = Date.now() - pollStartedAt < 60000;
+          const desiredMs = stillInWarmup ? 2000 : 10000;
+          currentIntervalMs = desiredMs;
+          if (renderPollingRef.current) schedule();
+        }, currentIntervalMs);
+      };
+
       poll(); // immediate first poll
-      renderPollingRef.current = setInterval(poll, 2000);
+      schedule();
     },
     [projectId]
   );
