@@ -22,7 +22,11 @@ from app.schemas.schemas import (
     SceneTypographyBulkUpdate, ProjectUpdate
 )
 from app.services import r2_storage
-from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.services.remotion import (
+    safe_remove_workspace,
+    get_workspace_dir,
+    cancel_running_render,
+)
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
@@ -701,6 +705,17 @@ def delete_project(
 ):
     """Delete a project and all related data (local + R2 storage)."""
     project = _get_user_project(project_id, user.id, db)
+
+    # Ensure any active render subprocess is terminated before deleting files/DB row.
+    try:
+        cancel_running_render(project.id, reason="Render cancelled because project was deleted.")
+    except Exception as e:
+        logger.warning(
+            "[PROJECTS] Failed to cancel active render for project %s before delete: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
 
     # Delete R2 files
     if r2_storage.is_r2_configured():
