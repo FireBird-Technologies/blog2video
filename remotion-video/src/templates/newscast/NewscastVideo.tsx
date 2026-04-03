@@ -16,7 +16,6 @@ import { LogoOverlay } from "../../components/LogoOverlay";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
-import { normalizeNewscastDataVizLayoutProps } from "./normalizeDataVizLayoutProps";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
@@ -48,7 +47,7 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  data_visualization: "data_visualization",
+  data_visualization: "anchor_narrative",
   ending_socials: "ending_socials",
 };
 
@@ -65,7 +64,6 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
   side_by_side_brief: "split_glass",
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
-  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 
@@ -282,11 +280,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         const imageUrlFromAssets = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
         const lp = (scene.layoutProps ?? {}) as Record<string, unknown>;
-        const normalizedLp =
-          normalizedLayout === "data_visualization"
-            ? normalizeNewscastDataVizLayoutProps(lp)
-            : lp;
-        const base = normalizedLp as Partial<NewscastLayoutProps>;
+        const base = lp as Partial<NewscastLayoutProps>;
         const lc = scene.layoutConfig;
 
         const layoutProps: NewscastLayoutProps = {
