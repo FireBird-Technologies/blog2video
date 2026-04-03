@@ -68,7 +68,7 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
           @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
         `}
       </style>
-      {/* Optional full-bleed plate under globe/grid (same as other NEWSCAST layouts). */}
+      {/* Optional full-bleed plate under map/grid (same as other NEWSCAST layouts). */}
       <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
 
       {/* Animated scan line (subtle) */}
@@ -197,37 +197,37 @@ export const CinematicTitle: React.FC<NewscastLayoutProps> = ({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            {/* Flat pixel-map mark — matches NewsCastBackground `pixel_map` (not a globe). */}
             <div
+              aria-hidden
               style={{
                 width: 28,
                 height: 28,
-                border: "1.5px solid rgba(200,220,255,0.4)",
-                borderRadius: "50%",
-                position: "relative",
+                borderRadius: 5,
+                border: "1.5px solid rgba(200,220,255,0.38)",
+                background: "linear-gradient(155deg, rgba(10,28,58,0.95) 0%, rgba(4,10,22,0.98) 100%)",
+                boxShadow: "inset 0 0 10px rgba(40,120,255,0.12)",
+                flexShrink: 0,
+                overflow: "hidden",
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  width: "60%",
-                  height: 1,
-                  background: "rgba(200,220,255,0.4)",
-                  transform: "rotate(-25deg)",
-                  left: "20%",
-                  top: "50%",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  width: "50%",
-                  height: "50%",
-                  borderRadius: "50%",
-                  border: "1px solid rgba(200,220,255,0.3)",
-                  left: "25%",
-                  top: "25%",
-                }}
-              />
+              <svg width="28" height="28" viewBox="0 0 28 28" style={{ display: "block" }}>
+                <line x1="4" y1="7" x2="24" y2="7" stroke="rgba(130,190,255,0.14)" strokeWidth="0.6" />
+                <line x1="4" y1="11" x2="24" y2="11" stroke="rgba(130,190,255,0.1)" strokeWidth="0.6" />
+                <line x1="4" y1="15" x2="24" y2="15" stroke="rgba(130,190,255,0.1)" strokeWidth="0.6" />
+                <line x1="4" y1="19" x2="24" y2="19" stroke="rgba(130,190,255,0.1)" strokeWidth="0.6" />
+                <line x1="4" y1="23" x2="24" y2="23" stroke="rgba(130,190,255,0.14)" strokeWidth="0.6" />
+                <line x1="6" y1="5" x2="6" y2="25" stroke="rgba(130,190,255,0.08)" strokeWidth="0.5" />
+                <line x1="11" y1="5" x2="11" y2="25" stroke="rgba(130,190,255,0.08)" strokeWidth="0.5" />
+                <line x1="17" y1="5" x2="17" y2="25" stroke="rgba(130,190,255,0.08)" strokeWidth="0.5" />
+                <line x1="22" y1="5" x2="22" y2="25" stroke="rgba(130,190,255,0.08)" strokeWidth="0.5" />
+                <rect x="5" y="9" width="2.2" height="2.2" rx="0.35" fill="rgba(214,226,238,0.45)" />
+                <rect x="8" y="8" width="5" height="3.5" rx="0.4" fill="rgba(214,226,238,0.32)" />
+                <rect x="14" y="10" width="7" height="2.8" rx="0.4" fill="rgba(214,226,238,0.28)" />
+                <rect x="7" y="13" width="4" height="2.2" rx="0.35" fill="rgba(214,226,238,0.22)" />
+                <rect x="12" y="14" width="9" height="3.5" rx="0.45" fill="rgba(214,226,238,0.26)" />
+                <rect x="6" y="17" width="6" height="2.5" rx="0.4" fill="rgba(214,226,238,0.2)" />
+              </svg>
             </div>
             <div>
               <div

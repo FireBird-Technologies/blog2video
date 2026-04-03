@@ -987,7 +987,7 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        # Custom templates use layoutConfig; built-in templates use layoutProps
+        # Custom templates use layoutConfig; built-in templates (e.g. newscast) use layoutProps.
         if is_custom_template(project.template):
             layout_config = descriptor.get("layoutConfig") or {}
             if data.title_font_size is not None:
@@ -995,8 +995,10 @@ def bulk_update_scene_typography(
             if data.description_font_size is not None:
                 layout_config["descriptionFontSize"] = data.description_font_size
             descriptor["layoutConfig"] = layout_config
-        if "layoutConfig" not in descriptor and "layoutProps" not in descriptor:
-            layout_props = {}
+        else:
+            # Merge into existing layoutProps — scenes already have layoutProps, so the old
+            # "only if both missing" branch never ran and global typography did not apply.
+            layout_props = dict(descriptor.get("layoutProps") or {})
             if data.title_font_size is not None:
                 layout_props["titleFontSize"] = data.title_font_size
             if data.description_font_size is not None:

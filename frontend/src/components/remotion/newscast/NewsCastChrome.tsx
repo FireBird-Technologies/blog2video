@@ -105,7 +105,7 @@ export const NewsCastChrome: React.FC<
           position: "absolute",
           inset: 0,
           border: "3px solid transparent",
-          // Keep the inner area transparent so the wireframe globe remains visible.
+          // Keep the inner area transparent so the flat map / background remains visible.
           background:
             "linear-gradient(135deg, rgba(200,220,255,0.6) 0%, rgba(100,150,220,0.2) 25%, rgba(50,80,160,0.1) 50%, rgba(100,150,220,0.2) 75%, rgba(200,220,255,0.5) 100%) border-box",
           boxShadow: "inset 0 0 70px rgba(0,0,0,0.45)",
