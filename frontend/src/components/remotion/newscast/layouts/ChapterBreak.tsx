@@ -8,8 +8,6 @@ import {
   getNewscastPortraitTypeScale,
   newscastFont,
   resolveNewscastNumberFontPx,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -40,6 +38,7 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const numStr = String(chapterNumber).padStart(2, "0");
   const watermarkNum = resolveNewscastNumberFontPx({
     basePx: 230,
@@ -263,7 +262,7 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
           <div
             style={{
               fontFamily: newscastFont(fontFamily, "title"),
-              fontSize: resolveNewscastTitleSize(titleFontSize, 36, portraitScale),
+              fontSize: titleFontSize ?? (p ? 47 : 36),
               fontWeight: HEADLINE_WEIGHT,
               letterSpacing: 6,
               textTransform: "uppercase",
@@ -280,7 +279,7 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
             <div
               style={{
                 fontFamily: newscastFont(fontFamily, "body"),
-                fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                fontSize: descriptionFontSize ?? (p ? 18 : 14),
                 fontWeight: 300,
                 letterSpacing: 3,
                 color: STEEL,

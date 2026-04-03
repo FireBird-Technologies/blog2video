@@ -194,23 +194,19 @@
     {
       "id": 9,
       "order": 9,
-      "title": "Chart Overview",
-      "narration": "A chart summarizes reported energy, transport, and industry shares from the latest briefings.",
-      "layout": "data_visualization",
+      "title": "Numbers in Context",
+      "narration": "Energy, transport, and industry shares from the latest briefings — summarized in plain language for viewers.",
+      "layout": "anchor_narrative",
       "layoutProps": {
-        "barChartRows": [
-          { "label": "Energy", "value": "45" },
-          { "label": "Transport", "value": "38" },
-          { "label": "Industry", "value": "30" }
-        ],
+        "category": "DATA DESK",
         "tickerItems": [
           "DATA UPDATE",
-          "LIVE CHART SUMMARY",
+          "BRIEFING SUMMARY",
           "NUMBERS ON AIR"
         ],
         "lowerThirdTag": "DATA",
-        "lowerThirdHeadline": "Chart Overview",
-        "lowerThirdSub": "Charts update with extracted numbers"
+        "lowerThirdHeadline": "Sector snapshot",
+        "lowerThirdSub": "Key figures from the latest reports"
       },
       "durationSeconds": 2.0,
       "voiceoverFile": null,
@@ -219,18 +215,15 @@
     {
       "id": 10,
       "order": 10,
-      "title": "Trend Line",
-      "narration": "Nested Nightfall-style lineChart in layoutProps is normalized at playback.",
-      "layout": "data_visualization",
+      "title": "Quarterly Trend",
+      "narration": "Quarterly unit movement stays in focus with the same anchor narrative rhythm as the rest of the rundown.",
+      "layout": "anchor_narrative",
       "layoutProps": {
-        "lineChart": {
-          "labels": ["Q1", "Q2", "Q3", "Q4"],
-          "datasets": [{ "label": "Units", "values": [12, 18, 15, 22] }]
-        },
+        "category": "MARKETS",
         "tickerItems": ["TREND", "LIVE DATA"],
         "lowerThirdTag": "DATA",
-        "lowerThirdHeadline": "Quarterly Trend",
-        "lowerThirdSub": "Nested lineChart object (no flat keys)"
+        "lowerThirdHeadline": "Quarterly trend",
+        "lowerThirdSub": "Tracking the headline numbers"
       },
       "durationSeconds": 3.0,
       "voiceoverFile": null,

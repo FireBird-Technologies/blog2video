@@ -8,8 +8,6 @@ import {
   getNewscastPortraitTypeScale,
   newscastFont,
   resolveNewscastNumberFontPx,
-  resolveNewscastDescriptionSize,
-  resolveNewscastTitleSize,
   scaleNewscastPx,
 } from "../themeUtils";
 import {
@@ -51,6 +49,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
   const safeMetrics = useMemo(() => metrics.filter(Boolean).slice(0, 3), [metrics]);
   const { width, height } = useVideoConfig();
   const portraitScale = getNewscastPortraitTypeScale(width, height);
+  const p = height > width;
   const isNarrow = width < 900;
 
   const safeTickerItems = (tickerItems?.filter(Boolean) ?? []).slice(0, 4);
@@ -120,7 +119,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
               <div
                 style={{
                   fontFamily: newscastFont(fontFamily, "title"),
-                  fontSize: resolveNewscastTitleSize(titleFontSize, 18, portraitScale),
+                  fontSize: titleFontSize ?? (p ? 23 : 18),
                   fontWeight: HEADLINE_WEIGHT,
                   color: "white",
                   letterSpacing: 1,
@@ -135,7 +134,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 6,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 14, portraitScale),
+                  fontSize: descriptionFontSize ?? (p ? 18 : 14),
                   color: STEEL,
                   lineHeight: 1.5,
                   opacity: 0.95,
@@ -381,7 +380,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                 style={{
                   marginTop: 6,
                   fontFamily: newscastFont(fontFamily, "body"),
-                  fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+                  fontSize: scaleNewscastPx(13, portraitScale),
                   color: STEEL,
                   lineHeight: 1.5,
                 }}
@@ -438,7 +437,7 @@ export const GlowMetric: React.FC<NewscastLayoutProps> = ({
                         gap: 10,
                         fontFamily: newscastFont(fontFamily, "body"),
                         color: STEEL,
-                        fontSize: resolveNewscastDescriptionSize(descriptionFontSize, 13, portraitScale),
+                        fontSize: scaleNewscastPx(13, portraitScale),
                         lineHeight: 1.3,
                       }}
                     >

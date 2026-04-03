@@ -8,6 +8,7 @@ import {
   startGeneration,
   getPipelineStatus,
   renderVideo,
+  cancelRender,
   getRenderStatus,
   downloadVideo,
   fetchVideoBlob,
@@ -403,7 +404,8 @@ export default function ProjectView() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
-  const renderPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [cancellingRender, setCancellingRender] = useState(false);
+  const renderPollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const renderRetryCountRef = useRef(0); // how many times we've auto-retried render
   const MAX_RENDER_RETRIES = 20;
 
@@ -443,6 +445,7 @@ export default function ProjectView() {
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
+  const [showCancelRenderWarning, setShowCancelRenderWarning] = useState(false);
   const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -942,6 +945,7 @@ export default function ProjectView() {
   const stopRenderPolling = () => {
     if (renderPollingRef.current) {
       clearInterval(renderPollingRef.current);
+      clearTimeout(renderPollingRef.current);
       renderPollingRef.current = null;
     }
   };
@@ -955,6 +959,9 @@ export default function ProjectView() {
   const renderEtaLastSecRef = useRef<number | null>(null);
   const renderEtaWentDownRef = useRef(false);
   const lastRenderAttemptRef = useRef(1);
+  const renderKickoffPendingRef = useRef(false);
+  const renderCancelRequestedRef = useRef(false);
+  const expectedRenderRunIdRef = useRef<string | null>(null);
   const handleRenderRef = useRef<(force: boolean, onStart?: () => void) => Promise<void>>();
 
   const handleRender = async (
@@ -972,6 +979,8 @@ export default function ProjectView() {
 
     // Re-render while already rendering — skip API call, take user to status page instead
     if (forceReRender && project?.status === "rendering") {
+      renderCancelRequestedRef.current = false;
+      renderKickoffPendingRef.current = false;
       onRenderStarted?.();
       setRendered(false);
       setRendering(true);
@@ -1002,6 +1011,8 @@ export default function ProjectView() {
     }
 
     // Reset render state so auto-download triggers when we flip rendered -> true again
+    renderCancelRequestedRef.current = false;
+    expectedRenderRunIdRef.current = null;
     setRendered(false);
     autoDownloadRef.current = false;
     setRendering(true);
@@ -1018,12 +1029,22 @@ export default function ProjectView() {
     lastRenderAttemptRef.current = 1;
 
     const startRenderAndPoll = async () => {
+      // Start polling immediately so users can see "preparing" phases while
+      // the /render call is still doing backend setup work.
+      renderKickoffPendingRef.current = true;
+      startRenderPollingLoop({ isResume: false });
+      // Close confirmation modal immediately; render startup continues in background.
+      onRenderStarted?.();
       try {
         console.log("rendering started")
-        await renderVideo(projectId, forceReRender);
-        onRenderStarted?.();
+        const startRes = await renderVideo(projectId, forceReRender);
+        const runId = startRes?.data?.render_run_id;
+        if (runId != null && String(runId).trim()) {
+          expectedRenderRunIdRef.current = String(runId);
+        }
+        renderKickoffPendingRef.current = false;
       } catch (err: any) {
-        onRenderStarted?.();
+        renderKickoffPendingRef.current = false;
         const message = getErrorMessage(err, "");
         if (
           err?.response?.status === 409 &&
@@ -1053,13 +1074,42 @@ export default function ProjectView() {
           return;
         }
       }
-
-      startRenderPollingLoop({ isResume: false });
     };
 
     startRenderAndPoll();
   };
   handleRenderRef.current = handleRender;
+
+  const handleCancelRender = useCallback(async () => {
+    if (!projectId || cancellingRender) return;
+    try {
+      setCancellingRender(true);
+      renderCancelRequestedRef.current = true;
+      await cancelRender(projectId);
+      renderKickoffPendingRef.current = false;
+      expectedRenderRunIdRef.current = null;
+      sessionStorage.removeItem(`render_hw_${projectId}`);
+      renderHighWaterRef.current = 0;
+      stopRenderPolling();
+      setSaving(false);
+      setRenderEtaLabel("Render cancelled");
+      setHasError(false);
+      showNotice("Render cancelled.", {
+        onClose: () => {
+          setRendering(false);
+          setRenderFrames({ rendered: 0, total: 0 });
+          setRenderProgress(0);
+          renderCancelRequestedRef.current = false;
+          void loadProject();
+        },
+      });
+    } catch (err) {
+      renderCancelRequestedRef.current = false;
+      showError(getErrorMessage(err, "Failed to cancel render."));
+    } finally {
+      setCancellingRender(false);
+    }
+  }, [projectId, cancellingRender, loadProject, showNotice, showError]);
 
   /** Start polling render status. When isResume=true, we're resuming (no retry on error). */
   const startRenderPollingLoop = useCallback(
@@ -1074,10 +1124,45 @@ export default function ProjectView() {
             total_frames,
             done,
             error: renderErr,
+            time_remaining: timeRemaining,
             eta_seconds: etaSecondsApi,
             progress_unknown: progressUnknown,
             render_attempt: renderAttempt,
+            render_run_id: renderRunId,
           } = status.data;
+
+          if (
+            renderKickoffPendingRef.current &&
+            (done || Boolean(renderErr) || progress > 0 || rendered_frames > 0)
+          ) {
+            // Ignore terminal/progress-bearing stale snapshots while /render is still in-flight.
+            return;
+          }
+
+          const expectedRunId = expectedRenderRunIdRef.current;
+          if (expectedRunId) {
+            const incomingRunId =
+              renderRunId != null && String(renderRunId).trim()
+                ? String(renderRunId)
+                : null;
+            const hasTerminalOrProgressSignal =
+              Boolean(done) ||
+              Boolean(renderErr) ||
+              (Number(progress) > 0) ||
+              (Number(rendered_frames) > 0);
+            if (incomingRunId && incomingRunId !== expectedRunId) {
+              return; // stale snapshot from an older run
+            }
+            if (!incomingRunId && hasTerminalOrProgressSignal) {
+              return; // legacy/stale payload without run id while waiting for current run
+            }
+          }
+
+          // During re-render kickoff, ignore stale "done=100%" snapshots from
+          // the previous render until /render acknowledges the new run.
+          if (renderKickoffPendingRef.current && done && !renderErr) {
+            return;
+          }
 
           const attempt = renderAttempt ?? 1;
           if (attempt > lastRenderAttemptRef.current) {
@@ -1104,6 +1189,19 @@ export default function ProjectView() {
           }
           if (rendered_frames > 0) {
             setRenderFrames({ rendered: rendered_frames, total: total_frames });
+          }
+
+          const hasStartupStatus =
+            !done &&
+            !renderErr &&
+            rendered_frames === 0 &&
+            total_frames === 0 &&
+            progress === 0 &&
+            typeof timeRemaining === "string" &&
+            timeRemaining.trim().length > 0;
+          if (!done && !renderErr && rendered_frames === 0 && total_frames === 0 && progress === 0) {
+            const prep = hasStartupStatus ? timeRemaining.trim() : "Preparing render...";
+            setRenderEtaLabel(prep);
           }
 
           // ETA: server uses seconds/frame from consecutive lines (linear in work left).
@@ -1156,7 +1254,8 @@ export default function ProjectView() {
             ) {
               setRenderEtaLabel("Almost done");
             } else if (total_frames === 0 && progress === 0) {
-              setRenderEtaLabel(null);
+              // Keep explicit backend startup phase text (e.g. "Preparing workspace...").
+              if (!hasStartupStatus) setRenderEtaLabel(null);
             } else {
               // No meaningful ETA yet; don't keep an old "0s" value.
               if (progress > 0 || rendered_frames > 0) setRenderEtaLabel(null);
@@ -1164,21 +1263,27 @@ export default function ProjectView() {
           }
 
           if (renderErr) {
-            if (isResume) {
-              showError("Render failed. Please try re-rendering.");
-              setHasError(true);
+            const msg =
+              typeof renderErr === "string" && renderErr.trim()
+                ? renderErr
+                : "Render failed after multiple attempts. Please try re-rendering.";
+            if (
+              renderKickoffPendingRef.current &&
+              /cancel|cancelled|canceled|no longer rendering|project was deleted/i.test(msg)
+            ) {
+              return;
+            }
+            const isExpectedCancel =
+              renderCancelRequestedRef.current &&
+              /cancel|cancelled|canceled|no longer rendering|project was deleted/i.test(msg);
+            if (isExpectedCancel) {
+              stopRenderPolling();
               setRendering(false);
-              stopRenderPolling();
+              setSaving(false);
+              setHasError(false);
               return;
             }
-            if (renderRetryCountRef.current < MAX_RENDER_RETRIES) {
-              renderRetryCountRef.current++;
-              stopRenderPolling();
-              await new Promise((r) => setTimeout(r, 3000));
-              handleRenderRef.current?.(true);
-              return;
-            }
-            showError("Render failed after multiple attempts. Please try again, or contact support, if the issue persist.");
+            showError(msg);
             setHasError(true);
             setRendering(false);
             stopRenderPolling();
@@ -1222,8 +1327,21 @@ export default function ProjectView() {
       };
 
       stopRenderPolling();
+      const pollStartedAt = Date.now();
+      let currentIntervalMs = 2000;
+
+      const schedule = () => {
+        renderPollingRef.current = setTimeout(async () => {
+          await poll();
+          const stillInWarmup = Date.now() - pollStartedAt < 60000;
+          const desiredMs = stillInWarmup ? 2000 : 10000;
+          currentIntervalMs = desiredMs;
+          if (renderPollingRef.current) schedule();
+        }, currentIntervalMs);
+      };
+
       poll(); // immediate first poll
-      renderPollingRef.current = setInterval(poll, 2000);
+      schedule();
     },
     [projectId]
   );
@@ -1849,6 +1967,17 @@ export default function ProjectView() {
                   </button>
                 </div>
               )}
+              {!hasError && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowCancelRenderWarning(true)}
+                    disabled={cancellingRender}
+                    className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 disabled:opacity-60 text-gray-800 text-xs font-medium rounded-lg transition-colors"
+                  >
+                    {cancellingRender ? "Cancelling..." : "Cancel render"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2314,6 +2443,56 @@ export default function ProjectView() {
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Cancel render warning */}
+      {showCancelRenderWarning && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => {
+              if (!cancellingRender) setShowCancelRenderWarning(false);
+            }}
+          />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel rendering?</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will stop your current render process. You can start rendering again anytime.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={async () => {
+                  await handleCancelRender();
+                  setShowCancelRenderWarning(false);
+                }}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-70 disabled:cursor-wait flex items-center justify-center gap-2"
+              >
+                {cancellingRender ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Cancelling…
+                  </>
+                ) : (
+                  "Yes, cancel render"
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={cancellingRender}
+                onClick={() => setShowCancelRenderWarning(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-60"
+              >
+                Keep rendering
               </button>
             </div>
           </div>

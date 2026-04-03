@@ -150,7 +150,7 @@ function resolveLayoutTransitionStyle(layoutType?: string): NewscastTransitionSt
     return "fade_cross";
   }
 
-  // Remaining layouts: cinematic_title, glass_stack, glass_image, data_visualization
+  // Remaining layouts: cinematic_title, glass_stack, glass_image
   return "side_pan";
 }
 
@@ -317,28 +317,28 @@ export const NewscastSceneZTransition: React.FC<{
           extrapolateRight: "clamp",
         })
       : 0;
-  const splitGlassGlobeZoomScale =
+  const splitGlassRadialBloomScale =
     layoutType === "split_glass"
       ? interpolate(frame, [0, Math.max(5, Math.floor(transInFrames * 0.62)), transInFrames], [1.28, 1.1, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 1;
-  const splitGlassGlobeZoomOpacity =
+  const splitGlassRadialBloomOpacity =
     layoutType === "split_glass"
       ? interpolate(frame, [0, Math.max(5, Math.floor(transInFrames * 0.66)), transInFrames], [0.34, 0.2, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 0;
-  const glowMetricGlobeZoomScale =
+  const glowMetricRadialBloomScale =
     layoutType === "glow_metric"
       ? interpolate(frame, [0, Math.max(6, Math.floor(transInFrames * 0.62)), transInFrames], [1.38, 1.14, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 1;
-  const glowMetricGlobeZoomOpacity =
+  const glowMetricRadialBloomOpacity =
     layoutType === "glow_metric"
       ? interpolate(frame, [0, Math.max(6, Math.floor(transInFrames * 0.68)), transInFrames], [0.62, 0.3, 0], {
           extrapolateLeft: "clamp",
@@ -431,14 +431,14 @@ export const NewscastSceneZTransition: React.FC<{
     0,
     glassImageCrackleStrength * (0.68 + 0.22 * Math.abs(Math.sin(frame * 1.4))),
   );
-  const glassImageGlobeZoomScale =
+  const glassImageRadialBloomScale =
     layoutType === "glass_image"
       ? interpolate(frame, [0, Math.max(8, Math.floor(transInFrames * 0.72)), transInFrames], [1.62, 1.28, 1], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : 1;
-  const glassImageGlobeZoomOpacity =
+  const glassImageRadialBloomOpacity =
     layoutType === "glass_image"
       ? interpolate(frame, [0, Math.max(8, Math.floor(transInFrames * 0.74)), transInFrames], [0.72, 0.38, 0], {
           extrapolateLeft: "clamp",
@@ -583,15 +583,15 @@ export const NewscastSceneZTransition: React.FC<{
           }}
         />
       ) : null}
-      {layoutType === "split_glass" && splitGlassGlobeZoomOpacity > 0 ? (
+      {layoutType === "split_glass" && splitGlassRadialBloomOpacity > 0 ? (
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
-            opacity: splitGlassGlobeZoomOpacity,
-            transform: `scale(${splitGlassGlobeZoomScale})`,
+            opacity: splitGlassRadialBloomOpacity,
+            transform: `scale(${splitGlassRadialBloomScale})`,
             transformOrigin: "72% 50%",
             background:
               "radial-gradient(circle at 72% 50%, rgba(140,190,255,0.34) 0%, rgba(90,150,255,0.2) 24%, rgba(40,90,190,0.1) 46%, rgba(8,20,44,0) 72%)",
@@ -613,15 +613,15 @@ export const NewscastSceneZTransition: React.FC<{
           }}
         />
       ) : null}
-      {layoutType === "glass_image" && glassImageGlobeZoomOpacity > 0 ? (
+      {layoutType === "glass_image" && glassImageRadialBloomOpacity > 0 ? (
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
-            opacity: glassImageGlobeZoomOpacity,
-            transform: `scale(${glassImageGlobeZoomScale})`,
+            opacity: glassImageRadialBloomOpacity,
+            transform: `scale(${glassImageRadialBloomScale})`,
             transformOrigin: "70% 50%",
             background:
               "radial-gradient(circle at 70% 50%, rgba(155,205,255,0.46) 0%, rgba(92,158,255,0.24) 24%, rgba(32,88,190,0.14) 48%, rgba(8,20,44,0) 74%)",
@@ -629,15 +629,15 @@ export const NewscastSceneZTransition: React.FC<{
           }}
         />
       ) : null}
-      {layoutType === "glow_metric" && glowMetricGlobeZoomOpacity > 0 ? (
+      {layoutType === "glow_metric" && glowMetricRadialBloomOpacity > 0 ? (
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
-            opacity: glowMetricGlobeZoomOpacity,
-            transform: `scale(${glowMetricGlobeZoomScale})`,
+            opacity: glowMetricRadialBloomOpacity,
+            transform: `scale(${glowMetricRadialBloomScale})`,
             transformOrigin: "72% 50%",
             background:
               "radial-gradient(circle at 72% 50%, rgba(175,220,255,0.52) 0%, rgba(102,168,255,0.26) 26%, rgba(30,86,190,0.14) 50%, rgba(10,20,44,0) 74%)",

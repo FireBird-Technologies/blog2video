@@ -66,6 +66,25 @@ export function resolveNewscastTitleSize(
   return Math.max(10, resolved * portraitScale);
 }
 
+/**
+ * Direct editable title size for Template Studio:
+ * - Uses `titleFontSize` as exact px when provided
+ * - Preserves previous visual defaults when unset
+ */
+export function resolveNewscastTitleEditableSize(
+  titleFontSize: number | undefined,
+  defaultSize: number,
+  portraitScale = 1,
+): number {
+  const n = Number(titleFontSize);
+  if (Number.isFinite(n) && n > 0) return n;
+  const fallback =
+    portraitScale > 1
+      ? defaultSize * NEWSCAST_PORTRAIT_DEFAULT_TITLE_BOOST * portraitScale
+      : defaultSize;
+  return Math.max(10, Math.round(fallback * 10) / 10);
+}
+
 export function resolveNewscastDescriptionSize(
   descriptionFontSize: number | undefined,
   defaultSize: number,
@@ -78,6 +97,25 @@ export function resolveNewscastDescriptionSize(
     ? defaultSize * defaultBoost
     : Math.max(8, defaultSize * (n / 34));
   return Math.max(8, resolved * portraitScale);
+}
+
+/**
+ * Direct editable description size for Template Studio:
+ * - Uses `descriptionFontSize` as exact px when provided
+ * - Preserves previous visual defaults when unset
+ */
+export function resolveNewscastDescriptionEditableSize(
+  descriptionFontSize: number | undefined,
+  defaultSize: number,
+  portraitScale = 1,
+): number {
+  const n = Number(descriptionFontSize);
+  if (Number.isFinite(n) && n > 0) return n;
+  const fallback =
+    portraitScale > 1
+      ? defaultSize * NEWSCAST_PORTRAIT_DEFAULT_DESCRIPTION_BOOST * portraitScale
+      : defaultSize;
+  return Math.max(8, Math.round(fallback * 10) / 10);
 }
 
 export function resolveNewscastNumberScale(

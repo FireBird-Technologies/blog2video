@@ -27,6 +27,7 @@ remotion-video/src/components/generated/
 # IDE
 .vscode/
 .idea/
+/.cursor/
 *.swp
 *.swo
 

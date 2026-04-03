@@ -24,7 +24,6 @@
     "side_by_side_brief",
     "segment_break",
     "field_image_focus",
-    "data_visualization",
     "ending_socials"
   ],
   "legacy_layout_aliases": {
@@ -461,7 +460,15 @@
         ],
         "lowerThirdTag": "LIVE COVERAGE",
         "lowerThirdHeadline": "Correspondent Report",
-        "lowerThirdSub": "Reporting live from the broadcast desk"
+        "lowerThirdSub": "Reporting live from the broadcast desk",
+        "titleFontSize": {
+          "portrait": 94,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 23,
+          "landscape": 18
+        }
       },
       "fields": [
         {
@@ -543,9 +550,21 @@
         "lowerThirdHeadline": "Live Metric Summary",
         "lowerThirdSub": "On-air numbers and analysis",
         "metrics": [
-          { "value": "142", "label": "Nations Signed", "suffix": "+" },
-          { "value": "2045", "label": "Target Year", "suffix": "" },
-          { "value": "40", "label": "Emissions Cut", "suffix": "%" }
+          {
+            "value": "142",
+            "label": "Nations Signed",
+            "suffix": "+"
+          },
+          {
+            "value": "2045",
+            "label": "Target Year",
+            "suffix": ""
+          },
+          {
+            "value": "40",
+            "label": "Emissions Cut",
+            "suffix": "%"
+          }
         ]
       },
       "fields": [
@@ -555,9 +574,18 @@
           "type": "object_array",
           "maxItems": 3,
           "subFields": [
-            { "key": "value", "label": "Value" },
-            { "key": "label", "label": "Label" },
-            { "key": "suffix", "label": "Suffix" }
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
           ]
         },
         {
@@ -655,9 +683,21 @@
         "attribution": "— UN Secretary-General · Geneva, March 2026"
       },
       "fields": [
-        { "key": "quote", "label": "Quote", "type": "text" },
-        { "key": "highlightWord", "label": "Highlight Word", "type": "string" },
-        { "key": "attribution", "label": "Attribution", "type": "string" },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "highlightWord",
+          "label": "Highlight Word",
+          "type": "string"
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string"
+        },
         {
           "key": "tickerItems",
           "label": "Ticker Items",
@@ -755,21 +795,57 @@
         "rightBody": "Legally binding, verified, all sectors, penalty mechanism"
       },
       "fields": [
-        { "key": "leftLabel", "label": "Left Label", "type": "string" },
-        { "key": "rightLabel", "label": "Right Label", "type": "string" },
-        { "key": "leftTitle", "label": "Left Title", "type": "string" },
-        { "key": "rightTitle", "label": "Right Title", "type": "string" },
-        { "key": "leftBody", "label": "Left Body", "type": "text" },
-        { "key": "rightBody", "label": "Right Body", "type": "text" },
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftTitle",
+          "label": "Left Title",
+          "type": "string"
+        },
+        {
+          "key": "rightTitle",
+          "label": "Right Title",
+          "type": "string"
+        },
+        {
+          "key": "leftBody",
+          "label": "Left Body",
+          "type": "text"
+        },
+        {
+          "key": "rightBody",
+          "label": "Right Body",
+          "type": "text"
+        },
         {
           "key": "tickerItems",
           "label": "Ticker Items",
           "type": "string_array",
           "maxItems": 8
         },
-        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
-        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
-        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
       ]
     },
     "segment_break": {
@@ -789,18 +865,42 @@
         "subtitle": "What happens next for the world economy"
       },
       "fields": [
-        { "key": "chapterNumber", "label": "Chapter Number", "type": "number" },
-        { "key": "chapterLabel", "label": "Chapter Label", "type": "string" },
-        { "key": "subtitle", "label": "Subtitle Override", "type": "string" },
+        {
+          "key": "chapterNumber",
+          "label": "Chapter Number",
+          "type": "number"
+        },
+        {
+          "key": "chapterLabel",
+          "label": "Chapter Label",
+          "type": "string"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle Override",
+          "type": "string"
+        },
         {
           "key": "tickerItems",
           "label": "Ticker Items",
           "type": "string_array",
           "maxItems": 8
         },
-        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
-        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
-        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
       ]
     },
     "field_image_focus": {
@@ -818,72 +918,10 @@
         "category": "WORLD AFFAIRS"
       },
       "fields": [
-        { "key": "category", "label": "Category Tag", "type": "string" },
         {
-          "key": "tickerItems",
-          "label": "Ticker Items",
-          "type": "string_array",
-          "maxItems": 8
-        },
-        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
-        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
-        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
-      ]
-    },
-    "data_visualization": {
-      "label": "Data Visualization",
-      "defaults": {
-        "tickerItems": [
-          "DATA UPDATE",
-          "LIVE CHART SUMMARY",
-          "NUMBERS ON AIR",
-          "TRACKED METRICS"
-        ],
-        "lowerThirdTag": "DATA",
-        "lowerThirdHeadline": "Chart Overview",
-        "lowerThirdSub": "Charts update with extracted numbers",
-        "barChartRows": [
-          { "label": "Energy", "value": "45" },
-          { "label": "Transport", "value": "38" },
-          { "label": "Industry", "value": "30" }
-        ]
-      },
-      "fields": [
-        {
-          "key": "barChartRows",
-          "label": "Bar Chart Rows",
-          "type": "object_array",
-          "maxItems": 8,
-          "subFields": [
-            { "key": "label", "label": "Label" },
-            { "key": "value", "label": "Value" }
-          ]
-        },
-        {
-          "key": "lineChartLabels",
-          "label": "Line Chart Labels",
-          "type": "string_array",
-          "maxItems": 12
-        },
-        {
-          "key": "lineChartDatasets",
-          "label": "Line Chart Datasets",
-          "type": "object_array",
-          "maxItems": 3,
-          "subFields": [
-            { "key": "label", "label": "Series Label" },
-            { "key": "valuesStr", "label": "Values (comma-separated)" }
-          ]
-        },
-        {
-          "key": "pieChartRows",
-          "label": "Pie Chart Rows",
-          "type": "object_array",
-          "maxItems": 6,
-          "subFields": [
-            { "key": "label", "label": "Label" },
-            { "key": "value", "label": "Value" }
-          ]
+          "key": "category",
+          "label": "Category Tag",
+          "type": "string"
         },
         {
           "key": "tickerItems",
@@ -891,9 +929,21 @@
           "type": "string_array",
           "maxItems": 8
         },
-        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
-        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
-        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" }
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
       ]
     },
     "ending_socials": {
@@ -908,18 +958,51 @@
           "landscape": 36
         },
         "hideImage": true,
-        "tickerItems": ["FOLLOW", "SOCIAL", "WEB", "UPDATES"],
+        "tickerItems": [
+          "FOLLOW",
+          "SOCIAL",
+          "WEB",
+          "UPDATES"
+        ],
         "lowerThirdTag": "STAY CONNECTED",
         "lowerThirdHeadline": "Follow the story",
         "lowerThirdSub": "Links and handles below",
         "socials": [
-          { "platform": "facebook", "enabled": "true", "label": "Facebook" },
-          { "platform": "instagram", "enabled": "true", "label": "Instagram" },
-          { "platform": "youtube", "enabled": "true", "label": "YouTube" },
-          { "platform": "medium", "enabled": "false", "label": "Medium" },
-          { "platform": "substack", "enabled": "false", "label": "Substack" },
-          { "platform": "linkedin", "enabled": "false", "label": "LinkedIn" },
-          { "platform": "tiktok", "enabled": "false", "label": "TikTok" }
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
         ],
         "showWebsiteButton": true,
         "websiteLink": "https://yourwebsite.com"
@@ -949,9 +1032,21 @@
           "type": "string_array",
           "maxItems": 8
         },
-        { "key": "lowerThirdTag", "label": "Lower Third Tag", "type": "string" },
-        { "key": "lowerThirdHeadline", "label": "Lower Third Headline", "type": "string" },
-        { "key": "lowerThirdSub", "label": "Lower Third Subtitle", "type": "string" },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        },
         {
           "key": "socials",
           "label": "Social Platforms",
@@ -962,8 +1057,14 @@
               "key": "platform",
               "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
             },
-            { "key": "enabled", "label": "Enabled (true/false)" },
-            { "key": "label", "label": "Label / handle / URL text" }
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
           ]
         },
         {
@@ -971,8 +1072,14 @@
           "label": "Show Website CTA Button",
           "type": "select",
           "options": [
-            { "label": "Enabled", "value": "true" },
-            { "label": "Disabled", "value": "false" }
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
           ]
         },
         {
@@ -984,7 +1091,9 @@
       ]
     }
   },
-  "layouts_without_image": ["ending_socials"],
+  "layouts_without_image": [
+    "ending_socials"
+  ],
   "features": [
     "Optional full-bleed background image (layoutProps.imageUrl) on every layout",
     "Breaking hero with category tag and headline highlights",
@@ -996,4 +1105,3 @@
     "Breaking outro to close the story beat"
   ]
 }
-
