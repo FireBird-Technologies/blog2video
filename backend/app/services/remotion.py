@@ -1567,7 +1567,6 @@ def _project_render_state(project_id: int) -> tuple[bool, bool]:
     """
     Return (project_exists, is_rendering_status) for the given project.
 
-    Fail-open on transient DB errors so healthy renders are not killed accidentally.
     """
     try:
         from app.database import SessionLocal
