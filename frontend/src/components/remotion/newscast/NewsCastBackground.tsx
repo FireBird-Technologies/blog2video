@@ -100,7 +100,7 @@ const PIXEL_PARTICLE_SEEDS: PixelParticleSeed[] = (() => {
 export const NewsCastBackground: React.FC<{
   /** Modulates pixel-map dot brightness when variant is `pixel_map`. */
   globeOpacity?: number;
-  /** `hero` / `default`: 2D starfield fallback. `pixel_map`: world-map motion graphics. */
+  /** `hero` / `default`: 2D starfield fallback. `pixel_map`: flat projected map + pixel motion (default). */
   variant?: "hero" | "default" | "pixel_map";
   /**
    * When false, the root fill is transparent so a sibling image plate (e.g. `NewsCastLayoutImageBackground`) shows through.
@@ -120,7 +120,7 @@ export const NewsCastBackground: React.FC<{
   sceneLayoutType?: string;
 }> = ({
   globeOpacity = 0.3,
-  variant = "default",
+  variant = "pixel_map",
   solidBackground = true,
   rotationFrame: rotationFrameProp,
   sceneFrame,
@@ -393,28 +393,6 @@ export const NewsCastBackground: React.FC<{
               />
             ))}
           </g>
-          {tick < 2 ? (
-            <>
-              <circle
-                cx={waveCenterX * 1000}
-                cy={waveCenterY * 500}
-                r={waveRadius * 500}
-                fill="none"
-                stroke={`rgba(130,210,255,${Math.max(0, 0.48 * (1 - tick / 2))})`}
-                strokeWidth={1.2}
-              />
-              {waveRadius > 0.3 ? (
-                <circle
-                  cx={waveCenterX * 1000}
-                  cy={waveCenterY * 500}
-                  r={waveRadius * 425}
-                  fill="none"
-                  stroke={`rgba(80,160,255,${Math.max(0, 0.2 * (1 - tick / 2))})`}
-                  strokeWidth={0.8}
-                />
-              ) : null}
-            </>
-          ) : null}
         </ComposableMap>
         <div
           style={{

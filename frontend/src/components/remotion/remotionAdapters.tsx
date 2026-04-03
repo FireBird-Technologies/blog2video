@@ -75,7 +75,7 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = 
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  data_visualization: "data_visualization",
+  data_visualization: "anchor_narrative",
   ending_socials: "ending_socials",
 };
 
@@ -92,7 +92,6 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> =
   side_by_side_brief: "split_glass",
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
-  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 

@@ -24,7 +24,6 @@
     "side_by_side_brief",
     "segment_break",
     "field_image_focus",
-    "data_visualization",
     "ending_socials"
   ],
   "legacy_layout_aliases": {
@@ -923,111 +922,6 @@
           "key": "category",
           "label": "Category Tag",
           "type": "string"
-        },
-        {
-          "key": "tickerItems",
-          "label": "Ticker Items",
-          "type": "string_array",
-          "maxItems": 8
-        },
-        {
-          "key": "lowerThirdTag",
-          "label": "Lower Third Tag",
-          "type": "string"
-        },
-        {
-          "key": "lowerThirdHeadline",
-          "label": "Lower Third Headline",
-          "type": "string"
-        },
-        {
-          "key": "lowerThirdSub",
-          "label": "Lower Third Subtitle",
-          "type": "string"
-        }
-      ]
-    },
-    "data_visualization": {
-      "label": "Data Visualization",
-      "defaults": {
-        "tickerItems": [
-          "DATA UPDATE",
-          "LIVE CHART SUMMARY",
-          "NUMBERS ON AIR",
-          "TRACKED METRICS"
-        ],
-        "lowerThirdTag": "DATA",
-        "lowerThirdHeadline": "Chart Overview",
-        "lowerThirdSub": "Charts update with extracted numbers",
-        "barChartRows": [
-          {
-            "label": "Energy",
-            "value": "45"
-          },
-          {
-            "label": "Transport",
-            "value": "38"
-          },
-          {
-            "label": "Industry",
-            "value": "30"
-          }
-        ]
-      },
-      "fields": [
-        {
-          "key": "barChartRows",
-          "label": "Bar Chart Rows",
-          "type": "object_array",
-          "maxItems": 8,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
-          ]
-        },
-        {
-          "key": "lineChartLabels",
-          "label": "Line Chart Labels",
-          "type": "string_array",
-          "maxItems": 12
-        },
-        {
-          "key": "lineChartDatasets",
-          "label": "Line Chart Datasets",
-          "type": "object_array",
-          "maxItems": 3,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Series Label"
-            },
-            {
-              "key": "valuesStr",
-              "label": "Values (comma-separated)"
-            }
-          ]
-        },
-        {
-          "key": "pieChartRows",
-          "label": "Pie Chart Rows",
-          "type": "object_array",
-          "maxItems": 6,
-          "subFields": [
-            {
-              "key": "label",
-              "label": "Label"
-            },
-            {
-              "key": "value",
-              "label": "Value"
-            }
-          ]
         },
         {
           "key": "tickerItems",
