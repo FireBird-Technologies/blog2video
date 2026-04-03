@@ -15,6 +15,7 @@ R2 key structure:
 """
 import os
 import mimetypes
+import json
 from typing import Optional
 
 import boto3
@@ -91,6 +92,11 @@ def video_key_versioned(user_id: int, project_id: int, version: str) -> str:
     """R2 object key for a project's rendered video with a version (e.g. timestamp).
     Use this so each re-render gets a new URL and caches don't serve the old file."""
     return f"{_prefix()}users/{user_id}/projects/{project_id}/output/video_{version}.mp4"
+
+
+def render_progress_key(user_id: int, project_id: int) -> str:
+    """R2 object key for a project's temporary render progress payload."""
+    return f"{_prefix()}users/{user_id}/projects/{project_id}/output/render_progress.json"
 
 
 def project_prefix(user_id: int, project_id: int) -> str:
@@ -199,6 +205,9 @@ def upload_bytes(key: str, body: bytes, content_type: Optional[str] = None) -> s
         extra_args["CacheControl"] = "public, max-age=604800"
     elif ct.startswith("audio/"):
         extra_args["CacheControl"] = "public, max-age=604800"
+    elif ct == "application/json":
+        # Progress payloads should never be cached by clients/CDN.
+        extra_args["CacheControl"] = "no-store, max-age=0"
 
     client = _get_client()
     client.put_object(
@@ -245,6 +254,13 @@ def upload_project_video_versioned(
     return upload_file(local_path, key, content_type="video/mp4")
 
 
+def upload_render_progress_json(user_id: int, project_id: int, payload: dict) -> str:
+    """Upload render progress JSON for cross-instance polling."""
+    key = render_progress_key(user_id, project_id)
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    return upload_bytes(key, body, content_type="application/json")
+
+
 # ─── Presigned URLs ───────────────────────────────────────────
 
 
@@ -267,6 +283,34 @@ def generate_presigned_url(key: str, expires_in: int = 3600) -> str:
         ExpiresIn=expires_in,
     )
     return url
+
+
+def download_json(key: str) -> dict | None:
+    """Download and parse a JSON object from R2."""
+    if not is_r2_configured():
+        return None
+    try:
+        client = _get_client()
+        resp = client.get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+        raw = resp["Body"].read()
+        if not raw:
+            return None
+        parsed = json.loads(raw.decode("utf-8"))
+        return parsed if isinstance(parsed, dict) else None
+    except ClientError:
+        return None
+    except Exception:
+        return None
+
+
+def download_render_progress_json(user_id: int, project_id: int) -> dict | None:
+    """Download per-project render progress JSON from R2."""
+    return download_json(render_progress_key(user_id, project_id))
+
+
+def delete_render_progress_json(user_id: int, project_id: int) -> bool:
+    """Delete per-project render progress payload."""
+    return delete_object(render_progress_key(user_id, project_id))
 
 
 # ─── Delete ───────────────────────────────────────────────────

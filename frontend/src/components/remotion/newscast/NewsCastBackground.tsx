@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, staticFile } from "remotion";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { AmbientLight, Color, DirectionalLight, MeshPhongMaterial } from "three";
 
@@ -75,11 +75,9 @@ const GLOBE_BUMP_TEXTURE_SVG = `
 
 const GLOBE_BUMP_TEXTURE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GLOBE_BUMP_TEXTURE_SVG)}`;
 
-/** NASA blue marble + topology bump — official `three-globe` example assets (used by react-globe.gl demos). */
-const HERO_GLOBE_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg";
-const HERO_BUMP_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png";
+/** NASA blue marble + topology bump — now served from local static assets for speed and reliability. */
+const HERO_GLOBE_IMAGE_URL = staticFile("assets/earth-blue-marble.jpg");
+const HERO_BUMP_IMAGE_URL = staticFile("assets/earth-topology.png");
 
 /** Camera target: Europe / North Africa — mostly land at scene start (avoids Pacific-heavy framing). Same every scene (frame 0). */
 const GLOBE_POV = { lat: 28, lng: 18 } as const;
@@ -87,6 +85,10 @@ const GLOBE_POV = { lat: 28, lng: 18 } as const;
 /** Degrees per second — applied via `pointOfView` longitude orbit (the main globe ignores `objectRotation`). */
 const ROT_SPEED_HERO = 64;
 const ROT_SPEED_DEFAULT = 46;
+
+// Global quality profile for all Newscast scenes (optimized for cloud software GL).
+const GLOBE_CURVATURE_RESOLUTION = 8;
+const GLOBE_RENDERER_PIXEL_RATIO = 0.85;
 
 /** Inline SVG fallback: extra Y so stylized “continent” art faces the viewer at frame 0. */
 const SVG_LAND_BIAS_DEG = 38;
@@ -125,7 +127,8 @@ export const NewsCastBackground: React.FC<{
 
   const isHero = variant === "hero";
   const globeImageUrl = isHero ? HERO_GLOBE_IMAGE_URL : GLOBE_TEXTURE_DATA_URL;
-  const bumpImageUrl = isHero ? HERO_BUMP_IMAGE_URL : GLOBE_BUMP_TEXTURE_DATA_URL;
+  // Disable bump maps globally in Newscast for faster software WebGL rendering.
+  const bumpImageUrl: string | undefined = undefined;
 
   const pos = globePosition ?? "center";
   const globeLeft = pos === "right" ? "68%" : pos === "left" ? "32%" : "50%";
@@ -146,11 +149,11 @@ export const NewsCastBackground: React.FC<{
     () =>
       new MeshPhongMaterial({
         color: new Color(0xe8f2ff),
-        specular: new Color(0x3a4f72),
+        specular: new Color(0x2a3f5a),
         emissive: new Color(0x1a3a6a),
-        emissiveIntensity: 0.06,
-        shininess: 10,
-        bumpScale: 0.22,
+        emissiveIntensity: 0.04,
+        shininess: 5,
+        bumpScale: 0,
       }),
     [],
   );
@@ -186,6 +189,12 @@ export const NewsCastBackground: React.FC<{
       const dir = new DirectionalLight(0x6ab0ff, isHero ? 1.15 : 1.05);
       dir.position.set(1.2, 1.0, 1.0);
       g.lights([ambient, dir]);
+      const renderer = (
+        g as unknown as {
+          renderer?: () => { setPixelRatio?: (pixelRatio: number) => void };
+        }
+      ).renderer?.();
+      renderer?.setPixelRatio?.(GLOBE_RENDERER_PIXEL_RATIO);
       const p = povRef.current;
       g.pointOfView({ lat: p.lat, lng: p.lng, altitude: p.alt }, 0);
     } catch {
@@ -267,10 +276,11 @@ export const NewsCastBackground: React.FC<{
               globeImageUrl={globeImageUrl}
               bumpImageUrl={bumpImageUrl}
               globeMaterial={isHero ? heroPhongMaterial : undefined}
+              globeCurvatureResolution={GLOBE_CURVATURE_RESOLUTION}
               backgroundColor="rgba(0,0,0,0)"
               backgroundImageUrl={null}
               showGlobe
-              showGraticules={isHero}
+              showGraticules={false}
               showAtmosphere={false}
               atmosphereColor={isHero ? "rgba(90,160,240,0.28)" : "rgba(55,130,255,0.32)"}
               atmosphereAltitude={isHero ? 0.18 : 0.2}

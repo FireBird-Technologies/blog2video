@@ -12,6 +12,7 @@ import {
   compileComponentCode,
   type SceneProps,
 } from "../utils/compileComponent";
+import { LogoOverlay } from "./remotion/LogoOverlay";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -136,6 +137,18 @@ const StableCustomComposition: React.FC<any> = ({
           </Sequence>
         );
       })}
+
+      {project.logo_r2_url && (
+        <AbsoluteFill style={{ zIndex: 20, pointerEvents: "none" }}>
+          <LogoOverlay
+            src={project.logo_r2_url}
+            position={project.logo_position || "bottom_right"}
+            maxOpacity={project.logo_opacity ?? 0.9}
+            size={typeof project.logo_size === "number" ? project.logo_size : 100}
+            aspectRatio={aspectRatio}
+          />
+        </AbsoluteFill>
+      )}
     </AbsoluteFill>
   );
 };
