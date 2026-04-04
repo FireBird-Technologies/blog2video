@@ -17,6 +17,264 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "what-is-a-blog-video",
+    title: "What Is a Blog Video?",
+    description:
+      "A blog video is the watchable version of a written post. Here is what it is, why it works, and how to create one without losing the original message.",
+    category: "SEO basics",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Illustration of a written blog post turning into a narrated video player with clear scene cards.",
+    publishedAt: "2026-04-04",
+    readTime: "6 min read",
+    heroEyebrow: "Search intent guide",
+    heroTitle: "A blog video is not a trailer for your post. It is the post rebuilt for watching.",
+    heroDescription:
+      "The strongest blog videos keep the same argument, examples, and payoff as the article, but present them in scenes, narration, and visuals that are easier to consume on YouTube, LinkedIn, or your own site.",
+    primaryKeyword: "what is a blog video",
+    keywordVariant: "blog video",
+    relatedPaths: ["/blog-to-video", "/blog-to-youtube-video", "/distribution-flywheel"],
+    sections: [
+      {
+        heading: "A blog video is the video version of a written idea",
+        paragraphs: [
+          "A blog video takes the substance of a written post and turns it into a narrated visual format. Instead of asking the audience to scan paragraphs, it guides them through the same idea scene by scene.",
+          "That means a blog video is closer to an explainer than a promo clip. The purpose is not just to tease the article. The purpose is to deliver the core value of the article in a format people can watch, share, and embed.",
+        ],
+      },
+      {
+        heading: "What makes a good blog video",
+        paragraphs: [
+          "The best blog videos do not read the article aloud word for word. They preserve the structure and insight of the post, but adapt the pacing for listening and watching.",
+          "A strong version opens with the main promise, moves through a few clear sections, and uses callouts, examples, and transitions to keep the viewer oriented. The article provides the logic. The video provides the delivery.",
+        ],
+        bullets: [
+          "Lead with the strongest idea instead of a long introduction.",
+          "Turn subheads into scenes so the structure stays clear.",
+          "Use visuals to reinforce the point, not distract from it.",
+          "End with a clear next step such as reading, subscribing, or sharing.",
+        ],
+      },
+      {
+        heading: "Why teams turn blog posts into videos",
+        paragraphs: [
+          "The same article can do more work when it exists in both written and video form. The post captures search intent and backlinks. The video improves on-page engagement, gives you something to publish on YouTube, and creates a more accessible way to consume the same material.",
+          "For written-first creators, this is usually the fastest way to add a video channel without inventing a separate editorial system. You already did the hard thinking when you wrote the piece. The video helps that work travel further.",
+        ],
+      },
+      {
+        heading: "How Blog2Video turns a post into a blog video",
+        paragraphs: [
+          "1. Paste the blog URL and Blog2Video extracts the article structure directly from the page.",
+          "2. Choose a template and voice so the output fits the tone of the content and your brand.",
+          "3. Generate a narrated scene-by-scene video you can embed on the article, upload to YouTube, or cut into shorter clips.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Create a blog video from your next post",
+      },
+    ],
+    faq: [
+      {
+        question: "Is a blog video the same as a video ad for a blog post?",
+        answer:
+          "No. A blog video is usually the actual content of the post translated into video form, not just a short promotional teaser.",
+      },
+      {
+        question: "Do blog videos need to match the article exactly?",
+        answer:
+          "They should match the core argument and examples, but the wording and pacing often need to change so the content works better for listening and watching.",
+      },
+      {
+        question: "Where should I publish a blog video?",
+        answer:
+          "The most common places are the original post, YouTube, LinkedIn, course pages, knowledge bases, or newsletter archives with embed support.",
+      },
+      {
+        question: "Can one article become more than one video?",
+        answer:
+          "Yes. A full blog video can become the main explainer, and the strongest sections can also become Shorts, clips, or social posts.",
+      },
+    ],
+    distributionPlan: [
+      { channel: "site", title: "What Is a Blog Video?", angle: "Capture definition-driven search intent and connect it to the product workflow." },
+      { channel: "video", title: "What a Blog Video Actually Is", angle: "Show the difference between an article, an embed, and a full explainer video." },
+      { channel: "substack", title: "Your article can be a second format, not a second workload", angle: "Frame video as leverage for written-first creators." },
+      { channel: "medium", title: "A blog video is not just a trailer for your post", angle: "Lead with the common misconception and correct it." },
+    ],
+  },
+  {
+    slug: "turn-blog-posts-into-video",
+    title: "Turn Blog Posts Into Video Without Rewriting Everything",
+    description:
+      "A practical workflow for turning existing blog posts into videos without starting from zero or rebuilding the whole argument.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-before-after.png",
+    heroImageAlt:
+      "Before-and-after workflow illustration showing a blog post on one side and a finished narrated video on the other.",
+    publishedAt: "2026-04-04",
+    readTime: "7 min read",
+    heroEyebrow: "Repurposing workflow",
+    heroTitle: "You do not need a second content process to turn blog posts into video",
+    heroDescription:
+      "If the post already explains something clearly, the real job is adapting the structure for scenes and narration, not writing a brand-new script from scratch.",
+    primaryKeyword: "turn blog posts into video",
+    keywordVariant: "turn blog post into video",
+    relatedPaths: ["/blog-to-video", "/blog-to-youtube-video", "/bulk-blog-to-video"],
+    sections: [
+      {
+        heading: "Start with posts that already proved themselves",
+        paragraphs: [
+          "The easiest posts to convert are the ones that already have a sharp promise, clear subheads, and examples worth showing on screen. Evergreen tutorials, comparisons, and explainers usually translate better than reactive news commentary.",
+          "A winning blog post already solved the hardest part of the job: deciding what to say and how to structure it. Video repurposing works best when you treat the article as the source of truth instead of a rough draft.",
+        ],
+      },
+      {
+        heading: "Convert sections into scenes, not paragraphs into voiceover",
+        paragraphs: [
+          "The fastest way to make a weak video is to read the article line by line. A better approach is to identify the main sections, give each one a clear visual treatment, and tighten the narration so it sounds natural when spoken.",
+          "That means keeping the argument but compressing the wording. Headings become scene titles. Key points become on-screen callouts. Examples, screenshots, or diagrams become the visual proof.",
+        ],
+        bullets: [
+          "Use one core idea per scene.",
+          "Keep narration shorter than the equivalent paragraph.",
+          "Show proof on screen when the article relies on examples.",
+          "Open with the most compelling outcome, not the full setup.",
+        ],
+      },
+      {
+        heading: "Use the finished video across multiple channels",
+        paragraphs: [
+          "Once a blog post becomes a video, it does more than live on YouTube. You can embed it back into the article, use it in newsletters, create clips for Shorts, and give sales or customer-success teams a faster way to share the same explanation.",
+          "This is where the workflow compounds. One post becomes a search asset, an embedded page experience, a YouTube upload, and several short-form derivatives without creating four separate pieces from scratch.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles the workflow",
+        paragraphs: [
+          "1. Paste the URL and the system reads the article structure directly from the page.",
+          "2. Pick a template and voice that match the tone of the post.",
+          "3. Generate the full video, then refine scenes in the editor before exporting for YouTube or embedding.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn a blog post into video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to rewrite my post before turning it into a video?",
+        answer:
+          "Usually no. You may tighten a few lines for spoken delivery, but the structure and ideas can come directly from the existing article.",
+      },
+      {
+        question: "Which blog posts are best for video conversion?",
+        answer:
+          "Tutorials, comparison posts, process explainers, thought-leadership pieces with a clear argument, and any post with strong subheads usually work well.",
+      },
+      {
+        question: "Should I publish the video on YouTube or only embed it on my blog?",
+        answer:
+          "Both usually work best. The blog keeps the canonical written version, while YouTube helps the same idea reach a discovery-driven audience.",
+      },
+      {
+        question: "Can I create multiple videos from one blog post?",
+        answer:
+          "Yes. Many teams create one full explainer plus shorter clips from the hook, the strongest proof point, or the conclusion.",
+      },
+    ],
+    distributionPlan: [
+      { channel: "site", title: "Turn Blog Posts Into Video Without Rewriting Everything", angle: "Capture conversion-focused informational intent." },
+      { channel: "video", title: "How To Turn a Blog Post Into a Video", angle: "Show the exact scene-by-scene workflow from URL to export." },
+      { channel: "substack", title: "Repurposing is easier when the structure already exists", angle: "Speak to creators with a growing content archive." },
+      { channel: "medium", title: "Do not rewrite what your blog post already solved", angle: "Lead with the anti-rewrite framing for content marketers." },
+    ],
+  },
+  {
+    slug: "create-summary-videos-from-pdfs",
+    title: "How To Create Summary Videos From PDFs",
+    description:
+      "A practical guide to turning PDFs into concise summary videos that are easier to watch, share, and revisit than the original document alone.",
+    category: "Document workflow",
+    heroImage: "/blog/blog-cover-pdf-educators.png",
+    heroImageAlt:
+      "A PDF document being condensed into a short summary video with highlighted takeaways and narration.",
+    publishedAt: "2026-04-04",
+    readTime: "7 min read",
+    heroEyebrow: "PDF to video",
+    heroTitle: "The fastest PDF-to-video workflow is usually a summary, not a full conversion",
+    heroDescription:
+      "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
+    primaryKeyword: "create summary videos from pdfs",
+    keywordVariant: "pdf to video",
+    relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
+    sections: [
+      {
+        heading: "Most PDFs need summarising before they need animating",
+        paragraphs: [
+          "PDFs often contain the right information in the wrong format for video. They are usually dense, static, and designed for reading at your own pace. A summary video works because it extracts the main teaching points, claims, or steps and rebuilds them into a more guided experience.",
+          "That makes summary videos especially useful for course notes, reports, onboarding documents, research explainers, and long internal guides where the full PDF is valuable but not easy to consume quickly.",
+        ],
+      },
+      {
+        heading: "Choose the ideas that deserve a scene",
+        paragraphs: [
+          "The goal is not to cover every page evenly. It is to identify the pages or sections that carry the argument, then turn those into a narrative flow. In practice that often means opening with the conclusion, grouping related pages together, and dropping low-value detail that only matters in the full document.",
+          "A good summary video should help a viewer understand the document faster and decide whether to go deeper. It is a bridge into the PDF, not a replacement for every line inside it.",
+        ],
+        bullets: [
+          "Start with the main takeaway, not the table of contents.",
+          "Group repeated points into one clearer scene.",
+          "Keep charts, diagrams, and frameworks that carry meaning.",
+          "Leave dense reference detail in the PDF itself.",
+        ],
+      },
+      {
+        heading: "Why PDF summary videos work",
+        paragraphs: [
+          "A short summary video makes a document more usable across more contexts. It can introduce the material before a lesson, explain the key findings of a report, onboard a new team member, or help a busy reader decide what matters before opening the full file.",
+          "This is often a better use of video than full document narration because it respects how people actually consume information. Most viewers want orientation first, then depth if the topic matters to them.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles PDF-to-video summaries",
+        paragraphs: [
+          "1. Upload the PDF and let Blog2Video extract the structure and content blocks.",
+          "2. Choose a template built for clarity so the output feels instructional instead of overloaded.",
+          "3. Generate a concise narrated video, then refine the scenes to emphasize the strongest takeaways before exporting.",
+        ],
+        ctaPath: "/pdf-to-video",
+        ctaLabel: "Turn a PDF into a summary video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I turn any PDF into a summary video?",
+        answer:
+          "Usually yes, as long as the PDF has readable text or a clear structure. Reports, lesson notes, handouts, and slide exports are especially strong candidates.",
+      },
+      {
+        question: "Should a PDF summary video cover every page?",
+        answer:
+          "Usually no. Summary videos are more effective when they focus on the main claims, steps, or lessons instead of trying to narrate the entire document evenly.",
+      },
+      {
+        question: "Who uses PDF summary videos most often?",
+        answer:
+          "Educators, trainers, researchers, consultants, and internal knowledge teams are the most common users because they already have important material trapped in documents.",
+      },
+      {
+        question: "What is the difference between a PDF summary video and a full PDF-to-video conversion?",
+        answer:
+          "A summary video prioritizes the most important ideas and condenses them for faster understanding. A full conversion tries to preserve more of the original document in scene form.",
+      },
+    ],
+    distributionPlan: [
+      { channel: "site", title: "How To Create Summary Videos From PDFs", angle: "Capture informational PDF-to-video search intent with a practical angle." },
+      { channel: "video", title: "Turn a Dense PDF Into a Summary Video", angle: "Show a before-and-after example from document to concise explainer." },
+      { channel: "substack", title: "Most PDFs should become summaries before they become videos", angle: "Use the summary-first framing for knowledge-heavy audiences." },
+      { channel: "medium", title: "The smarter PDF-to-video workflow starts with less", angle: "Lead with the idea that condensing improves comprehension." },
+    ],
+  },
+  {
     slug: "custom-video-template-from-your-website",
     title: "How to Create a Custom Video Template Directly From Your Website",
     description:
