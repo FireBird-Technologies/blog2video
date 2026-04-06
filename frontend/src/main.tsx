@@ -4,7 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import App from "./App";
 import "./index.css";
+import { initGoogleAdsGtag } from "./gtag";
 import { initFrontendOtel } from "./observability/otel";
+
+initGoogleAdsGtag();
 
 // Initialize frontend OpenTelemetry before rendering
 initFrontendOtel();
