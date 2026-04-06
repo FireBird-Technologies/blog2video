@@ -319,12 +319,13 @@ def create_projects_bulk(
     if not items:
         raise HTTPException(status_code=400, detail="At least one project is required.")
     needed = len(items)
-    if user.plan == PlanTier.FREE and needed > 1:
+    remaining = user.video_limit - user.videos_used_this_period
+    if user.plan == PlanTier.FREE and needed > max(1, remaining):
         raise HTTPException(
             status_code=403,
             detail={
                 "code": "upgrade_required_bulk",
-                "message": "Bulk upload of multiple videos requires a paid plan. Upgrade to create more than one video at a time.",
+                "message": "That many videos at once exceeds your remaining free quota. Create fewer links now, or upgrade for higher limits and bulk creation.",
             },
         )
     if user.videos_used_this_period + needed > user.video_limit:

@@ -326,6 +326,7 @@ def build_custom_meta(
         "id": "custom",
         "name": name,
         "description": f"Custom template: {name}",
+        "new_template": False,
         "styles": [style],
         "preview_colors": {
             "accent": colors.get("accent", "#7C3AED"),
