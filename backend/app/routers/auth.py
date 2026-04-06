@@ -136,10 +136,9 @@ def google_login(
                 detail="account_deleted",
                 headers={"X-Account-Deleted": "true"},
             )
-        # Reactivate: set as free user, videos_used_this_period=1, video_limit_bonus=0
+        # Reactivate: free user; keep videos_used_this_period (not reset on delete)
         user.is_active = True
         user.plan = PlanTier.FREE
-        user.videos_used_this_period = 1
         user.video_limit_bonus = 0
         user.period_start = None
         user.stripe_customer_id = None
@@ -215,6 +214,7 @@ def delete_account(
     Soft-delete the user account. Permanently deletes all user data
     (projects, scenes, subscriptions, custom templates, voices) and marks
     the user as inactive. Login with reactivate=true will restore as free user.
+    videos_used_this_period is left unchanged so free-tier quota is not reset by delete/reactivate.
     """
     from app.models.subscription import Subscription
     from app.models.custom_template import CustomTemplate
@@ -259,7 +259,6 @@ def delete_account(
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
         user.plan = PlanTier.FREE
-        user.videos_used_this_period = 0
         user.video_limit_bonus = 0
         user.period_start = None
 
