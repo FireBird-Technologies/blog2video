@@ -217,7 +217,14 @@ export interface SubscriptionDetail {
   videos_used: number;
   amount_paid_cents: number;
   canceled_at: string | null;
+  retention_offer_eligible: boolean;
   created_at: string;
+}
+
+export interface RetentionOfferImpressionResponse {
+  recorded: boolean;
+  shown_count: number;
+  eligible: boolean;
 }
 
 export interface Invoice {
@@ -318,8 +325,14 @@ export const getDataSummary = () =>
 export const getPlans = () =>
   api.get<PlanInfo[]>("/billing/plans");
 
-export const cancelSubscription = () =>
-  api.post("/billing/cancel");
+export const cancelSubscription = (body?: { declined_retention_offer?: boolean }) =>
+  api.post("/billing/cancel", body ?? {});
+
+export const recordRetentionOfferImpression = () =>
+  api.post<RetentionOfferImpressionResponse>("/billing/retention-offer/impression");
+
+export const acceptRetentionOffer = () =>
+  api.post<{ status: string; message: string }>("/billing/retention-offer/accept");
 
 export const resumeSubscription = () =>
   api.post("/billing/resume");

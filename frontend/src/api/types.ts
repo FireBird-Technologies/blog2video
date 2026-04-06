@@ -154,6 +154,7 @@ export interface SubscriptionDetail {
   videos_used: number;
   amount_paid_cents: number;
   canceled_at: string | null;
+  retention_offer_eligible: boolean;
   created_at: string;
 }
 
