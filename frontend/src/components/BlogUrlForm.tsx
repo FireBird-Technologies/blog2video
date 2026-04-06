@@ -12,6 +12,7 @@ import NightfallPreview from "./templatePreviews/NightfallPreview";
 import GridcraftPreview from "./templatePreviews/GridcraftPreview";
 import SpotlightPreview from "./templatePreviews/SpotlightPreview";
 import MatrixPreview from "./templatePreviews/MatrixPreview";
+import MosaicPreview from "./templatePreviews/MosaicPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
@@ -87,6 +88,7 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   gridcraft: GridcraftPreview,
   spotlight: SpotlightPreview,
   matrix: MatrixPreview,
+  mosaic: MosaicPreview,
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
   newscast: NewscastPreview,
@@ -98,6 +100,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }>
   gridcraft: { title: "Gridcraft", subtitle: "Warm bento editorial layouts" },
   spotlight: { title: "Spotlight", subtitle: "Bold kinetic typography on dark stage" },
   matrix: { title: "Matrix", subtitle: "Digital rain, terminal hacker aesthetic" },
+  mosaic: { title: "Mosaic", subtitle: "Stone tessera aesthetics with golden line accents" },
   whiteboard: { title: "Stick Man", subtitle: "Hand-drawn storytelling with stick figures" },
   newspaper: { title: "Newspaper", subtitle: "Editorial news-style headlines, quotes & timelines" },
   newscast: {
