@@ -45,7 +45,7 @@ class User(Base):
     def video_limit(self) -> int:
         """Max videos allowed in the current billing period."""
         if self.plan == PlanTier.FREE:
-            base = 1
+            base = 3
         elif self.plan == PlanTier.STANDARD:
             base = 30
         else:

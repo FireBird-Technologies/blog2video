@@ -1,6 +1,7 @@
 {
   "id": "newspaper",
   "name": "Newspaper",
+  "new_template": false,
   "description": "Editorial news-style template with headline cards, article lead, pull quotes, data snapshots, fact-check panels, and timelines.",
   "styles": [
     "explainer",

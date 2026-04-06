@@ -330,6 +330,8 @@ export interface TemplateMeta {
   id: string;
   name: string;
   description: string;
+  /** When true, show a highlighted "New" tag on the template picker (step 2). */
+  new_template?: boolean;
   styles?: string[];  // video styles this template supports: explainer, promotional, storytelling
   preview_colors?: { accent: string; bg: string; text: string };
   composition_id?: string;
