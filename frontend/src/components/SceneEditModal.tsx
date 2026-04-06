@@ -92,6 +92,15 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
   },
+  mosaic: {
+    mosaic_title: { title: [96, 84], desc: [42, 34] },
+    mosaic_text: { title: [52, 44], desc: [30, 24] },
+    mosaic_punch: { title: [110, 142], desc: [20, 20] },
+    mosaic_stream: { title: [46, 42], desc: [26, 22] },
+    mosaic_metric: { title: [90, 124], desc: [18, 22] },
+    mosaic_phrases: { title: [56, 48], desc: [24, 20] },
+    mosaic_close: { title: [64, 56], desc: [30, 24] },
+  },
   custom: {
     // Custom template arrangements (font sizes are approximate)
     "full-center": { title: [36, 48], desc: [18, 22] },
@@ -307,6 +316,17 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
   cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
+  // Mosaic template
+  mosaic_text: [{ key: "highlightPhrase", label: "Highlight phrase", type: "string" }],
+  mosaic_punch: [{ key: "word", label: "Word / phrase", type: "string" }],
+  mosaic_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
+  mosaic_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 5 }],
+  mosaic_phrases: [{ key: "phrases", label: "Phrases", type: "string_array", maxItems: 8 }],
+  mosaic_close: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+  ],
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },

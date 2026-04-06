@@ -1,0 +1,458 @@
+{
+  "id": "mosaic",
+  "name": "Mosaic",
+  "description": "Stone-and-glass tessera style with cool blue tile fields, warm sunset accents, and fine golden linework. Editorial serif typography with structured, handcrafted layouts.",
+  "styles": [
+    "explainer",
+    "storytelling"
+  ],
+  "preview_colors": {
+    "accent": "#D4AF37",
+    "bg": "#0F1E2D",
+    "text": "#E6EEF7"
+  },
+  "composition_id": "MosaicVideo",
+  "hero_layout": "mosaic_title",
+  "fallback_layout": "mosaic_text",
+  "valid_layouts": [
+    "mosaic_title",
+    "mosaic_text",
+    "mosaic_punch",
+    "mosaic_stream",
+    "mosaic_metric",
+    "mosaic_phrases",
+    "mosaic_close",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "mosaic_title": {
+      "label": "Mosaic Title",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 96,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 34
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 260,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtitle Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "mosaic_text": {
+      "label": "Mosaic Text Panel",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 44
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 24
+        },
+        "highlightPhrase": "inlaid in gold"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 130,
+          "step": 1
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Highlight Phrase",
+          "type": "string"
+        }
+      ]
+    },
+    "mosaic_punch": {
+      "label": "Mosaic Punch",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 110,
+          "landscape": 142
+        },
+        "word": "ENDURES"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Word Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 300,
+          "step": 1
+        },
+        {
+          "key": "word",
+          "label": "Punch Word",
+          "type": "string"
+        }
+      ]
+    },
+    "mosaic_stream": {
+      "label": "Mosaic Stream",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 46,
+          "landscape": 42
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 22
+        },
+        "items": [
+          "Set the stone foundation",
+          "Inlay the golden guide lines",
+          "Layer cool and warm tesserae",
+          "Polish the full composition"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Item Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Item Subtitle Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "mosaic_metric": {
+      "label": "Mosaic Metric",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 124
+        },
+        "descriptionFontSize": {
+          "portrait": 18,
+          "landscape": 22
+        },
+        "metrics": [
+          {
+            "value": "97",
+            "label": "craft precision",
+            "suffix": "%"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Metric Size",
+          "type": "number",
+          "responsive": true,
+          "min": 20,
+          "max": 260,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 5,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
+          ]
+        }
+      ]
+    },
+    "mosaic_phrases": {
+      "label": "Mosaic Phrases",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 56,
+          "landscape": 48
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 20
+        },
+        "phrases": [
+          "Every fragment has purpose",
+          "Pattern emerges through contrast",
+          "Gold lines carry the eye",
+          "The whole exceeds the pieces"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Phrase Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Signal Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "phrases",
+          "label": "Phrases",
+          "type": "string_array",
+          "maxItems": 12
+        }
+      ]
+    },
+    "mosaic_close": {
+      "label": "Mosaic Close",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 24
+        },
+        "highlightPhrase": "see the whole",
+        "cta": "Explore more on"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Statement Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "CTA Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Highlight Phrase",
+          "type": "string"
+        },
+        {
+          "key": "cta",
+          "label": "Call To Action",
+          "type": "string"
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending / Follow along",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 38,
+          "landscape": 30
+        },
+        "hideImage": true,
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Explore more on"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Explore more on"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "mosaic_punch",
+    "mosaic_metric",
+    "mosaic_phrases",
+    "mosaic_close",
+    "ending_socials"
+  ],
+  "features": [
+    "Tessera tile background fields with blue and warm stone variants",
+    "Subtle golden line accents and dividers",
+    "Editorial serif-forward typographic hierarchy",
+    "Stream, metric, punch, and phrase-driven storytelling layouts",
+    "Shared ending socials layout for consistent CTA scenes",
+    "Portrait and landscape responsive controls"
+  ]
+}

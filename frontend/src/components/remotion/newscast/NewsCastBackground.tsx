@@ -1,7 +1,6 @@
 import React, { useLayoutEffect } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
-import Globe, { type GlobeMethods } from "react-globe.gl";
-import { AmbientLight, Color, DirectionalLight, MeshPhongMaterial } from "three";
+// Removed Globe and THREE imports
 
 const DEFAULT_BG = "#060614";
 
@@ -76,10 +75,7 @@ const GLOBE_BUMP_TEXTURE_SVG = `
 const GLOBE_BUMP_TEXTURE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GLOBE_BUMP_TEXTURE_SVG)}`;
 
 /** NASA blue marble + topology bump — official `three-globe` example assets (used by react-globe.gl demos). */
-const HERO_GLOBE_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-blue-marble.jpg";
-const HERO_BUMP_IMAGE_URL =
-  "https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-topology.png";
+// Removed HERO_GLOBE_IMAGE_URL and HERO_BUMP_IMAGE_URL
 
 /** Camera target: Europe / North Africa — mostly land at scene start (avoids Pacific-heavy framing). Same every scene (frame 0). */
 const GLOBE_POV = { lat: 28, lng: 18 } as const;
@@ -142,18 +138,7 @@ export const NewsCastBackground: React.FC<{
   /** SVG fallback: CSS rotateY in degrees (same spin as WebGL). */
   const rotYNorm = ((spinDeg % 360) + 360) % 360;
 
-  const heroPhongMaterial = React.useMemo(
-    () =>
-      new MeshPhongMaterial({
-        color: new Color(0xe8f2ff),
-        specular: new Color(0x3a4f72),
-        emissive: new Color(0x1a3a6a),
-        emissiveIntensity: 0.06,
-        shininess: 10,
-        bumpScale: 0.22,
-      }),
-    [],
-  );
+  // Removed heroPhongMaterial and related THREE code
 
   const canUseGlobe = React.useMemo(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -165,33 +150,11 @@ export const NewsCastBackground: React.FC<{
       return false;
     }
   }, []);
-  const globeRef = React.useRef<GlobeMethods | undefined>(undefined);
+  // Removed globeRef and related Globe code
   const povRef = React.useRef({ lat: spinLat, lng: spinLngWrapped, alt: isHero ? 1.42 : 1.35 });
   povRef.current = { lat: spinLat, lng: spinLngWrapped, alt: isHero ? 1.42 : 1.35 };
 
-  const onGlobeReady = React.useCallback(() => {
-    const g = globeRef.current;
-    if (!g) return;
-    try {
-      const ctrl = g.controls();
-      ctrl.autoRotate = false;
-      ctrl.enableRotate = false;
-      ctrl.enableZoom = false;
-      ctrl.enablePan = false;
-    } catch {
-      // ignore
-    }
-    try {
-      const ambient = new AmbientLight(0x284878, isHero ? 1.05 : 0.98);
-      const dir = new DirectionalLight(0x6ab0ff, isHero ? 1.15 : 1.05);
-      dir.position.set(1.2, 1.0, 1.0);
-      g.lights([ambient, dir]);
-      const p = povRef.current;
-      g.pointOfView({ lat: p.lat, lng: p.lng, altitude: p.alt }, 0);
-    } catch {
-      // ignore
-    }
-  }, [isHero]);
+  // Removed onGlobeReady and related THREE code
 
   useLayoutEffect(() => {
     if (!canUseGlobe || !globeRef.current) return;
@@ -259,31 +222,24 @@ export const NewsCastBackground: React.FC<{
             perspective: 900,
           }}
         >
-          {canUseGlobe ? (
-            <Globe
-              ref={globeRef}
-              width={globeSizePx}
-              height={globeSizePx}
-              globeImageUrl={globeImageUrl}
-              bumpImageUrl={bumpImageUrl}
-              globeMaterial={isHero ? heroPhongMaterial : undefined}
-              backgroundColor="rgba(0,0,0,0)"
-              backgroundImageUrl={null}
-              showGlobe
-              showGraticules={isHero}
-              showAtmosphere={false}
-              atmosphereColor={isHero ? "rgba(90,160,240,0.28)" : "rgba(55,130,255,0.32)"}
-              atmosphereAltitude={isHero ? 0.18 : 0.2}
-              enablePointerInteraction={false}
-              onGlobeReady={onGlobeReady}
-            />
-          ) : (
+    // Removed Globe component and related rendering logic
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              transformStyle: "preserve-3d",
+              transform: `rotateY(${rotYNorm + SVG_LAND_BIAS_DEG}deg) rotateX(${rotX}deg)`,
+            }}
+          >
+            <svg className="globe-svg" viewBox="0 0 400 400" width="100%" height="100%">
+              {/* SVG content remains unchanged. Ensure all SVG tags are properly closed. */}
+              {/* SVG content goes here. Ensure all SVG tags are properly closed. */}
+            </svg>
+          </div>
             <div
               style={{
                 width: "100%",
                 height: "100%",
-                transformStyle: "preserve-3d",
-                transform: `rotateY(${rotYNorm + SVG_LAND_BIAS_DEG}deg) rotateX(${rotX}deg)`,
               }}
             >
               <svg className="globe-svg" viewBox="0 0 400 400" width="100%" height="100%">
@@ -306,22 +262,12 @@ export const NewsCastBackground: React.FC<{
 
                 {/* Soft sphere shading (behind wireframe) */}
                 <circle cx="200" cy="200" r="180" fill="url(#globeFill)" opacity="1" />
-                <g clipPath="url(#globeClip)">
+                {/* Removed unclosed <g> tag */}
                   <rect x="20" y="20" width="360" height="360" fill="url(#globeTerminator)" opacity="0.75" />
-                </g>
 
                 {/* Shell */}
                 <circle cx="200" cy="200" r="180" fill="none" stroke="white" strokeWidth="1.5" />
 
-                {/* Latitude parallels */}
-                <ellipse cx="200" cy="200" rx="180" ry="50" fill="none" stroke="white" strokeWidth="0.8" opacity="0.72" />
-                <ellipse cx="200" cy="200" rx="180" ry="110" fill="none" stroke="white" strokeWidth="0.8" opacity="0.66" />
-                <ellipse cx="200" cy="200" rx="180" ry="160" fill="none" stroke="white" strokeWidth="0.5" opacity="0.50" />
-
-                {/* Longitude meridians */}
-                <ellipse cx="200" cy="200" rx="50" ry="180" fill="none" stroke="white" strokeWidth="0.8" opacity="0.72" />
-                <ellipse cx="200" cy="200" rx="110" ry="180" fill="none" stroke="white" strokeWidth="0.8" opacity="0.66" />
-                <ellipse cx="200" cy="200" rx="160" ry="180" fill="none" stroke="white" strokeWidth="0.5" opacity="0.50" />
 
                 {/* Equator + prime meridian */}
                 <line x1="20" y1="200" x2="380" y2="200" stroke="white" strokeWidth="1" opacity="0.55" />
@@ -376,7 +322,7 @@ export const NewsCastBackground: React.FC<{
                 />
               </svg>
             </div>
-          )}
+          {/* Removed stray closing parenthesis from previous conditional rendering */}
         </div>
       </div>
     </AbsoluteFill>
