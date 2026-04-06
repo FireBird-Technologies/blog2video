@@ -30,6 +30,8 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
+    retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    retention_offer_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
