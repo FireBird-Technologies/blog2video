@@ -4,7 +4,7 @@ export const defaultCta: PageCta = {
   title: "Turn your existing content into a video this week",
   body:
     "Paste a URL, upload a document, or use an existing newsletter archive and convert it into a polished video without starting from a blank timeline.",
-  primaryLabel: "Start with your first video",
+  primaryLabel: "Start with 3 free videos",
   primaryHref: "/",
   secondaryLabel: "See pricing",
   secondaryHref: "/pricing",

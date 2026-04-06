@@ -21,6 +21,8 @@ import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSaved
 
 export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
+const DEFAULT_VIDEO_STYLE: VideoStyleId = "storytelling";
+
 interface Props {
   onSubmit: (
     url: string,
@@ -91,6 +93,17 @@ const TEMPLATE_PREVIEWS: Record<string, React.FC> = {
   newspaper: NewsPaperPreview,
   newscast: NewscastPreview,
 };
+
+/** Purple primary "New" chip when template meta.json has new_template: true */
+function NewTemplateBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white bg-purple-600 shadow-[0_0_8px_rgba(124,58,237,0.45)] ring-1 ring-purple-400/70 ${className}`}
+    >
+      New
+    </span>
+  );
+}
 
 const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
   default: { title: "Geometric Explainer", subtitle: "Clean purple & white, geometric tech style" },
@@ -361,7 +374,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
-  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>(["promotional"]);
+  const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
   const [bulkTemplatePickerViews, setBulkTemplatePickerViews] = useState<("style" | "custom")[]>(["style"]);
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
@@ -395,10 +408,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [playingKey, setPlayingKey] = useState<string | null>(null);
 
   // Step 2 — video style & template
-  const [videoStyle, setVideoStyle] = useState<VideoStyleId>("promotional");
+  const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const [templatePickerView, setTemplatePickerView] = useState<"style" | "custom">("style");
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  /** Random built-in default for new rows / initial pick; stable until templates reload. */
+  const [pickerDefaultTemplateId, setPickerDefaultTemplateId] = useState<string>("default");
 
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
@@ -570,35 +585,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Preferred built-in template when user hasn't chosen one: Nightfall first, then Newscast, etc.
-  const preferredTemplateId =
-    templates.find((t) => t.id.toLowerCase() === "nightfall")?.id ||
-    templates.find((t) => t.id.toLowerCase() === "newscast")?.id ||
-    templates.find((t) => t.id.toLowerCase() === "whiteboard")?.id ||
-    "default";
-
-  // Apply preferred template once templates load (only replaces initial "default" / custom placeholder).
+  // Once per form mount: pick a random built-in template for this session (single + all bulk rows).
+  const sessionRandomAppliedRef = useRef(false);
   useEffect(() => {
     if (templates.length === 0) return;
-    const preferred =
-      templates.find((t) => t.id.toLowerCase() === "nightfall") ||
-      templates.find((t) => t.id.toLowerCase() === "newscast") ||
-      templates.find((t) => t.id.toLowerCase() === "whiteboard");
-    if (preferred) {
-      // Single/upload flow: set template if still default or custom placeholder.
-      if (template === "default" || template.startsWith("custom_")) {
-        setTemplate(preferred.id);
-        if (preferred.preview_colors) {
-          setAccentColor(preferred.preview_colors.accent);
-          setBgColor(preferred.preview_colors.bg);
-          setTextColor(preferred.preview_colors.text);
-        }
-      }
-      // Multi-link (bulk) flow: set any "default" slots to preferred.
-      setBulkTemplates((prev) =>
-        prev.map((t) => (t === "default" ? preferred.id : t))
-      );
-    }
+    if (sessionRandomAppliedRef.current) return;
+    sessionRandomAppliedRef.current = true;
+    const idx = Math.floor(Math.random() * templates.length);
+    const picked = templates[idx];
+    if (!picked?.id) return;
+    setPickerDefaultTemplateId(picked.id);
+    setTemplate((prev) =>
+      prev === "default" || prev.startsWith("custom_") ? picked.id : prev
+    );
+    setBulkTemplates((prev) =>
+      prev.length > 0 ? prev.map(() => picked.id) : [picked.id]
+    );
   }, [templates]);
 
   // Sync colors to the selected template when templates load.
@@ -776,14 +778,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       if (mode === "bulk") {
         const n = bulkRows.length;
         setBulkNames((prev) => resizeTo(prev, n, ""));
-        setBulkTemplates((prev) => resizeTo(prev, n, preferredTemplateId));
+        setBulkTemplates((prev) => resizeTo(prev, n, pickerDefaultTemplateId));
         setBulkVoiceGender((prev) => resizeTo(prev, n, "female"));
         setBulkVoiceAccent((prev) => resizeTo(prev, n, "american"));
         setBulkCustomVoiceId((prev) => resizeTo(prev, n, ""));
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
-        setBulkVideoStyles((prev) => resizeTo(prev, n, "promotional"));
+        setBulkVideoStyles((prev) => resizeTo(prev, n, DEFAULT_VIDEO_STYLE));
         setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
         setBulkAccentColors((prev) => resizeTo(prev, n, ""));
         setBulkBgColors((prev) => resizeTo(prev, n, ""));
@@ -810,14 +812,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (bulkRows.length >= MAX_BULK_LINKS) return;
     setBulkRows((prev) => [...prev, { url: "" }]);
     setBulkNames((prev) => [...prev, ""]);
-    setBulkTemplates((prev) => [...prev, preferredTemplateId]);
+    setBulkTemplates((prev) => [...prev, pickerDefaultTemplateId]);
     setBulkVoiceGender((prev) => [...prev, "female"]);
     setBulkVoiceAccent((prev) => [...prev, "american"]);
     setBulkCustomVoiceId((prev) => [...prev, ""]);
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
-    setBulkVideoStyles((prev) => [...prev, "promotional"]);
+    setBulkVideoStyles((prev) => [...prev, DEFAULT_VIDEO_STYLE]);
     setBulkTemplatePickerViews((prev) => [...prev, "style"]);
     setBulkAccentColors((prev) => [...prev, ""]);
     setBulkBgColors((prev) => [...prev, ""]);
@@ -916,7 +918,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         blog_url: normalized,
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
-        video_style: bulkVideoStyles[i] ?? "promotional",
+        video_style: bulkVideoStyles[i] ?? DEFAULT_VIDEO_STYLE,
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
@@ -957,14 +959,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       await onSubmitBulk(items, logoIndices.length > 0 ? { logoIndices, logoFiles } : null);
       setBulkRows([{ url: "" }]);
       setBulkNames([""]);
-      setBulkTemplates([preferredTemplateId]);
+      setBulkTemplates([pickerDefaultTemplateId]);
       setBulkVoiceGender(["female"]);
       setBulkVoiceAccent(["american"]);
       setBulkCustomVoiceId([]);
       setBulkContentLanguage(["auto"]);
       setBulkVideoLength(["short"]);
       setBulkAspectRatio(["landscape"]);
-      setBulkVideoStyles(["promotional"]);
+      setBulkVideoStyles([DEFAULT_VIDEO_STYLE]);
       setBulkTemplatePickerViews(["style"]);
       setBulkAccentColors([""]);
       setBulkBgColors([""]);
@@ -1565,6 +1567,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const selectedCustom = template.startsWith("custom_")
     ? customTemplates.find((ct) => ct.id === parseInt(template.replace("custom_", "")))
     : null;
+  const selectedBuiltinNew =
+    !template.startsWith("custom_") && templates.some((t) => t.id === template && t.new_template === true);
 
   const step2Template = (
     <div className="space-y-5">
@@ -1591,6 +1595,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 <span className="text-sm font-semibold text-gray-800">
                   {selectedCustom ? selectedCustom.name : (selectedDesc?.title ?? template)}
                 </span>
+                {selectedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
                 {selectedCustom && (
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustom.preview_colors.accent }}>
                     Custom
@@ -1651,6 +1656,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
           </div>
         </div>
+        {templatePickerView === "style" && (
+          <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+            Suggested templates for the selected video style
+          </p>
+        )}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {templatePickerView === "custom" ? (
             <div className="grid grid-cols-3 gap-2">
@@ -1767,14 +1777,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = template === t.id;
+                const isNewTemplate = t.new_template === true;
                 return (
                   <div
                     key={t.id}
                     onClick={() => applyTemplate(t.id)}
-                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                    className={`relative rounded-lg overflow-hidden cursor-pointer transition-all group ${
                       isSelected
-                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                        : "border-gray-200/60 hover:border-purple-300/60"
+                        ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : isNewTemplate
+                        ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
@@ -1790,6 +1803,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
+                        </div>
+                      )}
+                      {t.new_template === true && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <NewTemplateBadge />
                         </div>
                       )}
                     </div>
@@ -1894,6 +1912,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const selectedCustomBulk = tpl.startsWith("custom_")
       ? customTemplates.find((ct) => ct.id === parseInt(tpl.replace("custom_", "")))
       : null;
+    const selectedBuiltinNewBulk = !tpl.startsWith("custom_") && templateMeta?.new_template === true;
     const defaultAccent = selectedCustomBulk
       ? selectedCustomBulk.preview_colors.accent
       : templateMeta?.preview_colors?.accent ?? accentColor;
@@ -1916,7 +1935,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       bulkTextColors[activeIndex] && bulkTextColors[activeIndex].trim()
         ? bulkTextColors[activeIndex]
         : defaultText;
-    const activeVideoStyle = bulkVideoStyles[activeIndex] ?? "promotional";
+    const activeVideoStyle = bulkVideoStyles[activeIndex] ?? DEFAULT_VIDEO_STYLE;
     const activePickerView = bulkTemplatePickerViews[activeIndex] ?? "style";
     const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
 
@@ -1933,7 +1952,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkVideoStyles((prev) => {
         const next = [...prev];
         targetIndices.forEach((idx) => {
-          next[idx] = activeVideoStyle || "promotional";
+          next[idx] = activeVideoStyle || DEFAULT_VIDEO_STYLE;
         });
         return next;
       });
@@ -2225,6 +2244,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <div>
                 <div className="flex items-center gap-2">
                   <div className="text-sm font-semibold text-gray-800">{selectedCustomBulk ? selectedCustomBulk.name : (selectedDesc?.title ?? tpl)}</div>
+                  {selectedBuiltinNewBulk && <NewTemplateBadge className="shrink-0" />}
                   {selectedCustomBulk && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: selectedCustomBulk.preview_colors.accent }}>
                       Custom
@@ -2343,6 +2363,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </button>
           </div>
         </div>
+        {activePickerView === "style" && (
+          <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+            Suggested templates for the selected video style
+          </p>
+        )}
         {/* Templates list filtered by style */}
         <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
           {activePickerView === "custom" ? (
@@ -2460,14 +2485,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 const PreviewComp = TEMPLATE_PREVIEWS[t.id];
                 const desc = TEMPLATE_DESCRIPTIONS[t.id];
                 const isSelected = tpl === t.id;
+                const isNewTemplate = t.new_template === true;
                 return (
                   <div
                     key={t.id}
                     onClick={() => applyBulkTemplate(t.id)}
-                    className={`relative rounded-lg border-2 overflow-hidden cursor-pointer transition-all group ${
+                    className={`relative rounded-lg overflow-hidden cursor-pointer transition-all group ${
                       isSelected
-                        ? "border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                        : "border-gray-200/60 hover:border-purple-300/60"
+                        ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                        : isNewTemplate
+                        ? "border border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.2)] hover:border-purple-600"
+                        : "border-2 border-gray-200/60 hover:border-purple-300/60"
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
@@ -2483,6 +2511,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
+                        </div>
+                      )}
+                      {t.new_template === true && (
+                        <div className="absolute top-0.5 left-0.5 z-[1]">
+                          <NewTemplateBadge />
                         </div>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 {
   "id": "gridcraft",
   "name": "Gridcraft",
+  "new_template": false,
   "description": "Bento grid layouts with editorial typography and data clarity. Spatial content arrangement with accent-pop cells. SaaS landing page in motion.",
   "styles": [
     "promotional",

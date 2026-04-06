@@ -328,7 +328,7 @@ export default function Subscription() {
               {billing?.videos_used ?? 0}
             </span>
             <span className="text-sm text-gray-400 pb-1">
-              / {billing?.video_limit ?? 1} videos
+              / {billing?.video_limit ?? 3} videos
             </span>
           </div>
           {/* Progress bar */}
@@ -336,9 +336,9 @@ export default function Subscription() {
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 1)) * 100)}%`,
-                backgroundColor:
-                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 1)
+                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 3)) * 100)}%`,
+              backgroundColor:
+                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 3)
                     ? "#ef4444"
                     : "#7c3aed",
               }}
@@ -346,7 +346,7 @@ export default function Subscription() {
           </div>
           <p className="text-xs text-gray-400 mt-2">
             {billing?.can_create_video
-              ? `${(billing?.video_limit ?? 1) - (billing?.videos_used ?? 0)} videos remaining`
+              ? `${(billing?.video_limit ?? 3) - (billing?.videos_used ?? 0)} videos remaining`
               : "Video limit reached"}
           </p>
         </section>
@@ -427,7 +427,7 @@ export default function Subscription() {
               <span className="text-2xl font-bold text-gray-900">$0</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-              <li className="flex items-start gap-2"><CheckMark />First video free</li>
+              <li className="flex items-start gap-2"><CheckMark />3 videos free</li>
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>

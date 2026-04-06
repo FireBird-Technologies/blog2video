@@ -32,6 +32,8 @@ export default function Dashboard() {
   const { showError } = useErrorModal();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
+  /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
+  const [blogFormMountKey, setBlogFormMountKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -389,7 +391,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-gray-400">
-            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 1}{" "}
+            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
             videos used
             {!isPro && " -- upgrade for 100/month"}
           </p>
@@ -434,7 +436,10 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setBlogFormMountKey((k) => k + 1);
+            setShowModal(true);
+          }}
           disabled={!user?.can_create_video}
           className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-lg transition-colors"
         >
@@ -445,6 +450,7 @@ export default function Dashboard() {
       {/* New project modal */}
       {showModal && (
         <BlogUrlForm
+          key={blogFormMountKey}
           onSubmit={handleCreate}
           onSubmitBulk={handleCreateBulk}
           loading={creating}
