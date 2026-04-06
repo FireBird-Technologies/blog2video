@@ -11,6 +11,10 @@ class PlanTier(str, enum.Enum):
     PRO = "pro"
 
 
+# Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
+FREE_TIER_INCLUDED_VIDEOS = 3
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -45,7 +49,7 @@ class User(Base):
     def video_limit(self) -> int:
         """Max videos allowed in the current billing period."""
         if self.plan == PlanTier.FREE:
-            base = 3
+            base = FREE_TIER_INCLUDED_VIDEOS
         elif self.plan == PlanTier.STANDARD:
             base = 30
         else:
