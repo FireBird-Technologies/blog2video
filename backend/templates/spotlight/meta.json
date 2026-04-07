@@ -399,7 +399,7 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 95,
-          "landscape": 93
+          "landscape": 81
         },
         "descriptionFontSize": {
           "portrait": 44,

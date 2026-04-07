@@ -1,11 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import React from "react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import { renderToString } from "react-dom/server";
-import { Route, Routes } from "react-router-dom";
-import { StaticRouter } from "react-router-dom/server";
-import { ErrorModalProvider } from "../src/contexts/ErrorModalContext";
 import {
   blogPosts,
   defaultOgImage,
@@ -16,14 +10,6 @@ import {
   siteName,
   siteUrl,
 } from "../src/content/siteContent";
-import { AuthProvider } from "../src/hooks/useAuth";
-import Blog from "../src/pages/Blog";
-import BlogPostPage from "../src/pages/BlogPostPage";
-import Contact from "../src/pages/Contact";
-import Landing from "../src/pages/Landing";
-import MarketingPageView from "../src/pages/MarketingPageView";
-import NotFoundPage from "../src/pages/NotFoundPage";
-import Pricing from "../src/pages/Pricing";
 import {
   normalizeSchemaForJsonLd,
   SEO_JSON_LD_SCRIPT_ID,
@@ -172,41 +158,9 @@ ${
 }
 
 function renderUrl(url: string) {
-  const routes = [
-    React.createElement(Route, { key: "/", path: "/", element: React.createElement(Landing) }),
-    React.createElement(Route, { key: "/pricing", path: "/pricing", element: React.createElement(Pricing) }),
-    React.createElement(Route, { key: "/contact", path: "/contact", element: React.createElement(Contact) }),
-    React.createElement(Route, { key: "/blogs", path: "/blogs", element: React.createElement(Blog) }),
-    React.createElement(Route, { key: "/blogs/:slug", path: "/blogs/:slug", element: React.createElement(BlogPostPage) }),
-    ...marketingPages.map((page) =>
-      React.createElement(Route, {
-        key: page.path,
-        path: page.path,
-        element: React.createElement(MarketingPageView),
-      })
-    ),
-    React.createElement(Route, { key: "*", path: "*", element: React.createElement(NotFoundPage) }),
-  ];
-
-  const appHtml = renderToString(
-    React.createElement(
-      GoogleOAuthProvider,
-      { clientId: "placeholder" },
-      React.createElement(
-        StaticRouter,
-        { location: url },
-        React.createElement(
-          AuthProvider,
-          null,
-          React.createElement(
-            ErrorModalProvider,
-            null,
-            React.createElement(Routes, null, routes)
-          )
-        )
-      )
-    )
-  );
+  // Head-only prerender to avoid importing runtime UI modules that pull CSS/fontsource
+  // during Node execution (tsx can't evaluate CSS imports in this script context).
+  const appHtml = "";
 
   const head = buildHeadTags(url);
 
