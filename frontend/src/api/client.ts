@@ -331,8 +331,13 @@ export const cancelSubscription = (body?: { declined_retention_offer?: boolean }
 export const recordRetentionOfferImpression = () =>
   api.post<RetentionOfferImpressionResponse>("/billing/retention-offer/impression");
 
+export type RetentionOfferAcceptResponse = {
+  status: "applied" | "already_applied";
+  message: string;
+};
+
 export const acceptRetentionOffer = () =>
-  api.post<{ status: string; message: string }>("/billing/retention-offer/accept");
+  api.post<RetentionOfferAcceptResponse>("/billing/retention-offer/accept");
 
 export const resumeSubscription = () =>
   api.post("/billing/resume");

@@ -370,12 +370,53 @@ class RetentionOfferImpressionOut(BaseModel):
 
 
 class RetentionOfferAcceptOut(BaseModel):
-    status: str
+    """status: applied = coupon attached this request; already_applied = idempotent no-op."""
+
+    status: str  # "applied" | "already_applied"
     message: str
 
 
 class CancelSubscriptionRequest(BaseModel):
     declined_retention_offer: bool = False
+
+
+def _coupon_id_from_stripe_object(coupon: object) -> str | None:
+    if coupon is None:
+        return None
+    if isinstance(coupon, dict):
+        return coupon.get("id")
+    return getattr(coupon, "id", None)
+
+
+def _subscription_has_retention_coupon(stripe_sub: object, retention_coupon_id: str) -> bool:
+    """True if subscription already has this coupon (Stripe discount list or legacy single discount)."""
+
+    def _coupon_id_from_discount(discount_obj: object) -> str | None:
+        if discount_obj is None:
+            return None
+        if isinstance(discount_obj, dict):
+            coupon = discount_obj.get("coupon")
+        else:
+            coupon = getattr(discount_obj, "coupon", None)
+        return _coupon_id_from_stripe_object(coupon)
+
+    discounts = getattr(stripe_sub, "discounts", None)
+    if discounts is not None:
+        items = getattr(discounts, "data", None)
+        if items is None and isinstance(discounts, list):
+            items = discounts
+        if items:
+            for d in items:
+                if _coupon_id_from_discount(d) == retention_coupon_id:
+                    return True
+
+    discount = getattr(stripe_sub, "discount", None)
+    if discount is None and isinstance(stripe_sub, dict):
+        discount = stripe_sub.get("discount")
+    if _coupon_id_from_discount(discount) == retention_coupon_id:
+        return True
+
+    return False
 
 
 def _is_retention_offer_eligible(user: User) -> bool:
@@ -504,9 +545,21 @@ def accept_retention_offer(
     try:
         stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
 
+        if _subscription_has_retention_coupon(stripe_sub, retention_coupon_id):
+            return RetentionOfferAcceptOut(
+                status="already_applied",
+                message="This discount is already applied to your subscription.",
+            )
+
         existing_discounts_payload: list[dict[str, str]] = []
         discounts = getattr(stripe_sub, "discounts", None)
         discount_items = getattr(discounts, "data", []) if discounts is not None else []
+        if not discount_items:
+            legacy = getattr(stripe_sub, "discount", None)
+            if legacy is None and isinstance(stripe_sub, dict):
+                legacy = stripe_sub.get("discount")
+            if legacy:
+                discount_items = [legacy]
 
         for discount in discount_items:
             coupon = getattr(discount, "coupon", None)
@@ -515,12 +568,6 @@ def accept_retention_offer(
             coupon_id = getattr(coupon, "id", None) if coupon is not None else None
             if not coupon_id and isinstance(coupon, dict):
                 coupon_id = coupon.get("id")
-
-            if coupon_id == retention_coupon_id:
-                return RetentionOfferAcceptOut(
-                    status="ok",
-                    message="Retention discount is already applied",
-                )
 
             if coupon_id:
                 existing_discounts_payload.append({"coupon": coupon_id})
@@ -545,7 +592,7 @@ def accept_retention_offer(
         db.commit()
 
         return RetentionOfferAcceptOut(
-            status="ok",
+            status="applied",
             message="30% discount applied to your next invoice",
         )
     except stripe.error.InvalidRequestError as e:
