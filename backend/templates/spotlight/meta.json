@@ -399,11 +399,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 95,
-          "landscape": 113
+          "landscape": 81
         },
         "descriptionFontSize": {
           "portrait": 44,
-          "landscape": 32
+          "landscape": 29
         },
         "hideImage": true,
         "socials": [

@@ -34,6 +34,27 @@ class ProjectUpdate(BaseModel):
     content_language: Optional[str] = None
     video_length: Optional[str] = None
 
+
+class ProjectTemplateChangeRequest(BaseModel):
+    template: str
+
+
+class ProjectTemplateChangeJobOut(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    target_template: str
+    status: str
+    total_scenes: int
+    processed_scenes: int
+    error_message: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class SceneOut(BaseModel):
     id: int
     project_id: int
