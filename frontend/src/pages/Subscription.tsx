@@ -10,6 +10,7 @@ import {
   createPerVideoCheckout,
   createPortalSession,
   cancelSubscription,
+  acceptRetentionOffer,
   resumeSubscription,
   deleteAccount,
   BillingStatus,
@@ -32,6 +33,8 @@ export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showRetentionOfferInCancel, setShowRetentionOfferInCancel] = useState(false);
+  const [retentionSuccessMessage, setRetentionSuccessMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const { showError } = useErrorModal();
@@ -93,15 +96,49 @@ export default function Subscription() {
     }
   };
 
-  const handleCancel = async () => {
+  const openCancelConfirmModal = async () => {
+    setRetentionSuccessMessage(null);
+    const shouldShowRetention = !!subscription?.retention_offer_eligible;
+    setShowRetentionOfferInCancel(shouldShowRetention);
+    setShowCancelConfirm(true);
+  };
+
+  const closeCancelConfirmModal = () => {
+    setShowCancelConfirm(false);
+    setShowRetentionOfferInCancel(false);
+    setRetentionSuccessMessage(null);
+  };
+
+  const handleCancel = async (declinedRetentionOffer = false) => {
     setActionLoading("cancel");
     try {
-      await cancelSubscription();
+      await cancelSubscription(
+        declinedRetentionOffer ? { declined_retention_offer: true } : undefined
+      );
       await refreshUser();
       await loadAll();
-      setShowCancelConfirm(false);
+      closeCancelConfirmModal();
     } catch (err) {
       console.error("Failed to cancel:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAcceptRetentionOffer = async () => {
+    setActionLoading("retention-accept");
+    try {
+      await acceptRetentionOffer();
+      await refreshUser();
+      await loadAll();
+      setRetentionSuccessMessage(
+        "Thank you for staying. You have been given 30% off on your next voucher."
+      );
+      window.setTimeout(() => {
+        closeCancelConfirmModal();
+      }, 2500);
+    } catch (err) {
+      console.error("Failed to apply retention offer:", err);
     } finally {
       setActionLoading(null);
     }
@@ -230,7 +267,7 @@ export default function Subscription() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setShowCancelConfirm(true)}
+                    onClick={openCancelConfirmModal}
                     className="px-4 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                   >
                     Cancel Plan
@@ -285,32 +322,80 @@ export default function Subscription() {
       {/* Cancel confirmation dialog */}
       {showCancelConfirm && ReactDOM.createPortal(
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
-            <p className="text-sm text-gray-500 mb-1">
-              Your Pro access will remain active until the end of your current billing period
-              {subscription?.current_period_end && (
-                <> ({formatDate(subscription.current_period_end)})</>
-              )}.
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              After that, you'll be downgraded to the Free plan. You can resubscribe anytime.
-            </p>
-            <div className="flex gap-3 justify-end">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+            <button
+              onClick={closeCancelConfirmModal}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {retentionSuccessMessage ? (
+              <div className="py-8 flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Success</h3>
+                <p className="text-sm text-gray-600 max-w-sm">{retentionSuccessMessage}</p>
+              </div>
+            ) : showRetentionOfferInCancel ? (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
+                <p className="text-sm text-gray-500 mb-1">
+                  Your Pro access will remain active until the end of your current billing period
+                  {subscription?.current_period_end && (
+                    <> ({formatDate(subscription.current_period_end)})</>
+                  )}.
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  Before you go, we can offer 30% off your next billing period if you keep your
+                  subscription active.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
+                <p className="text-sm text-gray-500 mb-1">
+                  Your Pro access will remain active until the end of your current billing period
+                  {subscription?.current_period_end && (
+                    <> ({formatDate(subscription.current_period_end)})</>
+                  )}.
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  After that, you'll be downgraded to the Free plan. You can resubscribe anytime.
+                </p>
+              </>
+            )}
+            {!retentionSuccessMessage && (
+              <div className="flex gap-3 justify-end">
+              {showRetentionOfferInCancel && (
+                <button
+                  onClick={handleAcceptRetentionOffer}
+                  disabled={
+                    actionLoading === "retention-accept" ||
+                    actionLoading === "cancel" ||
+                    !!retentionSuccessMessage
+                  }
+                  className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
+                >
+                  {actionLoading === "retention-accept"
+                    ? "Applying..."
+                    : "Keep Plan With 30% Discount"}
+                </button>
+              )}
               <button
-                onClick={() => setShowCancelConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                Keep Plan
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={actionLoading === "cancel"}
+                onClick={() => handleCancel(showRetentionOfferInCancel)}
+                disabled={actionLoading === "cancel" || !!retentionSuccessMessage}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-60"
               >
                 {actionLoading === "cancel" ? "Cancelling..." : "Yes, Cancel"}
               </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>,
         document.body
@@ -328,7 +413,7 @@ export default function Subscription() {
               {billing?.videos_used ?? 0}
             </span>
             <span className="text-sm text-gray-400 pb-1">
-              / {billing?.video_limit ?? 1} videos
+              / {billing?.video_limit ?? 3} videos
             </span>
           </div>
           {/* Progress bar */}
@@ -336,9 +421,9 @@ export default function Subscription() {
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 1)) * 100)}%`,
-                backgroundColor:
-                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 1)
+                width: `${Math.min(100, ((billing?.videos_used ?? 0) / (billing?.video_limit ?? 3)) * 100)}%`,
+              backgroundColor:
+                  (billing?.videos_used ?? 0) >= (billing?.video_limit ?? 3)
                     ? "#ef4444"
                     : "#7c3aed",
               }}
@@ -346,7 +431,7 @@ export default function Subscription() {
           </div>
           <p className="text-xs text-gray-400 mt-2">
             {billing?.can_create_video
-              ? `${(billing?.video_limit ?? 1) - (billing?.videos_used ?? 0)} videos remaining`
+              ? `${(billing?.video_limit ?? 3) - (billing?.videos_used ?? 0)} videos remaining`
               : "Video limit reached"}
           </p>
         </section>
@@ -427,7 +512,7 @@ export default function Subscription() {
               <span className="text-2xl font-bold text-gray-900">$0</span>
             </div>
             <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-              <li className="flex items-start gap-2"><CheckMark />First video free</li>
+              <li className="flex items-start gap-2"><CheckMark />3 videos free</li>
               <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
               <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
               <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
