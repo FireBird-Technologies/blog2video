@@ -419,6 +419,43 @@ def _subscription_has_retention_coupon(stripe_sub: object, retention_coupon_id: 
     return False
 
 
+def _upcoming_invoice_has_retention_coupon(
+    user: User, retention_coupon_id: str
+) -> bool:
+    """
+    For duration='once' coupons, Stripe may reflect the discount only on the upcoming invoice
+    preview (not on subscription.discount(s)). This checks the invoice preview API.
+    """
+    if not user.stripe_customer_id or not user.stripe_subscription_id:
+        return False
+    try:
+        upcoming = stripe.Invoice.upcoming(
+            customer=user.stripe_customer_id,
+            subscription=user.stripe_subscription_id,
+        )
+    except Exception:
+        # If preview fails, don't block applying the coupon.
+        return False
+
+    discounts = getattr(upcoming, "discounts", None)
+    if discounts is not None:
+        items = getattr(discounts, "data", None)
+        if items:
+            for d in items:
+                coupon = getattr(d, "coupon", None)
+                if _coupon_id_from_stripe_object(coupon) == retention_coupon_id:
+                    return True
+
+    # Legacy single discount field
+    discount = getattr(upcoming, "discount", None)
+    if discount is not None:
+        coupon = getattr(discount, "coupon", None)
+        if _coupon_id_from_stripe_object(coupon) == retention_coupon_id:
+            return True
+
+    return False
+
+
 def _is_retention_offer_eligible(user: User) -> bool:
     return bool(
         settings.STRIPE_RETENTION_COUPON_ID
@@ -545,7 +582,9 @@ def accept_retention_offer(
     try:
         stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
 
-        if _subscription_has_retention_coupon(stripe_sub, retention_coupon_id):
+        if _subscription_has_retention_coupon(stripe_sub, retention_coupon_id) or _upcoming_invoice_has_retention_coupon(
+            user, retention_coupon_id
+        ):
             return RetentionOfferAcceptOut(
                 status="already_applied",
                 message="This discount is already applied to your subscription.",
