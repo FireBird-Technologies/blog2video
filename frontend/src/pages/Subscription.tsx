@@ -34,7 +34,10 @@ export default function Subscription() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRetentionOfferInCancel, setShowRetentionOfferInCancel] = useState(false);
-  const [retentionSuccessMessage, setRetentionSuccessMessage] = useState<string | null>(null);
+  const [retentionFeedback, setRetentionFeedback] = useState<{
+    kind: "success" | "warning";
+    message: string;
+  } | null>(null);
   const [retentionErrorMessage, setRetentionErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
@@ -98,7 +101,7 @@ export default function Subscription() {
   };
 
   const openCancelConfirmModal = async () => {
-    setRetentionSuccessMessage(null);
+    setRetentionFeedback(null);
     setRetentionErrorMessage(null);
     const shouldShowRetention = !!subscription?.retention_offer_eligible;
     setShowRetentionOfferInCancel(shouldShowRetention);
@@ -108,7 +111,7 @@ export default function Subscription() {
   const closeCancelConfirmModal = () => {
     setShowCancelConfirm(false);
     setShowRetentionOfferInCancel(false);
-    setRetentionSuccessMessage(null);
+    setRetentionFeedback(null);
     setRetentionErrorMessage(null);
   };
 
@@ -138,13 +141,16 @@ export default function Subscription() {
       const res = await acceptRetentionOffer();
       await refreshUser();
       await loadAll();
-      setRetentionSuccessMessage(
+      const msg =
         res.data.message?.trim() ||
-          "Thank you for staying. You have been given 30% off on your next voucher."
-      );
+        (res.data.status === "already_applied"
+          ? "This discount is already applied to your subscription."
+          : "Thank you for staying. You have been given 30% off on your next voucher.");
+      const kind = res.data.status === "already_applied" ? "warning" : "success";
+      setRetentionFeedback({ kind, message: msg });
       window.setTimeout(() => {
         closeCancelConfirmModal();
-      }, 2500);
+      }, kind === "warning" ? 3200 : 2500);
     } catch (err) {
       console.error("Failed to apply retention offer:", err);
       setRetentionErrorMessage(
@@ -343,16 +349,33 @@ export default function Subscription() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            {retentionSuccessMessage ? (
-              <div className="py-8 flex flex-col items-center text-center">
-                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+            {retentionFeedback ? (
+              retentionFeedback.kind === "success" ? (
+                <div className="py-8 flex flex-col items-center text-center">
+                  <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Success</h3>
+                  <p className="text-sm text-gray-600 max-w-sm">{retentionFeedback.message}</p>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Success</h3>
-                <p className="text-sm text-gray-600 max-w-sm">{retentionSuccessMessage}</p>
-              </div>
+              ) : (
+                <div className="py-8 flex flex-col items-center text-center">
+                  <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Discount already active</h3>
+                  <p className="text-sm text-gray-600 max-w-sm">{retentionFeedback.message}</p>
+                </div>
+              )
             ) : (
               <>
                 {showRetentionOfferInCancel ? (
@@ -365,7 +388,7 @@ export default function Subscription() {
                       )}.
                     </p>
                     <p className="text-sm text-gray-500 mb-4">
-                      Before you go, we can offer 30% off your next billing period if you keep your
+                      Before you go, we can offer 30% off on your next billing period if you keep your
                       subscription active.
                     </p>
                   </>
@@ -393,16 +416,12 @@ export default function Subscription() {
                 )}
               </>
             )}
-            {!retentionSuccessMessage && (
+            {!retentionFeedback && (
               <div className="flex gap-3 justify-end">
               {showRetentionOfferInCancel && (
                 <button
                   onClick={handleAcceptRetentionOffer}
-                  disabled={
-                    actionLoading === "retention-accept" ||
-                    actionLoading === "cancel" ||
-                    !!retentionSuccessMessage
-                  }
+                  disabled={actionLoading === "retention-accept" || actionLoading === "cancel"}
                   className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
                 >
                   {actionLoading === "retention-accept"
@@ -412,7 +431,7 @@ export default function Subscription() {
               )}
               <button
                 onClick={() => handleCancel(showRetentionOfferInCancel)}
-                disabled={actionLoading === "cancel" || !!retentionSuccessMessage}
+                disabled={actionLoading === "cancel"}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-60"
               >
                 {actionLoading === "cancel" ? "Cancelling..." : "Yes, Cancel"}
