@@ -476,35 +476,44 @@ def _upcoming_invoice_has_retention_coupon(
     if not user.stripe_customer_id or not user.stripe_subscription_id:
         return False
     try:
-        if hasattr(stripe.Invoice, "upcoming"):
-            upcoming = stripe.Invoice.upcoming(
-                customer=user.stripe_customer_id,
-                subscription=user.stripe_subscription_id,
-                expand=[
-                    "discount",
-                    "discount.coupon",
-                    "discounts",
-                    "discounts.data",
-                    "discounts.data.coupon",
-                    "total_discount_amounts.discount",
-                    "total_discount_amounts.discount.coupon",
-                ],
-            )
-        else:
-            # Stripe SDK v13+ removed Invoice.upcoming in favor of create_preview.
-            upcoming = stripe.Invoice.create_preview(
-                customer=user.stripe_customer_id,
-                subscription=user.stripe_subscription_id,
-                expand=[
-                    "discount",
-                    "discount.coupon",
-                    "discounts",
-                    "discounts.data",
-                    "discounts.data.coupon",
-                    "total_discount_amounts.discount",
-                    "total_discount_amounts.discount.coupon",
-                ],
-            )
+        try:
+            if hasattr(stripe.Invoice, "upcoming"):
+                upcoming = stripe.Invoice.upcoming(
+                    customer=user.stripe_customer_id,
+                    subscription=user.stripe_subscription_id,
+                    expand=[
+                        "discount",
+                        "discount.coupon",
+                        "discounts",
+                        "total_discount_amounts.discount",
+                        "total_discount_amounts.discount.coupon",
+                    ],
+                )
+            else:
+                # Stripe SDK v13+ removed Invoice.upcoming in favor of create_preview.
+                upcoming = stripe.Invoice.create_preview(
+                    customer=user.stripe_customer_id,
+                    subscription=user.stripe_subscription_id,
+                    expand=[
+                        "discount",
+                        "discount.coupon",
+                        "discounts",
+                        "total_discount_amounts.discount",
+                        "total_discount_amounts.discount.coupon",
+                    ],
+                )
+        except stripe.error.InvalidRequestError:
+            # Some Stripe API versions reject one or more expand paths.
+            if hasattr(stripe.Invoice, "upcoming"):
+                upcoming = stripe.Invoice.upcoming(
+                    customer=user.stripe_customer_id,
+                    subscription=user.stripe_subscription_id,
+                )
+            else:
+                upcoming = stripe.Invoice.create_preview(
+                    customer=user.stripe_customer_id,
+                    subscription=user.stripe_subscription_id,
+                )
         logger.info(
             "[RETENTION] Loaded upcoming invoice preview for user=%s sub=%s",
             user.id,
@@ -712,16 +721,18 @@ def accept_retention_offer(
             user.retention_offer_suppressed,
             retention_coupon_id,
         )
-        stripe_sub = stripe.Subscription.retrieve(
-            user.stripe_subscription_id,
-            expand=[
-                "discount",
-                "discount.coupon",
-                "discounts",
-                "discounts.data",
-                "discounts.data.coupon",
-            ],
-        )
+        try:
+            stripe_sub = stripe.Subscription.retrieve(
+                user.stripe_subscription_id,
+                expand=[
+                    "discount",
+                    "discount.coupon",
+                    "discounts",
+                ],
+            )
+        except stripe.error.InvalidRequestError:
+            # Fall back for Stripe API versions that reject expand paths.
+            stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
         logger.info("[RETENTION] Retrieved subscription from Stripe")
 
         if _subscription_has_retention_coupon(stripe_sub, retention_coupon_id) or _upcoming_invoice_has_retention_coupon(
@@ -730,7 +741,7 @@ def accept_retention_offer(
             logger.info("[RETENTION] Coupon already applied; returning already_applied")
             return RetentionOfferAcceptOut(
                 status="already_applied",
-                message="This discount is already applied to your subscription.",
+                message="This discount is already applied to your next month billing invoice.",
             )
 
         existing_discounts_payload: list[dict[str, str]] = []
