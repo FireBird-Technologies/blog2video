@@ -29,7 +29,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
-  const resolvedTitleSize = titleFontSize ?? (p ? 95 : 113);
+  const resolvedTitleSize = titleFontSize ?? (p ? 95 : 93);
   const resolvedCtaSize = resolvedTitleSize + 30;
 
   let currentDelay = 20; 
@@ -141,16 +141,23 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
             fontFamily: bodyFont,
             textAlign: "center",
             textTransform: "uppercase",
+            marginInline: 15, /* Added left and right margin */
             ...ctaTextAnim,
           }}>
             {resolvedCta}
           </div>
           <div style={{ 
-            marginTop: 8,
+            marginTop: 20, /* Increased vertical spacing from CTA text */
+            padding: "10px 20px", /* Added internal padding */
+            marginInline: 15, /* Added left and right margin */
             fontSize: p ? 28 : 26, 
             fontWeight: 600, 
             color: textColor || "#FFFFFF", 
             fontFamily: bodyFont, 
+            textAlign: "center", // Ensure text is centered
+            maxWidth: "90%", // Limit width to prevent overflow
+            whiteSpace: "normal", // Allow text to wrap
+            overflowWrap: "break-word", // Break long words if necessary
             ...ctaLinkAnim, 
           }}>
             {resolvedWebsiteLink}
@@ -172,7 +179,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
       }}>
         {subtext && (
           <div style={{
-            fontSize: descriptionFontSize ?? (p ? 44 : 32),
+            fontSize: descriptionFontSize ?? (p ? 44 : 29),
             fontWeight: 500,
             color: `${textColor || "#FFFFFF"}CC`,
             lineHeight: 1.35,
