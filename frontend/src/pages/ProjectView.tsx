@@ -30,7 +30,11 @@ import {
   BACKEND_URL,
   bulkUpdateSceneTypography,
   submitProjectReview,
-  updateProject
+  updateProject,
+  getTemplates,
+  listCustomTemplates,
+  changeProjectTemplateRegenerateLayouts,
+  getProjectTemplateChangeStatus
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -360,6 +364,22 @@ export default function ProjectView() {
   const [savingColors, setSavingColors] = useState(false);
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
   const [savingFontFamily, setSavingFontFamily] = useState(false);
+  const [showFontDropdown, setShowFontDropdown] = useState(false);
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+  const fontDropdownRef = useRef<HTMLDivElement>(null);
+  const templateDropdownRef = useRef<HTMLDivElement>(null);
+  const [builtinTemplates, setBuiltinTemplates] = useState<Array<{ id: string; name: string }>>([]);
+  const [customTemplates, setCustomTemplates] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedProjectTemplate, setSelectedProjectTemplate] = useState<string>("");
+  const [templateRelayoutJob, setTemplateRelayoutJob] = useState<{
+    id: number;
+    status: string;
+    processed_scenes: number;
+    total_scenes: number;
+    error_message: string | null;
+  } | null>(null);
+  const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
+  const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 
   useEffect(() => {
@@ -372,9 +392,10 @@ export default function ProjectView() {
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
       setSettingsFontId(project.font_family ?? null);
+      setSelectedProjectTemplate(project.template || "default");
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.template]);
 
   useEffect(() => {
     if (project) {
@@ -448,6 +469,20 @@ export default function ProjectView() {
   const [showCancelRenderWarning, setShowCancelRenderWarning] = useState(false);
   const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClickOutside = (evt: MouseEvent) => {
+      const target = evt.target as Node;
+      if (fontDropdownRef.current && !fontDropdownRef.current.contains(target)) {
+        setShowFontDropdown(false);
+      }
+      if (templateDropdownRef.current && !templateDropdownRef.current.contains(target)) {
+        setShowTemplateDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
@@ -814,6 +849,83 @@ export default function ProjectView() {
       setLoading(false);
     }
   }, [projectId]);
+
+  const stopTemplateRelayoutPolling = useCallback(() => {
+    if (templateRelayoutPollRef.current) {
+      clearInterval(templateRelayoutPollRef.current);
+      templateRelayoutPollRef.current = null;
+    }
+  }, []);
+
+  const startTemplateRelayoutPolling = useCallback(() => {
+    stopTemplateRelayoutPolling();
+    templateRelayoutPollRef.current = setInterval(async () => {
+      try {
+        const res = await getProjectTemplateChangeStatus(projectId);
+        const job = res.data;
+        if (!job) return;
+        setTemplateRelayoutJob(job);
+        if (job.status === "completed") {
+          stopTemplateRelayoutPolling();
+          setTemplateRelayoutJob({
+            ...job,
+            processed_scenes: 0,
+            total_scenes: 0,
+          });
+          await loadProject();
+        } else if (job.status === "failed") {
+          stopTemplateRelayoutPolling();
+        }
+      } catch {
+        stopTemplateRelayoutPolling();
+      }
+    }, 2000);
+  }, [loadProject, projectId, stopTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const [builtinsRes, customRes] = await Promise.all([
+          getTemplates(),
+          listCustomTemplates(),
+        ]);
+        setBuiltinTemplates(
+          (builtinsRes.data || []).map((t: any) => ({
+            id: String(t.id),
+            name: String(t.name || t.id || "Template"),
+          }))
+        );
+        setCustomTemplates(
+          (customRes.data || []).map((t: any) => ({
+            id: Number(t.id),
+            name: String(t.name || `Custom ${t.id}`),
+          }))
+        );
+      } catch {
+        // Non-blocking for the page.
+      }
+    };
+    loadTemplates();
+    return () => {
+      stopTemplateRelayoutPolling();
+    };
+  }, [stopTemplateRelayoutPolling]);
+
+  useEffect(() => {
+    const refreshTemplateJob = async () => {
+      try {
+        const res = await getProjectTemplateChangeStatus(projectId);
+        if (!res.data) return;
+        setTemplateRelayoutJob(res.data);
+        if (res.data.status === "queued" || res.data.status === "running") {
+          startTemplateRelayoutPolling();
+        }
+      } catch {
+        // ignore
+      }
+    };
+    refreshTemplateJob();
+  }, [projectId, startTemplateRelayoutPolling]);
 
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
@@ -1499,6 +1611,31 @@ export default function ProjectView() {
     }
   };
 
+  const applyTemplateRelayout = async () => {
+    if (!project) return;
+    setSubmittingTemplateRelayout(true);
+    try {
+      const res = await changeProjectTemplateRegenerateLayouts(
+        project.id,
+        selectedProjectTemplate
+      );
+      setTemplateRelayoutJob(res.data);
+      startTemplateRelayoutPolling();
+      showNotice("Video regeneration is running in the background.", {
+        title: "Regeneration started",
+        variant: "success",
+      });
+    } catch (err) {
+      const status = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+      if (status === 403) setShowUpgrade(true);
+      showError(getErrorMessage(err, "Failed to start template relayout."));
+    } finally {
+      setSubmittingTemplateRelayout(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -1789,10 +1926,26 @@ export default function ProjectView() {
   );
 
   // ─── Generation loader ────────────────────────────────────
-  const renderGenerationLoader = () => {
-    const stepLabels = PIPELINE_STEPS.map((s) => s.label);
-    const currentStepIdx = Math.max(0, pipelineStep - 1);
-    const progress = smoothProgress;
+  const templateRelayoutRunning =
+    templateRelayoutJob?.status === "running" || templateRelayoutJob?.status === "queued";
+  const statusForBadge = templateRelayoutRunning ? "regenerating" : project.status;
+  const renderGenerationLoader = (mode: "pipeline" | "template-relayout" = "pipeline") => {
+    const relayoutProgressRaw =
+      templateRelayoutJob && templateRelayoutJob.total_scenes > 0
+        ? (templateRelayoutJob.processed_scenes / templateRelayoutJob.total_scenes) * 100
+        : templateRelayoutJob?.status === "queued"
+        ? 8
+        : 0;
+    const relayoutProgress = Math.max(8, Math.min(98, Math.round(relayoutProgressRaw)));
+    const stepLabels =
+      mode === "template-relayout"
+        ? []
+        : PIPELINE_STEPS.map((s) => s.label);
+    const currentStepIdx =
+      mode === "template-relayout"
+        ? 0
+        : Math.max(0, pipelineStep - 1);
+    const progress = mode === "template-relayout" ? relayoutProgress : smoothProgress;
 
     return (
       <div
@@ -1805,7 +1958,7 @@ export default function ProjectView() {
           </div>
 
           <h2 className="text-base font-semibold text-gray-900 mb-1">
-            Generating your video
+            {mode === "template-relayout" ? "Regenerating scene layouts" : "Generating your video"}
           </h2>
           <p className="text-xs text-gray-400 mb-8">{project.name}</p>
 
@@ -1816,66 +1969,68 @@ export default function ProjectView() {
             />
           </div>
 
-          <div className="flex items-center justify-between mb-8">
-            {stepLabels.map((label, i) => {
-              const isActive = i === currentStepIdx;
-              const isDone =
-                i < currentStepIdx ||
-                pipelineStep > PIPELINE_STEPS.length;
-              return (
-                <div
-                  key={label}
-                  className="flex flex-col items-center gap-2"
-                >
+          {mode !== "template-relayout" && (
+            <div className="flex items-center justify-between mb-8">
+              {stepLabels.map((label, i) => {
+                const isActive = i === currentStepIdx;
+                const isDone =
+                  i < currentStepIdx ||
+                  pipelineStep > PIPELINE_STEPS.length;
+                return (
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                      isDone
-                        ? "bg-green-100 text-green-600"
-                        : isActive
-                        ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
+                    key={label}
+                    className="flex flex-col items-center gap-2"
                   >
-                    {isDone ? (
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    ) : (
-                      i + 1
-                    )}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                        isDone
+                          ? "bg-green-100 text-green-600"
+                          : isActive
+                          ? "bg-purple-100 text-purple-600 ring-2 ring-purple-200"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      {isDone ? (
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-medium ${
+                        isDone
+                          ? "text-green-600"
+                          : isActive
+                          ? "text-purple-600"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs font-medium ${
-                      isDone
-                        ? "text-green-600"
-                        : isActive
-                        ? "text-purple-600"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-2">
             <span className="w-3 h-3 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
             <span className="text-xs text-gray-400">
-              {pipelineStep <= PIPELINE_STEPS.length
-                ? `${PIPELINE_STEPS[currentStepIdx]?.label}...`
-                : "Finishing up..."}
+              {mode === "template-relayout"
+                ? `${progress}% complete`
+                : `${stepLabels[currentStepIdx] ?? "Finishing up"}...`}
             </span>
           </div>
 
@@ -2042,7 +2197,7 @@ export default function ProjectView() {
                 <h2 className="text-sm font-medium text-gray-900">
                   {project.name}
                 </h2>
-                <StatusBadge status={project.status} />
+                <StatusBadge status={statusForBadge} />
               </div>
               <div className="flex items-center gap-2">
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
@@ -2547,8 +2702,8 @@ export default function ProjectView() {
       )}
 
       {/* Upper area: loader when running, editor when complete */}
-      {pipelineRunning ? (
-        renderGenerationLoader()
+      {pipelineRunning || templateRelayoutRunning ? (
+        renderGenerationLoader(templateRelayoutRunning ? "template-relayout" : "pipeline")
       ) : pipelineComplete && project.scenes.length > 0 ? (
         renderCompleted()
       ) : (
@@ -2559,7 +2714,7 @@ export default function ProjectView() {
                 <h1 className="text-lg font-semibold text-gray-900">
                   {project.name}
                 </h1>
-                <StatusBadge status={project.status} />
+                <StatusBadge status={statusForBadge} />
               </div>
               {project.blog_url && !project.blog_url.startsWith("upload://") ? (
                 <a
@@ -3253,7 +3408,224 @@ export default function ProjectView() {
         )}
 
        {activeTab === "settings" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-visible">
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Font family</h2>
+            <p className="text-xs text-gray-400 mb-5">
+            Leave as Default to use the template’s built-in fonts.
+            </p>
+            <div className="glass-card p-6 flex flex-col gap-4 overflow-visible relative z-30">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-700">
+                  Font family
+                </label>
+                <div ref={fontDropdownRef} className="relative w-full max-w-sm">
+                  <button
+                    type="button"
+                    onClick={() => setShowFontDropdown((v) => !v)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 flex items-center justify-between"
+                  >
+                    <span>
+                      {settingsFontId
+                        ? FONT_REGISTRY[settingsFontId as keyof typeof FONT_REGISTRY]?.label || settingsFontId
+                        : "Default (template)"}
+                    </span>
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showFontDropdown && (
+                    <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 max-h-72 overflow-y-auto">
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettingsFontId(null);
+                            setShowFontDropdown(false);
+                          }}
+                          className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                            !settingsFontId ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50 text-gray-700"
+                          }`}
+                        >
+                          Default
+                        </button>
+                        {Object.values(FONT_REGISTRY)
+                          .filter((opt) => opt.id !== "fira_code")
+                          .map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                setSettingsFontId(opt.id);
+                                setShowFontDropdown(false);
+                              }}
+                              className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                settingsFontId === opt.id
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {settingsFontId && (
+                <div className="mt-2">
+                  <p className="text-[11px] text-gray-500 mb-1">Preview</p>
+                  <div
+                    className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
+                    style={{
+                      fontFamily:
+                        resolveFontFamily(settingsFontId) ??
+                        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                    }}
+                  >
+                    The quick brown fox jumps over the lazy dog.
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={savingFontFamily}
+                  onClick={async () => {
+                    setSavingFontFamily(true);
+                    try {
+                      await updateProject(project.id, {
+                        font_family: settingsFontId || null,
+                      });
+                      await loadProject();
+                    } catch (err) {
+                      showError(getErrorMessage(err, "Failed to save font family."));
+                    } finally {
+                      setSavingFontFamily(false);
+                    }
+                  }}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {savingFontFamily ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save font"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-base font-medium text-gray-900 mb-1">Project Template</h2>
+            <p className="text-xs text-gray-400 mb-5">
+              Rebuild scene layouts for a new template while preserving narration, display text, voiceovers.
+            </p>
+            <div className="glass-card p-6 flex flex-col gap-4 overflow-visible relative z-20">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-700">Target template</label>
+                <div ref={templateDropdownRef} className="relative w-full">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplateDropdown((v) => !v)}
+                    disabled={submittingTemplateRelayout || templateRelayoutRunning}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 disabled:bg-gray-100 disabled:text-gray-400 flex items-center justify-between"
+                  >
+                    <span className="truncate">
+                      {[
+                        ...builtinTemplates.map((t) => ({ value: t.id, label: t.name })),
+                        ...customTemplates.map((t) => ({ value: `custom_${t.id}`, label: t.name })),
+                      ].find((opt) => opt.value === selectedProjectTemplate)?.label || "Select template"}
+                    </span>
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showTemplateDropdown && (
+                    <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-2 max-h-80 overflow-y-auto">
+                      <div>
+                        <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Built-in templates</p>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {builtinTemplates.map((tpl) => (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedProjectTemplate(tpl.id);
+                                setShowTemplateDropdown(false);
+                              }}
+                              className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                selectedProjectTemplate === tpl.id
+                                  ? "bg-purple-50 text-purple-700"
+                                  : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              {tpl.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {customTemplates.length > 0 && (
+                        <div>
+                          <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Custom templates</p>
+                          <div className="grid grid-cols-1 gap-1.5">
+                            {customTemplates.map((tpl) => {
+                              const value = `custom_${tpl.id}`;
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProjectTemplate(value);
+                                    setShowTemplateDropdown(false);
+                                  }}
+                                  className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
+                                    selectedProjectTemplate === value
+                                      ? "bg-purple-50 text-purple-700"
+                                      : "hover:bg-gray-50 text-gray-700"
+                                  }`}
+                                >
+                                  {tpl.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-auto">
+                <button
+                  type="button"
+                  disabled={
+                    submittingTemplateRelayout ||
+                    selectedProjectTemplate === (project.template || "default") ||
+                    templateRelayoutJob?.status === "running" ||
+                    templateRelayoutJob?.status === "queued"
+                  }
+                  onClick={applyTemplateRelayout}
+                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
+                >
+                  {submittingTemplateRelayout ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Starting…
+                    </>
+                  ) : (
+                    "Apply template and regenerate layouts"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>
             <p className="text-xs text-gray-400 mb-5">Applied to all scenes at once.</p>
@@ -3315,80 +3687,6 @@ export default function ProjectView() {
                     </>
                   ) : (
                     "Apply to all Scenes"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Font family</h2>
-            <p className="text-xs text-gray-400 mb-5">
-            Leave as Default to use the template’s built-in fonts.
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-gray-700">
-                  Font family
-                </label>
-                <select
-                  className="w-full max-w-xs px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-purple-300"
-                  value={settingsFontId ?? ""}
-                  onChange={(e) =>
-                    setSettingsFontId(e.target.value === "" ? null : e.target.value)
-                  }
-                >
-                  <option value="">Default (template)</option>
-                  {Object.values(FONT_REGISTRY).map((opt) => (
-                    opt.id === "fira_code" ? null : (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    )
-                  ))}
-                </select>
-              </div>
-              {settingsFontId && (
-                <div className="mt-2">
-                  <p className="text-[11px] text-gray-500 mb-1">Preview</p>
-                  <div
-                    className="px-3 py-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-800"
-                    style={{
-                      fontFamily:
-                        resolveFontFamily(settingsFontId) ??
-                        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                    }}
-                  >
-                    The quick brown fox jumps over the lazy dog.
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingFontFamily}
-                  onClick={async () => {
-                    setSavingFontFamily(true);
-                    try {
-                      await updateProject(project.id, {
-                        font_family: settingsFontId || null,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save font family."));
-                    } finally {
-                      setSavingFontFamily(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingFontFamily ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save font"
                   )}
                 </button>
               </div>
@@ -3472,6 +3770,7 @@ export default function ProjectView() {
               </div>
             </div>
           </div>
+
         </div>
       )}
 

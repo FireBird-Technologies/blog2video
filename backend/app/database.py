@@ -370,6 +370,7 @@ def init_db():
         # Ensure SQLite creates the prebuilt_voices table in dev/local.
         PrebuiltVoice,
         Review,
+        ProjectTemplateChangeJob,
     )
     from app.models.subscription import seed_plans
 

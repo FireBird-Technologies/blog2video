@@ -13,6 +13,7 @@ class ProjectStatus(str, enum.Enum):
     RENDERING = "rendering"
     DONE = "done"
     ERROR = "error"
+    GENERATING = "regenerating"
 
 
 class Project(Base):
