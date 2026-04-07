@@ -383,39 +383,86 @@ class CancelSubscriptionRequest(BaseModel):
 def _coupon_id_from_stripe_object(coupon: object) -> str | None:
     if coupon is None:
         return None
+    if isinstance(coupon, str):
+        # Sometimes Stripe returns only the coupon id string.
+        return coupon
     if isinstance(coupon, dict):
         return coupon.get("id")
     return getattr(coupon, "id", None)
 
 
+def _stripe_get(obj: object, key: str, default: object = None) -> object:
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def _subscription_has_retention_coupon(stripe_sub: object, retention_coupon_id: str) -> bool:
     """True if subscription already has this coupon (Stripe discount list or legacy single discount)."""
+    logger.info(
+        "[RETENTION] Checking subscription-level discounts for coupon %s",
+        retention_coupon_id,
+    )
 
     def _coupon_id_from_discount(discount_obj: object) -> str | None:
         if discount_obj is None:
             return None
+        if isinstance(discount_obj, str):
+            # Sometimes only discount id is present (non-expanded object)
+            try:
+                retrieved_discount = stripe.Discount.retrieve(discount_obj)
+                return _coupon_id_from_stripe_object(_stripe_get(retrieved_discount, "coupon"))
+            except Exception:
+                logger.warning(
+                    "[RETENTION] Could not expand discount id=%s while checking subscription",
+                    discount_obj,
+                )
+                return None
         if isinstance(discount_obj, dict):
             coupon = discount_obj.get("coupon")
         else:
             coupon = getattr(discount_obj, "coupon", None)
+        # Newer shapes may nest coupon under source.coupon
+        if coupon is None:
+            source = _stripe_get(discount_obj, "source")
+            coupon = _stripe_get(source, "coupon")
         return _coupon_id_from_stripe_object(coupon)
 
     discounts = getattr(stripe_sub, "discounts", None)
+    logger.info(
+        "[RETENTION] subscription.discounts present=%s type=%s",
+        discounts is not None,
+        type(discounts).__name__ if discounts is not None else None,
+    )
     if discounts is not None:
         items = getattr(discounts, "data", None)
         if items is None and isinstance(discounts, list):
             items = discounts
+        logger.info(
+            "[RETENTION] subscription.discounts items_count=%s",
+            len(items) if isinstance(items, list) else 0,
+        )
         if items:
             for d in items:
                 if _coupon_id_from_discount(d) == retention_coupon_id:
+                    logger.info("[RETENTION] Matched coupon on subscription.discounts")
                     return True
 
     discount = getattr(stripe_sub, "discount", None)
     if discount is None and isinstance(stripe_sub, dict):
         discount = stripe_sub.get("discount")
+    logger.info(
+        "[RETENTION] subscription.discount present=%s type=%s",
+        discount is not None,
+        type(discount).__name__ if discount is not None else None,
+    )
     if _coupon_id_from_discount(discount) == retention_coupon_id:
+        logger.info("[RETENTION] Matched coupon on legacy subscription.discount")
         return True
 
+    logger.info("[RETENTION] No subscription-level coupon match")
     return False
 
 
@@ -429,30 +476,107 @@ def _upcoming_invoice_has_retention_coupon(
     if not user.stripe_customer_id or not user.stripe_subscription_id:
         return False
     try:
-        upcoming = stripe.Invoice.upcoming(
-            customer=user.stripe_customer_id,
-            subscription=user.stripe_subscription_id,
+        if hasattr(stripe.Invoice, "upcoming"):
+            upcoming = stripe.Invoice.upcoming(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                expand=[
+                    "discount",
+                    "discount.coupon",
+                    "discounts",
+                    "discounts.data",
+                    "discounts.data.coupon",
+                    "total_discount_amounts.discount",
+                    "total_discount_amounts.discount.coupon",
+                ],
+            )
+        else:
+            # Stripe SDK v13+ removed Invoice.upcoming in favor of create_preview.
+            upcoming = stripe.Invoice.create_preview(
+                customer=user.stripe_customer_id,
+                subscription=user.stripe_subscription_id,
+                expand=[
+                    "discount",
+                    "discount.coupon",
+                    "discounts",
+                    "discounts.data",
+                    "discounts.data.coupon",
+                    "total_discount_amounts.discount",
+                    "total_discount_amounts.discount.coupon",
+                ],
+            )
+        logger.info(
+            "[RETENTION] Loaded upcoming invoice preview for user=%s sub=%s",
+            user.id,
+            user.stripe_subscription_id,
         )
     except Exception:
         # If preview fails, don't block applying the coupon.
+        logger.exception(
+            "[RETENTION] Failed to load upcoming invoice preview for user=%s sub=%s",
+            user.id,
+            user.stripe_subscription_id,
+        )
         return False
 
-    discounts = getattr(upcoming, "discounts", None)
+    discounts = _stripe_get(upcoming, "discounts")
+    logger.info(
+        "[RETENTION] upcoming.discounts present=%s type=%s",
+        discounts is not None,
+        type(discounts).__name__ if discounts is not None else None,
+    )
     if discounts is not None:
-        items = getattr(discounts, "data", None)
+        items = _stripe_get(discounts, "data")
+        if items is None and isinstance(discounts, list):
+            items = discounts
+        logger.info(
+            "[RETENTION] upcoming.discounts items_count=%s",
+            len(items) if isinstance(items, list) else 0,
+        )
         if items:
             for d in items:
-                coupon = getattr(d, "coupon", None)
-                if _coupon_id_from_stripe_object(coupon) == retention_coupon_id:
+                coupon = _stripe_get(d, "coupon")
+                coupon_id = _coupon_id_from_stripe_object(coupon)
+                logger.info("[RETENTION] upcoming.discounts coupon_id=%s", coupon_id)
+                if coupon_id == retention_coupon_id:
+                    logger.info("[RETENTION] Matched coupon on upcoming.discounts")
                     return True
 
     # Legacy single discount field
-    discount = getattr(upcoming, "discount", None)
+    discount = _stripe_get(upcoming, "discount")
+    logger.info(
+        "[RETENTION] upcoming.discount present=%s type=%s",
+        discount is not None,
+        type(discount).__name__ if discount is not None else None,
+    )
     if discount is not None:
-        coupon = getattr(discount, "coupon", None)
-        if _coupon_id_from_stripe_object(coupon) == retention_coupon_id:
+        coupon = _stripe_get(discount, "coupon")
+        coupon_id = _coupon_id_from_stripe_object(coupon)
+        logger.info("[RETENTION] upcoming.discount coupon_id=%s", coupon_id)
+        if coupon_id == retention_coupon_id:
+            logger.info("[RETENTION] Matched coupon on legacy upcoming.discount")
             return True
 
+    # Some invoice previews expose discount amounts with expanded discount/coupon refs.
+    total_discount_amounts = _stripe_get(upcoming, "total_discount_amounts")
+    logger.info(
+        "[RETENTION] upcoming.total_discount_amounts type=%s count=%s",
+        type(total_discount_amounts).__name__ if total_discount_amounts is not None else None,
+        len(total_discount_amounts) if isinstance(total_discount_amounts, list) else 0,
+    )
+    if isinstance(total_discount_amounts, list):
+        for item in total_discount_amounts:
+            discount_obj = _stripe_get(item, "discount")
+            if discount_obj is None:
+                continue
+            coupon = _stripe_get(discount_obj, "coupon")
+            coupon_id = _coupon_id_from_stripe_object(coupon)
+            logger.info("[RETENTION] upcoming.total_discount_amounts coupon_id=%s", coupon_id)
+            if coupon_id == retention_coupon_id:
+                logger.info("[RETENTION] Matched coupon on total_discount_amounts")
+                return True
+
+    logger.info("[RETENTION] No upcoming-invoice coupon match")
     return False
 
 
@@ -580,11 +704,30 @@ def accept_retention_offer(
         raise HTTPException(status_code=400, detail="Retention coupon is not configured")
 
     try:
-        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+        logger.info(
+            "[RETENTION] accept_retention_offer user=%s sub=%s shown_count=%s suppressed=%s coupon=%s",
+            user.id,
+            user.stripe_subscription_id,
+            user.retention_offer_shown_count,
+            user.retention_offer_suppressed,
+            retention_coupon_id,
+        )
+        stripe_sub = stripe.Subscription.retrieve(
+            user.stripe_subscription_id,
+            expand=[
+                "discount",
+                "discount.coupon",
+                "discounts",
+                "discounts.data",
+                "discounts.data.coupon",
+            ],
+        )
+        logger.info("[RETENTION] Retrieved subscription from Stripe")
 
         if _subscription_has_retention_coupon(stripe_sub, retention_coupon_id) or _upcoming_invoice_has_retention_coupon(
             user, retention_coupon_id
         ):
+            logger.info("[RETENTION] Coupon already applied; returning already_applied")
             return RetentionOfferAcceptOut(
                 status="already_applied",
                 message="This discount is already applied to your subscription.",
@@ -624,11 +767,16 @@ def accept_retention_offer(
             user.stripe_subscription_id,
             discounts=[*existing_discounts_payload, {"coupon": retention_coupon_id}],
         )
+        logger.info("[RETENTION] Applied coupon on Stripe subscription.modify")
         user.retention_offer_shown_count = min(
             MAX_RETENTION_OFFER_SHOWS,
             (user.retention_offer_shown_count or 0) + 1,
         )
         db.commit()
+        logger.info(
+            "[RETENTION] Incremented shown_count to %s after apply",
+            user.retention_offer_shown_count,
+        )
 
         return RetentionOfferAcceptOut(
             status="applied",
