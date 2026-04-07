@@ -22,6 +22,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 logger = get_logger(__name__)
+MAX_RETENTION_OFFER_SHOWS = 2
 
 
 class CheckoutResponse(BaseModel):
@@ -355,10 +356,35 @@ class SubscriptionDetailOut(BaseModel):
     videos_used: int
     amount_paid_cents: int
     canceled_at: str | None = None
+    retention_offer_eligible: bool = False
     created_at: str
 
     class Config:
         from_attributes = True
+
+
+class RetentionOfferImpressionOut(BaseModel):
+    recorded: bool
+    shown_count: int
+    eligible: bool
+
+
+class RetentionOfferAcceptOut(BaseModel):
+    status: str
+    message: str
+
+
+class CancelSubscriptionRequest(BaseModel):
+    declined_retention_offer: bool = False
+
+
+def _is_retention_offer_eligible(user: User) -> bool:
+    return bool(
+        settings.STRIPE_RETENTION_COUPON_ID
+        and user.stripe_subscription_id
+        and not (user.retention_offer_suppressed or False)
+        and (user.retention_offer_shown_count or 0) < MAX_RETENTION_OFFER_SHOWS
+    )
 
 
 @router.get("/subscription", response_model=SubscriptionDetailOut | None)
@@ -391,6 +417,7 @@ def get_subscription_detail(
         videos_used=sub.videos_used,
         amount_paid_cents=sub.amount_paid_cents,
         canceled_at=sub.canceled_at.isoformat() if sub.canceled_at else None,
+        retention_offer_eligible=_is_retention_offer_eligible(user),
         created_at=sub.created_at.isoformat(),
     )
 
@@ -449,8 +476,85 @@ def list_invoices(
 
 # ─── Cancel Subscription ──────────────────────────────────
 
+@router.post("/retention-offer/impression", response_model=RetentionOfferImpressionOut)
+def record_retention_offer_impression(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Impression tracking endpoint intentionally does not increment counters.
+    # Retention count increases only when the user accepts the discount.
+    return RetentionOfferImpressionOut(
+        recorded=False,
+        shown_count=user.retention_offer_shown_count or 0,
+        eligible=_is_retention_offer_eligible(user),
+    )
+
+
+@router.post("/retention-offer/accept", response_model=RetentionOfferAcceptOut)
+def accept_retention_offer(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _is_retention_offer_eligible(user):
+        raise HTTPException(status_code=409, detail="Retention offer is no longer available")
+    retention_coupon_id = settings.STRIPE_RETENTION_COUPON_ID
+    if not retention_coupon_id:
+        raise HTTPException(status_code=400, detail="Retention coupon is not configured")
+
+    try:
+        stripe_sub = stripe.Subscription.retrieve(user.stripe_subscription_id)
+
+        existing_discounts_payload: list[dict[str, str]] = []
+        discounts = getattr(stripe_sub, "discounts", None)
+        discount_items = getattr(discounts, "data", []) if discounts is not None else []
+
+        for discount in discount_items:
+            coupon = getattr(discount, "coupon", None)
+            promotion_code = getattr(discount, "promotion_code", None)
+
+            coupon_id = getattr(coupon, "id", None) if coupon is not None else None
+            if not coupon_id and isinstance(coupon, dict):
+                coupon_id = coupon.get("id")
+
+            if coupon_id == retention_coupon_id:
+                return RetentionOfferAcceptOut(
+                    status="ok",
+                    message="Retention discount is already applied",
+                )
+
+            if coupon_id:
+                existing_discounts_payload.append({"coupon": coupon_id})
+                continue
+
+            promotion_code_id = (
+                getattr(promotion_code, "id", None) if promotion_code is not None else None
+            )
+            if not promotion_code_id and isinstance(promotion_code, dict):
+                promotion_code_id = promotion_code.get("id")
+            if promotion_code_id:
+                existing_discounts_payload.append({"promotion_code": promotion_code_id})
+
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            discounts=[*existing_discounts_payload, {"coupon": retention_coupon_id}],
+        )
+        user.retention_offer_shown_count = min(
+            MAX_RETENTION_OFFER_SHOWS,
+            (user.retention_offer_shown_count or 0) + 1,
+        )
+        db.commit()
+
+        return RetentionOfferAcceptOut(
+            status="ok",
+            message="30% discount applied to your next invoice",
+        )
+    except stripe.error.InvalidRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/cancel")
 def cancel_subscription(
+    body: CancelSubscriptionRequest = CancelSubscriptionRequest(),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -464,6 +568,11 @@ def cancel_subscription(
             user.stripe_subscription_id,
             cancel_at_period_end=True,
         )
+
+        if body.declined_retention_offer:
+            user.retention_offer_suppressed = True
+            db.commit()
+
         return {"status": "ok", "message": "Subscription will cancel at the end of the billing period"}
     except stripe.error.InvalidRequestError as e:
         raise HTTPException(status_code=400, detail=str(e))

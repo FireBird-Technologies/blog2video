@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $25/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $20/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+    STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"
