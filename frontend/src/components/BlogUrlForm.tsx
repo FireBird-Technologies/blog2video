@@ -414,6 +414,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   /** Random built-in default for new rows / initial pick; stable until templates reload. */
   const [pickerDefaultTemplateId, setPickerDefaultTemplateId] = useState<string>("default");
+  const templateManuallySelectedRef = useRef(false);
 
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
@@ -595,11 +596,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const picked = templates[idx];
     if (!picked?.id) return;
     setPickerDefaultTemplateId(picked.id);
+    if (templateManuallySelectedRef.current) return;
     setTemplate((prev) =>
-      prev === "default" || prev.startsWith("custom_") ? picked.id : prev
+      prev === "default" ? picked.id : prev
     );
     setBulkTemplates((prev) =>
-      prev.length > 0 ? prev.map(() => picked.id) : [picked.id]
+      prev.length > 0
+        ? prev.map((tpl) => (tpl === "default" ? picked.id : tpl))
+        : [picked.id]
     );
   }, [templates]);
 
@@ -1064,6 +1068,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
+    templateManuallySelectedRef.current = true;
     if (id.startsWith("custom_") && !isPro) {
       setShowCustomTemplateUpgrade(true);
       return;
@@ -2009,6 +2014,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     };
 
     const applyBulkTemplate = (id: string) => {
+      templateManuallySelectedRef.current = true;
       if (id.startsWith("custom_") && !isPro) {
         setShowCustomTemplateUpgrade(true);
         return;
