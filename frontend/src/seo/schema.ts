@@ -72,6 +72,8 @@ export function homepageSchema() {
         "@type": "Offer",
         price: "0",
         priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        url: `${siteUrl}/pricing`,
       },
     },
   ];
@@ -79,52 +81,23 @@ export function homepageSchema() {
 
 export function pricingSchema() {
   const sharedOfferFields = {
-    availability: "https://schema.org/OnlineOnly",
-    hasMerchantReturnPolicy: {
-      "@type": "MerchantReturnPolicy",
-      applicableCountry: "US",
-      returnPolicyCategory:
-        "https://schema.org/MerchantReturnNotPermitted",
-    },
-    shippingDetails: {
-      "@type": "OfferShippingDetails",
-      shippingRate: {
-        "@type": "MonetaryAmount",
-        value: "0",
-        currency: "USD",
-      },
-      shippingDestination: {
-        "@type": "DefinedRegion",
-        addressCountry: "US",
-      },
-      deliveryTime: {
-        "@type": "ShippingDeliveryTime",
-        handlingTime: {
-          "@type": "QuantitativeValue",
-          minValue: 0,
-          maxValue: 0,
-          unitCode: "DAY",
-        },
-        transitTime: {
-          "@type": "QuantitativeValue",
-          minValue: 0,
-          maxValue: 0,
-          unitCode: "DAY",
-        },
-      },
-    },
+    availability: "https://schema.org/InStock",
+    url: `${siteUrl}/pricing`,
   };
 
   return [
     {
       "@context": "https://schema.org",
-      "@type": "Product",
+      "@type": "SoftwareApplication",
       name: "Blog2Video",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: `${siteUrl}/pricing`,
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
       image: defaultOgImage,
-      brand: {
-        "@type": "Brand",
+      publisher: {
+        "@type": "Organization",
         name: organizationName,
       },
       offers: [
@@ -220,6 +193,8 @@ export function marketingPageSchema(page: MarketingPage) {
         "@type": "Offer",
         priceCurrency: "USD",
         price: "0",
+        availability: "https://schema.org/InStock",
+        url: `${siteUrl}/pricing`,
       },
     },
     breadcrumbList([
