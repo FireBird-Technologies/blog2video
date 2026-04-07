@@ -35,6 +35,7 @@ export default function Subscription() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRetentionOfferInCancel, setShowRetentionOfferInCancel] = useState(false);
   const [retentionSuccessMessage, setRetentionSuccessMessage] = useState<string | null>(null);
+  const [retentionErrorMessage, setRetentionErrorMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const { showError } = useErrorModal();
@@ -98,6 +99,7 @@ export default function Subscription() {
 
   const openCancelConfirmModal = async () => {
     setRetentionSuccessMessage(null);
+    setRetentionErrorMessage(null);
     const shouldShowRetention = !!subscription?.retention_offer_eligible;
     setShowRetentionOfferInCancel(shouldShowRetention);
     setShowCancelConfirm(true);
@@ -107,6 +109,7 @@ export default function Subscription() {
     setShowCancelConfirm(false);
     setShowRetentionOfferInCancel(false);
     setRetentionSuccessMessage(null);
+    setRetentionErrorMessage(null);
   };
 
   const handleCancel = async (declinedRetentionOffer = false) => {
@@ -120,6 +123,9 @@ export default function Subscription() {
       closeCancelConfirmModal();
     } catch (err) {
       console.error("Failed to cancel:", err);
+      setRetentionErrorMessage(
+        getErrorMessage(err, "We couldn't cancel your subscription. Please try again.")
+      );
     } finally {
       setActionLoading(null);
     }
@@ -127,18 +133,23 @@ export default function Subscription() {
 
   const handleAcceptRetentionOffer = async () => {
     setActionLoading("retention-accept");
+    setRetentionErrorMessage(null);
     try {
-      await acceptRetentionOffer();
+      const res = await acceptRetentionOffer();
       await refreshUser();
       await loadAll();
       setRetentionSuccessMessage(
-        "Thank you for staying. You have been given 30% off on your next voucher."
+        res.data.message?.trim() ||
+          "Thank you for staying. You have been given 30% off on your next voucher."
       );
       window.setTimeout(() => {
         closeCancelConfirmModal();
       }, 2500);
     } catch (err) {
       console.error("Failed to apply retention offer:", err);
+      setRetentionErrorMessage(
+        getErrorMessage(err, "We couldn't apply the discount. Please try again.")
+      );
     } finally {
       setActionLoading(null);
     }
@@ -342,32 +353,44 @@ export default function Subscription() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Success</h3>
                 <p className="text-sm text-gray-600 max-w-sm">{retentionSuccessMessage}</p>
               </div>
-            ) : showRetentionOfferInCancel ? (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
-                <p className="text-sm text-gray-500 mb-1">
-                  Your Pro access will remain active until the end of your current billing period
-                  {subscription?.current_period_end && (
-                    <> ({formatDate(subscription.current_period_end)})</>
-                  )}.
-                </p>
-                <p className="text-sm text-gray-500 mb-6">
-                  Before you go, we can offer 30% off your next billing period if you keep your
-                  subscription active.
-                </p>
-              </>
             ) : (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
-                <p className="text-sm text-gray-500 mb-1">
-                  Your Pro access will remain active until the end of your current billing period
-                  {subscription?.current_period_end && (
-                    <> ({formatDate(subscription.current_period_end)})</>
-                  )}.
-                </p>
-                <p className="text-sm text-gray-500 mb-6">
-                  After that, you'll be downgraded to the Free plan. You can resubscribe anytime.
-                </p>
+                {showRetentionOfferInCancel ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Your Pro access will remain active until the end of your current billing period
+                      {subscription?.current_period_end && (
+                        <> ({formatDate(subscription.current_period_end)})</>
+                      )}.
+                    </p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Before you go, we can offer 30% off your next billing period if you keep your
+                      subscription active.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Cancel subscription?</h3>
+                    <p className="text-sm text-gray-500 mb-1">
+                      Your Pro access will remain active until the end of your current billing period
+                      {subscription?.current_period_end && (
+                        <> ({formatDate(subscription.current_period_end)})</>
+                      )}.
+                    </p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      After that, you'll be downgraded to the Free plan. You can resubscribe anytime.
+                    </p>
+                  </>
+                )}
+                {retentionErrorMessage && (
+                  <div
+                    className="mb-4 p-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg"
+                    role="alert"
+                  >
+                    {retentionErrorMessage}
+                  </div>
+                )}
               </>
             )}
             {!retentionSuccessMessage && (
