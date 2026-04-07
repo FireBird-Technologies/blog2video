@@ -37,7 +37,7 @@ export default function DiscountBanner({
         {/* Left: reason for discount */}
         <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[11px] sm:text-sm font-medium text-purple-900 sm:order-1">
           <span className="w-1.5 h-1.5 rounded-full bg-purple-800" />
-          <span>Eid Mubarak — limited-time discount</span>
+          <span>Spring Savings – Limited Time</span>
         </div>
 
         {/* Center: code + countdown and CTA (desktop only inside badge) */}
