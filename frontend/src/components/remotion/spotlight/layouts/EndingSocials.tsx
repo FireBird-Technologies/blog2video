@@ -29,7 +29,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
-  const resolvedTitleSize = titleFontSize ?? (p ? 95 : 93);
+  const resolvedTitleSize = titleFontSize ?? (p ? 95 : 81);
   const resolvedCtaSize = resolvedTitleSize + 30;
 
   let currentDelay = 20; 
@@ -89,7 +89,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
       {/* 1. TOP GROUP: Moved further down from the top edge */}
       <div style={{
         position: "absolute",
-        top: p ? "18%" : "15%", // Increased from 10%/8% to bring closer to center
+        top: p ? "25%" : "20%", // Adjusted to bring closer to center
         left: 0,
         right: 0,
         display: "flex",
@@ -111,7 +111,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
           {title}
         </div>
         <div style={{
-          marginTop: p ? 15 : 10,
+          marginTop: p ? 10 : 8, // Reduced spacing between items
           width: p ? 180 : 260,
           height: 6,
           borderRadius: 999,
@@ -147,7 +147,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
             {resolvedCta}
           </div>
           <div style={{ 
-            marginTop: 20, /* Increased vertical spacing from CTA text */
+            marginTop: 10, /* Reduced vertical spacing from CTA text */
             padding: "10px 20px", /* Added internal padding */
             marginInline: 15, /* Added left and right margin */
             fontSize: p ? 28 : 26, 
@@ -168,7 +168,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
       {/* 3. BOTTOM GROUP: Moved further up from the bottom edge */}
       <div style={{
         position: "absolute",
-        bottom: p ? "15%" : "12%", // Increased from 6%/5% to bring closer to center
+        bottom: p ? "22%" : "18%", // Adjusted to bring closer to center
         left: 0,
         right: 0,
         display: "flex",
@@ -186,7 +186,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
             maxWidth: 860,
             fontFamily: bodyFont,
             textAlign: "center",
-            marginBottom: 20,
+            marginBottom: 15, // Reduced spacing between items
             ...subtextAnim,
           }}>
             {subtext}
