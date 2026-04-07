@@ -11,6 +11,10 @@ class PlanTier(str, enum.Enum):
     PRO = "pro"
 
 
+# Included videos for plan FREE (before video_limit_bonus). Used for limits and delete-account capping.
+FREE_TIER_INCLUDED_VIDEOS = 3
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -26,6 +30,8 @@ class User(Base):
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     videos_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     video_limit_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # per-video credits purchased
+    retention_offer_shown_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    retention_offer_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -45,7 +51,7 @@ class User(Base):
     def video_limit(self) -> int:
         """Max videos allowed in the current billing period."""
         if self.plan == PlanTier.FREE:
-            base = 1
+            base = FREE_TIER_INCLUDED_VIDEOS
         elif self.plan == PlanTier.STANDARD:
             base = 30
         else:

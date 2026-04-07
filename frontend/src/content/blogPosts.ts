@@ -3338,7 +3338,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What is the best free blog-to-video tool?",
         answer:
-          "Blog2Video offers a free first video with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free video provides the highest-fidelity output.",
+          "Blog2Video offers three free videos with no watermark. Lumen5 has a free tier limited to 5 videos at 720p with a watermark. Fliki offers 5 free minutes per month. Most other tools either have no free tier or restrict free usage to trials. For technical content, Blog2Video's free tier provides the highest-fidelity output.",
       },
       {
         question: "Can Blog2Video handle code blocks and diagrams?",
