@@ -6,6 +6,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   rendering: { label: "Rendering", color: "bg-amber-400" },
   done: { label: "Complete", color: "bg-green-400" },
   error: { label: "Error", color: "bg-red-400" },
+  regenerating: { label: "Regenerating", color: "bg-yellow-700" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {

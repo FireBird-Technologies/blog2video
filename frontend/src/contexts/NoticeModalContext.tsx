@@ -3,6 +3,7 @@ import NoticeModal from "../components/NoticeModal";
 
 interface NoticeOptions {
   title?: string;
+  variant?: "info" | "success";
   onClose?: () => void;
 }
 
@@ -15,10 +16,12 @@ const NoticeModalContext = createContext<NoticeModalContextType | null>(null);
 export function NoticeModalProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("Message");
+  const [variant, setVariant] = useState<"info" | "success">("info");
   const [onCloseAction, setOnCloseAction] = useState<(() => void) | null>(null);
 
   const showNotice = useCallback((msg: string, options?: NoticeOptions) => {
     setTitle((options?.title || "Message").trim() || "Message");
+    setVariant(options?.variant === "success" ? "success" : "info");
     setMessage((msg || "").trim() || "Done.");
     setOnCloseAction(() => options?.onClose ?? null);
   }, []);
@@ -26,6 +29,7 @@ export function NoticeModalProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => {
     setMessage(null);
     setTitle("Message");
+    setVariant("info");
     const fn = onCloseAction;
     setOnCloseAction(null);
     try {
@@ -38,7 +42,7 @@ export function NoticeModalProvider({ children }: { children: ReactNode }) {
   return (
     <NoticeModalContext.Provider value={{ showNotice }}>
       {children}
-      <NoticeModal open={message != null} title={title} message={message ?? ""} onClose={close} />
+      <NoticeModal open={message != null} title={title} message={message ?? ""} variant={variant} onClose={close} />
     </NoticeModalContext.Provider>
   );
 }

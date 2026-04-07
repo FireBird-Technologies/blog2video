@@ -84,6 +84,20 @@ export interface ProjectListItem {
   scene_count: number;
 }
 
+export interface ProjectTemplateChangeJob {
+  id: number;
+  project_id: number;
+  user_id: number;
+  target_template: string;
+  status: "queued" | "running" | "completed" | "failed";
+  total_scenes: number;
+  processed_scenes: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
 export interface ChatMessage {
   id: number;
   role: string;
