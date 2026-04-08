@@ -4,8 +4,8 @@
   "new_template": true,
   "description": "Breaking-news themed template with a featured breaking hero, headline lead, live ticker, editorial pull quotes, claim vs facts panels, and a newsroom-style timeline. Every scene layout supports an optional full-bleed background image via layoutProps.imageUrl (editorial plate behind NEWSCAST chrome).",
   "styles": [
-    "explainer",
-    "storytelling"
+    "storytelling",
+    "explainer"
   ],
   "preview_colors": {
     "accent": "#E82020",
