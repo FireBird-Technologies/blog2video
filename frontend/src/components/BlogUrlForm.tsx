@@ -23,6 +23,32 @@ export const VIDEO_STYLES = VIDEO_STYLE_OPTIONS;
 
 const DEFAULT_VIDEO_STYLE: VideoStyleId = "storytelling";
 
+/** First entry in template `styles` from meta.json; fallback if missing (legacy meta). */
+function defaultVideoStyleForTemplate(meta: TemplateMeta | undefined | null): VideoStyleId {
+  const raw = meta?.styles?.[0];
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return normalizeVideoStyle(raw);
+  }
+  return DEFAULT_VIDEO_STYLE;
+}
+
+/** Video style aligned with a bulk row template id (built-in meta or custom supported_video_style). */
+function videoStyleForBulkTemplateId(
+  templateId: string,
+  builtinTemplates: TemplateMeta[],
+  customTemplatesList: CustomTemplateItem[]
+): VideoStyleId {
+  if (templateId.startsWith("custom_")) {
+    const cid = parseInt(templateId.replace("custom_", ""), 10);
+    if (Number.isNaN(cid)) return DEFAULT_VIDEO_STYLE;
+    const ct = customTemplatesList.find((t) => t.id === cid);
+    return ct?.supported_video_style
+      ? normalizeVideoStyle(ct.supported_video_style)
+      : DEFAULT_VIDEO_STYLE;
+  }
+  return defaultVideoStyleForTemplate(builtinTemplates.find((t) => t.id === templateId));
+}
+
 interface Props {
   onSubmit: (
     url: string,
@@ -368,6 +394,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkRows, setBulkRows] = useState<{ url: string }[]>([{ url: "" }]);
   const [bulkNames, setBulkNames] = useState<string[]>([""]);
   const [bulkTemplates, setBulkTemplates] = useState<string[]>(["default"]);
+  const bulkTemplatesRef = useRef<string[]>(["default"]);
+  bulkTemplatesRef.current = bulkTemplates;
   const [bulkVoiceGender, setBulkVoiceGender] = useState<("female" | "male" | "none")[]>(["female"]);
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
@@ -406,14 +434,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<Record<string, HTMLAudioElement>>({});
   const [playingKey, setPlayingKey] = useState<string | null>(null);
+  const voiceGenderRef = useRef(voiceGender);
+  const customVoiceIdRef = useRef(customVoiceId);
+  voiceGenderRef.current = voiceGender;
+  customVoiceIdRef.current = customVoiceId;
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const [templatePickerView, setTemplatePickerView] = useState<"style" | "custom">("style");
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
+  /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
+  const [builtinTemplatesLoading, setBuiltinTemplatesLoading] = useState(true);
+  /** After built-ins load: session random pick (or skip) has finished — step 2 can interact. */
+  const [sessionBuiltinInitDone, setSessionBuiltinInitDone] = useState(false);
   /** Random built-in default for new rows / initial pick; stable until templates reload. */
   const [pickerDefaultTemplateId, setPickerDefaultTemplateId] = useState<string>("default");
+  const templateManuallySelectedRef = useRef(false);
 
   const [aspectRatio, setAspectRatio] = useState<"landscape" | "portrait">("landscape");
   const [accentColor, setAccentColor] = useState("#7C3AED");
@@ -431,6 +468,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Load all templates once (filtering by style is done in UI)
   const [customTemplates, setCustomTemplates] = useState<CustomTemplateItem[]>([]);
+  const templatesRef = useRef<TemplateMeta[]>(templates);
+  const customTemplatesRef = useRef<CustomTemplateItem[]>(customTemplates);
+  const pickerDefaultTemplateIdRef = useRef(pickerDefaultTemplateId);
+  templatesRef.current = templates;
+  customTemplatesRef.current = customTemplates;
+  pickerDefaultTemplateIdRef.current = pickerDefaultTemplateId;
   // Only show templates that have finished generating (intro_code exists)
   const readyCustomTemplates = customTemplates.filter((ct) => !!ct.intro_code);
   const [showCustomTemplateUpgrade, setShowCustomTemplateUpgrade] = useState(false);
@@ -529,25 +572,38 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
+    let mounted = true;
     getTemplates()
-      .then((r) => setTemplates(r.data))
-      .catch(() => {});
+      .then((r) => {
+        if (mounted) {
+          setTemplates(r.data);
+          setBuiltinTemplatesLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) setBuiltinTemplatesLoading(false);
+      });
     getVoicePreviews()
-      .then((r) => setVoicePreviews(r.data))
+      .then((r) => {
+        if (mounted) setVoicePreviews(r.data);
+      })
       .catch(() => {});
     listCustomTemplates()
-      .then((r) => setCustomTemplates(r.data))
+      .then((r) => {
+        if (mounted) setCustomTemplates(r.data);
+      })
       .catch(() => {});
     setMyVoicesLoading(true);
     getMyVoices()
       .then((r) => {
+        if (!mounted) return;
         const list = r.data ?? [];
         setMyVoicesList(list);
         if (list.length > 0) {
           const first = list[0];
           const firstId = first.voice_id;
-          // Single/link flow: default-select the first voice in Step 3
-          if (!customVoiceId && voiceGender !== "none") {
+          // Single/link flow: default-select the first voice in Step 3 (read latest prefs via refs)
+          if (!customVoiceIdRef.current && voiceGenderRef.current !== "none") {
             setCustomVoiceId(firstId);
             const g = normalizeVoiceGender(first.gender);
             const a = normalizeVoiceAccent(first.accent);
@@ -556,15 +612,23 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           }
         }
       })
-      .catch(() => setMyVoicesList([]))
-      .finally(() => setMyVoicesLoading(false));
+      .catch(() => {
+        if (mounted) setMyVoicesList([]);
+      })
+      .finally(() => {
+        if (mounted) setMyVoicesLoading(false);
+      });
     getPrebuiltVoices()
       .then((r: { data?: { voices?: ElevenLabsVoice[] } }) => {
+        if (!mounted) return;
         const voices = r.data?.voices ?? [];
         const paid = voices.filter((v) => v.plan === "paid");
         setPremiumTeaserVoices(paid.slice(0, 2));
       })
       .catch(() => {});
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Keep bulk rows in sync: whenever we have saved voices and bulk URLs,
@@ -585,25 +649,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     });
   }, [myVoicesList, bulkRows]);
 
-  // Once per form mount: pick a random built-in template for this session (single + all bulk rows).
-  const sessionRandomAppliedRef = useRef(false);
-  useEffect(() => {
-    if (templates.length === 0) return;
-    if (sessionRandomAppliedRef.current) return;
-    sessionRandomAppliedRef.current = true;
-    const idx = Math.floor(Math.random() * templates.length);
-    const picked = templates[idx];
-    if (!picked?.id) return;
-    setPickerDefaultTemplateId(picked.id);
-    setTemplate((prev) =>
-      prev === "default" || prev.startsWith("custom_") ? picked.id : prev
-    );
-    setBulkTemplates((prev) =>
-      prev.length > 0 ? prev.map(() => picked.id) : [picked.id]
-    );
-  }, [templates]);
-
-  // Sync colors to the selected template when templates load.
+  // Sync colors to the selected template when templates load or selection changes.
+  // Runs before session random pick on the same commit so random pick can override starter "default" colors.
   useEffect(() => {
     if (templates.length === 0) return;
     // Check custom templates first
@@ -624,6 +671,64 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setTextColor(meta.preview_colors.text);
     }
   }, [templates, customTemplates, template]);
+
+  // Built-ins loaded but empty (error / no data): unblock step 2 without random pick.
+  useEffect(() => {
+    if (builtinTemplatesLoading) return;
+    if (templates.length === 0) {
+      setSessionBuiltinInitDone(true);
+    }
+  }, [builtinTemplatesLoading, templates.length]);
+
+  // Once per form mount: pick a random built-in template for this session (single + all bulk rows).
+  const sessionRandomAppliedRef = useRef(false);
+  useEffect(() => {
+    if (templates.length === 0) return;
+    if (sessionRandomAppliedRef.current) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    const idx = Math.floor(Math.random() * templates.length);
+    const picked = templates[idx];
+    if (!picked?.id) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    sessionRandomAppliedRef.current = true;
+    setPickerDefaultTemplateId(picked.id);
+    if (templateManuallySelectedRef.current) {
+      setSessionBuiltinInitDone(true);
+      return;
+    }
+    const styleForPick = defaultVideoStyleForTemplate(picked);
+    const prevBulkTpls = bulkTemplatesRef.current;
+    const builtin = templates;
+    const customList = customTemplatesRef.current;
+    setVideoStyle(styleForPick);
+    if (picked.preview_colors) {
+      setAccentColor(picked.preview_colors.accent);
+      setBgColor(picked.preview_colors.bg);
+      setTextColor(picked.preview_colors.text);
+    }
+    setBulkVideoStyles((prevStyles) => {
+      if (prevBulkTpls.length === 0) return [styleForPick];
+      return prevBulkTpls.map((tpl, i) => {
+        if (tpl === "default") return styleForPick;
+        const prev = prevStyles[i];
+        if (prev !== undefined) return prev;
+        return videoStyleForBulkTemplateId(tpl, builtin, customList);
+      });
+    });
+    setTemplate((prev) =>
+      prev === "default" ? picked.id : prev
+    );
+    setBulkTemplates((prev) =>
+      prev.length > 0
+        ? prev.map((tpl) => (tpl === "default" ? picked.id : tpl))
+        : [picked.id]
+    );
+    setSessionBuiltinInitDone(true);
+  }, [templates]);
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
@@ -785,7 +890,17 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkContentLanguage((prev) => resizeTo(prev, n, "auto"));
         setBulkVideoLength((prev) => resizeTo(prev, n, "short"));
         setBulkAspectRatio((prev) => resizeTo(prev, n, "landscape"));
-        setBulkVideoStyles((prev) => resizeTo(prev, n, DEFAULT_VIDEO_STYLE));
+        setBulkVideoStyles((prev) =>
+          resizeTo(
+            prev,
+            n,
+            videoStyleForBulkTemplateId(
+              pickerDefaultTemplateIdRef.current,
+              templatesRef.current,
+              customTemplatesRef.current
+            )
+          )
+        );
         setBulkTemplatePickerViews((prev) => resizeTo(prev, n, "style"));
         setBulkAccentColors((prev) => resizeTo(prev, n, ""));
         setBulkBgColors((prev) => resizeTo(prev, n, ""));
@@ -819,7 +934,14 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkContentLanguage((prev) => [...prev, "auto"]);
     setBulkVideoLength((prev) => [...prev, "short"]);
     setBulkAspectRatio((prev) => [...prev, "landscape"]);
-    setBulkVideoStyles((prev) => [...prev, DEFAULT_VIDEO_STYLE]);
+    setBulkVideoStyles((prev) => [
+      ...prev,
+      videoStyleForBulkTemplateId(
+        pickerDefaultTemplateIdRef.current,
+        templatesRef.current,
+        customTemplatesRef.current
+      ),
+    ]);
     setBulkTemplatePickerViews((prev) => [...prev, "style"]);
     setBulkAccentColors((prev) => [...prev, ""]);
     setBulkBgColors((prev) => [...prev, ""]);
@@ -918,7 +1040,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         blog_url: normalized,
         name: resolvedName,
         template: bulkTemplates[i] !== "default" ? bulkTemplates[i] : undefined,
-        video_style: bulkVideoStyles[i] ?? DEFAULT_VIDEO_STYLE,
+        video_style:
+          bulkVideoStyles[i] ??
+          videoStyleForBulkTemplateId(
+            bulkTemplates[i] ?? "default",
+            templatesRef.current,
+            customTemplatesRef.current
+          ),
         video_length: bulkVideoLength[i] ?? "short",
         voice_gender: inferredGender,
         voice_accent: inferredAccent,
@@ -1064,6 +1192,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // ─── Template apply colors ───────────────────────────────────
   const applyTemplate = (id: string) => {
+    templateManuallySelectedRef.current = true;
     if (id.startsWith("custom_") && !isPro) {
       setShowCustomTemplateUpgrade(true);
       return;
@@ -1082,6 +1211,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       return;
     }
     const meta = templates.find((t) => t.id === id);
+    if (meta) {
+      setVideoStyle(defaultVideoStyleForTemplate(meta));
+    }
     if (meta?.preview_colors) {
       setAccentColor(meta.preview_colors.accent);
       setBgColor(meta.preview_colors.bg);
@@ -2009,6 +2141,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     };
 
     const applyBulkTemplate = (id: string) => {
+      templateManuallySelectedRef.current = true;
       if (id.startsWith("custom_") && !isPro) {
         setShowCustomTemplateUpgrade(true);
         return;
@@ -2016,9 +2149,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       const matchedCustom = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))
         : null;
-      const customStyle = matchedCustom?.supported_video_style
-        ? normalizeVideoStyle(matchedCustom.supported_video_style)
-        : null;
+      const styleUpdate: VideoStyleId | null = id.startsWith("custom_")
+        ? matchedCustom?.supported_video_style
+          ? normalizeVideoStyle(matchedCustom.supported_video_style)
+          : null
+        : defaultVideoStyleForTemplate(templates.find((t) => t.id === id));
       const colors = id.startsWith("custom_")
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : templates.find((t) => t.id === id)?.preview_colors;
@@ -2031,10 +2166,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
-        if (customStyle) {
+        if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            next[activeIndex] = customStyle;
+            next[activeIndex] = styleUpdate;
             return next;
           });
         }
@@ -2052,10 +2187,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           targetIndices.forEach((idx) => { next[idx] = id; });
           return next;
         });
-        if (customStyle) {
+        if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            targetIndices.forEach((idx) => { next[idx] = customStyle; });
+            targetIndices.forEach((idx) => { next[idx] = styleUpdate; });
             return next;
           });
         }
@@ -2084,10 +2219,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
-      if (customStyle) {
+      if (styleUpdate !== null) {
         setBulkVideoStyles((prev) => {
           const next = [...prev];
-          next[activeIndex] = customStyle;
+          next[activeIndex] = styleUpdate;
           return next;
         });
       }
@@ -3292,10 +3427,24 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   const modalWidth = "max-w-xl";
 
+  const isStep2TemplatesPending =
+    step === 2 && (builtinTemplatesLoading || !sessionBuiltinInitDone);
+
   // Constant form size: min-height so layout doesn’t jump between steps
   const stepContentWrapper = (
-    <div className="min-h-[420px] flex flex-col">
-      {stepContent}
+    <div className="relative min-h-[420px] flex flex-col">
+      <div className="min-h-[420px] flex flex-col">{stepContent}</div>
+      {isStep2TemplatesPending && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-white/60 backdrop-blur-md ring-1 ring-gray-200/50 shadow-[inset_0_0_24px_rgba(124,58,237,0.06)]"
+          aria-busy="true"
+        >
+          <span
+            className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600"
+            aria-hidden
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -3340,7 +3489,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             }
           }}
         >
-          <div className="min-h-[420px] flex flex-col">{stepContent}</div>
+          {stepContentWrapper}
         </form>
         <UpgradePlanModal
           open={showUpgrade}
@@ -3369,7 +3518,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className={`absolute inset-0 ${isStep2TemplatesPending ? "bg-black/45 backdrop-blur-md" : "bg-black/40 backdrop-blur-sm"}`}
+        onClick={onClose}
+      />
       <div
         className={`relative w-full ${modalWidth} bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300`}
       >
