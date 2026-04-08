@@ -40,6 +40,7 @@ import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage, DEFAULT_ERROR_MESSAGE } from "../contexts/ErrorModalContext";
 import { useNoticeModal } from "../contexts/NoticeModalContext";
+import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
 import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
@@ -467,6 +468,7 @@ export default function ProjectView() {
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
   const [showCancelRenderWarning, setShowCancelRenderWarning] = useState(false);
+  const [showTemplateRelayoutWarning, setShowTemplateRelayoutWarning] = useState(false);
   const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -930,6 +932,7 @@ export default function ProjectView() {
   // Handle ?purchased=true redirect from Stripe per-video checkout
   useEffect(() => {
     if (searchParams.get("purchased") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
       // Clear the query param and refresh project to pick up studio_unlocked
       setSearchParams({}, { replace: true });
       loadProject();
@@ -1621,16 +1624,14 @@ export default function ProjectView() {
       );
       setTemplateRelayoutJob(res.data);
       startTemplateRelayoutPolling();
-      showNotice("Video regeneration is running in the background.", {
-        title: "Regeneration started",
-        variant: "success",
-      });
     } catch (err) {
       const status = err && typeof err === "object" && "response" in err
         ? (err as { response?: { status?: number } }).response?.status
         : undefined;
-      if (status === 403) setShowUpgrade(true);
-      showError(getErrorMessage(err, "Failed to start template relayout."));
+      showError(
+        getErrorMessage(err, "Failed to start template relayout."),
+        status === 403 ? { showUpgrade: true } : undefined
+      );
     } finally {
       setSubmittingTemplateRelayout(false);
     }
@@ -2655,6 +2656,18 @@ export default function ProjectView() {
         document.body
       )}
 
+      <ConfirmDeleteModal
+        open={showTemplateRelayoutWarning}
+        onClose={() => setShowTemplateRelayoutWarning(false)}
+        title="Proceed with video regeneration?"
+        subtitle={project?.name}
+        warningMessage="This will deduct 1 video count from your quota. Do you want to continue?"
+        confirmLabel="Proceed"
+        confirmLoadingLabel="Starting..."
+        iconVariant="warning"
+        onConfirm={applyTemplateRelayout}
+      />
+
       {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
       {showShareMenu && project?.r2_video_url && (
         <>
@@ -3343,6 +3356,7 @@ export default function ProjectView() {
                   }}
                 />
 
+
                 {/* AI generated image preview modal */}
                 {generatedImageSceneId !== null && generatedImageBase64 && ReactDOM.createPortal(
                   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -3610,7 +3624,7 @@ export default function ProjectView() {
                     templateRelayoutJob?.status === "running" ||
                     templateRelayoutJob?.status === "queued"
                   }
-                  onClick={applyTemplateRelayout}
+                  onClick={() => setShowTemplateRelayoutWarning(true)}
                   className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
                 >
                   {submittingTemplateRelayout ? (

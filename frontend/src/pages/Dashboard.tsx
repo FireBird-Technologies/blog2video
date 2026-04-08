@@ -15,6 +15,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -83,7 +84,11 @@ export default function Dashboard() {
   useEffect(() => {
     loadProjects();
     if (searchParams.get("upgraded") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
       refreshUser();
+    }
+    if (searchParams.get("purchased") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
     }
   }, []);
 
