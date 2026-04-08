@@ -22,7 +22,7 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
-    video_length: Optional[str] = "auto"  # auto | short (7-10) | medium (12-15) | detailed (15-20)
+    video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
 
 
