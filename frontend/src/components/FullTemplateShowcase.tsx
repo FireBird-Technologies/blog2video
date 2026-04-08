@@ -10,8 +10,11 @@ import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPrevi
 import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
 import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
 // import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
+import NewscastPreview from "./templatePreviews/NewscastPreview";
+import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
 
-type TemplateId = "nightfall" | /* "gridcraft" | */ "spotlight" | /* "default" | */ /* "matrix" | */ "whiteboard" /* | "newspaper" */;
+
+type TemplateId = "nightfall" | /* "gridcraft" | */ "newscast" | /* "default" | */ /* "matrix" | */ "whiteboard" /* | "newspaper" */;
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -29,9 +32,9 @@ const TEMPLATES: TemplateInfo[] = [
     hasPortrait: true,
   },
   {
-    id: "spotlight",
-    name: "Spotlight",
-    description: "Bold kinetic typography on a dark stage. Big numbers and statements take center stage — great for impact and promotional content.",
+    id: "newscast",
+    name: "Newscast",
+    description: "A dynamic breaking-news template featuring a hero section, headline, live ticker, pull quotes, claim vs. facts panels, and a newsroom-style timeline, with optional full-bleed background images.",
     hasPortrait: true,
   },
   // {
@@ -70,7 +73,7 @@ const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   nightfall: NightfallPreview,
   // default: DefaultPreview,
   // gridcraft: GridcraftPreview,
-  spotlight: SpotlightPreview,
+  newscast: NewscastPreview,
   // matrix: MatrixPreview,
   whiteboard: WhiteboardPreview,
   // newspaper: NewsPaperPreview,
@@ -78,7 +81,7 @@ const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
 
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
-  spotlight: SpotlightPreviewPortrait,
+  newscast: NewscastPreviewPortrait,
   whiteboard: WhiteboardPreviewPortrait,
   // gridcraft: GridcraftPreviewPortrait,
 };

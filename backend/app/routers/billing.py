@@ -234,7 +234,7 @@ def create_checkout_session(
             }
         ],
         allow_promotion_codes=True,
-        success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true",
+        success_url=f"{settings.FRONTEND_URL}/dashboard?upgraded=true&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
         metadata={
             "user_id": str(user.id),
@@ -264,7 +264,7 @@ def create_per_video_checkout(
         "user_id": str(user.id),
         "type": "per_video",
     }
-    success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true"
+    success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{settings.FRONTEND_URL}/pricing"
 
     if body.project_id:
@@ -278,7 +278,7 @@ def create_per_video_checkout(
         if project.studio_unlocked:
             raise HTTPException(status_code=400, detail="This video is already unlocked")
         meta["project_id"] = str(project.id)
-        success_url = f"{settings.FRONTEND_URL}/project/{project.id}?purchased=true"
+        success_url = f"{settings.FRONTEND_URL}/project/{project.id}?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
         cancel_url = f"{settings.FRONTEND_URL}/project/{project.id}"
 
     # Ensure the user has a Stripe customer

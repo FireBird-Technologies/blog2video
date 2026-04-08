@@ -9,6 +9,7 @@ import {
   RenderStatus,
   Scene,
   StudioResponse,
+  ProjectTemplateChangeJob,
 } from "./types";
 
 // ─── Project API ──────────────────────────────────────────
@@ -79,6 +80,20 @@ export const startGeneration = (id: number) =>
 
 export const getPipelineStatus = (id: number) =>
   api.get<PipelineStatus>(`/projects/${id}/status`);
+
+export const changeProjectTemplateRegenerateLayouts = (
+  projectId: number,
+  template: string
+) =>
+  api.post<ProjectTemplateChangeJob>(
+    `/projects/${projectId}/change-template-regenerate-layouts`,
+    { template }
+  );
+
+export const getProjectTemplateChangeStatus = (projectId: number) =>
+  api.get<ProjectTemplateChangeJob | null>(
+    `/projects/${projectId}/template-change-status`
+  );
 
 export const updateScene = (
   projectId: number,
