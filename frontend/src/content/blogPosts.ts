@@ -427,7 +427,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Why instant branded templates are becoming production infrastructure for editors and agencies handling repeat client video output.",
     category: "Strategy",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt:
       "A branded template system applying one client's colors, fonts, and layout rules across multiple generated videos.",
     publishedAt: "2026-04-05",
@@ -603,7 +603,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "A practical workflow for turning existing blog posts into videos without starting from zero or rebuilding the whole argument.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-before-after.png",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
     heroImageAlt:
       "Before-and-after workflow illustration showing a blog post on one side and a finished narrated video on the other.",
     publishedAt: "2026-04-04",
@@ -775,7 +775,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video can now extract your exact colors, fonts, and visual style from your website URL and generate a branded video template automatically. Every video you produce looks like your design team built it.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt: "A website URL being pasted into Blog2Video and a fully branded video template generated from it.",
     publishedAt: "2026-03-27",
     readTime: "5 min read",
@@ -900,7 +900,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Generic templates help you publish once. Custom templates help you publish consistently. Here is why branded template systems matter once your team starts producing videos at scale.",
     category: "Strategy",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt:
       "A branded video system showing reusable colors, typography, scene layouts, and template controls for repeatable publishing.",
     publishedAt: "2026-03-28",
@@ -1015,7 +1015,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's March 2026 update expands multilingual video generation to 50+ languages. The same workflow — paste a URL, pick a language, generate — now reaches more global markets with automatic narration in each target language.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-multilingual.png",
+    heroImage: "/blog/blog-cover-article-tools.png",
     heroImageAlt: "A single blog post URL generating video output in multiple languages with global audience icons.",
     publishedAt: "2026-03-27",
     readTime: "4 min read",
@@ -1145,7 +1145,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video auto-detects the language of your content and generates the entire video — script, narration, and on-screen text — in that language. Override it manually to translate an English blog into a Spanish, Hindi, Arabic, or Japanese video in one step.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-multilingual.png",
+    heroImage: "/blog/blog-cover-article-tools.png",
     heroImageAlt: "A single blog post URL generating video output in Spanish, Hindi, Arabic, and Japanese side by side.",
     publishedAt: "2026-03-24",
     readTime: "5 min read",
@@ -1407,7 +1407,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "NotebookLM is built for understanding content. Blog2Video is built for publishing it. Here is exactly what that difference means in practice.",
     category: "Comparison",
-    heroImage: "/blog/blog-cover-notebooklm.png",
+    heroImage: "/blog/blog-cover-article-tools.png",
     heroImageAlt: "Split screen: NotebookLM podcast summary on the left, Blog2Video branded video output on the right.",
     publishedAt: "2026-03-24",
     readTime: "5 min read",
@@ -1542,7 +1542,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "See exactly what changes when you stop manually turning blog posts into videos and use Blog2Video instead. 45 minutes down to 3.",
     category: "Workflow",
-    heroImage: "/blog/blog-cover-before-after.png",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
     heroImageAlt: "Split screen: wall of text on the left taking 45 minutes, polished video on the right in 3 minutes.",
     publishedAt: "2026-03-23",
     readTime: "4 min read",
@@ -3796,7 +3796,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Google surfaces video results in 26% of searches. Pages with video are 53x more likely to hit page 1. Here's how SEO agencies can add video to every client post without extra production overhead.",
     category: "SEO Strategy",
-    heroImage: "/blog/blog-cover-before-after.png",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
     heroImageAlt: "A blog post ranking on Google with a video result appearing alongside it, driving additional traffic.",
     publishedAt: "2026-03-26",
     readTime: "5 min read",
@@ -3937,7 +3937,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets brands save fully custom video templates with their own colors, fonts, logos, and layout preferences. Every video you generate after setup carries your brand identity automatically — no manual styling on each project.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt: "A brand kit with custom colors, fonts, and logo applied to a video template inside Blog2Video.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4058,7 +4058,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video's new Newscast template brings broadcast news aesthetics to your content. Deep navy, crimson accents, ticker bars, lower thirds, and glass-panel anchor layouts — built for briefings, roundups, and editorial updates that should feel authoritative.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt: "A Blog2Video Newscast template scene showing a deep navy background, crimson accent, ticker bar, and anchor-style lower third.",
     publishedAt: "2026-04-01",
     readTime: "5 min read",
@@ -4185,7 +4185,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now appends a branded call-to-action scene to the end of every generated video automatically. No manual scene editing required — your CTA, link, and branding are there from the first generation.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt: "A Blog2Video generated video ending with a branded call-to-action scene showing a website link and subscribe prompt.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
@@ -4299,7 +4299,7 @@ export const blogPosts: BlogPost[] = [
     description:
       "Blog2Video now lets users set their target video duration before generating. Whether you need a 60-second short, a 3-minute explainer, or a 10-minute deep dive, the platform adapts scene count and pacing to hit your target length.",
     category: "Feature",
-    heroImage: "/blog/blog-cover-custom-template.png",
+    heroImage: "/blog/blog-cover-how-to-custom-branded-video-templates.png",
     heroImageAlt: "A video duration slider in Blog2Video set to 3 minutes, with a generated video timeline showing scene count adjusted to match.",
     publishedAt: "2026-04-01",
     readTime: "4 min read",
