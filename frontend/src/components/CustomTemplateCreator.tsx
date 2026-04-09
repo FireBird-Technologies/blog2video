@@ -17,6 +17,8 @@ import {
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
+  /** Pre-selects supported video style (explainer / promotional / storytelling) for the new template. */
+  initialVideoStyle?: VideoStyleId;
 }
 
 const DEFAULT_THEME: CustomTemplateTheme = {
@@ -34,14 +36,16 @@ const DEFAULT_THEME: CustomTemplateTheme = {
   },
 };
 
-export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
+export default function CustomTemplateCreator({ onCreated, onCancel, initialVideoStyle }: Props) {
   const [step, setStep] = useState<1 | 2>(1);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<CustomTemplateTheme>(DEFAULT_THEME);
   const [accentColor, setAccentColor] = useState(DEFAULT_THEME.colors.accent);
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>("explainer");
+  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(
+    () => initialVideoStyle ?? "explainer"
+  );
   const [templateName, setTemplateName] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -77,6 +81,12 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
+  useEffect(() => {
+    if (initialVideoStyle) {
+      setSupportedVideoStyle(initialVideoStyle);
+    }
+  }, [initialVideoStyle]);
+
   // Step 1: Extract theme from URL
   const handleExtract = async () => {
     if (!url.trim()) return;
@@ -90,7 +100,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
       }
       setTheme(res.data.theme);
       setAccentColor(res.data.theme.colors.accent);
-      setSupportedVideoStyle("explainer");
+      setSupportedVideoStyle(initialVideoStyle ?? "explainer");
       setTemplateName(res.data.template_name || "");
       setSourceUrl(url.trim());
       setScrapedLogoUrls(res.data.logo_urls || []);
@@ -173,7 +183,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
   const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
 
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -317,7 +327,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel }: Props) {
               {/* Video style */}
               <div>
                 <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
-                  Video Style
+                  Template Style Category
                 </label>
                 <div ref={styleRef} className="relative">
                   <div className="flex items-center gap-2">
