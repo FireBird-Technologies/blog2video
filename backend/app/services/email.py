@@ -401,7 +401,7 @@ class EmailService:
             to=user_email,
             subject=subject,
             text_content=text,
-            from_email="arslan@blog2video.app",
+            from_email="Arslan Shahid <arslan@blog2video.app>",
         )
 
 
