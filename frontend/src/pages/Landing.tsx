@@ -87,13 +87,17 @@ const NAV_LINKS = [
 ];
 
 const LANDING_YT_HOST_ID = "landing-yt-demo-host";
+/** Half cross-fade duration for demo blog + video content (ms). */
+const DEMO_CONTENT_FADE_MS = 400;
 
 /** YouTube IFrame API player states (numeric). */
 const YT_PLAYING = 1;
-const YT_BUFFERING = 3;
 
 function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  /** Index shown in the blog + video cards (lags activeVideoIdx during cross-fade). */
+  const [shownIdx, setShownIdx] = useState(0);
+  const [contentPhase, setContentPhase] = useState<"in" | "out">("in");
   const [apiReady, setApiReady] = useState(() => {
     if (typeof window === "undefined") return false;
     return Boolean((window as unknown as { YT?: { Player?: unknown } }).YT?.Player);
@@ -101,6 +105,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 
   const playerRef = useRef<{ destroy: () => void; cueVideoById: (id: string) => void } | null>(null);
   const idleTimerRef = useRef<number | null>(null);
+  const stuckGuardRef = useRef<number | null>(null);
   const prevIdxRef = useRef<number | null>(null);
   const demosLenRef = useRef(demos.length);
   demosLenRef.current = demos.length;
@@ -113,6 +118,14 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
     }
   };
 
+  const clearStuckGuardRef = useRef(() => {});
+  clearStuckGuardRef.current = () => {
+    if (stuckGuardRef.current != null) {
+      window.clearTimeout(stuckGuardRef.current);
+      stuckGuardRef.current = null;
+    }
+  };
+
   const scheduleIdleAdvanceRef = useRef(() => {});
   scheduleIdleAdvanceRef.current = () => {
     clearIdleAdvanceRef.current();
@@ -121,14 +134,18 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
     idleTimerRef.current = window.setTimeout(() => {
       idleTimerRef.current = null;
       setActiveVideoIdx((i) => (i + 1) % n);
-    }, 4000);
+    }, 5000);
   };
 
   const onYtStateChangeRef = useRef((_state: number) => {});
   onYtStateChangeRef.current = (state: number) => {
-    if (state === YT_PLAYING || state === YT_BUFFERING) {
+    // Only pause carousel while the video is actually playing. Treating BUFFERING as
+    // "playing" left the idle timer cleared forever when the embed stuck in buffering.
+    if (state === YT_PLAYING) {
       clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
     } else {
+      clearStuckGuardRef.current();
       scheduleIdleAdvanceRef.current();
     }
   };
@@ -185,6 +202,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 
     return () => {
       clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
       try {
         player.destroy();
       } catch {
@@ -197,17 +215,37 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   }, [apiReady, demos.length]);
 
   useEffect(() => {
+    if (activeVideoIdx === shownIdx) {
+      // If the user changes tabs (or Strict Mode re-runs) while fading, the timeout is
+      // cleared but phase can stay "out" — resync so the section never stays invisible.
+      setContentPhase("in");
+      return;
+    }
+    setContentPhase("out");
+    const t = window.setTimeout(() => {
+      setShownIdx(activeVideoIdx);
+      setContentPhase("in");
+    }, DEMO_CONTENT_FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [activeVideoIdx, shownIdx]);
+
+  useEffect(() => {
     const p = playerRef.current;
-    if (!p || !demos[activeVideoIdx]) return;
-    if (prevIdxRef.current === activeVideoIdx) return;
+    if (!p || !demos[shownIdx]) return;
+    if (prevIdxRef.current === shownIdx) return;
     clearIdleAdvanceRef.current();
     const prev = prevIdxRef.current;
-    prevIdxRef.current = activeVideoIdx;
+    prevIdxRef.current = shownIdx;
     if (prev === null) return;
-    p.cueVideoById(demos[activeVideoIdx].youtubeId);
-  }, [activeVideoIdx, demos]);
+    p.cueVideoById(demos[shownIdx].youtubeId);
+    clearStuckGuardRef.current();
+    stuckGuardRef.current = window.setTimeout(() => {
+      stuckGuardRef.current = null;
+      scheduleIdleAdvanceRef.current();
+    }, 12000);
+  }, [shownIdx, demos]);
 
-  const v = demos[activeVideoIdx];
+  const v = demos[shownIdx];
 
   return (
     <section id="demo" className="py-20 border-t border-gray-100">
@@ -244,7 +282,14 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
         )}
 
         {demos.length > 0 && v && (
-          <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch reveal-scale">
+          <div className="reveal-scale">
+            <div
+              className={`grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch transition-[opacity,transform] ease-in-out motion-reduce:transition-none ${
+                contentPhase === "out"
+                  ? "opacity-0 translate-y-1 duration-[400ms]"
+                  : "opacity-100 translate-y-0 duration-[500ms]"
+              }`}
+            >
             <a
               href={v.blogUrl}
               target="_blank"
@@ -355,6 +400,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
                   <span className="text-[10px] text-gray-400">AI narration + visuals</span>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
