@@ -33,6 +33,17 @@ class ProjectUpdate(BaseModel):
     font_family: Optional[str] = None
     content_language: Optional[str] = None
     video_length: Optional[str] = None
+    aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
+
+    @field_validator("aspect_ratio")
+    @classmethod
+    def validate_aspect_ratio(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        n = (v or "").strip().lower()
+        if n not in ("landscape", "portrait"):
+            raise ValueError("aspect_ratio must be 'landscape' or 'portrait'")
+        return n
 
 
 class ProjectTemplateChangeRequest(BaseModel):

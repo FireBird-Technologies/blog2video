@@ -288,10 +288,10 @@ function SlideCode({ active, theme }: { active: boolean; theme: CustomTemplateTh
           transition: "all 0.5s ease",
         }}>
           {/* Terminal dots */}
-          <div style={{ display: "flex", gap: 5, marginBottom: 12 }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#FF5F57" }} />
-            <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#FFBD2E" }} />
-            <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#28CA41" }} />
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#FF5F57" }} />
+            <div style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#FFBD2E" }} />
+            <div style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#28CA41" }} />
           </div>
           {codeLines.map((line, i) => (
             <div key={i} style={{
@@ -344,10 +344,10 @@ function SlideCode({ active, theme }: { active: boolean; theme: CustomTemplateTh
 // ─── Dots ────────────────────────────────────────────────────────────
 function SlideDots({ total, current, accent }: { total: number; current: number; accent: string }) {
   return (
-    <div style={{ display: "flex", gap: 5, position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
+    <div style={{ display: "flex", gap: 3, position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
       {Array.from({ length: total }, (_, i) => (
         <div key={i} style={{
-          width: i === current ? 18 : 5, height: 5, borderRadius: 3,
+          width: i === current ? 10 : 3, height: 3, borderRadius: 2,
           background: i === current ? accent : `${accent}40`,
           transition: "all 0.3s ease",
         }} />
