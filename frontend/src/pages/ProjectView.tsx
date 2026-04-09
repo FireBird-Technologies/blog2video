@@ -34,7 +34,9 @@ import {
   getTemplates,
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
-  getProjectTemplateChangeStatus
+  getProjectTemplateChangeStatus,
+  type TemplateMeta,
+  type CustomTemplateItem,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -50,6 +52,11 @@ import UpgradePlanModal from "../components/UpgradePlanModal";
 import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
+import CustomPreview from "../components/templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
+import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
@@ -328,6 +335,108 @@ function AudioRow({
   );
 }
 
+/** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
+function TemplateAssignPreview({
+  templateId,
+  customTemplates,
+  projectCustomTheme,
+  projectName,
+  variant,
+}: {
+  templateId: string;
+  customTemplates: CustomTemplateItem[];
+  projectCustomTheme: Project["custom_theme"];
+  projectName?: string;
+  variant: "large" | "thumb";
+}) {
+  if (templateId.startsWith("custom_")) {
+    const cid = parseInt(templateId.replace("custom_", ""), 10);
+    const ct = customTemplates.find((c) => c.id === cid);
+    if (ct) {
+      return variant === "large" ? (
+        <CustomPreview
+          theme={ct.theme}
+          name={ct.name}
+          previewImageUrl={ct.preview_image_url}
+          introCode={ct.intro_code || undefined}
+          outroCode={ct.outro_code || undefined}
+          contentCodes={ct.content_codes || undefined}
+          contentArchetypeIds={ct.content_archetype_ids || undefined}
+          logoUrls={ct.logo_urls}
+          ogImage={ct.og_image}
+        />
+      ) : (
+        <CustomPreviewLandscape
+          theme={ct.theme}
+          name={ct.name}
+          introCode={ct.intro_code || undefined}
+          outroCode={ct.outro_code || undefined}
+          contentCodes={ct.content_codes || undefined}
+          contentArchetypeIds={ct.content_archetype_ids || undefined}
+          previewImageUrl={ct.preview_image_url}
+          logoUrls={ct.logo_urls}
+          ogImage={ct.og_image}
+        />
+      );
+    }
+    if (projectCustomTheme) {
+      const fallback = (
+        <CustomPreview
+          theme={projectCustomTheme}
+          name={projectName || "Custom"}
+          previewImageUrl={null}
+          introCode={undefined}
+          outroCode={undefined}
+          contentCodes={undefined}
+          contentArchetypeIds={undefined}
+          logoUrls={undefined}
+          ogImage={undefined}
+        />
+      );
+      if (variant === "thumb") {
+        return (
+          <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">{fallback}</div>
+        );
+      }
+      return fallback;
+    }
+    return (
+      <div
+        className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
+          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
+        }`}
+      >
+        Custom template preview unavailable
+      </div>
+    );
+  }
+
+  const Comp = TEMPLATE_PREVIEWS[templateId];
+  if (Comp) {
+    if (variant === "thumb") {
+      return (
+        <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">
+          <Comp key={templateId} />
+        </div>
+      );
+    }
+    return <Comp key={templateId} />;
+  }
+  return (
+    <div
+      className={`flex w-full items-center justify-center bg-gray-100 text-gray-300 ${
+        variant === "thumb" ? "min-h-[64px] max-h-[80px] text-[10px] px-1" : "aspect-video text-sm"
+      }`}
+    >
+      {templateId}
+    </div>
+  );
+}
+
+function normalizeProjectAspectRatio(ar: string | undefined | null): "landscape" | "portrait" {
+  return ar === "portrait" ? "portrait" : "landscape";
+}
+
 // ─── Main Component ──────────────────────────────────────────
 
 export default function ProjectView() {
@@ -366,12 +475,14 @@ export default function ProjectView() {
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
   const [savingFontFamily, setSavingFontFamily] = useState(false);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
-  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
-  const templateDropdownRef = useRef<HTMLDivElement>(null);
-  const [builtinTemplates, setBuiltinTemplates] = useState<Array<{ id: string; name: string }>>([]);
-  const [customTemplates, setCustomTemplates] = useState<Array<{ id: number; name: string }>>([]);
-  const [selectedProjectTemplate, setSelectedProjectTemplate] = useState<string>("");
+  const [templateMetas, setTemplateMetas] = useState<TemplateMeta[]>([]);
+  const [customTemplatesList, setCustomTemplatesList] = useState<CustomTemplateItem[]>([]);
+  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(true);
+  const [showTemplateChangeModal, setShowTemplateChangeModal] = useState(false);
+  const [templateChangePickerTab, setTemplateChangePickerTab] = useState<"builtin" | "custom">("builtin");
+  const [templateChangeDraft, setTemplateChangeDraft] = useState<string>("default");
+  const [templateRelayoutPendingId, setTemplateRelayoutPendingId] = useState<string | null>(null);
   const [templateRelayoutJob, setTemplateRelayoutJob] = useState<{
     id: number;
     status: string;
@@ -393,10 +504,9 @@ export default function ProjectView() {
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
       setSettingsFontId(project.font_family ?? null);
-      setSelectedProjectTemplate(project.template || "default");
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.template]);
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
 
   useEffect(() => {
     if (project) {
@@ -470,6 +580,9 @@ export default function ProjectView() {
   const [showCancelRenderWarning, setShowCancelRenderWarning] = useState(false);
   const [showTemplateRelayoutWarning, setShowTemplateRelayoutWarning] = useState(false);
   const [renderConfirmLoading, setRenderConfirmLoading] = useState(false);
+  const [showAspectFormatConfirm, setShowAspectFormatConfirm] = useState(false);
+  const [aspectFormatPending, setAspectFormatPending] = useState<"landscape" | "portrait" | null>(null);
+  const [aspectFormatSaving, setAspectFormatSaving] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -477,9 +590,6 @@ export default function ProjectView() {
       const target = evt.target as Node;
       if (fontDropdownRef.current && !fontDropdownRef.current.contains(target)) {
         setShowFontDropdown(false);
-      }
-      if (templateDropdownRef.current && !templateDropdownRef.current.contains(target)) {
-        setShowTemplateDropdown(false);
       }
     };
     document.addEventListener("mousedown", onClickOutside);
@@ -885,30 +995,23 @@ export default function ProjectView() {
   }, [loadProject, projectId, stopTemplateRelayoutPolling]);
 
   useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        const [builtinsRes, customRes] = await Promise.all([
-          getTemplates(),
-          listCustomTemplates(),
-        ]);
-        setBuiltinTemplates(
-          (builtinsRes.data || []).map((t: any) => ({
-            id: String(t.id),
-            name: String(t.name || t.id || "Template"),
-          }))
-        );
-        setCustomTemplates(
-          (customRes.data || []).map((t: any) => ({
-            id: Number(t.id),
-            name: String(t.name || `Custom ${t.id}`),
-          }))
-        );
-      } catch {
-        // Non-blocking for the page.
-      }
-    };
-    loadTemplates();
+    let cancelled = false;
+    setCustomTemplatesLoading(true);
+    getTemplates()
+      .then((r) => {
+        if (!cancelled) setTemplateMetas(r.data || []);
+      })
+      .catch(() => {});
+    listCustomTemplates()
+      .then((r) => {
+        if (!cancelled) setCustomTemplatesList(r.data || []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setCustomTemplatesLoading(false);
+      });
     return () => {
+      cancelled = true;
       stopTemplateRelayoutPolling();
     };
   }, [stopTemplateRelayoutPolling]);
@@ -1615,13 +1718,11 @@ export default function ProjectView() {
   };
 
   const applyTemplateRelayout = async () => {
-    if (!project) return;
+    if (!project || !templateRelayoutPendingId) return;
+    const targetId = templateRelayoutPendingId;
     setSubmittingTemplateRelayout(true);
     try {
-      const res = await changeProjectTemplateRegenerateLayouts(
-        project.id,
-        selectedProjectTemplate
-      );
+      const res = await changeProjectTemplateRegenerateLayouts(project.id, targetId);
       setTemplateRelayoutJob(res.data);
       startTemplateRelayoutPolling();
     } catch (err) {
@@ -1636,6 +1737,9 @@ export default function ProjectView() {
       setSubmittingTemplateRelayout(false);
     }
   };
+
+  const assignedTemplateId = project?.template || "default";
+  const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
 
   if (loading) {
     return (
@@ -1652,6 +1756,20 @@ export default function ProjectView() {
       </div>
     );
   }
+
+  const openCraftCustomTemplateFromProjectSettings = () => {
+    if (!isPro) {
+      setShowUpgrade(true);
+      return;
+    }
+    const style = normalizeVideoStyle(project.video_style);
+    setShowTemplateChangeModal(false);
+    const params = new URLSearchParams();
+    params.set("tab", "templates");
+    params.set("openCustomCreator", "1");
+    params.set("videoStyle", style);
+    navigate(`/dashboard?${params.toString()}`);
+  };
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "script", label: "Script" },
@@ -2201,6 +2319,86 @@ export default function ProjectView() {
                 <StatusBadge status={statusForBadge} />
               </div>
               <div className="flex items-center gap-2">
+                {/* Video format (landscape / portrait) — left of download */}
+                <div className="flex items-center shrink-0">
+                  <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+                    <button
+                      type="button"
+                      title="Landscape for desktop / YouTube"
+                      disabled={
+                        !project ||
+                        rendering ||
+                        saving ||
+                        missingCustomTemplate ||
+                        aspectFormatSaving ||
+                        templateRelayoutRunning ||
+                        submittingTemplateRelayout
+                      }
+                      onClick={() => {
+                        if (!project) return;
+                        const cur = normalizeProjectAspectRatio(project.aspect_ratio);
+                        if (cur === "landscape") return;
+                        setAspectFormatPending("landscape");
+                        setShowAspectFormatConfirm(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                        project && normalizeProjectAspectRatio(project.aspect_ratio) === "landscape"
+                          ? "bg-white text-purple-600 shadow-sm"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        aria-hidden
+                      >
+                        <rect x="3" y="4" width="18" height="12" rx="2" />
+                        <path d="M8 20h8M12 16v4" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      title="Portrait for TikTok / Reels / mobile"
+                      disabled={
+                        !project ||
+                        rendering ||
+                        saving ||
+                        missingCustomTemplate ||
+                        aspectFormatSaving ||
+                        templateRelayoutRunning ||
+                        submittingTemplateRelayout
+                      }
+                      onClick={() => {
+                        if (!project) return;
+                        const cur = normalizeProjectAspectRatio(project.aspect_ratio);
+                        if (cur === "portrait") return;
+                        setAspectFormatPending("portrait");
+                        setShowAspectFormatConfirm(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg flex items-center transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                        project && normalizeProjectAspectRatio(project.aspect_ratio) === "portrait"
+                          ? "bg-white text-purple-600 shadow-sm"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        aria-hidden
+                      >
+                        <rect x="7" y="2" width="10" height="20" rx="2" />
+                        <circle cx="12" cy="18" r="1" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Open Studio — Pro or per-video paid (download workspace zip) */}
                 {/* {hasStudioAccess ? (
                   <button
@@ -2438,13 +2636,13 @@ export default function ProjectView() {
 
   return (
     <div className="space-y-6">
-      {/* <UpgradeModal
+      <UpgradePlanModal
         open={showUpgrade}
         onClose={() => setShowUpgrade(false)}
-        feature="Remotion Studio"
         projectId={projectId}
-        onPurchased={() => loadProject()}
-      /> */}
+        title="Upgrade to use your crafted templates"
+        subtitle="Custom templates and the template builder require a paid plan. Pick a plan to continue."
+      />
 
       {showReviewPopup && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9997] flex items-center justify-center px-4">
@@ -2461,6 +2659,84 @@ export default function ProjectView() {
               onDismiss={handleDismissReviewPopup}
               onSubmit={handlePopupSubmitReview}
             />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Video format change confirmation */}
+      {showAspectFormatConfirm && project && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !aspectFormatSaving && setShowAspectFormatConfirm(false)}
+            aria-hidden
+          />
+          <div
+            className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="aspect-format-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="aspect-format-confirm-title" className="text-lg font-semibold text-gray-900 mb-2">
+              Change video format?
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to change the format?
+              {aspectFormatPending &&
+                (aspectFormatPending === "portrait"
+                  ? " Preview will use vertical (9:16)."
+                  : " Preview will use horizontal (16:9).")}
+              {project.r2_video_url ? (
+                <span className="block mt-2 text-amber-800/90">
+                 You will need to re render to get the video downloaded in the new format.
+                </span>
+              ) : null}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                disabled={aspectFormatSaving}
+                onClick={() => {
+                  if (!aspectFormatSaving) {
+                    setShowAspectFormatConfirm(false);
+                    setAspectFormatPending(null);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={aspectFormatSaving || aspectFormatPending === null}
+                onClick={async () => {
+                  if (!project || aspectFormatPending === null) return;
+                  setAspectFormatSaving(true);
+                  try {
+                    await updateProject(project.id, { aspect_ratio: aspectFormatPending });
+                    await loadProject();
+                    setShowAspectFormatConfirm(false);
+                    setAspectFormatPending(null);
+                  } catch (err) {
+                    showError(getErrorMessage(err, "Failed to update video format."));
+                  } finally {
+                    setAspectFormatSaving(false);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
+              >
+                {aspectFormatSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Proceed"
+                )}
+              </button>
+            </div>
           </div>
         </div>,
         document.body
@@ -2658,7 +2934,10 @@ export default function ProjectView() {
 
       <ConfirmDeleteModal
         open={showTemplateRelayoutWarning}
-        onClose={() => setShowTemplateRelayoutWarning(false)}
+        onClose={() => {
+          setShowTemplateRelayoutWarning(false);
+          setTemplateRelayoutPendingId(null);
+        }}
         title="Proceed with video regeneration?"
         subtitle={project?.name}
         warningMessage="This will deduct 1 video count from your quota. Do you want to continue?"
@@ -2667,6 +2946,252 @@ export default function ProjectView() {
         iconVariant="warning"
         onConfirm={applyTemplateRelayout}
       />
+
+      {showTemplateChangeModal &&
+        project &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+              onClick={() => !submittingTemplateRelayout && setShowTemplateChangeModal(false)}
+              aria-hidden
+            />
+            <div
+              className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-gray-200/80 bg-white shadow-2xl overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="template-change-title"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 id="template-change-title" className="text-base font-semibold text-gray-900">
+                  Change template
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateChangeModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+                  aria-label="Close"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+                <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("builtin")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "builtin"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Built-in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateChangePickerTab("custom")}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      templateChangePickerTab === "custom"
+                        ? "bg-white text-purple-600 shadow-sm"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    Custom
+                  </button>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">Selected preview</p>
+                  <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
+                    <div className="relative max-h-[200px] overflow-hidden">
+                      <TemplateAssignPreview
+                        templateId={templateChangeDraft}
+                        customTemplates={customTemplatesList}
+                        projectCustomTheme={project.custom_theme ?? null}
+                        projectName={project.name}
+                        variant="large"
+                      />
+                    </div>
+                    <div className="px-3 py-2 bg-purple-50/80 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-gray-800 truncate">
+                        {templateChangeDraft.startsWith("custom_")
+                          ? customTemplatesList.find(
+                              (c) => c.id === parseInt(templateChangeDraft.replace("custom_", ""), 10)
+                            )?.name ?? "Custom"
+                          : TEMPLATE_DESCRIPTIONS[templateChangeDraft]?.title ?? templateMetas.find((m) => m.id === templateChangeDraft)?.name ?? templateChangeDraft}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 mb-2">
+                    All {templateChangePickerTab === "builtin" ? "built-in" : "custom"} templates
+                  </p>
+                  <div className="border border-gray-200/60 rounded-xl p-4 max-h-[240px] overflow-y-auto bg-gray-50/40">
+                    {templateChangePickerTab === "builtin" ? (
+                      templateMetas.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-4">
+                          {templateMetas.map((t) => {
+                            const PreviewComp = TEMPLATE_PREVIEWS[t.id];
+                            const desc = TEMPLATE_DESCRIPTIONS[t.id];
+                            const isSel = templateChangeDraft === t.id;
+                            const isNew = t.new_template === true;
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setTemplateChangeDraft(t.id)}
+                                className={`text-left rounded-lg overflow-hidden transition-all ${
+                                  isSel
+                                    ? "ring-2 ring-purple-500 ring-offset-1 ring-offset-gray-50"
+                                    : isNew
+                                    ? "ring-1 ring-purple-400/60 hover:ring-purple-500"
+                                    : "ring-1 ring-gray-200/60 hover:ring-purple-300/60"
+                                }`}
+                              >
+                                <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                                  {PreviewComp ? (
+                                    <PreviewComp key={`pick-${t.id}`} />
+                                  ) : (
+                                    <div className="w-full min-h-[56px] bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 px-1">
+                                      {t.name}
+                                    </div>
+                                  )}
+                                  {isNew && (
+                                    <div className="absolute top-0.5 left-0.5 z-[1]">
+                                      <NewTemplateBadge />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className={`px-2 py-1 ${isSel ? "bg-purple-50/90" : "bg-white/90"}`}>
+                                  <div className="text-[10px] font-semibold text-gray-800 truncate">{desc?.title ?? t.name}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 py-6 text-center">No built-in templates loaded.</p>
+                      )
+                    ) : (
+                      <div className="grid grid-cols-3 gap-4">
+                        <CraftYourTemplateCard
+                          variant="default"
+                          isPro={isPro}
+                          onClick={openCraftCustomTemplateFromProjectSettings}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openCraftCustomTemplateFromProjectSettings();
+                            }
+                          }}
+                        />
+                        {readyCustomForPicker.map((ct) => {
+                          const cid = `custom_${ct.id}`;
+                          const isSel = templateChangeDraft === cid;
+                          return (
+                            <button
+                              key={cid}
+                              type="button"
+                              onClick={() => {
+                                if (!isPro) {
+                                  setShowUpgrade(true);
+                                  return;
+                                }
+                                setTemplateChangeDraft(cid);
+                              }}
+                              className={`text-left rounded-lg overflow-hidden border-2 transition-all ${
+                                isSel ? "border-purple-500 shadow-[0_0_0_2px_rgba(124,58,237,0.12)]" : "border-gray-200/60 hover:border-purple-300/60"
+                              }`}
+                            >
+                              <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
+                                {/* Previews use canvas/Remotion; without pointer-events-none clicks never reach the button. */}
+                                <div className="relative z-0 min-h-[56px] pointer-events-none">
+                                  <CustomPreviewLandscape
+                                    theme={ct.theme}
+                                    name={ct.name}
+                                    introCode={ct.intro_code || undefined}
+                                    outroCode={ct.outro_code || undefined}
+                                    contentCodes={ct.content_codes || undefined}
+                                    contentArchetypeIds={ct.content_archetype_ids || undefined}
+                                    previewImageUrl={ct.preview_image_url}
+                                    logoUrls={ct.logo_urls}
+                                    ogImage={ct.og_image}
+                                  />
+                                </div>
+                                {!isPro && (
+                                  <div
+                                    className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-600 text-white shadow-sm"
+                                    aria-hidden
+                                  >
+                                    Pro
+                                  </div>
+                                )}
+                              </div>
+                              <div className={`px-2 py-1 ${isSel ? "bg-purple-50/80" : "bg-white/80"}`}>
+                                <div className="text-[10px] font-semibold text-gray-800 truncate">{ct.name}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {customTemplatesLoading && (
+                          <div
+                            className="rounded-lg border border-dashed border-gray-200/80 bg-white/70 flex flex-col items-center justify-center gap-2 min-h-[88px] px-2 py-3 text-center"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <span className="w-4 h-4 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin shrink-0" aria-hidden />
+                            <p className="text-[10px] text-gray-500 leading-snug">
+                              Loading custom templates, please wait.
+                            </p>
+                          </div>
+                        )}
+                        {!customTemplatesLoading && readyCustomForPicker.length === 0 && (
+                          <p className="col-span-2 text-xs text-gray-500 py-4 text-center flex items-center justify-center">
+                            No custom templates ready yet.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateChangeModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={templateChangeDraft === assignedTemplateId || templateRelayoutRunning}
+                  onClick={() => {
+                    if (templateChangeDraft === assignedTemplateId) return;
+                    if (!isPro && templateChangeDraft.startsWith("custom_")) {
+                      setShowUpgrade(true);
+                      return;
+                    }
+                    setTemplateRelayoutPendingId(templateChangeDraft);
+                    setShowTemplateChangeModal(false);
+                    setShowTemplateRelayoutWarning(true);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed rounded-xl"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
       {showShareMenu && project?.r2_video_url && (
@@ -3539,104 +4064,75 @@ export default function ProjectView() {
             <p className="text-xs text-gray-400 mb-5">
               Rebuild scene layouts for a new template while preserving narration, display text, voiceovers.
             </p>
-            <div className="glass-card p-6 flex flex-col gap-4 overflow-visible relative z-20">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-medium text-gray-700">Target template</label>
-                <div ref={templateDropdownRef} className="relative w-full">
-                  <button
-                    type="button"
-                    onClick={() => setShowTemplateDropdown((v) => !v)}
-                    disabled={submittingTemplateRelayout || templateRelayoutRunning}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white hover:border-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-300 disabled:bg-gray-100 disabled:text-gray-400 flex items-center justify-between"
-                  >
-                    <span className="truncate">
-                      {[
-                        ...builtinTemplates.map((t) => ({ value: t.id, label: t.name })),
-                        ...customTemplates.map((t) => ({ value: `custom_${t.id}`, label: t.name })),
-                      ].find((opt) => opt.value === selectedProjectTemplate)?.label || "Select template"}
-                    </span>
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showTemplateDropdown && (
-                    <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-2 max-h-80 overflow-y-auto">
-                      <div>
-                        <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Built-in templates</p>
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {builtinTemplates.map((tpl) => (
-                            <button
-                              key={tpl.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedProjectTemplate(tpl.id);
-                                setShowTemplateDropdown(false);
-                              }}
-                              className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                selectedProjectTemplate === tpl.id
-                                  ? "bg-purple-50 text-purple-700"
-                                  : "hover:bg-gray-50 text-gray-700"
-                              }`}
-                            >
-                              {tpl.name}
-                            </button>
-                          ))}
+            <div className="glass-card p-6 overflow-visible relative z-20">
+              {(() => {
+                const tid = assignedTemplateId;
+                const selectedCustom =
+                  tid.startsWith("custom_") && project
+                    ? customTemplatesList.find((ct) => ct.id === parseInt(tid.replace("custom_", ""), 10))
+                    : null;
+                const selectedDesc = TEMPLATE_DESCRIPTIONS[tid];
+                const assignedBuiltinNew =
+                  !tid.startsWith("custom_") && templateMetas.some((t) => t.id === tid && t.new_template === true);
+                return (
+                  <div className="flex flex-row items-stretch gap-4">
+                    <div className="shrink-0 self-start w-[9.5rem] sm:w-40 rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
+                      <TemplateAssignPreview
+                        templateId={tid}
+                        customTemplates={customTemplatesList}
+                        projectCustomTheme={project?.custom_theme ?? null}
+                        projectName={project?.name}
+                        variant="thumb"
+                      />
+                      <div className="px-2 py-1.5 bg-purple-50/80 flex items-center justify-center gap-1">
+                        <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
                         </div>
                       </div>
-                      {customTemplates.length > 0 && (
-                        <div>
-                          <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Custom templates</p>
-                          <div className="grid grid-cols-1 gap-1.5">
-                            {customTemplates.map((tpl) => {
-                              const value = `custom_${tpl.id}`;
-                              return (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedProjectTemplate(value);
-                                    setShowTemplateDropdown(false);
-                                  }}
-                                  className={`text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${
-                                    selectedProjectTemplate === value
-                                      ? "bg-purple-50 text-purple-700"
-                                      : "hover:bg-gray-50 text-gray-700"
-                                  }`}
-                                >
-                                  {tpl.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={
-                    submittingTemplateRelayout ||
-                    selectedProjectTemplate === (project.template || "default") ||
-                    templateRelayoutJob?.status === "running" ||
-                    templateRelayoutJob?.status === "queued"
-                  }
-                  onClick={() => setShowTemplateRelayoutWarning(true)}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:text-white text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {submittingTemplateRelayout ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Starting…
-                    </>
-                  ) : (
-                    "Apply template and regenerate layouts"
-                  )}
-                </button>
-              </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between items-end text-right gap-2 min-h-0">
+                      <div className="flex flex-col items-end gap-1">
+                        <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+                          Current template
+                        </label>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-sm font-semibold text-gray-800">
+                            {selectedCustom ? selectedCustom.name : selectedDesc?.title ?? tid}
+                          </span>
+                          {assignedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
+                          {selectedCustom && (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shrink-0"
+                              style={{ backgroundColor: selectedCustom.preview_colors.accent }}
+                            >
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        {selectedCustom ? (
+                          <div className="text-[11px] text-gray-400">Custom template</div>
+                        ) : selectedDesc?.subtitle ? (
+                          <div className="text-[11px] text-gray-400">{selectedDesc.subtitle}</div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
+                        onClick={() => {
+                          setTemplateChangeDraft(assignedTemplateId);
+                          setTemplateChangePickerTab(assignedTemplateId.startsWith("custom_") ? "custom" : "builtin");
+                          setShowTemplateChangeModal(true);
+                        }}
+                        className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        Change template
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

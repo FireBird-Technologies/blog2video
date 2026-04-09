@@ -138,30 +138,25 @@ export default function NewscastPreview() {
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        {/* Navigation Dots Overlay */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-black/40 backdrop-blur-md px-3 py-1.5 border border-white/10">
+        {/* Navigation dots — compact, no scene titles */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 backdrop-blur-sm px-2 py-1 border border-white/10">
           {NEWCAST_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  isActive ? "w-6 bg-red-500 shadow-[0_0_8px_rgba(232,32,32,0.6)]" : "w-1.5 bg-white/30 hover:bg-white/60"
+                className={`rounded-full transition-all duration-500 ${
+                  isActive
+                    ? "h-0.5 w-3 bg-red-500 shadow-[0_0_6px_rgba(232,32,32,0.5)]"
+                    : "h-[3px] w-[3px] bg-white/35 hover:bg-white/55"
                 }`}
-                aria-label={`Preview ${scene.title} layout`}
-                title={scene.title}
+                aria-label={`Preview scene ${index + 1} of ${NEWCAST_PREVIEW_SCENES.length}`}
                 type="button"
               />
             );
           })}
         </div>
-      </div>
-      
-      {/* Optional Title Sync */}
-      <div className="mt-4 text-center">
-        <h3 className="text-white font-medium text-lg">{activeScene.title}</h3>
-        <p className="text-white/40 text-sm uppercase tracking-widest mt-1">Automatic Preview</p>
       </div>
     </div>
   );
