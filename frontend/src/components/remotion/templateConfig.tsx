@@ -16,6 +16,7 @@ import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
+import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -25,6 +26,7 @@ import {
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
+  RemotionBlackswanVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -174,6 +176,19 @@ const NEWSCAST_LAYOUTS = new Set([
   "field_image_focus",
   "ending_socials",
 ]);
+const BLACKSWAN_LAYOUTS = new Set([
+  "droplet_intro",
+  "swan_title",
+  "neon_narrative",
+  "arc_features",
+  "pulse_metric",
+  "signal_split",
+  "dive_insight",
+  "wing_stack",
+  "reactor_code",
+  "flight_path",
+  "frequency_chart",
+]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -279,6 +294,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1280,
     baseHeight: 720,
   },
+  blackswan: {
+    component: BlackswanVideoComposition as React.ComponentType<any>,
+    heroLayout: "droplet_intro",
+    fallbackLayout: "neon_narrative",
+    validLayouts: BLACKSWAN_LAYOUTS,
+    defaultColors: {
+      accent: "#00E5FF",
+      bg: "#000000",
+      text: "#DFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -321,6 +349,8 @@ export function getTemplateConfig(
                     ? RemotionNewspaperVideoComposition
                     : id === "newscast"
                       ? RemotionNewscastVideoComposition
+                      : id === "blackswan"
+                        ? RemotionBlackswanVideoComposition
                     : null;
 
     if (overrideComponent) {
