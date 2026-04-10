@@ -67,14 +67,8 @@ export const DataStream: React.FC<MatrixLayoutProps> = ({
     displayItems.length - 1
   );
 
-
-  const itemCount = displayItems.length;
-  const baseFontSize = p ? 56 : 64;
-  const scaledFontSize = Math.max(
-    p ? 24 : 28,
-    Math.min(baseFontSize, Math.floor(baseFontSize * (4 / Math.max(itemCount, 4))))
-  );
-  const computedFontSize = descriptionFontSize ?? scaledFontSize;
+  const scaledFontSize = descriptionFontSize ?? (p ? 77 : 73);
+  const computedFontSize = scaledFontSize;
   const prefixWidth = p ? 110 : 132;
   const stackPaddingTop = hasImage ? (p ? 56 : 36) : (p ? 180 : 140);
   const stackPaddingBottom = p ? 120 : 84;
