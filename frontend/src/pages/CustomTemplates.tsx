@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   listCustomTemplates,
   deleteCustomTemplate,
@@ -11,14 +12,18 @@ import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
-import { VIDEO_STYLE_OPTIONS } from "../constants/videoStyles";
+import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 
 const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
 
 export default function CustomTemplates() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
+  const [creatorKey, setCreatorKey] = useState(0);
+  const [creatorInitialVideoStyle, setCreatorInitialVideoStyle] = useState<VideoStyleId | undefined>(undefined);
   const [editTarget, setEditTarget] = useState<CustomTemplateItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomTemplateItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -33,6 +38,20 @@ export default function CustomTemplates() {
     preloadBabel();
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
+
+  // BlogUrlForm navigates with ?tab=templates&openCustomCreator=1&videoStyle=…
+  useEffect(() => {
+    if (searchParams.get("openCustomCreator") !== "1") return;
+    const style = normalizeVideoStyle(searchParams.get("videoStyle"));
+    setCreatorInitialVideoStyle(style);
+    setCreatorKey((k) => k + 1);
+    setShowCreator(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("openCustomCreator");
+    next.delete("videoStyle");
+    const qs = next.toString();
+    navigate(qs ? `/dashboard?${qs}` : "/dashboard", { replace: true });
+  }, [searchParams, navigate]);
 
   const loadTemplates = async () => {
     try {
@@ -78,6 +97,7 @@ export default function CustomTemplates() {
   const handleCreated = (tpl: CustomTemplateItem) => {
     setTemplates((prev) => [tpl, ...prev]);
     setShowCreator(false);
+    setCreatorInitialVideoStyle(undefined);
     startPollingIfNeeded([tpl]);
   };
 
@@ -160,7 +180,11 @@ export default function CustomTemplates() {
             colors, fonts, and style to build a video template that matches your brand.
           </p>
           <button
-            onClick={() => setShowCreator(true)}
+            onClick={() => {
+              setCreatorInitialVideoStyle(undefined);
+              setCreatorKey((k) => k + 1);
+              setShowCreator(true);
+            }}
             className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors"
           >
             + Create Custom Template
@@ -169,8 +193,13 @@ export default function CustomTemplates() {
 
         {showCreator && (
           <CustomTemplateCreator
+            key={creatorKey}
+            initialVideoStyle={creatorInitialVideoStyle}
             onCreated={handleCreated}
-            onCancel={() => setShowCreator(false)}
+            onCancel={() => {
+              setShowCreator(false);
+              setCreatorInitialVideoStyle(undefined);
+            }}
           />
         )}
       </>
@@ -200,7 +229,11 @@ export default function CustomTemplates() {
             <span className="text-sm font-normal text-gray-400 ml-2">({templates.length})</span>
           </h2>
           <button
-            onClick={() => setShowCreator(true)}
+            onClick={() => {
+              setCreatorInitialVideoStyle(undefined);
+              setCreatorKey((k) => k + 1);
+              setShowCreator(true);
+            }}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
             + Create New
@@ -366,8 +399,13 @@ export default function CustomTemplates() {
       {/* Creator modal */}
       {showCreator && (
         <CustomTemplateCreator
+          key={creatorKey}
+          initialVideoStyle={creatorInitialVideoStyle}
           onCreated={handleCreated}
-          onCancel={() => setShowCreator(false)}
+          onCancel={() => {
+            setShowCreator(false);
+            setCreatorInitialVideoStyle(undefined);
+          }}
         />
       )}
 

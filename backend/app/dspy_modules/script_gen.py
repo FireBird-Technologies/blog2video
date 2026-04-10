@@ -49,7 +49,7 @@ class BlogToScript(dspy.Signature):
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
     - video_length values: auto | short | medium | detailed
-    - short: best-effort 7–10 scenes (cap at 10).
+    - short: best-effort 6–8 scenes (cap at 8).
     - medium: best-effort 12–15 scenes (cap at 15).
     - detailed: best-effort 15–20 scenes (cap at 20).
     - auto: choose a natural scene count based on scraped blog_content length and structure,
@@ -120,7 +120,7 @@ class BlogToScript(dspy.Signature):
     - Think about the **entire video** as a sequence — layout choices should feel like a deliberate visual journey, not random picks.
 
     ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
-    - short (7–10 scenes): use at least 7 distinct layouts. Max 2 scenes may share the same layout.
+    - short (6–8 scenes): use at least 6 distinct layouts. Max 2 scenes may share the same layout.
     - medium (12–15 scenes): use at least 9 distinct layouts. Max 2 scenes may share the same layout.
     - detailed (15–20 scenes): use at least 10 distinct layouts. Max 4 scenes may share the same layout.
     - For any other length: use at least ceil(total_scenes * 0.7) distinct layouts.
@@ -369,7 +369,7 @@ class ScriptGenerator:
         """Maximum number of scenes allowed for the given video length category."""
         vl = (video_length or "auto").strip().lower()
         if vl == "short":
-            return 10
+            return 8
         if vl == "medium":
             return 15
         if vl == "detailed":
