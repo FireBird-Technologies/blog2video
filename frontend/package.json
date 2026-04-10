@@ -47,6 +47,7 @@
     "react-joyride": "^2.7.2",
     "react-router-dom": "^6.26.0",
     "react-simple-maps": "^3.0.0",
+    "recharts": "^3.8.1",
     "remotion": "4.0.434",
     "topojson-client": "^3.1.0",
     "tsx": "^4.21.0"

@@ -108,8 +108,11 @@ _ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   # .docx
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+    "text/plain",  # .txt
+    "text/markdown",  # .md
+    "text/x-markdown",  # .md
 }
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
@@ -754,7 +757,7 @@ def create_project_from_upload(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new project from uploaded documents (PDF, DOCX, PPTX). Counts against video limit."""
+    """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -773,7 +776,7 @@ def create_project_from_upload(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         # Check file size (read content to measure, then reset)
         content = f.file.read()
@@ -873,7 +876,7 @@ def upload_documents_to_project(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:

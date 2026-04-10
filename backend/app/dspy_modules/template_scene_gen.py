@@ -3,6 +3,10 @@ import dspy
 from collections import Counter
 
 from app.dspy_modules import ensure_dspy_configured
+from app.services.chart_planner import (
+    get_chartable_tables_from_visual_hint,
+    generate_chart_props_from_table_hints,
+)
 from app.services.template_service import (
     get_prompt,
     get_meta,
@@ -24,6 +28,24 @@ VALID_ELEMENT_TYPES = {
     "heading", "body-text", "card-grid", "code-block", "metric-row",
     "image", "quote", "timeline", "steps", "icon-text", "comparison",
 }
+
+_VISUAL_LAYOUT_KEYWORDS: dict[str, list[str]] = {
+    "story_stack": ["stack list", "story stack", "stacked list", "key provisions", "key features"],
+    "side_by_side_brief": ["side by side", "side-by-side", "compare", "contrast", "versus", "before after", "before/after"],
+    "live_metrics_board": ["metrics board", "key numbers", "key statistics", "metric cards"],
+    "headline_insight": ["pull quote", "powerful sentence", "defining moment", "headline insight"],
+    "segment_break": ["chapter break", "segment break", "section transition"],
+    "briefing_code_panel": ["code panel", "code snippet", "terminal"],
+}
+
+
+def _visual_hints_at_layout(visual_description: str) -> str | None:
+    """If the visual description strongly implies a specific non-data layout, return its ID."""
+    lower = (visual_description or "").lower()
+    for layout_id, keywords in _VISUAL_LAYOUT_KEYWORDS.items():
+        if any(kw in lower for kw in keywords):
+            return layout_id
+    return None
 
 
 # ─── Built-in templates: layout catalog + layout_props_json ───────────────────
@@ -52,7 +74,7 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
     - For numbers: extract exact values if stated
     - For charts: extract ALL data points mentioned (categories, values, time points)
     - If a prop is optional and not in narration, omit it (don't guess)
-    - Use EXACT prop key names from the layout catalog (e.g., "barChart" not "bar_chart", "metrics" not "metric")
+    - Use EXACT prop key names from the layout catalog (e.g., "barChartRows" not "bar_chart", "metrics" not "metric")
 
     ═══ OUTPUT FORMAT ═══
     - layout: exact layout ID from catalog (lowercase, underscores)
@@ -108,7 +130,7 @@ class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
     - Use exact prop keys from the layout catalog (case-sensitive).
     - For arrays: extract ALL mentioned items. For charts: extract ALL data points.
     - If a prop is optional and not in the content, omit it (don't guess).
-    - Use EXACT prop key names from the catalog (e.g., "barChart", "metrics").
+    - Use EXACT prop key names from the catalog (e.g., "barChartRows", "metrics").
 
     ═══ OUTPUT FORMAT ═══
     - layout: exact layout ID from catalog (lowercase, underscores). If preferred_layout is given, return that.
@@ -364,6 +386,10 @@ class TemplateSceneGenerator:
             self.variety_tracker = ArrangementVarietyTracker(
                 get_valid_layouts(template_id), get_hero_layout(template_id),
             )
+        # Newscast-only hinting: when multiple tables are available, we can target
+        # multiple scenes for data visualization and rotate table sources.
+        self._newscast_forced_data_viz_scenes: set[int] = set()
+        self._newscast_data_viz_table_by_scene: dict[int, int] = {}
 
     def _parse_props_json(self, props_str: str) -> dict:
         """Parse layout_props_json for built-in templates."""
@@ -384,6 +410,121 @@ class TemplateSceneGenerator:
                     (props_str or "")[:100],
                 )
             return {}
+
+    def _merge_chart_planner_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+        scene_title: str,
+        narration: str,
+        scene_index: int | None = None,
+    ) -> dict:
+        if layout != "data_visualization":
+            return props
+
+        preferred_table_index = None
+        if isinstance(scene_index, int):
+            preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
+
+        planned = generate_chart_props_from_table_hints(
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            preferred_table_index=preferred_table_index,
+        )
+        if not planned:
+            return props
+
+        out = dict(props or {})
+        chart_keys = {
+            "chartType",
+            "chartTable",
+            "lineChartLabels",
+            "lineChartDatasets",
+            "barChartRows",
+            "histogramRows",
+            "marketSymbol",
+            "marketValue",
+            "marketDelta",
+            "marketPercent",
+            "marketTrend",
+        }
+
+        # If LLM did not produce usable chart payload, adopt planner output fully.
+        has_existing_series = bool(
+            out.get("lineChartDatasets") or out.get("barChartRows") or out.get("histogramRows")
+        )
+        if not has_existing_series:
+            for k, v in planned.items():
+                out[k] = v
+            return out
+
+        # Planner output is deterministic from extracted table hints, while model
+        # output may include noisy numeric hallucinations from mixed text cells.
+        # Prefer planner chart payload when available.
+        for k, v in planned.items():
+            if k in chart_keys:
+                out[k] = v
+
+        return out
+
+    def _plan_newscast_data_visualization_targets(self, scenes_data: list[dict]) -> None:
+        self._newscast_forced_data_viz_scenes = set()
+        self._newscast_data_viz_table_by_scene = {}
+        if self.template_id != "newscast" or not scenes_data:
+            return
+
+        first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
+
+        # Fix 1: only count tables that actually produce chart props.
+        chartable_tables = get_chartable_tables_from_visual_hint(first_visual)
+        if len(chartable_tables) < 2:
+            return
+
+        target_count = min(3, len(chartable_tables))
+
+        eligible: list[int] = []
+        total = len(scenes_data)
+        for i, scene in enumerate(scenes_data):
+            if i == 0:
+                continue
+            preferred = str(scene.get("preferred_layout") or "").strip().lower()
+            if preferred == "ending_socials":
+                continue
+            if total <= 4 and i == total - 1:
+                continue
+            # Fix 3: skip scenes whose visual description already signals a
+            # specific non-data layout (e.g. "story stack list …").
+            vis = str(scene.get("visual_description") or "")
+            if _visual_hints_at_layout(vis):
+                continue
+            eligible.append(i)
+
+        if not eligible:
+            return
+
+        # Spread targets across the timeline (middle-to-late content scenes).
+        chosen: list[int] = []
+        for slot in range(target_count):
+            pos = round((slot + 1) * (len(eligible) + 1) / (target_count + 1)) - 1
+            pos = max(0, min(len(eligible) - 1, pos))
+            candidate = eligible[pos]
+            if candidate not in chosen:
+                chosen.append(candidate)
+
+        for idx in eligible:
+            if len(chosen) >= target_count:
+                break
+            if idx not in chosen:
+                chosen.append(idx)
+
+        chosen = sorted(chosen)[:target_count]
+        for n, scene_idx in enumerate(chosen):
+            self._newscast_forced_data_viz_scenes.add(scene_idx)
+            orig_idx = chartable_tables[n % len(chartable_tables)][0]
+            self._newscast_data_viz_table_by_scene[scene_idx] = orig_idx
+            scenes_data[scene_idx]["preferred_layout"] = "data_visualization"
 
     def _validate_props(self, layout: str, props: dict) -> dict:
         """Validate props against layout schema in meta. If no schema, pass through."""
@@ -804,6 +945,11 @@ class TemplateSceneGenerator:
                 self._valid_arrangements, self._hero_arrangement,
             )
 
+        # Built-in newscast only: when multiple tables are present in hints, force
+        # 2-3 scenes toward data_visualization and rotate table sources.
+        if not self._is_custom:
+            self._plan_newscast_data_visualization_targets(scenes_data)
+
         results: list[dict] = [{}] * total
 
         for batch_start in range(0, total, BATCH_SIZE):
@@ -870,6 +1016,12 @@ class TemplateSceneGenerator:
             normalized_preferred = preferred_layout.strip().lower().replace(" ", "_").replace("-", "_")
             if normalized_preferred not in self._valid_layouts:
                 normalized_preferred = None
+        if (
+            not normalized_preferred
+            and scene_index in self._newscast_forced_data_viz_scenes
+            and "data_visualization" in self._valid_layouts
+        ):
+            normalized_preferred = "data_visualization"
 
         for attempt in range(max_retries + 1):
             try:
@@ -901,6 +1053,35 @@ class TemplateSceneGenerator:
 
                 props = self._parse_props_json(result.layout_props_json)
                 validated_props = self._validate_props(layout, props)
+                validated_props = self._merge_chart_planner_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
+                )
+
+                # Fix 4: if a forced data_visualization scene ended up with no
+                # chart series, fall back to the LLM's original pick or the
+                # template fallback so we don't render an empty chart.
+                if (
+                    layout == "data_visualization"
+                    and scene_index in self._newscast_forced_data_viz_scenes
+                    and not validated_props.get("lineChartDatasets")
+                    and not validated_props.get("barChartRows")
+                    and not validated_props.get("histogramRows")
+                ):
+                    llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+                    if llm_layout in self._valid_layouts and llm_layout != "data_visualization":
+                        layout = llm_layout
+                    else:
+                        layout = self._fallback_layout
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: data_visualization had no chart data, falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
 
                 self.variety_tracker.record(layout)
                 return {"layout": layout, "layoutProps": validated_props}
@@ -951,4 +1132,31 @@ class TemplateSceneGenerator:
 
         props = self._parse_props_json(result.layout_props_json)
         validated_props = self._validate_props(layout, props)
+        validated_props = self._merge_chart_planner_props(
+            layout=layout,
+            props=validated_props,
+            visual_description=visual_description,
+            scene_title=scene_title,
+            narration=narration,
+            scene_index=scene_index,
+        )
+
+        # Fix 4: empty chart safety net (same as _generate_old_descriptor).
+        if (
+            layout == "data_visualization"
+            and not validated_props.get("lineChartDatasets")
+            and not validated_props.get("barChartRows")
+            and not validated_props.get("histogramRows")
+        ):
+            llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
+            if llm_layout in self._valid_layouts and llm_layout != "data_visualization":
+                layout = llm_layout
+            else:
+                layout = self._fallback_layout
+            logger.info(
+                "[SCENE_GEN] Regenerate scene %s: data_visualization had no chart data, falling back to '%s'",
+                scene_index,
+                layout,
+            )
+
         return {"layout": layout, "layoutProps": validated_props}

@@ -1,5 +1,22 @@
 import type { SocialsMap } from "../SocialIcons";
 
+export type NewscastChartType = "auto" | "line" | "bar" | "histogram";
+
+export interface NewscastChartRow {
+  label: string;
+  value: string | number;
+}
+
+export interface NewscastChartSeriesInput {
+  label?: string;
+  valuesStr: string;
+}
+
+export interface NewscastChartTableInput {
+  headers?: string[];
+  rows?: Array<Array<string | number>>;
+}
+
 export interface NewscastLayoutProps {
   title: string;
   narration?: string;
@@ -29,6 +46,25 @@ export interface NewscastLayoutProps {
 
   /** glow_metric */
   metrics?: Array<{ value: string; label: string; suffix?: string }>;
+
+  /** data_visualization */
+  marketSymbol?: string;
+  marketValue?: string;
+  marketDelta?: string;
+  marketPercent?: string;
+  marketTrend?: "up" | "down" | "crash";
+  chartType?: NewscastChartType;
+  barChartRows?: NewscastChartRow[];
+  histogramRows?: NewscastChartRow[];
+  lineChartLabels?: string[];
+  lineChartDatasets?: NewscastChartSeriesInput[];
+  chartTable?: NewscastChartTableInput;
+  barPrimaryColor?: string;
+  barSecondaryColor?: string;
+  barTertiaryColor?: string;
+  lineUpColor?: string;
+  lineDownColor?: string;
+  yAxisLabel?: string;
 
   /** glass_code */
   codeLanguage?: string;
@@ -72,6 +108,7 @@ export type NewscastLayoutType =
   | "opening"
   | "anchor_narrative"
   | "live_metrics_board"
+  | "data_visualization"
   | "briefing_code_panel"
   | "headline_insight"
   | "story_stack"
