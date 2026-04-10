@@ -87,11 +87,19 @@ const NAV_LINKS = [
 ];
 
 const LANDING_YT_HOST_ID = "landing-yt-demo-host";
-/** Half cross-fade duration for demo blog + video content (ms). */
-const DEMO_CONTENT_FADE_MS = 400;
+/** One duration for fade-out and fade-in so blog, connector, video meta, and mask stay in sync (ms). */
+const DEMO_CROSSFADE_MS = 480;
+/** After destroy(), delay before re-creating the player so the host node is clean (ms). */
+const YT_RECREATE_AFTER_DESTROY_MS = 64;
+/** Shared easing — smooth start/end, identical on all demo layers */
+const DEMO_CROSSFADE_EASE = "ease-[cubic-bezier(0.33,1,0.68,1)]";
 
 /** YouTube IFrame API player states (numeric). */
 const YT_PLAYING = 1;
+
+type LandingYtPlayer = {
+  destroy: () => void;
+};
 
 function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
@@ -103,10 +111,9 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
     return Boolean((window as unknown as { YT?: { Player?: unknown } }).YT?.Player);
   });
 
-  const playerRef = useRef<{ destroy: () => void; cueVideoById: (id: string) => void } | null>(null);
+  const playerRef = useRef<LandingYtPlayer | null>(null);
   const idleTimerRef = useRef<number | null>(null);
   const stuckGuardRef = useRef<number | null>(null);
-  const prevIdxRef = useRef<number | null>(null);
   const demosLenRef = useRef(demos.length);
   demosLenRef.current = demos.length;
 
@@ -171,48 +178,73 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
     }
   }, []);
 
+  const visibleYoutubeId = demos[shownIdx]?.youtubeId;
+
   useEffect(() => {
-    if (!apiReady || demos.length === 0) return;
-    if (playerRef.current) return;
+    if (!apiReady || !visibleYoutubeId) return;
 
     const w = window as unknown as {
-      YT: { Player: new (id: string, opts: Record<string, unknown>) => { destroy: () => void; cueVideoById: (id: string) => void } };
+      YT: { Player: new (id: string, opts: Record<string, unknown>) => LandingYtPlayer };
     };
 
-    const player = new w.YT.Player(LANDING_YT_HOST_ID, {
-      videoId: demos[activeVideoIdx].youtubeId,
-      width: "100%",
-      height: "100%",
-      playerVars: {
-        enablejsapi: 1,
-        modestbranding: 1,
-        rel: 0,
-        origin: typeof window !== "undefined" ? window.location.origin : undefined,
-      },
-      events: {
-        onReady: (e: { target: { getPlayerState: () => number } }) => {
-          onYtStateChangeRef.current(e.target.getPlayerState());
-        },
-        onStateChange: (e: { data: number }) => {
-          onYtStateChangeRef.current(e.data);
-        },
-      },
-    });
-    playerRef.current = player;
-
-    return () => {
-      clearIdleAdvanceRef.current();
-      clearStuckGuardRef.current();
+    const destroyPlayer = () => {
+      const existing = playerRef.current;
+      if (!existing) return;
       try {
-        player.destroy();
+        existing.destroy();
       } catch {
         /* ignore */
       }
       playerRef.current = null;
-      prevIdxRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- single player init; first video index only
-  }, [apiReady, demos.length]);
+
+    destroyPlayer();
+    clearIdleAdvanceRef.current();
+    clearStuckGuardRef.current();
+
+    let cancelled = false;
+    const createT = window.setTimeout(() => {
+      if (cancelled) return;
+      if (!document.getElementById(LANDING_YT_HOST_ID)) return;
+      try {
+        const player = new w.YT.Player(LANDING_YT_HOST_ID, {
+          videoId: visibleYoutubeId,
+          width: "100%",
+          height: "100%",
+          playerVars: {
+            enablejsapi: 1,
+            modestbranding: 1,
+            rel: 0,
+            origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
+          events: {
+            onReady: (e: { target: { getPlayerState: () => number } }) => {
+              onYtStateChangeRef.current(e.target.getPlayerState());
+            },
+            onStateChange: (e: { data: number }) => {
+              onYtStateChangeRef.current(e.data);
+            },
+          },
+        });
+        playerRef.current = player;
+        clearStuckGuardRef.current();
+        stuckGuardRef.current = window.setTimeout(() => {
+          stuckGuardRef.current = null;
+          scheduleIdleAdvanceRef.current();
+        }, 12000);
+      } catch {
+        /* ignore */
+      }
+    }, YT_RECREATE_AFTER_DESTROY_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(createT);
+      destroyPlayer();
+      clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
+    };
+  }, [apiReady, shownIdx, visibleYoutubeId]);
 
   useEffect(() => {
     if (activeVideoIdx === shownIdx) {
@@ -225,27 +257,22 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
     const t = window.setTimeout(() => {
       setShownIdx(activeVideoIdx);
       setContentPhase("in");
-    }, DEMO_CONTENT_FADE_MS);
+    }, DEMO_CROSSFADE_MS);
     return () => window.clearTimeout(t);
   }, [activeVideoIdx, shownIdx]);
 
-  useEffect(() => {
-    const p = playerRef.current;
-    if (!p || !demos[shownIdx]) return;
-    if (prevIdxRef.current === shownIdx) return;
-    clearIdleAdvanceRef.current();
-    const prev = prevIdxRef.current;
-    prevIdxRef.current = shownIdx;
-    if (prev === null) return;
-    p.cueVideoById(demos[shownIdx].youtubeId);
-    clearStuckGuardRef.current();
-    stuckGuardRef.current = window.setTimeout(() => {
-      stuckGuardRef.current = null;
-      scheduleIdleAdvanceRef.current();
-    }, 12000);
-  }, [shownIdx, demos]);
-
   const v = demos[shownIdx];
+  /* Keep in sync with DEMO_CROSSFADE_MS (Tailwind must see a static class name). */
+  const crossfadeDurationClass = "duration-[480ms]";
+  const demoCrossFadeLayer = `motion-reduce:transition-none transition-[opacity,transform] ${DEMO_CROSSFADE_EASE} ${crossfadeDurationClass} ${
+    contentPhase === "out"
+      ? "opacity-0 translate-y-2"
+      : "opacity-100 translate-y-0"
+  }`;
+  /** Opacity-only mask over the iframe — keeps motion in sync with cards without transforming the embed */
+  const demoVideoBlackout = `absolute inset-0 z-[1] bg-black pointer-events-none motion-reduce:transition-none transition-opacity ${DEMO_CROSSFADE_EASE} ${crossfadeDurationClass} ${
+    contentPhase === "out" ? "opacity-100" : "opacity-0"
+  }`;
 
   return (
     <section id="demo" className="py-20 border-t border-gray-100">
@@ -283,13 +310,8 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 
         {demos.length > 0 && v && (
           <div className="reveal-scale">
-            <div
-              className={`grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch transition-[opacity,transform] ease-in-out motion-reduce:transition-none ${
-                contentPhase === "out"
-                  ? "opacity-0 translate-y-1 duration-[400ms]"
-                  : "opacity-100 translate-y-0 duration-[500ms]"
-              }`}
-            >
+            <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch">
+            <div className={demoCrossFadeLayer}>
             <a
               href={v.blogUrl}
               target="_blank"
@@ -344,8 +366,9 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
                 </span>
               </div>
             </a>
+            </div>
 
-            <div className="hidden md:flex flex-col items-center justify-center px-4">
+            <div className={`hidden md:flex flex-col items-center justify-center px-4 ${demoCrossFadeLayer}`}>
               <div className="flex flex-col items-center gap-2">
                 <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,7 +380,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
                 </span>
               </div>
             </div>
-            <div className="flex md:hidden items-center justify-center py-4">
+            <div className={`flex md:hidden items-center justify-center py-4 ${demoCrossFadeLayer}`}>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
                   <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -371,15 +394,17 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
             </div>
 
             <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+              {/* YouTube host stays outside opacity/transform cross-fade — animating the grid broke iframe API in several browsers */}
               <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
-                <div id={LANDING_YT_HOST_ID} className="absolute inset-0 w-full h-full" />
-                <div className="absolute top-3 left-3 pointer-events-none">
+                <div id={LANDING_YT_HOST_ID} className="absolute inset-0 z-0 w-full h-full" />
+                <div className={demoVideoBlackout} aria-hidden />
+                <div className="absolute top-3 left-3 z-[2] pointer-events-none">
                   <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
                     Generated Video
                   </span>
                 </div>
               </div>
-              <div className="p-5 flex-1 flex flex-col">
+              <div className={`p-5 flex-1 flex flex-col ${demoCrossFadeLayer}`}>
                 <p className="text-[10px] text-gray-400 mb-2">youtube.com</p>
                 <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
                   {v.blogTitle || v.title}
