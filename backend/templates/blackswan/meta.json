@@ -1,0 +1,355 @@
+{
+  "id": "blackswan",
+  "name": "Black Swan",
+  "new_template": true,
+  "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
+  "styles": [
+    "storytelling",
+    "explainer"
+  ],
+  "preview_colors": {
+    "accent": "#00E5FF",
+    "bg": "#000000",
+    "text": "#DFFFFF"
+  },
+  "composition_id": "BlackswanVideo",
+  "hero_layout": "droplet_intro",
+  "fallback_layout": "neon_narrative",
+  "valid_layouts": [
+    "droplet_intro",
+    "swan_title",
+    "neon_narrative",
+    "arc_features",
+    "pulse_metric",
+    "signal_split",
+    "dive_insight",
+    "wing_stack",
+    "reactor_code",
+    "flight_path",
+    "frequency_chart"
+  ],
+  "layout_prop_schema": {
+    "droplet_intro": {
+      "label": "Droplet Intro",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 104,
+          "landscape": 94
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 36
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtitle Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "swan_title": {
+      "label": "Swan Title",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 96,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 38,
+          "landscape": 32
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Description Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        }
+      ]
+    },
+    "neon_narrative": {
+      "label": "Neon Narrative",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 99
+        },
+        "descriptionFontSize": {
+          "portrait": 42,
+          "landscape": 37
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "arc_features": {
+      "label": "Arc Features",
+      "defaults": {
+        "items": [
+          "Feature one",
+          "Feature two",
+          "Feature three"
+        ]
+      },
+      "fields": [
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "string_array",
+          "maxItems": 6
+        }
+      ]
+    },
+    "pulse_metric": {
+      "label": "Pulse Metric",
+      "defaults": {
+        "metrics": [
+          {
+            "value": "97",
+            "label": "Signal",
+            "suffix": "%"
+          },
+          {
+            "value": "3.2",
+            "label": "Lift",
+            "suffix": "x"
+          },
+          {
+            "value": "24",
+            "label": "Nodes",
+            "suffix": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
+          ]
+        }
+      ]
+    },
+    "signal_split": {
+      "label": "Signal Split",
+      "defaults": {
+        "leftLabel": "Before",
+        "rightLabel": "After",
+        "leftDescription": "Previous baseline state",
+        "rightDescription": "Improved neon state"
+      },
+      "fields": [
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Description",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Description",
+          "type": "text"
+        }
+      ]
+    },
+    "dive_insight": {
+      "label": "Dive Insight",
+      "defaults": {
+        "quote": "Complexity fades when the signal is clear.",
+        "highlightWord": "signal"
+      },
+      "fields": [
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "highlightWord",
+          "label": "Highlight Word",
+          "type": "string"
+        }
+      ]
+    },
+    "wing_stack": {
+      "label": "Wing Stack",
+      "defaults": {
+        "items": [
+          "Point one",
+          "Point two",
+          "Point three"
+        ]
+      },
+      "fields": [
+        {
+          "key": "items",
+          "label": "Items",
+          "type": "string_array",
+          "maxItems": 6
+        }
+      ]
+    },
+    "reactor_code": {
+      "label": "Reactor Code",
+      "defaults": {
+        "codeLanguage": "typescript",
+        "codeLines": [
+          "const ripple = createSignal();",
+          "ripple.emit({ intensity: 0.92 });",
+          "render(blackswanTheme);"
+        ]
+      },
+      "fields": [
+        {
+          "key": "codeLanguage",
+          "label": "Language",
+          "type": "string"
+        },
+        {
+          "key": "codeLines",
+          "label": "Code Lines",
+          "type": "string_array",
+          "maxItems": 20
+        }
+      ]
+    },
+    "flight_path": {
+      "label": "Flight Path",
+      "defaults": {
+        "phrases": [
+          "Discover",
+          "Transform",
+          "Publish"
+        ]
+      },
+      "fields": [
+        {
+          "key": "phrases",
+          "label": "Path Steps",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "frequency_chart": {
+      "label": "Frequency Chart",
+      "defaults": {
+        "barChartRows": [
+          {
+            "label": "Q1",
+            "value": "18"
+          },
+          {
+            "label": "Q2",
+            "value": "24"
+          },
+          {
+            "label": "Q3",
+            "value": "31"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "barChartRows",
+          "label": "Bar Chart Rows",
+          "type": "object_array",
+          "maxItems": 10,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "signal_split",
+    "dive_insight",
+    "wing_stack",
+    "reactor_code",
+    "flight_path",
+    "frequency_chart"
+  ],
+  "features": [
+    "Neon water-ring atmosphere on pure black",
+    "Swan and bird motif accents",
+    "Data, code, and workflow-friendly layout set",
+    "Responsive portrait and landscape behavior"
+  ]
+}
