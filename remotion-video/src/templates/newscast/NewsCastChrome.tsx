@@ -28,6 +28,7 @@ export const NewsCastChrome: React.FC<{
   lowerThirdTag?: string;
   lowerThirdHeadline?: string;
   lowerThirdSub?: string;
+  showLowerThird?: boolean;
   accentColor?: string;
   textColor?: string;
   descriptionFontSize?: number;
@@ -37,6 +38,7 @@ export const NewsCastChrome: React.FC<{
   lowerThirdTag,
   lowerThirdHeadline,
   lowerThirdSub,
+  showLowerThird = true,
   accentColor,
   textColor,
   descriptionFontSize: _descriptionFontSize,
@@ -279,53 +281,54 @@ export const NewsCastChrome: React.FC<{
         </div>
       </div>
 
-      {/* Lower third */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          bottom: lowerThirdBottom,
-          left: 0,
-          right: 0,
-          zIndex: 25,
-          padding: "0 20px",
-          display: "flex",
-          alignItems: "flex-end",
-        }}
-      >
+      {showLowerThird ? (
         <div
+          aria-hidden
           style={{
-            width: "58%",
-            maxWidth: "58%",
-            background: "linear-gradient(90deg, rgba(10,42,110,0.9) 0%, rgba(10,42,110,0.85) 60%, rgba(10,42,110,0.5) 85%, transparent 100%)",
-            borderTop: `2px solid ${RED}`,
-            borderLeft: `4px solid ${RED}`,
-            backdropFilter: "blur(4px)",
-            padding: padLowerThird,
-            position: "relative",
-            overflow: "visible",
+            position: "absolute",
+            bottom: lowerThirdBottom,
+            left: 0,
+            right: 0,
+            zIndex: 25,
+            padding: "0 20px",
+            display: "flex",
+            alignItems: "flex-end",
           }}
         >
-          <div aria-hidden style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, transparent 100%)", pointerEvents: "none" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <div style={{ fontFamily: newscastFont(fontFamily, "title"), fontSize: display10, fontWeight: 600, letterSpacing: 3, textTransform: "uppercase", color: "#F0CC70" }}>
-                {lowerThirdTag ?? "LIVE COVERAGE"}
+          <div
+            style={{
+              width: "58%",
+              maxWidth: "58%",
+              background: "linear-gradient(90deg, rgba(10,42,110,0.9) 0%, rgba(10,42,110,0.85) 60%, rgba(10,42,110,0.5) 85%, transparent 100%)",
+              borderTop: `2px solid ${RED}`,
+              borderLeft: `4px solid ${RED}`,
+              backdropFilter: "blur(4px)",
+              padding: padLowerThird,
+              position: "relative",
+              overflow: "visible",
+            }}
+          >
+            <div aria-hidden style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, transparent 100%)", pointerEvents: "none" }} />
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                <div style={{ fontFamily: newscastFont(fontFamily, "title"), fontSize: display10, fontWeight: 600, letterSpacing: 3, textTransform: "uppercase", color: "#F0CC70" }}>
+                  {lowerThirdTag ?? "LIVE COVERAGE"}
+                </div>
+                <div style={{ width: 4, height: 4, borderRadius: 999, background: "rgba(200,220,255,0.3)" }} />
+                <div style={{ fontFamily: newscastFont(fontFamily, "label"), fontSize: display10, letterSpacing: 2, color: "#7A9AB8", textTransform: "uppercase" }}>
+                  {lowerThirdHeadline ? "SPECIAL REPORT" : "Special Report"}
+                </div>
               </div>
-              <div style={{ width: 4, height: 4, borderRadius: 999, background: "rgba(200,220,255,0.3)" }} />
-              <div style={{ fontFamily: newscastFont(fontFamily, "label"), fontSize: display10, letterSpacing: 2, color: "#7A9AB8", textTransform: "uppercase" }}>
-                {lowerThirdHeadline ? "SPECIAL REPORT" : "Special Report"}
+              <div style={{ fontFamily: newscastFont(fontFamily, "title"), fontSize: lowerThirdTitle, fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: 1, lineHeight: 1.1, marginBottom: 4 }}>
+                {lowerThirdHeadline ?? "Correspondent Report"}
               </div>
-            </div>
-            <div style={{ fontFamily: newscastFont(fontFamily, "title"), fontSize: lowerThirdTitle, fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: 1, lineHeight: 1.1, marginBottom: 4 }}>
-              {lowerThirdHeadline ?? "Correspondent Report"}
-            </div>
-            <div style={{ fontFamily: newscastFont(fontFamily, "body"), fontSize: display13, fontWeight: 400, color: STEEL, letterSpacing: 0.3 }}>
-              {lowerThirdSub ?? "Reporting live from the broadcast desk"}
+              <div style={{ fontFamily: newscastFont(fontFamily, "body"), fontSize: display13, fontWeight: 400, color: STEEL, letterSpacing: 0.3 }}>
+                {lowerThirdSub ?? "Reporting live from the broadcast desk"}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </AbsoluteFill>
   );
 };
