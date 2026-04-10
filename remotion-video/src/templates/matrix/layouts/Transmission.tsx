@@ -204,7 +204,7 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
               {/* Main phrase */}
               <div
                 style={{
-                  fontSize: titleFontSize ?? (p ? 54 : 56),
+                  fontSize: titleFontSize ?? (p ? 84 : 78),
                   fontWeight: 700,
                   color: accent,
                   letterSpacing: "-0.02em",
