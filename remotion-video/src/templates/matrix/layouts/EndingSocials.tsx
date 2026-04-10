@@ -85,7 +85,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
 
   // --- Dynamic Sizing ---
-  const resolvedTitleSize = titleFontSize ?? (p ? 80 : 64);
+  const resolvedTitleSize = titleFontSize ?? (p ? 76 : 57);
   const resolvedCtaSize = resolvedTitleSize * 1.2;
 
   // --- Timing logic ---
@@ -155,7 +155,7 @@ export const EndingSocials: React.FC<MatrixLayoutProps> = ({
         {subtext && (
           <div style={{
             marginTop: 35,
-            fontSize: descriptionFontSize ?? (p ? 32 : 26),
+            fontSize: descriptionFontSize ?? (p ? 38 : 30),
             fontWeight: 500,
             color: `${textColor || "#00FF41"}CC`,
             lineHeight: 1.3,

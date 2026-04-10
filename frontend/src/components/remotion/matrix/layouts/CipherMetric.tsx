@@ -130,7 +130,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 90 : 130),
+              fontSize: titleFontSize ?? (p ? 182 : 175),
               fontWeight: 700,
               color: accent,
               letterSpacing: "-0.03em",
@@ -160,7 +160,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
           >
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 18 : 22),
+                fontSize: descriptionFontSize ?? (p ? 48 : 39),
                 fontWeight: 700,
                 color: accent,
                 letterSpacing: "0.12em",
@@ -173,7 +173,7 @@ export const CipherMetric: React.FC<MatrixLayoutProps> = ({
             {(narration || (metrics && metrics.length > 1)) && (
               <div
                 style={{
-                  fontSize: descriptionFontSize ?? (p ? 14 : 18),
+                  fontSize: descriptionFontSize ?? (p ? 48 : 39),
                   color: `${accent}66`,
                   marginTop: 4,
                   fontFamily: resolvedFontFamily,

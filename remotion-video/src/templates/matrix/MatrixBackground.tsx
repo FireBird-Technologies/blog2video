@@ -29,7 +29,7 @@ export const MatrixBackground: React.FC<{
   bgColor?: string;
   opacity?: number;
   fontFamily?: string;
-}> = ({ bgColor = "#000000", opacity = 0.35, fontFamily }) => {
+}> = ({ bgColor = "#000000", opacity = 0.5, fontFamily }) => {
   const frame = useCurrentFrame();
 
   const columns: RainColumn[] = useMemo(() => {
@@ -72,7 +72,7 @@ export const MatrixBackground: React.FC<{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              opacity,
+              opacity: 0.5,
               willChange: "transform",
             }}
           >
