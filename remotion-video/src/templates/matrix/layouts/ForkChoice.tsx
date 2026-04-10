@@ -140,7 +140,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           </div>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 30 : 44),
+              fontSize: titleFontSize ?? (p ? 76 : 58),
               fontWeight: 700,
               color: "#EF4444",
               textAlign: "center",
@@ -155,7 +155,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           {displayLeftDesc && (
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 14 : 18),
+                fontSize: descriptionFontSize ?? (p ? 48 : 32),
                 color: "#EF444488",
                 marginTop: 12,
                 textAlign: "center",
@@ -212,7 +212,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           </div>
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 30 : 44),
+              fontSize: titleFontSize ?? (p ? 76 : 58),
               fontWeight: 700,
               color: "#3B82F6",
               textAlign: "center",
@@ -227,7 +227,7 @@ export const ForkChoice: React.FC<MatrixLayoutProps> = ({
           {displayRightDesc && (
             <div
               style={{
-                fontSize: descriptionFontSize ?? (p ? 14 : 18),
+                fontSize: descriptionFontSize ?? (p ? 48 : 32),
                 color: "#3B82F688",
                 marginTop: 12,
                 textAlign: "center",
