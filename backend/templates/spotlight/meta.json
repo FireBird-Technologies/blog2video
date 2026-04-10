@@ -398,8 +398,8 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 95,
-          "landscape": 81
+          "portrait": 74,
+          "landscape": 64
         },
         "descriptionFontSize": {
           "portrait": 44,

@@ -15,6 +15,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -83,7 +84,11 @@ export default function Dashboard() {
   useEffect(() => {
     loadProjects();
     if (searchParams.get("upgraded") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
       refreshUser();
+    }
+    if (searchParams.get("purchased") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
     }
   }, []);
 
@@ -168,6 +173,13 @@ export default function Dashboard() {
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
+
+  // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
+  useEffect(() => {
+    if (activeTab === "templates" || activeTab === "voices") {
+      setShowModal(false);
+    }
+  }, [activeTab]);
 
   const loadProjects = async () => {
     try {
@@ -335,7 +347,15 @@ export default function Dashboard() {
   };
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
-  if (loaded && projects.length === 0 && searchParams.get("show_form") !== "0") {
+  // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+  const emptyOnboarding =
+    loaded &&
+    projects.length === 0 &&
+    searchParams.get("show_form") !== "0" &&
+    searchParams.get("tab") !== "templates" &&
+    searchParams.get("tab") !== "voices";
+
+  if (emptyOnboarding) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
@@ -456,6 +476,7 @@ export default function Dashboard() {
           loading={creating}
           asModal
           onClose={() => setShowModal(false)}
+          onDismissFlow={() => setShowModal(false)}
         />
       )}
 

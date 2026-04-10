@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
@@ -17,6 +18,7 @@ import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
+import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +40,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = `${location.pathname}${location.search || ""}`;
+    trackPageView(path);
+  }, [location.pathname, location.search]);
 
   if (loading) {
     return (

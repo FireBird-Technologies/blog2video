@@ -22,7 +22,7 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
-    video_length: Optional[str] = "auto"  # auto | short (7-10) | medium (12-15) | detailed (15-20)
+    video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
 
 
@@ -33,6 +33,17 @@ class ProjectUpdate(BaseModel):
     font_family: Optional[str] = None
     content_language: Optional[str] = None
     video_length: Optional[str] = None
+    aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
+
+    @field_validator("aspect_ratio")
+    @classmethod
+    def validate_aspect_ratio(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        n = (v or "").strip().lower()
+        if n not in ("landscape", "portrait"):
+            raise ValueError("aspect_ratio must be 'landscape' or 'portrait'")
+        return n
 
 
 class ProjectTemplateChangeRequest(BaseModel):

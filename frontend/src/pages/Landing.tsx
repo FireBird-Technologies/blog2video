@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
@@ -33,12 +33,28 @@ interface DemoVideo {
 const INITIAL_DEMOS: DemoVideo[] = [
   {
     id: "demo-1",
-    title: "Blog2Video Demo",
-    youtubeId: "64UTm77OZqU",
-    blogUrl: "https://www.firebird-technologies.com/p/honest-review-of-lovable-from-an",
-    blogTitle: "Honest Review of Lovable from an AI Perspective",
-    blogExcerpt: "An in-depth analysis of Lovable's features and capabilities from an AI standpoint.",
+    title: "Iran-US Cease Fire",
+    youtubeId: "OX6qKxmkNJA",
+    blogUrl: "https://www.bbc.com/news/live/c5yw4g3z7qgt",
+    blogTitle: "Iran–US Ceasefire Deal Amid Escalating Israel-Lebanon Conflict",
+    blogExcerpt: "Iran and the United States reach a temporary ceasefire agreement, while tensions rise as Israel launches fresh strikes in Lebanon, signaling a fragile and uncertain regional situation.",
   },
+  {
+    id: "demo-2",
+    title: "US Democracy Test",
+    youtubeId: "BxgEddDuU80",
+    blogUrl: "https://www.newsweek.com/2026-midterms-a-critical-test-for-us-democracy-as-ranking-plummets-11696460",
+    blogTitle: "2026 Midterms, a Critical Test for US Democracy as Ranking Plummets",
+    blogExcerpt: "As the U.S. sees a significant decline in global democracy rankings, the 2026 midterms emerge as a defining moment that could determine the strength, credibility, and future of its democratic system.",
+  },
+  {
+    id: "demo-3",
+    title: "The Soccer Star",
+    youtubeId: "oECzBB7kExo",
+    blogUrl: "https://www.biography.com/athletes/cristiano-ronaldo",
+    blogTitle: "Soccer Star Cristiano Ronaldo Confirmed He’ll Retire ‘Soon.’ Here's When That Might Be.",
+    blogExcerpt: "Cristiano Ronaldo signals that retirement is on the horizon, sparking debate over when one of football’s greatest players will finally step away from the game.",
+  }
   // Add more like:
   // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "..." },
 ];
@@ -70,11 +86,333 @@ const NAV_LINKS = [
   { href: "/blogs", label: "Blogs" },
 ];
 
+const LANDING_YT_HOST_ID = "landing-yt-demo-host";
+/** Half cross-fade duration for demo blog + video content (ms). */
+const DEMO_CONTENT_FADE_MS = 400;
+
+/** YouTube IFrame API player states (numeric). */
+const YT_PLAYING = 1;
+
+function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
+  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  /** Index shown in the blog + video cards (lags activeVideoIdx during cross-fade). */
+  const [shownIdx, setShownIdx] = useState(0);
+  const [contentPhase, setContentPhase] = useState<"in" | "out">("in");
+  const [apiReady, setApiReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean((window as unknown as { YT?: { Player?: unknown } }).YT?.Player);
+  });
+
+  const playerRef = useRef<{ destroy: () => void; cueVideoById: (id: string) => void } | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const stuckGuardRef = useRef<number | null>(null);
+  const prevIdxRef = useRef<number | null>(null);
+  const demosLenRef = useRef(demos.length);
+  demosLenRef.current = demos.length;
+
+  const clearIdleAdvanceRef = useRef(() => {});
+  clearIdleAdvanceRef.current = () => {
+    if (idleTimerRef.current != null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  };
+
+  const clearStuckGuardRef = useRef(() => {});
+  clearStuckGuardRef.current = () => {
+    if (stuckGuardRef.current != null) {
+      window.clearTimeout(stuckGuardRef.current);
+      stuckGuardRef.current = null;
+    }
+  };
+
+  const scheduleIdleAdvanceRef = useRef(() => {});
+  scheduleIdleAdvanceRef.current = () => {
+    clearIdleAdvanceRef.current();
+    const n = demosLenRef.current;
+    if (n <= 1) return;
+    idleTimerRef.current = window.setTimeout(() => {
+      idleTimerRef.current = null;
+      setActiveVideoIdx((i) => (i + 1) % n);
+    }, 5000);
+  };
+
+  const onYtStateChangeRef = useRef((_state: number) => {});
+  onYtStateChangeRef.current = (state: number) => {
+    // Only pause carousel while the video is actually playing. Treating BUFFERING as
+    // "playing" left the idle timer cleared forever when the embed stuck in buffering.
+    if (state === YT_PLAYING) {
+      clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
+    } else {
+      clearStuckGuardRef.current();
+      scheduleIdleAdvanceRef.current();
+    }
+  };
+
+  useEffect(() => {
+    const w = window as unknown as {
+      YT?: { Player: new (id: string, opts: Record<string, unknown>) => unknown };
+      onYouTubeIframeAPIReady?: () => void;
+    };
+    if (w.YT?.Player) {
+      setApiReady(true);
+      return;
+    }
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      setApiReady(true);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!apiReady || demos.length === 0) return;
+    if (playerRef.current) return;
+
+    const w = window as unknown as {
+      YT: { Player: new (id: string, opts: Record<string, unknown>) => { destroy: () => void; cueVideoById: (id: string) => void } };
+    };
+
+    const player = new w.YT.Player(LANDING_YT_HOST_ID, {
+      videoId: demos[activeVideoIdx].youtubeId,
+      width: "100%",
+      height: "100%",
+      playerVars: {
+        enablejsapi: 1,
+        modestbranding: 1,
+        rel: 0,
+        origin: typeof window !== "undefined" ? window.location.origin : undefined,
+      },
+      events: {
+        onReady: (e: { target: { getPlayerState: () => number } }) => {
+          onYtStateChangeRef.current(e.target.getPlayerState());
+        },
+        onStateChange: (e: { data: number }) => {
+          onYtStateChangeRef.current(e.data);
+        },
+      },
+    });
+    playerRef.current = player;
+
+    return () => {
+      clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
+      try {
+        player.destroy();
+      } catch {
+        /* ignore */
+      }
+      playerRef.current = null;
+      prevIdxRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- single player init; first video index only
+  }, [apiReady, demos.length]);
+
+  useEffect(() => {
+    if (activeVideoIdx === shownIdx) {
+      // If the user changes tabs (or Strict Mode re-runs) while fading, the timeout is
+      // cleared but phase can stay "out" — resync so the section never stays invisible.
+      setContentPhase("in");
+      return;
+    }
+    setContentPhase("out");
+    const t = window.setTimeout(() => {
+      setShownIdx(activeVideoIdx);
+      setContentPhase("in");
+    }, DEMO_CONTENT_FADE_MS);
+    return () => window.clearTimeout(t);
+  }, [activeVideoIdx, shownIdx]);
+
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p || !demos[shownIdx]) return;
+    if (prevIdxRef.current === shownIdx) return;
+    clearIdleAdvanceRef.current();
+    const prev = prevIdxRef.current;
+    prevIdxRef.current = shownIdx;
+    if (prev === null) return;
+    p.cueVideoById(demos[shownIdx].youtubeId);
+    clearStuckGuardRef.current();
+    stuckGuardRef.current = window.setTimeout(() => {
+      stuckGuardRef.current = null;
+      scheduleIdleAdvanceRef.current();
+    }, 12000);
+  }, [shownIdx, demos]);
+
+  const v = demos[shownIdx];
+
+  return (
+    <section id="demo" className="py-20 border-t border-gray-100">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="reveal">
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+            See it in action
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            From blog post to video — automatically
+          </h2>
+          <p className="text-sm text-gray-500 text-center mb-12 max-w-lg mx-auto leading-relaxed">
+            Paste a URL and Blog2Video handles the rest. Here&apos;s a real example.
+          </p>
+        </div>
+
+        {demos.length > 1 && (
+          <div className="flex items-center justify-center gap-2 mb-8 reveal">
+            {demos.map((video, idx) => (
+              <button
+                key={video.id}
+                type="button"
+                onClick={() => setActiveVideoIdx(idx)}
+                className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+                  activeVideoIdx === idx
+                    ? "bg-purple-600 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {video.title}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {demos.length > 0 && v && (
+          <div className="reveal-scale">
+            <div
+              className={`grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch transition-[opacity,transform] ease-in-out motion-reduce:transition-none ${
+                contentPhase === "out"
+                  ? "opacity-0 translate-y-1 duration-[400ms]"
+                  : "opacity-100 translate-y-0 duration-[500ms]"
+              }`}
+            >
+            <a
+              href={v.blogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
+            >
+              <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
+                {v.blogImage ? (
+                  <img
+                    src={v.blogImage}
+                    alt={v.blogTitle || "Blog"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
+                    <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+                      />
+                    </svg>
+                    <span className="text-xs">Blog post</span>
+                  </div>
+                )}
+                <div className="absolute top-3 left-3">
+                  <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold text-gray-700 rounded-full shadow-sm">
+                    Blog Post
+                  </span>
+                </div>
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                {v.blogUrl && (
+                  <p className="text-[10px] text-gray-400 truncate mb-2">
+                    {new URL(v.blogUrl).hostname}
+                  </p>
+                )}
+                <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-2 line-clamp-2 flex-1">
+                  {v.blogTitle || "Original blog post"}
+                </h3>
+                {v.blogExcerpt && (
+                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
+                    {v.blogExcerpt}
+                  </p>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 group-hover:gap-2 transition-all mt-auto">
+                  Read article
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </span>
+              </div>
+            </a>
+
+            <div className="hidden md:flex flex-col items-center justify-center px-4">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                  Blog2Video
+                </span>
+              </div>
+            </div>
+            <div className="flex md:hidden items-center justify-center py-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                  <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                  Blog2Video
+                </span>
+              </div>
+            </div>
+
+            <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+              <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
+                <div id={LANDING_YT_HOST_ID} className="absolute inset-0 w-full h-full" />
+                <div className="absolute top-3 left-3 pointer-events-none">
+                  <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
+                    Generated Video
+                  </span>
+                </div>
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                <p className="text-[10px] text-gray-400 mb-2">youtube.com</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
+                  {v.blogTitle || v.title}
+                </h3>
+                <div className="flex items-center gap-3 mt-auto">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Watch the video
+                  </span>
+                  <span className="text-[10px] text-gray-400">AI narration + visuals</span>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { showError } = useErrorModal();
-  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
@@ -286,170 +624,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── See it in action (right after hero) ─── */}
-      <section id="demo" className="py-20 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="reveal">
-            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-              See it in action
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-              From blog post to video — automatically
-            </h2>
-            <p className="text-sm text-gray-500 text-center mb-12 max-w-lg mx-auto leading-relaxed">
-              Paste a URL and Blog2Video handles the rest. Here's a real example.
-            </p>
-          </div>
-
-          {/* Video tabs */}
-          {demos.length > 1 && (
-            <div className="flex items-center justify-center gap-2 mb-8 reveal">
-              {demos.map((video, idx) => (
-                <button
-                  key={video.id}
-                  onClick={() => setActiveVideoIdx(idx)}
-                  className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
-                    activeVideoIdx === idx
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
-                >
-                  {video.title}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {demos.length > 0 && (() => {
-            const v = demos[activeVideoIdx];
-            return (
-              <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch reveal-scale">
-                {/* ── Blog Card (left) ── */}
-                <a
-                  href={v.blogUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
-                >
-                  {/* Blog image / placeholder */}
-                  <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
-                    {v.blogImage ? (
-                      <img
-                        src={v.blogImage}
-                        alt={v.blogTitle || "Blog"}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
-                        <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                        </svg>
-                        <span className="text-xs">Blog post</span>
-                      </div>
-                    )}
-                    {/* "Blog" badge */}
-                    <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold text-gray-700 rounded-full shadow-sm">
-                        Blog Post
-                      </span>
-                    </div>
-                  </div>
-                  {/* Blog meta */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    {v.blogUrl && (
-                      <p className="text-[10px] text-gray-400 truncate mb-2">
-                        {new URL(v.blogUrl).hostname}
-                      </p>
-                    )}
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-2 line-clamp-2 flex-1">
-                      {v.blogTitle || "Original blog post"}
-                    </h3>
-                    {v.blogExcerpt && (
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
-                        {v.blogExcerpt}
-                      </p>
-                    )}
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 group-hover:gap-2 transition-all mt-auto">
-                      Read article
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </span>
-                  </div>
-                </a>
-
-                {/* ── Arrow connector (center) ── */}
-                <div className="hidden md:flex flex-col items-center justify-center px-4">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
-                      Blog2Video
-                    </span>
-                  </div>
-                </div>
-                {/* Mobile arrow */}
-                <div className="flex md:hidden items-center justify-center py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
-                      <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
-                      Blog2Video
-                    </span>
-                  </div>
-                </div>
-
-                {/* ── Video Card (right) ── */}
-                <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
-                  {/* YouTube embed */}
-                  <div className="aspect-[16/9] relative flex-shrink-0 bg-black">
-                    <iframe
-                      key={v.youtubeId}
-                      src={`https://www.youtube.com/embed/${v.youtubeId}?rel=0&modestbranding=1`}
-                      title={v.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                      style={{ border: "none" }}
-                    />
-                    {/* "Video" badge */}
-                    <div className="absolute top-3 left-3 pointer-events-none">
-                      <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
-                        Generated Video
-                      </span>
-                    </div>
-                  </div>
-                  {/* Video meta */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <p className="text-[10px] text-gray-400 mb-2">
-                      youtube.com
-                    </p>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
-                      {v.blogTitle || v.title}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-auto">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Watch the video
-                      </span>
-                      <span className="text-[10px] text-gray-400">AI narration + visuals</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      </section>
+      <LandingDemoSection demos={demos} />
 
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">
