@@ -11,6 +11,7 @@ type ProgrammaticSeed = {
   primaryKeyword: string;
   keywordVariant: string;
   recommendedTemplate: string;
+  recommendedTemplateReason?: string;
   proofPoints: string[];
   sections: ContentSection[];
   relatedPaths: string[];
@@ -530,13 +531,195 @@ const seeds: ProgrammaticSeed[] = [
     ],
     relatedPaths: ["/for-substack-writers", "/for-newsletters/url-to-video", "/distribution-flywheel"],
   },
+  {
+    path: "/convert-political-blog-to-video",
+    title: "Convert Political Blog To Video",
+    description:
+      "Turn political blogs, commentary posts, and policy explainers into structured videos without rewriting the entire argument.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert political blog posts into recurring video explainers",
+    heroDescription:
+      "Political writing already has the story arc, the claims, and the timeline. Blog2Video helps turn that structure into repeatable video output for YouTube, socials, and newsletter-led distribution.",
+    primaryKeyword: "convert political blog to video",
+    keywordVariant: "political blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Political publishers usually benefit most from a custom template because recurring commentary works best when every episode feels tied to the same editorial identity, segments, and publication style.",
+    proofPoints: [
+      "Strong fit for commentary, policy breakdowns, election coverage, and issue explainers.",
+      "Works well when each post already has a clear argument, timeline, or fact pattern.",
+      "Supports a serialized editorial format instead of one-off video production.",
+    ],
+    sections: [
+      {
+        title: "Why this niche fits blog-to-video especially well",
+        body: [
+          "Political blogs often already read like scripts in outline form: headline, context, evidence, quotes, and conclusion. That makes them unusually compatible with structured video generation.",
+          "Instead of reinterpreting the same issue from scratch for every channel, you can use the article as the source and publish the same analysis in video form with much less manual effort.",
+        ],
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/for-newsletters/url-to-video", "/templates/newspaper"],
+  },
+  {
+    path: "/convert-healthcare-blog-to-video",
+    title: "Convert Healthcare Blog To Video",
+    description:
+      "Turn healthcare blog posts into clear explainer videos for patient education, clinician communication, and health-brand content.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert healthcare blog posts into clear, trust-building videos",
+    heroDescription:
+      "Healthcare content already does the hard part by organizing complex information carefully. Blog2Video helps turn those posts into calm, structured videos that are easier to consume and share.",
+    primaryKeyword: "convert healthcare blog to video",
+    keywordVariant: "healthcare blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Healthcare brands usually need a custom template so the output feels trustworthy, readable, and aligned with the clinic, practice, or health brand identity across every patient-facing video.",
+    proofPoints: [
+      "Useful for patient education, treatment explainers, care-pathway walkthroughs, and practice marketing.",
+      "Keeps structure and terminology intact instead of flattening everything into generic stock-footage scripts.",
+      "Works best when clarity, credibility, and readability matter more than flashy visuals.",
+    ],
+    sections: [
+      {
+        title: "Why healthcare content benefits from structure-first video",
+        body: [
+          "Healthcare posts tend to be step-based, definition-heavy, and accuracy-sensitive. That structure translates well to explainer video when the platform preserves the original organization.",
+          "This makes blog-to-video useful for clinics, healthcare brands, medical educators, and health publishers who want repeatable patient or audience education without creating every video manually.",
+        ],
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/templates/geometric-explainer", "/custom-branded-video-templates"],
+  },
+  {
+    path: "/convert-finance-blog-to-video",
+    title: "Convert Finance Blog To Video",
+    description:
+      "Turn finance blog posts into data-led videos for market commentary, investing education, and research communication.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert finance blog posts into data-first explainer videos",
+    heroDescription:
+      "Finance content already relies on comparisons, metrics, and structured reasoning. Blog2Video helps convert that written analysis into videos without losing the logic that made the original piece useful.",
+    primaryKeyword: "convert finance blog to video",
+    keywordVariant: "finance blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Finance publishers benefit from custom templates because analyst-style videos often need a house look that matches research portals, firm branding, and repeat market-update formats.",
+    proofPoints: [
+      "Strong fit for market updates, earnings recaps, investing explainers, and research summaries.",
+      "Handles structured arguments, metrics, and comparisons better than generic stock-media workflows.",
+      "Useful for publishers who want recurring analyst-style or market-brief formats.",
+    ],
+    sections: [
+      {
+        title: "Why finance posts convert cleanly into video",
+        body: [
+          "Finance blogs often already contain the exact ingredients a good explainer needs: thesis, evidence, comparisons, and key numbers. That makes them a natural fit for template-driven video generation.",
+          "Instead of building charts and callouts from zero in a traditional editor, you can use the article as the content source and turn each new post into a repeatable market or investing video format.",
+        ],
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/templates/gridcraft", "/custom-branded-video-templates"],
+  },
+  {
+    path: "/convert-engineering-blog-to-video",
+    title: "Convert Engineering Blog To Video",
+    description:
+      "Turn engineering blog posts into technical videos that preserve architecture, tradeoffs, and implementation detail.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert engineering blog posts into technical explainer videos",
+    heroDescription:
+      "Engineering posts already carry the insights. Blog2Video helps transform architecture writeups, system design breakdowns, and postmortems into videos without stripping out the substance.",
+    primaryKeyword: "convert engineering blog to video",
+    keywordVariant: "engineering blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Engineering teams often get the most value from a custom template because it lets architecture explainers and postmortems feel consistent with the company's own technical brand and product identity.",
+    proofPoints: [
+      "Strong fit for architecture explainers, performance writeups, infra postmortems, and product engineering updates.",
+      "Preserves structure better than generic AI video tools that flatten technical detail.",
+      "Gives engineering content a polished visual system without needing stock footage.",
+    ],
+    sections: [
+      {
+        title: "Why engineering writing compounds well in video form",
+        body: [
+          "Engineering teams already invest heavily in writing up what changed, why it mattered, and how the system works. Turning that writing into video helps the same ideas travel further across YouTube, social, and internal education.",
+          "This is especially useful when the post already has a clear sequence of problem, design choice, implementation, and result that can map naturally to scenes.",
+        ],
+      },
+    ],
+    relatedPaths: ["/for-technical-bloggers", "/blog-to-video", "/templates/nightfall"],
+  },
+  {
+    path: "/convert-coding-blog-to-video",
+    title: "Convert Coding Blog To Video",
+    description:
+      "Turn coding blog posts into code-friendly explainer videos for developer education, tutorials, and tool walkthroughs.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert coding blog posts into code-first video explainers",
+    heroDescription:
+      "If the blog post already teaches something useful, Blog2Video can turn that lesson into a video without forcing you to start over with a camera, editor, or brand-new script.",
+    primaryKeyword: "convert coding blog to video",
+    keywordVariant: "coding blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Coding publishers benefit from custom templates when they want tutorials, walkthroughs, and tool explainers to feel like a recognizable series rather than disconnected one-off videos.",
+    proofPoints: [
+      "Ideal for code walkthroughs, CLI tutorials, framework guides, and dev-tool explainers.",
+      "Fits posts where code, commands, and technical terminology are central to the lesson.",
+      "Lets developer educators reuse written tutorials across multiple channels.",
+    ],
+    sections: [
+      {
+        title: "Why coding posts are strong source material",
+        body: [
+          "Coding blogs usually already have a lesson structure: setup, code example, explanation, and result. That shape makes them easier to convert into coherent video scenes than generic marketing posts.",
+          "For dev-focused creators, this means one tutorial can become a blog post, a YouTube explainer, and short clips without inventing a separate content idea for every channel.",
+        ],
+      },
+    ],
+    relatedPaths: ["/for-technical-bloggers", "/code-snippet-to-video", "/templates/matrix"],
+  },
+  {
+    path: "/convert-tutorial-blog-to-video",
+    title: "Convert Tutorial Blog To Video",
+    description:
+      "Turn tutorial-style blog posts into step-by-step videos for education, onboarding, and product adoption.",
+    eyebrow: "Programmatic niche page",
+    heroTitle: "Convert tutorial blog posts into step-by-step videos",
+    heroDescription:
+      "Tutorials already have sequencing built in. Blog2Video helps transform that sequence into narrated video so every how-to post can also become a reusable teaching asset.",
+    primaryKeyword: "convert tutorial blog to video",
+    keywordVariant: "tutorial blog to video",
+    recommendedTemplate: "custom-branded-templates",
+    recommendedTemplateReason:
+      "Tutorial-heavy publishers usually benefit from a custom template because it turns many how-to posts into one consistent teaching format that viewers learn to recognize over time.",
+    proofPoints: [
+      "Strong fit for how-to content, product walkthroughs, onboarding guides, and educational lessons.",
+      "Works especially well when the article is already broken into steps or milestones.",
+      "Helps tutorial-heavy sites build a repeatable video library over time.",
+    ],
+    sections: [
+      {
+        title: "Why tutorial content is naturally reusable in video",
+        body: [
+          "Tutorial posts are already designed to guide someone from one step to the next. That structure is exactly what makes them good video inputs.",
+          "Instead of writing one tutorial for the blog and then recreating the same explanation in a separate workflow, you can let the article become the source for a second format that compounds over time.",
+        ],
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/templates/whiteboard", "/how-to-turn-a-blog-post-into-a-video"],
+  },
 ];
 
 export const programmaticPages: MarketingPage[] = seeds.map((seed) =>
   createPage({
     ...seed,
     category: "programmatic",
-    recommendedTemplateReason: templateBySlug[seed.recommendedTemplate].differentiator,
+    recommendedTemplateReason:
+      seed.recommendedTemplateReason ??
+      templateBySlug[seed.recommendedTemplate].differentiator,
     faq: createFaq(
       seed.primaryKeyword,
       "Teams using an existing source asset as the starting point",
