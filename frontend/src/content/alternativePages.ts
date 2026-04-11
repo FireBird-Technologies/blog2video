@@ -310,6 +310,98 @@ const seeds: AlternativeSeed[] = [
       "/lumen5-alternative",
     ],
   },
+  {
+    path: "/heygen-alternative",
+    title: "HeyGen Alternative for Blog-to-Video",
+    description:
+      "Looking for a HeyGen alternative for turning blog posts and articles into videos? See how Blog2Video compares when the workflow starts from written content instead of avatars.",
+    eyebrow: "Alternative",
+    heroTitle: "The HeyGen alternative for creators whose content starts as writing",
+    heroDescription:
+      "HeyGen is strongest for avatars, presenters, and translation workflows. Blog2Video is built for turning blog posts, articles, and structured written content into narrated videos with far less manual adaptation.",
+    primaryKeyword: "heygen alternative",
+    keywordVariant: "alternative to heygen for blog posts",
+    recommendedTemplate: "geometric-explainer",
+    proofPoints: [
+      "Built around blog posts, articles, PDFs, and docs rather than presenter-first scripts.",
+      "Scene structure follows the source content instead of asking you to rewrite everything for an avatar.",
+      "Better fit for explainer videos where the writing itself carries the value.",
+    ],
+    sections: [
+      {
+        title: "Why teams look for a HeyGen alternative",
+        body: [
+          "HeyGen is a strong product, but it solves a different problem. Its core workflow assumes you want a presenter, spokesperson, or AI avatar delivering a script. That works well for sales videos, internal updates, localization, and training content where the face or presenter is part of the format.",
+          "Teams looking for a HeyGen alternative usually run into a mismatch: they already have strong written content and do not want to turn every post into an avatar script before they can publish. That extra rewrite step adds time and often strips out the structure that made the original article useful.",
+        ],
+        bullets: [
+          "HeyGen is strongest for avatars, presenters, and translated spokesperson videos",
+          "Blog2Video is strongest for article-first, narration-led explainer workflows",
+          "Blog2Video preserves headings, sections, examples, and argument flow more directly",
+          "Better fit when the content itself is the product, not the presenter",
+        ],
+      },
+      {
+        title: "Who Blog2Video fits better as a HeyGen replacement",
+        body: [
+          "Blog2Video is the stronger HeyGen alternative for bloggers, educators, product marketers, technical writers, researchers, and SEO teams who already publish detailed written content. Instead of starting from a blank script, the platform uses the article itself as the source of truth and turns it into a structured narrated video.",
+          "If your real goal is getting blog posts into YouTube, LinkedIn, Shorts, or embedded article videos quickly, that workflow usually saves more time than an avatar-first system. You can still refine scenes after generation, but you start from a coherent draft that respects the original content.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/blogs/blog2video-vs-heygen",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/for-technical-bloggers",
+    ],
+  },
+  {
+    path: "/veed-alternative",
+    title: "VEED Alternative for Blog-to-Video",
+    description:
+      "Looking for a VEED alternative for turning blog posts and written content into videos? See how Blog2Video compares for article-first automation and faster publishing.",
+    eyebrow: "Alternative",
+    heroTitle: "The VEED alternative for teams that want less editing and more automation",
+    heroDescription:
+      "VEED is a flexible browser-based editor with AI add-ons. Blog2Video is purpose-built for turning blog posts and articles into structured narrated videos without rebuilding every scene manually.",
+    primaryKeyword: "veed alternative",
+    keywordVariant: "alternative to veed for blog posts",
+    recommendedTemplate: "nightfall",
+    proofPoints: [
+      "URL-in workflow built for blog posts, articles, and structured written content.",
+      "Less manual scene rebuilding than general editor-first workflows.",
+      "Better fit for repeatable article-to-video production at scale.",
+    ],
+    sections: [
+      {
+        title: "Why teams switch from VEED",
+        body: [
+          "VEED is useful when you want a broad browser-based editor with subtitles, social editing tools, avatars, prompt-led generation, and timeline control. But for written-first teams, that flexibility often comes with more manual work than they actually want.",
+          "The common reason people look for a VEED alternative is not that VEED is bad. It is that a blog post is not just another text input. It already has a structure, an argument, examples, and supporting detail. General editors tend to flatten that structure unless you manually rebuild it scene by scene.",
+        ],
+        bullets: [
+          "VEED is strong for editing, captions, and social-first video workflows",
+          "Blog2Video is strong for article-first generation from existing written assets",
+          "Blog2Video reduces manual adaptation work when the article already says what matters",
+          "Better choice when speed from published post to explainer video is the goal",
+        ],
+      },
+      {
+        title: "Who Blog2Video fits better as a VEED replacement",
+        body: [
+          "Blog2Video is the better VEED alternative for SEO content teams, technical bloggers, educators, product marketing teams, and founders who already have strong posts they want to repurpose into video. The system extracts the article structure, maps it to scenes, adds narration, and applies a reusable visual template automatically.",
+          "That makes it especially useful when the business value comes from repeating the workflow across many posts, not from hand-editing each video individually. If you want an editor, VEED is still a reasonable choice. If you want a publishing workflow, Blog2Video is the closer fit.",
+        ],
+      },
+    ],
+    relatedPaths: [
+      "/blogs/blog2video-vs-veed",
+      "/blog-to-video",
+      "/blog-to-youtube-video",
+      "/ai-scene-editor",
+    ],
+  },
 ];
 
 export const alternativePages: MarketingPage[] = seeds.map((seed) =>
