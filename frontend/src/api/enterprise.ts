@@ -13,6 +13,7 @@ export const sendEnterpriseContact = (payload: EnterpriseContactPayload) =>
 export interface CustomTemplateRequestPayload {
   description: string;
   alternate_contact?: string;
+  company_information?: string;
 }
 
 export const sendCustomTemplateRequest = (payload: CustomTemplateRequestPayload) =>

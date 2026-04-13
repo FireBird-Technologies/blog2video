@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { blackswanNeonPalette } from "./blackswanAccent";
 
 export type NeonWaterProps = {
   uid: string;
+  /** Ring and wash colors follow this accent */
+  accentColor?: string;
   cx?: number;
   /** Vertical band: cy = yPct × 10 in 1000×1000 space */
   yPct?: number;
@@ -71,10 +74,13 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
   delay = 0,
   hideBg = false,
   fadeEdges = false,
+  accentColor = "#00E5FF",
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
+
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   const cy = yPct * 10;
   const rxB = rxBase * scale;
@@ -82,9 +88,9 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
   const maxR = maxRx * scale;
 
   const ambientRings = [
-    { rx: rxB, ry: ryB, sw: 1.8, op: 0.72, dur: 4.2, col: "#00E5FF" },
-    { rx: rxB * 1.45, ry: ryB * 1.4, sw: 1.1, op: 0.42, dur: 5.1, col: "#00AAFF" },
-    { rx: rxB * 1.92, ry: ryB * 1.85, sw: 0.7, op: 0.24, dur: 6.3, col: "#0077BB" },
+    { rx: rxB, ry: ryB, sw: 1.8, op: 0.72, dur: 4.2, col: pal.core },
+    { rx: rxB * 1.45, ry: ryB * 1.4, sw: 1.1, op: 0.42, dur: 5.1, col: pal.mid },
+    { rx: rxB * 1.92, ry: ryB * 1.85, sw: 0.7, op: 0.24, dur: 6.3, col: pal.waterLo },
   ];
 
   const dashLen0 = Math.round(2 * Math.PI * 30 * 0.22);
@@ -98,26 +104,27 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
     >
       <defs>
         <linearGradient id={`bsw-wfg-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#00AAFF" stopOpacity={0.055} />
-          <stop offset="40%" stopColor="#0040FF" stopOpacity={0.025} />
+          <stop offset="0%" stopColor={pal.mid} stopOpacity={0.055} />
+          <stop offset="40%" stopColor={pal.deep} stopOpacity={0.028} />
           <stop offset="100%" stopColor="#000000" stopOpacity={0} />
         </linearGradient>
+        {fadeEdges && (
+          <radialGradient id={`bsw-fade-${uid}`} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="30%" stopColor="white" stopOpacity={1} />
+            <stop offset="75%" stopColor="white" stopOpacity={0.5} />
+            <stop offset="100%" stopColor="white" stopOpacity={0} />
+          </radialGradient>
+        )}
+        {fadeEdges && (
+          <mask id={`bsw-mask-${uid}`}>
+            <ellipse cx={cx} cy={cy} rx={maxR * 1.1} ry={maxR * 0.35} fill={`url(#bsw-fade-${uid})`} />
+          </mask>
+        )}
         <filter id={`bsw-fneon2-${uid}`} x="-30%" y="-900%" width="160%" height="1900%">
-          <feGaussianBlur stdDeviation="9" result="b" />
-          <feColorMatrix
-            in="b"
-            type="matrix"
-            values="0 0 0 0 0  0 0.2 0.72 0 0  0 0.45 0.92 0 0  0 0 0 0.55 0"
-          />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b" />
         </filter>
         <filter id={`bsw-fneon-${uid}`} x="-16%" y="-800%" width="132%" height="1700%">
-          <feGaussianBlur stdDeviation="4" result="b" />
-          <feColorMatrix
-            in="b"
-            type="matrix"
-            values="0 0 0 0 0  0 0.35 0.92 0 0  0 0.68 0.98 0 0  0 0 0 0.9 0"
-            result="glow"
-          />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="glow" />
           <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="soft" />
           <feMerge>
             <feMergeNode in="glow" />
@@ -126,19 +133,6 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
           </feMerge>
         </filter>
       </defs>
-
-      {fadeEdges && (
-        <defs>
-          <radialGradient id={`bsw-fade-${uid}`} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-            <stop offset="30%" stopColor="white" stopOpacity={1} />
-            <stop offset="75%" stopColor="white" stopOpacity={0.5} />
-            <stop offset="100%" stopColor="white" stopOpacity={0} />
-          </radialGradient>
-          <mask id={`bsw-mask-${uid}`}>
-            <ellipse cx={cx} cy={cy} rx={maxR * 1.1} ry={maxR * 0.35} fill={`url(#bsw-fade-${uid})`} />
-          </mask>
-        </defs>
-      )}
 
       {!hideBg && <rect x={0} y={Math.max(0, cy - 200)} width={1000} height={280} fill={`url(#bsw-wfg-${uid})`} />}
 
@@ -199,7 +193,7 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
         const ringMaxRy = ringMaxRx * 0.25;
         const dur = 2.0 + i * 0.38;
         const del = delay + i * 0.44 + (i % 2) * 0.22;
-        const col = i === 0 ? "#00E5FF" : i === 1 ? "#00CCFF" : i < 4 ? "#00AAFF" : "#0077BB";
+        const col = i === 0 ? pal.core : i === 1 ? pal.vivid : i < 4 ? pal.mid : pal.waterLo;
         const sw = i === 0 ? 1.8 : i < 3 ? 1.3 : 0.8;
         const p = loopProgress(t, del, dur);
         const { rx, ry, opacity, sw: ew } = ellipseExpandSample(p, ringMaxRx, ringMaxRy);

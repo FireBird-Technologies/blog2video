@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { blackswanNeonPalette } from "./blackswanAccent";
 
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
@@ -22,6 +23,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     metrics,
     titleFontSize,
@@ -32,6 +34,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
 
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const neonPal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   const metricItems = (metrics && metrics.length > 0 ? metrics : deriveMetrics(narration)).slice(0, 8);
 
@@ -46,8 +49,8 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
   const narSize       = descriptionFontSize ?? (p ? 28 : 33);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* NeonWater — bottom center, no shade */}
       <div
@@ -68,6 +71,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
           delay={0.2}
           hideBg
           fadeEdges
+          accentColor={accentColor}
         />
       </div>
 
@@ -93,9 +97,9 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: titleFontSize ?? (p ? 80 : 72),
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
-            letterSpacing: "0.04em",
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
             textAlign: "center",
             paddingLeft: "6%",
@@ -172,7 +176,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
                       <span
                         style={{
                           fontSize: suffixSize,
-                          color: "#00AAFF",
+                          color: neonPal.mid,
                           marginLeft: 4,
                         }}
                       >
@@ -185,7 +189,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
                     style={{
                       fontSize: labelSize,
                       letterSpacing: 4,
-                      color: "#00AAFF",
+                      color: neonPal.mid,
                       textTransform: "uppercase",
                       marginTop: p ? 10 : 12,
                       fontFamily: fontFamily ?? mono,
