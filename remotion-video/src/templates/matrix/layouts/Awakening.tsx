@@ -234,7 +234,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
         >
           <div
             style={{
-              fontSize: titleFontSize ?? (p ? 40 : 46),
+              fontSize: titleFontSize ?? (p ? 67 : 59),
               fontWeight: 700,
               color: accent, // Default color, words will override if highlighted
               letterSpacing: "-0.01em",
@@ -251,7 +251,7 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
           <div
             style={{
               marginTop: p ? 24 : 36,
-              fontSize: descriptionFontSize ?? (p ? 37 : 24),
+              fontSize: descriptionFontSize ?? (p ? 37 : 38),
               fontWeight: 400,
               color: `${accent}66`,
               letterSpacing: "0.1em",

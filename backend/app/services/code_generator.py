@@ -86,6 +86,17 @@ class GenerateSceneCode(dspy.Signature):
     - NEVER render sceneIndex/totalScenes as visible UI
     - NEVER render contentType as visible text/label/badge
 
+    Content array rendering (CRITICAL — THIS IS THE #1 BUG TO AVOID):
+    - When scene_purpose best_for includes "steps": MUST use props.steps to render a list.
+      Pattern: const items = (props.steps && props.steps.length) ? props.steps : [props.displayText];
+      Then: {items.map((step, i) => <div key={i} style={{...}}>...</div>)}
+      Each step is its OWN visible row/card — NEVER dump all steps into one paragraph.
+    - When scene_purpose best_for includes "bullets": MUST use props.bullets to render a list.
+      Pattern: const items = (props.bullets && props.bullets.length) ? props.bullets : [props.displayText];
+      Then: {items.map((bullet, i) => <div key={i} style={{...}}>...</div>)}
+      Each bullet is its OWN visible row/card — NEVER dump all bullets into one paragraph.
+    - Stagger each item's entrance: opacity and translateX animated with delay = i * 12 frames.
+
     Images & Logo (MANDATORY — every scene MUST handle these):
     - ALWAYS check props.logoUrl safely and render it when present:
       {props.logoUrl && typeof props.logoUrl === 'string' && (
@@ -221,6 +232,23 @@ def _scene_reward(args, pred) -> float:
     if re.search(r'sceneIndex\s*\+\s*1.*totalScenes|of.*totalScenes|\$\{.*sceneIndex', code):
         score -= 0.2
         print(f"[F7-DEBUG] [REFINE] -0.2: scene counter visible")
+
+    # Bug: steps/bullets archetype doesn't use the array prop at all
+    # We check for *any* .map() call AND *any* reference to props.steps/props.bullets.
+    # The AI commonly does: const items = props.steps || ...; items.map(...) — that's fine.
+    scene_purpose = getattr(args, "scene_purpose", "") or ""
+    if "steps" in scene_purpose and "best_for" in scene_purpose:
+        uses_steps = bool(re.search(r'props\.steps', code))
+        uses_map = bool(re.search(r'\.map\(', code))
+        if not uses_steps or not uses_map:
+            score -= 0.4
+            print(f"[F7-DEBUG] [REFINE] -0.4: steps scene missing props.steps reference or .map()")
+    if "bullets" in scene_purpose and "best_for" in scene_purpose:
+        uses_bullets = bool(re.search(r'props\.bullets', code))
+        uses_map = bool(re.search(r'\.map\(', code))
+        if not uses_bullets or not uses_map:
+            score -= 0.4
+            print(f"[F7-DEBUG] [REFINE] -0.4: bullets scene missing props.bullets reference or .map()")
 
     line_count = code.count("\n") + 1
     print(f"[F7-DEBUG] [REFINE] Validation PASSED — score={score:.2f} | {line_count}L")
@@ -575,6 +603,9 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         ),
     ]
     for i, arch in enumerate(content_archetypes):
+        best_for_hint = (
+            f" | best_for={arch['best_for']}" if arch.get("best_for") else ""
+        )
         tasks.append(
             _generate_single_scene(
                 brand_context=brand_context,
@@ -582,7 +613,7 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
                 scene_type="content",
                 scene_index=i + 1,
                 total_scenes=total_scenes,
-                scene_purpose=f"{arch['id']}: {arch['description']}",
+                scene_purpose=f"{arch['id']}: {arch['description']}{best_for_hint}",
             ),
         )
     tasks.append(

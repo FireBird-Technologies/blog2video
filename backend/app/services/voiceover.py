@@ -391,45 +391,262 @@ def _number_lexicon(content_language: str | None) -> tuple[dict[str, str], dict[
     return lexicons["en"]
 
 
-def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str:
-    """Force numbers to be read clearly, digit-by-digit with separator words.
+# Spoken word for leading '+' in E.164-style numbers (fallback "plus" works in most TTS locales).
+_PLUS_WORD_BY_LANG: dict[str, str] = {
+    "en": "plus",
+    "de": "plus",
+    "fr": "plus",
+    "es": "más",
+    "it": "più",
+    "pt": "mais",
+    "nl": "plus",
+    "sv": "plus",
+    "no": "pluss",
+    "da": "plus",
+    "fi": "plus",
+    "pl": "plus",
+    "cs": "plus",
+    "hu": "plusz",
+    "ro": "plus",
+    "el": "syn",
+    "ru": "plyus",
+    "uk": "plyus",
+    "tr": "artı",
+    "ar": "plus",
+    "he": "plus",
+    "hi": "plus",
+    "ja": "purasu",
+    "ko": "peulloseu",
+    "zh-cn": "plus",
+    "zh-tw": "plus",
+    "vi": "cộng",
+    "th": "plus",
+    "id": "plus",
+    "bn": "plus",
+    "ta": "plus",
+    "te": "plus",
+    "ml": "plus",
+    "mr": "plus",
+    "pa": "plus",
+    "ur": "plus",
+    "fa": "plus",
+}
 
-    Examples:
-    - 2026 -> "2 0 2 6"
-    - 12.50 -> "1 2 point 5 0"
-    - 2026-03-24 -> "2 0 2 6 dash 0 3 dash 2 4"
-    - $199 -> "dollar 1 9 9"
+
+def _plus_word_for_language(content_language: str | None) -> str:
+    lang = _normalize_language_key(content_language)
+    return _PLUS_WORD_BY_LANG.get(lang, "plus")
+
+
+def _digits_only(s: str) -> str:
+    return "".join(ch for ch in s if ch.isdigit())
+
+
+def _collapse_ws(s: str) -> str:
+    return re.sub(r"\s+", "", s)
+
+
+def _looks_like_date_token(t_nocomma: str) -> bool:
+    """True if the token is a common date form (not a phone)."""
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", t_nocomma):
+        return True
+    if re.match(r"^\d{4}-\d{2}$", t_nocomma):
+        return True
+    if re.match(r"^\d{1,2}/\d{1,2}/\d{2,4}$", t_nocomma):
+        return True
+    if re.match(r"^\d{1,2}-\d{1,2}-\d{4}$", t_nocomma):
+        return True
+    if re.match(r"^\d{1,2}\.\d{1,2}\.\d{2,4}$", t_nocomma):
+        return True
+    return False
+
+
+def _looks_like_date_span(raw: str) -> bool:
+    rs = _collapse_ws(raw)
+    return _looks_like_date_token(rs)
+
+
+def _should_spell_long_straight_number_token(
+    t_nocomma: str,
+    *,
+    had_comma: bool,
+    had_leading_currency: bool,
+    had_percent_suffix: bool,
+) -> bool:
+    """Digit-by-digit when total digits > 4 and the token is a simple numeric (dots/dashes ok), not money/dates."""
+    if had_comma or had_leading_currency or had_percent_suffix:
+        return False
+    if _looks_like_date_token(t_nocomma):
+        return False
+    d = _digits_only(t_nocomma)
+    if len(d) <= 4:
+        return False
+    if not re.match(r"^[\d.\-/]+$", t_nocomma):
+        return False
+    return True
+
+
+def _should_spell_loose_phone_span(raw: str) -> bool:
+    """True for spaced/parenthesized/+ numbers with >4 digits total, excluding dates/money-style."""
+    if not raw or not raw.strip():
+        return False
+    r = raw.strip()
+    if "," in r:
+        return False
+    body = r[1:].lstrip() if r.startswith("+") else r
+    if not body or not re.match(r"^[\d() \t\u00a0.\-/]+$", body):
+        return False
+    d = _digits_only(r)
+    if len(d) <= 4:
+        return False
+    if _looks_like_date_span(r):
+        return False
+    rs = _collapse_ws(r)
+    if re.match(r"^\d+\.\d+$", rs) and len(d) <= 4:
+        return False
+    return True
+
+
+# E.164 / NANP-style spans with spaces, parentheses, or slashes (not commas).
+_LOOSE_PHONE_SPAN_RE = re.compile(
+    r"(?<![A-Za-z0-9+])"
+    r"(?:\+\s*[\d() \t\u00a0.\-/]+|"
+    r"(?<!\d)\d[\d() \t\u00a0.\-/]{4,}\d)"
+    r"(?![A-Za-z0-9+])"
+)
+
+
+def _should_spell_number_token_for_tts(raw: str) -> bool:
+    """Digit-by-digit for phones, long IDs, and straight numbers with >4 digits (dots/dashes ok).
+
+    Left natural: 4-digit years, short prices (e.g. 12.50), comma-separated amounts, currency,
+    and common date shapes.
+    """
+    if not raw or not raw.strip():
+        return False
+    raw_s = raw.strip()
+    had_leading_currency = raw_s[0] in "$€£₹"
+    had_percent_suffix = raw_s.endswith("%")
+
+    t = raw_s
+    if t[0] in "$€£₹":
+        t = t[1:]
+    if t.endswith("%"):
+        t = t[:-1]
+    had_comma = "," in t
+    t_nocomma = t.replace(",", "")
+
+    # Two-part decimals with ≤4 digits total (e.g. 9.99, 12.50): natural
+    if re.match(r"^\d+\.\d+$", t_nocomma):
+        if len(_digits_only(t_nocomma)) <= 4:
+            return False
+
+    if _looks_like_date_token(t_nocomma):
+        return False
+
+    analysis = t_nocomma[1:] if t_nocomma.startswith("+") else t_nocomma
+    if not analysis:
+        return False
+
+    if _looks_like_date_token(analysis):
+        return False
+
+    d = _digits_only(analysis)
+    if not d:
+        return False
+
+    if had_comma:
+        return False
+
+    if analysis.isdigit() and len(d) == 4:
+        y = int(d)
+        if 1000 <= y <= 2099:
+            return False
+
+    return _should_spell_long_straight_number_token(
+        analysis,
+        had_comma=had_comma,
+        had_leading_currency=had_leading_currency,
+        had_percent_suffix=had_percent_suffix,
+    )
+
+
+def _expand_spelled_numeric_token(
+    token: str,
+    digit_map: dict[str, str],
+    symbol_map: dict[str, str],
+    plus_word: str,
+    *,
+    phone_mode: bool,
+) -> str:
+    """Expand a number/phone token to spaced words for TTS. phone_mode: '.' between digits → dash word."""
+    parts: list[str] = []
+    t = token.strip()
+    if t.startswith("+"):
+        parts.append(plus_word)
+        t = t[1:].lstrip()
+    dash_word = symbol_map.get("-", "-")
+    for idx, ch in enumerate(t):
+        if ch.isdigit():
+            parts.append(digit_map.get(ch, ch))
+        elif ch in " \t\n\r\u00a0":
+            continue
+        elif ch in "()":
+            continue
+        elif ch == ",":
+            continue
+        elif ch in symbol_map:
+            prev_ch = t[idx - 1] if idx > 0 else ""
+            next_ch = t[idx + 1] if idx + 1 < len(t) else ""
+            if ch in {".", "/", "-"} and not (prev_ch.isdigit() and next_ch.isdigit()):
+                continue
+            spoken = symbol_map[ch]
+            if phone_mode and ch == ".":
+                spoken = dash_word
+            parts.append(spoken)
+    return " ".join(parts) if parts else token
+
+
+def _spell_digits_for_tts(text: str, content_language: str | None = None) -> str:
+    """Expand phone-like spans and straight numbers (>4 digits) digit-by-digit for TTS.
+
+    Digit-by-digit: +44 20 …, 800 555 1212, 12345, 12.345, 1-2-3-4-5, +3531…
+
+    Natural: 4-digit years, totals with ≤4 digits (e.g. 12.50), dates, $/€ amounts, commas,
+    percentages.
     """
     if not text:
         return text
 
     digit_map, symbol_map = _number_lexicon(content_language)
+    plus_word = _plus_word_for_language(content_language)
 
-    def _expand_numeric_token(token: str) -> str:
-        parts: list[str] = []
-        for idx, ch in enumerate(token):
-            if ch.isdigit():
-                parts.append(digit_map.get(ch, ch))
-            elif ch in symbol_map:
-                # Speak separators only when they are between digits.
-                # This avoids saying "point" for trailing punctuation like "2026."
-                prev_ch = token[idx - 1] if idx > 0 else ""
-                next_ch = token[idx + 1] if idx + 1 < len(token) else ""
-                if ch in {".", "/", "-"} and not (prev_ch.isdigit() and next_ch.isdigit()):
-                    continue
-                parts.append(symbol_map[ch])
-            elif ch == ",":
-                # Ignore thousands separators so 10,000 -> 1 0 0 0 0
-                continue
-        return " ".join(parts) if parts else token
+    def _replace_loose(m: re.Match[str]) -> str:
+        raw = m.group(0).strip()
+        if not _should_spell_loose_phone_span(raw):
+            return m.group(0)
+        return _expand_spelled_numeric_token(
+            raw, digit_map, symbol_map, plus_word, phone_mode=True
+        )
 
-    def _replace(match: re.Match[str]) -> str:
-        return _expand_numeric_token(match.group(0))
+    text = _LOOSE_PHONE_SPAN_RE.sub(_replace_loose, text)
 
-    # Match standalone numeric-like chunks to avoid rewriting alphanumeric words.
-    # Supports currency prefix, separators (.,/,-), and percent suffix.
-    pattern = r"(?<![A-Za-z0-9])[\$€£₹]?\d[\d,./-]*%?(?![A-Za-z0-9])"
-    return re.sub(pattern, _replace, text)
+    def _replace_compact(m: re.Match[str]) -> str:
+        raw = m.group(0)
+        if not _should_spell_number_token_for_tts(raw):
+            return raw
+        return _expand_spelled_numeric_token(
+            raw, digit_map, symbol_map, plus_word, phone_mode=True
+        )
+
+    # Standalone numeric chunks: optional +, currency, separators; avoid touching alphanumerics.
+    pattern = (
+        r"(?<![A-Za-z0-9+])"
+        r"(?:\+\d[\d,./-]*|"
+        r"[\$€£₹]?\d[\d,./-]*)"
+        r"%?(?![A-Za-z0-9])"
+    )
+    return re.sub(pattern, _replace_compact, text)
 
 
 def _spell_abbreviations_for_tts(text: str) -> str:

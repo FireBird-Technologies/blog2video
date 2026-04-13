@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
   LAYOUT_REGISTRY as REMOTION_DEFAULT_LAYOUT_REGISTRY,
@@ -41,11 +41,15 @@ import {
   type NewscastLayoutType as RemotionNewscastLayoutType,
   type NewscastLayoutProps as RemotionNewscastLayoutProps,
 } from "@remotion-video/templates/newscast/layouts";
+import {
+  BLACKSWAN_LAYOUT_REGISTRY as REMOTION_BLACKSWAN_LAYOUT_REGISTRY,
+  type BlackswanLayoutType as RemotionBlackswanLayoutType,
+  type BlackswanLayoutProps as RemotionBlackswanLayoutProps,
+} from "@remotion-video/templates/blackswan/layouts";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
-
-const TRANS_IN_SEC = 0.52;
+import { NEWSCAST_BACKGROUND_VARIANT } from "./newscast/backgroundVariant";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = {
   opening: "opening",
@@ -76,7 +80,7 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = 
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  data_visualization: "data_visualization",
+  data_visualization: "anchor_narrative",
   ending_socials: "ending_socials",
 };
 
@@ -93,7 +97,6 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> =
   side_by_side_brief: "split_glass",
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
-  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 
@@ -120,78 +123,18 @@ const RemotionNewscastSequenceInner: React.FC<{
   voiceoverUrl,
 }) => {
   const localFrame = useCurrentFrame();
-  const { fps } = useVideoConfig();
   const rotationFrame = startFrame + localFrame;
-
-  // Entrance motion window matches the timing used by `NewscastSceneZTransition`.
-  const capHalf = Math.max(1, Math.floor(durationInFrames / 2));
-  const transInFrames = Math.min(
-    Math.round(TRANS_IN_SEC * fps),
-    Math.max(3, Math.floor(durationInFrames * 0.26)),
-    capHalf,
-  );
-  const entryT = interpolate(localFrame, [0, transInFrames], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const globeTranslateX =
-    !isHero && layoutType === "glass_narrative"
-      ? entryT * -220
-      : !isHero && layoutType === "kinetic_insight"
-        ? Math.sin(entryT * Math.PI) * -110 + entryT * -210
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -64 + entryT * -290
-      : !isHero && layoutType === "glass_code"
-        ? entryT * -240
-      : !isHero && layoutType === "glow_metric"
-      ? entryT * -260
-      : !isHero && layoutType === "chapter_break"
-        ? entryT * -300
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * -90
-        : 0;
-  const globeTranslateY =
-    !isHero && layoutType === "glass_narrative"
-      ? entryT * -26
-      : !isHero && layoutType === "kinetic_insight"
-        ? Math.sin(entryT * Math.PI) * -62 + entryT * 24
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -66 + entryT * 104
-      : !isHero && layoutType === "glass_code"
-        ? Math.sin(entryT * Math.PI) * -34 + entryT * 12
-      : !isHero && layoutType === "glow_metric"
-      ? Math.sin(entryT * Math.PI) * -52 + entryT * 20
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(entryT * Math.PI) * -72 + entryT * 28
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * 16
-        : 0;
-  const glassStackGlobeT = Math.pow(entryT, 1.5);
-  const chapterGlobeT = Math.pow(entryT, 1.9);
-  const finalGlobeTranslateX =
-    !isHero && layoutType === "chapter_break"
-      ? chapterGlobeT * -300
-      : !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -74 + glassStackGlobeT * -100
-        : globeTranslateX;
-  const finalGlobeTranslateY =
-    !isHero && layoutType === "chapter_break"
-      ? Math.sin(chapterGlobeT * Math.PI) * -72 + chapterGlobeT * 28
-      : !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -48 + glassStackGlobeT * 22
-      : globeTranslateY;
 
   return (
     <AbsoluteFill>
       <NewscastSceneZTransition durationInFrames={durationInFrames} sceneIndex={sceneIndex} layoutType={layoutType}>
         <NewsCastBackground
-          variant="hero"
+          variant={NEWSCAST_BACKGROUND_VARIANT}
           globeOpacity={0.44}
-          globePosition="right"
           rotationFrame={rotationFrame}
-          globeTranslateX={finalGlobeTranslateX}
-          globeTranslateY={finalGlobeTranslateY}
+          sceneFrame={localFrame}
+          sceneDurationInFrames={durationInFrames}
+          sceneLayoutType={layoutType}
           solidBackground
         />
         {!isHero ? (
@@ -701,6 +644,98 @@ export interface RemotionMatrixSceneInput {
   imageUrl?: string;
   voiceoverUrl?: string;
 }
+
+export interface RemotionBlackswanSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionBlackswanLayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionBlackswanVideoCompositionProps {
+  scenes: RemotionBlackswanSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+export const RemotionBlackswanVideoComposition: React.FC<
+  RemotionBlackswanVideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+  let currentFrame = 0;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
+      {scenes.map((scene) => {
+        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const startFrame = currentFrame;
+        currentFrame += durationFrames;
+
+        const LayoutComponent =
+          REMOTION_BLACKSWAN_LAYOUT_REGISTRY[scene.layout] ??
+          REMOTION_BLACKSWAN_LAYOUT_REGISTRY.neon_narrative;
+
+        const layoutProps: RemotionBlackswanLayoutProps = {
+          ...(scene.layoutProps as Record<string, unknown>),
+          title: scene.title,
+          narration: scene.narration,
+          accentColor: accentColor || "#00E5FF",
+          bgColor: bgColor || "#000000",
+          textColor: textColor || "#DFFFFF",
+          aspectRatio: aspectRatio || "landscape",
+          imageUrl: scene.imageUrl,
+          layoutType: scene.layout,
+          fontFamily,
+        };
+
+        return (
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <LayoutComponent {...layoutProps} />
+            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
 
 export interface RemotionMatrixVideoCompositionProps {
   scenes: RemotionMatrixSceneInput[];

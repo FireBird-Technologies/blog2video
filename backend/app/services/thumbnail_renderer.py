@@ -100,8 +100,10 @@ def render_template_thumbnail(template_id: int, user_id: int) -> str | None:
             "--frame", "0",
             "--width", "854",
             "--height", "480",
-            "--gl", "swangle",
-            "--concurrency", "1",
+            "--gl", "angle",
+            "--concurrency", "100%",
+            "--enable-multiprocess-on-linux",
+            "--jpeg-quality", "70",
             "--timeout", "60000",
             "--bundle-cache", "true",
         ]

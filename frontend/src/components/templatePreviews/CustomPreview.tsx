@@ -382,8 +382,6 @@ export default function CustomPreview({
     <div style={{ width: "100%", aspectRatio: "16/9", background: "#1a1a2e", borderRadius: 8 }} />
   );
 
-  const currentScene = sceneCodes[activeScene] || sceneCodes[0];
-
   return (
     <div style={{ position: "relative" }}>
       {/* Scene layers — div wrappers always mounted so CSS transitions work on opacity */}
@@ -425,49 +423,37 @@ export default function CustomPreview({
         </div>
       </Suspense>
 
-      {/* Scene navigation dots + label */}
+      {/* Scene navigation dots (minimal — no layout labels) */}
       {hasMultipleScenes && (
         <div
           style={{
             position: "absolute",
-            bottom: 8,
+            bottom: 6,
             left: 0,
             right: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 6,
+            gap: 4,
             zIndex: 10,
           }}
         >
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "#fff",
-              background: "rgba(0,0,0,0.5)",
-              padding: "2px 8px",
-              borderRadius: 8,
-              marginRight: 4,
-            }}
-          >
-            {currentScene.label}
-          </span>
           {sceneCodes.map((_, idx) => (
             <button
               key={idx}
               onClick={() => goToScene(idx)}
+              type="button"
               style={{
-                width: idx === activeScene ? 16 : 6,
-                height: 6,
-                borderRadius: 3,
-                background: idx === activeScene ? "#fff" : "rgba(255,255,255,0.4)",
+                width: idx === activeScene ? 10 : 3,
+                height: 3,
+                borderRadius: 2,
+                background: idx === activeScene ? "#fff" : "rgba(255,255,255,0.35)",
                 border: "none",
                 cursor: "pointer",
                 padding: 0,
                 transition: "all 0.2s",
               }}
-              title={sceneCodes[idx].label}
+              aria-label={`Preview scene ${idx + 1} of ${sceneCodes.length}`}
             />
           ))}
         </div>

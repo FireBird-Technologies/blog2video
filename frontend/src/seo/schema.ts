@@ -72,20 +72,31 @@ export function homepageSchema() {
         "@type": "Offer",
         price: "0",
         priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        url: `${siteUrl}/pricing`,
       },
     },
   ];
 }
 
 export function pricingSchema() {
+  const sharedOfferFields = {
+    availability: "https://schema.org/InStock",
+    url: `${siteUrl}/pricing`,
+  };
+
   return [
     {
       "@context": "https://schema.org",
-      "@type": "Product",
+      "@type": "SoftwareApplication",
       name: "Blog2Video",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: `${siteUrl}/pricing`,
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
-      brand: {
+      image: defaultOgImage,
+      publisher: {
         "@type": "Organization",
         name: organizationName,
       },
@@ -95,24 +106,28 @@ export function pricingSchema() {
           name: "Free",
           price: "0",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Per Video",
           price: "3",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Standard",
           price: "25",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
         {
           "@type": "Offer",
           name: "Pro",
           price: "50",
           priceCurrency: "USD",
+          ...sharedOfferFields,
         },
       ],
     },
@@ -178,6 +193,8 @@ export function marketingPageSchema(page: MarketingPage) {
         "@type": "Offer",
         priceCurrency: "USD",
         price: "0",
+        availability: "https://schema.org/InStock",
+        url: `${siteUrl}/pricing`,
       },
     },
     breadcrumbList([
