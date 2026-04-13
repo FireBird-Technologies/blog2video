@@ -237,10 +237,25 @@ function normalizeColorValue(input: unknown, fallback: string): string {
 
 function normalizeChartTableValue(input: unknown): { headers: string[]; rows: string[][] } {
   const raw = (input && typeof input === "object") ? (input as { headers?: unknown; rows?: unknown }) : {};
-  const headers = Array.isArray(raw.headers) ? raw.headers.map((h) => String(h ?? "").trim()) : [];
-  const rows = Array.isArray(raw.rows)
+  let headers = Array.isArray(raw.headers) ? raw.headers.map((h) => String(h ?? "").trim()) : [];
+  let rows = Array.isArray(raw.rows)
     ? raw.rows.map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? "")) : []))
     : [];
+
+  const hasOnlySyntheticHeaders = headers.length > 0
+    && headers.every((h) => /^col_\d+$/i.test(h));
+  if (hasOnlySyntheticHeaders && rows.length > 0) {
+    const candidate = rows[0].map((c) => String(c ?? "").trim());
+    const nonEmpty = candidate.filter(Boolean);
+    const numericCells = nonEmpty.filter((cell) => parseNumericCellForChart(cell) !== null).length;
+    const looksLikeHeader = nonEmpty.length >= Math.max(2, Math.floor(candidate.length / 2))
+      && numericCells <= Math.max(1, Math.floor(nonEmpty.length / 3));
+    if (looksLikeHeader) {
+      headers = candidate;
+      rows = rows.slice(1);
+    }
+  }
+
   const nonEmptyHeaders = headers.some((h) => h.length > 0) ? headers : ["Label", "Value"];
   const colCount = Math.max(nonEmptyHeaders.length, 2);
   const normalizedHeaders = [...nonEmptyHeaders, ...Array.from({ length: Math.max(0, colCount - nonEmptyHeaders.length) }, (_, i) => `Series ${nonEmptyHeaders.length + i}`)];
@@ -403,7 +418,17 @@ function projectChartTableForMode(
 ): { headers: string[]; rows: string[][] } {
   if (table.headers.length === 0) return table;
   const numericColIndexes = getNumericColumnIndexes(table);
-  if (mode === "bar" || mode === "histogram" || mode === "pie") {
+  if (mode === "bar") {
+    const seriesCols = (numericColIndexes.length > 0 ? numericColIndexes : [1]).slice(
+      0,
+      Math.max(1, Math.min(3, inferredLineSeriesCount)),
+    );
+    return {
+      headers: [table.headers[0] ?? "Label", ...seriesCols.map((i) => table.headers[i] ?? `Series ${i}`)],
+      rows: table.rows.map((r) => [r[0] ?? "", ...seriesCols.map((i) => r[i] ?? "")]),
+    };
+  }
+  if (mode === "histogram" || mode === "pie") {
     const chosenCol = numericColIndexes[0] ?? 1;
     return {
       headers: [table.headers[0] ?? "Label", table.headers[chosenCol] ?? "Value"],
@@ -1090,7 +1115,10 @@ export default function SceneEditModal({
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
           if (isNewscastTemplate) {
-            lpCopy.chartTable = buildChartTableFromDataVizLayoutProps(lpAny);
+            const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+            lpCopy.chartTable = chartTableHasData(directChartTable)
+              ? directChartTable
+              : buildChartTableFromDataVizLayoutProps(lpAny);
           }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
@@ -2073,9 +2101,9 @@ export default function SceneEditModal({
                           tableLineSeriesCount > 0 ? tableLineSeriesCount : inferredLineSeriesCount;
                         const projected = projectChartTableForMode(table, mode, effectiveLineSeriesCount);
                         const fixedColumnCount =
-                          mode === "bar" || mode === "histogram" || mode === "pie"
+                          mode === "histogram" || mode === "pie"
                             ? 2
-                            : mode === "line"
+                            : mode === "bar" || mode === "line"
                               ? Math.max(2, Math.min(4, 1 + effectiveLineSeriesCount))
                               : null;
                         const visibleTable = fixedColumnCount != null

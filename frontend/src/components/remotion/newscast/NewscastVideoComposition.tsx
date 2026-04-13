@@ -284,15 +284,22 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   fontFamily,
 }) => {
   const FPS = 30;
+  const sceneFrameOffsets = React.useMemo(() => {
+    const offsets = new Array<number>(scenes.length);
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      offsets[i] = acc;
+      acc += Math.max(1, Math.round(scenes[i].durationSeconds * FPS));
+    }
+    return offsets;
+  }, [scenes]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-        const startFrame = scenes
-          .slice(0, index)
-          .reduce((acc, s) => acc + Math.max(1, Math.round(s.durationSeconds * FPS)), 0);
+        const startFrame = sceneFrameOffsets[index] ?? 0;
 
         const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
 

@@ -1,3 +1,4 @@
+import React from "react";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
@@ -956,6 +957,15 @@ export const RemotionNewscastVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
+  const sceneFrameOffsets = React.useMemo(() => {
+    const offsets = new Array<number>(scenes.length);
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      offsets[i] = acc;
+      acc += Math.max(1, Math.round((scenes[i].durationSeconds || 5) * FPS));
+    }
+    return offsets;
+  }, [scenes]);
   const normalizeNewscastDataVizProps = (
     lp: Partial<RemotionNewscastLayoutProps>,
   ): Partial<RemotionNewscastLayoutProps> => {
@@ -1020,14 +1030,7 @@ export const RemotionNewscastVideoComposition: React.FC<
       {scenes.map((scene, index) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-        const startFrame = scenes
-          .slice(0, index)
-          .reduce(
-            (acc, s) =>
-              acc +
-              Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
-            0,
-          );
+        const startFrame = sceneFrameOffsets[index] ?? 0;
 
         const durationFrames = Math.max(
           1,
