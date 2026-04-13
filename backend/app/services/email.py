@@ -12,6 +12,7 @@ Notifications:
   - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
 """
 
+import html
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -387,6 +388,7 @@ class EmailService:
         user_plan: str,
         description: str,
         alternate_contact: str | None = None,
+        company_information: str | None = None,
         to: str = "arslan@firebird-technologies.com",
     ) -> None:
         """
@@ -395,16 +397,29 @@ class EmailService:
         """
         subject = f"[Custom Template Request] from {user_name}"
         alt_line = f"Alternate contact: {alternate_contact}" if alternate_contact else "Alternate contact: —"
+        company_line = (
+            f"Company information:\n{company_information}\n"
+            if company_information
+            else "Company information: —"
+        )
         text = (
             f"New custom template request:\n\n"
             f"Name: {user_name}\n"
             f"Account email: {user_email}\n"
             f"Plan: {user_plan}\n"
-            f"{alt_line}\n\n"
+            f"{alt_line}\n"
+            f"{company_line}\n"
             f"Description:\n{description}\n"
         )
         alt_cell = f"<td style='color:#111827;border-bottom:1px solid #f3f4f6;'>{alternate_contact}</td>" if alternate_contact else "<td style='color:#9ca3af;border-bottom:1px solid #f3f4f6;'>—</td>"
-        html = f"""<!DOCTYPE html>
+        company_safe = html.escape(company_information, quote=False) if company_information else ""
+        company_block = (
+            f'<p style="margin:16px 0 8px;font-weight:600;color:#374151;">Company information</p>'
+            f'<p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{company_safe}</p>'
+            if company_information
+            else ""
+        )
+        html_body = f"""<!DOCTYPE html>
         <html>
         <head><meta charset="UTF-8" /></head>
         <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
@@ -426,6 +441,7 @@ class EmailService:
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Plan</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{user_plan}</td></tr>
                         <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Alternate contact</td>{alt_cell}</tr>
                       </table>
+                      {company_block}
                       <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Theme / Description</p>
                       <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{description}</p>
                     </td>
@@ -436,7 +452,7 @@ class EmailService:
           </table>
         </body>
         </html>"""
-        self.provider.send_email(to=to, subject=subject, html_content=html, text_content=text, from_email="sales@blog2video.app")
+        self.provider.send_email(to=to, subject=subject, html_content=html_body, text_content=text, from_email="sales@blog2video.app")
 
 
 

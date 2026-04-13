@@ -20,19 +20,21 @@ const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.
 // ─── Request Form Modal ───────────────────────────────────────
 interface RequestModalProps {
   description: string;
+  companyInformation: string;
   altContact: string;
   loading: boolean;
   success: boolean;
   error: string | null;
   onDescriptionChange: (v: string) => void;
+  onCompanyInformationChange: (v: string) => void;
   onAltContactChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onClose: () => void;
 }
 
 function CustomTemplateRequestModal({
-  description, altContact, loading, success, error,
-  onDescriptionChange, onAltContactChange, onSubmit, onClose,
+  description, companyInformation, altContact, loading, success, error,
+  onDescriptionChange, onCompanyInformationChange, onAltContactChange, onSubmit, onClose,
 }: RequestModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -77,6 +79,21 @@ function CustomTemplateRequestModal({
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
                 <p className="text-xs text-gray-400 mt-1 text-right">{description.length}/3000</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company information <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={companyInformation}
+                  onChange={(e) => onCompanyInformationChange(e.target.value)}
+                  placeholder="Company name, website, industry, or anything that helps us understand your organization…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+                <p className="text-xs text-gray-400 mt-1 text-right">{companyInformation.length}/2000</p>
               </div>
 
               <div>
@@ -144,6 +161,7 @@ export default function CustomTemplates() {
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestDescription, setRequestDescription] = useState("");
+  const [requestCompanyInformation, setRequestCompanyInformation] = useState("");
   const [requestAltContact, setRequestAltContact] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
@@ -290,12 +308,14 @@ export default function CustomTemplates() {
       await sendCustomTemplateRequest({
         description: requestDescription.trim(),
         alternate_contact: requestAltContact.trim() || undefined,
+        company_information: requestCompanyInformation.trim() || undefined,
       });
       setRequestSuccess(true);
       setTimeout(() => {
         setShowRequestForm(false);
         setRequestSuccess(false);
         setRequestDescription("");
+        setRequestCompanyInformation("");
         setRequestAltContact("");
       }, 3000);
     } catch {
@@ -347,11 +367,13 @@ export default function CustomTemplates() {
         {showRequestForm && ReactDOM.createPortal(
           <CustomTemplateRequestModal
             description={requestDescription}
+            companyInformation={requestCompanyInformation}
             altContact={requestAltContact}
             loading={requestLoading}
             success={requestSuccess}
             error={requestError}
             onDescriptionChange={setRequestDescription}
+            onCompanyInformationChange={setRequestCompanyInformation}
             onAltContactChange={setRequestAltContact}
             onSubmit={handleRequestSubmit}
             onClose={() => { setShowRequestForm(false); setRequestSuccess(false); setRequestError(null); }}
@@ -586,11 +608,13 @@ export default function CustomTemplates() {
       {showRequestForm && ReactDOM.createPortal(
         <CustomTemplateRequestModal
           description={requestDescription}
+          companyInformation={requestCompanyInformation}
           altContact={requestAltContact}
           loading={requestLoading}
           success={requestSuccess}
           error={requestError}
           onDescriptionChange={setRequestDescription}
+          onCompanyInformationChange={setRequestCompanyInformation}
           onAltContactChange={setRequestAltContact}
           onSubmit={handleRequestSubmit}
           onClose={() => { setShowRequestForm(false); setRequestSuccess(false); setRequestError(null); }}

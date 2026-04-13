@@ -20,6 +20,7 @@ class EnterpriseContact(BaseModel):
 class CustomTemplateRequest(BaseModel):
     description: str = Field(..., max_length=3000)
     alternate_contact: str | None = Field(None, max_length=300)
+    company_information: str | None = Field(None, max_length=2000)
 
 
 @router.post("/enterprise", status_code=status.HTTP_202_ACCEPTED)
@@ -57,6 +58,7 @@ async def custom_template_request(
             user_plan=plan_label,
             description=payload.description,
             alternate_contact=payload.alternate_contact or None,
+            company_information=payload.company_information or None,
         )
     except EmailServiceError as e:
         raise HTTPException(

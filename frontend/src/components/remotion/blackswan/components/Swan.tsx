@@ -1,6 +1,7 @@
-import React, { useId } from "react";
+import React, { useId, useMemo } from "react";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { SWAN_PM, SWAN_PW1, SWAN_PW2 } from "../swanPaths";
+import { blackswanNeonPalette } from "../layouts/blackswanAccent";
 
 const PL = 18000;
 
@@ -30,6 +31,8 @@ export type SwanProps = {
   reflection?: boolean;
   /** Stable id prefix for filters when multiple swans mount */
   uid?: string;
+  /** Theme accent — body, water ripples, and horizon lines derive from this */
+  accentColor?: string;
 };
 
 /**
@@ -43,12 +46,16 @@ export const Swan: React.FC<SwanProps> = ({
   water = true,
   reflection = true,
   uid: uidProp,
+  accentColor = "#00E5FF",
 }) => {
   const reactId = useId().replace(/:/g, "");
   const uid = uidProp ?? reactId;
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
+
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
+  const { bright: innerStroke, vivid: waterFine, light: horizonFine, deep: horizonDeep, abyss: reflectionStroke } = pal;
 
   const w = size;
   const h = Math.round((w * 480) / 700);
@@ -86,15 +93,9 @@ export const Swan: React.FC<SwanProps> = ({
     <svg width={w} height={h} viewBox="0 0 700 480" fill="none" style={{ opacity, overflow: "visible", display: "block" }}>
       <defs>
         <filter id={`bswan-fg-${uid}`} x="-55%" y="-55%" width="210%" height="210%">
-          <feGaussianBlur stdDeviation="6.5" result="b" />
-          <feColorMatrix
-            in="b"
-            type="matrix"
-            values="0 0 0 0 0  0 0.25 0.78 0 0  0 0.54 0.94 0 0  0 0 0 0.46 0"
-            result="c"
-          />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="6.5" result="b" />
           <feMerge>
-            <feMergeNode in="c" />
+            <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
@@ -109,12 +110,7 @@ export const Swan: React.FC<SwanProps> = ({
           <feGaussianBlur stdDeviation="3.2" />
         </filter>
         <filter id={`bswan-fwl-${uid}`} x="-5%" y="-900%" width="110%" height="1900%">
-          <feGaussianBlur stdDeviation="5" result="b" />
-          <feColorMatrix
-            in="b"
-            type="matrix"
-            values="0 0 0 0 0  0 0.18 0.7 0 0  0 0.5 0.92 0 0  0 0 0 0.46 0"
-          />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b" />
         </filter>
         <filter id={`bswan-fcore-${uid}`} x="-4%" y="-400%" width="108%" height="900%">
           <feGaussianBlur stdDeviation="0.8" />
@@ -129,7 +125,7 @@ export const Swan: React.FC<SwanProps> = ({
           <path
             d={SWAN_PM}
             transform="translate(588,218)"
-            stroke="#00AAFF"
+            stroke={accentColor}
             strokeWidth={4.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -142,7 +138,7 @@ export const Swan: React.FC<SwanProps> = ({
           <path
             d={SWAN_PM}
             transform="translate(588,218)"
-            stroke="#C8F6FF"
+            stroke={innerStroke}
             strokeWidth={0.7}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -158,7 +154,7 @@ export const Swan: React.FC<SwanProps> = ({
               <path
                 d={SWAN_PW1}
                 transform="translate(428,444)"
-                stroke="#00AAFF"
+                stroke={accentColor}
                 strokeWidth={2.8}
                 strokeLinecap="round"
                 fill="none"
@@ -169,7 +165,7 @@ export const Swan: React.FC<SwanProps> = ({
               <path
                 d={SWAN_PW1}
                 transform="translate(428,444)"
-                stroke="#90EEFF"
+                stroke={waterFine}
                 strokeWidth={0.55}
                 strokeLinecap="round"
                 fill="none"
@@ -180,7 +176,7 @@ export const Swan: React.FC<SwanProps> = ({
               <path
                 d={SWAN_PW2}
                 transform="translate(678,490)"
-                stroke="#00AAFF"
+                stroke={accentColor}
                 strokeWidth={2}
                 strokeLinecap="round"
                 fill="none"
@@ -199,7 +195,7 @@ export const Swan: React.FC<SwanProps> = ({
               y1={357}
               x2={690}
               y2={357}
-              stroke="#00AAFF"
+              stroke={accentColor}
               strokeWidth={5.5}
               filter={`url(#bswan-fwl-${uid})`}
               opacity={0.32}
@@ -211,7 +207,7 @@ export const Swan: React.FC<SwanProps> = ({
               y1={357}
               x2={690}
               y2={357}
-              stroke="#88EAFF"
+              stroke={horizonFine}
               strokeWidth={0.52}
               strokeDasharray="1200 1200"
               strokeDashoffset={lineDraw(0.15, 1200)}
@@ -221,7 +217,7 @@ export const Swan: React.FC<SwanProps> = ({
               y1={367}
               x2={656}
               y2={367}
-              stroke="#004488"
+              stroke={horizonDeep}
               strokeWidth={3}
               filter={`url(#bswan-fwl-${uid})`}
               opacity={0.14}
@@ -237,7 +233,7 @@ export const Swan: React.FC<SwanProps> = ({
               <path
                 d={SWAN_PM}
                 transform="translate(588,218)"
-                stroke="#005566"
+                stroke={reflectionStroke}
                 strokeWidth={0.8}
                 strokeLinecap="round"
                 strokeLinejoin="round"

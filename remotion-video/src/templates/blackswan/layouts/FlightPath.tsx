@@ -138,6 +138,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     phrases,
     titleFontSize,
@@ -182,15 +183,15 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
   const portraitRows = chunkArray(parsedPhrases, 2);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* Gradient shade — blue at bottom, black at top (reverse of water shade) */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "linear-gradient(to top, #001B3A 0%, #000D1A 45%, transparent 75%)",
+          background: `linear-gradient(to top, ${accentColor}22 0%, ${accentColor}11 45%, transparent 75%)`,
           opacity: 0.15,
           pointerEvents: "none",
         }}
@@ -207,7 +208,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           paddingTop: p ? "18%" : "8%",
-          paddingBottom: p ? 0 : "4%",
+          paddingBottom: p ? 0 : "2%",
           paddingLeft: "6%",
           paddingRight: "6%",
           gap: p ? 14 : 16,
@@ -222,9 +223,9 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: titleFS,
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
-            letterSpacing: "0.04em",
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
             textAlign: "center",
           }}
