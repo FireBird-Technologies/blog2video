@@ -199,7 +199,7 @@ class EmailService:
             <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
                 You received this because you have an account at Blog2Video.<br/>
-                &copy; 2025 Blog2Video &middot; All rights reserved.
+                &copy; 2026 Blog2Video &middot; All rights reserved.
               </p>
             </td>
           </tr>
