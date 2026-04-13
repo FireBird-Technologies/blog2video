@@ -118,6 +118,26 @@ _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
 
 
+def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
+    props = dict(layout_props or {})
+    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
+        return props
+    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+        props.pop(key, None)
+    return props
+
+
+def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
+    out = dict(descriptor or {})
+    layout = out.get("layout")
+    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
+    out["layoutProps"] = _sanitize_data_viz_layout_props(
+        layout=str(layout) if layout is not None else "",
+        layout_props=layout_props,
+    )
+    return out
+
+
 def _normalize_video_style(video_style: str | None) -> str:
     """Normalize and validate video style."""
     style = (video_style or "").strip().lower()
@@ -346,6 +366,7 @@ def _run_project_template_change_job(job_id: int) -> None:
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
+                new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
                 scene.remotion_code = json.dumps(new_descriptor)
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
@@ -1143,7 +1164,7 @@ def delete_asset(
                     layout_props.pop("assignedImage", None)
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
-                    scene.remotion_code = json.dumps(desc)
+                    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
                     scenes_updated = True
             except (json.JSONDecodeError, TypeError):
                 continue
@@ -1238,6 +1259,14 @@ def update_scene(
         if key not in MANUAL_TRACKED_FIELDS:
             continue
 
+        if key == "remotion_code" and isinstance(value, str) and value.strip():
+            try:
+                parsed_descriptor = json.loads(value)
+                if isinstance(parsed_descriptor, dict):
+                    value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
+            except Exception:
+                pass
+
         old_value = getattr(scene, key)
 
         track_scene_edit(
@@ -1321,10 +1350,10 @@ def bulk_update_scene_typography(
                         scene_id=scene.id,
                         field_name="remotion_code",
                         old_value=scene.remotion_code,
-                        new_value=json.dumps(descriptor),
+                        new_value=json.dumps(_sanitize_descriptor_for_data_viz(descriptor)),
                         is_ai_assisted=False,
                     )
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     db.commit()
 
@@ -1590,7 +1619,7 @@ async def update_scene_image(
         descriptor["layoutProps"] = {}
     descriptor["layoutProps"]["assignedImage"] = image_filename
     descriptor["layoutProps"].pop("hideImage", None)
-    scene.remotion_code = json.dumps(descriptor)
+    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     # Invalidate cached render
     if project.r2_video_url:
@@ -1860,7 +1889,7 @@ async def regenerate_scene(
             descriptor["sceneTypeOverride"] = "content"
             descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
         track_scene_edit(
@@ -2037,7 +2066,7 @@ async def regenerate_scene(
                 descriptor["sceneTypeOverride"] = "content"
                 descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         track_scene_edit(
                         db,
                         project_id=project_id,

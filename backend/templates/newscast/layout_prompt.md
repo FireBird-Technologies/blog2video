@@ -34,9 +34,10 @@ Use these layout IDs **exactly** when suggesting `preferred_layout` for scenes u
   - Best for: Image-dominant scenes with Ken Burns effect and caption.
 
 - `data_visualization`
-  - Best for: Comparable numeric data (including scraped tables) rendered as auto-selected line, bar, or histogram charts.
-  - Table rule: when one or more structured tables are present in source content, prefer `data_visualization` and pass table payloads into chart props.
-  - Input hint: tables can arrive in scene visual hints as `TABLE_DATA_HINT_JSON`; parse and use them directly.
+  - Best for: Comparable numeric data (including scraped tables) rendered as line, bar, or histogram charts.
+  - ChartType rule: always set `layoutProps.chartType` explicitly (`line`, `bar`, or `histogram`). Do not use `auto`.
+  - Table rule: pass data ONLY via `layoutProps.chartTable` (headers + rows). Do NOT emit `lineChartDatasets`, `lineChartLabels`, `barChartRows`, or `histogramRows`.
+  - Input hint: tables can arrive in scene visual hints as `TABLE_DATA_HINT_JSON`; parse and use them directly to populate `chartTable`.
 
 - `ending_socials`
   - Best for: **Final scene only** — follow-along, social handles, and website CTA (when the script pipeline reserves the last scene for the ending).

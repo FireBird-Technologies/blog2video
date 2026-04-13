@@ -11,6 +11,9 @@ _TIME_LIKE_RE = re.compile(
     r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
     r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
     r")([/-]\d{2,4})?$)"
+    r"|(^((jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
+    r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?)"
+    r"\s+\d{1,2},?\s*\d{2,4})$)"
     r"|(^("
     r"jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|"
     r"jul(y)?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
@@ -23,9 +26,24 @@ _TIME_LIKE_RE = re.compile(
 )
 _BUCKET_LIKE_RE = re.compile(r"(^\d+\s*[-–]\s*\d+$)|(^<\s*\d+$)|(^>\s*\d+$)|(^\d+\+$)")
 _STRICT_NUMERIC_CELL_RE = re.compile(
-    r"^\s*\(?\s*[+\-]?\$?\s*\d[\d,]*(?:\.\d+)?\s*(?:%|[a-z]{1,12})?\s*\)?\s*$",
+    r"^\s*\(?\s*(?:[a-z]{1,6}\.?\s*)?[+\-]?"
+    r"(?:\$|€|£|¥|₹)?\s*\d[\d,]*(?:\.\d+)?(?:[eE][+\-]?\d+)?"
+    r"\s*(?:%|[a-z]{1,12}(?:/[a-z]{1,12})?)?\s*\)?\s*$",
     re.IGNORECASE,
 )
+_CURRENCY_HINT_RE = re.compile(r"(?:^|\b)(rs\.?|pkr|usd|eur|gbp|aed|sar|inr|\$|€|£|¥|₹)", re.IGNORECASE)
+_SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
+
+
+def _looks_like_header_row(values: list[str]) -> bool:
+    if not values:
+        return False
+    cleaned = [str(v or "").strip() for v in values]
+    non_empty = [v for v in cleaned if v]
+    if len(non_empty) < max(2, len(cleaned) // 2):
+        return False
+    numeric = sum(1 for v in non_empty if re.fullmatch(r"[-+]?\d+(\.\d+)?", v))
+    return numeric <= max(1, len(non_empty) // 3)
 
 
 def _parse_number(value: Any) -> float | None:
@@ -39,14 +57,34 @@ def _parse_number(value: Any) -> float | None:
     # Guardrail: only parse cells that are mostly numeric.
     # Reject mixed prose such as "minor bump, range-bound" or
     # multi-number phrases like "+15% initial, -15-18% decline".
-    if not _STRICT_NUMERIC_CELL_RE.match(text):
-        return None
+    strict_match = bool(_STRICT_NUMERIC_CELL_RE.match(text))
+    if not strict_match:
+        # Safe fallback for common currency-like strings that strict regex can miss.
+        # We only accept exactly one numeric token and a currency hint, to avoid
+        # misparsing prose/date strings like "Apr 10, 26".
+        if not _CURRENCY_HINT_RE.search(text):
+            return None
+        tokens = re.findall(r"[+\-]?\d[\d,]*(?:\.\d+)?(?:[eE][+\-]?\d+)?", text)
+        if len(tokens) != 1:
+            return None
+        token = tokens[0].replace(",", "")
+        if token in {"", "-", ".", "-."}:
+            return None
+        negative_by_parens = text.startswith("(") and text.endswith(")")
+        try:
+            n = float(token)
+            return -abs(n) if negative_by_parens else n
+        except ValueError:
+            return None
     negative_by_parens = text.startswith("(") and text.endswith(")")
-    cleaned = re.sub(r"[^0-9.\-]", "", text)
-    if cleaned in {"", "-", ".", "-."}:
+    token_match = re.search(r"[+\-]?\d[\d,]*(?:\.\d+)?(?:[eE][+\-]?\d+)?", text)
+    if not token_match:
+        return None
+    token = token_match.group(0).replace(",", "")
+    if token in {"", "-", ".", "-."}:
         return None
     try:
-        n = float(cleaned)
+        n = float(token)
         return -abs(n) if negative_by_parens else n
     except ValueError:
         return None
@@ -160,6 +198,15 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     if len(rows) < 2:
         return {}
 
+    # Recover real header names if upstream provided placeholder headers.
+    if headers and all(_SYNTH_HEADER_RE.fullmatch(h or "") for h in headers if h):
+        first = [str(c or "").strip() for c in rows[0]] if rows else []
+        if _looks_like_header_row(first):
+            headers = first
+            rows = rows[1:]
+            if len(rows) < 2:
+                return {}
+
     col_count = max(len(r) for r in rows)
     labels = [str(r[0] if len(r) > 0 else "").strip() or str(i + 1) for i, r in enumerate(rows)]
 
@@ -192,23 +239,16 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
 
     # Prefer line charts for ordered/time-like rows; otherwise histogram for bucket labels; else bar.
     if time_like:
-        datasets = []
-        for _, label, values in numeric_columns[:3]:
-            clean = [v for v in values if v == v]
-            if len(clean) < 2:
-                continue
-            datasets.append({"label": label, "valuesStr": ", ".join(f"{v:g}" for v in clean)})
-        if datasets:
-            first_series = [v for v in numeric_columns[0][2] if v == v]
+        first_series = [v for v in numeric_columns[0][2] if v == v]
+        if len(first_series) >= 2:
             start = first_series[0]
             end = first_series[-1]
             delta = end - start
             pct = ((delta / start) * 100.0) if start else 0.0
             return {
                 "chartType": "line",
-                "lineChartLabels": labels[: len(first_series)],
-                "lineChartDatasets": datasets,
                 "chartTable": chart_table,
+                "marketSymbol": numeric_columns[0][1],
                 "marketValue": f"{end:g}",
                 "marketDelta": f"{delta:+.2f}",
                 "marketPercent": f"{pct:+.2f}%",
@@ -229,7 +269,6 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     if bucket_like and len(rows_out) >= 3:
         return {
             "chartType": "histogram",
-            "histogramRows": rows_out,
             "chartTable": chart_table,
             "marketSymbol": primary_label,
         }
@@ -240,28 +279,12 @@ def _build_chart_props_from_table(table: dict[str, Any]) -> dict[str, Any]:
     pct = ((delta / start) * 100.0) if start else 0.0
     return {
         "chartType": "bar",
-        "barChartRows": rows_out,
         "chartTable": chart_table,
         "marketSymbol": primary_label,
         "marketValue": f"{end:g}",
         "marketDelta": f"{delta:+.2f}",
         "marketPercent": f"{pct:+.2f}%",
         "marketTrend": "up" if delta >= 0 else "down",
-        **(
-            {
-                "lineChartLabels": labels[:20],
-                "lineChartDatasets": [
-                    {
-                        "label": lbl,
-                        "valuesStr": ", ".join(f"{v:g}" for v in vals[:20] if v == v),
-                    }
-                    for _, lbl, vals in numeric_columns[:3]
-                ],
-            }
-            if len(numeric_columns) >= 2
-            and _are_series_labels_comparable([lbl for _, lbl, _ in numeric_columns[:3]])
-            else {}
-        ),
     }
 
 
@@ -277,7 +300,6 @@ def generate_chart_props_from_table_hints(
     Returns chart props suitable for `data_visualization` layout:
     - chartType
     - chartTable
-    - lineChart* or barChartRows/histogramRows
     - optional market summary fields
     """
     tables = _extract_tables_from_visual_hint(visual_description)

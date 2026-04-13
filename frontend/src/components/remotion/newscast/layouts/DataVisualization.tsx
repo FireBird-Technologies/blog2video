@@ -51,6 +51,7 @@ interface ResolvedChartInputs {
   lineSeries: ParsedDataset[];
   barRows: NewscastChartRow[];
   histogramRows: NewscastChartRow[];
+  explicitLineProvided?: boolean;
 }
 
 const STRICT_NUMERIC_CELL_RE =
@@ -94,14 +95,23 @@ function formatAxisTick(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/, "");
 }
 
-function formatBarValueLabel(value: unknown): string {
+function formatCompactNumber1dp(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toFixed(1);
+}
+
+function formatBarValueLabel(value: unknown, compact = false): string {
   const n = toNumber(value as string | number | undefined);
-  return n === null ? "" : n.toFixed(1);
+  if (n === null) return "";
+  return compact ? formatCompactNumber1dp(n) : n.toFixed(1);
 }
 
 function formatLineValueLabel(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "";
-  return Number(value).toFixed(1);
+  return formatCompactNumber1dp(Number(value));
 }
 
 function getAxisUpperBound(maxValue: number): number {
@@ -219,9 +229,25 @@ function hasBucketLikeLabels(labels: string[]): boolean {
 }
 
 function deriveFromTable(chartTable: NewscastLayoutProps["chartTable"]): Partial<ResolvedChartInputs> {
-  const rows = chartTable?.rows ?? [];
+  let rows = chartTable?.rows ?? [];
   if (!Array.isArray(rows) || rows.length < 1) return {};
-  const headers = (chartTable?.headers ?? []).map((h) => String(h ?? "").trim());
+  let headers = (chartTable?.headers ?? []).map((h) => String(h ?? "").trim());
+
+  const hasOnlySyntheticHeaders = headers.length > 0
+    && headers.every((h) => /^col_\d+$/i.test(h));
+  if (hasOnlySyntheticHeaders && rows.length > 0) {
+    const candidate = (rows[0] ?? []).map((c) => String(c ?? "").trim());
+    const nonEmpty = candidate.filter(Boolean);
+    const numericCells = nonEmpty.filter((cell) => toNumber(cell) !== null).length;
+    const looksLikeHeader = nonEmpty.length >= Math.max(2, Math.floor(candidate.length / 2))
+      && numericCells <= Math.max(1, Math.floor(nonEmpty.length / 3));
+    if (looksLikeHeader) {
+      headers = candidate;
+      rows = rows.slice(1);
+      if (rows.length < 1) return {};
+    }
+  }
+
   const colCount = Math.max(...rows.map((r) => (Array.isArray(r) ? r.length : 0)));
   if (colCount < 2) return {};
 
@@ -259,37 +285,16 @@ function deriveFromTable(chartTable: NewscastLayoutProps["chartTable"]): Partial
   };
 }
 
-function resolveChartInputs(props: NewscastLayoutProps): ResolvedChartInputs {
-  const tableInputs = deriveFromTable(props.chartTable);
-  const chartTableHasData = Array.isArray(props.chartTable?.rows)
-    && props.chartTable.rows.some((row) =>
-      Array.isArray(row) && row.some((cell) => String(cell ?? "").trim() !== ""),
-    );
-
-  if (chartTableHasData) {
-    const labels = (tableInputs.labels ?? []).map((label) => String(label ?? "").trim());
-    return {
-      labels,
-      lineSeries: tableInputs.lineSeries ?? [],
-      barRows: tableInputs.barRows ?? [],
-      histogramRows: tableInputs.histogramRows ?? [],
-    };
-  }
-
-  const labels = (props.lineChartLabels ?? tableInputs.labels ?? []).map((label) => String(label ?? "").trim());
-  const lineSeries =
-    parseLineSeries(labels, props.lineChartDatasets).length > 0
-      ? parseLineSeries(labels, props.lineChartDatasets)
-      : (tableInputs.lineSeries ?? []);
-
-  const explicitBarRows = parseRows(props.barChartRows);
-  const explicitHistogramRows = parseRows(props.histogramRows);
+function resolveChartInputs(chartTable: NewscastLayoutProps["chartTable"]): ResolvedChartInputs {
+  const tableInputs = deriveFromTable(chartTable);
+  const labels = (tableInputs.labels ?? []).map((label) => String(label ?? "").trim());
 
   return {
     labels,
-    lineSeries,
-    barRows: explicitBarRows.length > 0 ? explicitBarRows : (tableInputs.barRows ?? []),
-    histogramRows: explicitHistogramRows.length > 0 ? explicitHistogramRows : (tableInputs.histogramRows ?? []),
+    lineSeries: tableInputs.lineSeries ?? [],
+    barRows: tableInputs.barRows ?? [],
+    histogramRows: tableInputs.histogramRows ?? [],
+    explicitLineProvided: false,
   };
 }
 
@@ -297,24 +302,8 @@ function selectChartType(
   requested: NewscastChartType | undefined,
   inputs: ResolvedChartInputs,
 ): ResolvedChartType {
-  const hasLineData = inputs.lineSeries.length > 0;
-  const hasBarData = inputs.barRows.length >= 2;
-  const hasHistogramData = inputs.histogramRows.length >= 3;
-  const timeLike = hasTimeLikeLabels(inputs.labels);
-  const histogramLooksBucketed = hasBucketLikeLabels(inputs.histogramRows.map((row) => row.label));
   const explicit = requested && requested !== "auto" ? requested : null;
-
-  // Honor explicit user choice first.
-  if (explicit === "line" && hasLineData) return "line";
-  if (explicit === "bar" && hasBarData) return "bar";
-  if (explicit === "histogram" && hasHistogramData) return "histogram";
-
-  // Auto mode heuristics.
-  if (timeLike && hasLineData) return "line";
-  if (hasHistogramData && histogramLooksBucketed && !timeLike) return "histogram";
-  if (hasBarData) return "bar";
-  if (hasLineData) return "line";
-  if (hasHistogramData) return "histogram";
+  if (explicit) return explicit;
   return "bar";
 }
 
@@ -327,7 +316,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   const p = isPortrait;
   const { titleFontSize, descriptionFontSize } = props;
 
-  const chartInputs = useMemo(() => resolveChartInputs(props), [props]);
+  const chartInputs = useMemo(() => resolveChartInputs(props.chartTable), [props.chartTable]);
   const chartType = useMemo(
     () => selectChartType(props.chartType, chartInputs),
     [props.chartType, chartInputs],
@@ -439,37 +428,78 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
     return Math.max(0, Math.min(1, progress));
   };
   const easeInCubic = (progress: number) => Math.pow(Math.max(0, Math.min(1, progress)), 3);
+  function smoothValues(values: number[]): number[] {
+    const n = values.length;
+    if (n === 0) return [];
+
+    const kernel = [0.0625, 0.25, 0.375, 0.25, 0.0625]; // Gaussian-like weights sum=1
+
+    const pass = (src: number[]) => {
+      const dst = new Array(n).fill(0);
+      for (let i = 0; i < n; i += 1) {
+        let acc = 0;
+        let wsum = 0;
+        for (let k = -2; k <= 2; k += 1) {
+          const v = src[i + k];
+          const w = kernel[k + 2];
+          if (v != null && Number.isFinite(v)) {
+            acc += v * w;
+            wsum += w;
+          }
+        }
+        dst[i] = wsum > 0 ? acc / wsum : src[i];
+      }
+      return dst;
+    };
+
+    // Two-pass smoothing reduces sharp corners without large phase shift
+    const first = pass(values as number[]);
+    const second = pass(first);
+    return second;
+  }
+
   const animateSeries = (values: number[], progress: number): Array<number | null> => {
-    if (values.length === 0 || progress <= 0) return values.map(() => null);
+    // Flow immediately and morph along the curve (no straight drop/rise).
+    if (values.length === 0) return [];
     if (values.length === 1) return [values[0]];
 
-    const scaled = Math.max(0, Math.min(1, progress)) * (values.length - 1);
-    const fullIndex = Math.floor(scaled);
-    const fraction = scaled - fullIndex;
+    const clamped = Math.max(0, Math.min(1, progress));
+    const target = smoothValues(values);
+    if (clamped <= 0) return target.map(() => null);
 
-    return values.map((value, index) => {
-      if (!Number.isFinite(value)) return null;
-      if (index < fullIndex) return value;
-      if (index > fullIndex) return null;
-      if (index === 0) return value;
+    const headPos = clamped * (target.length - 1);
+    const headIndex = Math.floor(headPos);
+    const fraction = headPos - headIndex;
 
-      const previous = values[index - 1];
-      if (!Number.isFinite(previous)) return value;
-      return previous + (value - previous) * fraction;
+    return target.map((point, index) => {
+      if (!Number.isFinite(point)) return null;
+      if (index < headIndex) return point;
+      if (index === headIndex) {
+        let pi = index - 1;
+        while (pi >= 0 && !Number.isFinite(target[pi])) pi -= 1;
+        const previous = pi >= 0 ? target[pi] : point;
+        return previous + (point - previous) * fraction;
+      }
+      return null;
     });
   };
-  const animatedS0 = animateSeries(
-    chartInputs.lineSeries[0]?.values ?? [],
-    easeInCubic(clampProgress(0, lineDrawFrames)),
-  );
-  const animatedS1 = animateSeries(
-    chartInputs.lineSeries[1]?.values ?? [],
-    easeInCubic(clampProgress(lineSeriesDelayFrames, lineDrawFrames)),
-  );
-  const animatedS2 = animateSeries(
-    chartInputs.lineSeries[2]?.values ?? [],
-    easeInCubic(clampProgress(lineSeriesDelayFrames * 2, lineDrawFrames)),
-  );
+  const rawP0 = clampProgress(0, lineDrawFrames);
+  const easedP0 = easeInCubic(rawP0);
+  const showDots0 = rawP0 >= 1;
+  const animatedS0 = animateSeries(chartInputs.lineSeries[0]?.values ?? [], easedP0);
+  const lineOpacity0 = rawP0;
+
+  const rawP1 = clampProgress(lineSeriesDelayFrames, lineDrawFrames);
+  const easedP1 = easeInCubic(rawP1);
+  const showDots1 = rawP1 >= 1;
+  const animatedS1 = animateSeries(chartInputs.lineSeries[1]?.values ?? [], easedP1);
+  const lineOpacity1 = rawP1;
+
+  const rawP2 = clampProgress(lineSeriesDelayFrames * 2, lineDrawFrames);
+  const easedP2 = easeInCubic(rawP2);
+  const showDots2 = rawP2 >= 1;
+  const animatedS2 = animateSeries(chartInputs.lineSeries[2]?.values ?? [], easedP2);
+  const lineOpacity2 = rawP2;
   const animatedLineData = Array.from({ length: maxLineLength }).map((_, index) => ({
     label: labels[index] ?? `${index + 1}`,
     s0: animatedS0[index] ?? null,
@@ -578,6 +608,13 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   const yAxisWidth = hasYAxisLabel ? 68 : 56;
   const barAxisTop = getAxisUpperBound(hasComparisonBars ? comparisonDataMax : barDataMax);
   const histogramAxisTop = getAxisUpperBound(histogramDataMax);
+  const useCompactBarValueLabels =
+    hasComparisonBars
+    || barData.length >= 5
+    || histogramData.length >= 5
+    || barDataMax >= 10_000
+    || comparisonDataMax >= 10_000
+    || histogramDataMax >= 10_000;
 
   const symbol = props.marketSymbol || "MARKET COMPARISON";
   const valueLabel = props.marketValue || formatNumber(last);
@@ -695,15 +732,31 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                   ) : null}
                   <Area
                     yAxisId={axisForKey("s0")}
-                    type="linear"
+                    type="monotone"
                     dataKey="s0"
                     stroke={s0LineColor}
                     strokeWidth={3.2}
+                    strokeOpacity={lineOpacity0}
                     fill="url(#newscast-line-fill)"
+                    fillOpacity={0.32 * lineOpacity0}
                     isAnimationActive={false}
-                    dot={{ r: 2.6, fill: "white", stroke: s0LineColor, strokeWidth: 1.6 }}
+                    dot={showDots0 ? { r: 2.6, fill: "white", stroke: s0LineColor, strokeWidth: 1.6 } : false}
                     activeDot={false}
-                  />
+                  >
+                    {showDots0 ? (
+                      <LabelList
+                        dataKey="s0"
+                        position="top"
+                        formatter={(value) => formatLineValueLabel(value as number | null | undefined)}
+                        fill="white"
+                        fontSize={valueLabelFontSize}
+                        fontWeight={VALUE_LABEL_FONT_WEIGHT}
+                        stroke={VALUE_TEXT_STROKE}
+                        strokeWidth={valueLabelStrokeWidth}
+                        paintOrder="stroke"
+                      />
+                    ) : null}
+                  </Area>
                   {lastS0 ? (
                     <ReferenceLine
                       yAxisId={axisForKey("s0")}
@@ -716,15 +769,30 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                   {chartInputs.lineSeries[1] ? (
                     <Line
                       yAxisId={axisForKey("s1")}
-                      type="linear"
+                      type="monotone"
                       dataKey="s1"
                       stroke={s1LineColor}
                       strokeWidth={2}
-                      dot={{ r: 2.2, fill: "white", stroke: s1LineColor, strokeWidth: 1.2 }}
+                      strokeOpacity={lineOpacity1}
+                      dot={showDots1 ? { r: 2.2, fill: "white", stroke: s1LineColor, strokeWidth: 1.2 } : false}
                       activeDot={false}
                       strokeDasharray="4 4"
                       isAnimationActive={false}
-                    />
+                    >
+                      {showDots1 ? (
+                        <LabelList
+                          dataKey="s1"
+                          position="top"
+                          formatter={(value) => formatLineValueLabel(value as number | null | undefined)}
+                          fill={s1LineColor}
+                          fontSize={valueLabelFontSize}
+                          fontWeight={VALUE_LABEL_FONT_WEIGHT}
+                          stroke={VALUE_TEXT_STROKE}
+                          strokeWidth={valueLabelStrokeWidth}
+                          paintOrder="stroke"
+                        />
+                      ) : null}
+                    </Line>
                   ) : null}
                   {lastS1 ? (
                     <ReferenceLine
@@ -738,16 +806,31 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                   {chartInputs.lineSeries[2] ? (
                     <Line
                       yAxisId={axisForKey("s2")}
-                      type="linear"
+                      type="monotone"
                       dataKey="s2"
                       stroke={s2LineColor}
                       strokeWidth={2}
-                      dot={{ r: 2.2, fill: "white", stroke: s2LineColor, strokeWidth: 1.2 }}
+                      strokeOpacity={lineOpacity2}
+                      dot={showDots2 ? { r: 2.2, fill: "white", stroke: s2LineColor, strokeWidth: 1.2 } : false}
                       activeDot={false}
                       isAnimationActive={false}
-                    />
+                    >
+                      {showDots2 ? (
+                        <LabelList
+                          dataKey="s2"
+                          position="top"
+                          formatter={(value) => formatLineValueLabel(value as number | null | undefined)}
+                          fill={s2LineColor}
+                          fontSize={valueLabelFontSize}
+                          fontWeight={VALUE_LABEL_FONT_WEIGHT}
+                          stroke={VALUE_TEXT_STROKE}
+                          strokeWidth={valueLabelStrokeWidth}
+                          paintOrder="stroke"
+                        />
+                      ) : null}
+                    </Line>
                   ) : null}
-                  {lastS0 ? (
+                  {showDots0 && lastS0 ? (
                     <ReferenceDot
                       yAxisId={axisForKey("s0")}
                       x={lastS0.x}
@@ -756,19 +839,9 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       fill="white"
                       stroke={s0LineColor}
                       strokeWidth={2.5}
-                      label={{
-                        value: formatLineValueLabel(lastS0.y),
-                        position: "top",
-                        fill: "white",
-                        fontSize: valueLabelFontSize,
-                        fontWeight: VALUE_LABEL_FONT_WEIGHT,
-                        stroke: VALUE_TEXT_STROKE,
-                        strokeWidth: valueLabelStrokeWidth,
-                        paintOrder: "stroke",
-                      }}
                     />
                   ) : null}
-                  {lastS1 ? (
+                  {showDots1 && lastS1 ? (
                     <ReferenceDot
                       yAxisId={axisForKey("s1")}
                       x={lastS1.x}
@@ -777,19 +850,9 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       fill="white"
                       stroke={s1LineColor}
                       strokeWidth={2}
-                      label={{
-                        value: formatLineValueLabel(lastS1.y),
-                        position: "top",
-                        fill: s1LineColor,
-                        fontSize: valueLabelFontSize,
-                        fontWeight: VALUE_LABEL_FONT_WEIGHT,
-                        stroke: VALUE_TEXT_STROKE,
-                        strokeWidth: valueLabelStrokeWidth,
-                        paintOrder: "stroke",
-                      }}
                     />
                   ) : null}
-                  {lastS2 ? (
+                  {showDots2 && lastS2 ? (
                     <ReferenceDot
                       yAxisId={axisForKey("s2")}
                       x={lastS2.x}
@@ -798,16 +861,6 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       fill="white"
                       stroke={s2LineColor}
                       strokeWidth={2}
-                      label={{
-                        value: formatLineValueLabel(lastS2.y),
-                        position: "top",
-                        fill: s2LineColor,
-                        fontSize: valueLabelFontSize,
-                        fontWeight: VALUE_LABEL_FONT_WEIGHT,
-                        stroke: VALUE_TEXT_STROKE,
-                        strokeWidth: valueLabelStrokeWidth,
-                        paintOrder: "stroke",
-                      }}
                     />
                   ) : null}
                 </ComposedChart>
@@ -832,7 +885,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       stroke={VALUE_TEXT_STROKE}
                       strokeWidth={valueLabelStrokeWidth}
                       paintOrder="stroke"
-                      formatter={formatBarValueLabel}
+                      formatter={(value) => formatBarValueLabel(value, useCompactBarValueLabels)}
                     />
                   </Bar>
                 </BarChart>
@@ -849,16 +902,16 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                   {hasComparisonBars ? (
                     <>
                       <Bar dataKey="s0" fill={barSeriesColors[0]} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-                        <LabelList dataKey="s0" position="top" fill={barSeriesColors[0]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={formatBarValueLabel} />
+                        <LabelList dataKey="s0" position="top" fill={barSeriesColors[0]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={(value) => formatBarValueLabel(value, useCompactBarValueLabels)} />
                       </Bar>
                       {chartInputs.lineSeries[1] ? (
                         <Bar dataKey="s1" fill={barSeriesColors[1]} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-                          <LabelList dataKey="s1" position="top" fill={barSeriesColors[1]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={formatBarValueLabel} />
+                          <LabelList dataKey="s1" position="top" fill={barSeriesColors[1]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={(value) => formatBarValueLabel(value, useCompactBarValueLabels)} />
                         </Bar>
                       ) : null}
                       {chartInputs.lineSeries[2] ? (
                         <Bar dataKey="s2" fill={barSeriesColors[2]} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-                          <LabelList dataKey="s2" position="top" fill={barSeriesColors[2]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={formatBarValueLabel} />
+                          <LabelList dataKey="s2" position="top" fill={barSeriesColors[2]} fontSize={comparisonValueLabelFontSize} fontWeight={VALUE_LABEL_FONT_WEIGHT} stroke={VALUE_TEXT_STROKE} strokeWidth={valueLabelStrokeWidth} paintOrder="stroke" formatter={(value) => formatBarValueLabel(value, useCompactBarValueLabels)} />
                         </Bar>
                       ) : null}
                     </>
@@ -879,7 +932,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                         stroke={VALUE_TEXT_STROKE}
                         strokeWidth={valueLabelStrokeWidth}
                         paintOrder="stroke"
-                        formatter={formatBarValueLabel}
+                        formatter={(value) => formatBarValueLabel(value, useCompactBarValueLabels)}
                       />
                     </Bar>
                   )}

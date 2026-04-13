@@ -10,6 +10,17 @@ MAX_TABLES = 8
 MAX_ROWS_PER_TABLE = 20
 MAX_COLS_PER_TABLE = 8
 MAX_CELL_CHARS = 120
+_SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
+
+
+def _looks_like_header_row(row: list[str]) -> bool:
+    if not row:
+        return False
+    non_empty = [str(c or "").strip() for c in row if str(c or "").strip()]
+    if len(non_empty) < max(2, len(row) // 2):
+        return False
+    numeric = sum(1 for c in non_empty if re.fullmatch(r"[-+]?\d+(\.\d+)?", c))
+    return numeric <= max(1, len(non_empty) // 3)
 
 
 def _clean_cell(value: Any) -> str:
@@ -31,10 +42,25 @@ def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> 
         return None
 
     clean_headers = [_clean_cell(h) for h in headers[:MAX_COLS_PER_TABLE]]
+    has_meaningful_headers = any(clean_headers) and not all(
+        _SYNTH_HEADER_RE.fullmatch(h or "") for h in clean_headers if h
+    )
+
+    if not has_meaningful_headers and clean_rows:
+        # If headers are missing/placeholder-like, promote first row as headers
+        # when it looks like an actual header row from source content.
+        candidate = clean_rows[0]
+        if _looks_like_header_row(candidate):
+            clean_headers = candidate[:MAX_COLS_PER_TABLE]
+            clean_rows = clean_rows[1:]
+
     if not any(clean_headers):
-        # Synthesize headers when not present.
+        # Last-resort fallback for truly headerless tables.
         col_count = max(len(r) for r in clean_rows)
-        clean_headers = [f"col_{i + 1}" for i in range(col_count)]
+        clean_headers = [f"Series {i + 1}" for i in range(col_count)]
+
+    if len(clean_rows) < 2:
+        return None
 
     return {
         "source": source,

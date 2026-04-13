@@ -423,6 +423,13 @@ class TemplateSceneGenerator:
         if layout != "data_visualization":
             return props
 
+        out = dict(props or {})
+
+        # Enforce chartTable-only data payloads for data_visualization even if
+        # planner cannot derive table props for this scene.
+        for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+            out.pop(key, None)
+
         preferred_table_index = None
         if isinstance(scene_index, int):
             preferred_table_index = self._newscast_data_viz_table_by_scene.get(scene_index)
@@ -434,16 +441,11 @@ class TemplateSceneGenerator:
             preferred_table_index=preferred_table_index,
         )
         if not planned:
-            return props
+            return out
 
-        out = dict(props or {})
         chart_keys = {
             "chartType",
             "chartTable",
-            "lineChartLabels",
-            "lineChartDatasets",
-            "barChartRows",
-            "histogramRows",
             "marketSymbol",
             "marketValue",
             "marketDelta",
@@ -451,20 +453,13 @@ class TemplateSceneGenerator:
             "marketTrend",
         }
 
-        # If LLM did not produce usable chart payload, adopt planner output fully.
-        has_existing_series = bool(
-            out.get("lineChartDatasets") or out.get("barChartRows") or out.get("histogramRows")
-        )
-        if not has_existing_series:
-            for k, v in planned.items():
-                out[k] = v
-            return out
-
         # Planner output is deterministic from extracted table hints, while model
         # output may include noisy numeric hallucinations from mixed text cells.
         # Prefer planner chart payload when available.
         for k, v in planned.items():
             if k in chart_keys:
+                if k == "chartType" and out.get("chartType"):
+                    continue
                 out[k] = v
 
         return out
@@ -1062,15 +1057,20 @@ class TemplateSceneGenerator:
                     scene_index=scene_index,
                 )
 
+                chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
+                chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
+                has_chart_table = (
+                    isinstance(chart_rows, list)
+                    and any(isinstance(r, list) and any(str(c or "").strip() for c in r) for r in chart_rows)
+                )
+
                 # Fix 4: if a forced data_visualization scene ended up with no
-                # chart series, fall back to the LLM's original pick or the
+                # chart table data, fall back to the LLM's original pick or the
                 # template fallback so we don't render an empty chart.
                 if (
                     layout == "data_visualization"
                     and scene_index in self._newscast_forced_data_viz_scenes
-                    and not validated_props.get("lineChartDatasets")
-                    and not validated_props.get("barChartRows")
-                    and not validated_props.get("histogramRows")
+                    and not has_chart_table
                 ):
                     llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                     if llm_layout in self._valid_layouts and llm_layout != "data_visualization":
@@ -1141,13 +1141,15 @@ class TemplateSceneGenerator:
             scene_index=scene_index,
         )
 
+        chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
+        chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
+        has_chart_table = (
+            isinstance(chart_rows, list)
+            and any(isinstance(r, list) and any(str(c or "").strip() for c in r) for r in chart_rows)
+        )
+
         # Fix 4: empty chart safety net (same as _generate_old_descriptor).
-        if (
-            layout == "data_visualization"
-            and not validated_props.get("lineChartDatasets")
-            and not validated_props.get("barChartRows")
-            and not validated_props.get("histogramRows")
-        ):
+        if layout == "data_visualization" and not has_chart_table:
             llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
             if llm_layout in self._valid_layouts and llm_layout != "data_visualization":
                 layout = llm_layout

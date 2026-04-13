@@ -77,8 +77,6 @@ export const NewsCastChrome: React.FC<{
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none", zIndex: 999 }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');`}</style>
-
       {/* Outer metal frame */}
       <div
         aria-hidden

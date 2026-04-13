@@ -92,13 +92,6 @@ export const NewsCastChrome: React.FC<
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none", zIndex: 999 }}>
-      {/* Font imports (keep it self-contained for server-side renders) */}
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
-        `}
-      </style>
-
       {/* Background metal frame (outer bezel) */}
       <div
         aria-hidden
