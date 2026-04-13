@@ -12,6 +12,10 @@ Run from repo root or backend:
   python scripts/notify_free_users_video_limit.py --send
   python scripts/notify_free_users_video_limit.py --send --sleep 0.25
   python scripts/notify_free_users_video_limit.py --limit 5 --send
+
+  # Batched sends (stable order: user id). Day 1: first 50, day 2: next 50, etc.
+  python scripts/notify_free_users_video_limit.py --offset 0 --limit 50 --send
+  python scripts/notify_free_users_video_limit.py --offset 50 --limit 50 --send
 """
 
 from __future__ import annotations
@@ -38,12 +42,14 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def _iter_free_users(db: Session, limit: int | None):
+def _iter_free_users(db: Session, *, offset: int, limit: int | None):
     q = (
         db.query(User)
         .filter(User.plan == PlanTier.FREE, User.is_active.is_(True))
         .order_by(User.id)
     )
+    if offset > 0:
+        q = q.offset(offset)
     if limit is not None:
         q = q.limit(limit)
     return q.all()
@@ -61,7 +67,14 @@ def main() -> int:
         type=int,
         default=None,
         metavar="N",
-        help="Only process the first N users (ordered by id). Useful for a test batch.",
+        help="Max users to process in this run (ordered by id). Omit for all from --offset onward.",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Skip the first N matching users (ordered by id). Use with --limit for daily batches (e.g. 0, 50, 100, …).",
     )
     parser.add_argument(
         "--sleep",
@@ -72,21 +85,35 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.offset < 0:
+        logger.error("--offset must be >= 0")
+        return 2
+    if args.limit is not None and args.limit < 1:
+        logger.error("--limit must be >= 1 when set")
+        return 2
+
     db = SessionLocal()
     try:
-        users = _iter_free_users(db, args.limit)
+        users = _iter_free_users(db, offset=args.offset, limit=args.limit)
     finally:
         db.close()
 
     if not users:
-        logger.info("No active free-plan users found.")
+        logger.info(
+            "No active free-plan users in this window (offset=%s, limit=%s).",
+            args.offset,
+            args.limit if args.limit is not None else "all",
+        )
         return 0
 
-    logger.info("Matched %s active free-plan user(s).", len(users))
-    for u in users[:10]:
+    logger.info(
+        "Matched %s active free-plan user(s) (offset=%s, limit=%s).",
+        len(users),
+        args.offset,
+        args.limit if args.limit is not None else "all",
+    )
+    for u in users:
         logger.info("  id=%s email=%s name=%r", u.id, u.email, u.name)
-    if len(users) > 10:
-        logger.info("  ... and %s more", len(users) - 10)
 
     if not args.send:
         logger.info("Dry-run only. Re-run with --send to deliver (requires RESEND_API_KEY).")
