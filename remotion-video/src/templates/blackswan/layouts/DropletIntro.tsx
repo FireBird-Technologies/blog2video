@@ -2,19 +2,19 @@ import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
-import { StarField } from "./scenePrimitives";
+import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { NeonWater } from "./neonWater";
 
-const mono = "'Fira Code', monospace";
-const display = "'Oswald', sans-serif";
+// Righteous (Astigmatic / Google Fonts) — bundled via @fontsource/righteous
+const mono = "'Righteous', cursive";
+const display = "'Righteous', cursive";
 
 const HIT = 2.2;
 const DROP_DELAY = 0.15;
 const IX = 500;
-
-// Shift the impact floor (IY) lower down the screen (from 510 to 650)
-const IY = 580;
+const IY = 560;
 const DSY = 60;
-const NY = IY - DSY;
+
 
 function dropletOutline(u: number): { rx: number; ry: number; shapeOp: number } {
   const rx = interpolate(u, [0, 0.52, 0.83, 0.95, 1], [7, 6, 5.5, 9, 11], { extrapolateRight: "clamp" });
@@ -26,12 +26,13 @@ function dropletOutline(u: number): { rx: number; ry: number; shapeOp: number } 
   return { rx, ry, shapeOp };
 }
 
-function dropFallMotion(t: number): { y: number; gOpacity: number; u: number } {
+function dropFallMotion(t: number, iy: number): { y: number; gOpacity: number; u: number } {
+  const ny = iy - DSY;
   const u = (t - DROP_DELAY) / HIT;
   if (u <= 0) return { y: 0, gOpacity: 0, u: 0 };
-  if (u >= 1) return { y: NY + 30, gOpacity: 0, u: 1 };
+  if (u >= 1) return { y: ny + 30, gOpacity: 0, u: 1 };
   const gOpacity = u < 0.08 ? interpolate(u, [0, 0.08], [0, 1]) : u > 0.96 ? interpolate(u, [0.96, 1], [1, 0]) : 1;
-  const y = interpolate(u, [0, 0.84, 0.96, 1], [0, NY, NY + 26, NY + 30], {
+  const y = interpolate(u, [0, 0.84, 0.96, 1], [0, ny, ny + 26, ny + 30], {
     easing: Easing.bezier(0.38, 0.04, 0.52, 1),
     extrapolateRight: "clamp",
   });
@@ -46,8 +47,8 @@ function shockRing(p: number, maxRx: number, maxRy: number) {
   return { rx, ry, opacity, sw };
 }
 
-const DropletImpact: React.FC<{ t: number }> = ({ t }) => {
-  const { y: dropY, gOpacity, u: fallU } = dropFallMotion(t);
+const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
+  const { y: dropY, gOpacity, u: fallU } = dropFallMotion(t, iy);
   const { rx: drx, ry: dry, shapeOp } = dropletOutline(fallU);
   const shellOp = gOpacity * shapeOp;
 
@@ -81,14 +82,7 @@ const DropletImpact: React.FC<{ t: number }> = ({ t }) => {
       </defs>
 
       {t > DROP_DELAY && (
-        <line
-          x1={IX} y1={DSY}
-          x2={IX} y2={t < HIT + 0.15 ? DSY + dropY : IY}
-          stroke="#00E5FF"
-          strokeWidth={1.5}
-          filter="url(#bsw-fdrop-di)"
-          opacity={0.4}
-        />
+        <line x1={IX} y1={DSY} x2={IX} y2={t < HIT + 0.15 ? DSY + dropY : iy} stroke="#00E5FF" strokeWidth={1.5} filter="url(#bsw-fdrop-di)" opacity={0.4} />
       )}
 
       <g transform={`translate(0, ${dropY})`} opacity={gOpacity}>
@@ -100,22 +94,11 @@ const DropletImpact: React.FC<{ t: number }> = ({ t }) => {
         const ang = ((-180 + ri * (180 / 19)) * Math.PI) / 180;
         const rl = 60 + (ri % 3) * 25;
         const ex = IX + Math.cos(ang) * rl;
-        const ey = IY + Math.sin(ang) * rl;
+        const ey = iy + Math.sin(ang) * rl;
         const offset = rayOffset(ri, rl);
         if (t < HIT) return null;
         return (
-          <line
-            key={ri}
-            x1={IX} y1={IY}
-            x2={ex} y2={ey}
-            stroke="#00E5FF"
-            strokeWidth={1.2}
-            strokeDasharray={`${rl} ${rl}`}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            filter="url(#bsw-fdrop-di)"
-            opacity={0.6}
-          />
+          <line key={ri} x1={IX} y1={iy} x2={ex} y2={ey} stroke="#00E5FF" strokeWidth={1.2} strokeDasharray={`${rl} ${rl}`} strokeDashoffset={offset} strokeLinecap="round" filter="url(#bsw-fdrop-di)" opacity={0.6} />
         );
       })}
 
@@ -123,7 +106,7 @@ const DropletImpact: React.FC<{ t: number }> = ({ t }) => {
         const p = interpolate(t, [HIT + ring.del, HIT + ring.del + ring.dur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
         const { rx, ry, opacity, sw } = shockRing(p, ring.rx, ring.ry);
         return (
-          <ellipse key={i} cx={IX} cy={IY} rx={rx} ry={ry} fill="none" stroke={ring.stroke} strokeWidth={sw} filter="url(#bsw-fring-di)" opacity={opacity} />
+          <ellipse key={i} cx={IX} cy={iy} rx={rx} ry={ry} fill="none" stroke={ring.stroke} strokeWidth={sw} filter="url(#bsw-fring-di)" opacity={opacity} />
         );
       })}
     </svg>
@@ -131,11 +114,24 @@ const DropletImpact: React.FC<{ t: number }> = ({ t }) => {
 };
 
 export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
-  const { title, narration, accentColor = "#00E5FF", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape" } = props;
+  const { title, narration, accentColor = "#00E5FF", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape", imageUrl } = props;
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const t = frame / fps;
-  const isPortrait = aspectRatio === "portrait";
+  const portrait = aspectRatio === "portrait";
+  const iy = portrait ? IY : 490;
+
+  // Image appears in last 3 seconds, fades in over 0.7s
+  const totalSec = durationInFrames / fps;
+  const imgStartSec = Math.max(totalSec - 3, HIT + 0.5);
+  const hasImage = !!imageUrl;
+  const imgOpacity = hasImage
+    ? interpolate(t, [imgStartSec, imgStartSec + 0.7], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+    : 0;
+  // Fade out scene content as image appears
+  const sceneContentOp = hasImage
+    ? interpolate(t, [imgStartSec, imgStartSec + 0.5], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
+    : 1;
 
   const textOpacity = interpolate(t, [0.4, HIT], [0, 1], { extrapolateRight: "clamp" });
   const textY = interpolate(t, [0.4, HIT], [15, 0], { extrapolateRight: "clamp", easing: Easing.out(Easing.quad) });
@@ -143,80 +139,119 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
-      <DropletImpact t={t} />
+      {/* Scene content — fades out when image takes over */}
+      <div style={{ position: "absolute", inset: 0, opacity: sceneContentOp }}>
+        <StarField />
 
-      {/* Swan Container */}
-      <div style={{ 
-        position: "absolute", 
-        left: "50%", 
-        top: isPortrait ? "18%" : "8%", 
-        transform: "translateX(-50%)", 
-        opacity: swanOpacity 
-      }}>
-        {/* Significantly increased swan size for Portrait format */}
-        <Swan size={isPortrait ? 1000 : 760} water={false} uid="d0-swan" />
-      </div>
-
-      {/* Text Container */}
-      <div style={{ 
-        position: "absolute", 
-        left: 0, 
-        right: 0, 
-        bottom: isPortrait ? "15%" : "10%",
-        padding: isPortrait ? "0 40px" : "0 80px", 
-        display: "flex", 
-        flexDirection: "column", 
-        alignItems: "center", 
-        gap: isPortrait ? 6 : 10, 
-        opacity: textOpacity, 
-        transform: `translateY(${textY}px)` 
-      }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
-          <span style={{ 
-            fontFamily: fontFamily ?? display, 
-            fontSize: titleFontSize ?? (isPortrait ? 64 : 72), 
-            fontWeight: 800, 
-            color: accentColor, 
-            letterSpacing: 6, 
-            textShadow: `0 0 2px ${accentColor}`, 
-            textTransform: "uppercase", 
-            lineHeight: 1.5 
-          }}>
-            {title}
-          </span>
-        </div>
-
-        <div style={{ height: 1.5, width: isPortrait ? 320 : 400, background: accentColor, boxShadow: `0 0 2px ${accentColor}` }} />
-        
-        {narration && (
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 2 }}>
-            {narration.split(" ").map((w, i) => (
-              <span key={i} style={{ 
-                fontSize: descriptionFontSize ?? (isPortrait ? 14 : 16), 
-                letterSpacing: 2, 
-                color: textColor, 
-                fontFamily: fontFamily ?? mono,
-                lineHeight: 1.5 
-              }}>
-                {w}
-              </span>
-            ))}
-          </div>
-        )}
-        
-        <div style={{ 
-          marginTop: 8, 
-          color: accentColor, 
-          fontFamily: fontFamily ?? mono, 
-          fontSize: 30, 
-          letterSpacing: 3, 
-          opacity: 0.35, 
-          textTransform: "uppercase" 
+        {/* Neon Water pond at droplet impact — fades in on hit */}
+        <div style={{
+          position: "absolute", inset: 0,
+          opacity: interpolate(t, [HIT, HIT + 0.35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}>
-          BLACKSWAN
+          <NeonWater
+            uid="d0-neon-water"
+            cx={500}
+            yPct={iy / 10}
+            rxBase={110}
+            ryBase={20}
+            maxRx={240}
+            nRings={6}
+            delay={0}
+            hideBg
+          />
+        </div>
+
+        <DropletImpact t={t} iy={iy} />
+
+        {/* Swan Container */}
+        <div style={{
+          position: "absolute",
+          left: "50%",
+          top: portrait ? "5%" : "-16%",
+          transform: "translateX(-50%)",
+          opacity: swanOpacity,
+        }}>
+          <Swan size={portrait ? 1550 : 1200} water={false} uid="d0-swan" />
+        </div>
+
+        {/* Text Container */}
+        <div style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: portrait ? "15%" : "10%",
+          padding: portrait ? "0 40px" : "0 80px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: portrait ? 6 : 10,
+          opacity: textOpacity,
+          transform: `translateY(${textY}px)`,
+        }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
+            <span style={{
+              fontFamily: fontFamily ?? display,
+              fontSize: titleFontSize ?? (portrait ? 73 : 74),
+              fontWeight: 400,
+              ...neonTitleTubeStyle(accentColor),
+              letterSpacing: "0.02em",
+              textTransform: "uppercase",
+              lineHeight: 1.2,
+              textAlign: "center",
+            }}>
+              {title}
+            </span>
+          </div>
+
+          <div style={{ height: 3, width: portrait ? 320 : 400, background: accentColor, boxShadow: `0 0 10px ${accentColor}` }} />
+
+          {narration && (
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 }}>
+              {narration.split(" ").map((w, i) => (
+                <span key={i} style={{
+                  fontSize: descriptionFontSize ?? (portrait ? 36 : 33),
+                  color: textColor,
+                  fontFamily: fontFamily ?? display,
+                  fontWeight: 400,
+                  letterSpacing: "0.06em",
+                  lineHeight: 1.5,
+                }}>
+                  {w}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{
+            marginTop: 15,
+            color: accentColor,
+            fontFamily: fontFamily ?? mono,
+            fontSize: 24,
+            fontWeight: 400,
+            letterSpacing: 8,
+            opacity: 0.5,
+            textTransform: "uppercase",
+          }}>
+            BLACKSWAN
+          </div>
         </div>
       </div>
+
+      {/* Full-screen image overlay — last 3 seconds */}
+      {hasImage && (
+        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 10 }}>
+          <img
+            src={imageUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          {/* Dark overlay so particles are visible */}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
+          {/* Particles on top of image */}
+          <div style={{ position: "absolute", inset: 0 }}>
+            <StarField />
+          </div>
+        </div>
+      )}
     </AbsoluteFill>
   );
 };

@@ -4,8 +4,8 @@
   "new_template": true,
   "description": "Neon cyan on pure black cinematic theme with elliptical water ripples, swan/bird motifs, and data-forward explainer layouts.",
   "styles": [
-    "storytelling",
-    "explainer"
+    "promotional",
+    "storytelling"
   ],
   "preview_colors": {
     "accent": "#00E5FF",
@@ -17,28 +17,26 @@
   "fallback_layout": "neon_narrative",
   "valid_layouts": [
     "droplet_intro",
-    "swan_title",
     "neon_narrative",
     "arc_features",
     "pulse_metric",
     "signal_split",
     "dive_insight",
-    "wing_stack",
     "reactor_code",
     "flight_path",
-    "frequency_chart"
+    "ending_socials"
   ],
   "layout_prop_schema": {
     "droplet_intro": {
       "label": "Droplet Intro",
       "defaults": {
         "titleFontSize": {
-          "portrait": 104,
-          "landscape": 94
+          "portrait": 73,
+          "landscape": 74
         },
         "descriptionFontSize": {
-          "portrait": 42,
-          "landscape": 36
+          "portrait": 36,
+          "landscape": 33
         }
       },
       "fields": [
@@ -62,49 +60,16 @@
         }
       ]
     },
-    "swan_title": {
-      "label": "Swan Title",
-      "defaults": {
-        "titleFontSize": {
-          "portrait": 96,
-          "landscape": 84
-        },
-        "descriptionFontSize": {
-          "portrait": 38,
-          "landscape": 32
-        }
-      },
-      "fields": [
-        {
-          "key": "titleFontSize",
-          "label": "Title Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 18,
-          "max": 220,
-          "step": 1
-        },
-        {
-          "key": "descriptionFontSize",
-          "label": "Description Font Size",
-          "type": "number",
-          "responsive": true,
-          "min": 10,
-          "max": 140,
-          "step": 1
-        }
-      ]
-    },
     "neon_narrative": {
       "label": "Neon Narrative",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
-          "landscape": 99
+          "portrait": 73,
+          "landscape": 69
         },
         "descriptionFontSize": {
-          "portrait": 42,
-          "landscape": 37
+          "portrait": 38,
+          "landscape": 32
         }
       },
       "fields": [
@@ -131,6 +96,14 @@
     "arc_features": {
       "label": "Arc Features",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 90,
+          "landscape": 74
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 35
+        },
         "items": [
           "Feature one",
           "Feature two",
@@ -138,6 +111,24 @@
         ]
       },
       "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "items",
           "label": "Items",
@@ -149,6 +140,14 @@
     "pulse_metric": {
       "label": "Pulse Metric",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 33
+        },
         "metrics": [
           {
             "value": "97",
@@ -168,6 +167,24 @@
         ]
       },
       "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body / Label Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "metrics",
           "label": "Metrics",
@@ -193,12 +210,38 @@
     "signal_split": {
       "label": "Signal Split",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 91,
+          "landscape": 81
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 31
+        },
         "leftLabel": "Before",
         "rightLabel": "After",
         "leftDescription": "Previous baseline state",
         "rightDescription": "Improved neon state"
       },
       "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "leftLabel",
           "label": "Left Label",
@@ -224,10 +267,36 @@
     "dive_insight": {
       "label": "Dive Insight",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 70
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 33
+        },
         "quote": "Complexity fades when the signal is clear.",
         "highlightWord": "signal"
       },
       "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Sub-text Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
         {
           "key": "quote",
           "label": "Quote",
@@ -240,27 +309,17 @@
         }
       ]
     },
-    "wing_stack": {
-      "label": "Wing Stack",
-      "defaults": {
-        "items": [
-          "Point one",
-          "Point two",
-          "Point three"
-        ]
-      },
-      "fields": [
-        {
-          "key": "items",
-          "label": "Items",
-          "type": "string_array",
-          "maxItems": 6
-        }
-      ]
-    },
     "reactor_code": {
       "label": "Reactor Code",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 81,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 33,
+          "landscape": 32
+        },
         "codeLanguage": "typescript",
         "codeLines": [
           "const ripple = createSignal();",
@@ -269,6 +328,24 @@
         ]
       },
       "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Code Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
         {
           "key": "codeLanguage",
           "label": "Language",
@@ -285,6 +362,14 @@
     "flight_path": {
       "label": "Flight Path",
       "defaults": {
+        "titleFontSize": {
+          "portrait": 74,
+          "landscape": 80
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 27
+        },
         "phrases": [
           "Discover",
           "Transform",
@@ -293,6 +378,24 @@
       },
       "fields": [
         {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Node & Description Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
           "key": "phrases",
           "label": "Path Steps",
           "type": "string_array",
@@ -300,38 +403,110 @@
         }
       ]
     },
-    "frequency_chart": {
-      "label": "Frequency Chart",
+    "ending_socials": {
+      "label": "Ending Socials",
       "defaults": {
-        "barChartRows": [
+        "titleFontSize": {
+          "portrait": 77,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 36,
+          "landscape": 33
+        },
+        "hideImage": true,
+        "ctaButtonText": "Get Started",
+        "websiteLink": "https://yourwebsite.com",
+        "showWebsiteButton": true,
+        "socials": [
           {
-            "label": "Q1",
-            "value": "18"
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
           },
           {
-            "label": "Q2",
-            "value": "24"
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
           },
           {
-            "label": "Q3",
-            "value": "31"
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
           }
         ]
       },
       "fields": [
         {
-          "key": "barChartRows",
-          "label": "Bar Chart Rows",
+          "key": "titleFontSize",
+          "label": "CTA Text Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Narration Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Text",
+          "type": "string"
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website / URL",
+          "type": "string"
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website Link",
+          "type": "boolean"
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
           "type": "object_array",
-          "maxItems": 10,
+          "maxItems": 7,
           "subFields": [
             {
-              "key": "label",
-              "label": "Label"
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
             },
             {
-              "key": "value",
-              "label": "Value"
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
             }
           ]
         }
@@ -340,11 +515,10 @@
   },
   "layouts_without_image": [
     "signal_split",
-    "dive_insight",
-    "wing_stack",
+    "pulse_metric",
     "reactor_code",
     "flight_path",
-    "frequency_chart"
+    "ending_socials"
   ],
   "features": [
     "Neon water-ring atmosphere on pure black",

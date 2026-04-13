@@ -1,15 +1,13 @@
 export type BlackswanLayoutType =
   | "droplet_intro"
-  | "swan_title"
   | "neon_narrative"
   | "arc_features"
   | "pulse_metric"
   | "signal_split"
   | "dive_insight"
-  | "wing_stack"
   | "reactor_code"
   | "flight_path"
-  | "frequency_chart";
+  | "ending_socials";
 
 export interface BlackswanMetric {
   value: string;
@@ -46,4 +44,8 @@ export interface BlackswanLayoutProps {
   codeLines?: string[];
   phrases?: string[];
   barChartRows?: BlackswanRow[];
+  socials?: Record<string, unknown> | Array<Record<string, unknown>>;
+  websiteLink?: string;
+  showWebsiteButton?: boolean;
+  ctaButtonText?: string;
 }

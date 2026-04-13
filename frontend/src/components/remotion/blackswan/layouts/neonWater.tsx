@@ -13,6 +13,10 @@ export type NeonWaterProps = {
   nRings?: number;
   /** Base delay in seconds (HTML neonWater `delay`) */
   delay?: number;
+  /** Hide the gradient background rect (card shade) */
+  hideBg?: boolean;
+  /** Fade rings out radially as they expand outward */
+  fadeEdges?: boolean;
 };
 
 /** One-shot + looping ellipse shockwave — frame-synced for Remotion render. */
@@ -65,6 +69,8 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
   maxRx = 320,
   nRings = 6,
   delay = 0,
+  hideBg = false,
+  fadeEdges = false,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -96,6 +102,18 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
           <stop offset="40%" stopColor="#0040FF" stopOpacity={0.025} />
           <stop offset="100%" stopColor="#000000" stopOpacity={0} />
         </linearGradient>
+        {fadeEdges && (
+          <radialGradient id={`bsw-fade-${uid}`} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="30%" stopColor="white" stopOpacity={1} />
+            <stop offset="75%" stopColor="white" stopOpacity={0.5} />
+            <stop offset="100%" stopColor="white" stopOpacity={0} />
+          </radialGradient>
+        )}
+        {fadeEdges && (
+          <mask id={`bsw-mask-${uid}`}>
+            <ellipse cx={cx} cy={cy} rx={maxR * 1.1} ry={maxR * 0.35} fill={`url(#bsw-fade-${uid})`} />
+          </mask>
+        )}
         <filter id={`bsw-fneon2-${uid}`} x="-30%" y="-900%" width="160%" height="1900%">
           <feGaussianBlur stdDeviation="9" result="b" />
           <feColorMatrix
@@ -121,8 +139,9 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
         </filter>
       </defs>
 
-      <rect x={0} y={Math.max(0, cy - 200)} width={1000} height={280} fill={`url(#bsw-wfg-${uid})`} />
+      {!hideBg && <rect x={0} y={Math.max(0, cy - 200)} width={1000} height={280} fill={`url(#bsw-wfg-${uid})`} />}
 
+      <g mask={fadeEdges ? `url(#bsw-mask-${uid})` : undefined}>
       {ambientRings.map((ar, k) => {
         const circ = 2 * Math.PI * ar.rx;
         const dashLen = Math.round(circ * 0.14);
@@ -219,6 +238,7 @@ export const NeonWater: React.FC<NeonWaterProps> = ({
           </React.Fragment>
         );
       })}
+      </g>
     </svg>
   );
 };
