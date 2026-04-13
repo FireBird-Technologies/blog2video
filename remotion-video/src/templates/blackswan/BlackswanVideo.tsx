@@ -7,8 +7,6 @@ import {
   CalculateMetadataFunction,
   continueRender,
   delayRender,
-  interpolate,
-  useCurrentFrame,
 } from "remotion";
 import { BLACKSWAN_LAYOUT_REGISTRY } from "./layouts";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "./types";
@@ -44,29 +42,6 @@ interface VideoData {
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
-
-const BlackswanTransition: React.FC = () => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 8], [0.85, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const scale = interpolate(frame, [0, 8], [0.9, 1.2], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: "#000000",
-        opacity,
-        transform: `scale(${scale})`,
-        boxShadow: "inset 0 0 120px rgba(0,229,255,0.35)",
-      }}
-    />
-  );
-};
 
 export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
@@ -161,7 +136,7 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene, index) => {
+      {data.scenes.map((scene) => {
         const durationFrames = Math.round(scene.durationSeconds * FPS);
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -195,11 +170,6 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
-            {index < data.scenes.length - 1 && (
-              <Sequence from={durationFrames - 8} durationInFrames={8}>
-                <BlackswanTransition />
-              </Sequence>
-            )}
           </Sequence>
         );
       })}
