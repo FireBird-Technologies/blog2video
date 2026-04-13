@@ -198,13 +198,13 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
         />
       </div>
 
-      <BlackswanArcBirdPass
+      {/* <BlackswanArcBirdPass
         uid="es-birds"
         accentColor={accentColor}
         portrait={p}
         sizeScale={hasSocials ? 1.42 : 1.08}
         zIndex={2}
-      />
+      /> */}
 
       {/* ── CTA text — top, plain neon title ───────────────────────────────── */}
       {showCta && (
