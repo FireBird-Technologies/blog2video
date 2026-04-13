@@ -24,18 +24,6 @@ Core rules:
 
 ---
 
-## swan_title
-
-**Visual:** Brand-forward title card: neon water centred under the swan, eyebrow “Swan Title”, very large title, optional subtitle line from `narration`. Swan and rings read as the identity anchor.
-
-**Best for:** Reinforcing the topic or chapter title immediately after the intro; “title card” beats.
-
-**Props:** Uses global `title` and `narration` only for content. No layout-specific keys.
-
-**When to Use:** Prefer scene 1 for most videos; any early scene that needs a strong title-only moment.
-
----
-
 ## neon_narrative
 
 **Visual:** Two-column layout: left column has eyebrow “Neon Narrative”, large title, and a frosted neon-panel card with body copy; right column centres the swan. Water ripples sit left-biased behind the text.
@@ -106,17 +94,6 @@ Core rules:
 
 ---
 
-## wing_stack
-
-**Visual:** Far-left water band; eyebrow “Wing Stack”, title, stacked list of short neon lines (minimal list). Lighter than arc_features—more “talking points” than “feature grid”.
-
-**Best for:** Tight stacks of points, principles, or reminders (3–6 lines).
-
-**Props:** `items` — string array, **3–6** items. Each line **short** (≤ ~12 words).
-
-**When to Use:** When you need a compact list without the “numbered feature” weight of `arc_features`.
-
----
 
 ## reactor_code
 
@@ -144,29 +121,38 @@ Core rules:
 
 ---
 
-## frequency_chart
+## ending_socials
 
-**Visual:** Wide low water rings; eyebrow “Frequency Chart”, title, horizontal bar chart built from categorical rows (labels + numeric values).
+**Visual:** DropletIntro-style cinematic frame (star field, swan silhouette, animated droplet fall, NeonWater ripple band). Instead of a title, a neon pill-shaped CTA button is centred on stage. Below the button: an optional website URL in muted accent text, a neon divider line, the narration paragraph in body text, and a row of social-platform icons at the bottom.
 
-**Best for:** Comparisons across categories, periods, quarters, buckets—anything that fits bars.
+**Best for:** Final outro scenes that convert — “follow us”, “try it free”, “visit the site”. Always the last scene when the video has CTA or social data.
 
-**Props:** `barChartRows` — array of objects, each exactly:
-```json
-{ "label": "Q1", "value": "24" }
-```
-`value` must be a **numeric string** (digits only, or decimal with optional leading minus). **3–7** rows typical.
+**Props:**
+- `ctaButtonText` — **string**, short imperative phrase shown inside the neon pill button (e.g. `”Get Started”`, `”Try Free”`, `”Learn More”`, `”Subscribe Now”`). Keep it under **4 words**.
+- `websiteLink` — **string**, the URL or domain to display beneath the button (e.g. `”www.example.com”`). If empty or absent, the URL line is hidden.
+- `showWebsiteButton` — **boolean**, set `false` to hide both the CTA button and the URL entirely. Defaults to `true`.
+- `socials` — **object**, key-value map of social platform names to their handles or URLs. Supported keys (use exactly): `instagram`, `twitter`, `linkedin`, `youtube`, `facebook`, `tiktok`, `github`, `website`. Example:
+  ```json
+  {
+    “instagram”: “@mybrand”,
+    “linkedin”: “linkedin.com/company/mybrand”,
+    “youtube”: “youtube.com/@mybrand”
+  }
+  ```
+  Omit platforms that were not mentioned in the source. If no social data is available, omit `socials` entirely.
+- `narration` (global) — shown as the body paragraph below the divider. Write it as a warm closing line (e.g. “Follow us for weekly insights on AI, design, and growth.”).
+- `title` (global) — not displayed visually in this layout; still required by the schema but its value is ignored in the render. Set it to a short internal label like `”Closing”` or leave it as the video brand name.
 
-**When to Use:** When the narration implies comparable magnitudes across named categories.
+**When to Use:** Always the **last scene** of a video when CTA or social data exists. Do not use this layout mid-video.
 
 ---
 
 # Scene Flow Rules
 
 - Scene **0** must use **`droplet_intro`** (hero).
-- Scene **1** should usually be **`swan_title`** to lock the topic or brand beat.
-- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `wing_stack`, `flight_path`, `pulse_metric`, `frequency_chart`, `signal_split`, `dive_insight`, `reactor_code`) as the content demands.
-- **Closing:** prefer a strong non-generic beat—`dive_insight` (quote), `pulse_metric` or `frequency_chart` (numbers), or `neon_narrative` (summary)—not another `droplet_intro`.
-- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`** or **`frequency_chart`** (unless the source material has no numbers at all).
+- **Middle:** alternate **`neon_narrative`** (prose) with structured layouts (`arc_features`, `flight_path`, `pulse_metric`, `signal_split`, `dive_insight`, `reactor_code`) as the content demands.
+- **Closing:** use **`ending_socials`** as the final scene when CTA or social data is available; otherwise close with `dive_insight` (quote), `pulse_metric`, or a strong `neon_narrative`.
+- For **6+** total scenes, include **at least one** data-forward layout: **`pulse_metric`** (unless the source material has no numbers at all).
 - Balance **structure** (lists, path, code) with **breathing room** (`neon_narrative`, `dive_insight`).
 
 ---
@@ -178,13 +164,13 @@ Core rules:
 - `narration`: **about 12–20 words** per scene for voiceover; slightly longer only when the layout is prose-first (`neon_narrative`). Keep sentences speakable in one breath.
 
 **Per layout (structured props):**
-- **`arc_features` / `wing_stack`:** Split enumeration from the narration into parallel bullets; avoid duplicating the full `narration` sentence inside every item.
+- **`arc_features`:** Split enumeration from the narration into parallel bullets; avoid duplicating the full `narration` sentence inside every item.
 - **`pulse_metric`:** Pull numbers and units from the text; map each to `value` + `suffix` + human `label`. If the source gives fewer than three metrics, output only what is justified.
 - **`signal_split`:** Extract two **contrasting** labels and two descriptions; left/right must disagree in meaning (not two ways to say the same thing).
 - **`dive_insight`:** `quote` must be a tight extract or paraphrase of the thesis; `highlightWord` must be a substring of `quote`.
 - **`reactor_code`:** Lines should reflect the **meaning** of the source (API names, flags, types) even if abbreviated; do not paste long unrelated files.
 - **`flight_path`:** Preserve the **order** of steps in the narration; one phrase per step.
-- **`frequency_chart`:** Labels are category names (time ranges, segments, options); values must match stated or clearly implied quantities in the source.
+- **`ending_socials`:** `ctaButtonText` must be an imperative verb phrase (≤4 words). `socials` keys must use only the supported platform names listed in the layout catalog. `narration` should be a warm closing sentence, not a content summary.
 
 **Grounding:** If the source does not support a layout (e.g. no numbers for metrics), choose a different layout or keep `narration` factual without inventing figures.
 
@@ -197,4 +183,4 @@ Core rules:
 - **Limit** `swan_title` to early scenes (typically scene 1); avoid stacking multiple title-only layouts back-to-back.
 - Across the **whole** video, prefer **at least 4 distinct** layout IDs when `total_scenes` ≥ 6.
 - **`neon_narrative`** is the default fallback for prose; **do not** let it dominate more than 50% of scenes in long videos—interleave structured layouts.
-- End with a **memorable** layout when possible (`dive_insight`, `pulse_metric`, `frequency_chart`, or a strong `neon_narrative`), not a redundant `swan_title`.
+- End with a **memorable** layout when possible (`ending_socials`, `dive_insight`, `pulse_metric`, or a strong `neon_narrative`).

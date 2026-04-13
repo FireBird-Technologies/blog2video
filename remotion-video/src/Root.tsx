@@ -147,7 +147,7 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
         defaultProps={{
-          dataUrl: "/blackswan.json",
+          dataUrl: "/data.json",
         }}
         calculateMetadata={calculateBlackswanMetadata}
       />

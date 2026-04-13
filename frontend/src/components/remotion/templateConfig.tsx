@@ -178,16 +178,14 @@ const NEWSCAST_LAYOUTS = new Set([
 ]);
 const BLACKSWAN_LAYOUTS = new Set([
   "droplet_intro",
-  "swan_title",
   "neon_narrative",
   "arc_features",
   "pulse_metric",
   "signal_split",
   "dive_insight",
-  "wing_stack",
   "reactor_code",
   "flight_path",
-  "frequency_chart",
+  "ending_socials"
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {

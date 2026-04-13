@@ -1,12 +1,44 @@
 import React from "react";
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { Swan } from "../components/Swan";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { BlackswanFlock } from "./birds";
 import { NeonWater } from "./neonWater";
+import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 
-const mono = "'IBM Plex Mono', monospace";
-const display = "'Syne', sans-serif";
+// Righteous — same family as DropletIntro
+const mono = "'Righteous', cursive";
+const display = "'Righteous', cursive";
+
+/** Image panel centered with accent border + corner glow */
+const ImageWithAccentBorder: React.FC<{ src: string; accentColor: string; opacity?: number }> = ({ src, accentColor, opacity = 1 }) => (
+  <div style={{ position: "relative", width: "100%", height: "100%", opacity }}>
+    <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+    {/* Glowing border */}
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      boxShadow: `inset 0 0 0 2px ${accentColor}99, 0 0 20px ${accentColor}66, 0 0 40px ${accentColor}33`,
+      pointerEvents: "none",
+    }} />
+    {/* SVG corner accents */}
+    <svg
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+    >
+      <defs>
+        <filter id="dv-corner-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <path d="M0,20 L0,0 L20,0" fill="none" stroke={accentColor} strokeWidth="1.6" filter="url(#dv-corner-glow)" />
+      <path d="M80,0 L100,0 L100,20" fill="none" stroke={accentColor} strokeWidth="1.6" filter="url(#dv-corner-glow)" />
+      <path d="M100,80 L100,100 L80,100" fill="none" stroke={accentColor} strokeWidth="1.6" filter="url(#dv-corner-glow)" />
+      <path d="M20,100 L0,100 L0,80" fill="none" stroke={accentColor} strokeWidth="1.6" filter="url(#dv-corner-glow)" />
+    </svg>
+  </div>
+);
 
 export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
   const {
@@ -20,19 +52,20 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     descriptionFontSize,
     fontFamily,
     aspectRatio = "landscape",
+    imageUrl,
   } = props;
 
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const t = frame / fps;
   const p = aspectRatio === "portrait";
+  const hasImage = !!imageUrl;
 
-  // Quote fades up after swan
-  const quoteOp = interpolate(frame, [28, 50], [0, 1], { extrapolateRight: "clamp" });
-  const quoteY  = interpolate(frame, [28, 50], [14, 0], { extrapolateRight: "clamp" });
-  const eyeOp   = interpolate(frame, [32, 52], [0, 1], { extrapolateRight: "clamp" });
+  const quoteOp = interpolate(frame, [8, 30],  [0, 1], { extrapolateRight: "clamp" });
+  const quoteY  = interpolate(frame, [8, 30],  [14, 0], { extrapolateRight: "clamp" });
+  const eyeOp   = interpolate(frame, [0, 18],  [0, 1], { extrapolateRight: "clamp" });
+  const waterOp = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
+  const imgOp   = interpolate(frame, [5, 25],  [0, 1], { extrapolateRight: "clamp" });
 
-  const insightText = quote || narration;
+  const insightText = quote || narration || "";
   let hl = false;
 
   const highlighted =
@@ -41,114 +74,204 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
       : insightText;
   const pieces = highlighted.split(/(__S__|__E__)/);
 
-  return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      {/* Bottom-centre large water ring from swan dive impact — cx:500, y:57 (570px) */}
-      <NeonWater
-        uid="dv6"
-        cx={500}
-        yPct={p ? 60 : 57}
-        rxBase={100}
-        ryBase={22}
-        maxRx={420}
-        nRings={6}
-        delay={0.05}
-      />
+  const quoteFontSize = titleFontSize ?? (p ? 80 : 70);
+  const subFontSize   = descriptionFontSize ?? (p ? 33 : 33);
 
-      <BlackswanFlock uid="dv-flock" cx={500} cy={560} startDelaySec={0.92} />
+  // ── With image: image centered, quote below ──────────────────
+  if (hasImage) {
+    const imgHeight = p ? "35%" : "45%"; // Decreased height further
 
-      {/* Swan dive — frame-synced (former bsw-dive) */}
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: 0,
-          transform: `translate(-50%, -50%) scale(${interpolate(t, [0, 0.65 * 0.85, 0.85], [0.05, 2.2, 2.2], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 0, 0.07, 1),
-          })})`,
-          opacity: interpolate(t, [0, 0.65 * 0.85, 0.85], [1, 1, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          }),
-        }}
-      >
-        <Swan
-          size={p ? 240 : 380}
-          water={false}
-          reflection={false}
-          uid={`dv-swan-${p ? "p" : "l"}`}
-        />
-      </div>
+    return (
+      <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
+        <StarField />
 
-      {/* Bottom content — bottom:140px from HTML */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: p ? 80 : 140,
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: p ? 12 : 16,
-          padding: p ? "0 40px" : "0 100px",
-        }}
-      >
-        {/* Eyebrow */}
+        <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} />
+
+        <div style={{ position: "absolute", inset: 0, opacity: waterOp * 0.45 }}>
+          <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges />
+        </div>
+
+        {/* Image — centered horizontally, upper portion */}
         <div
           style={{
-            fontSize: p ? 8 : 9,
+            position: "absolute",
+            left: p ? "10%" : "18%", // Decreased width by increasing left/right
+            right: p ? "10%" : "18%", // Decreased width by increasing left/right
+            top: p ? "10%" : "8%", // Adjusted top position
+            height: imgHeight,
+            opacity: imgOp,
+            zIndex: 1,
+          }}
+        >
+          <ImageWithAccentBorder src={imageUrl!} accentColor={accentColor} />
+        </div>
+
+        {/* Quote + text — below image */}
+        <div
+          style={{
+            position: "absolute",
+            left: p ? "4%" : "6%",
+            right: p ? "4%" : "6%",
+            bottom: p ? "4%" : "5%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: p ? 14 : 16,
+            zIndex: 2,
+          }}
+        >
+          {/* Eyebrow */}
+          <div style={{
+            fontSize: p ? 16 : 14,
             letterSpacing: 6,
             color: "#00AAFF",
             textTransform: "uppercase",
             fontFamily: fontFamily ?? mono,
+            fontWeight: 400,
             opacity: eyeOp,
-          }}
-        >
+          }}>
+            Insight
+          </div>
+
+          {/* Quote */}
+          <div
+            style={{
+              fontFamily: fontFamily ?? display,
+              fontSize: quoteFontSize,
+              fontWeight: 400,
+              ...neonTitleTubeStyle(accentColor),
+              textAlign: "center",
+              lineHeight: 1.2,
+              letterSpacing: "0.02em",
+              opacity: quoteOp,
+              transform: `translateY(${quoteY}px)`,
+              maxWidth: p ? "100%" : "1200px",
+            }}
+          >
+            {pieces.map((piece, idx) => {
+              if (piece === "__S__") { hl = true; return null; }
+              if (piece === "__E__") { hl = false; return null; }
+              return hl ? (
+                <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { fillHex: "#FFFFFF" }) }}>{piece}</span>
+              ) : (
+                <React.Fragment key={idx}>{piece}</React.Fragment>
+              );
+            })}
+          </div>
+
+          {/* Accent line */}
+          <div style={{
+            height: 2,
+            width: p ? 140 : 180,
+            background: accentColor,
+            boxShadow: `0 0 8px ${accentColor}, 0 0 18px ${accentColor}88`,
+            opacity: quoteOp,
+            flexShrink: 0,
+          }} />
+
+          {title && title !== insightText && (
+            <p style={{
+              margin: 0,
+              fontFamily: fontFamily ?? display,
+              fontSize: subFontSize,
+              fontWeight: 400,
+              ...neonTitleTubeStyle(accentColor, { fillHex: textColor }),
+              opacity: quoteOp * 0.8,
+              letterSpacing: "0.04em",
+              textAlign: "center",
+              lineHeight: 1.6,
+            }}>
+              {title}
+            </p>
+          )}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // ── No image: original centered layout ──────────────────────
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
+      <StarField />
+
+      <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} />
+
+      <div style={{ position: "absolute", inset: 0, opacity: waterOp * 0.45 }}>
+        <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          paddingBottom: p ? "30%" : "20%",
+          paddingLeft: p ? "8%" : "8%",
+          paddingRight: p ? "8%" : "8%",
+          gap: p ? 20 : 24,
+        }}
+      >
+        <div style={{
+          fontSize: p ? 18 : 16,
+          letterSpacing: 6,
+          color: "#00AAFF",
+          textTransform: "uppercase",
+          fontFamily: fontFamily ?? mono,
+          fontWeight: 400,
+          opacity: eyeOp,
+        }}>
           Insight
         </div>
 
-        {/* Quote — large centred text matching HTML font-size:38px */}
         <div
           style={{
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 26 : 38),
-            fontWeight: 800,
-            color: accentColor,
+            fontSize: titleFontSize ?? (p ? 80 : 70),
+            fontWeight: 400,
+            ...neonTitleTubeStyle(accentColor),
             textAlign: "center",
-            lineHeight: 1.15,
+            lineHeight: 1.25,
+            letterSpacing: "0.02em",
             opacity: quoteOp,
             transform: `translateY(${quoteY}px)`,
-            textShadow: `0 0 2px ${accentColor}, 0 0 8px #00AAFF18`,
-            maxWidth: p ? "100%" : "680px",
+            maxWidth: p ? "100%" : "1100px",
           }}
         >
           {pieces.map((piece, idx) => {
             if (piece === "__S__") { hl = true; return null; }
             if (piece === "__E__") { hl = false; return null; }
             return hl ? (
-              <span key={idx} style={{ color: accentColor, textShadow: `0 0 10px #00AAFF66` }}>{piece}</span>
+              <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { fillHex: "#FFFFFF" }) }}>{piece}</span>
             ) : (
               <React.Fragment key={idx}>{piece}</React.Fragment>
             );
           })}
         </div>
 
-        {/* Narration sub-line if different from quote */}
+        <div style={{
+          height: 2,
+          width: p ? 160 : 200,
+          background: accentColor,
+          boxShadow: `0 0 8px ${accentColor}, 0 0 18px ${accentColor}88`,
+          opacity: quoteOp,
+          flexShrink: 0,
+        }} />
+
         {title && title !== insightText && (
-          <p
-            style={{
-              margin: 0,
-              fontFamily: fontFamily ?? mono,
-              fontSize: descriptionFontSize ?? (p ? 11 : 13),
-              color: "#00AAFF",
-              opacity: quoteOp * 0.7,
-              letterSpacing: 2,
-              textAlign: "center",
-            }}
-          >
+          <p style={{
+            margin: 0,
+            fontFamily: fontFamily ?? display,
+            fontSize: subFontSize,
+            fontWeight: 400,
+            ...neonTitleTubeStyle(accentColor, { fillHex: textColor }),
+            opacity: quoteOp * 0.8,
+            letterSpacing: "0.04em",
+            textAlign: "center",
+            lineHeight: 1.6,
+          }}>
             {title}
           </p>
         )}
