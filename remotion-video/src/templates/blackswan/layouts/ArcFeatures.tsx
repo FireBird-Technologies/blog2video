@@ -237,7 +237,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           <NeonWater uid="a3" cx={500} yPct={95} scale={1.4} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges accentColor={accentColor} />
         </div>
 
-        <BlackswanArcBirdPass uid="arc-land-img" accentColor={accentColor} portrait={false} />
+        {/* <BlackswanArcBirdPass uid="arc-land-img" accentColor={accentColor} portrait={false} /> */}
 
         {/* Two-column layout: features left, image right */}
         <div
@@ -384,7 +384,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           <NeonWater uid="a3" cx={500} yPct={95} scale={1.1} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges accentColor={accentColor} />
         </div>
 
-        <BlackswanArcBirdPass uid="arc-port-img" accentColor={accentColor} portrait />
+        {/* <BlackswanArcBirdPass uid="arc-port-img" accentColor={accentColor} portrait /> */}
 
         <div
           style={{
@@ -500,7 +500,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
         />
       </div>
 
-      <BlackswanArcBirdPass uid="arc-plain" accentColor={accentColor} portrait={p} />
+      {/* <BlackswanArcBirdPass uid="arc-plain" accentColor={accentColor} portrait={p} /> */}
 
       <div
         style={{
