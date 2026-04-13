@@ -41,6 +41,11 @@ import {
   type NewscastLayoutType as RemotionNewscastLayoutType,
   type NewscastLayoutProps as RemotionNewscastLayoutProps,
 } from "@remotion-video/templates/newscast/layouts";
+import {
+  BLACKSWAN_LAYOUT_REGISTRY as REMOTION_BLACKSWAN_LAYOUT_REGISTRY,
+  type BlackswanLayoutType as RemotionBlackswanLayoutType,
+  type BlackswanLayoutProps as RemotionBlackswanLayoutProps,
+} from "@remotion-video/templates/blackswan/layouts";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -639,6 +644,98 @@ export interface RemotionMatrixSceneInput {
   imageUrl?: string;
   voiceoverUrl?: string;
 }
+
+export interface RemotionBlackswanSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionBlackswanLayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionBlackswanVideoCompositionProps {
+  scenes: RemotionBlackswanSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+export const RemotionBlackswanVideoComposition: React.FC<
+  RemotionBlackswanVideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+  let currentFrame = 0;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
+      {scenes.map((scene) => {
+        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const startFrame = currentFrame;
+        currentFrame += durationFrames;
+
+        const LayoutComponent =
+          REMOTION_BLACKSWAN_LAYOUT_REGISTRY[scene.layout] ??
+          REMOTION_BLACKSWAN_LAYOUT_REGISTRY.neon_narrative;
+
+        const layoutProps: RemotionBlackswanLayoutProps = {
+          ...(scene.layoutProps as Record<string, unknown>),
+          title: scene.title,
+          narration: scene.narration,
+          accentColor: accentColor || "#00E5FF",
+          bgColor: bgColor || "#000000",
+          textColor: textColor || "#DFFFFF",
+          aspectRatio: aspectRatio || "landscape",
+          imageUrl: scene.imageUrl,
+          layoutType: scene.layout,
+          fontFamily,
+        };
+
+        return (
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <LayoutComponent {...layoutProps} />
+            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
 
 export interface RemotionMatrixVideoCompositionProps {
   scenes: RemotionMatrixSceneInput[];

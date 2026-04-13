@@ -2186,6 +2186,13 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
         with open(data_path, "w", encoding="utf-8") as f:
             _json.dump(data, f, indent=2)
 
+        # Remotion compositions may use defaultProps with a non-/data.json URL (e.g. BlackswanVideo
+        # defaults to /blackswan.json for multi-scene Studio demos). Without --props, the CLI would
+        # ignore this workspace's single-scene data.json and render the wrong manifest.
+        props_path = os.path.join(public_dir, "template-studio-render-props.json")
+        with open(props_path, "w", encoding="utf-8") as f:
+            _json.dump({"dataUrl": "/data.json"}, f)
+
         # Render to a temp file and stream back to the client.
         tmp_dir = _tempfile.mkdtemp(prefix="template-studio-layout-")
         output_path = os.path.join(tmp_dir, f"{template_id}_{layout_id}.mp4")
@@ -2204,6 +2211,7 @@ def render_single_layout(payload: RenderLayoutRequest, user: User = Depends(get_
             aspect_ratio=aspect_ratio,
             composition_id=composition_id,
         )
+        cmd.extend(["--props", "public/template-studio-render-props.json"])
 
         result = _subprocess.run(
             cmd,
