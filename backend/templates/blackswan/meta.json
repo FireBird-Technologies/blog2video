@@ -98,7 +98,7 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 90,
-          "landscape": 74
+          "landscape": 83
         },
         "descriptionFontSize": {
           "portrait": 40,
@@ -142,7 +142,7 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 80,
-          "landscape": 72
+          "landscape": 81
         },
         "descriptionFontSize": {
           "portrait": 28,
@@ -269,11 +269,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 80,
-          "landscape": 70
+          "landscape": 67
         },
         "descriptionFontSize": {
           "portrait": 33,
-          "landscape": 33
+          "landscape": 39
         },
         "quote": "Complexity fades when the signal is clear.",
         "highlightWord": "signal"
@@ -314,11 +314,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 81,
-          "landscape": 76
+          "landscape": 88
         },
         "descriptionFontSize": {
           "portrait": 33,
-          "landscape": 32
+          "landscape": 35
         },
         "codeLanguage": "typescript",
         "codeLines": [
@@ -363,12 +363,12 @@
       "label": "Flight Path",
       "defaults": {
         "titleFontSize": {
-          "portrait": 74,
+          "portrait": 73,
           "landscape": 80
         },
         "descriptionFontSize": {
           "portrait": 32,
-          "landscape": 27
+          "landscape": 31
         },
         "phrases": [
           "Discover",
@@ -407,7 +407,7 @@
       "label": "Ending Socials",
       "defaults": {
         "titleFontSize": {
-          "portrait": 77,
+          "portrait": 82,
           "landscape": 76
         },
         "descriptionFontSize": {

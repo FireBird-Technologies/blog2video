@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { blackswanNeonPalette, rgbaFromHex } from "./blackswanAccent";
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
@@ -17,6 +18,8 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
+    textColor = "#DFFFFF",
     codeLanguage,
     codeLines,
     titleFontSize,
@@ -27,6 +30,7 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
 
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   const inferredLines =
     codeLines && codeLines.length > 0
@@ -48,21 +52,31 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
   const terminalOp = interpolate(frame, [6, 24],  [0, 1], { extrapolateRight: "clamp" });
 
   // Font sizes — driven by sliders, same pattern as DropletIntro
-  const titleSize = titleFontSize ?? (p ? 81 : 76);
-  const codeSize  = descriptionFontSize ?? (p ? 33 : 32);
+  const titleSize = titleFontSize ?? (p ? 81 : 88);
+  const codeSize  = descriptionFontSize ?? (p ? 33 : 35);
   const lineNumSize = codeSize * 0.75;
 
   const getLineColor = (line: string): string => {
     if (!line || !line.trim()) return "transparent";
-    if (line.startsWith("//") || line.startsWith("#")) return "#00AAFF66";
-    if (/^(import|export|const|let|var|function|return|async|await|class)/.test(line.trim())) return "#00AAFF";
-    if (/["']/.test(line)) return "#00E5FF";
-    return "#00E5FF";
+    if (line.startsWith("//") || line.startsWith("#")) return rgbaFromHex(pal.mid, 0.45);
+    if (/^(import|export|const|let|var|function|return|async|await|class)/.test(line.trim())) return pal.mid;
+    if (/["']/.test(line)) return pal.core;
+    return pal.core;
   };
 
+  // Capitalize each word of the title
+  const capitalizedTitle = useMemo(() => {
+    if (!title) return "";
+    return title
+      .split(/\s+/) // Split by one or more whitespace characters
+      .filter(Boolean) // Remove any empty strings (e.g., from leading/trailing spaces or multiple spaces)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }, [title]);
+
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* ── Title — top (landscape) / center-shifted (portrait) ─────────── */}
       <div
@@ -89,14 +103,14 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: titleSize,
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            // textTransform: "uppercase", // Removed to allow custom capitalization
             textAlign: "center",
           }}
         >
-          {title}
+          {capitalizedTitle}
         </h1>
 
         {/* Accent line */}
@@ -204,7 +218,7 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
             <div
               style={{
                 fontSize: lineNumSize,
-                color: "#0040FF33",
+                color: rgbaFromHex(pal.deep, 0.22),
                 userSelect: "none",
                 textAlign: "right",
                 lineHeight: "2em",

@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
-import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { BlackswanArcBirdPass, neonTitleTubeStyle, StarField } from "./scenePrimitives";
 
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
@@ -159,7 +159,7 @@ const FeatureCards: React.FC<{
               fontWeight: 700,
               color: accentColor,
               letterSpacing: "1px",
-              textTransform: "uppercase",
+              // textTransform: "uppercase", // Removed as per user instruction
               lineHeight: 1.2,
               textAlign: portrait ? "center" : undefined,
             }}>
@@ -193,6 +193,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration = "",
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     items,
     titleFontSize,
@@ -227,14 +228,16 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
   // ── Landscape + image: two-column layout ────────────────────
   if (!p && hasImage) {
     return (
-      <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-        <StarField />
+      <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+        <StarField accentColor={accentColor} />
 
         {/* NeonWater — bottom */}
         <div style={{ position: "absolute", inset: 0 }}>
           {/* Adjusted yPct to bring water slightly lower */}
-          <NeonWater uid="a3" cx={500} yPct={95} scale={1.4} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges />
+          <NeonWater uid="a3" cx={500} yPct={95} scale={1.4} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges accentColor={accentColor} />
         </div>
+
+        {/* <BlackswanArcBirdPass uid="arc-land-img" accentColor={accentColor} portrait={false} /> */}
 
         {/* Two-column layout: features left, image right */}
         <div
@@ -250,7 +253,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
             gap: "3%",
             alignItems: "stretch",
             minHeight: 0,
-            zIndex: 1,
+            zIndex: 3,
           }}
         >
           {/* Left: title + feature cards */}
@@ -269,9 +272,9 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
                 fontFamily: fontFamily ?? display,
                 fontSize: titleFontSize ?? 60,
                 fontWeight: 800,
-                ...neonTitleTubeStyle(accentColor),
+                ...neonTitleTubeStyle(accentColor, { bgColor }),
                 lineHeight: 1.1,
-                letterSpacing: "2px",
+                letterSpacing: "0.12em",
                 opacity: titleOp,
                 transform: `translateY(calc(${titleY}px + 60px))`, // MODIFIED: Added 30px to existing 30px for titleY
               }}
@@ -345,7 +348,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 1,
+              zIndex: 3,
             }}
           >
             <p
@@ -372,14 +375,16 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
   // ── Portrait + image: image above feature cards ──────────────
   if (p && hasImage) {
     return (
-      <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-        <StarField />
+      <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+        <StarField accentColor={accentColor} />
 
         {/* NeonWater — bottom */}
         <div style={{ position: "absolute", inset: 0 }}>
           {/* Adjusted yPct to bring water slightly higher (from 97 to 95) */}
-          <NeonWater uid="a3" cx={500} yPct={95} scale={1.1} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges />
+          <NeonWater uid="a3" cx={500} yPct={95} scale={1.1} rxBase={200} ryBase={22} maxRx={420} nRings={6} delay={0} hideBg fadeEdges accentColor={accentColor} />
         </div>
+
+        {/* <BlackswanArcBirdPass uid="arc-port-img" accentColor={accentColor} portrait /> */}
 
         <div
           style={{
@@ -398,7 +403,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
             gap: 12, // Changed from 16 to 12
             minHeight: 0,
             overflow: "hidden",
-            zIndex: 1,
+            zIndex: 3,
           }}
         >
           {/* Title — top */}
@@ -408,7 +413,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: titleFontSize ?? 72,
               fontWeight: 800,
-              ...neonTitleTubeStyle(accentColor),
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
               lineHeight: 1.1,
               letterSpacing: "2px",
               textAlign: "center",
@@ -474,8 +479,8 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
 
   // ── No image: original layout ────────────────────────────────
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       <div style={{ position: "absolute", inset: 0 }}>
         {/* Adjusted yPct to bring water slightly higher (from 93 to 91 for portrait, 90 to 88 for landscape) */}
@@ -491,8 +496,11 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           delay={0}
           hideBg
           fadeEdges
+          accentColor={accentColor}
         />
       </div>
+
+      {/* <BlackswanArcBirdPass uid="arc-plain" accentColor={accentColor} portrait={p} /> */}
 
       <div
         style={{
@@ -508,16 +516,16 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           paddingRight: "6%",
           // paddingBottom moved to the inner flex-grow container
           gap: p ? 36 : 24, // Keep gap between line and the new flex-grow container
-          zIndex: 1,
+          zIndex: 3,
         }}
       >
         <h1
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 90 : 74),
+            fontSize: titleFontSize ?? (p ? 90 : 83),
             fontWeight: 800,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
             letterSpacing: "2px",
             textAlign: "center",
@@ -566,25 +574,25 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
             frame={frame}
           />
 
-          {narration && (
-            <p
-              style={{
-                margin: 0,
+        {narration && (
+          <p
+            style={{
+              margin: 0,
                 // Removed marginTop as gap property on parent handles spacing
-                fontFamily: fontFamily ?? mono,
+              fontFamily: fontFamily ?? mono,
                 fontSize: narrationFontSize,
-                color: textColor,
+              color: textColor,
                 lineHeight: p ? (narrWordCount > 45 ? 1.65 : 1.8) : 1.8,
-                textAlign: "center",
-                opacity: narOp,
-                transform: `translateY(${narY}px)`,
-                maxWidth: p ? "90%" : "68%",
+              textAlign: "center",
+              opacity: narOp,
+              transform: `translateY(${narY}px)`,
+              maxWidth: p ? "90%" : "68%",
                 flexShrink: 0,
-              }}
-            >
-              {narration}
-            </p>
-          )}
+            }}
+          >
+            {narration}
+          </p>
+        )}
         </div>
       </div>
     </AbsoluteFill>

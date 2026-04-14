@@ -1,15 +1,16 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
-import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { BlackswanArcBirdPass, neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { NeonWater } from "./neonWater";
+import { blackswanNeonPalette } from "./blackswanAccent";
 import { SocialIcons } from "../../SocialIcons";
 
 const display = "'Righteous', cursive";
 
-const HIT = 2.2;
-const DROP_DELAY = 0.15;
+const HIT = 1.35;
+const DROP_DELAY = 0.08;
 const IX = 500;
 const IY = 560;
 const DSY = 60;
@@ -45,12 +46,13 @@ function dropletOutline(u: number): { rx: number; ry: number; shapeOp: number } 
   return { rx, ry, shapeOp };
 }
 
-const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
+const DropletImpact: React.FC<{ t: number; iy: number; accentColor: string }> = ({ t, iy, accentColor }) => {
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
   const { y: dropY, gOpacity, u: fallU } = dropFallMotion(t, iy);
   const { rx: drx, ry: dry, shapeOp } = dropletOutline(fallU);
   const shellOp = gOpacity * shapeOp;
 
-  const rayDur = 0.45;
+  const rayDur = 0.32;
   const rayOffset = (ri: number, rl: number) => {
     const start = HIT + ri * 0.01;
     const loc = t - start;
@@ -59,33 +61,37 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
     return interpolate(loc, [0, rayDur], [rl, 0], { easing: Easing.out(Easing.quad) });
   };
 
-  const rings = [
-    { rx: 460, ry: 148, dur: 2.2, del: 0, stroke: "#00E5FF" },
-    { rx: 360, ry: 116, dur: 2.6, del: 0.2, stroke: "#00CCFF" },
-    { rx: 270, ry: 87, dur: 3.0, del: 0.4, stroke: "#00AAFF" },
-  ];
+  const rings = useMemo(
+    () => [
+      { rx: 460, ry: 148, dur: 1.45, del: 0, stroke: pal.core },
+      { rx: 360, ry: 116, dur: 1.7, del: 0.12, stroke: pal.vivid },
+      { rx: 270, ry: 87, dur: 2.0, del: 0.24, stroke: pal.mid },
+    ],
+    [pal],
+  );
 
   return (
     <svg viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}>
       <defs>
         <filter id="bsw-fdrop-es" x="-90%" y="-90%" width="280%" height="280%">
-          <feGaussianBlur stdDeviation="4" result="b" />
-          <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0.28 0.88 0 0  0 0.62 0.98 0 0  0 0 0 0.82 0" result="c" />
-          <feMerge><feMergeNode in="c" /><feMergeNode in="SourceGraphic" /></feMerge>
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
         <filter id="bsw-fring-es" x="-140%" y="-140%" width="380%" height="380%">
-          <feGaussianBlur stdDeviation="5.5" result="b" />
-          <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0.25 0.82 0 0  0 0.58 0.98 0 0  0 0 0 0.65 0" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5.5" result="b" />
         </filter>
       </defs>
 
       {t > DROP_DELAY && (
-        <line x1={IX} y1={DSY} x2={IX} y2={t < HIT + 0.15 ? DSY + dropY : iy} stroke="#00E5FF" strokeWidth={1.5} filter="url(#bsw-fdrop-es)" opacity={0.4} />
+        <line x1={IX} y1={DSY} x2={IX} y2={t < HIT + 0.1 ? DSY + dropY : iy} stroke={pal.core} strokeWidth={1.5} filter="url(#bsw-fdrop-es)" opacity={0.4} />
       )}
 
       <g transform={`translate(0, ${dropY})`} opacity={gOpacity}>
-        <ellipse cx={IX} cy={DSY} rx={drx * 2.8} ry={dry * 2.8} fill="none" stroke="#00AAFF" strokeWidth={4} filter="url(#bsw-fdrop-es)" opacity={0.8 * shellOp} />
-        <ellipse cx={IX} cy={DSY} rx={drx * 1.5} ry={dry * 1.5} fill="none" stroke="#DFFFFF" strokeWidth={1} opacity={0.9 * shellOp} />
+        <ellipse cx={IX} cy={DSY} rx={drx * 2.8} ry={dry * 2.8} fill="none" stroke={pal.mid} strokeWidth={4} filter="url(#bsw-fdrop-es)" opacity={0.8 * shellOp} />
+        <ellipse cx={IX} cy={DSY} rx={drx * 1.5} ry={dry * 1.5} fill="none" stroke={pal.bright} strokeWidth={1} opacity={0.9 * shellOp} />
       </g>
 
       {Array.from({ length: 20 }).map((_, ri) => {
@@ -96,7 +102,7 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
         const offset = rayOffset(ri, rl);
         if (t < HIT) return null;
         return (
-          <line key={ri} x1={IX} y1={iy} x2={ex} y2={ey} stroke="#00E5FF" strokeWidth={1.2} strokeDasharray={`${rl} ${rl}`} strokeDashoffset={offset} strokeLinecap="round" filter="url(#bsw-fdrop-es)" opacity={0.6} />
+          <line key={ri} x1={IX} y1={iy} x2={ex} y2={ey} stroke={pal.core} strokeWidth={1.2} strokeDasharray={`${rl} ${rl}`} strokeDashoffset={offset} strokeLinecap="round" filter="url(#bsw-fdrop-es)" opacity={0.6} />
         );
       })}
 
@@ -104,7 +110,7 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
         // Loop shockwaves for the full scene (repeat expansion + short pause)
         const ringStart = HIT + ring.del;
         const elapsed = t - ringStart;
-        const pauseAfter = 0.75;
+        const pauseAfter = 0.48;
         const cycle = ring.dur + pauseAfter;
         let p = 0;
         if (elapsed > 0) {
@@ -125,6 +131,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     descriptionFontSize,
     titleFontSize,
@@ -151,7 +158,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   const ctaLabel = (ctaButtonText ?? title ?? "").trim();
   const showCta = ctaLabel.length > 0;
   const showWebsite = (showWebsiteButton !== false) && (websiteLink ?? "").trim().length > 0;
-  const ctaFontSize = titleFontSize ?? (p ? 77 : 76);
+  const ctaFontSize = titleFontSize ?? (p ? 82 : 76);
   const narrSize = descriptionFontSize ?? (p ? 36 : 33);
   const hasSocials =
     socials && (Array.isArray(socials) ? socials.length > 0 : Object.keys(socials as Record<string, unknown>).length > 0);
@@ -160,8 +167,8 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   const swanSize = p ? 1000 : 900;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* Neon water — flush to bottom */}
       <div
@@ -187,8 +194,17 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
           delay={0}
           hideBg
           fadeEdges
+          accentColor={accentColor}
         />
       </div>
+
+      {/* <BlackswanArcBirdPass
+        uid="es-birds"
+        accentColor={accentColor}
+        portrait={p}
+        sizeScale={hasSocials ? 1.42 : 1.08}
+        zIndex={2}
+      /> */}
 
       {/* ── CTA text — top, plain neon title ───────────────────────────────── */}
       {showCta && (
@@ -200,7 +216,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            zIndex: 2,
+            zIndex: 3,
             opacity: contentOpacity,
             transform: `translateY(${contentY}px)`,
             pointerEvents: "none",
@@ -211,9 +227,9 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: ctaFontSize,
               fontWeight: 400,
-              ...neonTitleTubeStyle(accentColor),
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
+              letterSpacing: "0.12em",
+              textTransform: "capitalize", // Changed from "uppercase" to "capitalize"
               lineHeight: 1.1,
               textAlign: "center",
             }}
@@ -235,7 +251,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
           pointerEvents: "none",
         }}
       >
-        <Swan size={swanSize} water={false} uid="es-swan" />
+        <Swan size={swanSize} water={false} uid="es-swan" accentColor={accentColor} />
       </div>
 
       {/* ── Bottom stack: website → narration → socials ────────────────────── */}
@@ -244,7 +260,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
           position: "absolute",
           left: 0, right: 0,
           bottom: p ? "34%" : "22%",
-          zIndex: 2,
+          zIndex: 3,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -310,7 +326,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
 
       {/* Droplet impact */}
       <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
-        <DropletImpact t={t} iy={iy} />
+        <DropletImpact t={t} iy={iy} accentColor={accentColor} />
       </div>
     </AbsoluteFill>
   );

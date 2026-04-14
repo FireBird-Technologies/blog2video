@@ -19,6 +19,20 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Converts a string to title case, where each word starts with a capital letter
+ * and the rest of the letters are lowercase. Handles multiple spaces between words.
+ */
+function toTitleCase(str: string): string {
+  return str.split(/\s+/) // Split by one or more whitespace characters
+            .filter(Boolean) // Remove any empty strings resulting from multiple spaces
+            .map(word => {
+              if (word.length === 0) return '';
+              return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join(' ');
+}
+
 // ── Node component ──────────────────────────────────────────────────────────
 const PathNode: React.FC<{
   index: number;
@@ -138,6 +152,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     phrases,
     titleFontSize,
@@ -155,8 +170,8 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
   const titleY  = interpolate(frame, [0, 20],  [12, 0], { extrapolateRight: "clamp" });
 
   // ── Font/size tokens (all driven by the two sliders) ──
-  const descFS  = descriptionFontSize ?? (p ? 32 : 27);
-  const titleFS = titleFontSize ?? (p ? 74 : 80);
+  const descFS  = descriptionFontSize ?? (p ? 32 : 31);
+  const titleFS = titleFontSize ?? (p ? 73 : 80);
   const nodeD   = Math.round(descFS * 2.6);   // circle diameter
   const numFS   = Math.round(descFS * 0.95);  // number inside circle
   const labelFS = Math.round(descFS * 1.3);   // node label
@@ -182,15 +197,15 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
   const portraitRows = chunkArray(parsedPhrases, 2);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* Gradient shade — blue at bottom, black at top (reverse of water shade) */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "linear-gradient(to top, #001B3A 0%, #000D1A 45%, transparent 75%)",
+          background: `linear-gradient(to top, ${accentColor}22 0%, ${accentColor}11 45%, transparent 75%)`,
           opacity: 0.15,
           pointerEvents: "none",
         }}
@@ -207,7 +222,7 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           paddingTop: p ? "18%" : "8%",
-          paddingBottom: p ? 0 : "4%",
+          paddingBottom: p ? 0 : "2%",
           paddingLeft: "6%",
           paddingRight: "6%",
           gap: p ? 14 : 16,
@@ -222,14 +237,13 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: titleFS,
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
+            letterSpacing: "0.12em",
             textAlign: "center",
           }}
         >
-          {title}
+          {toTitleCase(title)}
         </h1>
         <div
           style={{
