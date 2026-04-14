@@ -1,16 +1,18 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { NeonWater } from "./neonWater";
+import { blackswanNeonPalette } from "./blackswanAccent";
 
 // Righteous (Astigmatic / Google Fonts) — bundled via @fontsource/righteous
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
 
-const HIT = 2.2;
-const DROP_DELAY = 0.15;
+/** Seconds: drop start → impact (lower = faster fall). */
+const HIT = 1.35;
+const DROP_DELAY = 0.08;
 const IX = 500;
 const IY = 560;
 const DSY = 60;
@@ -47,12 +49,13 @@ function shockRing(p: number, maxRx: number, maxRy: number) {
   return { rx, ry, opacity, sw };
 }
 
-const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
+const DropletImpact: React.FC<{ t: number; iy: number; accentColor: string }> = ({ t, iy, accentColor }) => {
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
   const { y: dropY, gOpacity, u: fallU } = dropFallMotion(t, iy);
   const { rx: drx, ry: dry, shapeOp } = dropletOutline(fallU);
   const shellOp = gOpacity * shapeOp;
 
-  const rayDur = 0.45;
+  const rayDur = 0.32;
   const rayOffset = (ri: number, rl: number) => {
     const start = HIT + ri * 0.01;
     const loc = t - start;
@@ -61,33 +64,37 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
     return interpolate(loc, [0, rayDur], [rl, 0], { easing: Easing.out(Easing.quad) });
   };
 
-  const rings = [
-    { rx: 460, ry: 148, dur: 2.2, del: 0, stroke: "#00E5FF" },
-    { rx: 360, ry: 116, dur: 2.6, del: 0.2, stroke: "#00CCFF" },
-    { rx: 270, ry: 87, dur: 3.0, del: 0.4, stroke: "#00AAFF" },
-  ];
+  const rings = useMemo(
+    () => [
+      { rx: 460, ry: 148, dur: 1.45, del: 0, stroke: pal.core },
+      { rx: 360, ry: 116, dur: 1.7, del: 0.12, stroke: pal.vivid },
+      { rx: 270, ry: 87, dur: 2.0, del: 0.24, stroke: pal.mid },
+    ],
+    [pal],
+  );
 
   return (
     <svg viewBox="0 0 1000 1000" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}>
       <defs>
         <filter id="bsw-fdrop-di" x="-90%" y="-90%" width="280%" height="280%">
-          <feGaussianBlur stdDeviation="4" result="b" />
-          <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0.28 0.88 0 0  0 0.62 0.98 0 0  0 0 0 0.82 0" result="c" />
-          <feMerge><feMergeNode in="c" /><feMergeNode in="SourceGraphic" /></feMerge>
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
         <filter id="bsw-fring-di" x="-140%" y="-140%" width="380%" height="380%">
-          <feGaussianBlur stdDeviation="5.5" result="b" />
-          <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0.25 0.82 0 0  0 0.58 0.98 0 0  0 0 0 0.65 0" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5.5" result="b" />
         </filter>
       </defs>
 
       {t > DROP_DELAY && (
-        <line x1={IX} y1={DSY} x2={IX} y2={t < HIT + 0.15 ? DSY + dropY : iy} stroke="#00E5FF" strokeWidth={1.5} filter="url(#bsw-fdrop-di)" opacity={0.4} />
+        <line x1={IX} y1={DSY} x2={IX} y2={t < HIT + 0.1 ? DSY + dropY : iy} stroke={pal.core} strokeWidth={1.5} filter="url(#bsw-fdrop-di)" opacity={0.4} />
       )}
 
       <g transform={`translate(0, ${dropY})`} opacity={gOpacity}>
-        <ellipse cx={IX} cy={DSY} rx={drx * 2.8} ry={dry * 2.8} fill="none" stroke="#00AAFF" strokeWidth={4} filter="url(#bsw-fdrop-di)" opacity={0.8 * shellOp} />
-        <ellipse cx={IX} cy={DSY} rx={drx * 1.5} ry={dry * 1.5} fill="none" stroke="#DFFFFF" strokeWidth={1} opacity={0.9 * shellOp} />
+        <ellipse cx={IX} cy={DSY} rx={drx * 2.8} ry={dry * 2.8} fill="none" stroke={pal.mid} strokeWidth={4} filter="url(#bsw-fdrop-di)" opacity={0.8 * shellOp} />
+        <ellipse cx={IX} cy={DSY} rx={drx * 1.5} ry={dry * 1.5} fill="none" stroke={pal.bright} strokeWidth={1} opacity={0.9 * shellOp} />
       </g>
 
       {Array.from({ length: 20 }).map((_, ri) => {
@@ -98,7 +105,7 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
         const offset = rayOffset(ri, rl);
         if (t < HIT) return null;
         return (
-          <line key={ri} x1={IX} y1={iy} x2={ex} y2={ey} stroke="#00E5FF" strokeWidth={1.2} strokeDasharray={`${rl} ${rl}`} strokeDashoffset={offset} strokeLinecap="round" filter="url(#bsw-fdrop-di)" opacity={0.6} />
+          <line key={ri} x1={IX} y1={iy} x2={ex} y2={ey} stroke={pal.core} strokeWidth={1.2} strokeDasharray={`${rl} ${rl}`} strokeDashoffset={offset} strokeLinecap="round" filter="url(#bsw-fdrop-di)" opacity={0.6} />
         );
       })}
 
@@ -114,7 +121,7 @@ const DropletImpact: React.FC<{ t: number; iy: number }> = ({ t, iy }) => {
 };
 
 export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
-  const { title, narration, accentColor = "#00E5FF", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape", imageUrl } = props;
+  const { title, narration, accentColor = "#00E5FF", bgColor = "#000000", textColor = "#FFFFFF", titleFontSize, descriptionFontSize, fontFamily, aspectRatio = "landscape", imageUrl } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const t = frame / fps;
@@ -128,8 +135,8 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
   const imgOpacity = hasImage
     ? interpolate(t, [imgStartSec, imgStartSec + 0.7], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 0;
-  // Fade out scene content as image appears
-  const sceneContentOp = hasImage
+  // Fade out swan + text over image; NeonWater + DropletImpact stay visible
+  const nonNeonHideOp = hasImage
     ? interpolate(t, [imgStartSec, imgStartSec + 0.5], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 1;
 
@@ -138,11 +145,26 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
   const swanOpacity = interpolate(t, [HIT - 0.5, HIT + 0.8], [0, 1], { extrapolateRight: "clamp" });
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      {/* Scene content — fades out when image takes over */}
-      <div style={{ position: "absolute", inset: 0, opacity: sceneContentOp }}>
-        <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0 }}>
+        <StarField accentColor={accentColor} />
+      </div>
 
+      {/* Full-screen image — behind neon water + droplet impact */}
+      {hasImage && (
+        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1 }}>
+          <img
+            src={imageUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
+          <div style={{ position: "absolute", inset: 0 }}>
+            <StarField accentColor={accentColor} />
+          </div>
+        </div>
+      )}
+
+      <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
         {/* Neon Water pond at droplet impact — fades in on hit */}
         <div style={{
           position: "absolute", inset: 0,
@@ -158,10 +180,11 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
             nRings={6}
             delay={0}
             hideBg
+            accentColor={accentColor}
           />
         </div>
 
-        <DropletImpact t={t} iy={iy} />
+        <DropletImpact t={t} iy={iy} accentColor={accentColor} />
 
         {/* Swan Container */}
         <div style={{
@@ -169,12 +192,11 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           left: "50%",
           top: portrait ? "5%" : "-16%",
           transform: "translateX(-50%)",
-          opacity: swanOpacity,
+          opacity: swanOpacity * nonNeonHideOp,
         }}>
-          <Swan size={portrait ? 1550 : 1200} water={false} uid="d0-swan" />
+          <Swan size={portrait ? 1550 : 1200} water={false} uid="d0-swan" accentColor={accentColor} />
         </div>
 
-        {/* Text Container */}
         <div style={{
           position: "absolute",
           left: 0,
@@ -185,7 +207,7 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           gap: portrait ? 6 : 10,
-          opacity: textOpacity,
+          opacity: textOpacity * nonNeonHideOp,
           transform: `translateY(${textY}px)`,
         }}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
@@ -193,9 +215,9 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: titleFontSize ?? (portrait ? 73 : 74),
               fontWeight: 400,
-              ...neonTitleTubeStyle(accentColor),
-              letterSpacing: "0.02em",
-              textTransform: "uppercase",
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
+              letterSpacing: "0.12em",
+              textTransform: "capitalize", // Modified from "uppercase" to "capitalize"
               lineHeight: 1.2,
               textAlign: "center",
             }}>
@@ -236,22 +258,6 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           </div>
         </div>
       </div>
-
-      {/* Full-screen image overlay — last 3 seconds */}
-      {hasImage && (
-        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 10 }}>
-          <img
-            src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-          {/* Dark overlay so particles are visible */}
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
-          {/* Particles on top of image */}
-          <div style={{ position: "absolute", inset: 0 }}>
-            <StarField />
-          </div>
-        </div>
-      )}
     </AbsoluteFill>
   );
 };

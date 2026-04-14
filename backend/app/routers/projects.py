@@ -33,6 +33,10 @@ from app.services.remotion import (
     cancel_running_render,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.project_cleanup import (
+    remove_failed_generation_project,
+    PUBLIC_MSG_PIPELINE_FAILED,
+)
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
@@ -119,11 +123,34 @@ _ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   # .docx
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+    "text/plain",  # .txt
+    "text/markdown",  # .md
+    "text/x-markdown",  # .md
 }
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
+
+
+def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
+    props = dict(layout_props or {})
+    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
+        return props
+    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+        props.pop(key, None)
+    return props
+
+
+def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
+    out = dict(descriptor or {})
+    layout = out.get("layout")
+    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
+    out["layoutProps"] = _sanitize_data_viz_layout_props(
+        layout=str(layout) if layout is not None else "",
+        layout_props=layout_props,
+    )
+    return out
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -354,6 +381,7 @@ def _run_project_template_change_job(job_id: int) -> None:
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
+                new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
                 scene.remotion_code = json.dumps(new_descriptor)
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
@@ -765,7 +793,7 @@ def create_project_from_upload(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new project from uploaded documents (PDF, DOCX, PPTX). Counts against video limit."""
+    """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -784,7 +812,7 @@ def create_project_from_upload(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         # Check file size (read content to measure, then reset)
         content = f.file.read()
@@ -853,9 +881,27 @@ def create_project_from_upload(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after extraction error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -884,7 +930,7 @@ def upload_documents_to_project(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:
@@ -903,9 +949,27 @@ def upload_documents_to_project(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after upload-documents error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -1151,7 +1215,7 @@ def delete_asset(
                     layout_props.pop("assignedImage", None)
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
-                    scene.remotion_code = json.dumps(desc)
+                    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
                     scenes_updated = True
             except (json.JSONDecodeError, TypeError):
                 continue
@@ -1246,6 +1310,14 @@ def update_scene(
         if key not in MANUAL_TRACKED_FIELDS:
             continue
 
+        if key == "remotion_code" and isinstance(value, str) and value.strip():
+            try:
+                parsed_descriptor = json.loads(value)
+                if isinstance(parsed_descriptor, dict):
+                    value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
+            except Exception:
+                pass
+
         old_value = getattr(scene, key)
 
         track_scene_edit(
@@ -1329,10 +1401,10 @@ def bulk_update_scene_typography(
                         scene_id=scene.id,
                         field_name="remotion_code",
                         old_value=scene.remotion_code,
-                        new_value=json.dumps(descriptor),
+                        new_value=json.dumps(_sanitize_descriptor_for_data_viz(descriptor)),
                         is_ai_assisted=False,
                     )
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     db.commit()
 
@@ -1598,7 +1670,7 @@ async def update_scene_image(
         descriptor["layoutProps"] = {}
     descriptor["layoutProps"]["assignedImage"] = image_filename
     descriptor["layoutProps"].pop("hideImage", None)
-    scene.remotion_code = json.dumps(descriptor)
+    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
     # runs a new render (render pipeline replaces URLs/keys on success).
@@ -1865,7 +1937,7 @@ async def regenerate_scene(
             descriptor["sceneTypeOverride"] = "content"
             descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
         track_scene_edit(
@@ -2042,7 +2114,7 @@ async def regenerate_scene(
                 descriptor["sceneTypeOverride"] = "content"
                 descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         track_scene_edit(
                         db,
                         project_id=project_id,

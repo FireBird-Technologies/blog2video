@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { BlackswanFlock } from "./birds";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { blackswanNeonPalette } from "./blackswanAccent";
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
@@ -48,6 +49,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     highlightWord,
     accentColor = "#00E5FF",
     textColor = "#DFFFFF",
+    bgColor = "#000000",
     titleFontSize,
     descriptionFontSize,
     fontFamily,
@@ -64,6 +66,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
   const eyeOp   = interpolate(frame, [0, 18],  [0, 1], { extrapolateRight: "clamp" });
   const waterOp = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
   const imgOp   = interpolate(frame, [5, 25],  [0, 1], { extrapolateRight: "clamp" });
+  const neonPal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   const insightText = quote || narration || "";
   let hl = false;
@@ -74,21 +77,21 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
       : insightText;
   const pieces = highlighted.split(/(__S__|__E__)/);
 
-  const quoteFontSize = titleFontSize ?? (p ? 80 : 70);
-  const subFontSize   = descriptionFontSize ?? (p ? 33 : 33);
+  const quoteFontSize = titleFontSize ?? (p ? 80 : 67);
+  const subFontSize   = descriptionFontSize ?? (p ? 33 : 39);
 
   // ── With image: image centered, quote below ──────────────────
   if (hasImage) {
     const imgHeight = p ? "35%" : "45%"; // Decreased height further
 
     return (
-      <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-        <StarField />
+      <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+        <StarField accentColor={accentColor} />
 
-        <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} />
+        <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} accentColor={accentColor} />
 
         <div style={{ position: "absolute", inset: 0, opacity: waterOp * 0.45 }}>
-          <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges />
+          <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges accentColor={accentColor} />
         </div>
 
         {/* Image — centered horizontally, upper portion */}
@@ -124,7 +127,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
           <div style={{
             fontSize: p ? 16 : 14,
             letterSpacing: 6,
-            color: "#00AAFF",
+            color: neonPal.mid,
             textTransform: "uppercase",
             fontFamily: fontFamily ?? mono,
             fontWeight: 400,
@@ -139,10 +142,10 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: quoteFontSize,
               fontWeight: 400,
-              ...neonTitleTubeStyle(accentColor),
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
               textAlign: "center",
               lineHeight: 1.2,
-              letterSpacing: "0.02em",
+              letterSpacing: "0.12em",
               opacity: quoteOp,
               transform: `translateY(${quoteY}px)`,
               maxWidth: p ? "100%" : "1200px",
@@ -152,7 +155,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
               if (piece === "__S__") { hl = true; return null; }
               if (piece === "__E__") { hl = false; return null; }
               return hl ? (
-                <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { fillHex: "#FFFFFF" }) }}>{piece}</span>
+                <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { bgColor }) }}>{piece}</span>
               ) : (
                 <React.Fragment key={idx}>{piece}</React.Fragment>
               );
@@ -175,9 +178,9 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: subFontSize,
               fontWeight: 400,
-              ...neonTitleTubeStyle(accentColor, { fillHex: textColor }),
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
               opacity: quoteOp * 0.8,
-              letterSpacing: "0.04em",
+              letterSpacing: "0.12em",
               textAlign: "center",
               lineHeight: 1.6,
             }}>
@@ -191,13 +194,13 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
 
   // ── No image: original centered layout ──────────────────────
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
-      <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} />
+      <BlackswanFlock uid="dv-flock" cx={500} cy={p ? 600 : 560} startDelaySec={0.3} accentColor={accentColor} />
 
       <div style={{ position: "absolute", inset: 0, opacity: waterOp * 0.45 }}>
-        <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges />
+        <NeonWater uid="dv6" cx={500} yPct={p ? 72 : 68} rxBase={220} ryBase={28} maxRx={520} nRings={6} delay={0.05} hideBg fadeEdges accentColor={accentColor} />
       </div>
 
       <div
@@ -217,7 +220,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
         <div style={{
           fontSize: p ? 18 : 16,
           letterSpacing: 6,
-          color: "#00AAFF",
+          color: neonPal.mid,
           textTransform: "uppercase",
           fontFamily: fontFamily ?? mono,
           fontWeight: 400,
@@ -229,9 +232,9 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
         <div
           style={{
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 80 : 70),
+            fontSize: titleFontSize ?? (p ? 80 : 67),
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             textAlign: "center",
             lineHeight: 1.25,
             letterSpacing: "0.02em",
@@ -244,7 +247,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
             if (piece === "__S__") { hl = true; return null; }
             if (piece === "__E__") { hl = false; return null; }
             return hl ? (
-              <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { fillHex: "#FFFFFF" }) }}>{piece}</span>
+              <span key={idx} style={{ ...neonTitleTubeStyle(accentColor, { bgColor }) }}>{piece}</span>
             ) : (
               <React.Fragment key={idx}>{piece}</React.Fragment>
             );
@@ -266,7 +269,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: subFontSize,
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor, { fillHex: textColor }),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             opacity: quoteOp * 0.8,
             letterSpacing: "0.04em",
             textAlign: "center",

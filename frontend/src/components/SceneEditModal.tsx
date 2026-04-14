@@ -16,6 +16,7 @@ import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -52,6 +53,7 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     side_by_side_brief: { title: [34, 46], desc: [20, 24] },
     segment_break: { title: [36, 46], desc: [18, 24] },
     live_metrics_board: { title: [28, 36], desc: [18, 20] },
+    data_visualization: { title: [34, 46], desc: 25 },
     story_stack: { title: [34, 42], desc: [16, 18] },
     headline_insight: { title: [80, 120], desc: [60, 72] },
   },
@@ -174,7 +176,14 @@ export function getDefaultFontSizesFromSchema(
 }
 
 // ─── Layout text field definitions ──────────────────────────
-type FieldType = "string" | "text" | "string_array" | "object_array";
+type FieldType =
+  | "string"
+  | "color"
+  | "text"
+  | "string_array"
+  | "object_array"
+  | "chart_table"
+  | "select";
 
 interface FieldDef {
   key: string;
@@ -183,6 +192,374 @@ interface FieldDef {
   subFields?: { key: string; label: string; placeholder?: string }[];
   placeholder?: string;
   maxItems?: number;
+  /** Options when type === "select" */
+  options?: { value: string; label: string }[];
+}
+
+function normalizeColorValue(input: unknown, fallback: string): string {
+  const raw = String(input ?? "")
+    .trim()
+    .replace(/^["'`*\s]+|["'`*\s]+$/g, "");
+  if (/^#([A-Fa-f0-9]{6})$/.test(raw)) return raw;
+  if (/^#([A-Fa-f0-9]{8})$/.test(raw)) return raw.slice(0, 7);
+  if (/^#([A-Fa-f0-9]{3})$/.test(raw)) {
+    const short = raw.slice(1);
+    return `#${short[0]}${short[0]}${short[1]}${short[1]}${short[2]}${short[2]}`;
+  }
+  const named: Record<string, string> = {
+    white: "#FFFFFF",
+    black: "#000000",
+    red: "#FF0000",
+    green: "#008000",
+    blue: "#0000FF",
+    yellow: "#FFFF00",
+    purple: "#800080",
+    orange: "#FFA500",
+    gray: "#808080",
+    grey: "#808080",
+  };
+  const lower = raw.toLowerCase();
+  if (named[lower]) return named[lower];
+
+  const rgbMatch = raw.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgbMatch) {
+    const parts = rgbMatch[1]
+      .split(",")
+      .map((p) => Number(p.trim()))
+      .filter((n) => Number.isFinite(n));
+    if (parts.length >= 3) {
+      const toHex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+      return `#${toHex(parts[0])}${toHex(parts[1])}${toHex(parts[2])}`.toUpperCase();
+    }
+  }
+  return fallback;
+}
+
+function normalizeChartTableValue(input: unknown): { headers: string[]; rows: string[][] } {
+  const raw = (input && typeof input === "object") ? (input as { headers?: unknown; rows?: unknown }) : {};
+  let headers = Array.isArray(raw.headers) ? raw.headers.map((h) => String(h ?? "").trim()) : [];
+  let rows = Array.isArray(raw.rows)
+    ? raw.rows.map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? "")) : []))
+    : [];
+
+  const hasOnlySyntheticHeaders = headers.length > 0
+    && headers.every((h) => /^col_\d+$/i.test(h));
+  if (hasOnlySyntheticHeaders && rows.length > 0) {
+    const candidate = rows[0].map((c) => String(c ?? "").trim());
+    const nonEmpty = candidate.filter(Boolean);
+    const numericCells = nonEmpty.filter((cell) => parseNumericCellForChart(cell) !== null).length;
+    const looksLikeHeader = nonEmpty.length >= Math.max(2, Math.floor(candidate.length / 2))
+      && numericCells <= Math.max(1, Math.floor(nonEmpty.length / 3));
+    if (looksLikeHeader) {
+      headers = candidate;
+      rows = rows.slice(1);
+    }
+  }
+
+  const nonEmptyHeaders = headers.some((h) => h.length > 0) ? headers : ["Label", "Value"];
+  const colCount = Math.max(nonEmptyHeaders.length, 2);
+  const normalizedHeaders = [...nonEmptyHeaders, ...Array.from({ length: Math.max(0, colCount - nonEmptyHeaders.length) }, (_, i) => `Series ${nonEmptyHeaders.length + i}`)];
+  const normalizedRows = rows.map((r) =>
+    [...r, ...Array.from({ length: Math.max(0, colCount - r.length) }, () => "")].slice(0, colCount),
+  );
+  return { headers: normalizedHeaders.slice(0, colCount), rows: normalizedRows };
+}
+
+function parseNumericCellForChart(raw: string): number | null {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  const strictNumericRe =
+    /^\s*\(?\s*[+\-]?\$?\s*\d[\d,]*(?:\.\d+)?\s*(?:%|[a-z]{1,12})?\s*\)?\s*$/i;
+  if (strictNumericRe.test(value)) {
+    const negativeByParens = value.startsWith("(") && value.endsWith(")");
+    const parsed = Number(value.replace(/[^0-9.\-]/g, ""));
+    if (!Number.isFinite(parsed)) return null;
+    return negativeByParens ? -Math.abs(parsed) : parsed;
+  }
+  const compact = value
+    .replace(/[~≈]/g, "")
+    .replace(/\+/g, "")
+    .replace(/,/g, "")
+    .trim();
+  const token = compact.match(/-?\d*\.?\d+/)?.[0];
+  if (!token) return null;
+  const parsed = Number(token);
+  if (!Number.isFinite(parsed)) return null;
+  const negativeByParens = value.startsWith("(") && value.endsWith(")");
+  return negativeByParens ? -Math.abs(parsed) : parsed;
+}
+
+function countLineSeriesInChartTable(table: { headers: string[]; rows: string[][] }): number {
+  if (!table.headers.length || !table.rows.length) return 0;
+  let count = 0;
+  for (let col = 1; col < table.headers.length; col += 1) {
+    let numericCount = 0;
+    for (let row = 0; row < table.rows.length; row += 1) {
+      const cell = table.rows[row]?.[col] ?? "";
+      if (parseNumericCellForChart(cell) !== null) numericCount += 1;
+    }
+    if (numericCount >= 2) count += 1;
+  }
+  return Math.min(3, count);
+}
+
+type DataVizTableMode = "line" | "bar" | "histogram" | "pie" | "auto";
+
+function hasLegacyPieData(lp: Record<string, unknown>): boolean {
+  return !!(
+    (lp.pieChart && typeof lp.pieChart === "object") ||
+    (Array.isArray(lp.pieChartRows) && (lp.pieChartRows as unknown[]).length > 0)
+  );
+}
+
+function hasTimeLikeLabelsForChartTable(labels: string[]): boolean {
+  if (labels.length < 2) return false;
+  const re =
+    /(^q[1-4](\s*\d{2,4})?$)|(^\d{4}$)|(^\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?$)|(^\d{1,2}[/-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*([/-]\d{2,4})?$)|(^((jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)(\b|[./-]\d{2,4}|\s+\d{2,4}))$/i;
+  return labels.some((l) => re.test(String(l ?? "").trim()));
+}
+
+function hasBucketLikeLabelsForChartTable(labels: string[]): boolean {
+  if (labels.length < 3) return false;
+  return labels.some((label) =>
+    /(^\d+\s*[-–]\s*\d+$)|(^<\s*\d+$)|(^>\s*\d+$)|(^\d+\+$)/.test(String(label ?? "").trim()),
+  );
+}
+
+function getNumericColumnIndexes(table: { headers: string[]; rows: string[][] }): number[] {
+  const indexes: number[] = [];
+  for (let col = 1; col < table.headers.length; col += 1) {
+    let numericCount = 0;
+    for (let row = 0; row < table.rows.length; row += 1) {
+      const cell = table.rows[row]?.[col] ?? "";
+      if (parseNumericCellForChart(cell) !== null) numericCount += 1;
+    }
+    if (numericCount >= 2) indexes.push(col);
+  }
+  return indexes;
+}
+
+function inferDataVizTableMode(lp: Record<string, unknown>): DataVizTableMode {
+  const explicit = String(lp.chartType ?? "").trim().toLowerCase();
+  if (explicit === "line" || explicit === "bar" || explicit === "histogram" || explicit === "pie") {
+    return explicit;
+  }
+  const hasLine =
+    (lp.lineChart && typeof lp.lineChart === "object") ||
+    (Array.isArray(lp.lineChartLabels) && Array.isArray(lp.lineChartDatasets));
+  const hasBar = (lp.barChart && typeof lp.barChart === "object") || Array.isArray(lp.barChartRows);
+  const hasHistogram = (lp.histogram && typeof lp.histogram === "object") || Array.isArray(lp.histogramRows);
+  const hasPie = (lp.pieChart && typeof lp.pieChart === "object") || Array.isArray(lp.pieChartRows);
+  if (hasLine) return "line";
+  if (hasPie) return "pie";
+  if (hasBar) return "bar";
+  if (hasHistogram) return "histogram";
+  const table = normalizeChartTableValue(lp.chartTable);
+  if (table.rows.length > 0) {
+    const numericCols = getNumericColumnIndexes(table);
+    if (numericCols.length > 0) {
+      const labels = table.rows.map((r) => String(r?.[0] ?? ""));
+      if (hasTimeLikeLabelsForChartTable(labels)) return "line";
+      if (hasBucketLikeLabelsForChartTable(labels)) return "histogram";
+      return "bar";
+    }
+  }
+  return "auto";
+}
+
+function lineSeriesCountFromLayoutProps(lp: Record<string, unknown>): number {
+  const lineChart = lp.lineChart as { datasets?: unknown[] } | undefined;
+  if (lineChart && Array.isArray(lineChart.datasets) && lineChart.datasets.length > 0) {
+    return Math.min(3, lineChart.datasets.length);
+  }
+  const datasets = Array.isArray(lp.lineChartDatasets) ? lp.lineChartDatasets : [];
+  return Math.min(3, datasets.length || 1);
+}
+
+function hasLegacyLineData(lp: Record<string, unknown>): boolean {
+  return !!(
+    (lp.lineChart && typeof lp.lineChart === "object") ||
+    (Array.isArray(lp.lineChartLabels) && Array.isArray(lp.lineChartDatasets) && (lp.lineChartDatasets as unknown[]).length > 0)
+  );
+}
+
+function hasLegacyBarData(lp: Record<string, unknown>): boolean {
+  return !!(
+    (lp.barChart && typeof lp.barChart === "object") ||
+    (Array.isArray(lp.barChartRows) && (lp.barChartRows as unknown[]).length > 0)
+  );
+}
+
+function hasLegacyHistogramData(lp: Record<string, unknown>): boolean {
+  return !!(
+    (lp.histogram && typeof lp.histogram === "object") ||
+    (Array.isArray(lp.histogramRows) && (lp.histogramRows as unknown[]).length > 0)
+  );
+}
+
+function getEmptyChartTableForMode(mode: Exclude<DataVizTableMode, "auto">): { headers: string[]; rows: string[][] } {
+  if (mode === "line") {
+    return { headers: ["Label", "Series 1"], rows: [] };
+  }
+  if (mode === "histogram") {
+    return { headers: ["Bucket", "Frequency"], rows: [] };
+  }
+  return { headers: ["Label", "Value"], rows: [] };
+}
+
+function chartTableHasData(table: { headers: string[]; rows: string[][] }): boolean {
+  return table.rows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+}
+
+function projectChartTableForMode(
+  table: { headers: string[]; rows: string[][] },
+  mode: DataVizTableMode,
+  inferredLineSeriesCount: number,
+): { headers: string[]; rows: string[][] } {
+  if (table.headers.length === 0) return table;
+  const numericColIndexes = getNumericColumnIndexes(table);
+  if (mode === "bar") {
+    const seriesCols = (numericColIndexes.length > 0 ? numericColIndexes : [1]).slice(
+      0,
+      Math.max(1, Math.min(3, inferredLineSeriesCount)),
+    );
+    return {
+      headers: [table.headers[0] ?? "Label", ...seriesCols.map((i) => table.headers[i] ?? `Series ${i}`)],
+      rows: table.rows.map((r) => [r[0] ?? "", ...seriesCols.map((i) => r[i] ?? "")]),
+    };
+  }
+  if (mode === "histogram" || mode === "pie") {
+    const chosenCol = numericColIndexes[0] ?? 1;
+    return {
+      headers: [table.headers[0] ?? "Label", table.headers[chosenCol] ?? "Value"],
+      rows: table.rows.map((r) => [r[0] ?? "", r[chosenCol] ?? ""]),
+    };
+  }
+  if (mode === "line") {
+    const seriesCols = (numericColIndexes.length > 0 ? numericColIndexes : [1]).slice(
+      0,
+      Math.max(1, Math.min(3, inferredLineSeriesCount)),
+    );
+    return {
+      headers: [table.headers[0] ?? "Label", ...seriesCols.map((i) => table.headers[i] ?? `Series ${i}`)],
+      rows: table.rows.map((r) => [r[0] ?? "", ...seriesCols.map((i) => r[i] ?? "")]),
+    };
+  }
+  return table;
+}
+
+function buildChartTableFromDataVizLayoutProps(lp: Record<string, unknown>): { headers: string[]; rows: string[][] } {
+  const mode = inferDataVizTableMode(lp);
+  const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(lp);
+  const shouldPreferLine = mode === "line" && hasLegacyLineData(lp);
+  const shouldPreferBar = mode === "bar" && hasLegacyBarData(lp);
+  const shouldPreferHistogram = mode === "histogram" && hasLegacyHistogramData(lp);
+  const shouldPreferPie = mode === "pie" && hasLegacyPieData(lp);
+
+  if (!shouldPreferBar && !shouldPreferHistogram && !shouldPreferPie) {
+    const lineChart = lp.lineChart as { labels?: unknown[]; datasets?: Array<{ label?: unknown; values?: unknown[] }> } | undefined;
+    if (
+      shouldPreferLine &&
+      lineChart &&
+      Array.isArray(lineChart.labels) &&
+      Array.isArray(lineChart.datasets) &&
+      lineChart.labels.length > 0
+    ) {
+      const labels = lineChart.labels.map((l) => String(l ?? ""));
+      const datasets = lineChart.datasets.slice(0, 3);
+      const headers = ["Label", ...datasets.map((d, i) => String(d?.label ?? `Series ${i + 1}`))];
+      const rows = labels.map((label, rowIndex) => ([
+        label,
+        ...datasets.map((d) => {
+          const values = Array.isArray(d?.values) ? d.values : [];
+          const value = values[rowIndex];
+          return value == null ? "" : String(value);
+        }),
+      ]));
+      return projectChartTableForMode(normalizeChartTableValue({ headers, rows }), mode, inferredLineSeriesCount);
+    }
+  }
+
+  if (!shouldPreferLine && !shouldPreferHistogram && !shouldPreferPie) {
+    const barChart = lp.barChart as { labels?: unknown[]; values?: unknown[] } | undefined;
+    if (
+      shouldPreferBar &&
+      barChart &&
+      Array.isArray(barChart.labels) &&
+      Array.isArray(barChart.values) &&
+      barChart.labels.length > 0
+    ) {
+      const rows = barChart.labels.map((label, i) => [String(label ?? ""), String(barChart.values?.[i] ?? "")]);
+      return projectChartTableForMode(normalizeChartTableValue({ headers: ["Label", "Value"], rows }), mode, inferredLineSeriesCount);
+    }
+  }
+
+  if (!shouldPreferLine && !shouldPreferBar && !shouldPreferPie) {
+    const histogram = lp.histogram as { labels?: unknown[]; values?: unknown[] } | undefined;
+    if (
+      shouldPreferHistogram &&
+      histogram &&
+      Array.isArray(histogram.labels) &&
+      Array.isArray(histogram.values) &&
+      histogram.labels.length > 0
+    ) {
+      const rows = histogram.labels.map((label, i) => [String(label ?? ""), String(histogram.values?.[i] ?? "")]);
+      return projectChartTableForMode(normalizeChartTableValue({ headers: ["Bucket", "Frequency"], rows }), mode, inferredLineSeriesCount);
+    }
+  }
+
+  if (!shouldPreferLine && !shouldPreferBar && !shouldPreferHistogram) {
+    const pieChart = lp.pieChart as { labels?: unknown[]; values?: unknown[] } | undefined;
+    if (
+      shouldPreferPie &&
+      pieChart &&
+      Array.isArray(pieChart.labels) &&
+      Array.isArray(pieChart.values) &&
+      pieChart.labels.length > 0
+    ) {
+      const rows = pieChart.labels.map((label, i) => [String(label ?? ""), String(pieChart.values?.[i] ?? "")]);
+      return projectChartTableForMode(normalizeChartTableValue({ headers: ["Label", "Value"], rows }), mode, inferredLineSeriesCount);
+    }
+  }
+
+  const directTable = normalizeChartTableValue(lp.chartTable);
+  if (directTable.rows.length > 0) {
+    const directTableLineCount = countLineSeriesInChartTable(directTable);
+    const lineCount = directTableLineCount > 0 ? directTableLineCount : inferredLineSeriesCount;
+    return projectChartTableForMode(directTable, mode, lineCount);
+  }
+
+  const lineChartLabels = Array.isArray(lp.lineChartLabels) ? (lp.lineChartLabels as unknown[]) : [];
+  const lineChartDatasets = Array.isArray(lp.lineChartDatasets)
+    ? (lp.lineChartDatasets as Array<{ label?: unknown; valuesStr?: unknown }>)
+    : [];
+  if (lineChartLabels.length > 0 && lineChartDatasets.length > 0) {
+    const labels = lineChartLabels.map((l) => String(l ?? ""));
+    const datasets = lineChartDatasets.slice(0, 3);
+    const headers = ["Label", ...datasets.map((d, i) => String(d?.label ?? `Series ${i + 1}`))];
+    const rows = labels.map((label, rowIndex) => ([
+      label,
+      ...datasets.map((d) => String(d?.valuesStr ?? "").split(",")[rowIndex]?.trim() ?? ""),
+    ]));
+    return projectChartTableForMode(normalizeChartTableValue({ headers, rows }), mode, inferredLineSeriesCount);
+  }
+
+  const pieRows = Array.isArray(lp.pieChartRows) ? (lp.pieChartRows as Array<{ label?: unknown; value?: unknown }>) : [];
+  if (pieRows.length > 0 && mode === "pie") {
+    const rows = pieRows.map((r) => [String(r?.label ?? ""), String(r?.value ?? "")]);
+    return projectChartTableForMode(normalizeChartTableValue({ headers: ["Label", "Value"], rows }), mode, inferredLineSeriesCount);
+  }
+
+  const barRows = Array.isArray(lp.barChartRows) ? (lp.barChartRows as Array<{ label?: unknown; value?: unknown }>) : [];
+  if (barRows.length > 0) {
+    const rows = barRows.map((r) => [String(r?.label ?? ""), String(r?.value ?? "")]);
+    return projectChartTableForMode(normalizeChartTableValue({ headers: ["Label", "Value"], rows }), mode, inferredLineSeriesCount);
+  }
+
+  return projectChartTableForMode(normalizeChartTableValue({
+    headers: ["Label", "Value"],
+    rows: [],
+  }), mode, inferredLineSeriesCount);
 }
 
 const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
@@ -312,6 +689,12 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
     { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
     { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
       subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 5 },
+    { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
+    { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#1E5FD4" },
+    { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#FF3B30" },
+    { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#1E5FD4" },
+    { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
+    { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
     { key: "pieChartRows", label: "Pie chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
   ],
@@ -429,13 +812,31 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
 const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = {
   default: {
     data_visualization: [
-      { key: "barChartRows", label: "Bar chart data", type: "object_array",
-        subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
-      { key: "lineChartLabels", label: "Line chart – X-axis labels", type: "string_array", maxItems: 12 },
-      { key: "lineChartDatasets", label: "Line chart – series", type: "object_array",
-        subFields: [{ key: "label", label: "Series name" }, { key: "valuesStr", label: "Values", placeholder: "e.g. 10, 20, 30" }], maxItems: 6 },
-      { key: "histogramRows", label: "Histogram bins", type: "object_array",
-        subFields: [{ key: "label", label: "Bin / range" }, { key: "value", label: "Count", placeholder: "Number" }], maxItems: 16 },
+      { key: "lineChartTable", label: "Line chart data", type: "chart_table" },
+      { key: "barChartTable", label: "Bar chart data", type: "chart_table" },
+      { key: "histogramChartTable", label: "Histogram data", type: "chart_table" },
+      { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#1E5FD4" },
+      { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#FF3B30" },
+      { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#1E5FD4" },
+      { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
+      { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
+    ],
+  },
+  nightfall: {
+    data_visualization: [
+      { key: "lineChartTable", label: "Line chart data", type: "chart_table" },
+      { key: "barChartTable", label: "Bar chart data", type: "chart_table" },
+      { key: "pieChartTable", label: "Pie chart data", type: "chart_table" },
+    ],
+  },
+  newscast: {
+    data_visualization: [
+      { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      { key: "barPrimaryColor", label: "Bar color 1", type: "color", placeholder: "#FF3B30" },
+      { key: "barSecondaryColor", label: "Bar color 2", type: "color", placeholder: "#1E5FD4" },
+      { key: "barTertiaryColor", label: "Bar color 3", type: "color", placeholder: "#FF3B30" },
+      { key: "lineUpColor", label: "Line color 1", type: "color", placeholder: "#3CE46A" },
+      { key: "lineDownColor", label: "Line color 2", type: "color", placeholder: "#FF3B30" },
     ],
   },
   whiteboard: {
@@ -516,8 +917,9 @@ const CUSTOM_CONTENT_FIELDS: Record<string, FieldDef[]> = {
 function getLayoutFields(template: string, layoutId: string | null): FieldDef[] | undefined {
   if (!layoutId) return undefined;
   const t = (template || "default").toLowerCase();
+  const normalizedTemplate = t === "newsreport" ? "newscast" : t;
   const canonicalLayoutId = normalizeLegacyNewscastLayoutId(t, layoutId);
-  return LAYOUT_TEXT_FIELDS_OVERRIDE[t]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
+  return LAYOUT_TEXT_FIELDS_OVERRIDE[normalizedTemplate]?.[canonicalLayoutId] ?? LAYOUT_TEXT_FIELDS[canonicalLayoutId];
 }
 
 /** Keys to hide from Layout content — shown elsewhere (Typography, Scene image) or internal. */
@@ -656,6 +1058,10 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+  const normalizedTemplateId = (project.template || "default").toLowerCase();
+  const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
+  const isNightfallTemplate = normalizedTemplateId === "nightfall";
+  const isDefaultTemplate = normalizedTemplateId === "default";
 
   const currentLayoutId = (() => {
     try {
@@ -760,6 +1166,12 @@ export default function SceneEditModal({
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
+          if (isNewscastTemplate) {
+            const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+            lpCopy.chartTable = chartTableHasData(directChartTable)
+              ? directChartTable
+              : buildChartTableFromDataVizLayoutProps(lpAny);
+          }
           // Bar: { labels, values } -> barChartRows
           if (lpAny.barChart && typeof lpAny.barChart === "object") {
             const bc = lpAny.barChart as { labels?: string[]; values?: number[] };
@@ -794,6 +1206,78 @@ export default function SceneEditModal({
             const hvalues = Array.isArray(hg.values) ? hg.values : [];
             lpCopy.histogramRows = hlabels.map((label, i) => ({ label, value: String(hvalues[i] ?? "") }));
             delete (lpCopy as Record<string, unknown>).histogram;
+          }
+          if (isNewscastTemplate) {
+            delete (lpCopy as Record<string, unknown>).lineChartLabels;
+            delete (lpCopy as Record<string, unknown>).lineChartDatasets;
+            delete (lpCopy as Record<string, unknown>).barChartRows;
+            delete (lpCopy as Record<string, unknown>).pieChartRows;
+            delete (lpCopy as Record<string, unknown>).histogramRows;
+          }
+          if (isNightfallTemplate || isDefaultTemplate) {
+            const editorTableSource = lpCopy as Record<string, unknown>;
+            let primaryChartType = inferDataVizTableMode(editorTableSource);
+            if (isNightfallTemplate && !["line", "bar", "pie"].includes(primaryChartType)) {
+              primaryChartType = "bar";
+            }
+            if (isDefaultTemplate && !["line", "bar", "histogram"].includes(primaryChartType)) {
+              primaryChartType = "bar";
+            }
+
+            lpCopy.__dataVizPrimaryChartType = primaryChartType;
+
+            const storedLineTable = normalizeChartTableValue((editorTableSource as Record<string, unknown>).lineChartTable);
+            const storedBarTable = normalizeChartTableValue((editorTableSource as Record<string, unknown>).barChartTable);
+            const hasStoredLineTable = chartTableHasData(storedLineTable);
+            const hasStoredBarTable = chartTableHasData(storedBarTable);
+
+            lpCopy.lineChartTable = hasStoredLineTable
+              ? storedLineTable
+              : hasLegacyLineData(editorTableSource)
+                ? buildChartTableFromDataVizLayoutProps({
+                    ...editorTableSource,
+                    chartType: "line",
+                  })
+                : getEmptyChartTableForMode("line");
+
+            lpCopy.barChartTable = hasStoredBarTable
+              ? storedBarTable
+              : hasLegacyBarData(editorTableSource)
+                ? buildChartTableFromDataVizLayoutProps({
+                    ...editorTableSource,
+                    chartType: "bar",
+                  })
+                : getEmptyChartTableForMode("bar");
+
+            if (isNightfallTemplate) {
+              const storedPieTable = normalizeChartTableValue((editorTableSource as Record<string, unknown>).pieChartTable);
+              const hasStoredPieTable = chartTableHasData(storedPieTable);
+              lpCopy.pieChartTable = hasStoredPieTable
+                ? storedPieTable
+                : hasLegacyPieData(editorTableSource)
+                  ? buildChartTableFromDataVizLayoutProps({
+                      ...editorTableSource,
+                      chartType: "pie",
+                    })
+                  : getEmptyChartTableForMode("pie");
+              delete (lpCopy as Record<string, unknown>).histogramChartTable;
+            }
+            if (isDefaultTemplate) {
+              const storedHistogramTable = normalizeChartTableValue((editorTableSource as Record<string, unknown>).histogramChartTable);
+              const hasStoredHistogramTable = chartTableHasData(storedHistogramTable);
+              lpCopy.histogramChartTable = hasStoredHistogramTable
+                ? storedHistogramTable
+                : hasLegacyHistogramData(editorTableSource)
+                  ? buildChartTableFromDataVizLayoutProps({
+                      ...editorTableSource,
+                      chartType: "histogram",
+                    })
+                  : getEmptyChartTableForMode("histogram");
+              delete (lpCopy as Record<string, unknown>).pieChartTable;
+            }
+
+            delete (lpCopy as Record<string, unknown>).chartTable;
+            delete (lpCopy as Record<string, unknown>).chartType;
           }
         }
       } catch { /* ignore */ }
@@ -999,6 +1483,40 @@ export default function SceneEditModal({
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
+              if (isNewscastTemplate) {
+                const chartTable = normalizeChartTableValue((lp as Record<string, unknown>).chartTable);
+                lp.chartTable = chartTable;
+              } else if (isNightfallTemplate || isDefaultTemplate) {
+                const templateForLegacy = isNightfallTemplate ? "nightfall" : "default";
+                delete (lp as Record<string, unknown>).lineChartLabels;
+                delete (lp as Record<string, unknown>).lineChartDatasets;
+                delete (lp as Record<string, unknown>).barChartRows;
+                delete (lp as Record<string, unknown>).pieChartRows;
+                delete (lp as Record<string, unknown>).histogramRows;
+                delete (lp as Record<string, unknown>).lineChart;
+                delete (lp as Record<string, unknown>).barChart;
+                delete (lp as Record<string, unknown>).pieChart;
+                delete (lp as Record<string, unknown>).histogram;
+
+                const lineTable = normalizeChartTableValue((lp as Record<string, unknown>).lineChartTable);
+                const barTable = normalizeChartTableValue((lp as Record<string, unknown>).barChartTable);
+
+                Object.assign(lp, chartTableToLegacyRowProps(lineTable, "line", templateForLegacy));
+                Object.assign(lp, chartTableToLegacyRowProps(barTable, "bar", templateForLegacy));
+
+                if (isNightfallTemplate) {
+                  const pieTable = normalizeChartTableValue((lp as Record<string, unknown>).pieChartTable);
+                  Object.assign(lp, chartTableToLegacyRowProps(pieTable, "pie", templateForLegacy));
+                }
+                if (isDefaultTemplate) {
+                  const histogramTable = normalizeChartTableValue((lp as Record<string, unknown>).histogramChartTable);
+                  Object.assign(lp, chartTableToLegacyRowProps(histogramTable, "histogram", templateForLegacy));
+                }
+
+                delete (lp as Record<string, unknown>).chartTable;
+                delete (lp as Record<string, unknown>).chartType;
+                delete (lp as Record<string, unknown>).__dataVizPrimaryChartType;
+              }
               if (Array.isArray(lp.barChartRows)) {
                 const rows = lp.barChartRows as { label?: string; value?: string }[];
                 lp.barChart = {
@@ -1035,22 +1553,33 @@ export default function SceneEditModal({
                 };
                 delete lp.histogramRows;
               }
+              if (isNewscastTemplate) {
+                delete lp.barChartRows;
+                delete lp.pieChartRows;
+                delete lp.lineChartLabels;
+                delete lp.lineChartDatasets;
+                delete lp.histogramRows;
+                delete lp.barChart;
+                delete lp.pieChart;
+                delete lp.lineChart;
+                delete lp.histogram;
+              }
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
-            if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length || bar.values.every((v) => v === 0))) {
+            if (bar && (!Array.isArray(bar.labels) || !bar.labels.length || !Array.isArray(bar.values) || !bar.values.length)) {
               delete lp.barChart;
             }
             const pie = lp.pieChart as { labels?: unknown[]; values?: number[] } | undefined;
-            if (pie && (!Array.isArray(pie.labels) || !pie.labels.length || !Array.isArray(pie.values) || !pie.values.length || pie.values.every((v) => v === 0))) {
+            if (pie && (!Array.isArray(pie.labels) || !pie.labels.length || !Array.isArray(pie.values) || !pie.values.length)) {
               delete lp.pieChart;
             }
             const line = lp.lineChart as { labels?: unknown[]; datasets?: { values?: number[] }[] } | undefined;
-            if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length || line.datasets.every((d) => !d.values?.length || d.values.every((v) => v === 0)))) {
+            if (line && (!Array.isArray(line.labels) || !line.labels.length || !Array.isArray(line.datasets) || !line.datasets.length)) {
               delete lp.lineChart;
             }
             const hist = lp.histogram as { labels?: unknown[]; values?: number[] } | undefined;
-            if (hist && (!Array.isArray(hist.labels) || !hist.labels.length || !Array.isArray(hist.values) || !hist.values.length || hist.values.every((v) => v === 0))) {
+            if (hist && (!Array.isArray(hist.labels) || !hist.labels.length || !Array.isArray(hist.values) || !hist.values.length)) {
               delete lp.histogram;
             }
             if (tsNum !== null && tsNum !== defTitle) lp.titleFontSize = tsNum;
@@ -1527,14 +2056,37 @@ export default function SceneEditModal({
                 }
 
                 const rawLayoutFields = getLayoutFields(project.template || "default", currentLayoutId);
-                const layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+                let layoutFields = (rawLayoutFields ?? []).filter((f) => !HIDDEN_LAYOUT_PROP_KEYS.has(f.key));
+
+                if (isNewscastTemplate && currentLayoutId === "data_visualization") {
+                  const chartTable = normalizeChartTableValue((editableLayoutProps as Record<string, unknown>).chartTable);
+                  const mode = inferDataVizTableMode(editableLayoutProps as Record<string, unknown>);
+                  const numericSeriesCount = Math.max(1, getNumericColumnIndexes(chartTable).length || 1);
+                  const barSeriesCount = mode === "bar" ? Math.min(3, numericSeriesCount) : 0;
+                  const lineSeriesCount = mode === "line" ? Math.min(3, numericSeriesCount) : 0;
+
+                  layoutFields = layoutFields.filter((field) => {
+                    if (field.key === "barPrimaryColor") return mode === "bar" && barSeriesCount >= 1;
+                    if (field.key === "barSecondaryColor") return mode === "bar" && barSeriesCount >= 2;
+                    if (field.key === "barTertiaryColor") return mode === "bar" && barSeriesCount >= 3;
+                    if (field.key === "lineUpColor") return mode === "line" && lineSeriesCount >= 1;
+                    if (field.key === "lineDownColor") return mode === "line" && lineSeriesCount >= 1;
+                    return true;
+                  });
+                }
+
                 const knownKeys = new Set(layoutFields.map((f) => f.key));
+                const suppressExtraKeysForDataViz =
+                  (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
+                  currentLayoutId === "data_visualization";
                 const extraKeys =
-                  currentLayoutId && editableLayoutProps
-                    ? Object.keys(editableLayoutProps).filter(
-                        (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
-                      )
-                    : [];
+                  suppressExtraKeysForDataViz
+                    ? []
+                    : currentLayoutId && editableLayoutProps
+                      ? Object.keys(editableLayoutProps).filter(
+                          (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+                        )
+                      : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
                 const humanLabel = (key: string) =>
                   key
@@ -1549,6 +2101,217 @@ export default function SceneEditModal({
                     {layoutFields?.map((field) => {
                       const inputClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
                       const textareaClass = "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none overflow-hidden";
+                      if (field.type === "color") {
+                        const fallbackColor = normalizeColorValue(field.placeholder ?? "#1E5FD4", "#1E5FD4");
+                        const currentColor = normalizeColorValue(editableLayoutProps[field.key], fallbackColor);
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={currentColor}
+                                onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                className="h-10 w-12 p-1 border border-gray-200 rounded-lg bg-white cursor-pointer"
+                              />
+                              <span className="text-xs text-gray-500 tabular-nums">{currentColor.toUpperCase()}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "chart_table") {
+                        const table = normalizeChartTableValue(editableLayoutProps[field.key]);
+                        const fixedModeByFieldKey: Partial<Record<string, DataVizTableMode>> = {
+                          lineChartTable: "line",
+                          barChartTable: "bar",
+                          pieChartTable: "pie",
+                          histogramChartTable: "histogram",
+                        };
+                        const mode = fixedModeByFieldKey[field.key] ?? inferDataVizTableMode(editableLayoutProps);
+                        const isSeparateDataVizTableEditor =
+                          (isNightfallTemplate || isDefaultTemplate) && currentLayoutId === "data_visualization";
+                        const primaryChartType = String(
+                          (editableLayoutProps as Record<string, unknown>).__dataVizPrimaryChartType ?? "",
+                        ).toLowerCase();
+                        const isPrimaryTable = !!fixedModeByFieldKey[field.key] && fixedModeByFieldKey[field.key] === primaryChartType;
+                        const hasData = chartTableHasData(table);
+
+                        if (isSeparateDataVizTableEditor && fixedModeByFieldKey[field.key] && !isPrimaryTable && !hasData) {
+                          const addMode = fixedModeByFieldKey[field.key] as Exclude<DataVizTableMode, "auto">;
+                          const emptyTable = getEmptyChartTableForMode(addMode);
+                          return (
+                            <div key={field.key}>
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/40 p-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditableLayoutProps((prev) => ({
+                                      ...prev,
+                                      __dataVizPrimaryChartType: addMode,
+                                      [field.key]: {
+                                        headers: emptyTable.headers,
+                                        rows: [Array.from({ length: emptyTable.headers.length }, () => "")],
+                                      },
+                                    }));
+                                  }}
+                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
+                                >
+                                  + Add {field.label.toLowerCase()}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const inferredLineSeriesCount = lineSeriesCountFromLayoutProps(editableLayoutProps);
+                        const tableLineSeriesCount = countLineSeriesInChartTable(table);
+                        const effectiveLineSeriesCount =
+                          tableLineSeriesCount > 0 ? tableLineSeriesCount : inferredLineSeriesCount;
+                        const projected = projectChartTableForMode(table, mode, effectiveLineSeriesCount);
+                        const fixedColumnCount =
+                          mode === "histogram" || mode === "pie"
+                            ? 2
+                            : mode === "bar" || mode === "line"
+                              ? Math.max(2, Math.min(4, 1 + effectiveLineSeriesCount))
+                              : null;
+                        const visibleTable = fixedColumnCount != null
+                          ? {
+                              headers: projected.headers.slice(0, fixedColumnCount),
+                              rows: projected.rows.map((r) => r.slice(0, fixedColumnCount)),
+                            }
+                          : projected;
+                        const updateTable = (next: { headers: string[]; rows: string[][] }) => {
+                          const normalizedNext = normalizeChartTableValue(next);
+                          const clampedNext = fixedColumnCount != null
+                            ? {
+                                headers: normalizedNext.headers.slice(0, fixedColumnCount),
+                                rows: normalizedNext.rows.map((r) => r.slice(0, fixedColumnCount)),
+                              }
+                            : normalizedNext;
+                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: clampedNext }));
+                        };
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 overflow-x-auto">
+                              <table className="min-w-full border-separate border-spacing-0">
+                                <thead>
+                                  <tr>
+                                    {visibleTable.headers.map((header, colIndex) => (
+                                      <th key={`h-${colIndex}`} className="p-1.5 align-top">
+                                        <input
+                                          type="text"
+                                          value={header}
+                                          placeholder={colIndex === 0 ? "Label" : `Series ${colIndex}`}
+                                          onChange={(e) => {
+                                            const headers = [...visibleTable.headers];
+                                            headers[colIndex] = e.target.value;
+                                            updateTable({ headers, rows: visibleTable.rows });
+                                          }}
+                                          className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {visibleTable.rows.map((row, rowIndex) => (
+                                    <tr key={`r-${rowIndex}`}>
+                                      {visibleTable.headers.map((_, colIndex) => (
+                                        <td key={`c-${rowIndex}-${colIndex}`} className="p-1.5">
+                                          <input
+                                            type="text"
+                                            value={row[colIndex] ?? ""}
+                                            onChange={(e) => {
+                                              const rows = visibleTable.rows.map((r) => [...r]);
+                                              rows[rowIndex][colIndex] = e.target.value;
+                                              updateTable({ headers: visibleTable.headers, rows });
+                                            }}
+                                            className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                          />
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const rows = [...visibleTable.rows, Array.from({ length: visibleTable.headers.length }, () => "")];
+                                    updateTable({ headers: visibleTable.headers, rows });
+                                  }}
+                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
+                                >
+                                  + Row
+                                </button>
+                                {fixedColumnCount == null ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const headers = [...visibleTable.headers, `Series ${visibleTable.headers.length}`];
+                                      const rows = visibleTable.rows.map((r) => [...r, ""]);
+                                      updateTable({ headers, rows });
+                                    }}
+                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
+                                  >
+                                    + Column
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (visibleTable.rows.length === 0) return;
+                                    updateTable({ headers: visibleTable.headers, rows: visibleTable.rows.slice(0, -1) });
+                                  }}
+                                  className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
+                                >
+                                  - Row
+                                </button>
+                                {fixedColumnCount == null ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (visibleTable.headers.length <= 2) return;
+                                      const headers = visibleTable.headers.slice(0, -1);
+                                      const rows = visibleTable.rows.map((r) => r.slice(0, -1));
+                                      updateTable({ headers, rows });
+                                    }}
+                                    className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
+                                  >
+                                    - Column
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "select") {
+                        const opts = field.options ?? [];
+                        const defaultVal = opts[0]?.value ?? "";
+                        const sel = String(editableLayoutProps[field.key] ?? defaultVal);
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <select
+                              value={sel}
+                              onChange={(e) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))
+                              }
+                              className={inputClass}
+                            >
+                              {opts.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
                       if (field.type === "string") {
                         return (
                           <div key={field.key}>

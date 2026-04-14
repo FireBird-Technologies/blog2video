@@ -5,13 +5,17 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import ErrorModal from "../components/ErrorModal";
+import ErrorModal, { type ErrorModalHeadingVariant } from "../components/ErrorModal";
 
 export const DEFAULT_ERROR_MESSAGE =
   "We got an unexpected error, please try again or contact support.";
 
+export type ErrorModalVariant = ErrorModalHeadingVariant;
+
 interface ErrorOptions {
   showUpgrade?: boolean;
+  /** Generation pipeline failures (scrape/script/scene) use a softer “Oops” heading. */
+  variant?: ErrorModalHeadingVariant;
 }
 
 interface ErrorModalContextType {
@@ -23,15 +27,18 @@ const ErrorModalContext = createContext<ErrorModalContextType | null>(null);
 export function ErrorModalProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [variant, setVariant] = useState<ErrorModalHeadingVariant>("default");
 
   const showError = useCallback((msg: string, options?: ErrorOptions) => {
     setMessage(msg && msg.trim() ? msg : DEFAULT_ERROR_MESSAGE);
     setShowUpgrade(Boolean(options?.showUpgrade));
+    setVariant(options?.variant === "pipeline" ? "pipeline" : "default");
   }, []);
 
   const close = useCallback(() => {
     setMessage(null);
     setShowUpgrade(false);
+    setVariant("default");
   }, []);
 
   return (
@@ -40,6 +47,7 @@ export function ErrorModalProvider({ children }: { children: ReactNode }) {
       <ErrorModal
         open={message != null}
         message={message ?? ""}
+        variant={variant}
         showUpgrade={showUpgrade}
         onClose={close}
       />

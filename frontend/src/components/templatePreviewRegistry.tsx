@@ -35,7 +35,7 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
     subtitle: "Broadcast news package — ticker, lower third, glass panels, and data beats",
   },
   blackswan: {
-    title: "BLACKSWAN",
+    title: "Black Swan",
     subtitle: "Neon-on-black cinematic ripples, swan energy, and data scenes",
   },
 };
