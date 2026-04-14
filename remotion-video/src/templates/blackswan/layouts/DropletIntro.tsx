@@ -203,7 +203,7 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
               fontWeight: 400,
               ...neonTitleTubeStyle(accentColor, { bgColor }),
               letterSpacing: "0.12em",
-              textTransform: "uppercase",
+              textTransform: "capitalize", // Modified from "uppercase" to "capitalize"
               lineHeight: 1.2,
               textAlign: "center",
             }}>

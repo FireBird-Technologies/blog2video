@@ -18,6 +18,15 @@ function deriveMetrics(narration: string) {
   });
 }
 
+// Helper function to capitalize the first letter of each word
+const capitalizeWords = (str: string) => {
+  if (!str) return '';
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
   const {
     title,
@@ -43,7 +52,7 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
   const narOp     = interpolate(frame, [30, 50], [0, 1], { extrapolateRight: "clamp" });
   const narY      = interpolate(frame, [30, 50], [10, 0], { extrapolateRight: "clamp" });
 
-  const metricNumSize = titleFontSize ?? (p ? 80 : 72);
+  const metricNumSize = titleFontSize ?? (p ? 80 : 81);
   const suffixSize    = metricNumSize * 0.32;
   const labelSize     = descriptionFontSize ?? (p ? 28 : 33);
   const narSize       = descriptionFontSize ?? (p ? 28 : 33);
@@ -95,18 +104,18 @@ export const PulseMetric: React.FC<BlackswanLayoutProps> = (props) => {
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 80 : 72),
+            fontSize: titleFontSize ?? (p ? 80 : 81),
             fontWeight: 400,
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
             letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            // textTransform: "uppercase", // Removed uppercase transformation
             textAlign: "center",
             paddingLeft: "6%",
             paddingRight: "6%",
           }}
         >
-          {title}
+          {capitalizeWords(title)} {/* Apply capitalizeWords helper */}
         </h1>
 
         {/* Neon accent line under title */}

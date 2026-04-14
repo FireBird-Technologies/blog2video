@@ -19,6 +19,20 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
+/**
+ * Converts a string to title case, where each word starts with a capital letter
+ * and the rest of the letters are lowercase. Handles multiple spaces between words.
+ */
+function toTitleCase(str: string): string {
+  return str.split(/\s+/) // Split by one or more whitespace characters
+            .filter(Boolean) // Remove any empty strings resulting from multiple spaces
+            .map(word => {
+              if (word.length === 0) return '';
+              return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join(' ');
+}
+
 // ── Node component ──────────────────────────────────────────────────────────
 const PathNode: React.FC<{
   index: number;
@@ -156,8 +170,8 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
   const titleY  = interpolate(frame, [0, 20],  [12, 0], { extrapolateRight: "clamp" });
 
   // ── Font/size tokens (all driven by the two sliders) ──
-  const descFS  = descriptionFontSize ?? (p ? 32 : 27);
-  const titleFS = titleFontSize ?? (p ? 74 : 80);
+  const descFS  = descriptionFontSize ?? (p ? 32 : 31);
+  const titleFS = titleFontSize ?? (p ? 73 : 80);
   const nodeD   = Math.round(descFS * 2.6);   // circle diameter
   const numFS   = Math.round(descFS * 0.95);  // number inside circle
   const labelFS = Math.round(descFS * 1.3);   // node label
@@ -226,11 +240,10 @@ export const FlightPath: React.FC<BlackswanLayoutProps> = (props) => {
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
             letterSpacing: "0.12em",
-            textTransform: "uppercase",
             textAlign: "center",
           }}
         >
-          {title}
+          {toTitleCase(title)}
         </h1>
         <div
           style={{

@@ -52,8 +52,8 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
   const terminalOp = interpolate(frame, [6, 24],  [0, 1], { extrapolateRight: "clamp" });
 
   // Font sizes — driven by sliders, same pattern as DropletIntro
-  const titleSize = titleFontSize ?? (p ? 81 : 76);
-  const codeSize  = descriptionFontSize ?? (p ? 33 : 32);
+  const titleSize = titleFontSize ?? (p ? 81 : 88);
+  const codeSize  = descriptionFontSize ?? (p ? 33 : 35);
   const lineNumSize = codeSize * 0.75;
 
   const getLineColor = (line: string): string => {
@@ -63,6 +63,16 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
     if (/["']/.test(line)) return pal.core;
     return pal.core;
   };
+
+  // Capitalize each word of the title
+  const capitalizedTitle = useMemo(() => {
+    if (!title) return "";
+    return title
+      .split(/\s+/) // Split by one or more whitespace characters
+      .filter(Boolean) // Remove any empty strings (e.g., from leading/trailing spaces or multiple spaces)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }, [title]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
@@ -96,11 +106,11 @@ export const ReactorCode: React.FC<BlackswanLayoutProps> = (props) => {
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
             letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            // textTransform: "uppercase", // Removed to allow custom capitalization
             textAlign: "center",
           }}
         >
-          {title}
+          {capitalizedTitle}
         </h1>
 
         {/* Accent line */}
