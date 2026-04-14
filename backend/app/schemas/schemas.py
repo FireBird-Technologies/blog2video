@@ -201,6 +201,7 @@ class ProjectOut(BaseModel):
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
     custom_template_missing: bool = False
+    brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
     created_at: datetime
     updated_at: datetime
