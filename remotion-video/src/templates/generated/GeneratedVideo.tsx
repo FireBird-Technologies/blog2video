@@ -37,6 +37,7 @@ import OutroScene from "./SceneOutro";
 // with imports of SceneContent0, SceneContent1, etc.
 import { CONTENT_VARIANTS } from "./contentRegistry";
 import { GeneratedTransition } from "./GeneratedTransition";
+import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -280,7 +281,19 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <SceneComp {...sceneProps} />
+            {scene.ctaProps ? (
+              <GeneratedCtaOverlay
+                ctaProps={scene.ctaProps}
+                brandColors={brandColors}
+                aspectRatio={(data.aspectRatio as "landscape" | "portrait") || "landscape"}
+                headingFont={headingFont}
+                bodyFont={bodyFont}
+                title={sceneProps.displayText}
+                logoUrl={sceneProps.logoUrl}
+              />
+            ) : (
+              <SceneComp {...sceneProps} />
+            )}
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} />
             )}

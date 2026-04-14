@@ -26,7 +26,7 @@ import MyVoices from "./MyVoices";
 import type { VideoStyleId } from "../constants/videoStyles";
 
 const BULK_PENDING_IDS_KEY = "b2v_bulk_pending_ids";
-const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error"]);
+const BULK_TERMINAL_STATUSES = new Set(["generated", "done", "error", "failed"]);
 
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -311,7 +311,10 @@ export default function Dashboard() {
         );
       } else {
         console.error("Failed to create project:", err);
-        showError(getErrorMessage(err));
+        showError(
+          getErrorMessage(err),
+          uploadFiles && uploadFiles.length > 0 ? { variant: "pipeline" } : undefined,
+        );
       }
     } finally {
       setCreating(false);

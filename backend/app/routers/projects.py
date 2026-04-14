@@ -33,6 +33,10 @@ from app.services.remotion import (
     cancel_running_render,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.project_cleanup import (
+    remove_failed_generation_project,
+    PUBLIC_MSG_PIPELINE_FAILED,
+)
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
@@ -50,9 +54,20 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
         data = _load_custom_template_data(project.template, db=db)
         project.custom_theme = data["theme"] if data else None
         project.custom_template_missing = data is None
+        # Expose BrandKit logo URL so the frontend preview can show it
+        brand_logo_url = None
+        if data:
+            bk = data.get("brand_kit")
+            if bk:
+                logos = bk.get("logos") or []
+                if logos:
+                    first = logos[0]
+                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
+        project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
         project.custom_template_missing = False
+        project.brand_logo_url = None
     return project
 
 
@@ -866,9 +881,27 @@ def create_project_from_upload(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after extraction error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -916,9 +949,27 @@ def upload_documents_to_project(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after upload-documents error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
