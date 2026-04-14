@@ -33,6 +33,7 @@ import "@fontsource/lora/700.css";
 import "@fontsource/fira-code/400.css";
 import "@fontsource/fira-code/600.css";
 import "@fontsource/fira-code/700.css";
+import "@fontsource/righteous/400.css";
 
 export type FontId =
   | "inter"
