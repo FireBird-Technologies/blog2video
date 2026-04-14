@@ -21,7 +21,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const stream = items && items.length > 0 ? items : [title];
   const streamItems = stream.slice(0, 8);
-  const boxBuild = interpolate(frame, [0, 74], [0, 1], {
+  const boxBuild = interpolate(frame, [0, 140], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -38,11 +38,11 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
         bgColor={bgColor}
         accentColor={accentColor}
         variant="streamField"
-        frameReveal={motion.entry}
-        frameDrift={motion.entry}
+        frameReveal={boxBuild * motion.exit}
+        frameDrift={boxBuild}
         tileBuildProgress={boxBuild}
-        tileEntryPattern="diagonal"
-        tileEntryIntensity={28}
+        tileEntryPattern="center"
+        tileEntryIntensity={13}
         tileExitProgress={tileExit}
         tileExitSeed={37}
         tileExitIntensity={31}
@@ -80,7 +80,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                     marginTop: 6,
                     width: 6,
                     height: 44,
-                    background: isActive ? "#C18034" : "#2A4858",
+                    background: isActive ? MOSAIC_COLORS.gold : "rgba(42,42,40,0.35)",
                   }}
                 />
                 <div
@@ -89,7 +89,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                     color: textColor || MOSAIC_COLORS.textPrimary,
                     fontSize: titleFontSize ?? 34,
                     lineHeight: 1.2,
-                    borderBottom: "1px solid rgba(212,175,55,0.25)",
+                    borderBottom: "1px solid rgba(42,42,40,0.2)",
                     paddingBottom: 10 * out,
                   }}
                 >
@@ -102,7 +102,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
         <div
           style={{
             marginTop: 16,
-            color: "#3A6070",
+            color: MOSAIC_COLORS.textSecondary,
             fontFamily: family,
             fontSize: descriptionFontSize ?? 20,
             opacity: 0.9,

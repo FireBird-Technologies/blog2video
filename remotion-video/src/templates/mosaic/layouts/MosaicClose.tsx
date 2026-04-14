@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { MosaicBackground } from "../MosaicBackground";
+import { MosaicTiledText } from "../MosaicTiledText";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { getSceneTransition } from "../transitions";
 import type { MosaicLayoutProps } from "../types";
@@ -21,12 +22,14 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 24, 14);
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
-  const inOpacity = interpolate(frame, [0, 24], [0, 1], { extrapolateRight: "clamp" });
+  // Text starts at frame 65 (≈56% of tile sweep done)
+  const contentStart = 65;
+  const inOpacity = interpolate(frame, [contentStart, contentStart + 36], [0, 1], { extrapolateRight: "clamp" });
   const outBlur = interpolate(frame, [Math.max(0, durationInFrames - 14), durationInFrames], [0, 6], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const tileEntry = interpolate(frame, [0, 30], [0, 1], {
+  const tileEntry = interpolate(frame, [0, 115], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -36,7 +39,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
-  const sharpen = interpolate(frame, [0, 18], [6, 0], { extrapolateRight: "clamp" }) + outBlur;
+  const sharpen = interpolate(frame, [contentStart, contentStart + 20], [6, 0], { extrapolateRight: "clamp" }) + outBlur;
   const phrase = (highlightPhrase || "").trim();
   const out =
     phrase && title.includes(phrase)
@@ -49,45 +52,45 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
         bgColor={bgColor}
         accentColor={accentColor}
         variant="closeField"
-        frameReveal={motion.entry}
-        frameDrift={motion.entry}
+        frameReveal={tileEntry * motion.exit}
+        frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
         tileEntryPattern="center"
-        tileEntryIntensity={20}
+        tileEntryIntensity={13}
         tileExitProgress={tileExit}
         tileExitSeed={43}
         tileExitIntensity={24}
       />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 12%" }}>
         <div style={{ opacity: inOpacity * motion.exit, filter: `blur(${sharpen}px)` }}>
-          <div style={{ height: 1, background: "#1E3040", width: 90, margin: "0 auto 22px" }} />
+          <div style={{ height: 1, background: "rgba(42,42,40,0.35)", width: 90, margin: "0 auto 22px" }} />
           <div
             style={{
               fontFamily: family,
               fontSize: titleFontSize ?? 58,
-              color: textColor || "#D4A860",
+              color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.34,
             }}
           >
             {out.split("__HL__").map((part, i) =>
               i % 2 === 1 ? (
                 <span key={`hl-${i}`} style={{ color: accentColor || MOSAIC_COLORS.gold, borderBottom: `1px solid ${accentColor || MOSAIC_COLORS.gold}` }}>
-                  {part}
+                  <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.2} />
                 </span>
               ) : (
-                <span key={`tx-${i}`}>{part}</span>
+                <MosaicTiledText key={`tx-${i}`} text={part} revealProgress={tileEntry} speed={1.2} />
               ),
             )}
           </div>
           <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 24, color: MOSAIC_COLORS.textSecondary }}>
-            {narration}
+            <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} />
           </div>
           {cta ? (
-            <div style={{ marginTop: 22, color: "#7A9E90", fontFamily: family, fontSize: 18, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            <div style={{ marginTop: 22, color: MOSAIC_COLORS.textSecondary, fontFamily: family, fontSize: 18, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               {cta}
             </div>
           ) : null}
-          <div style={{ height: 1, background: "#1E3040", width: 90, margin: "22px auto 0" }} />
+          <div style={{ height: 1, background: "rgba(42,42,40,0.35)", width: 90, margin: "22px auto 0" }} />
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

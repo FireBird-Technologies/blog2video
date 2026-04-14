@@ -1,6 +1,7 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { MosaicBackground } from "../MosaicBackground";
+import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { TileWordSvg } from "../mosaicPrimitives";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
@@ -9,6 +10,7 @@ import type { MosaicLayoutProps } from "../types";
 export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   title,
   narration,
+  imageUrl,
   accentColor,
   bgColor,
   textColor,
@@ -19,15 +21,20 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 34, 24);
-  const titleIn = getStaggeredReveal(frame, 0, 34);
-  const subIn = getStaggeredReveal(frame, 14, 28);
-  const taglineIn = getStaggeredReveal(frame, 26, 24);
-  const borderSettle = getStaggeredReveal(frame, 4, 30);
-  const seamDraw = getStaggeredReveal(frame, 12, 24);
-  const tileEntry = interpolate(frame, [0, 34], [0, 1], {
+  // Tile sweep — 130 frames ≈ 4.3s
+  const tileEntry = interpolate(frame, [0, 130], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  // Content starts at frame 72 (≈55% of tile sweep done)
+  const contentStart = 72;
+  const titleIn        = getStaggeredReveal(frame, contentStart,      45);
+  const titleBlocksIn  = getStaggeredReveal(frame, contentStart,      80);
+  const subIn          = getStaggeredReveal(frame, contentStart + 12, 34);
+  const taglineIn      = getStaggeredReveal(frame, contentStart + 24, 30);
+  // Border builds IN SYNC with tiles from frame 0
+  const borderSettle   = getStaggeredReveal(frame, 0, 110);
+  const seamDraw       = getStaggeredReveal(frame, contentStart + 10, 30);
   const tileExit = interpolate(
     frame,
     [Math.max(0, durationInFrames - 24), durationInFrames],
@@ -40,6 +47,11 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  // Image reveals after tiles are ~70% done
+  const imageReveal = interpolate(frame, [90, 155], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
 
   return (
@@ -49,14 +61,36 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
         accentColor={accentColor}
         variant="titleBands"
         frameReveal={borderSettle * motion.exit}
-        frameDrift={0.3 + motion.entry * 0.7}
+        frameDrift={0.3 + tileEntry * 0.7}
         tileBuildProgress={tileEntry}
         tileEntryPattern="center"
-        tileEntryIntensity={22}
+        tileEntryIntensity={13}
         tileExitProgress={tileExit}
         tileExitSeed={19}
         tileExitIntensity={26}
       />
+
+      {/* ── Full-bleed image revealed tile-by-tile with center ripple ── */}
+      {imageUrl && (
+        <MosaicImageReveal
+          imageUrl={imageUrl}
+          revealProgress={tileEntry}
+          clarityProgress={imageReveal}
+          pattern="center"
+          intensity={13}
+          style={{ opacity: motion.exit }}
+          overlay={
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(160deg, rgba(234,228,218,0.55) 0%, rgba(234,228,218,0.38) 100%)",
+              }}
+            />
+          }
+        />
+      )}
+
       <AbsoluteFill
         style={{
           alignItems: "center",
@@ -74,7 +108,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             fontStyle: "italic",
             fontSize: 22,
             letterSpacing: "0.22em",
-            color: "#3A6070",
+            color: MOSAIC_COLORS.textSecondary,
             textTransform: "uppercase",
             opacity: subIn * 0.9 * motion.exit,
             marginBottom: 22,
@@ -82,6 +116,8 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
         >
           Tesserae - Mosaic Template System
         </div>
+
+        {/* ── Title word — 4px tiles, 0px gap, LTR sweep ───────── */}
         <div
           style={{
             width: "100%",
@@ -92,27 +128,30 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
         >
           <TileWordSvg
             text={title || "TESSERAE"}
-            tileSize={titleFontSize ? Math.max(Math.floor(titleFontSize / 10), 8) : 11}
-            gap={1}
-            revealProgress={titleIn}
-            revealMode="cluster"
+            tileSize={4}
+            gap={0}
+            revealProgress={titleBlocksIn}
+            revealMode="linear"
             exitProgress={exitBreak}
             colors={["#E0B870", "#D4A860", "#DAA040", "#C87828", "#D06030", "#C03820", "#A83018", "#4A7880"]}
             style={{ width: "100%", height: "auto", aspectRatio: "7 / 1.3" }}
           />
         </div>
+
+        {/* ── Narration word — 4px tiles, 0px gap, LTR sweep ───── */}
         <div style={{ width: "100%", maxWidth: 580, marginTop: 12, opacity: subIn * motion.exit }}>
           <TileWordSvg
             text={narration || "STONE"}
-            tileSize={descriptionFontSize ? Math.max(Math.floor(descriptionFontSize / 6), 5) : 7}
-            gap={1}
+            tileSize={4}
+            gap={0}
             revealProgress={subIn}
-            revealMode="diagonal"
+            revealMode="linear"
             exitProgress={exitBreak * 0.8}
             colors={["#4A7880", "#5A9090", "#3A6070"]}
             style={{ width: "100%", height: "auto", aspectRatio: "7 / 1.1" }}
           />
         </div>
+
         <div
           style={{
             marginTop: 16,
@@ -128,7 +167,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             fontFamily: family,
             fontStyle: "italic",
             fontSize: descriptionFontSize ?? 36,
-            color: "#4A7880",
+            color: MOSAIC_COLORS.textSecondary,
             opacity: taglineIn * motion.exit,
             transform: `translateY(${(1 - taglineIn) * 12 + (1 - motion.exit) * 8}px)`,
           }}

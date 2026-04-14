@@ -49,7 +49,7 @@ class BlogToScript(dspy.Signature):
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
     - video_length values: auto | short | medium | detailed
-    - short: best-effort 7–10 scenes (cap at 10).
+    - short: best-effort 6–8 scenes (cap at 8).
     - medium: best-effort 12–15 scenes (cap at 15).
     - detailed: best-effort 15–20 scenes (cap at 20).
     - auto: choose a natural scene count based on scraped blog_content length and structure,
@@ -120,7 +120,7 @@ class BlogToScript(dspy.Signature):
     - Think about the **entire video** as a sequence — layout choices should feel like a deliberate visual journey, not random picks.
 
     ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
-    - short (7–10 scenes): use at least 7 distinct layouts. Max 2 scenes may share the same layout.
+    - short (6–8 scenes): use at least 6 distinct layouts. Max 2 scenes may share the same layout.
     - medium (12–15 scenes): use at least 9 distinct layouts. Max 2 scenes may share the same layout.
     - detailed (15–20 scenes): use at least 10 distinct layouts. Max 4 scenes may share the same layout.
     - For any other length: use at least ceil(total_scenes * 0.7) distinct layouts.
@@ -243,6 +243,32 @@ class BlogToScript(dspy.Signature):
 class ScriptGenerator:
     """Service that uses DSPy to generate video scripts from blog content."""
 
+    @staticmethod
+    def _coerce_text_str(value: object) -> str:
+        """LLM output may use nested objects for text fields; coerce to str for .strip() / DB."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False)
+        return str(value)
+
+    @staticmethod
+    def _coerce_layout_str(value: object) -> str:
+        """preferred_layout / cta should be a single string; models sometimes return a small dict."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, dict):
+            for key in ("layout", "id", "name", "preferred_layout", "value", "cta_button_text"):
+                inner = value.get(key)
+                if isinstance(inner, str) and inner.strip():
+                    return inner.strip()
+            return ""
+        return ""
+
     def __init__(self):
         ensure_dspy_configured()
         self._generator = dspy.ChainOfThought(BlogToScript)
@@ -295,8 +321,11 @@ class ScriptGenerator:
             fallback_ending_scene=fallback_ending,
         )
 
+        title_raw = getattr(result, "title", None)
+        title_str = self._coerce_text_str(title_raw).strip() or "Untitled"
+
         return {
-            "title": result.title,
+            "title": title_str,
             "scenes": scenes,
         }
 
@@ -340,7 +369,7 @@ class ScriptGenerator:
         """Maximum number of scenes allowed for the given video length category."""
         vl = (video_length or "auto").strip().lower()
         if vl == "short":
-            return 10
+            return 8
         if vl == "medium":
             return 15
         if vl == "detailed":
@@ -385,7 +414,7 @@ class ScriptGenerator:
         out: list[dict] = []
         last_i = len(trimmed) - 1
         for i, scene in enumerate(trimmed):
-            pl_raw = (scene.get("preferred_layout") or "").strip()
+            pl_raw = self._coerce_layout_str(scene.get("preferred_layout"))
             pl_norm = self._norm_layout_key(pl_raw)
 
             if include_ending_socials and i == last_i:
@@ -413,6 +442,13 @@ class ScriptGenerator:
         - Narration text is normalized for whitespace only.
         """
         try:
+            # Model may return a parsed object or non-string; normalize before .strip() / json.loads
+            if not isinstance(scenes_json, str):
+                if isinstance(scenes_json, (dict, list)):
+                    scenes_json = json.dumps(scenes_json)
+                else:
+                    scenes_json = str(scenes_json)
+
             # Try to extract JSON from the response (it might have markdown code fences)
             cleaned = scenes_json.strip()
             if cleaned.startswith("```"):
@@ -435,17 +471,19 @@ class ScriptGenerator:
 
             validated = []
             for i, scene in enumerate(kept):
-                narration = scene.get("narration", "").strip()
+                narration = self._coerce_text_str(scene.get("narration")).strip()
                 narration = " ".join(narration.split())
 
-                preferred_layout_raw = (scene.get("preferred_layout") or "").strip()
+                preferred_layout_raw = self._coerce_layout_str(scene.get("preferred_layout"))
                 preferred_layout: str | None = preferred_layout_raw or None
 
-                cta_btn = (scene.get("cta_button_text") or "").strip()
+                cta_btn = self._coerce_layout_str(scene.get("cta_button_text"))
+                title_s = self._coerce_text_str(scene.get("title")).strip() or f"Scene {i + 1}"
+                vd_s = self._coerce_text_str(scene.get("visual_description")).strip()
                 row = {
-                    "title": scene.get("title", f"Scene {i + 1}"),
+                    "title": title_s,
                     "narration": narration,
-                    "visual_description": scene.get("visual_description", ""),
+                    "visual_description": vd_s,
                     "suggested_images": scene.get("suggested_images", []),
                     "duration_seconds": scene.get("duration_seconds", 10),
                     # May be a layout ID (built-in templates) or an arrangement name (custom templates)

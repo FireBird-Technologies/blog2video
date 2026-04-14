@@ -4,7 +4,7 @@ export const defaultCta: PageCta = {
   title: "Turn your existing content into a video this week",
   body:
     "Paste a URL, upload a document, or use an existing newsletter archive and convert it into a polished video without starting from a blank timeline.",
-  primaryLabel: "Start with your first video",
+  primaryLabel: "Start with 3 free videos",
   primaryHref: "/",
   secondaryLabel: "See pricing",
   secondaryHref: "/pricing",
@@ -143,11 +143,10 @@ export const templateProfiles: TemplateProfile[] = [
       "side_by_side_brief",
       "segment_break",
       "field_image_focus",
-      "data_visualization",
       "ending_socials",
     ],
     longDescription:
-      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, Field Image Focus, and data visualization — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
+      "Newscast is a broadcast-style template built for content that should feel like it belongs on a news desk. Deep navy fields, crimson accents, steel type, optional full-bleed plates, and persistent ticker and lower-third chrome frame every scene. Layouts range from Newscast Opening and Anchor Narrative to Live Metrics Board, Briefing Code Panel, Headline Insight, Side-by-Side Brief, Segment Break, and Field Image Focus — so briefings, roundups, and analysis read as authoritative on-air segments rather than slideshows.",
     idealFor: [
       "Weekly briefings and industry roundups",
       "Policy and regulatory explainers",

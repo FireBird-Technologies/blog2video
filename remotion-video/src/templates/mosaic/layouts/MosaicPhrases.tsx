@@ -22,7 +22,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   
   // Custom Buildup Logic
-  const boxBuild = interpolate(frame, [0, 60], [0, 1], {
+  const boxBuild = interpolate(frame, [0, 130], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -56,11 +56,11 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         bgColor={bgColor}
         accentColor={accentColor}
         variant="phrasesFrame"
-        frameReveal={motion.entry}
-        frameDrift={motion.entry}
+        frameReveal={boxBuild * motion.exit}
+        frameDrift={boxBuild}
         tileBuildProgress={boxBuild}
         tileEntryPattern="center"
-        tileEntryIntensity={20}
+        tileEntryIntensity={11}
         tileExitProgress={tileExit}
         tileExitSeed={29}
         tileExitIntensity={24}
@@ -79,35 +79,35 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         {/* TOP LEFT TILE: System Status */}
         <div style={{
           gridColumn: "1",
-          border: "1px solid rgba(212, 168, 96, 0.2)",
+          border: "1px solid rgba(42,42,40,0.18)",
           padding: 15,
-          background: "rgba(17,24,32,0.6)",
+          background: "rgba(234,228,218,0.7)",
           opacity: interpolate(panelSpring(10), [0, 1], [0, 1]),
           transform: `translateX(${interpolate(panelSpring(10), [0, 1], [-20, 0])}px)`
         }}>
-          <div style={{ color: accentColor || "#D4A860", fontSize: 12, letterSpacing: 2, fontFamily: family }}>STATUS: ACTIVE</div>
-          <div style={{ height: 2, width: "100%", background: accentColor || "#D4A860", marginTop: 8, opacity: 0.3 }} />
+          <div style={{ color: accentColor || MOSAIC_COLORS.gold, fontSize: 12, letterSpacing: 2, fontFamily: family }}>STATUS: ACTIVE</div>
+          <div style={{ height: 2, width: "100%", background: accentColor || MOSAIC_COLORS.gold, marginTop: 8, opacity: 0.3 }} />
         </div>
 
         {/* MAIN CENTER MOSAIC (The Bento Primary Tile) */}
         <div style={{ 
           gridColumn: "2",
-          border: "1px solid #1E3040", 
+          border: "1px solid rgba(42,42,40,0.22)", 
           padding: "60px 40px", 
-          background: "rgba(17,24,32,0.9)", 
+          background: "rgba(234,228,218,0.92)", 
           position: "relative", 
-          boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+          boxShadow: "0 20px 50px rgba(42,42,40,0.12)",
           opacity: motion.presence,
           transform: `scale(${interpolate(panelSpring(5), [0, 1], [0.95, 1])})`,
         }}>
-          <div style={{ color: "#4A7080", fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
+          <div style={{ color: "#6B645E", fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
             Central Processing
           </div>
           <div style={{
               marginTop: 20,
               fontFamily: family,
               fontSize: titleFontSize ?? 54,
-              color: textColor || "#D4A860",
+              color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.1,
               opacity: fade,
           }}>
@@ -122,16 +122,16 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         <div style={{
           gridColumn: "3",
           gridRow: "3",
-          borderLeft: `4px solid ${accentColor || "#D4A860"}`,
+          borderLeft: `4px solid ${accentColor || MOSAIC_COLORS.gold}`,
           padding: 15,
-          background: "rgba(17,24,32,0.6)",
+          background: "rgba(234,228,218,0.7)",
           opacity: interpolate(panelSpring(20), [0, 1], [0, 1]),
           transform: `translateY(${interpolate(panelSpring(20), [0, 1], [20, 0])}px)`
         }}>
-          <div style={{ color: "#FFF", fontSize: 14, fontFamily: family, opacity: 0.8 }}>
+          <div style={{ color: MOSAIC_COLORS.textPrimary, fontSize: 14, fontFamily: family, opacity: 0.8 }}>
             SEC_ID: 00{idx + 1}
           </div>
-          <div style={{ color: "#4A7080", fontSize: 10, fontFamily: family, marginTop: 4 }}>
+          <div style={{ color: MOSAIC_COLORS.textSecondary, fontSize: 10, fontFamily: family, marginTop: 4 }}>
             INLAID SEQUENCE V2.6
           </div>
         </div>

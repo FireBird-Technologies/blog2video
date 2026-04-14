@@ -3,24 +3,24 @@ import { AbsoluteFill } from "remotion";
 import { MOSAIC_COLORS } from "./constants";
 
 type FrameDensity = "dense" | "soft";
-type TileRevealMode = "linear" | "diagonal" | "cluster" | "center";
+type TileRevealMode = "linear" | "diagonal" | "cluster";
 
 const BORDER_PALETTE = [
-  "#912E1B",
-  "#111D2C",
-  "#B63C22",
-  "#1C3348",
-  "#C44B24",
-  "#18283A",
-  "#A3672C",
-  "#24485D",
-  "#C18034",
-  "#2A5468",
-  "#D2602E",
-  "#4A7D8F",
+  "#DAD1C2",
+  "#E4DCCF",
+  "#C26240",
+  "#D6CEC1",
+  "#CFC6B8",
+  "#C8785A",
+  "#EAE4DA",
+  "#B8AFA0",
+  "#D4956A",
+  "#E0D6C8",
+  "#C26240",
+  "#F2EDE4",
 ];
 
-const SHARD_PALETTE = ["#C84A2A", "#BF7A30", "#2E6077", "#A7361C", "#4B7A8E"];
+const SHARD_PALETTE = ["#C26240", "#D4956A", "#B8AFA0", "#C8785A", "#DAD1C2"];
 
 const TILE_FONT: Record<string, string[]> = {
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
@@ -75,56 +75,32 @@ export const MosaicFrame: React.FC<{
   const tile = density === "dense" ? 18 : 14;
   const topCols = density === "dense" ? 44 : 58;
   const sideRows = density === "dense" ? 24 : 30;
-  const totalTiles = topCols * 2 + sideRows * 2;
-  const progress = clamp01(revealProgress);
-
-  const getTileReveal = (order: number) => {
-    const start = order / Math.max(totalTiles - 1, 1);
-    // Small overlap keeps the build feeling fluid instead of step-jumping.
-    return clamp01((progress - start) * 22);
-  };
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none", inset }}>
       <svg width="100%" height="100%" viewBox="0 0 800 450" preserveAspectRatio="none">
-        <g>
+        <g opacity={opacity * revealProgress}>
           {Array.from({ length: topCols }).map((_, i) => (
             <React.Fragment key={`top-${i}`}>
-              <rect
-                x={i * tile}
-                y={0}
-                width={tile - 1}
-                height={tile - 1}
-                fill={pick(BORDER_PALETTE, i)}
-                opacity={opacity * getTileReveal(i)}
-              />
+              <rect x={i * tile} y={0} width={tile - 1} height={tile - 1} fill={pick(BORDER_PALETTE, i)} />
               <rect
                 x={i * tile}
                 y={450 - tile}
                 width={tile - 1}
                 height={tile - 1}
                 fill={pick(BORDER_PALETTE, i + 11)}
-                opacity={opacity * getTileReveal(topCols + sideRows + i)}
               />
             </React.Fragment>
           ))}
           {Array.from({ length: sideRows }).map((_, i) => (
             <React.Fragment key={`side-${i}`}>
-              <rect
-                x={0}
-                y={tile + i * tile}
-                width={tile - 1}
-                height={tile - 1}
-                fill={pick(BORDER_PALETTE, i + 7)}
-                opacity={opacity * getTileReveal(topCols * 2 + sideRows + i)}
-              />
+              <rect x={0} y={tile + i * tile} width={tile - 1} height={tile - 1} fill={pick(BORDER_PALETTE, i + 7)} />
               <rect
                 x={800 - tile}
                 y={tile + i * tile}
                 width={tile - 1}
                 height={tile - 1}
                 fill={pick(BORDER_PALETTE, i + 17)}
-                opacity={opacity * getTileReveal(topCols + i)}
               />
             </React.Fragment>
           ))}
@@ -170,10 +146,10 @@ export const MosaicRadialGuides: React.FC<{
   accentColor?: string;
 }> = ({ centerX = 400, centerY = 225, accentColor }) => (
   <svg width="100%" height="100%" viewBox="0 0 800 450" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-    <circle cx={centerX} cy={centerY} r={170} stroke="#14283A" strokeWidth={1} fill="none" opacity={0.42} />
-    <circle cx={centerX} cy={centerY} r={125} stroke="#193246" strokeWidth={1} fill="none" opacity={0.34} />
-    <circle cx={centerX} cy={centerY} r={78} stroke="#1E3C50" strokeWidth={0.8} fill="none" opacity={0.28} />
-    <circle cx={centerX} cy={centerY} r={45} stroke="#162739" strokeWidth={0.7} fill="none" opacity={0.22} />
+    <circle cx={centerX} cy={centerY} r={170} stroke="#B8AFA0" strokeWidth={1} fill="none" opacity={0.42} />
+    <circle cx={centerX} cy={centerY} r={125} stroke="#CFC6B8" strokeWidth={1} fill="none" opacity={0.34} />
+    <circle cx={centerX} cy={centerY} r={78} stroke="#DAD1C2" strokeWidth={0.8} fill="none" opacity={0.28} />
+    <circle cx={centerX} cy={centerY} r={45} stroke="#E4DCCF" strokeWidth={0.7} fill="none" opacity={0.22} />
     <line x1={centerX} y1={30} x2={centerX} y2={420} stroke={accentColor || MOSAIC_COLORS.gold} strokeWidth={1} opacity={0.25} />
     <line x1={60} y1={centerY} x2={740} y2={centerY} stroke={accentColor || MOSAIC_COLORS.gold} strokeWidth={1} opacity={0.25} />
   </svg>
@@ -187,7 +163,6 @@ export const TileWordSvg: React.FC<{
   style?: React.CSSProperties;
   revealProgress?: number;
   revealMode?: TileRevealMode;
-  revealDiscrete?: boolean;
   exitProgress?: number;
 }> = ({
   text,
@@ -197,7 +172,6 @@ export const TileWordSvg: React.FC<{
   style,
   revealProgress = 1,
   revealMode = "linear",
-  revealDiscrete = false,
   exitProgress = 0,
 }) => {
   const palette = colors && colors.length > 0 ? colors : ["#D06030", "#C03820", "#C87828", "#E0B870", "#4A7880", "#5A9090"];
@@ -217,23 +191,6 @@ export const TileWordSvg: React.FC<{
   const widthUnits = Math.max(cursor - 1, 1);
   const width = widthUnits * (tileSize + gap);
   const height = 7 * (tileSize + gap);
-  const totalFilledTiles = placements.reduce((sum, placement) => {
-    if (placement.char === " ") {
-      return sum;
-    }
-    const glyph = TILE_FONT[placement.char] || TILE_FONT.E;
-    const filled = glyph.reduce(
-      (glyphSum, row) => glyphSum + row.split("").filter((cell) => cell === "1").length,
-      0,
-    );
-    return sum + filled;
-  }, 0);
-  const steppedRevealProgress = revealDiscrete
-    ? Math.floor(clamp01(revealProgress) * Math.max(totalFilledTiles, 1)) /
-      Math.max(totalFilledTiles, 1)
-    : clamp01(revealProgress);
-  const centerX = widthUnits / 2;
-  const centerY = 3;
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" style={style}>
@@ -257,20 +214,13 @@ export const TileWordSvg: React.FC<{
             const diagonalOrder = nx * 0.72 + ny * 0.28;
             const clusterBand = ((Math.floor(gx / 2) + Math.floor(y / 2)) % 5) / 5;
             const clusterOrder = nx * 0.5 + ny * 0.35 + clusterBand * 0.35;
-            const dx = gx - centerX;
-            const dy = y - centerY;
-            const centerDistanceOrder = clamp01(Math.sqrt(dx * dx + dy * dy) / Math.max(widthUnits * 0.5, 1));
-            const tieBreaker = (colorSeed % 17) * 0.0018;
             const revealOrder =
-              revealMode === "center"
-                ? clamp01(centerDistanceOrder * 0.94 + tieBreaker)
-              :
               revealMode === "cluster"
                 ? clamp01(clusterOrder * 0.9)
                 : revealMode === "diagonal"
                   ? clamp01(diagonalOrder * 0.9)
                   : clamp01(linearOrder);
-            const isVisibleIn = steppedRevealProgress >= revealOrder;
+            const isVisibleIn = revealProgress >= revealOrder;
             const isVisibleOut = exitProgress <= 1 - revealOrder;
             return (
               <rect
@@ -303,7 +253,7 @@ export const DiamondIndicators: React.FC<{
           width: 8,
           height: 8,
           transform: "rotate(45deg)",
-          background: index === activeIndex ? activeColor || "#C03820" : "#1E3040",
+          background: index === activeIndex ? activeColor || "#C26240" : "#DAD1C2",
           transition: "background 160ms ease",
         }}
       />

@@ -1,32 +1,43 @@
+import asyncio
+import json
 import logging
 import os
 import shutil
 import time
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.config import settings
 from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
 from app.models.review import Review
 from app.models.scene import Scene
+from app.models.project_template_change_job import ProjectTemplateChangeJob
 from app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectListOut, ProjectLogoUpdate,
     BulkProjectItem, BulkCreateResponse,
     ReviewOut, ReviewStateOut, ReviewSubmit, ReviewSubmitResponse, SceneOut,
     SceneUpdate, ReorderScenesRequest, RegenerateSceneRequest,
-    SceneTypographyBulkUpdate, ProjectUpdate
+    SceneTypographyBulkUpdate, ProjectUpdate, ProjectTemplateChangeRequest,
+    ProjectTemplateChangeJobOut,
 )
 from app.services import r2_storage
-from app.services.remotion import safe_remove_workspace, get_workspace_dir
+from app.services.remotion import (
+    safe_remove_workspace,
+    get_workspace_dir,
+    cancel_running_render,
+)
 from app.services.doc_extractor import extract_from_documents
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
+from app.services.social_content_signals import detect_social_platforms_in_text
+from app.scene_cta import strip_b2v_cta_from_visual
 from app.observability.logging import get_logger
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -101,6 +112,7 @@ _ALLOWED_MIME_TYPES = {
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
+_ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -150,6 +162,223 @@ def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
 
     # Safety net: never exceed DB column length.
     return normalized[:10]
+
+
+def _extract_scene_layout_from_descriptor(scene: Scene, template_id: str) -> str | None:
+    if not scene.remotion_code:
+        return None
+    try:
+        descriptor = json.loads(scene.remotion_code)
+    except Exception:
+        return None
+    return _extract_layout_from_descriptor_obj(descriptor, template_id)
+
+
+def _extract_layout_from_descriptor_obj(descriptor: object, template_id: str) -> str | None:
+    if is_custom_template(template_id):
+        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if isinstance(cfg, dict):
+            arr = cfg.get("arrangement")
+            return arr if isinstance(arr, str) else None
+        return None
+    layout = descriptor.get("layout") if isinstance(descriptor, dict) else None
+    return layout if isinstance(layout, str) else None
+
+
+def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
+    social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
+    socials = {
+        "facebook": {"enabled": bool(social_flags.get("facebook")), "label": "Facebook"},
+        "instagram": {"enabled": bool(social_flags.get("instagram")), "label": "Instagram"},
+        "youtube": {"enabled": bool(social_flags.get("youtube")), "label": "YouTube"},
+        "medium": {"enabled": bool(social_flags.get("medium")), "label": "Medium"},
+        "substack": {"enabled": bool(social_flags.get("substack")), "label": "Substack"},
+        "linkedin": {"enabled": bool(social_flags.get("linkedin")), "label": "LinkedIn"},
+        "tiktok": {"enabled": bool(social_flags.get("tiktok")), "label": "TikTok"},
+    }
+    raw_blog_url = (getattr(project, "blog_url", None) or "").strip()
+    source_link = raw_blog_url if raw_blog_url and not raw_blog_url.startswith("upload://") else ""
+
+    existing_socials = None
+    cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+    cta = (cta_from_visual or "").strip()
+    try:
+        if scene.remotion_code:
+            old_desc = json.loads(scene.remotion_code)
+            old_lp = old_desc.get("layoutProps") or {}
+            old_socials = old_lp.get("socials")
+            if isinstance(old_socials, dict):
+                existing_socials = old_socials
+            old_cta = old_lp.get("ctaButtonText")
+            if isinstance(old_cta, str) and old_cta.strip():
+                cta = old_cta.strip()
+    except Exception:
+        pass
+    if not cta:
+        cta = "Get started"
+
+    return {
+        "hideImage": True,
+        "socials": existing_socials or socials,
+        "showWebsiteButton": bool(source_link),
+        "websiteLink": source_link,
+        "ctaButtonText": cta,
+    }
+
+
+def _run_project_template_change_job(job_id: int) -> None:
+    from app.dspy_modules.template_layout_planner import TemplateLayoutPlanner
+    from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
+    from app.services.remotion import rebuild_workspace
+
+    db = SessionLocal()
+    try:
+        job = db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.id == job_id).first()
+        if not job:
+            return
+        project = db.query(Project).filter(Project.id == job.project_id).first()
+        if not project:
+            job.status = "failed"
+            job.error_message = "Project not found."
+            job.completed_at = datetime.utcnow()
+            db.commit()
+            return
+
+        job.status = "running"
+        db.commit()
+
+        scenes = db.query(Scene).filter(Scene.project_id == project.id).order_by(Scene.order).all()
+        job.total_scenes = len(scenes)
+        job.processed_scenes = 0
+        db.commit()
+
+        target_template = job.target_template
+        layout_planner = TemplateLayoutPlanner(target_template)
+        template_gen = TemplateSceneGenerator(target_template)
+        supports_ending_socials = "ending_socials" in get_valid_layouts(target_template)
+        scenes_data = [
+            {
+                "title": s.title,
+                "narration": s.narration_text,
+                "visual_description": s.visual_description,
+            }
+            for s in scenes
+        ]
+        preferred_layouts = asyncio.run(
+            layout_planner.plan_preferred_layouts(
+                scenes_data=scenes_data,
+                video_length=getattr(project, "video_length", "auto") or "auto",
+                content_language=project.content_language or "English",
+            )
+        )
+
+        if is_custom_template(target_template):
+            # Keep custom-template regeneration consistent with normal generation:
+            # pipeline uses one batch extraction call and stores layoutConfig as {}.
+            from app.services.content_classifier import extract_structured_content_batch
+
+            custom_scenes_data = []
+            for idx, scene in enumerate(scenes):
+                preferred_layout = (
+                    preferred_layouts[idx].strip()
+                    if idx < len(preferred_layouts) and isinstance(preferred_layouts[idx], str)
+                    else ""
+                )
+                custom_scenes_data.append(
+                    {
+                        "title": scene.title,
+                        "narration": scene.narration_text,
+                        "visual_description": scene.visual_description,
+                        "preferred_layout": preferred_layout or None,
+                    }
+                )
+                scene.preferred_layout = preferred_layout or None
+
+            structured_contents = asyncio.run(
+                extract_structured_content_batch(
+                    custom_scenes_data,
+                    content_language=project.content_language or "English",
+                )
+            )
+
+            for idx, scene in enumerate(scenes):
+                sc = structured_contents[idx] if idx < len(structured_contents) else {"contentType": "plain"}
+                scene.remotion_code = json.dumps(
+                    {
+                        "structuredContent": sc,
+                        "layoutConfig": {},
+                    }
+                )
+                job.processed_scenes = idx + 1
+                db.commit()
+        else:
+            last_scene_idx = len(scenes) - 1
+            for idx, scene in enumerate(scenes):
+                preferred_layout = (
+                    preferred_layouts[idx].strip()
+                    if idx < len(preferred_layouts) and isinstance(preferred_layouts[idx], str)
+                    else ""
+                )
+                if supports_ending_socials and idx == last_scene_idx:
+                    preferred_layout = "ending_socials"
+                # Use fresh template logic with content preserved, and let the new template
+                # enforce the planned preferred layouts (same 2-step flow as normal generation).
+                new_descriptor = asyncio.run(
+                    template_gen.generate_scene_descriptor(
+                        scene_title=scene.title,
+                        narration=scene.narration_text,
+                        visual_description=scene.visual_description,
+                        scene_index=idx,
+                        total_scenes=len(scenes),
+                        preferred_layout=preferred_layout or None,
+                        content_language=project.content_language or "English",
+                    )
+                )
+
+                # Match normal generation behavior for CTA ending scenes:
+                # ensure ending_socials gets complete layoutProps payload.
+                if supports_ending_socials and idx == last_scene_idx:
+                    new_descriptor = {
+                        "layout": "ending_socials",
+                        "layoutProps": _build_ending_socials_props(project, scene),
+                    }
+
+                scene.remotion_code = json.dumps(new_descriptor)
+                descriptor_layout = _extract_layout_from_descriptor_obj(
+                    descriptor=new_descriptor,
+                    template_id=target_template,
+                )
+                scene.preferred_layout = descriptor_layout or (preferred_layout or None)
+                job.processed_scenes = idx + 1
+                db.commit()
+
+        project.template = target_template
+        template_colors = get_preview_colors(target_template) or {}
+        if isinstance(template_colors, dict):
+            project.accent_color = template_colors.get("accent") or project.accent_color
+            project.bg_color = template_colors.get("bg") or project.bg_color
+            project.text_color = template_colors.get("text") or project.text_color
+        project.status = ProjectStatus.GENERATED
+        project.r2_video_key = None
+        project.r2_video_url = None
+        db.commit()
+
+        # Rebuild workspace with updated descriptors.
+        rebuild_workspace(project, scenes, db)
+
+        job.status = "completed"
+        job.completed_at = datetime.utcnow()
+        db.commit()
+    except Exception as e:
+        logger.exception("[PROJECT_TEMPLATE_CHANGE] job=%s failed: %s", job_id, e)
+        job = db.query(ProjectTemplateChangeJob).filter(ProjectTemplateChangeJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = datetime.utcnow()
+            db.commit()
+    finally:
+        db.close()
 
 
 @router.post("", response_model=ProjectOut)
@@ -253,6 +482,88 @@ def update_project(
     return _prepare_project_response(project, user, db)
 
 
+@router.post(
+    "/{project_id}/change-template-regenerate-layouts",
+    response_model=ProjectTemplateChangeJobOut,
+)
+async def change_project_template_regenerate_layouts(
+    project_id: int,
+    body: ProjectTemplateChangeRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = _get_user_project(project_id, user.id, db)
+    user.sync_video_limit_bonus(db)
+    if not user.can_create_video:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Video limit reached ({user.video_limit}). Upgrade to continue regenerating videos.",
+        )
+    target_template = validate_template_id(body.template)
+    if target_template == project.template:
+        raise HTTPException(status_code=400, detail="Project is already using this template.")
+    if is_custom_template(target_template) and user.plan not in (PlanTier.PRO, PlanTier.STANDARD):
+        raise HTTPException(
+            status_code=403,
+            detail="Custom templates require a Pro or Standard subscription.",
+        )
+
+    active_job = (
+        db.query(ProjectTemplateChangeJob)
+        .filter(
+            ProjectTemplateChangeJob.project_id == project.id,
+            ProjectTemplateChangeJob.status.in_(_ACTIVE_TEMPLATE_CHANGE_STATUSES),
+        )
+        .order_by(ProjectTemplateChangeJob.id.desc())
+        .first()
+    )
+    if active_job:
+        raise HTTPException(
+            status_code=409,
+            detail="A template-change regeneration job is already running for this project.",
+        )
+
+    total_scenes = db.query(Scene).filter(Scene.project_id == project.id).count()
+    job = ProjectTemplateChangeJob(
+        project_id=project.id,
+        user_id=user.id,
+        target_template=target_template,
+        status="queued",
+        total_scenes=total_scenes,
+        processed_scenes=0,
+    )
+    db.add(job)
+    user.videos_used_this_period += 1
+    # Surface "generating" state during relayout via existing status pipeline.
+    project.status = ProjectStatus.GENERATING
+    db.commit()
+    db.refresh(job)
+
+    # Match pipeline behavior: run in asyncio-managed executor.
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, _run_project_template_change_job, job.id)
+    return job
+
+
+@router.get(
+    "/{project_id}/template-change-status",
+    response_model=ProjectTemplateChangeJobOut | None,
+)
+def get_project_template_change_status(
+    project_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _ = _get_user_project(project_id, user.id, db)
+    job = (
+        db.query(ProjectTemplateChangeJob)
+        .filter(ProjectTemplateChangeJob.project_id == project_id)
+        .order_by(ProjectTemplateChangeJob.id.desc())
+        .first()
+    )
+    return job
+
+
 
 def _apply_logo_to_project(
     project_id: int,
@@ -315,12 +626,13 @@ def create_projects_bulk(
     if not items:
         raise HTTPException(status_code=400, detail="At least one project is required.")
     needed = len(items)
-    if user.plan == PlanTier.FREE and needed > 1:
+    remaining = user.video_limit - user.videos_used_this_period
+    if user.plan == PlanTier.FREE and needed > max(1, remaining):
         raise HTTPException(
             status_code=403,
             detail={
                 "code": "upgrade_required_bulk",
-                "message": "Bulk upload of multiple videos requires a paid plan. Upgrade to create more than one video at a time.",
+                "message": "That many videos at once exceeds your remaining free quota. Create fewer links now, or upgrade for higher limits and bulk creation.",
             },
         )
     if user.videos_used_this_period + needed > user.video_limit:
@@ -702,6 +1014,17 @@ def delete_project(
     """Delete a project and all related data (local + R2 storage)."""
     project = _get_user_project(project_id, user.id, db)
 
+    # Ensure any active render subprocess is terminated before deleting files/DB row.
+    try:
+        cancel_running_render(project.id, reason="Render cancelled because project was deleted.")
+    except Exception as e:
+        logger.warning(
+            "[PROJECTS] Failed to cancel active render for project %s before delete: %s",
+            project.id,
+            e,
+            extra={"project_id": project.id, "user_id": user.id},
+        )
+
     # Delete R2 files
     if r2_storage.is_r2_configured():
         try:
@@ -972,7 +1295,7 @@ def bulk_update_scene_typography(
         except Exception:
             continue
 
-        # Custom templates use layoutConfig; built-in templates use layoutProps
+        # Custom templates use layoutConfig; built-in templates (e.g. newscast) use layoutProps.
         if is_custom_template(project.template):
             layout_config = descriptor.get("layoutConfig") or {}
             if data.title_font_size is not None:
@@ -980,8 +1303,10 @@ def bulk_update_scene_typography(
             if data.description_font_size is not None:
                 layout_config["descriptionFontSize"] = data.description_font_size
             descriptor["layoutConfig"] = layout_config
-        if "layoutConfig" not in descriptor and "layoutProps" not in descriptor:
-            layout_props = {}
+        else:
+            # Merge into existing layoutProps — scenes already have layoutProps, so the old
+            # "only if both missing" branch never ran and global typography did not apply.
+            layout_props = dict(descriptor.get("layoutProps") or {})
             if data.title_font_size is not None:
                 layout_props["titleFontSize"] = data.title_font_size
             if data.description_font_size is not None:

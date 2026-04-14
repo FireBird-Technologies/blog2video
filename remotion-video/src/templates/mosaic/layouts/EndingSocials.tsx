@@ -24,11 +24,13 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 20, 14);
-  const titleIn = getStaggeredReveal(frame, 0, 10);
-  const lineIn = getStaggeredReveal(frame, 6, 10);
-  const bodyIn = getStaggeredReveal(frame, 12, 10);
-  const iconsIn = getStaggeredReveal(frame, 18, 10);
-  const tileEntry = interpolate(frame, [0, 28], [0, 1], {
+  // All content starts when tiles are ≈57% done (frame 65)
+  const contentStart = 65;
+  const titleIn = getStaggeredReveal(frame, contentStart,      18);
+  const lineIn  = getStaggeredReveal(frame, contentStart + 8,  16);
+  const bodyIn  = getStaggeredReveal(frame, contentStart + 16, 16);
+  const iconsIn = getStaggeredReveal(frame, contentStart + 24, 16);
+  const tileEntry = interpolate(frame, [0, 115], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -47,11 +49,11 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
       <MosaicBackground
         bgColor={bgColor}
         accentColor={accentColor}
-        frameReveal={motion.entry}
-        frameDrift={motion.entry}
+        frameReveal={tileEntry * motion.exit}
+        frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
         tileEntryPattern="center"
-        tileEntryIntensity={20}
+        tileEntryIntensity={11}
         tileExitProgress={tileExit}
         tileExitSeed={47}
         tileExitIntensity={24}

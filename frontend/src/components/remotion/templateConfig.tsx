@@ -185,7 +185,6 @@ const NEWSCAST_LAYOUTS = new Set([
   "side_by_side_brief",
   "segment_break",
   "field_image_focus",
-  "data_visualization",
   "ending_socials",
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {

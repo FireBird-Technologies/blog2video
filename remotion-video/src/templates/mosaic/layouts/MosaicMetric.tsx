@@ -19,9 +19,11 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 18, 14);
-  const ringIn = getStaggeredReveal(frame, 2, 14);
-  const secondaryIn = getStaggeredReveal(frame, 16, 12);
-  const tileEntry = interpolate(frame, [0, 24], [0, 1], {
+  // Content starts when tiles are ≥55% done (frame 55)
+  const contentStart = 55;
+  const ringIn       = getStaggeredReveal(frame, contentStart,      18);
+  const secondaryIn  = getStaggeredReveal(frame, contentStart + 10, 14);
+  const tileEntry = interpolate(frame, [0, 100], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -42,11 +44,11 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
         bgColor={bgColor}
         accentColor={accentColor}
         variant="metricField"
-        frameReveal={ringIn * motion.exit}
-        frameDrift={motion.entry}
+        frameReveal={tileEntry * motion.exit}
+        frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="diagonal"
-        tileEntryIntensity={22}
+        tileEntryPattern="center"
+        tileEntryIntensity={13}
         tileExitProgress={tileExit}
         tileExitSeed={59}
         tileExitIntensity={27}
@@ -56,7 +58,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
           style={{
             border: `1px solid ${line}88`,
             padding: "26px 46px",
-            background: "rgba(7,18,33,0.7)",
+            background: "rgba(234,228,218,0.94)",
             opacity: motion.presence,
             transform: `scale(${0.97 + ringIn * 0.03})`,
           }}
@@ -72,7 +74,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
               tileSize={titleFontSize ? Math.max(Math.floor(titleFontSize / 10), 9) : 12}
               gap={1}
               revealProgress={ringIn}
-              colors={["#E0B870", "#DAA040", "#C87828", "#C84828", "#D06030", "#5A9090", "#4A7880"]}
+              colors={["#C26240", "#D28B6C", "#C77D5A", "#B96E4E", "#2A2A28", "#6B645E"]}
               style={{ width: "100%", height: "auto", aspectRatio: "8 / 1.65" }}
             />
           </div>
@@ -92,11 +94,11 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
             <div style={{ marginTop: 22, display: "flex", gap: 34, justifyContent: "center" }}>
               {list.slice(1).map((metric, idx) => (
                 <div key={`${metric.value}-${metric.label}`} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: family, fontSize: 30, color: "#C84828", fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ fontFamily: family, fontSize: 30, color: MOSAIC_COLORS.gold, fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.value}
                     {metric.suffix || ""}
                   </div>
-                  <div style={{ marginTop: 4, fontFamily: family, fontSize: 18, color: "#3A6070", fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ marginTop: 4, fontFamily: family, fontSize: 18, color: MOSAIC_COLORS.textSecondary, fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.label}
                   </div>
                 </div>

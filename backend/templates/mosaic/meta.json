@@ -1,15 +1,15 @@
 {
   "id": "mosaic",
   "name": "Mosaic",
-  "description": "Stone-and-glass tessera style with cool blue tile fields, warm sunset accents, and fine golden linework. Editorial serif typography with structured, handcrafted layouts.",
+  "description": "Warm stone-and-cream tessera style with terracotta accents and fine linework. Editorial serif typography with structured, handcrafted layouts on soft beige backgrounds.",
   "styles": [
     "explainer",
     "storytelling"
   ],
   "preview_colors": {
-    "accent": "#D4AF37",
-    "bg": "#0F1E2D",
-    "text": "#E6EEF7"
+    "accent": "#C26240",
+    "bg": "#EAE4DA",
+    "text": "#2A2A28"
   },
   "composition_id": "MosaicVideo",
   "hero_layout": "mosaic_title",
@@ -441,7 +441,7 @@
     }
   },
   "layouts_without_image": [
-    "mosaic_punch",
+    "mosaic_stream",
     "mosaic_metric",
     "mosaic_phrases",
     "mosaic_close",

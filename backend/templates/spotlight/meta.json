@@ -1,6 +1,7 @@
 {
   "id": "spotlight",
   "name": "Spotlight",
+  "new_template": false,
   "description": "Bold kinetic typography on a dark stage. Words fill the frame, slam in, and cascade. Glass panels for data moments. High contrast, fast-paced, social-first. Spring-slam animations with accent red highlights. All layouts support optional images alongside content.",
   "styles": [
     "promotional"
@@ -397,12 +398,12 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 97,
-          "landscape": 86
+          "portrait": 74,
+          "landscape": 64
         },
         "descriptionFontSize": {
           "portrait": 44,
-          "landscape": 41
+          "landscape": 29
         },
         "hideImage": true,
         "socials": [
