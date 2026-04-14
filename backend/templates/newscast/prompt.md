@@ -193,16 +193,50 @@ Legacy compatibility note: the renderer still accepts older IDs like `newscast_c
 ---
 
 ## data_visualization
-**Visual:** Frosted navy card with animated chart (bar, line, or pie) using neon red primary and blue secondary with gold accents.
+**Visual:** Frosted navy broadcast board with adaptive chart mode (line, bar, histogram), value badge, and financial-style trend callouts using red/green/blue with gold accents.
 
 **Best for:** chart/data-driven narration.
 
-**Chart props (exact keys — use ONE chart type per scene; priority in rendering is bar > line > pie):**
-
-1. **Bar (preferred):** `barChartRows` — array of `{ "label": string, "value": string }` (2–8 rows). Values must be numeric strings or numbers in narration.
+**Primary market props (preferred for stock visuals):**
 
 ```json
 {
+  "marketSymbol": "S&P 500",
+  "marketValue": "3,013.00",
+  "marketDelta": "+6.27",
+  "marketPercent": "+0.21%",
+  "marketTrend": "up"
+}
+```
+
+`marketTrend` must be one of: `"up"`, `"down"`, `"crash"`.
+
+**Chart props (exact keys):**
+
+0. **Chart mode (optional):** `chartType` in `"auto" | "line" | "bar" | "histogram"`.  
+   If omitted, renderer defaults to **auto**.
+
+1. **Line (comparison mode, max 3 lines total):** `lineChartLabels` + `lineChartDatasets` (1–3 series).  
+   Use this for time-series and table comparisons over time.
+
+```json
+{
+  "chartType": "line",
+  "lineChartLabels": ["Q1", "Q2", "Q3", "Q4"],
+  "lineChartDatasets": [
+    { "label": "Revenue", "valuesStr": "12.4, 14.1, 15.0, 16.2" },
+    { "label": "Cost", "valuesStr": "8.3, 8.8, 9.4, 10.1" },
+    { "label": "Profit", "valuesStr": "4.1, 5.3, 5.6, 6.1" }
+  ]
+}
+```
+
+2. **Bar:** `barChartRows` — array of `{ "label": string, "value": string }` (2–12 rows).  
+   Use for categorical snapshot comparisons.
+
+```json
+{
+  "chartType": "bar",
   "barChartRows": [
     { "label": "Energy", "value": "45" },
     { "label": "Transport", "value": "38" },
@@ -215,38 +249,58 @@ Legacy compatibility note: the renderer still accepts older IDs like `newscast_c
 }
 ```
 
-2. **Line:** `lineChartLabels` (string array, X-axis) + `lineChartDatasets` (1–3 series). Each series: `{ "label": string, "valuesStr": "comma-separated numbers matching label count" }`.
+3. **Histogram:** `histogramRows` — array of `{ "label": string, "value": string }` (3–12 buckets).  
+   Use for distribution/frequency style data.
 
 ```json
 {
-  "lineChartLabels": ["Q1", "Q2", "Q3", "Q4"],
-  "lineChartDatasets": [
-    { "label": "Revenue", "valuesStr": "12.4, 14.1, 15.0, 16.2" }
+  "chartType": "histogram",
+  "histogramRows": [
+    { "label": "0-10", "value": "2" },
+    { "label": "11-20", "value": "6" },
+    { "label": "21-30", "value": "9" },
+    { "label": "31-40", "value": "4" }
   ],
-  "tickerItems": ["TREND", "LIVE DATA"],
+  "tickerItems": ["DISTRIBUTION", "BUCKETS"],
   "lowerThirdTag": "DATA",
-  "lowerThirdHeadline": "Quarterly Trend",
-  "lowerThirdSub": "Tracking reported figures"
+  "lowerThirdHeadline": "Value Distribution",
+  "lowerThirdSub": "Frequency by range"
 }
 ```
 
-3. **Pie:** `pieChartRows` — array of `{ "label": string, "value": string }` (2–6 slices), values numeric.
+4. **Table source (when present in scraped content):** `chartTable` with `headers` and `rows`.
 
 ```json
 {
-  "pieChartRows": [
-    { "label": "North", "value": "40" },
-    { "label": "South", "value": "35" },
-    { "label": "East", "value": "25" }
-  ],
-  "tickerItems": ["SHARE", "SPLIT"],
-  "lowerThirdTag": "DATA",
-  "lowerThirdHeadline": "Regional Split",
-  "lowerThirdSub": "Distribution from the report"
+  "chartTable": {
+    "headers": ["Month", "Revenue", "Cost"],
+    "rows": [
+      ["Jan", "120", "90"],
+      ["Feb", "130", "95"],
+      ["Mar", "125", "98"]
+    ]
+  }
 }
 ```
 
-Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChart` objects); the template schema uses the field names above.
+When `chartTable` exists, extract it from source faithfully and let renderer auto-convert it into chart data.
+
+If two or more tables exist in source content, you may choose one or combine comparable tables.
+Decide mapping from table semantics (LLM decides), then emit chart props that best compare the data.
+Do not invent rows/columns that are not present.
+Pipeline note: scraped tables may be provided in visual hints under `TABLE_DATA_HINT_JSON`. Use those tables as source-of-truth when present.
+
+Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChart` objects); template schema uses the field names above.
+
+**Auto chart selection rule (when `chartType` is omitted or `auto`):**
+1. If valid time-like labels are present in line/table data -> use **line**.
+2. Else if comparable category rows exist -> use **bar**.
+3. Else if distribution buckets exist -> use **histogram**.
+
+Comparison guidance:
+- Comparison scenes can use **line** or **bar** charts.
+- Use **line** for comparisons that show progression/trend over steps, periods, or ordered buckets.
+- Use **bar** for one-shot category-vs-category comparisons without trend emphasis.
 
 ---
 # Scene Flow Rules
@@ -290,7 +344,7 @@ Do **not** rely on alternate nested keys only (`barChart`, `lineChart`, `pieChar
 - `story_stack`: extract 2–3 parallel provisions into `items[]` and a `sectionLabel`.
 - `segment_break`: extract `chapterNumber` + `chapterLabel` when present; use scene `title`/`narration` for section title/subtitle when not.
 - `field_image_focus`: if image is available, use `imageUrl`, scene `title`, scene `narration`.
-- `data_visualization`: extract chart data from narration into `barChartRows` **or** `lineChartLabels`+`lineChartDatasets` **or** `pieChartRows` (only one chart type per scene); include required chrome props.
+- `data_visualization`: if article/source contains numeric tables, scrape table headers + rows into `chartTable` and also emit best-fit chart props. For multiple tables, choose/merge comparable rows and columns for comparison charts. Comparison charts may be line or bar based on data shape. Select chart type automatically using rule above; cap line comparisons at 3 total series.
 
 ---
 # Quality Checklist

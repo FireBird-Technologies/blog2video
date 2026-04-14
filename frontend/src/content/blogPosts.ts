@@ -958,6 +958,45 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/custom-branded-video-templates",
         ctaLabel: "Explore custom templates",
       },
+      {
+        heading: "Financial research firms can turn house research into a visual system",
+        paragraphs: [
+          "Investment research teams usually publish recurring formats: market notes, earnings breakdowns, sector updates, macro summaries, and thesis-driven explainers. Those formats benefit from a template that feels restrained, credible, and data-first rather than overly promotional.",
+          "An existing template like Gridcraft is a strong starting point when the content leans on comparisons, metrics, and structured takeaways. If the firm already has a recognizable research brand, a custom template can go further by matching its presentation style, typography, color hierarchy, and the card layouts analysts already use in reports and decks.",
+        ],
+        bullets: [
+          "Use Gridcraft when the story depends on comparisons, data snapshots, and structured argument flow",
+          "Use Newspaper when you want a more editorial market-brief or weekly-research look",
+          "Build a custom template when the firm wants videos to match its website, research portal, or pitch-deck identity",
+          "Best fit for recurring content like earnings recaps, sector deep dives, macro outlooks, and analyst explainers",
+        ],
+      },
+      {
+        heading: "Political journalists and independent commentators need recurring editorial formats",
+        paragraphs: [
+          "Political coverage works best when the format feels consistent from episode to episode. Viewers should immediately recognize the difference between a news recap, a fact-check, an opinion breakdown, and a timeline of events. Templates help create that repeatability without rebuilding the show every time.",
+          "The built-in Newspaper template is the most natural fit for this kind of work because it already supports headlines, pull quotes, fact-first framing, and timeline-driven storytelling. A custom template becomes useful when the creator wants the video to feel like an extension of their publication, newsletter, or commentary brand rather than a generic news layout.",
+        ],
+        bullets: [
+          "Use Newspaper for explainers, issue recaps, debate summaries, and fact-check style videos",
+          "Use Spotlight when the format is more opinionated, punchy, and built around big statements",
+          "Build a custom template when the channel has a distinct editorial identity, recurring segments, or signature on-screen framing",
+          "Best fit for weekly political roundups, policy explainers, investigative commentary, and campaign coverage",
+        ],
+      },
+      {
+        heading: "Healthcare professionals benefit from templates that prioritize trust and clarity",
+        paragraphs: [
+          "Healthcare content often needs to feel calm, precise, and easy to follow. Whether the audience is patients, clinicians, administrators, or medical sales teams, the visual system should support comprehension first. That usually means cleaner layouts, careful typography, and structured scene patterns for steps, definitions, and summaries.",
+          "An existing template like Geometric Explainer works well for educational content, process walkthroughs, and treatment or workflow explanations. A custom template is the better choice when a clinic, hospital, health brand, or medical practice wants the video to reflect its own visual identity and maintain a more consistent trust signal across patient education and professional communication.",
+        ],
+        bullets: [
+          "Use Geometric Explainer for patient education, protocol walkthroughs, and study or treatment summaries",
+          "Use Gridcraft when the content relies on outcomes, comparisons, or evidence snapshots",
+          "Build a custom template when you want brand-matched colors, typography, and a calmer visual tone across all videos",
+          "Best fit for patient education libraries, clinician briefings, care-pathway explainers, and practice marketing content",
+        ],
+      },
     ],
     faq: [
       {
