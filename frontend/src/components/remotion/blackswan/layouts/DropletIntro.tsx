@@ -135,8 +135,8 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
   const imgOpacity = hasImage
     ? interpolate(t, [imgStartSec, imgStartSec + 0.7], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 0;
-  // Fade out scene content as image appears
-  const sceneContentOp = hasImage
+  // Fade out swan + text over image; NeonWater + DropletImpact stay visible
+  const nonNeonHideOp = hasImage
     ? interpolate(t, [imgStartSec, imgStartSec + 0.5], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })
     : 1;
 
@@ -146,10 +146,25 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
-      {/* Scene content — fades out when image takes over */}
-      <div style={{ position: "absolute", inset: 0, opacity: sceneContentOp }}>
+      <div style={{ position: "absolute", inset: 0 }}>
         <StarField accentColor={accentColor} />
+      </div>
 
+      {/* Full-screen image — behind neon water only */}
+      {hasImage && (
+        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 1 }}>
+          <img
+            src={imageUrl}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
+          <div style={{ position: "absolute", inset: 0 }}>
+            <StarField accentColor={accentColor} />
+          </div>
+        </div>
+      )}
+
+      <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
         {/* Neon Water pond at droplet impact — fades in on hit */}
         <div style={{
           position: "absolute", inset: 0,
@@ -177,12 +192,11 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           left: "50%",
           top: portrait ? "5%" : "-16%",
           transform: "translateX(-50%)",
-          opacity: swanOpacity,
+          opacity: swanOpacity * nonNeonHideOp,
         }}>
           <Swan size={portrait ? 1550 : 1200} water={false} uid="d0-swan" accentColor={accentColor} />
         </div>
 
-        {/* Text Container */}
         <div style={{
           position: "absolute",
           left: 0,
@@ -193,7 +207,7 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           flexDirection: "column",
           alignItems: "center",
           gap: portrait ? 6 : 10,
-          opacity: textOpacity,
+          opacity: textOpacity * nonNeonHideOp,
           transform: `translateY(${textY}px)`,
         }}>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center" }}>
@@ -244,22 +258,6 @@ export const DropletIntro: React.FC<BlackswanLayoutProps> = (props) => {
           </div>
         </div>
       </div>
-
-      {/* Full-screen image overlay — last 3 seconds */}
-      {hasImage && (
-        <div style={{ position: "absolute", inset: 0, opacity: imgOpacity, zIndex: 10 }}>
-          <img
-            src={imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-          {/* Dark overlay so particles are visible */}
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)" }} />
-          {/* Particles on top of image */}
-          <div style={{ position: "absolute", inset: 0 }}>
-            <StarField accentColor={accentColor} />
-          </div>
-        </div>
-      )}
     </AbsoluteFill>
   );
 };
