@@ -1621,11 +1621,8 @@ async def update_scene_image(
     descriptor["layoutProps"].pop("hideImage", None)
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
-    # Invalidate cached render
-    if project.r2_video_url:
-        project.r2_video_url = None
-        project.r2_video_key = None
-        project.status = ProjectStatus.GENERATED
+    # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
+    # runs a new render (render pipeline replaces URLs/keys on success).
 
     db.commit()
     db.refresh(scene)

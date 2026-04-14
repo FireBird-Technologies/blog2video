@@ -552,7 +552,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 hide_image_flags[idx] = False
                 dirty.add(idx)
 
-        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips)
+        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips image)
+        # Persist layoutProps for both: intro hero must write assignedImage to DB (otherwise
+        # removing that image does not set hideImage and another generic fills the slot).
+        # Outro must write hideImage so the UI/remotion do not auto-assign a generic later.
         for i, scene in enumerate(scenes):
             if scene_image_map[i]:
                 continue
@@ -562,11 +565,44 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     scene_type = "intro"
                 elif i == len(scenes) - 1 and len(scenes) > 1:
                     scene_type = "outro"
-            if scene_type == "intro" and hero_image_file and hero_image_file in generic_files and hero_image_file not in used_generic_files:
+
+            if scene_type == "outro":
+                hide_image_flags[i] = True
+                lp = scene_layout_props[i]
+                if scene_layouts[i] not in no_image_layouts:
+                    changed = False
+                    if lp.get("assignedImage"):
+                        lp.pop("assignedImage", None)
+                        changed = True
+                    if not lp.get("hideImage"):
+                        lp["hideImage"] = True
+                        changed = True
+                    if changed:
+                        dirty.add(i)
+                continue
+
+            if hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+                continue
+
+            if (
+                scene_type == "intro"
+                and hero_image_file
+                and hero_image_file in generic_files
+                and hero_image_file not in used_generic_files
+            ):
                 scene_image_map[i] = [hero_image_file]
                 used_generic_files.add(hero_image_file)
-            elif scene_type == "outro":
-                hide_image_flags[i] = True
+                lp = scene_layout_props[i]
+                changed = False
+                if lp.get("assignedImage") != hero_image_file:
+                    lp["assignedImage"] = hero_image_file
+                    changed = True
+                if lp.get("hideImage"):
+                    lp.pop("hideImage", None)
+                    hide_image_flags[i] = False
+                    changed = True
+                if changed:
+                    dirty.add(i)
 
         # Step 4: Assign remaining generics (1 per scene)
         generic_idx = 0

@@ -850,6 +850,44 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
+  /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
+  blackswan: {
+    droplet_intro: [],
+    neon_narrative: [],
+    arc_features: [
+      { key: "items", label: "Feature items", type: "string_array", maxItems: 6 },
+    ],
+    pulse_metric: [
+      {
+        key: "metrics",
+        label: "Metrics",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Suffix" },
+        ],
+        maxItems: 8,
+      },
+    ],
+    signal_split: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    dive_insight: [
+      { key: "quote", label: "Quote", type: "text" },
+      { key: "highlightWord", label: "Highlight word", type: "string" },
+    ],
+    reactor_code: [
+      { key: "codeLanguage", label: "Language", type: "string", placeholder: "e.g. typescript" },
+      { key: "codeLines", label: "Code lines", type: "string_array", maxItems: 20 },
+    ],
+    flight_path: [
+      { key: "phrases", label: "Path steps", type: "string_array", maxItems: 8 },
+    ],
+  },
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
