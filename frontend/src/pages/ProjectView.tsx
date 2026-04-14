@@ -525,6 +525,12 @@ export default function ProjectView() {
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStarted = useRef(false);
+  /** One pipeline terminal failure per poll session; also suppresses duplicate "load project" 404 modal after rollback. */
+  const pipelineTerminalFailureHandledRef = useRef(false);
+
+  useEffect(() => {
+    pipelineTerminalFailureHandledRef.current = false;
+  }, [projectId]);
 
   // Render state
   const [rendering, setRendering] = useState(false);
@@ -940,27 +946,46 @@ export default function ProjectView() {
 //   // tryAutoDownload();
 // }, [rendered, project?.r2_video_url]); 
 
-  const loadProject = useCallback(async () => {
-    try {
-      const res = await getProject(projectId);
-      setProject(res.data);
-      setHasError(false); // clear any previous load errors on success
-      if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
-        setRendered(true);
+  const loadProject = useCallback(
+    async (opts?: { silent404?: boolean }) => {
+      try {
+        const res = await getProject(projectId);
+        setProject(res.data);
+        setHasError(false); // clear any previous load errors on success
+        if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
+          setRendered(true);
+        }
+        // Fetch layout image-support info (non-blocking)
+        getValidLayouts(projectId).then((lr) => {
+          setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+          setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
+        }).catch(() => {/* ignore */});
+        return res.data;
+      } catch (err: unknown) {
+        const status =
+          err &&
+          typeof err === "object" &&
+          "response" in err &&
+          typeof (err as { response?: { status?: number } }).response?.status === "number"
+            ? (err as { response: { status: number } }).response.status
+            : undefined;
+        // Poller can call loadProject right after the worker deletes the row (race with stale `running: true`).
+        if (status === 404 && opts?.silent404) {
+          return null;
+        }
+        // After scrape/pipeline rollback the project row is gone; polling may still call loadProject once.
+        if (status === 404 && pipelineTerminalFailureHandledRef.current) {
+          setHasError(true);
+          return null;
+        }
+        showError("Failed to load project"); setHasError(true);
+        return null;
+      } finally {
+        setLoading(false);
       }
-      // Fetch layout image-support info (non-blocking)
-      getValidLayouts(projectId).then((lr) => {
-        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
-        setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
-      }).catch(() => {/* ignore */});
-      return res.data;
-    } catch {
-      showError("Failed to load project"); setHasError(true);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
+    },
+    [projectId, showError],
+  );
 
   const stopTemplateRelayoutPolling = useCallback(() => {
     if (templateRelayoutPollRef.current) {
@@ -1045,8 +1070,41 @@ export default function ProjectView() {
   // Auto-start generation when project loads and isn't complete
   useEffect(() => {
     const init = async () => {
-      const proj = await loadProject();
-      if (!proj || generationStarted.current) return;
+      // silent404: scrape can delete the row before this GET returns; avoid "Failed to load" before tombstone.
+      const proj = await loadProject({ silent404: true });
+      if (!proj || generationStarted.current) {
+        if (!proj && !generationStarted.current) {
+          try {
+            const st = await getPipelineStatus(projectId);
+            const d = st.data;
+            const tombstoneMsg =
+              typeof d.error === "string" && d.error.trim() ? d.error.trim() : null;
+            const rolledBack =
+              Boolean(d.project_removed) || d.status === "failed";
+            if (tombstoneMsg || rolledBack) {
+              if (!pipelineTerminalFailureHandledRef.current) {
+                pipelineTerminalFailureHandledRef.current = true;
+                showError(
+                  tombstoneMsg ||
+                    "Something went wrong while creating your video. Please try again.",
+                  { variant: "pipeline" },
+                );
+              }
+              setHasError(true);
+              setPipelineRunning(false);
+              if (rolledBack) {
+                navigate("/dashboard", { replace: true });
+              }
+              return;
+            }
+          } catch {
+            // ignore — fall through to generic not-found handling
+          }
+          showError("Failed to load project");
+          setHasError(true);
+        }
+        return;
+      }
 
       // Check for pending document upload (from Dashboard upload flow)
       const pendingFiles = getPendingUpload(projectId);
@@ -1063,7 +1121,10 @@ export default function ProjectView() {
           await startGeneration(projectId);
           startPolling();
         } catch (err: any) {
-          showError(getErrorMessage(err, "Failed to upload documents.")); setHasError(true);
+          showError(getErrorMessage(err, "Failed to upload documents."), {
+            variant: "pipeline",
+          });
+          setHasError(true);
           setPipelineRunning(false);
         }
         return;
@@ -1088,6 +1149,7 @@ export default function ProjectView() {
     setPipelineRunning(true);
     setPipelineStep(0);
     setHasError(false);
+    pipelineTerminalFailureHandledRef.current = false;
 
     try {
       await startGeneration(projectId);
@@ -1100,21 +1162,44 @@ export default function ProjectView() {
 
   const startPolling = () => {
     stopPolling();
+    pipelineTerminalFailureHandledRef.current = false;
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
         const { step, running, error: pipelineError, status, notice } = res.data;
+        const rolledBackProject =
+          Boolean(res.data.project_removed) || status === "failed";
+        const pipelineErrMsg =
+          typeof pipelineError === "string" && pipelineError.trim()
+            ? pipelineError.trim()
+            : null;
 
         setPipelineStep(step);
 
-        if (pipelineError) {
-          // Log the detailed pipeline error, but show a friendly, generic message to the user.
-          console.error("Pipeline error while generating video:", pipelineError);
-          showError(DEFAULT_ERROR_MESSAGE);
+        // Terminal generation failure (scrape/script/scene rollback, or tombstone after delete).
+        // Treat `status === "failed"` like an error even if `error` is missing briefly — avoids
+        // falling through to `loadProject()` and showing a second "Failed to load project" modal.
+        if (pipelineErrMsg || rolledBackProject) {
+          if (!pipelineTerminalFailureHandledRef.current) {
+            pipelineTerminalFailureHandledRef.current = true;
+            const message =
+              pipelineErrMsg ||
+              "Something went wrong while creating your video. Please try again.";
+            console.error("Pipeline error while generating video:", message);
+            showError(message, { variant: "pipeline" });
+          }
           setHasError(true);
           setPipelineRunning(false);
           stopPolling();
-          await loadProject();
+          if (rolledBackProject) {
+            navigate("/dashboard", { replace: true });
+          } else {
+            try {
+              await loadProject({ silent404: true });
+            } finally {
+              pipelineTerminalFailureHandledRef.current = false;
+            }
+          }
           return;
         }
 
@@ -1130,7 +1215,7 @@ export default function ProjectView() {
             // Progress was lost (container restart / cold start).
             // Keep polling — the pipeline task is still running on the
             // original instance or will be retried.
-            await loadProject();
+            await loadProject({ silent404: true });
             return;
           }
           setPipelineRunning(false);
@@ -1142,11 +1227,11 @@ export default function ProjectView() {
               { title: "Video shortened" }
             );
           }
-          await loadProject();
+          await loadProject({ silent404: true });
           return;
         }
 
-        await loadProject();
+        await loadProject({ silent404: true });
       } catch {
         // Network hiccup -- keep polling
       }
