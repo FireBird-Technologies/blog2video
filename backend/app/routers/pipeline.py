@@ -553,6 +553,28 @@ async def _generate_scenes(project: Project, db: Session):
                 },
             }
 
+        # Custom templates: inject CTA props into the last (outro) scene
+        if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:
+            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+            cta = (cta_from_visual or "").strip()
+            try:
+                if scene.remotion_code:
+                    old_desc = json.loads(scene.remotion_code)
+                    old_cta_props = old_desc.get("ctaProps") or {}
+                    old_cta = old_cta_props.get("ctaButtonText")
+                    if isinstance(old_cta, str) and old_cta.strip():
+                        cta = old_cta.strip()
+            except (json.JSONDecodeError, TypeError):
+                pass
+            if not cta:
+                cta = "Get started"
+            descriptor["ctaProps"] = {
+                "socials": ending_socials_default,
+                "showWebsiteButton": bool(source_link),
+                "websiteLink": source_link,
+                "ctaButtonText": cta,
+            }
+
         has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:

@@ -13,6 +13,7 @@ import {
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
+import { CtaOverlay } from "./remotion/CtaOverlay";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -109,7 +110,7 @@ const StableCustomComposition: React.FC<any> = ({
           imageUrl: s.imageUrl,
           sceneIndex: i,
           totalScenes,
-          logoUrl: project.logo_r2_url || undefined,
+          logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
           brandColors,
           aspectRatio,
           contentType: sc.contentType as SceneProps["contentType"],
@@ -132,7 +133,19 @@ const StableCustomComposition: React.FC<any> = ({
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
         return (
           <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
-            <SceneComp {...sceneProps} />
+            {s.ctaProps ? (
+              <CtaOverlay
+                ctaProps={s.ctaProps as any}
+                brandColors={brandColors}
+                aspectRatio={aspectRatio}
+                headingFont={headingFont}
+                bodyFont={bodyFont}
+                title={sceneProps.displayText}
+                logoUrl={sceneProps.logoUrl}
+              />
+            ) : (
+              <SceneComp {...sceneProps} />
+            )}
             {s.voiceoverUrl && <Audio src={s.voiceoverUrl} />}
           </Sequence>
         );
@@ -174,6 +187,7 @@ interface SceneInput {
   layoutProps: Record<string, unknown>;
   layoutConfig?: Record<string, unknown>;
   structuredContent?: Record<string, unknown>;
+  ctaProps?: Record<string, unknown>;
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
@@ -370,6 +384,7 @@ export default function VideoPreview({
       let layoutProps: Record<string, unknown> = {};
       let layoutConfig: Record<string, unknown> | undefined;
       let structuredContent: Record<string, unknown> | undefined;
+      let ctaProps: Record<string, unknown> | undefined;
 
       if (scene.remotion_code) {
         try {
@@ -378,6 +393,9 @@ export default function VideoPreview({
             // Custom templates: always extract structuredContent
             if (descriptor.structuredContent) {
               structuredContent = descriptor.structuredContent;
+            }
+            if (descriptor.ctaProps) {
+              ctaProps = descriptor.ctaProps;
             }
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
@@ -468,6 +486,7 @@ export default function VideoPreview({
         layoutProps,
         ...(layoutConfig ? { layoutConfig } : {}),
         ...(structuredContent ? { structuredContent } : {}),
+        ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
