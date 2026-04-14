@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
   XAxis,
   YAxis,
+  Customized,
 } from "recharts";
 import type { NewscastChartRow, NewscastChartType, NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
@@ -40,6 +41,125 @@ const VALUE_LABEL_FONT_SIZE = 12;
 const COMPARISON_VALUE_LABEL_FONT_SIZE = 11;
 
 type ResolvedChartType = Exclude<NewscastChartType, "auto">;
+
+// Animated line path component for trim path effect
+interface AnimatedLinePathProps {
+  points: Array<{ x: number; y: number }>;
+  color: string;
+  strokeWidth: number;
+  progress: number;
+  gradientId: string;
+}
+
+const AnimatedLinePath: React.FC<AnimatedLinePathProps> = ({
+  points,
+  color,
+  strokeWidth,
+  progress,
+  gradientId,
+}) => {
+  if (points.length < 2) return null;
+
+  // Create smooth curve path using cubic bezier
+  const createSmoothPath = (pts: Array<{ x: number; y: number }>) => {
+    let path = `M ${pts[0].x},${pts[0].y}`;
+    
+    for (let i = 0; i < pts.length - 1; i++) {
+      const curr = pts[i];
+      const next = pts[i + 1];
+      const prev = pts[i - 1] || curr;
+      const afterNext = pts[i + 2] || next;
+      
+      // Calculate control points for smooth curve
+      const cp1x = curr.x + (next.x - prev.x) / 6;
+      const cp1y = curr.y + (next.y - prev.y) / 6;
+      const cp2x = next.x - (afterNext.x - curr.x) / 6;
+      const cp2y = next.y - (afterNext.y - curr.y) / 6;
+      
+      path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${next.x},${next.y}`;
+    }
+    
+    return path;
+  };
+
+  const pathD = createSmoothPath(points);
+  
+  // Calculate path length for trim path animation
+  const pathRef = React.useRef<SVGPathElement>(null);
+  const [pathLength, setPathLength] = React.useState(0);
+  
+  React.useEffect(() => {
+    if (pathRef.current) {
+      const length = pathRef.current.getTotalLength();
+      setPathLength(length);
+    }
+  }, [pathD]);
+
+  const drawLength = pathLength * Math.max(0, Math.min(1, progress));
+  const dashOffset = pathLength - drawLength;
+
+  return (
+    <g>
+      <defs>
+        <linearGradient id={`${gradientId}-stroke`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+          <stop offset={`${Math.max(0, (progress - 0.1) * 100)}%`} stopColor={color} stopOpacity={0.6} />
+          <stop offset={`${progress * 100}%`} stopColor={color} stopOpacity={1} />
+        </linearGradient>
+        <linearGradient id={`${gradientId}-glow`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      
+      {/* Glow effect behind the line */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke={`url(#${gradientId}-glow)`}
+        strokeWidth={strokeWidth * 3}
+        strokeDasharray={pathLength}
+        strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={0.3}
+        filter="blur(4px)"
+      />
+      
+      {/* Main animated line with gradient */}
+      <path
+        ref={pathRef}
+        d={pathD}
+        fill="none"
+        stroke={`url(#${gradientId}-stroke)`}
+        strokeWidth={strokeWidth}
+        strokeDasharray={pathLength}
+        strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      
+      {/* Moving glow point at the end of the line */}
+      {progress > 0 && progress < 1 && points.length > 0 && (
+        <circle
+          cx={points[Math.min(Math.floor(progress * (points.length - 1)), points.length - 1)].x}
+          cy={points[Math.min(Math.floor(progress * (points.length - 1)), points.length - 1)].y}
+          r={strokeWidth * 1.5}
+          fill={color}
+          opacity={0.8}
+          filter="blur(2px)"
+        >
+          <animate
+            attributeName="r"
+            values={`${strokeWidth * 1.5};${strokeWidth * 2.5};${strokeWidth * 1.5}`}
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      )}
+    </g>
+  );
+};
 
 interface ParsedDataset {
   label: string;
@@ -427,83 +547,36 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
     const progress = (frame - startFrame) / durationFrames;
     return Math.max(0, Math.min(1, progress));
   };
-  const easeInCubic = (progress: number) => Math.pow(Math.max(0, Math.min(1, progress)), 3);
-  function smoothValues(values: number[]): number[] {
-    const n = values.length;
-    if (n === 0) return [];
 
-    const kernel = [0.0625, 0.25, 0.375, 0.25, 0.0625]; // Gaussian-like weights sum=1
-
-    const pass = (src: number[]) => {
-      const dst = new Array(n).fill(0);
-      for (let i = 0; i < n; i += 1) {
-        let acc = 0;
-        let wsum = 0;
-        for (let k = -2; k <= 2; k += 1) {
-          const v = src[i + k];
-          const w = kernel[k + 2];
-          if (v != null && Number.isFinite(v)) {
-            acc += v * w;
-            wsum += w;
-          }
-        }
-        dst[i] = wsum > 0 ? acc / wsum : src[i];
-      }
-      return dst;
-    };
-
-    // Two-pass smoothing reduces sharp corners without large phase shift
-    const first = pass(values as number[]);
-    const second = pass(first);
-    return second;
-  }
-
-  const animateSeries = (values: number[], progress: number): Array<number | null> => {
-    if (values.length === 0) return [];
-    if (values.length === 1) return [values[0]];
-
-    const clamped = Math.max(0, Math.min(1, progress));
-    const target = smoothValues(values);
-    if (clamped <= 0) return target.map(() => null);
-
-    const headPos = clamped * (target.length - 1);
-    const headIndex = Math.floor(headPos);
-    const fraction = headPos - headIndex;
-
-    return target.map((point, index) => {
-      if (!Number.isFinite(point)) return null;
-      if (index < headIndex) return point;
-      if (index === headIndex) {
-        let pi = index - 1;
-        while (pi >= 0 && !Number.isFinite(target[pi])) pi -= 1;
-        const previous = pi >= 0 ? target[pi] : point;
-        return previous + (point - previous) * fraction;
-      }
-      return null;
-    });
+  // Smooth easing — slow start, smooth middle, gentle stop
+  const easeInOutCubic = (t: number) => {
+    const p = Math.max(0, Math.min(1, t));
+    return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
   };
-  const rawP0 = clampProgress(0, lineDrawFrames);
-  const easedP0 = easeInCubic(rawP0);
-  const showDots0 = rawP0 >= 1;
-  const animatedS0 = animateSeries(chartInputs.lineSeries[0]?.values ?? [], easedP0);
-  const lineOpacity0 = rawP0;
+
+  // ── Clip-path reveal animation (Lottie trim-path style) ──────────
+  // The line shape NEVER changes. We just reveal it left→right.
+  const rawLineReveal = clampProgress(0, lineDrawFrames);
+  const lineRevealProgress = easeInOutCubic(rawLineReveal);
+  // Percentage of the chart to clip from the right
+  const lineClipRight = ((1 - lineRevealProgress) * 100).toFixed(2);
+  const showDots0 = rawLineReveal >= 1;
+  const lineOpacity0 = 1;
 
   const rawP1 = clampProgress(lineSeriesDelayFrames, lineDrawFrames);
-  const easedP1 = easeInCubic(rawP1);
   const showDots1 = rawP1 >= 1;
-  const animatedS1 = animateSeries(chartInputs.lineSeries[1]?.values ?? [], easedP1);
-  const lineOpacity1 = rawP1;
+  const lineOpacity1 = easeInOutCubic(rawP1);
 
   const rawP2 = clampProgress(lineSeriesDelayFrames * 2, lineDrawFrames);
-  const easedP2 = easeInCubic(rawP2);
   const showDots2 = rawP2 >= 1;
-  const animatedS2 = animateSeries(chartInputs.lineSeries[2]?.values ?? [], easedP2);
-  const lineOpacity2 = rawP2;
+  const lineOpacity2 = easeInOutCubic(rawP2);
+
+  // All data points always present — shape is fixed, never recalculated
   const animatedLineData = Array.from({ length: maxLineLength }).map((_, index) => ({
     label: labels[index] ?? `${index + 1}`,
-    s0: animatedS0[index] ?? null,
-    s1: animatedS1[index] ?? null,
-    s2: animatedS2[index] ?? null,
+    s0: chartInputs.lineSeries[0]?.values[index] ?? null,
+    s1: chartInputs.lineSeries[1]?.values[index] ?? null,
+    s2: chartInputs.lineSeries[2]?.values[index] ?? null,
   }));
   const seriesKeys: Array<"s0" | "s1" | "s2"> = ["s0", "s1", "s2"];
   const seriesMagnitudes = chartInputs.lineSeries
@@ -547,7 +620,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   }));
   const barDataMax = Math.max(0, ...barData.map((d) => Math.abs(d.value)));
   const animatedBarData = barData.map((row, index) => {
-    const progress = easeInCubic(clampProgress(index * barStepFrames, barGrowFrames));
+    const progress = easeInOutCubic(clampProgress(index * barStepFrames, barGrowFrames));
     return {
       ...row,
       value: row.value * progress,
@@ -564,9 +637,9 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
         }))
       : [];
   const animatedComparisonBarData = comparisonBarData.map((row, index) => {
-    const s0Progress = easeInCubic(clampProgress((index * 3 + 0) * barStepFrames, barGrowFrames));
-    const s1Progress = easeInCubic(clampProgress((index * 3 + 1) * barStepFrames, barGrowFrames));
-    const s2Progress = easeInCubic(clampProgress((index * 3 + 2) * barStepFrames, barGrowFrames));
+    const s0Progress = easeInOutCubic(clampProgress((index * 3 + 0) * barStepFrames, barGrowFrames));
+    const s1Progress = easeInOutCubic(clampProgress((index * 3 + 1) * barStepFrames, barGrowFrames));
+    const s2Progress = easeInOutCubic(clampProgress((index * 3 + 2) * barStepFrames, barGrowFrames));
     return {
       ...row,
       s0: row.s0 == null ? null : row.s0 * s0Progress,
@@ -586,7 +659,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
   }));
   const histogramDataMax = Math.max(0, ...histogramData.map((d) => Math.abs(d.value)));
   const animatedHistogramData = histogramData.map((row, index) => {
-    const progress = easeInCubic(clampProgress(index * barStepFrames, barGrowFrames));
+    const progress = easeInOutCubic(clampProgress(index * barStepFrames, barGrowFrames));
     return {
       ...row,
       value: row.value * progress,
@@ -695,7 +768,12 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
             ) : null}
           </div>
 
-          <div style={{ flex: 1, minHeight: isPortrait ? 220 : 0 }}>
+          <div style={{
+            flex: 1,
+            minHeight: isPortrait ? 220 : 0,
+            /* Lottie-style trim-path reveal: clip from the right */
+            clipPath: chartType === "line" ? `inset(0 ${lineClipRight}% 0 0)` : undefined,
+          }}>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "line" ? (
                 <ComposedChart data={animatedLineData} margin={{ top: 8, right: 12, left: chartLeftMargin, bottom: lineChartBottomMargin }}>
@@ -735,9 +813,8 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                     dataKey="s0"
                     stroke={s0LineColor}
                     strokeWidth={3.2}
-                    strokeOpacity={lineOpacity0}
                     fill="url(#newscast-line-fill)"
-                    fillOpacity={0.32 * lineOpacity0}
+                    fillOpacity={0.32}
                     isAnimationActive={false}
                     dot={showDots0 ? { r: 2.6, fill: "white", stroke: s0LineColor, strokeWidth: 1.6 } : false}
                     activeDot={false}
@@ -771,7 +848,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       type="monotone"
                       dataKey="s1"
                       stroke={s1LineColor}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       strokeOpacity={lineOpacity1}
                       dot={showDots1 ? { r: 2.2, fill: "white", stroke: s1LineColor, strokeWidth: 1.2 } : false}
                       activeDot={false}
@@ -808,7 +885,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                       type="monotone"
                       dataKey="s2"
                       stroke={s2LineColor}
-                      strokeWidth={2}
+                      strokeWidth={2.5}
                       strokeOpacity={lineOpacity2}
                       dot={showDots2 ? { r: 2.2, fill: "white", stroke: s2LineColor, strokeWidth: 1.2 } : false}
                       activeDot={false}
