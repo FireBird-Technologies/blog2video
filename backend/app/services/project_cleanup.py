@@ -20,14 +20,31 @@ from app.services.remotion import cancel_running_render, get_workspace_dir, safe
 logger = get_logger(__name__)
 
 # User-facing copy (also returned from /status after rollback).
-PUBLIC_MSG_SCRAPE_FAILED = (
-    "This site does not allow scraping, or we could not read its content. "
-    "Sorry for the inconvenience—please try another link."
-)
+
+
+def format_scrape_failed_public_message(blog_url: str | None) -> str:
+    """Message when URL/document extraction fails; quota is rolled back (no video count deducted)."""
+    raw = (blog_url or "").strip()
+    if raw.startswith("upload://"):
+        return (
+            "(Your uploaded document) This document does not allow automated extraction "
+            "(or we could not read its content). "
+            "We apologise for the inconvenience. No video count has been deducted — "
+            "please try uploading another document."
+        )
+    if not raw:
+        display = "This link"
+    else:
+        display = raw
+    return (
+        f"({display}) This site does not allow scraping (or we could not read its content). "
+        "We apologise for the inconvenience. No video count has been deducted — please try another link."
+    )
+
 
 PUBLIC_MSG_PIPELINE_FAILED = (
-    "An unexpected error occurred in the generation pipeline. "
-    "We're sorry for the inconvenience—please try again or contact support for help."
+    "An unexpected error occurred while generating your video (script or scene generation). "
+    "We apologise for the inconvenience. No video count has been deducted — please try again or contact support for help."
 )
 
 
