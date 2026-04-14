@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { blackswanNeonPalette, rgbaFromHex } from "./blackswanAccent";
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
@@ -13,6 +14,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     leftLabel,
     rightLabel,
@@ -26,6 +28,10 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
 
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
+  const beforeBorder = rgbaFromHex(pal.deep, 0.16);
+  const beforeRule = rgbaFromHex(pal.mid, 0.19);
+  const beforeMuted = rgbaFromHex(pal.mid, 0.65);
 
   const titleOp  = interpolate(frame, [0, 20],  [0, 1], { extrapolateRight: "clamp" });
   const titleY   = interpolate(frame, [0, 20],  [12, 0], { extrapolateRight: "clamp" });
@@ -41,9 +47,19 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
   const narSize     = descriptionFontSize ?? (p ? 34 : 31);
   const titleSize   = titleFontSize ?? (p ? 91 : 81);
 
+  // Format the title to capitalize the first letter of each word
+  const formattedTitle = useMemo(() => {
+    if (!title) return "";
+    return title
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }, [title]);
+
+
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
-      <StarField />
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
+      <StarField accentColor={accentColor} />
 
       {/* ── NeonWater ─────────────────────────────────────────────────────── */}
       {/* Landscape: one below each card, no shade */}
@@ -60,6 +76,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             delay={0.2}
             hideBg
             fadeEdges
+            accentColor={accentColor}
           />
           <NeonWater
             uid="sR"
@@ -72,6 +89,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             delay={0.5}
             hideBg
             fadeEdges
+            accentColor={accentColor}
           />
         </>
       )}
@@ -88,6 +106,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
           delay={0.3}
           hideBg
           fadeEdges
+          accentColor={accentColor}
         />
       )}
 
@@ -115,16 +134,16 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             fontFamily: fontFamily ?? display,
             fontSize: titleSize,
             fontWeight: 400,
-            ...neonTitleTubeStyle(accentColor),
+            ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            // textTransform: "uppercase", // Removed, as formatting is handled by JS
             textAlign: "center",
             opacity: titleOp,
             transform: `translateY(${titleY}px)`,
           }}
         >
-          {title}
+          {formattedTitle}
         </h1>
 
         {/* Accent line */}
@@ -195,7 +214,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
               display: "flex",
               flexDirection: "column",
               gap: p ? 14 : 18,
-              border: "1px solid #3366FF28",
+              border: `1px solid ${beforeBorder}`,
               opacity: leftOp,
             }}
           >
@@ -204,7 +223,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
               style={{
                 fontSize: eyebrowSize,
                 letterSpacing: 5,
-                color: "#4466FF",
+                color: pal.deep,
                 textTransform: "uppercase",
                 fontFamily: fontFamily ?? mono,
                 fontWeight: 400,
@@ -219,7 +238,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
                 fontFamily: fontFamily ?? display,
                 fontSize: headingSize,
                 fontWeight: 400,
-                color: "#4466FF",
+                color: pal.mid,
                 letterSpacing: "0.02em",
                 lineHeight: 1.2,
               }}
@@ -228,14 +247,14 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             </div>
 
             {/* Thin rule */}
-            <div style={{ height: 1, width: 80, background: "#3366FF30" }} />
+            <div style={{ height: 1, width: 80, background: beforeRule }} />
 
             {/* Description */}
             <p
               style={{
                 margin: 0,
                 fontSize: descSize,
-                color: "#4466FFAA",
+                color: beforeMuted,
                 lineHeight: 1.7,
                 fontFamily: fontFamily ?? mono,
                 fontWeight: 400,
@@ -250,7 +269,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             <div
               style={{
                 width: 1,
-                background: "linear-gradient(to bottom, transparent, #00E5FF55, transparent)",
+                background: `linear-gradient(to bottom, transparent, ${rgbaFromHex(accentColor, 0.33)}, transparent)`,
                 margin: "32px 0",
               }}
             />
@@ -259,7 +278,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             <div
               style={{
                 height: 1,
-                background: "linear-gradient(to right, transparent, #00E5FF55, transparent)",
+                background: `linear-gradient(to right, transparent, ${rgbaFromHex(accentColor, 0.33)}, transparent)`,
                 margin: "0 32px",
               }}
             />
@@ -273,7 +292,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
               display: "flex",
               flexDirection: "column",
               gap: p ? 14 : 18,
-              border: "1px solid #00E5FF28",
+              border: `1px solid ${rgbaFromHex(accentColor, 0.16)}`,
               opacity: rightOp,
             }}
           >
@@ -282,7 +301,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
               style={{
                 fontSize: eyebrowSize,
                 letterSpacing: 5,
-                color: "#00AAFF",
+                color: pal.mid,
                 textTransform: "uppercase",
                 fontFamily: fontFamily ?? mono,
                 fontWeight: 400,
@@ -311,7 +330,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
                 height: 1,
                 width: 80,
                 background: accentColor,
-                boxShadow: `0 0 4px ${accentColor}, 0 0 8px #00AAFF88`,
+                boxShadow: `0 0 4px ${accentColor}, 0 0 8px ${rgbaFromHex(accentColor, 0.5)}`,
               }}
             />
 
@@ -320,7 +339,7 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
               style={{
                 margin: 0,
                 fontSize: descSize,
-                color: "#00AAFF",
+                color: rgbaFromHex(accentColor, 0.68),
                 lineHeight: 1.7,
                 fontFamily: fontFamily ?? mono,
                 fontWeight: 400,

@@ -1,14 +1,18 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
+import { blackswanNeonPalette, rgbaFromHex } from "./blackswanAccent";
 
 export { NeonWater } from "./neonWater";
-export { BlackswanFlock, BlackswanBirdOnPath } from "./birds";
+export { BlackswanFlock, BlackswanBirdOnPath, BlackswanArcBirdPass } from "./birds";
+export { blackswanNeonPalette, rgbaFromHex, parseHex, mixRgb, toHex } from "./blackswanAccent";
 
 export const mono = "'IBM Plex Mono', monospace";
 export const display = "'Syne', sans-serif";
 
-export const NEON_TITLE_FILL_OPACITY = 0.24;
+/** Legacy rgba fill helper (e.g. one-off labels). Titles use hollow `neonTitleTubeStyle` instead. */
+export const NEON_TITLE_FILL_OPACITY = 0.2;
 
+/** #rgb / #rrggbb → rgba(..., alpha). Other values returned unchanged. */
 export function neonTitleFillColor(hexColor: string, alpha = NEON_TITLE_FILL_OPACITY): string {
   const raw = hexColor.trim().replace(/^#/, "");
   if (raw.length === 3) {
@@ -27,52 +31,74 @@ export function neonTitleFillColor(hexColor: string, alpha = NEON_TITLE_FILL_OPA
   return hexColor;
 }
 
+/** Multi-layer bloom: tight layers read as inner rim + stronger outward halo. */
 export function neonTitleTextShadow(accentColor: string): string {
   const a = accentColor;
   return [
     `0 0 1px ${a}`,
     `0 0 2px ${a}`,
-    `0 0 3px ${a}`,
-    `0 0 5px ${a}E8`,
-    `0 0 8px ${a}AA`,
-    `0 0 11px ${a}66`,
+    `0 0 3px ${a}FA`,
+    `0 0 5px ${a}EE`,
+    `0 0 9px ${a}`,
+    `0 0 14px ${a}F2`,
+    `0 0 22px ${a}DD`,
+    `0 0 34px ${a}BB`,
+    `0 0 50px ${a}99`,
+    `0 0 70px ${a}77`,
+    `0 0 96px ${a}55`,
   ].join(", ");
 }
 
 export type NeonTitleTubeStyle = Pick<
   React.CSSProperties,
-  "color" | "WebkitTextStroke" | "paintOrder" | "textShadow"
+  "color" | "WebkitTextFillColor" | "WebkitTextStroke" | "paintOrder" | "textShadow" | "letterSpacing"
 >;
 
-export function neonTitleTubeStyle(accentColor: string, opts?: { fillHex?: string }): NeonTitleTubeStyle {
-  const fillHex = opts?.fillHex ?? accentColor;
+/** True neon-tube look: fill matches the scene background so the letter interior looks empty,
+ *  but with controlled transparency so the stroke glow bleeds inward (inner tube). Lower alpha
+ *  = a bit more inward glow vs letter body. Pass bgColor to match a non-black background. */
+export function neonTitleTubeStyle(accentColor: string, opts?: { bgColor?: string }): NeonTitleTubeStyle {
+  const bg = opts?.bgColor ?? "#000000";
+  // More transparent than before so the thick stroke’s light reads slightly farther inward
+  const fill = neonTitleFillColor(bg, 0.64);
   return {
-    color: neonTitleFillColor(fillHex),
-    WebkitTextStroke: `0.55px ${accentColor}`,
+    color: bg,
+    WebkitTextFillColor: fill,
+    WebkitTextStroke: `5.5px ${accentColor}`,
     paintOrder: "stroke fill",
     textShadow: neonTitleTextShadow(accentColor),
+    letterSpacing: "0.12em",
   };
 }
 
-export const Eyebrow: React.FC<{ text: string; fontFamily?: string }> = ({ text, fontFamily }) => (
-  <div
-    style={{
-      fontSize: 9,
-      letterSpacing: 5,
-      color: "#00AAFF",
-      textTransform: "uppercase" as const,
-      fontFamily: fontFamily ?? mono,
-      opacity: 0.9,
-    }}
-  >
-    {text}
-  </div>
-);
+export const Eyebrow: React.FC<{ text: string; fontFamily?: string; accentColor?: string }> = ({
+  text,
+  fontFamily,
+  accentColor = "#00E5FF",
+}) => {
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
+  return (
+    <div
+      style={{
+        fontSize: 9,
+        letterSpacing: 5,
+        color: pal.mid,
+        textTransform: "uppercase" as const,
+        fontFamily: fontFamily ?? mono,
+        opacity: 0.9,
+      }}
+    >
+      {text}
+    </div>
+  );
+};
 
-export const StarField: React.FC = () => {
+export const StarField: React.FC<{ accentColor?: string }> = ({ accentColor = "#00E5FF" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
+
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   const REGULAR_COUNT = 200;
   const BRIGHT_COUNT  = 52;
@@ -86,32 +112,26 @@ export const StarField: React.FC = () => {
         {/* Soft corona — used on all regular stars */}
         <filter id="sf-corona" x="-300%" y="-300%" width="700%" height="700%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" result="blur" />
-          <feColorMatrix in="blur" type="matrix"
-            values="0 0 0 0 0  0 0.88 1 0 0  0 0.88 1 0 0  0 0 0 1 0" result="colored" />
           <feMerge>
-            <feMergeNode in="colored" />
+            <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         {/* Bigger bloom — for bright accent stars */}
         <filter id="sf-bloom" x="-400%" y="-400%" width="900%" height="900%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="5.5" result="blur" />
-          <feColorMatrix in="blur" type="matrix"
-            values="0 0 0 0 0  0 0.9 1 0 0  0 0.9 1 0 0  0 0 0 1.2 0" result="colored" />
           <feMerge>
-            <feMergeNode in="colored" />
-            <feMergeNode in="colored" />  {/* double-layer for extra brightness */}
+            <feMergeNode in="blur" />
+            <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         {/* Large halo — for biggest accent stars */}
         <filter id="sf-halo" x="-600%" y="-600%" width="1300%" height="1300%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur" />
-          <feColorMatrix in="blur" type="matrix"
-            values="0 0 0 0 0  0 0.95 1 0 0  0 0.95 1 0 0  0 0 0 1.4 0" result="colored" />
           <feMerge>
-            <feMergeNode in="colored" />
-            <feMergeNode in="colored" />
+            <feMergeNode in="blur" />
+            <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
@@ -130,7 +150,7 @@ export const StarField: React.FC = () => {
         const r       = i % 11 === 0 ? 2.2 : i % 4 === 0 ? 1.4 : 0.85;
         const peakOp  = i % 11 === 0 ? 0.95 : i % 4 === 0 ? 0.85 : 0.70;
         const opacity = peakOp * tw;
-        const color   = i % 6 === 0 ? "#00E5FF" : i % 3 === 0 ? "#DFFFFF" : "#00AAFF";
+        const color   = i % 6 === 0 ? pal.core : i % 3 === 0 ? pal.bright : pal.mid;
         return (
           <circle
             key={`r-${i}`}
@@ -159,7 +179,7 @@ export const StarField: React.FC = () => {
           <circle
             key={`b-${i}`}
             cx={x} cy={y} r={r}
-            fill="#00E5FF"
+            fill={pal.core}
             opacity={opacity}
             filter={filter}
           />
@@ -172,14 +192,15 @@ export const StarField: React.FC = () => {
 /**
  * NeonPanel — frosted border panel matching HTML: border:1px solid #00E5FF14 or 18
  */
-export const NeonPanel: React.FC<{ children: React.ReactNode; width?: string }> = ({
+export const NeonPanel: React.FC<{ children: React.ReactNode; width?: string; accentColor?: string }> = ({
   children,
   width = "100%",
+  accentColor = "#00E5FF",
 }) => (
   <div
     style={{
       width,
-      border: "1px solid #00E5FF14",
+      border: `1px solid ${rgbaFromHex(accentColor, 0.08)}`,
       background: "transparent",
       padding: "12px 14px",
     }}
