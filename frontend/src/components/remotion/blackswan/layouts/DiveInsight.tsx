@@ -78,7 +78,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
   const pieces = highlighted.split(/(__S__|__E__)/);
 
   const quoteFontSize = titleFontSize ?? (p ? 80 : 67);
-  const subFontSize   = descriptionFontSize ?? (p ? 33 : 33);
+  const subFontSize   = descriptionFontSize ?? (p ? 33 : 39);
 
   // ── With image: image centered, quote below ──────────────────
   if (hasImage) {

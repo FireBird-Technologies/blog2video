@@ -158,7 +158,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
   const ctaLabel = (ctaButtonText ?? title ?? "").trim();
   const showCta = ctaLabel.length > 0;
   const showWebsite = (showWebsiteButton !== false) && (websiteLink ?? "").trim().length > 0;
-  const ctaFontSize = titleFontSize ?? (p ? 77 : 76);
+  const ctaFontSize = titleFontSize ?? (p ? 82 : 76);
   const narrSize = descriptionFontSize ?? (p ? 36 : 33);
   const hasSocials =
     socials && (Array.isArray(socials) ? socials.length > 0 : Object.keys(socials as Record<string, unknown>).length > 0);
@@ -229,7 +229,7 @@ export const EndingSocials: React.FC<BlackswanLayoutProps> = (props) => {
               fontWeight: 400,
               ...neonTitleTubeStyle(accentColor, { bgColor }),
               letterSpacing: "0.12em",
-              textTransform: "uppercase",
+              textTransform: "capitalize", // Changed from "uppercase" to "capitalize"
               lineHeight: 1.1,
               textAlign: "center",
             }}

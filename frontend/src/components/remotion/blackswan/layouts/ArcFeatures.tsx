@@ -159,7 +159,7 @@ const FeatureCards: React.FC<{
               fontWeight: 700,
               color: accentColor,
               letterSpacing: "1px",
-              textTransform: "uppercase",
+              // textTransform: "uppercase", // Removed as per user instruction
               lineHeight: 1.2,
               textAlign: portrait ? "center" : undefined,
             }}>
@@ -523,7 +523,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
           style={{
             margin: 0,
             fontFamily: fontFamily ?? display,
-            fontSize: titleFontSize ?? (p ? 90 : 74),
+            fontSize: titleFontSize ?? (p ? 90 : 83),
             fontWeight: 800,
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,

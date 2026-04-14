@@ -47,6 +47,16 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
   const narSize     = descriptionFontSize ?? (p ? 34 : 31);
   const titleSize   = titleFontSize ?? (p ? 91 : 81);
 
+  // Format the title to capitalize the first letter of each word
+  const formattedTitle = useMemo(() => {
+    if (!title) return "";
+    return title
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }, [title]);
+
+
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       <StarField accentColor={accentColor} />
@@ -127,13 +137,13 @@ export const SignalSplit: React.FC<BlackswanLayoutProps> = (props) => {
             ...neonTitleTubeStyle(accentColor, { bgColor }),
             lineHeight: 1.1,
             letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            // textTransform: "uppercase", // Removed, as formatting is handled by JS
             textAlign: "center",
             opacity: titleOp,
             transform: `translateY(${titleY}px)`,
           }}
         >
-          {title}
+          {formattedTitle}
         </h1>
 
         {/* Accent line */}
