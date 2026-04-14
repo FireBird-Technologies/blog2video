@@ -850,6 +850,9 @@ export interface PipelineStatus {
   step: number;
   running: boolean;
   error: string | null;
+  error_code?: string | null;
+  /** True when the server removed the project after a failed generation (quota reverted). */
+  project_removed?: boolean;
   notice?: {
     code: string;
     message?: string;

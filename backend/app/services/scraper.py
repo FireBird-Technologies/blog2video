@@ -15,9 +15,19 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.asset import Asset, AssetType
 from app.services import r2_storage
+from app.services.table_extraction import (
+    append_tables_to_content,
+    extract_tables_from_html,
+    extract_tables_from_markdown,
+)
 from app.observability.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class BlogScrapeFailed(Exception):
+    """Raised when no usable text could be extracted from the blog URL (blocked, empty, or unsupported)."""
+
 
 # Browser headers for image downloads and fallback scraping
 _BROWSER_HEADERS = {
@@ -50,11 +60,12 @@ def scrape_blog(project: Project, db: Session) -> Project:
     url = project.blog_url
     text = ""
     image_urls: list[str] = []
+    extracted_tables: list[dict] = []
 
     # ── Step 1: Firecrawl (default — handles JS/SPA sites) ──
     if settings.FIRECRAWL_API_KEY:
         try:
-            text, image_urls = _scrape_with_firecrawl(url)
+            text, image_urls, extracted_tables = _scrape_with_firecrawl(url)
             if text and len(text.strip()) >= _MIN_CONTENT_LENGTH:
                 logger.info(
                     "[SCRAPER] Firecrawl succeeded (%s chars, %s images) for project %s",
@@ -82,10 +93,11 @@ def scrape_blog(project: Project, db: Session) -> Project:
     # ── Step 2: requests + BeautifulSoup (free fallback) ──
     if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
         try:
-            req_text, req_images = _scrape_with_requests(url)
+            req_text, req_images, req_tables = _scrape_with_requests(url)
             if req_text and len(req_text.strip()) >= _MIN_CONTENT_LENGTH:
                 text = req_text
                 image_urls = req_images
+                extracted_tables = req_tables
                 logger.info(
                     "[SCRAPER] requests succeeded (%s chars, %s images) for project %s",
                     len(text),
@@ -111,10 +123,11 @@ def scrape_blog(project: Project, db: Session) -> Project:
     # ── Step 3: Exa with livecrawl (last resort) ──
     if (not text or len(text.strip()) < _MIN_CONTENT_LENGTH) and settings.EXA_API_KEY:
         try:
-            exa_text, exa_images = _scrape_with_exa(url)
+            exa_text, exa_images, exa_tables = _scrape_with_exa(url)
             if exa_text and len(exa_text.strip()) >= _MIN_CONTENT_LENGTH:
                 text = exa_text
                 image_urls = exa_images
+                extracted_tables = exa_tables
                 logger.info(
                     "[SCRAPER] Exa succeeded (%s chars, %s images) for project %s",
                     len(text),
@@ -131,16 +144,16 @@ def scrape_blog(project: Project, db: Session) -> Project:
             )
 
     if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
-        raise ValueError(
+        raise BlogScrapeFailed(
             "Could not extract meaningful content from the URL. "
-            "The site may require JavaScript rendering or the page may be empty."
+            "The site may require JavaScript rendering, block scrapers, or the page may be empty."
         )
 
     # Download images (only from the original blog page — no external sources)
     _download_images(project.user_id, project.id, image_urls, db)
 
     # Update project
-    project.blog_content = text
+    project.blog_content = append_tables_to_content(text, extracted_tables)
     # Only set content_language if not already set (preserve user's explicit choice)
     if not (getattr(project, "content_language", None) or "").strip():
         from app.services.language_detection import detect_content_language
@@ -154,7 +167,7 @@ def scrape_blog(project: Project, db: Session) -> Project:
 
 # ─── Exa API scraping ─────────────────────────────────────
 
-def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
+def _scrape_with_exa(url: str) -> tuple[str, list[str], list[dict]]:
     """
     Use Exa API to get clean text content, HTML for code blocks, and
     image URLs from a URL.  Exa handles Medium/Substack/paywalled sites.
@@ -316,8 +329,15 @@ def _scrape_with_exa(url: str) -> tuple[str, list[str]]:
         except Exception as e:
             print(f"[SCRAPER] HTML image fallback failed (non-fatal): {e}")
 
-    print(f"[SCRAPER] Exa extracted {len(text)} chars, {len(code_blocks)} code blocks, {len(image_urls)} images")
-    return text, image_urls
+    extracted_tables: list[dict] = []
+    if html_text:
+        extracted_tables.extend(extract_tables_from_html(html_text, source="exa_html"))
+
+    print(
+        f"[SCRAPER] Exa extracted {len(text)} chars, {len(code_blocks)} code blocks, "
+        f"{len(image_urls)} images, {len(extracted_tables)} tables"
+    )
+    return text, image_urls, extracted_tables
 
 
 # ─── Exa image search fallback ─────────────────────────────
@@ -401,7 +421,7 @@ def _find_extra_images_via_exa(
 
 # ─── Firecrawl scraping ───────────────────────────────────
 
-def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
+def _scrape_with_firecrawl(url: str) -> tuple[str, list[str], list[dict]]:
     """
     Use Firecrawl to scrape a page.  Firecrawl renders JavaScript, so it
     handles SPAs and dynamically-rendered blogs that requests cannot.
@@ -428,6 +448,15 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
         text = _extract_text(soup)
     else:
         text = ""
+
+    # --- Extract tables ---
+    extracted_tables: list[dict] = []
+    if html_content:
+        extracted_tables.extend(extract_tables_from_html(html_content, source="firecrawl_html"))
+    if markdown_text:
+        extracted_tables.extend(
+            extract_tables_from_markdown(markdown_text, source="firecrawl_markdown")
+        )
 
     # --- Extract images ---
     image_urls: list[str] = []
@@ -458,13 +487,16 @@ def _scrape_with_firecrawl(url: str) -> tuple[str, list[str]]:
         for m in re.finditer(r"!\[.*?\]\((https?://[^\s)]+)\)", markdown_text):
             _add(m.group(1))
 
-    print(f"[SCRAPER][Firecrawl] Got {len(text)} chars, {len(image_urls)} images from {url}")
-    return text, image_urls
+    print(
+        f"[SCRAPER][Firecrawl] Got {len(text)} chars, {len(image_urls)} images, "
+        f"{len(extracted_tables)} tables from {url}"
+    )
+    return text, image_urls, extracted_tables
 
 
 # ─── Requests + BeautifulSoup scraping ────────────────────
 
-def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
+def _scrape_with_requests(url: str) -> tuple[str, list[str], list[dict]]:
     """
     Scraper using requests + BeautifulSoup.
     Hero/OG image is always first in the returned list.
@@ -491,7 +523,8 @@ def _scrape_with_requests(url: str) -> tuple[str, list[str]]:
     if hero_url:
         image_urls = [hero_url] + [u for u in image_urls if u != hero_url]
 
-    return text, image_urls
+    extracted_tables = extract_tables_from_html(response.text, source="requests_html")
+    return text, image_urls, extracted_tables
 
 
 def _extract_og_image(url: str) -> str | None:

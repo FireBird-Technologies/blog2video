@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
+import { blackswanNeonPalette } from "./blackswanAccent";
 
 // Righteous (Astigmatic / Google Fonts) — bundled via @fontsource/righteous in fonts/registry
 const mono = "'Righteous', cursive";
@@ -33,7 +34,7 @@ const SHOOT_TRAJ = [
 ] as const;
 
 // ── Shooting stars: 3–5 per scene (from seed), staggered cadences and paths
-const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
+const ShootingStarsLayer: React.FC<{ seed: string; accentColor: string }> = ({ seed, accentColor }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
@@ -43,6 +44,7 @@ const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
     return Math.abs(x);
   })();
   const count = shootingStarCountFromSeed(seed);
+  const pal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   return (
     <svg
@@ -52,15 +54,9 @@ const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
       <defs>
         {Array.from({ length: count }, (_, i) => (
           <filter key={`nn-f-${i}`} id={`nn-star-glow-${i}`} x="-300%" y="-300%" width="700%" height="700%">
-            <feGaussianBlur stdDeviation="3.5" result="b" />
-            <feColorMatrix
-              in="b"
-              type="matrix"
-              values="0 0 0 0 0  0 0.9 1 0 0  0 0.9 1 0 0  0 0 0 1.4 0"
-              result="c"
-            />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="b" />
             <feMerge>
-              <feMergeNode in="c" />
+              <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
@@ -97,8 +93,8 @@ const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
               x2={cx}
               y2={cy}
             >
-              <stop offset="0%" stopColor="#00E5FF" stopOpacity={0} />
-              <stop offset="100%" stopColor="#00E5FF" stopOpacity={tailOp} />
+              <stop offset="0%" stopColor={pal.core} stopOpacity={0} />
+              <stop offset="100%" stopColor={pal.core} stopOpacity={tailOp} />
             </linearGradient>
             <line
               x1={tailX}
@@ -113,7 +109,7 @@ const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
               cx={cx}
               cy={cy}
               r={2.6 + (i % 2) * 0.35}
-              fill="#00E5FF"
+              fill={pal.core}
               opacity={headOp}
               filter={`url(#nn-star-glow-${i})`}
             />
@@ -124,13 +120,16 @@ const ShootingStarsLayer: React.FC<{ seed: string }> = ({ seed }) => {
   );
 };
 
-const NeonLine: React.FC<{ width?: string | number }> = ({ width = "160px" }) => (
+const NeonLine: React.FC<{ width?: string | number; accentColor: string }> = ({
+  width = "160px",
+  accentColor,
+}) => (
   <div
     style={{
       height: 1,
       width,
-      background: "#00E5FF",
-      boxShadow: "0 0 2px #00E5FF, 0 0 5px #00AAFF",
+      background: accentColor,
+      boxShadow: `0 0 2px ${accentColor}, 0 0 5px ${accentColor}99`,
     }}
   />
 );
@@ -140,6 +139,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
     title,
     narration,
     accentColor = "#00E5FF",
+    bgColor = "#000000",
     textColor = "#DFFFFF",
     titleFontSize,
     descriptionFontSize,
@@ -156,6 +156,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
   const bodyOp    = interpolate(frame, [25, 50], [0, 1], { extrapolateRight: "clamp" });
   const bodyY     = interpolate(frame, [25, 50], [14, 0], { extrapolateRight: "clamp" });
   const rightOp   = interpolate(frame, [15, 45], [0, 1], { extrapolateRight: "clamp" });
+  const neonPal = useMemo(() => blackswanNeonPalette(accentColor), [accentColor]);
 
   // In landscape: text on left, water+swan on right
   // In portrait: stacked, water+swan below text
@@ -167,7 +168,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
   const swanSize = p ? 1050 : 900;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "#000000", overflow: "hidden" }}>
+    <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {/* Background image — full screen, very low opacity with black overlay so all content remains legible */}
       {props.imageUrl && (
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
@@ -176,11 +177,11 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.18 }}
           />
           {/* Modified: Reduced the opacity of the dark overlay from 0.5 to 0.35 */}
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)" }} />
+          <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.35 }} />
         </div>
       )}
-      <StarField />
-      <ShootingStarsLayer seed={`${title}\u0000${narration}`} />
+      <StarField accentColor={accentColor} />
+      <ShootingStarsLayer seed={`${title}\u0000${narration}`} accentColor={accentColor} />
 
       {/* NeonWater on the right (landscape) or bottom (portrait) — no shade */}
       <div style={{ position: "absolute", inset: 0, opacity: rightOp }}>
@@ -195,6 +196,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
           nRings={5}
           delay={0.2}
           hideBg
+          accentColor={accentColor}
         />
       </div>
 
@@ -209,7 +211,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
           opacity: rightOp,
         }}
       >
-        <Swan size={swanSize} water={false} uid="nn-swan" />
+        <Swan size={swanSize} water={false} uid="nn-swan" accentColor={accentColor} />
       </div>
 
       {/* Text column — left side, left-aligned */}
@@ -241,7 +243,7 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
             style={{
               fontSize: p ? 18 : 14,
               letterSpacing: 5,
-              color: "#00AAFF",
+              color: neonPal.mid,
               textTransform: "uppercase",
               fontFamily: fontFamily ?? mono,
               fontWeight: 500,
@@ -258,19 +260,19 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
               fontFamily: fontFamily ?? display,
               fontSize: titleFontSize ?? (p ? 73 : 69),
               fontWeight: 100,
-              ...neonTitleTubeStyle(accentColor),
+              ...neonTitleTubeStyle(accentColor, { bgColor }),
               lineHeight: 1.1,
               opacity: titleOp,
               transform: `translateY(${titleY}px)`,
               textAlign: "left",
-              letterSpacing: "3px"
+              letterSpacing: "0.12em"
             }}
           >
             {title}
           </h1>
 
           {/* Neon line — matches title width feel */}
-          <NeonLine width={p ? "120px" : "140px"} />
+          <NeonLine width={p ? "120px" : "140px"} accentColor={accentColor} />
 
           {/* Narration body — one block per newline so breaks read clearly */}
           {narration && (

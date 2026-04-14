@@ -5,6 +5,15 @@ import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 const DEFAULT_BG = "#060614";
 
 const WORLD_TOPOLOGY_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const STRONG_ZOOM_LAYOUTS = new Set(["segment_break", "anchor_narrative", "headline_insight"]);
+const MAP_SLIDE_IN_LAYOUTS = new Set([
+  "side_by_side_brief",
+  "split_glass",
+  "field_image_focus",
+  "glass_image",
+  "headline_insight",
+  "kinetic_insight",
+]);
 
 type PixelDot = {
   x: number;
@@ -35,8 +44,8 @@ const noise1 = (v: number) => fract(Math.sin(v * 12.9898 + 78.233) * 43758.5453)
 const PIXEL_DOTS: PixelDot[] = (() => {
   const dots: PixelDot[] = [];
   let candidate = 0;
-  for (let y = 0.12; y <= 0.86; y += 0.018) {
-    for (let x = 0.06; x <= 0.94; x += 0.012) {
+  for (let y = 0.12; y <= 0.86; y += 0.028) {
+    for (let x = 0.06; x <= 0.94; x += 0.02) {
       const jitterX = (noise1(candidate * 1.37) - 0.5) * 0.004;
       const jitterY = (noise1(candidate * 2.11) - 0.5) * 0.004;
       const px = x + jitterX;
@@ -59,7 +68,7 @@ const PIXEL_DOTS: PixelDot[] = (() => {
 const PIXEL_CONNECTIONS: PixelConnection[] = (() => {
   const links: PixelConnection[] = [];
   const degrees = new Array<number>(PIXEL_DOTS.length).fill(0);
-  const maxLinks = 540;
+  const maxLinks = 240;
   for (let i = 0; i < PIXEL_DOTS.length; i += 1) {
     if (degrees[i] >= 3) continue;
     const a = PIXEL_DOTS[i];
@@ -84,7 +93,7 @@ const PIXEL_CONNECTIONS: PixelConnection[] = (() => {
 const PIXEL_PARTICLE_SEEDS: PixelParticleSeed[] = (() => {
   const seeds: PixelParticleSeed[] = [];
   const anchorIndexes = PIXEL_DOTS.map((_, i) => i).filter((i) => noise1(i * 3.7) > 0.9);
-  const sample = anchorIndexes.slice(0, 38);
+  const sample = anchorIndexes.slice(0, 24);
   sample.forEach((dotIndex, i) => {
     seeds.push({
       dotIndex,
@@ -147,24 +156,9 @@ export const NewsCastBackground: React.FC<{
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
-    const strongZoomLayouts = new Set([
-      "segment_break",
-      "anchor_narrative",
-      "headline_insight",
-    ]);
-    const mapSlideInLayouts = new Set([
-      "side_by_side_brief",
-      "split_glass",
-      "field_image_focus",
-      "glass_image",
-      "headline_insight",
-      "kinetic_insight",
-    ]);
-    const strongZoom = sceneLayoutType ? strongZoomLayouts.has(sceneLayoutType) : false;
+    const strongZoom = sceneLayoutType ? STRONG_ZOOM_LAYOUTS.has(sceneLayoutType) : false;
     const isAsiaFocusLayout = sceneLayoutType === "headline_insight";
-    const isMapSlideInLayout = sceneLayoutType
-      ? mapSlideInLayouts.has(sceneLayoutType)
-      : false;
+    const isMapSlideInLayout = sceneLayoutType ? MAP_SLIDE_IN_LAYOUTS.has(sceneLayoutType) : false;
     const usesDarkeningOpacity = !strongZoom;
     const zoomStart = strongZoom ? 1.48 : 1.24;
     const zoomEnd = 1;
@@ -207,6 +201,18 @@ export const NewsCastBackground: React.FC<{
       : 1;
     const mapDarkPhaseOpacity = (1 - entryProgress) * 0.2 + exitProgress * 0.24;
     const continentFocus = 0.82 + entryProgress * 0.2 - exitProgress * 0.14;
+    const thunderCycle = frame % Math.max(1, Math.round(fps * 2.8));
+    const thunderPrimary = interpolate(thunderCycle, [0, 2, 6, 10], [0, 0.22, 0.04, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    const thunderSecondary = interpolate(thunderCycle, [28, 30, 34, 38], [0, 0.16, 0.03, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    const thunderBoost =
+      sceneLayoutType === "headline_insight" || sceneLayoutType === "segment_break" ? 1.12 : 1;
+    const thunderOpacity = Math.max(thunderPrimary, thunderSecondary) * thunderBoost;
     const sweep = tick % 1;
     const waveCenterX = 0.52;
     const waveCenterY = 0.46;
@@ -321,7 +327,7 @@ export const NewsCastBackground: React.FC<{
           <g clipPath="url(#newscast-land-clip-frontend)">
             {PIXEL_DOTS.map((dot, i) => {
               const state = dotStates[i];
-              if (!state || state.opacity < 0.02 || i % 2 !== 0) return null;
+              if (!state || state.opacity < 0.02 || i % 3 !== 0) return null;
               const px = dot.x * 1000;
               const py = dot.y * 500;
               const size = 2.1 + state.brightness * 1.8;
@@ -429,6 +435,17 @@ export const NewsCastBackground: React.FC<{
               "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(190,235,255,0.2) 46%, rgba(255,255,255,0) 100%)",
             transform: "skewX(-16deg)",
             opacity: 0.45 * sceneOpacityEnvelope,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            opacity: thunderOpacity * sceneOpacityEnvelope,
+            background:
+              "radial-gradient(1200px 520px at 50% -8%, rgba(170,210,255,0.34), rgba(170,210,255,0.08) 42%, rgba(170,210,255,0) 72%), linear-gradient(180deg, rgba(150,200,255,0.16) 0%, rgba(150,200,255,0.03) 26%, rgba(150,200,255,0) 48%)",
+            mixBlendMode: "screen",
           }}
         />
         <div
