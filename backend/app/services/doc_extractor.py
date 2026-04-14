@@ -149,11 +149,52 @@ def extract_from_documents(
 def _extract_pdf(
     file_path: str, image_dir: str
 ) -> tuple[str, list[tuple[str, str]], list[dict]]:
-    """Return (markdown_text, [(local_path, filename), ...])."""
+    """Return (markdown_text, [(local_path, filename), ...], tables)."""
+    import pdfplumber
+    from app.services.table_extraction import _normalize_table, _looks_like_header_row
+
     images: list[tuple[str, str]] = []
+    tables: list[dict] = []
 
     # Markdown text via pymupdf4llm
     md_text = pymupdf4llm.to_markdown(file_path)
+
+    # Tables via pdfplumber
+    source_name = os.path.basename(file_path)
+    markdown_tables: list[str] = []
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                for raw_table in (page.extract_tables() or []):
+                    if not raw_table:
+                        continue
+                    # Normalize: replace None with "", strip whitespace, skip empty rows
+                    rows = [
+                        [str(cell or "").strip() for cell in row]
+                        for row in raw_table
+                        if row and any(cell for cell in row)
+                    ]
+                    if len(rows) < 2:
+                        continue
+                    # Use first row as headers if it looks like one
+                    if _looks_like_header_row(rows[0]):
+                        headers = rows[0]
+                        data_rows = rows[1:]
+                    else:
+                        col_count = max(len(r) for r in rows)
+                        headers = [f"col_{i + 1}" for i in range(col_count)]
+                        data_rows = rows
+                    normalized = _normalize_table(headers, data_rows, source_name)
+                    if normalized:
+                        tables.append(normalized)
+                        # Also render as a proper markdown table inline in the content
+                        markdown_tables.append(_table_to_markdown(normalized))
+    except Exception as exc:
+        print(f"[DOC_EXTRACTOR] pdfplumber table extraction failed for {source_name}: {exc}")
+
+    # Append markdown tables inline so blog_content contains readable pipe tables
+    if markdown_tables:
+        md_text = (md_text or "").rstrip() + "\n\n" + "\n\n".join(markdown_tables)
 
     # Images via PyMuPDF
     doc = fitz.open(file_path)
@@ -192,7 +233,19 @@ def _extract_pdf(
             images.append((local_path, filename))
 
     doc.close()
-    return md_text or "", images, []
+    return md_text or "", images, tables
+
+
+def _table_to_markdown(table: dict) -> str:
+    """Convert a normalized table dict (headers + rows) to a markdown pipe table string."""
+    headers = table.get("headers") or []
+    rows = table.get("rows") or []
+    if not headers:
+        return ""
+    sep = "| " + " | ".join("---" for _ in headers) + " |"
+    header_row = "| " + " | ".join(str(h) for h in headers) + " |"
+    data_rows = ["| " + " | ".join(str(c) for c in row) + " |" for row in rows]
+    return "\n".join([header_row, sep] + data_rows)
 
 
 # ─── DOCX extraction ─────────────────────────────────────────
