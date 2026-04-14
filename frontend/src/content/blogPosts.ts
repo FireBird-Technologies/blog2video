@@ -4445,4 +4445,113 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "how-devrel-teams-can-turn-docs-into-videos",
+    title: "How DevRel Teams Can Turn Docs Into Videos Without Rebuilding Everything",
+    description:
+      "A practical workflow for developer relations teams that want to turn docs, API guides, and release notes into useful videos without losing technical clarity.",
+    category: "Use case",
+    heroImage: "/blog/blog-cover-documentation-walkthroughs.png",
+    heroImageAlt:
+      "Editorial illustration of developer documentation, API guides, and release notes turning into a structured product video for technical audiences.",
+    publishedAt: "2026-04-14",
+    readTime: "8 min read",
+    heroEyebrow: "DevRel workflow",
+    heroTitle: "Your docs already explain the product. DevRel video should start there.",
+    heroDescription:
+      "Developer relations teams do not need a separate content factory for every launch, tutorial, or onboarding flow. The strongest video workflow often begins with the docs you already maintain.",
+    primaryKeyword: "devrel docs to video",
+    keywordVariant: "developer relations documentation video",
+    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video"],
+    sections: [
+      {
+        heading: "Documentation is one of DevRel's highest-leverage source assets",
+        paragraphs: [
+          "Most developer relations teams already have the hard part: structured technical content. Setup guides, quickstarts, API references, changelogs, migration notes, and release announcements all explain real product behavior in language developers can trust.",
+          "That makes docs a better starting point for video than a blank script. Instead of inventing a new narrative for every launch, DevRel can turn proven documentation into a video layer that helps more developers discover, understand, and adopt the product.",
+        ],
+      },
+      {
+        heading: "Use video to extend docs, not replace them",
+        paragraphs: [
+          "The job of a DevRel video is not to make the docs unnecessary. It is to make the docs easier to enter. A short walkthrough can show the flow, explain why the feature matters, and point developers toward the exact guide they should use next.",
+          "That is especially effective for launch content, new SDK releases, onboarding sequences, and feature education where developers want both a quick overview and a precise written reference.",
+        ],
+        bullets: [
+          "Turn quickstarts into narrated onboarding videos.",
+          "Turn changelogs into release recap videos developers can skim fast.",
+          "Turn API guides into walkthroughs that show sequence and context.",
+          "Turn migration docs into clearer implementation explainers.",
+        ],
+      },
+      {
+        heading: "Why docs-to-video fits lean DevRel teams",
+        paragraphs: [
+          "Many DevRel teams are small. Sometimes it is one developer advocate trying to support launches, docs, demos, community questions, and content distribution at the same time. In that environment, every extra production step matters.",
+          "Docs-first video works because it reduces reinvention. The language, structure, edge cases, and examples are already in the source material. That means less scripting, fewer review cycles, and a faster path from published docs to a shareable video for YouTube, social, embedded docs, or launch emails.",
+        ],
+      },
+      {
+        heading: "The output has to stay technically credible",
+        paragraphs: [
+          "Developers will forgive simple visuals faster than vague explanations. What they do not forgive is a video that sounds polished while skipping prerequisites, flattening code examples, or misrepresenting the real workflow.",
+          "That is why docs are such a strong input. They already carry the implementation truth. A good docs-to-video workflow preserves headings, steps, examples, and caution points so the video stays aligned with the source developers will actually use.",
+        ],
+      },
+      {
+        heading: "How Blog2Video helps DevRel repurpose docs",
+        paragraphs: [
+          "1. Paste a documentation URL or upload a source document. Blog2Video reads the structure and turns headings, steps, and supporting detail into scenes.",
+          "2. Generate a narrated explainer that keeps the technical flow intact, including code-oriented sections and educational pacing.",
+          "3. Publish the result wherever DevRel already distributes: product launch posts, help centers, YouTube, social clips, and onboarding sequences.",
+        ],
+        ctaPath: "/for-technical-writers",
+        ctaLabel: "See the docs-to-video workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "Why is documentation a good source for DevRel video?",
+        answer:
+          "Because documentation is already structured around real developer tasks. It contains the setup steps, terminology, caveats, and examples that make technical video credible instead of generic.",
+      },
+      {
+        question: "What kinds of DevRel content work best for docs-to-video?",
+        answer:
+          "Quickstarts, integration guides, release notes, migration docs, SDK walkthroughs, and feature launch documentation are all strong candidates because they already have a clear teaching structure.",
+      },
+      {
+        question: "Will a docs-based video feel too dry for developer audiences?",
+        answer:
+          "Not if the format is handled well. Developers usually want clarity more than hype. A strong docs-based video gives them the flow and context quickly, then sends them to the full written guide for implementation detail.",
+      },
+      {
+        question: "Is this useful for solo DevRel operators too?",
+        answer:
+          "Yes. In fact, the workflow is especially useful when one person is covering launches, docs, distribution, and community education. Reusing documentation as the source reduces the amount of custom video production work required for each release.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How DevRel Teams Can Turn Docs Into Videos Without Rebuilding Everything",
+        angle: "Capture developer-relations intent around docs, onboarding, API education, and launch content repurposing.",
+      },
+      {
+        channel: "video",
+        title: "Turn Developer Docs Into Videos: A Better DevRel Workflow",
+        angle: "Show a documentation page becoming a narrated explainer and position it as a workflow for launches, onboarding, and SDK education.",
+      },
+      {
+        channel: "substack",
+        title: "Your docs team is already producing half of your DevRel video strategy.",
+        angle: "Lead with leverage for lean teams: reuse the source of truth instead of scripting every technical video from zero.",
+      },
+      {
+        channel: "medium",
+        title: "Why developer relations teams should treat documentation as a video source, not just a support asset",
+        angle: "Explain how docs-first video improves distribution while preserving technical credibility.",
+      },
+    ],
+  },
 ];
