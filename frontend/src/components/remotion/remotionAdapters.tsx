@@ -1,3 +1,4 @@
+import React from "react";
 import { AbsoluteFill, Audio, Sequence, useCurrentFrame } from "remotion";
 import { LogoOverlay } from "./default/../LogoOverlay";
 import {
@@ -80,7 +81,7 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, RemotionNewscastLayoutType> = 
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  data_visualization: "anchor_narrative",
+  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 
@@ -97,6 +98,7 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<RemotionNewscastLayoutType, string> =
   side_by_side_brief: "split_glass",
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
+  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 
@@ -1052,20 +1054,80 @@ export const RemotionNewscastVideoComposition: React.FC<
   fontFamily,
 }) => {
   const FPS = 30;
+  const sceneFrameOffsets = React.useMemo(() => {
+    const offsets = new Array<number>(scenes.length);
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      offsets[i] = acc;
+      acc += Math.max(1, Math.round((scenes[i].durationSeconds || 5) * FPS));
+    }
+    return offsets;
+  }, [scenes]);
+  const normalizeNewscastDataVizProps = (
+    lp: Partial<RemotionNewscastLayoutProps>,
+  ): Partial<RemotionNewscastLayoutProps> => {
+    const out: Record<string, unknown> = { ...lp };
+
+    if (typeof out.chartType === "string") {
+      out.chartType = String(out.chartType).trim().toLowerCase();
+    }
+
+    // Allow nested chart object from legacy descriptors.
+    const legacyChart = out.chart as
+      | {
+          type?: string;
+          labels?: unknown[];
+          datasets?: Array<{ label?: unknown; values?: unknown[] | string }>;
+          rows?: Array<{ label?: unknown; value?: unknown }>;
+        }
+      | undefined;
+    if (legacyChart && typeof legacyChart === "object") {
+      if (!out.chartType && legacyChart.type) out.chartType = String(legacyChart.type);
+      if (!out.lineChartLabels && Array.isArray(legacyChart.labels)) {
+        out.lineChartLabels = legacyChart.labels.map((v) => String(v ?? ""));
+      }
+      if (!out.lineChartDatasets && Array.isArray(legacyChart.datasets)) {
+        out.lineChartDatasets = legacyChart.datasets.map((dataset) => ({
+          label: String(dataset?.label ?? ""),
+          valuesStr: Array.isArray(dataset?.values)
+            ? dataset.values.map((v) => String(v ?? "")).join(",")
+            : String(dataset?.values ?? ""),
+        }));
+      }
+      if (!out.barChartRows && Array.isArray(legacyChart.rows)) {
+        out.barChartRows = legacyChart.rows.map((row) => ({
+          label: String(row?.label ?? ""),
+          value: String(row?.value ?? ""),
+        }));
+      }
+    }
+
+    // Backward-compat support for nested table shape
+    const legacyTable = out.table as
+      | { headers?: unknown[]; rows?: unknown[][] }
+      | undefined;
+    if (!out.chartTable && legacyTable && typeof legacyTable === "object") {
+      out.chartTable = {
+        headers: Array.isArray(legacyTable.headers)
+          ? legacyTable.headers.map((h) => String(h ?? ""))
+          : [],
+        rows: Array.isArray(legacyTable.rows)
+          ? legacyTable.rows.map((row) =>
+              Array.isArray(row) ? row.map((cell) => (cell == null ? "" : (cell as string | number))) : [],
+            )
+          : [],
+      };
+    }
+
+    return out as Partial<RemotionNewscastLayoutProps>;
+  };
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-        const startFrame = scenes
-          .slice(0, index)
-          .reduce(
-            (acc, s) =>
-              acc +
-              Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
-            0,
-          );
+        const startFrame = sceneFrameOffsets[index] ?? 0;
 
         const durationFrames = Math.max(
           1,
@@ -1078,7 +1140,11 @@ export const RemotionNewscastVideoComposition: React.FC<
           ] ?? REMOTION_NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const lc = scene.layoutConfig;
-        const lp = scene.layoutProps as Partial<RemotionNewscastLayoutProps>;
+        const baseLp = scene.layoutProps as Partial<RemotionNewscastLayoutProps>;
+        const lp =
+          normalizedLayout === "data_visualization"
+            ? normalizeNewscastDataVizProps(baseLp)
+            : baseLp;
         const layoutProps: RemotionNewscastLayoutProps = {
           ...lp,
           titleFontSize: lp.titleFontSize ?? lc?.titleFontSize,

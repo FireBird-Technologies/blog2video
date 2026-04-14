@@ -499,17 +499,9 @@ export default function VideoPreview({
   );
   const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
 
-  // Recompute when scene descriptor data changes (title, display_text, remotion_code)
-  // so the Player remounts and shows the latest content.
-  const sceneDataKey = useMemo(
-    () => {
-      const key = project.scenes.map((s) => `${s.id}:${s.title}:${s.display_text ?? ""}:${s.remotion_code ?? ""}`).join("|");
-      return key;
-    },
-    [project.scenes, isCustom],
-  );
   useEffect(() => {
     let cancelled = false;
+    const cleanupFns: Array<() => void> = [];
     setMediaReady(false);
     setIsPreloadingMedia(true);
     const imageUrls = mediaSources.filter((src) =>
@@ -523,9 +515,19 @@ export default function VideoPreview({
       (src) =>
         new Promise<void>((resolve) => {
           const img = new Image();
-          img.onload = () => resolve();
-          img.onerror = () => resolve(); // don't block on error
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          img.onload = done;
+          img.onerror = done; // don't block on error
           img.src = src;
+          cleanupFns.push(() => {
+            img.onload = null;
+            img.onerror = null;
+          });
         }),
     );
 
@@ -535,15 +537,28 @@ export default function VideoPreview({
           const audio = document.createElement("audio");
           audio.preload = "auto";
           audio.muted = true;
-          const done = () => resolve();
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
           // Consider audio ready only once metadata/playability is available.
-          audio.addEventListener("loadedmetadata", done, { once: true });
-          audio.addEventListener("canplay", done, { once: true });
-          audio.addEventListener("canplaythrough", done, { once: true });
-          audio.addEventListener("error", done, { once: true });
+          audio.addEventListener("loadedmetadata", done);
+          audio.addEventListener("canplay", done);
+          audio.addEventListener("canplaythrough", done);
+          audio.addEventListener("error", done);
           audio.src = src;
           // Safety timeout — keep generous to avoid starting before media is warm.
-          setTimeout(done, 15000);
+          const timeoutId = window.setTimeout(done, 15000);
+          cleanupFns.push(() => {
+            window.clearTimeout(timeoutId);
+            audio.removeEventListener("loadedmetadata", done);
+            audio.removeEventListener("canplay", done);
+            audio.removeEventListener("canplaythrough", done);
+            audio.removeEventListener("error", done);
+            audio.src = "";
+          });
         }),
     );
 
@@ -555,6 +570,7 @@ export default function VideoPreview({
 
     return () => {
       cancelled = true;
+      cleanupFns.forEach((fn) => fn());
     };
   }, [mediaSourcesKey]);
 
@@ -661,7 +677,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${mediaSourcesKey}-${sceneDataKey}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
           component={Composition}
           inputProps={{
             ...inputProps,

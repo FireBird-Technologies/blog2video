@@ -30,6 +30,8 @@ from app.schemas.schemas import (
     RenderResponse,
 )
 from app.config import settings
+from app.services.scraper import scrape_blog
+from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
@@ -613,11 +615,16 @@ async def _generate_scenes(project: Project, db: Session):
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
     """
     scenes = project.scenes
+    extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
+    # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
+    table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
 
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
+        if table_context_hint:
+            vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
         scenes_data.append(
             {
                 "title": s.title,
