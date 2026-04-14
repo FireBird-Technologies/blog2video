@@ -33,6 +33,10 @@ from app.services.remotion import (
     cancel_running_render,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.project_cleanup import (
+    remove_failed_generation_project,
+    PUBLIC_MSG_PIPELINE_FAILED,
+)
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
@@ -866,9 +870,27 @@ def create_project_from_upload(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after extraction error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -916,9 +938,27 @@ def upload_documents_to_project(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after upload-documents error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
