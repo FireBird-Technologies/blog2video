@@ -19,6 +19,7 @@
     "opening",
     "anchor_narrative",
     "live_metrics_board",
+    "data_visualization",
     "briefing_code_panel",
     "headline_insight",
     "story_stack",
@@ -612,6 +613,280 @@
         }
       ]
     },
+    "data_visualization": {
+      "label": "Data Visualization (Auto Charts)",
+      "defaults": {
+        "tickerItems": [
+          "MARKET OPEN",
+          "INTRADAY MOVE",
+          "VOLATILITY WATCH",
+          "CLOSING BELL OUTLOOK"
+        ],
+        "lowerThirdTag": "MARKET WATCH",
+        "lowerThirdHeadline": "Index Performance",
+        "lowerThirdSub": "Stock trend and movement snapshot",
+        "titleFontSize": {
+          "portrait": 46,
+          "landscape": 34
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 25
+        },
+        "marketSymbol": "S&P 500",
+        "marketValue": "3,013.00",
+        "marketDelta": "+6.27",
+        "marketPercent": "+0.21%",
+        "marketTrend": "up",
+        "chartType": "auto",
+        "lineChartLabels": [
+          "J",
+          "F",
+          "M",
+          "A",
+          "M",
+          "J",
+          "J",
+          "A",
+          "S"
+        ],
+        "lineChartDatasets": [
+          {
+            "label": "S&P 500",
+            "valuesStr": "2480,2625,2742,2860,2920,2765,2980,2868,3013"
+          }
+        ],
+        "barChartRows": [
+          {
+            "label": "Energy",
+            "value": "45"
+          },
+          {
+            "label": "Transport",
+            "value": "38"
+          },
+          {
+            "label": "Industry",
+            "value": "30"
+          }
+        ],
+        "histogramRows": [
+          {
+            "label": "0-10",
+            "value": "2"
+          },
+          {
+            "label": "11-20",
+            "value": "6"
+          },
+          {
+            "label": "21-30",
+            "value": "9"
+          },
+          {
+            "label": "31-40",
+            "value": "4"
+          }
+        ],
+        "chartTable": {
+          "headers": [
+            "Month",
+            "Revenue",
+            "Cost"
+          ],
+          "rows": [
+            [
+              "Jan",
+              "120",
+              "90"
+            ],
+            [
+              "Feb",
+              "130",
+              "95"
+            ],
+            [
+              "Mar",
+              "125",
+              "98"
+            ]
+          ]
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 180,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "marketSymbol",
+          "label": "Market Symbol",
+          "type": "string"
+        },
+        {
+          "key": "marketValue",
+          "label": "Current Value",
+          "type": "string"
+        },
+        {
+          "key": "marketDelta",
+          "label": "Change Value",
+          "type": "string"
+        },
+        {
+          "key": "marketPercent",
+          "label": "Change Percent",
+          "type": "string"
+        },
+        {
+          "key": "marketTrend",
+          "label": "Trend Mode",
+          "type": "select",
+          "options": [
+            {
+              "label": "Up",
+              "value": "up"
+            },
+            {
+              "label": "Down",
+              "value": "down"
+            },
+            {
+              "label": "Crash",
+              "value": "crash"
+            }
+          ]
+        },
+        {
+          "key": "lineChartLabels",
+          "label": "Chart Labels",
+          "type": "string_array",
+          "maxItems": 12
+        },
+        {
+          "key": "lineChartDatasets",
+          "label": "Line Datasets (max 3)",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Series Label"
+            },
+            {
+              "key": "valuesStr",
+              "label": "Values (comma-separated)"
+            }
+          ]
+        },
+        {
+          "key": "barChartRows",
+          "label": "Bar Rows",
+          "type": "object_array",
+          "maxItems": 12,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "value",
+              "label": "Value"
+            }
+          ]
+        },
+        {
+          "key": "histogramRows",
+          "label": "Histogram Rows",
+          "type": "object_array",
+          "maxItems": 12,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Bucket"
+            },
+            {
+              "key": "value",
+              "label": "Frequency"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Table Source",
+          "type": "object_array",
+          "maxItems": 20,
+          "subFields": [
+            {
+              "key": "headers",
+              "label": "Headers"
+            },
+            {
+              "key": "rows",
+              "label": "Rows"
+            }
+          ]
+        },
+        {
+          "key": "tickerItems",
+          "label": "Ticker Items",
+          "type": "string_array",
+          "maxItems": 8
+        },
+        {
+          "key": "lowerThirdTag",
+          "label": "Lower Third Tag",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdHeadline",
+          "label": "Lower Third Headline",
+          "type": "string"
+        },
+        {
+          "key": "lowerThirdSub",
+          "label": "Lower Third Subtitle",
+          "type": "string"
+        }
+      ]
+    },
     "briefing_code_panel": {
       "label": "Briefing Code Panel",
       "defaults": {
@@ -681,7 +956,15 @@
         "lowerThirdSub": "Credibility and voice emphasis",
         "quote": "This is not a pledge — this is a commitment the world will enforce",
         "highlightWord": "commitment",
-        "attribution": "— UN Secretary-General · Geneva, March 2026"
+        "attribution": "— UN Secretary-General · Geneva, March 2026",
+        "titleFontSize": {
+          "portrait": 75,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 17,
+          "landscape": 13
+        }
       },
       "fields": [
         {
