@@ -33,88 +33,168 @@ interface RequestModalProps {
 }
 
 function CustomTemplateRequestModal({
-  description, companyInformation, altContact, loading, success, error,
-  onDescriptionChange, onCompanyInformationChange, onAltContactChange, onSubmit, onClose,
+  description,
+  companyInformation,
+  altContact,
+  loading,
+  success,
+  error,
+  onDescriptionChange,
+  onCompanyInformationChange,
+  onAltContactChange,
+  onSubmit,
+  onClose,
 }: RequestModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
         {success ? (
-          <div className="flex flex-col items-center py-6 text-center gap-3">
+          <div className="flex flex-col items-center py-8 text-center gap-4">
             <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-7 h-7 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Request sent!</h3>
-            <p className="text-sm text-gray-500">We'll review your request and get back to you soon.</p>
+
+            <h3 className="text-lg font-semibold text-gray-900">
+              Request Successfully Sent
+            </h3>
+
+            <p className="text-sm text-gray-500 max-w-sm">
+              Our design team will review your request and reach out with next
+              steps shortly. We’re excited to bring your vision to life.
+            </p>
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between mb-4">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-5">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Request a Custom Template</h3>
-                <p className="text-sm text-gray-500 mt-1">Describe the theme and style you have in mind. Our team will get back to you.</p>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Get Expert Help Creating Your Template
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Share your ideas and preferences, and our experts will craft a
+                  custom template tailored specifically to your brand.
+                </p>
               </div>
-              <button onClick={onClose} className="ml-4 shrink-0 text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+
+              <button
+                onClick={onClose}
+                className="ml-4 shrink-0 text-gray-400 hover:text-gray-600 transition"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
+            {/* Form */}
+            <form onSubmit={onSubmit} className="space-y-5">
+              {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Theme / Description <span className="text-red-400">*</span>
+                  Template Vision / Requirements{" "}
+                  <span className="text-red-400">*</span>
                 </label>
+
                 <textarea
                   required
                   rows={5}
                   maxLength={3000}
                   value={description}
-                  onChange={(e) => onDescriptionChange(e.target.value)}
-                  placeholder="Describe your brand style, colors, tone, industry, any references you like..."
+                  onChange={(e) =>
+                    onDescriptionChange(e.target.value)
+                  }
+                  placeholder="Describe your ideal template (e.g. style, colors, tone, layout, inspirations, or links to references)..."
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
-                <p className="text-xs text-gray-400 mt-1 text-right">{description.length}/3000</p>
+
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {description.length}/3000
+                </p>
               </div>
 
+              {/* Company Info */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company information <span className="text-gray-400 font-normal">(optional)</span>
+                  Company / Brand Information{" "}
+                  <span className="text-gray-400 font-normal">
+                    (optional)
+                  </span>
                 </label>
+
                 <textarea
                   rows={3}
                   maxLength={2000}
                   value={companyInformation}
-                  onChange={(e) => onCompanyInformationChange(e.target.value)}
-                  placeholder="Company name, website, industry, or anything that helps us understand your organization…"
+                  onChange={(e) =>
+                    onCompanyInformationChange(e.target.value)
+                  }
+                  placeholder="Provide context about your company (name, website, industry etc.)"
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
-                <p className="text-xs text-gray-400 mt-1 text-right">{companyInformation.length}/2000</p>
+
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {companyInformation.length}/2000
+                </p>
               </div>
 
+              {/* Contact */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alternate contact <span className="text-gray-400 font-normal">(optional)</span>
+                  Alternate Contact{" "}
+                  <span className="text-gray-400 font-normal">
+                    (optional)
+                  </span>
                 </label>
+
                 <input
                   type="text"
                   maxLength={300}
                   value={altContact}
-                  onChange={(e) => onAltContactChange(e.target.value)}
-                  placeholder="Alternate Email"
+                  onChange={(e) =>
+                    onAltContactChange(e.target.value)
+                  }
+                  placeholder="Alternate email etc"
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
 
+              {/* Error */}
               {error && (
                 <p className="text-sm text-red-500">{error}</p>
               )}
 
-              <div className="flex gap-3 pt-1">
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={onClose}
@@ -122,18 +202,35 @@ function CustomTemplateRequestModal({
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   disabled={loading || !description.trim()}
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   {loading && (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      />
                     </svg>
                   )}
-                  {loading ? "Sending…" : "Send Request"}
+
+                  {loading ? "Submitting Request…" : "Submit Request"}
                 </button>
               </div>
             </form>
@@ -428,22 +525,15 @@ export default function CustomTemplates() {
               }}
               className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
             >
-              + Create New
+              Create New +
             </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-2 text-gray-400 text-sm">
-              <div className="h-px w-3 bg-gray-300"></div>
-              <span>or</span>
-              <div className="h-px w-3 bg-gray-300"></div>
-            </div>
 
             {/* Secondary Action */}
             <button
               onClick={openRequestForm}
               className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
             >
-              Request instead?
+              Get Expert Template
             </button>
           </div>
         </div>
