@@ -1149,14 +1149,14 @@ const SCENE_SETS: Record<string, SceneSet> = {
         title: "Newscast Opening",
         durationSeconds: 7,
         narration:
-          "Newscast Opening launches the template on a deep navy field with optional globe, scan line, and breaking headline treatment — the same on-air opener pattern used for briefings and lead stories.",
+          "Newscast Opening launches the template on a deep navy field with the pixel world map, scan line, and breaking headline treatment — the same on-air opener pattern used for briefings and lead stories.",
         layout: "opening",
         layoutProps: {
           title: "Newscast Broadcast Desk",
           tickerItems: ["BREAKING", "LIVE COVERAGE", "WORLD DESK", "UPDATES"],
           lowerThirdTag: "LIVE",
           lowerThirdHeadline: "Template preview",
-          lowerThirdSub: "Cinematic opener with globe, chrome, and glass stack",
+          lowerThirdSub: "Cinematic opener with map backdrop, chrome, and glass stack",
         },
       },
       {
@@ -1216,22 +1216,17 @@ const SCENE_SETS: Record<string, SceneSet> = {
       {
         id: 5,
         order: 5,
-        title: "Data Visualization",
+        title: "Anchor Narrative",
         durationSeconds: 8,
         narration:
-          "Data Visualization renders bar, line, or pie data from your scene with grid, neon accents, and ticker rail — so charts feel like part of the broadcast, not a pasted slide.",
-        layout: "data_visualization",
+          "Anchor Narrative is the workhorse desk segment: headline, supporting copy, ticker, and lower third in one glass panel — ideal for turning analysis into on-air copy.",
+        layout: "anchor_narrative",
         layoutProps: {
-          title: "Segment share",
-          barChartRows: [
-            { label: "North", value: "40" },
-            { label: "South", value: "35" },
-            { label: "East", value: "25" },
-          ],
-          tickerItems: ["CHARTS", "LIVE DATA", "ON AIR"],
-          lowerThirdTag: "DATA",
-          lowerThirdHeadline: "Chart overview",
-          lowerThirdSub: "Bars update with extracted numbers",
+          category: "ANALYSIS",
+          tickerItems: ["BRIEFING", "CONTEXT", "ON AIR"],
+          lowerThirdTag: "DESK",
+          lowerThirdHeadline: "Key takeaway",
+          lowerThirdSub: "Supporting detail for viewers",
         },
       },
     ],

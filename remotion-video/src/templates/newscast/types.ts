@@ -56,14 +56,6 @@ export interface NewscastLayoutProps {
   chapterLabel?: string;
   subtitle?: string;
 
-  /** data_visualization (nightfall-compatible keys) */
-  barChartRows?: Array<{ label?: string; value?: string }>;
-  /** Same data as `barChartRows` in `{ labels, values }` form (AI / Nightfall). */
-  barChart?: { labels?: string[]; values?: (string | number)[] };
-  lineChartLabels?: string[];
-  lineChartDatasets?: Array<{ label?: string; valuesStr?: string; color?: string }>;
-  pieChartRows?: Array<{ label?: string; value?: string }>;
-
   /** Optional full-bleed background image URL; supported on all newscast layouts. */
   imageUrl?: string;
 
@@ -86,6 +78,5 @@ export type NewscastLayoutType =
   | "side_by_side_brief"
   | "segment_break"
   | "field_image_focus"
-  | "data_visualization"
   | "ending_socials";
 

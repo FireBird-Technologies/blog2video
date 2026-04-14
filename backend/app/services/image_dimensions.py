@@ -27,6 +27,8 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("matrix", "glitch_punch"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "awakening"): {"landscape": "3:2", "portrait": "2:3"},
     ("matrix", "fork_choice"): {"landscape": "3:2", "portrait": "2:3"},
+    # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
+    ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
 }
 
 # OpenAI gpt-image-1 supported sizes

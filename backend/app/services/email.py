@@ -9,6 +9,7 @@ Notifications:
   - send_download_ready_email()     → MP4 render complete, user can download (DONE)
   - schedule_followup_email()      → optional follow-up e.g. 23.5h after project updated_at (scheduled via Resend)
   - send_enterprise_contact_email() → enterprise contact form submission
+  - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
 """
 
 import logging
@@ -29,6 +30,17 @@ class EmailServiceError(Exception):
     pass
 
 
+def _resend_response_id(result) -> Optional[str]:
+    """Normalize Resend SDK response (dict or object) to a message id string."""
+    if result is None:
+        return None
+    if isinstance(result, dict):
+        rid = result.get("id")
+        return str(rid) if rid is not None else None
+    rid = getattr(result, "id", None)
+    return str(rid) if rid is not None else None
+
+
 # ─── Provider abstraction ──────────────────────────────────────
 
 
@@ -40,7 +52,7 @@ class BaseEmailProvider(ABC):
         self,
         to: str,
         subject: str,
-        html_content: str,
+        html_content: Optional[str] = None,
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
@@ -51,8 +63,8 @@ class BaseEmailProvider(ABC):
         Args:
             to:           Recipient email address.
             subject:      Email subject line.
-            html_content: HTML body.
-            text_content: Plain-text fallback (optional but recommended).
+            html_content: HTML body (optional if text_content is set).
+            text_content: Plain-text body (optional if html_content is set).
             from_email:   Override the default sender address.
             scheduled_at: If set, schedule send at this time (UTC); provider must support it.
 
@@ -74,13 +86,15 @@ class ResendEmailProvider(BaseEmailProvider):
         self,
         to: str,
         subject: str,
-        html_content: str,
+        html_content: Optional[str] = None,
         text_content: Optional[str] = None,
         from_email: Optional[str] = None,
         scheduled_at: Optional[datetime] = None,
     ) -> None:
         if not self.api_key:
             raise EmailServiceError("Cannot send email: RESEND_API_KEY is not configured")
+        if not (html_content or text_content):
+            raise EmailServiceError("Cannot send email: html_content or text_content is required")
 
         import resend  # lazy import — app starts even if package is missing
 
@@ -90,8 +104,9 @@ class ResendEmailProvider(BaseEmailProvider):
             "from": from_email or self.from_email,
             "to": [to],
             "subject": subject,
-            "html": html_content,
         }
+        if html_content:
+            params["html"] = html_content
         if text_content:
             params["text"] = text_content
         if scheduled_at is not None:
@@ -103,10 +118,14 @@ class ResendEmailProvider(BaseEmailProvider):
 
         try:
             result = resend.Emails.send(params)
+            rid = _resend_response_id(result)
             if scheduled_at is not None:
-                logger.info(f"[EMAIL] Scheduled '{subject}' → {to} at {params.get('scheduled_at')} (id: {getattr(result, 'id', result)})")
+                logger.info(
+                    f"[EMAIL] Scheduled '{subject}' → {to} at {params.get('scheduled_at')} "
+                    f"(resend_id={rid!r})"
+                )
             else:
-                logger.info(f"[EMAIL] Sent '{subject}' → {to} (id: {getattr(result, 'id', result)})")
+                logger.info(f"[EMAIL] Sent '{subject}' → {to} (resend_id={rid!r})")
         except Exception as exc:
             msg = f"Resend error sending to {to}: {exc}"
             logger.error(f"[EMAIL] {msg}", exc_info=True)
@@ -180,7 +199,7 @@ class EmailService:
             <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
                 You received this because you have an account at Blog2Video.<br/>
-                &copy; 2025 Blog2Video &middot; All rights reserved.
+                &copy; 2026 Blog2Video &middot; All rights reserved.
               </p>
             </td>
           </tr>
@@ -321,37 +340,69 @@ class EmailService:
             f"Message:\n{message}\n"
         )
         html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8" /></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-    <tr>
-      <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0"
-               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="background:#9333EA;padding:24px 40px;">
-              <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:32px 40px;">
-              <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
-                <tr><td style="font-weight:600;color:#374151;width:140px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{name}</td></tr>
-                <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Company</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{company}</td></tr>
-                <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Contact</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{contact_details}</td></tr>
-              </table>
-              <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Message</p>
-              <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{message}</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>"""
+        <html>
+        <head><meta charset="UTF-8" /></head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f4f4f5;padding:40px 0;margin:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center">
+                <table width="560" cellpadding="0" cellspacing="0"
+                      style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                  <tr>
+                    <td style="background:#9333EA;padding:24px 40px;">
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Blog<span style="color:#c4b5fd;">2</span>Video — Enterprise Contact</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:32px 40px;">
+                      <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
+                        <tr><td style="font-weight:600;color:#374151;width:140px;border-bottom:1px solid #f3f4f6;">Name</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{name}</td></tr>
+                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Company</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{company}</td></tr>
+                        <tr><td style="font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">Contact</td><td style="color:#111827;border-bottom:1px solid #f3f4f6;">{contact_details}</td></tr>
+                      </table>
+                      <p style="margin:24px 0 8px;font-weight:600;color:#374151;">Message</p>
+                      <p style="margin:0;padding:16px;background:#f9fafb;border-radius:6px;color:#111827;white-space:pre-wrap;">{message}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>"""
         self.provider.send_email(to=to, subject=subject, html_content=html, text_content=text)
+
+    def send_free_tier_video_limit_announcement(
+        self,
+        user_email: str,
+        user_name: str,
+        *,
+        free_video_limit: int = 3,
+        dashboard_url: Optional[str] = None,
+    ) -> None:
+        """
+        One-off / campaign email: tell free-plan users the included video limit was raised.
+        Plain text only (no HTML template).
+        """
+        base = "https://blog2video.app"
+        cta_url = dashboard_url or f"{base}"
+        display = (user_name or "").strip() or "there"
+        subject = "Growing your blog has never been easier"
+
+        text = (
+            f"Hey {display},\n\n"
+            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
+            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
+            "Most people don’t fully use what they already have. Make sure you do.\n\n"
+            f"Start creating more now: {cta_url}\n\n"
+            "Team Blog2Video \n"
+        )
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            text_content=text,
+            from_email="Arslan Shahid <arslan@blog2video.app>",
+        )
 
 
 # ─── Singleton ────────────────────────────────────────────────

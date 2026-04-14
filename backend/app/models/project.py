@@ -13,6 +13,7 @@ class ProjectStatus(str, enum.Enum):
     RENDERING = "rendering"
     DONE = "done"
     ERROR = "error"
+    GENERATING = "regenerating"
 
 
 class Project(Base):
@@ -58,7 +59,7 @@ class Project(Base):
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
     # Video length selection controls how many scenes are generated.
-    # Values: auto, short (7-10), medium (12-15), detailed (15-20)
+    # Values: auto, short (6-8), medium (12-15), detailed (15-20)
     video_length: Mapped[str] = mapped_column(String(10), default="auto")
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.

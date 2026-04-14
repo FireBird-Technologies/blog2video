@@ -1,7 +1,6 @@
 import type { NewscastLayoutProps, NewscastLayoutType } from "./types";
 import { ChapterBreak } from "./ChapterBreak";
 import { CinematicTitle } from "./CinematicTitle";
-import { DataVisualization } from "./DataVisualization";
 import { GlassCode } from "./GlassCode";
 import { GlassImage } from "./GlassImage";
 import { GlassNarrative } from "./GlassNarrative";
@@ -28,7 +27,6 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   side_by_side_brief: SplitGlass,
   segment_break: ChapterBreak,
   field_image_focus: GlassImage,
-  data_visualization: DataVisualization,
   ending_socials: EndingSocials,
 };
 

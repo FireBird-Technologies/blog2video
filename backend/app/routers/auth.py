@@ -12,7 +12,7 @@ from google.auth.transport import requests as google_requests
 
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, PlanTier
+from app.models.user import User, PlanTier, FREE_TIER_INCLUDED_VIDEOS
 from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
@@ -136,10 +136,9 @@ def google_login(
                 detail="account_deleted",
                 headers={"X-Account-Deleted": "true"},
             )
-        # Reactivate: set as free user, videos_used_this_period=1, video_limit_bonus=0
+        # Reactivate: free user; keep videos_used_this_period (not reset on delete)
         user.is_active = True
         user.plan = PlanTier.FREE
-        user.videos_used_this_period = 1
         user.video_limit_bonus = 0
         user.period_start = None
         user.stripe_customer_id = None
@@ -215,6 +214,9 @@ def delete_account(
     Soft-delete the user account. Permanently deletes all user data
     (projects, scenes, subscriptions, custom templates, voices) and marks
     the user as inactive. Login with reactivate=true will restore as free user.
+    videos_used_this_period: free-only accounts keep usage (capped at the included free count if
+    higher). Standard/Pro accounts are set to the included free count on delete so reactivation
+    cannot regain the free grant after a paid subscription.
     """
     from app.models.subscription import Subscription
     from app.models.custom_template import CustomTemplate
@@ -254,12 +256,20 @@ def delete_account(
         db.query(CustomVoice).filter(CustomVoice.user_id == user.id).delete()
         db.query(CustomTemplate).filter(CustomTemplate.user_id == user.id).delete()
 
-        # 5. Soft-delete user
+        # 5. Soft-delete user — normalize usage before plan becomes FREE (read plan first)
+        was_paid = user.plan in (PlanTier.STANDARD, PlanTier.PRO)
+        if was_paid:
+            # Paid users already had (or could have had) the free grant; do not let a low
+            # post-upgrade counter (e.g. 1) become fresh free quota on reactivate.
+            user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
+        else:
+            used = user.videos_used_this_period or 0
+            if used > FREE_TIER_INCLUDED_VIDEOS:
+                user.videos_used_this_period = FREE_TIER_INCLUDED_VIDEOS
         user.is_active = False
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
         user.plan = PlanTier.FREE
-        user.videos_used_this_period = 0
         user.video_limit_bonus = 0
         user.period_start = None
 

@@ -15,6 +15,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
+import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import BlogUrlForm from "../components/BlogUrlForm";
 import DeleteProjectModal from "../components/DeleteProjectModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -32,6 +33,8 @@ export default function Dashboard() {
   const { showError } = useErrorModal();
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showModal, setShowModal] = useState(false);
+  /** Increment when opening + New so BlogUrlForm remounts and picks a new random template each time. */
+  const [blogFormMountKey, setBlogFormMountKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -81,7 +84,11 @@ export default function Dashboard() {
   useEffect(() => {
     loadProjects();
     if (searchParams.get("upgraded") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
       refreshUser();
+    }
+    if (searchParams.get("purchased") === "true") {
+      trackGoogleAdsPurchaseConversion(searchParams.get("session_id"));
     }
   }, []);
 
@@ -166,6 +173,13 @@ export default function Dashboard() {
     if (tab === "templates") setActiveTab("templates");
     else if (tab === "voices") setActiveTab("voices");
   }, [searchParams]);
+
+  // Leaving Projects (tab or URL) should close the new-project modal so returning does not reopen it.
+  useEffect(() => {
+    if (activeTab === "templates" || activeTab === "voices") {
+      setShowModal(false);
+    }
+  }, [activeTab]);
 
   const loadProjects = async () => {
     try {
@@ -333,7 +347,15 @@ export default function Dashboard() {
   };
 
   // ─── Onboarding (0 projects): show form on first load; hide when show_form=0 (e.g. logo click) ───
-  if (loaded && projects.length === 0 && searchParams.get("show_form") !== "0") {
+  // Deep-linking to My Templates / Voices (?tab=) must use the normal tabbed layout even with 0 projects.
+  const emptyOnboarding =
+    loaded &&
+    projects.length === 0 &&
+    searchParams.get("show_form") !== "0" &&
+    searchParams.get("tab") !== "templates" &&
+    searchParams.get("tab") !== "voices";
+
+  if (emptyOnboarding) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
         <div className="w-full max-w-xl">
@@ -389,7 +411,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-gray-400">
-            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 1}{" "}
+            {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
             videos used
             {!isPro && " -- upgrade for 100/month"}
           </p>
@@ -434,7 +456,10 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setBlogFormMountKey((k) => k + 1);
+            setShowModal(true);
+          }}
           disabled={!user?.can_create_video}
           className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-sm font-medium rounded-lg transition-colors"
         >
@@ -445,11 +470,13 @@ export default function Dashboard() {
       {/* New project modal */}
       {showModal && (
         <BlogUrlForm
+          key={blogFormMountKey}
           onSubmit={handleCreate}
           onSubmitBulk={handleCreateBulk}
           loading={creating}
           asModal
           onClose={() => setShowModal(false)}
+          onDismissFlow={() => setShowModal(false)}
         />
       )}
 

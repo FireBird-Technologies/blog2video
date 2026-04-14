@@ -16,14 +16,14 @@ interface FeaturedTemplate {
   og_image: string;
 }
 
-const SHOWCASE_IDS = [44, 45, 46, 13];
+const SHOWCASE_IDS = [44, 38, 46, 13];
 
 // URL to show in the typing animation per template ID
 const TEMPLATE_URLS: Record<number, string> = {
   44: "https://anthropic.com",
-  45: "https://coca-cola.com",
+  38: "https://stripe.com",
   46: "https://mckinsey.com",
-  13: "https://firebirdtech.com",
+  13: "http://firebird-technologies.com",
 };
 
 const CYCLE_INTERVAL = 6000;

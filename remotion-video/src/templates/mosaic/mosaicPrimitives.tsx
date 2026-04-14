@@ -6,21 +6,21 @@ type FrameDensity = "dense" | "soft";
 type TileRevealMode = "linear" | "diagonal" | "cluster";
 
 const BORDER_PALETTE = [
-  "#912E1B",
-  "#111D2C",
-  "#B63C22",
-  "#1C3348",
-  "#C44B24",
-  "#18283A",
-  "#A3672C",
-  "#24485D",
-  "#C18034",
-  "#2A5468",
-  "#D2602E",
-  "#4A7D8F",
+  "#DAD1C2",
+  "#E4DCCF",
+  "#C26240",
+  "#D6CEC1",
+  "#CFC6B8",
+  "#C8785A",
+  "#EAE4DA",
+  "#B8AFA0",
+  "#D4956A",
+  "#E0D6C8",
+  "#C26240",
+  "#F2EDE4",
 ];
 
-const SHARD_PALETTE = ["#C84A2A", "#BF7A30", "#2E6077", "#A7361C", "#4B7A8E"];
+const SHARD_PALETTE = ["#C26240", "#D4956A", "#B8AFA0", "#C8785A", "#DAD1C2"];
 
 const TILE_FONT: Record<string, string[]> = {
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
@@ -146,10 +146,10 @@ export const MosaicRadialGuides: React.FC<{
   accentColor?: string;
 }> = ({ centerX = 400, centerY = 225, accentColor }) => (
   <svg width="100%" height="100%" viewBox="0 0 800 450" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-    <circle cx={centerX} cy={centerY} r={170} stroke="#14283A" strokeWidth={1} fill="none" opacity={0.42} />
-    <circle cx={centerX} cy={centerY} r={125} stroke="#193246" strokeWidth={1} fill="none" opacity={0.34} />
-    <circle cx={centerX} cy={centerY} r={78} stroke="#1E3C50" strokeWidth={0.8} fill="none" opacity={0.28} />
-    <circle cx={centerX} cy={centerY} r={45} stroke="#162739" strokeWidth={0.7} fill="none" opacity={0.22} />
+    <circle cx={centerX} cy={centerY} r={170} stroke="#B8AFA0" strokeWidth={1} fill="none" opacity={0.42} />
+    <circle cx={centerX} cy={centerY} r={125} stroke="#CFC6B8" strokeWidth={1} fill="none" opacity={0.34} />
+    <circle cx={centerX} cy={centerY} r={78} stroke="#DAD1C2" strokeWidth={0.8} fill="none" opacity={0.28} />
+    <circle cx={centerX} cy={centerY} r={45} stroke="#E4DCCF" strokeWidth={0.7} fill="none" opacity={0.22} />
     <line x1={centerX} y1={30} x2={centerX} y2={420} stroke={accentColor || MOSAIC_COLORS.gold} strokeWidth={1} opacity={0.25} />
     <line x1={60} y1={centerY} x2={740} y2={centerY} stroke={accentColor || MOSAIC_COLORS.gold} strokeWidth={1} opacity={0.25} />
   </svg>
@@ -253,7 +253,7 @@ export const DiamondIndicators: React.FC<{
           width: 8,
           height: 8,
           transform: "rotate(45deg)",
-          background: index === activeIndex ? activeColor || "#C03820" : "#1E3040",
+          background: index === activeIndex ? activeColor || "#C26240" : "#DAD1C2",
           transition: "background 160ms ease",
         }}
       />

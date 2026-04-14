@@ -1,17 +1,17 @@
 # Design Philosophy
 
-Mosaic is a handcrafted tessera style that blends cool blue tile fields, warm sunset stones, and elegant gold guide lines. It should feel composed, artisanal, and deliberate. Scenes are built from modular tile systems, not smooth gradients. Typography is serif-first and editorial, with strong hierarchy and clean spacing.
+Mosaic is a warm, handcrafted tessera style built on cream and beige stone backgrounds with terracotta accents. It should feel composed, artisanal, and deliberate. Scenes are built from modular tile systems, not smooth gradients. Typography is serif-first and editorial, with strong hierarchy and clean spacing.
 
 Use the aesthetic language from stone mosaic work:
 - Visible tile structure and grout rhythm
-- Slight color variation within repeated tiles
-- Fine metallic dividers and accents (golden lines)
+- Slight color variation within repeated tiles (cream, beige, stone)
+- Fine terracotta dividers and accents (thin lines)
 - High readability over texture
 
 Core rules:
-- Keep backgrounds dark or richly colored; avoid flat white scenes.
+- Keep backgrounds warm cream/beige; never dark or navy.
 - Use subtle motion (fade, stagger, reveal) over aggressive effects.
-- Gold accents are thin linework/highlights, never full-screen fills.
+- Accent is terracotta, used sparingly: thin lines, small squares, underlines.
 - Prefer balanced compositions with clear focal hierarchy.
 
 ---
@@ -20,20 +20,19 @@ Core rules:
 
 Use this palette direction across layouts:
 
-- **Deep navy / night grout:** `#0F1E2D`
-- **Cobalt tessera:** `#1D4E89`
-- **Aqua tessera:** `#3EA3C7`
-- **Sky tessera:** `#7CCAE3`
-- **Warm mosaic orange:** `#C6763D`
-- **Stone cream:** `#E6D9C4`
-- **Primary text:** `#E6EEF7`
-- **Secondary text:** `#BFD3E8`
-- **Golden line accent:** `#D4AF37`
+- **Stone background:** `#EAE4DA`
+- **Stone light:** `#F2EDE4`
+- **Stone warm:** `#E4DCCF`
+- **Stone deep:** `#DAD1C2`
+- **Ink (text):** `#2A2A28`
+- **Ink secondary:** `#6B645E`
+- **Accent (terracotta):** `#C26240`
+- **Accent light:** `rgba(194,98,64,0.1)`
 
 Practical visual constraints:
-- Gold lines: 1-2px separators, underlines, panel strokes.
+- Accent lines: 1-2px separators, underlines, panel strokes.
 - Avoid heavy shadows; depth comes from tile variance and layering.
-- Keep body text clear and contrast-safe.
+- Keep body text clear and contrast-safe against cream backgrounds.
 - Tile motifs can be used as borders, corners, side rails, or light overlays.
 
 ---

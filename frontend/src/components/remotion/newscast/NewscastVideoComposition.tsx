@@ -1,15 +1,13 @@
 import React from "react";
 import "../../../fonts/newspaper-defaults";
-import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./layouts/types";
 import { LogoOverlay } from "../LogoOverlay";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
-import { normalizeNewscastDataVizLayoutProps } from "./normalizeDataVizLayoutProps";
-
-const TRANS_IN_SEC = 1.15;
+import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
@@ -40,7 +38,8 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  data_visualization: "data_visualization",
+  /** Legacy: layout removed; render as anchor narrative */
+  data_visualization: "anchor_narrative",
   ending_socials: "ending_socials",
 };
 
@@ -57,14 +56,13 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
   side_by_side_brief: "split_glass",
   segment_break: "chapter_break",
   field_image_focus: "glass_image",
-  data_visualization: "data_visualization",
   ending_socials: "ending_socials",
 };
 
 const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
   NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
 
-/** Per-sequence body: wires global `rotationFrame` so the globe never resets between scenes. */
+/** Per-sequence body: wires global `rotationFrame` for continuous background motion across scenes. */
 const NewscastSequenceInner: React.FC<{
   startFrame: number;
   durationInFrames: number;
@@ -87,145 +85,11 @@ const NewscastSequenceInner: React.FC<{
   voiceoverUrl,
 }) => {
   const localFrame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { width, height } = useVideoConfig();
   const portraitScale = 1;
   const portraitTranslateY = height > width ? -((portraitScale - 1) * height * 0.5) : 0;
   const rotationFrame = startFrame + localFrame;
 
-  // Entrance motion window matches the timing used by `NewscastSceneZTransition`.
-  const capHalf = Math.max(1, Math.floor(durationInFrames / 2));
-  const transInFrames = Math.min(
-    Math.round(TRANS_IN_SEC * fps),
-    Math.max(10, Math.floor(durationInFrames * 0.38)),
-    capHalf,
-  );
-  const entryT = interpolate(localFrame, [0, transInFrames], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const transOutStart = Math.max(0, durationInFrames - transInFrames);
-  const exitT = interpolate(localFrame, [transOutStart, Math.max(transOutStart, durationInFrames - 1)], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const globeHandoffEnabled =
-    !isHero &&
-    (layoutType === "glass_image" ||
-      layoutType === "kinetic_insight" ||
-      layoutType === "glass_stack" ||
-      layoutType === "glass_code" ||
-      layoutType === "glow_metric" ||
-      layoutType === "chapter_break");
-
-  // Slower visible entries: long, smooth approach and clear settle before rotation dominates.
-  const kineticSlowT = Math.pow(entryT, 1.18);
-  const glassImageSlowT = Math.pow(entryT, 1.16);
-  const kineticSlowExitT = Math.pow(exitT, 1.18);
-  const glassImageSlowExitT = Math.pow(exitT, 1.16);
-
-  const globeTranslateXIn =
-    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
-      ? entryT * -220
-      : !isHero && layoutType === "kinetic_insight"
-        ? kineticSlowT * -188
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -42 + glassImageSlowT * -210
-      : !isHero && layoutType === "glass_code"
-        ? Math.pow(entryT, 1.08) * -150
-      : !isHero && layoutType === "glow_metric"
-      ? Math.pow(entryT, 1.08) * -170
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(entryT * Math.PI) * -72 + entryT * -360
-      : !isHero && layoutType === "split_glass"
-        ? entryT * -260
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * -90
-        : 0;
-  const globeTranslateXOut =
-    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
-      ? exitT * -220
-      : !isHero && layoutType === "kinetic_insight"
-        ? kineticSlowExitT * -188
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(exitT * Math.PI) * -42 + glassImageSlowExitT * -210
-      : !isHero && layoutType === "glass_code"
-        ? Math.pow(exitT, 1.08) * -150
-      : !isHero && layoutType === "glow_metric"
-      ? Math.pow(exitT, 1.08) * -170
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(exitT * Math.PI) * -72 + exitT * -360
-      : !isHero && layoutType === "split_glass"
-        ? exitT * -260
-      : !isHero && layoutType === "glass_stack"
-        ? exitT * -90
-        : 0;
-  const globeTranslateYIn =
-    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
-      ? entryT * -26
-      : !isHero && layoutType === "kinetic_insight"
-        ? kineticSlowT * 54 + Math.sin(entryT * Math.PI) * -5
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(entryT * Math.PI) * -48 + glassImageSlowT * 108
-      : !isHero && layoutType === "glass_code"
-        ? Math.sin(entryT * Math.PI) * -12 + Math.pow(entryT, 1.08) * 8
-      : !isHero && layoutType === "glow_metric"
-      ? Math.sin(entryT * Math.PI) * -18 + Math.pow(entryT, 1.08) * 10
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(entryT * Math.PI) * -44 + entryT * 16
-      : !isHero && layoutType === "split_glass"
-        ? Math.sin(entryT * Math.PI) * -22 + entryT * 10
-      : !isHero && layoutType === "glass_stack"
-        ? entryT * 16
-        : 0;
-  const globeTranslateYOut =
-    !isHero && (layoutType === "glass_narrative" || layoutType === "ending_socials")
-      ? exitT * -26
-      : !isHero && layoutType === "kinetic_insight"
-        ? kineticSlowExitT * 54 + Math.sin(exitT * Math.PI) * -5
-      : !isHero && layoutType === "glass_image"
-        ? Math.sin(exitT * Math.PI) * -48 + glassImageSlowExitT * 108
-      : !isHero && layoutType === "glass_code"
-        ? Math.sin(exitT * Math.PI) * -12 + Math.pow(exitT, 1.08) * 8
-      : !isHero && layoutType === "glow_metric"
-      ? Math.sin(exitT * Math.PI) * -18 + Math.pow(exitT, 1.08) * 10
-      : !isHero && layoutType === "chapter_break"
-        ? Math.sin(exitT * Math.PI) * -44 + exitT * 16
-      : !isHero && layoutType === "split_glass"
-        ? Math.sin(exitT * Math.PI) * -22 + exitT * 10
-      : !isHero && layoutType === "glass_stack"
-        ? exitT * 16
-        : 0;
-  const globeTranslateX = globeHandoffEnabled ? globeTranslateXIn + globeTranslateXOut : 0;
-  const globeTranslateY = globeHandoffEnabled ? globeTranslateYIn + globeTranslateYOut : 0;
-  const glassStackGlobeT = Math.pow(entryT, 1.5);
-  const glassStackGlobeExitT = Math.pow(exitT, 1.5);
-  const chapterGlobeT = Math.pow(entryT, 1.9);
-  const chapterGlobeExitT = Math.pow(exitT, 1.9);
-  const finalGlobeTranslateX =
-    globeHandoffEnabled && !isHero && layoutType === "chapter_break"
-      ? Math.sin(chapterGlobeT * Math.PI) * -64 +
-        chapterGlobeT * -360 +
-        Math.sin(chapterGlobeExitT * Math.PI) * -64 +
-        chapterGlobeExitT * -360
-      : globeHandoffEnabled && !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -74 +
-          glassStackGlobeT * -100 +
-          Math.sin(glassStackGlobeExitT * Math.PI) * -74 +
-          glassStackGlobeExitT * -100
-        : globeTranslateX;
-  const finalGlobeTranslateY =
-    globeHandoffEnabled && !isHero && layoutType === "chapter_break"
-      ? Math.sin(chapterGlobeT * Math.PI) * -44 +
-        chapterGlobeT * 16 +
-        Math.sin(chapterGlobeExitT * Math.PI) * -44 +
-        chapterGlobeExitT * 16
-      : globeHandoffEnabled && !isHero && layoutType === "glass_stack"
-        ? Math.sin(glassStackGlobeT * Math.PI) * -48 +
-          glassStackGlobeT * 22 +
-          Math.sin(glassStackGlobeExitT * Math.PI) * -48 +
-          glassStackGlobeExitT * 22
-      : globeTranslateY;
   return (
     <AbsoluteFill>
       <NewscastSceneZTransition
@@ -251,12 +115,12 @@ const NewscastSequenceInner: React.FC<{
           >
             <div>
               <NewsCastBackground
-                variant="hero"
+                variant={NEWSCAST_BACKGROUND_VARIANT}
                 globeOpacity={0.44}
-                globePosition="right"
                 rotationFrame={rotationFrame}
-                globeTranslateX={finalGlobeTranslateX}
-                globeTranslateY={finalGlobeTranslateY}
+                sceneFrame={localFrame}
+                sceneDurationInFrames={durationInFrames}
+                sceneLayoutType={layoutType}
                 solidBackground
               />
             </div>
@@ -338,12 +202,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
           NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
           NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
-        const rawLp =
-          normalizedLayout === "data_visualization"
-            ? normalizeNewscastDataVizLayoutProps((scene.layoutProps ?? {}) as Record<string, unknown>)
-            : scene.layoutProps ?? {};
-
-        const base = rawLp as Partial<NewscastLayoutProps>;
+        const base = (scene.layoutProps ?? {}) as Partial<NewscastLayoutProps>;
         const lc = scene.layoutConfig;
         const layoutProps: NewscastLayoutProps = {
           ...base,

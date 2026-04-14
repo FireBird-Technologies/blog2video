@@ -1,6 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { MosaicBackground } from "../MosaicBackground";
+import { MosaicImageReveal } from "../MosaicImageReveal";
+import { MosaicTiledText } from "../MosaicTiledText";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
 import type { MosaicLayoutProps } from "../types";
@@ -8,6 +10,7 @@ import type { MosaicLayoutProps } from "../types";
 export const MosaicText: React.FC<MosaicLayoutProps> = ({
   title,
   narration,
+  imageUrl,
   highlightPhrase,
   accentColor,
   bgColor,
@@ -22,14 +25,14 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   const boxifyHold = 8;
   const breakFrames = 16;
   const rebuildStart = boxifyHold + breakFrames;
-  const rebuildFrames = 42;
+  const rebuildFrames = 130;
   const rebuildEnd = rebuildStart + rebuildFrames;
-  const contentRevealStart = rebuildStart + Math.round(rebuildFrames * 0.7);
-  const frameDraw = getStaggeredReveal(frame, contentRevealStart + 4, 20);
+  const contentRevealStart = rebuildStart + Math.round(rebuildFrames * 0.6);
   const tileEntry = interpolate(frame, [rebuildStart, rebuildEnd], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const frameDraw = tileEntry;
   const introTileBreak = interpolate(
     frame,
     [boxifyHold, boxifyHold + breakFrames, rebuildStart + 4],
@@ -71,11 +74,11 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
         bgColor={bgColor}
         accentColor={accentColor}
         variant="panelField"
-        frameReveal={frameDraw}
-        frameDrift={motion.entry}
+        frameReveal={tileEntry * motion.exit}
+        frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="diagonal"
-        tileEntryIntensity={20}
+        tileEntryPattern="center"
+        tileEntryIntensity={13}
         tileExitProgress={tileExit}
         tileExitSeed={23}
         tileExitIntensity={24}
@@ -88,19 +91,47 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
         frameReveal={0}
         frameDrift={0}
         tileBuildProgress={fullScreenCoverBuild}
-        tileEntryPattern="diagonal"
-        tileEntryIntensity={20}
+        tileEntryPattern="center"
+        tileEntryIntensity={11}
         tileExitProgress={fullScreenCoverExit}
         tileExitSeed={71}
         tileExitIntensity={22}
       />
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: "0 10%" }}>
+
+      {/* ── Image panel — left 46%, revealed tile-by-tile left-to-right ── */}
+      {imageUrl && (
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "46%", height: "100%", zIndex: 1 }}>
+          <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <MosaicImageReveal
+              imageUrl={imageUrl}
+              revealProgress={tileEntry}
+              clarityProgress={panelIntro}
+              pattern="center"
+              intensity={13}
+              style={{ opacity: motion.exit }}
+              overlay={
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0, bottom: 0, right: 0,
+                    width: 3,
+                    background: accentColor || MOSAIC_COLORS.gold,
+                    opacity: panelIntro * motion.exit,
+                  }}
+                />
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", padding: imageUrl ? "0 5% 0 48%" : "0 10%" }}>
         <div
           style={{
             width: "100%",
             maxWidth: 1120,
-            border: "1px solid #243848",
-            background: "rgba(17, 24, 32, 0.88)",
+            border: "1px solid rgba(42,42,40,0.18)",
+            background: "rgba(234,228,218,0.94)",
             padding: "42px 52px",
             position: "relative",
             opacity: panelIntro * motion.exit,
@@ -112,14 +143,14 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
             style={{
               position: "absolute",
               inset: 8,
-              border: "1px solid #1E3040",
+              border: "1px solid rgba(42,42,40,0.2)",
               pointerEvents: "none",
               opacity: frameDraw * motion.exit,
             }}
           />
           <div
             style={{
-              color: "#3A6070",
+              color: MOSAIC_COLORS.textSecondary,
               fontFamily: family,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
@@ -132,22 +163,22 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
           <div
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? 38,
-              color: textColor || "#C49858",
+              fontSize: titleFontSize ?? 48,
+              color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.5,
             }}
           >
-            {parts.map((part, idx) =>
-              idx % 2 === 1 ? (
-                <span key={`hl-${idx}`} style={{ color: "#E0B870", fontWeight: 700 }}>
-                  {part}
-                </span>
-              ) : (
-                <span key={`tx-${idx}`}>{part}</span>
-              ),
-            )}
+              {parts.map((part, idx) =>
+                idx % 2 === 1 ? (
+                  <span key={`hl-${idx}`} style={{ color: MOSAIC_COLORS.gold, fontWeight: 700 }}>
+                    <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.3} />
+                  </span>
+                ) : (
+                  <MosaicTiledText key={`tx-${idx}`} text={part} revealProgress={tileEntry} speed={1.3} />
+                ),
+              )}
           </div>
-          <div style={{ height: 1, margin: "24px 0", background: "#1E3040" }} />
+            <div style={{ height: 1, margin: "24px 0", background: "rgba(42,42,40,0.25)" }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <div>
               <div
@@ -156,7 +187,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontSize: 12,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "#3A6070",
+                    color: MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Material
@@ -167,7 +198,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontFamily: family,
                   fontStyle: "italic",
                   fontSize: descriptionFontSize ?? 24,
-                  color: "#7A9E90",
+                    color: MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Marble, limestone, smalti glass
@@ -180,7 +211,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontSize: 12,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "#3A6070",
+                    color: MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Period
@@ -191,7 +222,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontFamily: family,
                   fontStyle: "italic",
                   fontSize: descriptionFontSize ?? 24,
-                  color: "#7A9E90",
+                    color: MOSAIC_COLORS.textSecondary,
                 }}
               >
                 2nd century to present day

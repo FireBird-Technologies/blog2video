@@ -1,6 +1,7 @@
 {
   "id": "matrix",
   "name": "Matrix",
+  "new_template": false,
   "description": "Digital rain on a black void. Green monospace text decodes from random characters, numbers count up through cipher noise, and data streams in like intercepted transmissions. Terminal aesthetic with glitch effects. Fast, cryptic, cyberpunk.",
   "styles": [
     "promotional"
@@ -117,11 +118,11 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 42,
-          "landscape": 68
+          "landscape": 86
         },
         "descriptionFontSize": {
-          "portrait": 59,
-          "landscape": 67
+          "portrait": 77,
+          "landscape": 73
         },
         "items": [
           "Signal received",
@@ -160,12 +161,12 @@
       "label": "Cipher Metric",
       "defaults": {
         "titleFontSize": {
-          "portrait": 90,
-          "landscape": 130
+          "portrait": 182,
+          "landscape": 175
         },
         "descriptionFontSize": {
-          "portrait": 16,
-          "landscape": 22
+          "portrait": 48,
+          "landscape": 39
         },
         "metrics": [
           {
@@ -225,12 +226,12 @@
       "label": "Fork Choice",
       "defaults": {
         "titleFontSize": {
-          "portrait": 80,
-          "landscape": 44
+          "portrait": 76,
+          "landscape": 58
         },
         "descriptionFontSize": {
-          "portrait": 40,
-          "landscape": 30
+          "portrait": 48,
+          "landscape": 32
         },
         "leftLabel": "Red Pill",
         "rightLabel": "Blue Pill",
@@ -315,12 +316,12 @@
       "label": "Transmission",
       "defaults": {
         "titleFontSize": {
-          "portrait": 54,
-          "landscape": 56
+          "portrait": 84,
+          "landscape": 78
         },
         "descriptionFontSize": {
-          "portrait": 30,
-          "landscape": 24
+          "portrait": 53,
+          "landscape": 27
         },
         "phrases": [
           "Incoming signal",
@@ -359,12 +360,12 @@
       "label": "Awakening",
       "defaults": {
         "titleFontSize": {
-          "portrait": 40,
-          "landscape": 46
+          "portrait": 67,
+          "landscape": 59
         },
         "descriptionFontSize": {
           "portrait": 37,
-          "landscape": 24
+          "landscape": 38
         },
         "highlightPhrase": "Wake up.",
         "cta": "Follow the signal"
@@ -404,12 +405,12 @@
       "label": "Ending / Follow along",
       "defaults": {
         "titleFontSize": {
-          "portrait": 97,
-          "landscape": 72
+          "portrait": 76,
+          "landscape": 57
         },
         "descriptionFontSize": {
-          "portrait": 44,
-          "landscape": 36
+          "portrait": 38,
+          "landscape": 30
         },
         "hideImage": true,
         "socials": [

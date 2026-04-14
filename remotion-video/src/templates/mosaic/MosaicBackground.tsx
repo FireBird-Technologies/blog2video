@@ -19,69 +19,36 @@ type MosaicBackgroundVariant =
   | "closeField"
   | "default";
 
-const makeFieldTiles = (count: number, variant: MosaicBackgroundVariant) =>
-  variant === "streamField"
-    ? (() => {
-        const cols = 34;
-        const rows = 20;
-        const tileW = 100 / cols;
-        const tileH = 100 / rows;
-        const cool = [MOSAIC_COLORS.cobalt, MOSAIC_COLORS.aqua, MOSAIC_COLORS.sky, "#244D62"];
-        const neutral = ["#0B1420", "#101D2B", "#122030", "#162739"];
-        const palette = [...neutral, ...cool];
-        return Array.from({ length: cols * rows }, (_, i) => {
-          const row = Math.floor(i / cols);
-          const col = i % cols;
-          return {
-            x: col * tileW + 0.05,
-            y: row * tileH + 0.05,
-            size: Math.min(tileW, tileH) - 0.1,
-            fill: palette[(row * 5 + col * 3) % palette.length],
-            order: i,
-          };
-        });
-      })()
-    : variant === "coverField"
-      ? (() => {
-          const cols = 18;
-          const rows = 10;
-          const cellW = 100 / cols;
-          const cellH = 100 / rows;
-          const stone = ["#1B2734", "#243646", "#2F4657", "#3B5566"];
-          const warm = ["#9F6E38", "#B47A3F", "#8D5E2F"];
-          const cool = ["#35607A", "#3F6F86", "#4D7E96"];
-          const palette = [...stone, ...warm, ...cool];
-          return Array.from({ length: cols * rows }, (_, i) => {
-            const row = Math.floor(i / cols);
-            const col = i % cols;
-            const jitterX = ((row * 13 + col * 7) % 8) * 0.06;
-            const jitterY = ((row * 5 + col * 11) % 8) * 0.06;
-            const shrink = 0.55 + (((row * 17 + col * 19) % 10) / 10) * 0.32;
-            const tileW = cellW * shrink;
-            const tileH = cellH * shrink;
-            return {
-              x: col * cellW + (cellW - tileW) / 2 + jitterX,
-              y: row * cellH + (cellH - tileH) / 2 + jitterY,
-              size: Math.min(tileW, tileH),
-              fill: palette[(row * 3 + col * 5) % palette.length],
-              order: i,
-            };
-          });
-        })()
-    : Array.from({ length: count }, (_, i) => {
-        const edgeSeed = i % 12;
-        const x = edgeSeed < 4 ? (i * 17) % 24 : edgeSeed < 8 ? 76 + ((i * 13) % 22) : (i * 41) % 100;
-        const y = edgeSeed < 4 ? (i * 11) % 22 : edgeSeed < 8 ? 78 + ((i * 7) % 20) : (i * 29) % 100;
-        const size = 1.3 + ((i * 5) % 2.6);
-        const cool = [MOSAIC_COLORS.cobalt, MOSAIC_COLORS.aqua, MOSAIC_COLORS.sky, "#244D62"];
-        const warm = ["#B63A1F", "#C36A2E", "#C34E22", "#A25E2B"];
-        const neutral = ["#0B1420", "#101D2B", "#122030", "#162739"];
-        const palette =
-          variant === "punchField" || variant === "closeField"
-            ? [...neutral, ...warm]
-            : [...neutral, ...cool];
-        return { x, y, size, fill: palette[i % palette.length], order: i };
-      });
+/**
+ * Dense tile grid covering the entire viewport.
+ * 96 cols × 54 rows = 5,184 tiles, each ~20px square on 1920×1080.
+ * Every tile has a 4-sided grout stroke so the animated rects ARE the small visible tiles.
+ */
+const TILE_PALETTE = [
+  "#F7F3EC", "#F4F0E8", "#F2EDE4", "#EFEBE0",
+  "#EAE4DA", "#E7E0D6", "#E4DCCF", "#E0D8CB",
+  "#DDD4C5", "#DAD1C2", "#D6CEC1", "#D3CABB",
+];
+
+const makeFieldTiles = (_count: number, _variant: MosaicBackgroundVariant) => {
+  const cols = 96;
+  const rows = 54;
+  const tileW = 100 / cols;  // ≈1.042 SVG units ≈ 20px
+  const tileH = 100 / rows;  // ≈1.852 SVG units ≈ 20px
+  return Array.from({ length: cols * rows }, (_, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const hash = (row * 7 + col * 13 + row * col * 3) % TILE_PALETTE.length;
+    return {
+      x: col * tileW,
+      y: row * tileH,
+      w: tileW,
+      h: tileH,
+      fill: TILE_PALETTE[hash],
+      order: i,
+    };
+  });
+};
 
 export const MosaicBackground: React.FC<{
   bgColor?: string;
@@ -96,6 +63,8 @@ export const MosaicBackground: React.FC<{
   tileExitProgress?: number;
   tileExitSeed?: number;
   tileExitIntensity?: number;
+  /** Pass false to suppress the tile-grid border overlay (e.g. on text-heavy scenes) */
+  showTileGrid?: boolean;
 }> = ({
   bgColor,
   accentColor,
@@ -109,6 +78,7 @@ export const MosaicBackground: React.FC<{
   tileExitProgress = 0,
   tileExitSeed = 17,
   tileExitIntensity = 26,
+  showTileGrid,
 }) => {
   const base = bgColor || MOSAIC_COLORS.deepNavy;
   const gold = accentColor || MOSAIC_COLORS.gold;
@@ -119,13 +89,31 @@ export const MosaicBackground: React.FC<{
   const entryPattern =
     tileEntryPattern || (variant === "streamField" ? "diagonal" : "center");
 
+  // Hide grid on clean text/metric layouts unless explicitly requested
+  const showGrid =
+    showTileGrid !== undefined
+      ? showTileGrid
+      : variant !== "panelField" && variant !== "metricField";
+
   return (
-    <AbsoluteFill style={{ backgroundColor: base, overflow: "hidden" }}>
-      <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <AbsoluteFill
+      style={{
+        backgroundColor: base,
+        overflow: "hidden",
+      }}
+    >
+      {/* ── Layer 1: SVG colour-variation tiles ──────────── */}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0 }}
+      >
         <rect x="0" y="0" width="100" height="100" fill={base} />
         {tiles.map((t, i) => {
-          const cx = t.x + t.size / 2;
-          const cy = t.y + t.size / 2;
+          const cx = t.x + t.w / 2;
+          const cy = t.y + t.h / 2;
           const tileReveal = getTileEntryProgress({
             progress: buildProgress,
             index: t.order,
@@ -144,40 +132,68 @@ export const MosaicBackground: React.FC<{
             seed: tileExitSeed,
             intensity: tileExitIntensity,
           });
-          const baseOpacity = variant === "punchField" || variant === "closeField" ? 0.24 : 0.2;
           return (
             <rect
               key={`tile-${i}`}
               x={t.x}
               y={t.y}
-              width={t.size}
-              height={t.size}
+              width={t.w}
+              height={t.h}
               fill={t.fill}
-              opacity={baseOpacity * tileReveal * tileExit}
+              stroke="rgba(42,42,40,0.22)"
+              strokeWidth="0.06"
+              opacity={tileReveal * tileExit}
             />
           );
         })}
+
         {(variant === "titleBands" || variant === "default") && (
           <>
-            <path d="M0 66 C20 50, 40 76, 60 62 C74 52, 86 60, 100 50" stroke="#2A4858" strokeWidth="2.8" fill="none" opacity={0.18 + frameReveal * 0.17} />
+            <path d="M0 66 C20 50, 40 76, 60 62 C74 52, 86 60, 100 50" stroke="#2A2A28" strokeWidth="2.8" fill="none" opacity={0.12 + frameReveal * 0.16} />
             <path d="M0 70 C20 54, 40 78, 60 64 C74 54, 86 62, 100 53" stroke={gold} strokeWidth="0.32" fill="none" opacity={0.3 + frameReveal * 0.5} />
           </>
         )}
         <line x1="7" y1="12" x2="93" y2="12" stroke={gold} strokeWidth="0.24" opacity={0.2 + frameReveal * 0.3} />
         <line x1="7" y1="88" x2="93" y2="88" stroke={gold} strokeWidth="0.24" opacity={0.2 + frameReveal * 0.3} />
       </svg>
+
+      {/* ── Layer 2: Decorative primitives ──────────── */}
       {(variant === "metricField" || variant === "punchField") ? <MosaicRadialGuides accentColor={gold} /> : null}
       {(variant === "punchField" || variant === "closeField") ? <MosaicShards driftProgress={frameDrift} /> : null}
       {showFrame ? <MosaicFrame revealProgress={frameReveal} density={variant === "phrasesFrame" ? "soft" : "dense"} opacity={variant === "panelField" ? 0.75 : 0.88} /> : null}
+
+      {/* ── Layer 3: Warm radial glow ──────────── */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 28% 8%, rgba(105,149,184,0.22), rgba(6,10,17,0) 42%)",
+            "radial-gradient(circle at 28% 8%, rgba(194,98,64,0.06), rgba(234,228,218,0) 55%)",
           opacity,
+          pointerEvents: "none",
         }}
       />
+
+      {/* ── Layer 4: True 4-sided tile-grid overlay ─────────────────────
+           Vertical dividers  → muted teal  (inspired by the blue wave tiles)
+           Horizontal dividers → terracotta  (inspired by the orange sun tiles)
+           Both directions = all 4 sides of every tile are bordered          */}
+      {showGrid && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: [
+              "linear-gradient(to right,  rgba(74,120,140,0.14) 0.5px, transparent 0.5px)",
+              "linear-gradient(to bottom, rgba(194,98,64,0.16) 0.5px, transparent 0.5px)",
+            ].join(", "),
+            backgroundSize: "4px 4px",
+            pointerEvents: "none",
+            zIndex: 2,
+            opacity: buildProgress,
+          }}
+        />
+      )}
     </AbsoluteFill>
   );
 };

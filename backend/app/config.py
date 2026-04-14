@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $25/mo Standard plan (30 videos)
     STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $20/mo effective Standard annual
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Price ID for $5 one-time per-video
+    STRIPE_RETENTION_COUPON_ID: str = ""  # Coupon ID applied server-side for cancel-retention offers
 
     # JWT
     JWT_SECRET: str = "change-me-in-production"
@@ -71,6 +72,17 @@ class Settings(BaseSettings):
     R2_BUCKET_NAME: str = "blog2video"
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
+
+    # Render reliability/progress controls
+    RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
+    RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))
+    RENDER_PROGRESS_UPLOAD_INTERVAL_SECONDS: int = int(
+        os.environ.get("RENDER_PROGRESS_UPLOAD_INTERVAL_SECONDS", "10")
+    )
+    # If shared render progress file stops updating for this long, treat render as dead.
+    RENDER_PROGRESS_STALE_SECONDS: int = int(
+        os.environ.get("RENDER_PROGRESS_STALE_SECONDS", "360")
+    )
 
 
     # Email

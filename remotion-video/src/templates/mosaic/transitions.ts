@@ -9,7 +9,7 @@ const seededNoise = (index: number, seed: number, x: number, y: number) => {
   return fract(Math.sin(mixed) * 43758.5453);
 };
 
-export type MosaicTileEntryPattern = "linear" | "diagonal" | "center";
+export type MosaicTileEntryPattern = "linear" | "diagonal" | "center" | "scatter";
 
 type TileMotionParams = {
   progress: number;
@@ -79,12 +79,16 @@ export const getTileEntryProgress = ({
   const dx = nx - 0.5;
   const dy = ny - 0.5;
   const centerOrder = clamp01(Math.sqrt(dx * dx + dy * dy) / 0.71);
+  // scatter: fully random per-tile order (seed 42 for entry, distinct from exit seed)
+  const scatterOrder = seededNoise(index, 42, x, y);
   const order =
     pattern === "diagonal"
       ? diagonalOrder
       : pattern === "linear"
         ? linearOrder
-        : centerOrder;
+        : pattern === "scatter"
+          ? scatterOrder
+          : centerOrder;
 
   return clamp01((clamp01(progress) - order) * intensity);
 };

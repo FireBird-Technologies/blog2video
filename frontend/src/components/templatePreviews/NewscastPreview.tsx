@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../remotion/templateConfig";
 
@@ -27,7 +27,7 @@ const NEWCAST_PREVIEW_SCENES: DemoScene[] = [
       tickerItems: ["BREAKING", "LIVE COVERAGE", "WORLD DESK", "UPDATES"],
       lowerThirdTag: "LIVE",
       lowerThirdHeadline: "Template preview",
-      lowerThirdSub: "Cinematic opener with globe, chrome, and glass stack",
+      lowerThirdSub: "Cinematic opener with map backdrop, chrome, and glass stack",
     },
   },
   {
@@ -84,9 +84,19 @@ const NEWCAST_PREVIEW_SCENES: DemoScene[] = [
 ];
 
 const TEMPLATE_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" } as const;
+const AUTO_SWITCH_INTERVAL = 6000; // Switch scenes every 6 seconds
 
 export default function NewscastPreview() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+
+  // ─── Auto Scene Switch Logic ───
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSceneIndex((prev) => (prev + 1) % NEWCAST_PREVIEW_SCENES.length);
+    }, AUTO_SWITCH_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const activeScene = NEWCAST_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
@@ -96,6 +106,7 @@ export default function NewscastPreview() {
 
   const inputProps = useMemo(
     () => ({
+      ...activeScene.layoutProps, // Spread props directly if template expects them at root
       scenes: [activeScene],
       accentColor: TEMPLATE_COLORS.accent,
       bgColor: TEMPLATE_COLORS.bg,
@@ -111,8 +122,9 @@ export default function NewscastPreview() {
 
   return (
     <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
+      <div className="relative w-full overflow-hidden shadow-2xl rounded-xl" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
         <Player
+          key={activeSceneIndex} // CRITICAL: Restarts animation on scene change
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
@@ -126,16 +138,20 @@ export default function NewscastPreview() {
           style={{ width: "100%", height: "100%", display: "block" }}
         />
 
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1">
+        {/* Navigation dots — compact, no scene titles */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 rounded-full bg-black/35 backdrop-blur-sm px-2 py-1 border border-white/10">
           {NEWCAST_PREVIEW_SCENES.map((scene, index) => {
             const isActive = index === activeSceneIndex;
             return (
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
-                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5 bg-red-500" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
-                aria-label={`Preview ${scene.title} layout`}
-                title={scene.title}
+                className={`rounded-full transition-all duration-500 ${
+                  isActive
+                    ? "h-0.5 w-3 bg-red-500 shadow-[0_0_6px_rgba(232,32,32,0.5)]"
+                    : "h-[3px] w-[3px] bg-white/35 hover:bg-white/55"
+                }`}
+                aria-label={`Preview scene ${index + 1} of ${NEWCAST_PREVIEW_SCENES.length}`}
                 type="button"
               />
             );

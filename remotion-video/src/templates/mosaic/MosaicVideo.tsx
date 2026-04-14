@@ -11,6 +11,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { MosaicSceneReveal } from "./MosaicSceneReveal";
 
 interface SceneData {
   id: number;
@@ -81,9 +82,9 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       .catch(() => {
         setData({
           projectName: "Mosaic Preview",
-          accentColor: "#D4AF37",
-          bgColor: "#0F1E2D",
-          textColor: "#E6EEF7",
+          accentColor: "#C26240",
+          bgColor: "#EAE4DA",
+          textColor: "#2A2A28",
           scenes: [
             {
               id: 1,
@@ -109,11 +110,11 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: "#0F1E2D",
+          backgroundColor: "#EAE4DA",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#E6EEF7",
+          color: "#2A2A28",
           fontFamily: resolvedFontFamily ?? MOSAIC_DEFAULT_FONT_FAMILY,
         }}
       >
@@ -125,7 +126,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: data.bgColor || "#0F1E2D",
+        backgroundColor: "#EAE4DA",
         fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
       }}
     >
@@ -139,13 +140,18 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           MOSAIC_LAYOUT_REGISTRY.mosaic_text;
         const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        // Force cream/beige palette for mosaic template
+        const mosaicBg = "#EAE4DA";
+        const mosaicText = "#2A2A28";
+        const mosaicAccent = data.accentColor || "#C26240";
+
         const layoutProps: MosaicLayoutProps = {
           ...(scene.layoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
-          accentColor: data.accentColor || "#D4AF37",
-          bgColor: data.bgColor || "#0F1E2D",
-          textColor: data.textColor || "#E6EEF7",
+          accentColor: mosaicAccent,
+          bgColor: mosaicBg,
+          textColor: mosaicText,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
           fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
@@ -154,6 +160,22 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
             <LayoutComponent {...layoutProps} />
+            {/* Opening sweep: cream tiles dissolve left-to-right */}
+            <MosaicSceneReveal
+              durationFrames={durationFrames}
+              tileSize={4}
+              gap={0}
+              bgColor={mosaicBg}
+              phase="enter"
+            />
+            {/* Closing sweep: cream tiles reassemble left-to-right */}
+            <MosaicSceneReveal
+              durationFrames={durationFrames}
+              tileSize={4}
+              gap={0}
+              bgColor={mosaicBg}
+              phase="exit"
+            />
             {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
           </Sequence>
         );

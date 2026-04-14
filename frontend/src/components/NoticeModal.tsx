@@ -4,10 +4,11 @@ interface Props {
   open: boolean;
   title?: string;
   message: string;
+  variant?: "info" | "success";
   onClose: () => void;
 }
 
-export default function NoticeModal({ open, title = "Message", message, onClose }: Props) {
+export default function NoticeModal({ open, title = "Message", message, variant = "info", onClose }: Props) {
   if (!open) return null;
 
   return ReactDOM.createPortal(
@@ -24,20 +25,31 @@ export default function NoticeModal({ open, title = "Message", message, onClose 
         aria-labelledby="notice-modal-title"
       >
         <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+            variant === "success" ? "bg-green-100" : "bg-purple-100"
+          }`}>
             <svg
-              className="w-5 h-5 text-purple-700"
+              className={`w-5 h-5 ${variant === "success" ? "text-green-700" : "text-purple-700"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
               aria-hidden
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
-              />
+              {variant === "success" ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
+                />
+              )}
             </svg>
           </div>
           <div className="flex-1 min-w-0">
