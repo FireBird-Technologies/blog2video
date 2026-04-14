@@ -168,6 +168,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "opening",
   "anchor_narrative",
   "live_metrics_board",
+  "data_visualization",
   "briefing_code_panel",
   "headline_insight",
   "story_stack",

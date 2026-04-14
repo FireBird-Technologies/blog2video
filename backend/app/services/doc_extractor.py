@@ -1,10 +1,11 @@
 """
 Document extraction service – extracts text (as markdown) and images from
-uploaded documents (PDF, DOCX, PPTX).
+uploaded documents (PDF, DOCX, PPTX, MD, TXT).
 
 - PDF:  PyMuPDF + PyMuPDF4LLM (markdown with structure preserved)
 - DOCX: python-docx (paragraphs + embedded images)
 - PPTX: python-pptx (slide text + embedded images)
+- MD/TXT: UTF-8/UTF-16/latin1 text decode fallback
 """
 
 import os
@@ -22,6 +23,7 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.asset import Asset, AssetType
 from app.services import r2_storage
+from app.services.table_extraction import append_tables_to_content
 
 # Minimum image bytes to keep (skip tiny icons / decorations)
 _MIN_IMAGE_BYTES = 5_000  # 5 KB
@@ -31,6 +33,9 @@ _EXT_MAP = {
     ".pdf": "pdf",
     ".docx": "docx",
     ".pptx": "pptx",
+    ".md": "text",
+    ".markdown": "text",
+    ".txt": "text",
 }
 
 
@@ -47,6 +52,7 @@ def extract_from_documents(
     - Sets ``project.status = SCRAPED``
     """
     all_markdown: list[str] = []
+    all_tables: list[dict] = []
     image_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/images")
     os.makedirs(image_dir, exist_ok=True)
 
@@ -55,7 +61,11 @@ def extract_from_documents(
     for upload_file in files:
         filename = upload_file.filename or "document"
         ext = os.path.splitext(filename)[1].lower()
-        handler = _EXT_MAP.get(ext, "pdf")  # default to PDF
+        handler = _EXT_MAP.get(ext)
+        if not handler:
+            # Guard rail: routers validate allowed extensions; skip defensively.
+            print(f"[DOC_EXTRACTOR] Unsupported extension skipped: {filename}")
+            continue
 
         # Save upload to a temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext or ".pdf") as tmp:
@@ -65,16 +75,20 @@ def extract_from_documents(
 
         try:
             if handler == "pdf":
-                md, imgs = _extract_pdf(tmp_path, image_dir)
+                md, imgs, tables = _extract_pdf(tmp_path, image_dir)
             elif handler == "docx":
-                md, imgs = _extract_docx(tmp_path, image_dir)
+                md, imgs, tables = _extract_docx(tmp_path, image_dir)
             elif handler == "pptx":
-                md, imgs = _extract_pptx(tmp_path, image_dir)
+                md, imgs, tables = _extract_pptx(tmp_path, image_dir)
+            elif handler == "text":
+                md, imgs, tables = _extract_text_document(tmp_path)
             else:
-                md, imgs = "", []
+                md, imgs, tables = "", [], []
 
             if md and md.strip():
                 all_markdown.append(md)
+            if tables:
+                all_tables.extend(tables)
 
             # Create Asset records for extracted images
             for img_path, img_filename in imgs:
@@ -110,7 +124,8 @@ def extract_from_documents(
                 pass
 
     # ── Persist results ───────────────────────────────────────
-    project.blog_content = "\n\n---\n\n".join(all_markdown) if all_markdown else ""
+    merged_markdown = "\n\n---\n\n".join(all_markdown) if all_markdown else ""
+    project.blog_content = append_tables_to_content(merged_markdown, all_tables)
     # Only set content_language if not already set (preserve user's explicit choice)
     if not (getattr(project, "content_language", None) or "").strip():
         from app.services.language_detection import detect_content_language
@@ -133,12 +148,53 @@ def extract_from_documents(
 
 def _extract_pdf(
     file_path: str, image_dir: str
-) -> tuple[str, list[tuple[str, str]]]:
-    """Return (markdown_text, [(local_path, filename), ...])."""
+) -> tuple[str, list[tuple[str, str]], list[dict]]:
+    """Return (markdown_text, [(local_path, filename), ...], tables)."""
+    import pdfplumber
+    from app.services.table_extraction import _normalize_table, _looks_like_header_row
+
     images: list[tuple[str, str]] = []
+    tables: list[dict] = []
 
     # Markdown text via pymupdf4llm
     md_text = pymupdf4llm.to_markdown(file_path)
+
+    # Tables via pdfplumber
+    source_name = os.path.basename(file_path)
+    markdown_tables: list[str] = []
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                for raw_table in (page.extract_tables() or []):
+                    if not raw_table:
+                        continue
+                    # Normalize: replace None with "", strip whitespace, skip empty rows
+                    rows = [
+                        [str(cell or "").strip() for cell in row]
+                        for row in raw_table
+                        if row and any(cell for cell in row)
+                    ]
+                    if len(rows) < 2:
+                        continue
+                    # Use first row as headers if it looks like one
+                    if _looks_like_header_row(rows[0]):
+                        headers = rows[0]
+                        data_rows = rows[1:]
+                    else:
+                        col_count = max(len(r) for r in rows)
+                        headers = [f"col_{i + 1}" for i in range(col_count)]
+                        data_rows = rows
+                    normalized = _normalize_table(headers, data_rows, source_name)
+                    if normalized:
+                        tables.append(normalized)
+                        # Also render as a proper markdown table inline in the content
+                        markdown_tables.append(_table_to_markdown(normalized))
+    except Exception as exc:
+        print(f"[DOC_EXTRACTOR] pdfplumber table extraction failed for {source_name}: {exc}")
+
+    # Append markdown tables inline so blog_content contains readable pipe tables
+    if markdown_tables:
+        md_text = (md_text or "").rstrip() + "\n\n" + "\n\n".join(markdown_tables)
 
     # Images via PyMuPDF
     doc = fitz.open(file_path)
@@ -177,7 +233,19 @@ def _extract_pdf(
             images.append((local_path, filename))
 
     doc.close()
-    return md_text or "", images
+    return md_text or "", images, tables
+
+
+def _table_to_markdown(table: dict) -> str:
+    """Convert a normalized table dict (headers + rows) to a markdown pipe table string."""
+    headers = table.get("headers") or []
+    rows = table.get("rows") or []
+    if not headers:
+        return ""
+    sep = "| " + " | ".join("---" for _ in headers) + " |"
+    header_row = "| " + " | ".join(str(h) for h in headers) + " |"
+    data_rows = ["| " + " | ".join(str(c) for c in row) + " |" for row in rows]
+    return "\n".join([header_row, sep] + data_rows)
 
 
 # ─── DOCX extraction ─────────────────────────────────────────
@@ -185,10 +253,11 @@ def _extract_pdf(
 
 def _extract_docx(
     file_path: str, image_dir: str
-) -> tuple[str, list[tuple[str, str]]]:
+) -> tuple[str, list[tuple[str, str]], list[dict]]:
     """Return (markdown_text, [(local_path, filename), ...])."""
     images: list[tuple[str, str]] = []
     lines: list[str] = []
+    tables: list[dict] = []
 
     doc = DocxDocument(file_path)
 
@@ -212,6 +281,33 @@ def _extract_docx(
             lines.append(f"- {text}")
         else:
             lines.append(text)
+
+    # Extract DOCX tables as both prose lines and structured table payloads
+    for table in doc.tables:
+        table_rows: list[list[str]] = []
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            if any(cells):
+                table_rows.append(cells)
+        if len(table_rows) < 2:
+            continue
+
+        headers = table_rows[0]
+        data_rows = table_rows[1:]
+        tables.append(
+            {
+                "source": "docx_table",
+                "headers": headers,
+                "rows": data_rows,
+            }
+        )
+
+        # Keep human-readable form in markdown content.
+        lines.append("")
+        lines.append("Table:")
+        lines.append(" | ".join(headers))
+        for row in data_rows:
+            lines.append(" | ".join(row))
 
     md_text = "\n\n".join(lines)
 
@@ -241,7 +337,7 @@ def _extract_docx(
                 print(f"[DOC_EXTRACTOR] DOCX image extraction error: {e}")
                 continue
 
-    return md_text, images
+    return md_text, images, tables
 
 
 # ─── PPTX extraction ─────────────────────────────────────────
@@ -249,10 +345,11 @@ def _extract_docx(
 
 def _extract_pptx(
     file_path: str, image_dir: str
-) -> tuple[str, list[tuple[str, str]]]:
+) -> tuple[str, list[tuple[str, str]], list[dict]]:
     """Return (markdown_text, [(local_path, filename), ...])."""
     images: list[tuple[str, str]] = []
     slides_text: list[str] = []
+    tables: list[dict] = []
 
     prs = Presentation(file_path)
 
@@ -269,12 +366,21 @@ def _extract_pptx(
 
             # Extract text from tables
             if shape.has_table:
+                table_rows: list[list[str]] = []
                 for row in shape.table.rows:
-                    row_text = " | ".join(
-                        cell.text.strip() for cell in row.cells
-                    )
+                    cells = [cell.text.strip() for cell in row.cells]
+                    table_rows.append(cells)
+                    row_text = " | ".join(cells)
                     if row_text.strip(" |"):
                         slide_lines.append(row_text)
+                if len(table_rows) >= 2:
+                    tables.append(
+                        {
+                            "source": "pptx_table",
+                            "headers": table_rows[0],
+                            "rows": table_rows[1:],
+                        }
+                    )
 
             # Extract images
             if shape.shape_type == 13:  # MSO_SHAPE_TYPE.PICTURE
@@ -306,7 +412,33 @@ def _extract_pptx(
             slides_text.append(header + "\n\n" + "\n\n".join(slide_lines))
 
     md_text = "\n\n---\n\n".join(slides_text)
-    return md_text, images
+    return md_text, images, tables
+
+
+# ─── MD/TXT extraction ───────────────────────────────────────
+
+
+def _extract_text_document(
+    file_path: str,
+) -> tuple[str, list[tuple[str, str]], list[dict]]:
+    """Return markdown text for UTF text-like documents (.md/.txt)."""
+    with open(file_path, "rb") as f:
+        raw = f.read()
+
+    text = ""
+    for encoding in ("utf-8", "utf-8-sig", "utf-16", "latin-1"):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    # Last-resort decode keeps pipeline moving for unusual encodings.
+    if not text:
+        text = raw.decode("utf-8", errors="replace")
+
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    return normalized, [], []
 
 
 # ─── Helpers ──────────────────────────────────────────────────

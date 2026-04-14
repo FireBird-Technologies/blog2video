@@ -63,6 +63,7 @@ const NEWSCAST_TYPOGRAPHY_DEFAULTS_BY_LAYOUT: Record<string, { titleFontSize: Re
   segment_break: { titleFontSize: { portrait: 47, landscape: 36 }, descriptionFontSize: { portrait: 18, landscape: 14 } },
   field_image_focus: { titleFontSize: { portrait: 34, landscape: 26 }, descriptionFontSize: { portrait: 19, landscape: 15 } },
   ending_socials: { titleFontSize: { portrait: 52, landscape: 40 }, descriptionFontSize: { portrait: 20, landscape: 16 } },
+  data_visualization: { titleFontSize: { portrait: 46, landscape: 34 }, descriptionFontSize: { portrait: 30, landscape: 25 } },
 };
 
 function withTypographyControls(
