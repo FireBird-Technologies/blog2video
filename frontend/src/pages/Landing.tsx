@@ -244,26 +244,24 @@ export default function Landing() {
         <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-20 text-center hero-animate">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-            <span className="text-xs font-medium text-purple-700">For bloggers, technical writers &amp; educators</span>
+            <span className="text-xs font-medium text-purple-700">For solopreneurs, creators &amp; lean teams</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight mb-6">
-            Your voice,
+            Keep your audience updated,
             <br />
             <span className="bg-gradient-to-r from-purple-600 to-violet-500 bg-clip-text text-transparent">
-              now in video
+              without a video team
             </span>
           </h1>
 
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-6 leading-relaxed">
-            Turn any blog post or article into a narrated explainer video that
-            preserves every detail, code snippet, and diagram. 
-            Your readers become viewers — no video editing skills needed.
+            Turn blog posts, product updates, launch notes, and newsletter ideas into narrated videos in minutes.
+            Blog2Video helps solopreneurs publish consistently without editors, agencies, or complicated video software.
           </p>
 
           <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
-            Perfect for technical writers who need their content to reach everywhere,
-            researchers presenting findings, and teachers turning lessons into visual guides.
+            Perfect for solo founders, indie makers, consultants, and creator-led businesses that want to stay visible on YouTube and social without asking anyone else for help.
           </p>
 
           <div className="flex flex-col items-center gap-4">
@@ -487,31 +485,31 @@ export default function Landing() {
               The problem
             </p>
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-              Your writing is great. Video shouldn't be the bottleneck.
+              You already know what to say. Video should not require a team.
             </h2>
             <p className="text-sm text-gray-500 text-center max-w-2xl mx-auto mb-16 leading-relaxed">
-              You've spent hours crafting the perfect article. But turning it into video
-              means learning editing software, recording yourself, or hiring someone.
-              What if your blog could become a video — automatically?
+              You have updates worth sharing: product launches, lessons learned, new offers, and fresh insights.
+              But turning them into video usually means learning editing software, recording yourself, or hiring someone.
+              Blog2Video lets you turn what you already wrote into content your audience can actually keep up with.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 reveal-group">
             {[
               {
-                icon: "🎙️",
-                title: "Exact blog voice",
-                desc: "AI reads your article and generates a script that mirrors your writing style — every nuance, every technical term, preserved.",
+                icon: "🚀",
+                title: "Publish without outside help",
+                desc: "Paste a link and get a polished video without hiring editors, designers, or voiceover talent.",
               },
               {
-                icon: "📋",
-                title: "Every detail included",
-                desc: "Code snippets become animated code blocks. Key points become bullet reveals. Architectures become flow diagrams. Nothing is lost.",
+                icon: "📅",
+                title: "Stay consistent with updates",
+                desc: "Turn every blog post, changelog, launch recap, or newsletter into video so your audience hears from you more often.",
               },
               {
-                icon: "🎓",
-                title: "Easy to follow",
-                desc: "Scene-by-scene narration with professional voiceover makes complex topics as easy to follow as your original blog post.",
+                icon: "♻️",
+                title: "Reuse what you already create",
+                desc: "Your written content becomes narrated video with visuals, so one update can work across your site, YouTube, and social channels.",
               },
             ].map((item) => (
               <div key={item.title} className="glass-card p-8 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
@@ -748,16 +746,16 @@ export default function Landing() {
               Built for
             </p>
             <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-16">
-              Writers, researchers and educators who want to be seen
+              Solopreneurs who need to stay visible while building
             </h2>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 reveal-group">
             {[
-              { icon: "✍️", title: "Technical bloggers", desc: "Turn dev.to and Medium posts into YouTube-ready explainers" },
-              { icon: "🔬", title: "Researchers", desc: "Present papers and findings as accessible video summaries" },
-              { icon: "👩‍🏫", title: "Teachers & educators", desc: "Convert lesson plans and course material into visual guides" },
-              { icon: "📝", title: "Technical writers", desc: "Repurpose documentation and how-tos as video walkthroughs" },
+              { icon: "🧑‍💻", title: "Solo founders", desc: "Share product updates, launches, and behind-the-scenes thinking without building a content team" },
+              { icon: "🛠️", title: "Indie makers", desc: "Turn build logs, feature drops, and roadmap notes into videos people actually watch" },
+              { icon: "💼", title: "Consultants & coaches", desc: "Repurpose expertise from articles and newsletters into video that builds trust at scale" },
+              { icon: "📨", title: "Newsletter operators", desc: "Keep subscribers engaged by turning each written update into a companion video" },
             ].map((p) => (
               <div key={p.title} className="glass-card p-6 text-center hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all reveal">
                 <div className="text-2xl mb-3">{p.icon}</div>
@@ -829,11 +827,10 @@ export default function Landing() {
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
-            Your next blog post deserves a video
+            Keep your audience updated in video
           </h2>
           <p className="text-sm text-gray-500 mb-8 max-w-lg mx-auto">
-            Join bloggers, researchers, and educators who are turning their best
-            writing into engaging video content — in minutes, not hours.
+            Turn the content you already publish into videos you can share everywhere, without freelancers, agencies, or extra production overhead.
           </p>
           <div className="flex justify-center">
             <GoogleAuthButton
