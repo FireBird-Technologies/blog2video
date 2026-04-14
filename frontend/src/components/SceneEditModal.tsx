@@ -1091,7 +1091,21 @@ export default function SceneEditModal({
 
   const layoutsWithoutImage = new Set<string>(layouts?.layouts_without_image ?? []);
   const supportsImage = !currentLayoutId || !layoutsWithoutImage.has(currentLayoutId);
-  const isEndingScene = currentLayoutId === "ending_socials";
+  // Custom templates: detect outro by sceneTypeOverride, ctaProps presence, or position (last scene)
+  const isCustomOutro = isCustomTemplate && (() => {
+    if (currentLayoutId === "outro") return true;
+    // Check if ctaProps exists in remotion_code
+    try {
+      if (scene.remotion_code) {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.ctaProps) return true;
+      }
+    } catch { /* ignore */ }
+    // Position-based: last scene in project
+    const sorted = [...project.scenes].sort((a, b) => a.order - b.order);
+    return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
+  })();
+  const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
 
   const defaultFontSizes =
     getDefaultFontSizesFromSchema(
@@ -1265,6 +1279,15 @@ export default function SceneEditModal({
             delete (lpCopy as Record<string, unknown>).chartTable;
             delete (lpCopy as Record<string, unknown>).chartType;
           }
+        }
+      } catch { /* ignore */ }
+    }
+    // For custom templates, CTA data lives in ctaProps, not layoutProps
+    if (isCustomTemplate && scene.remotion_code) {
+      try {
+        const desc = JSON.parse(scene.remotion_code);
+        if (desc.ctaProps && typeof desc.ctaProps === "object") {
+          lpCopy = { ...lpCopy, ...desc.ctaProps };
         }
       } catch { /* ignore */ }
     }
@@ -1445,6 +1468,14 @@ export default function SceneEditModal({
                 delete sc["comparisonRight.description"];
               }
               desc.structuredContent = sc;
+            }
+            if (isEndingScene) {
+              desc.ctaProps = {
+                socials: endingSocials,
+                showWebsiteButton: endingShowWebsiteButton,
+                websiteLink: (endingWebsiteLink || "").trim(),
+                ctaButtonText: (endingCtaButtonText || "").trim(),
+              };
             }
             remotionCode = JSON.stringify(desc);
           } else {

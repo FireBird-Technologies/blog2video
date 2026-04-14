@@ -32,6 +32,12 @@ from app.schemas.schemas import (
 from app.config import settings
 from app.services.scraper import scrape_blog
 from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
+from app.services.scraper import scrape_blog, BlogScrapeFailed
+from app.services.project_cleanup import (
+    remove_failed_generation_project,
+    PUBLIC_MSG_PIPELINE_FAILED,
+    PUBLIC_MSG_SCRAPE_FAILED,
+)
 from app.services.language_detection import get_content_language_for_project
 from app.services.voiceover import generate_all_voiceovers
 from app.services.remotion import (
@@ -130,9 +136,28 @@ def get_pipeline_status(
     db: Session = Depends(get_db),
 ):
     """Poll this endpoint to get pipeline progress."""
-    project = _get_project(project_id, user.id, db)
-
     progress = _pipeline_progress.get(project_id, {})
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.user_id == user.id)
+        .first()
+    )
+
+    if not project:
+        # Generation failed and DB row was removed; show last error once for this user.
+        if progress.get("project_removed") and progress.get("user_id") == user.id:
+            return {
+                "status": "failed",
+                "step": progress.get("step", 0),
+                "running": False,
+                "error": progress.get("error"),
+                "error_code": progress.get("error_code"),
+                "notice": progress.get("notice"),
+                "studio_port": None,
+                "project_removed": True,
+            }
+        raise HTTPException(status_code=404, detail="Project not found")
+
     running = progress.get("running", False)
     step = progress.get("step", 0)
 
@@ -156,8 +181,10 @@ def get_pipeline_status(
         "step": step,
         "running": running,
         "error": progress.get("error"),
+        "error_code": progress.get("error_code"),
         "notice": progress.get("notice"),
         "studio_port": project.studio_port,
+        "project_removed": progress.get("project_removed", False),
     }
 
 
@@ -183,6 +210,15 @@ async def _run_pipeline(project_id: int, user_id: int):
                 logger.warning("[PIPELINE] Project %s not found", project_id)
                 span.set_status(Status(StatusCode.ERROR, "Project not found"))
                 return
+            if project.user_id != user_id:
+                logger.warning(
+                    "[PIPELINE] Project %s user mismatch (expected %s, got %s)",
+                    project_id,
+                    user_id,
+                    project.user_id,
+                )
+                span.set_status(Status(StatusCode.ERROR, "User mismatch"))
+                return
 
             logger.info("[PIPELINE] Starting pipeline for project %s (user %s)", project_id, user_id)
 
@@ -200,10 +236,29 @@ async def _run_pipeline(project_id: int, user_id: int):
                 ):
                     try:
                         scrape_blog(project, db)
+                    except BlogScrapeFailed as e:
+                        span.record_exception(e)
+                        span.set_status(Status(StatusCode.ERROR, "Scraping failed"))
+                        _abort_generation_pipeline(
+                            db,
+                            project_id,
+                            user_id,
+                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
+                            error_code="scrape_failed",
+                            exc=e,
+                        )
+                        return
                     except Exception as e:
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, "Scraping failed"))
-                        _set_error(project_id, project, db, f"Scraping failed: {e}")
+                        _abort_generation_pipeline(
+                            db,
+                            project_id,
+                            user_id,
+                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
+                            error_code="scrape_failed",
+                            exc=e,
+                        )
                         return
 
             # Step 2: Generate script (async DSPy)
@@ -219,7 +274,14 @@ async def _run_pipeline(project_id: int, user_id: int):
                     except Exception as e:
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, "Script generation failed"))
-                        _set_error(project_id, project, db, f"Script generation failed: {e}")
+                        _abort_generation_pipeline(
+                            db,
+                            project_id,
+                            user_id,
+                            public_message=PUBLIC_MSG_PIPELINE_FAILED,
+                            error_code="pipeline_failed",
+                            exc=e,
+                        )
                         return
 
             # Step 3: Generate scene descriptors + voiceovers
@@ -234,7 +296,14 @@ async def _run_pipeline(project_id: int, user_id: int):
                     except Exception as e:
                         span.record_exception(e)
                         span.set_status(Status(StatusCode.ERROR, "Scene generation failed"))
-                        _set_error(project_id, project, db, f"Scene generation failed: {e}")
+                        _abort_generation_pipeline(
+                            db,
+                            project_id,
+                            user_id,
+                            public_message=PUBLIC_MSG_PIPELINE_FAILED,
+                            error_code="pipeline_failed",
+                            exc=e,
+                        )
                         return
 
             # Step 4: Done (no more studio launch — frontend handles preview)
@@ -248,10 +317,143 @@ async def _run_pipeline(project_id: int, user_id: int):
             logger.exception("[PIPELINE] Pipeline error for project %s: %s", project_id, e)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, "Pipeline run error"))
-            _pipelines_failed.add(1, attributes=attributes)
-            _set_error(project_id, None, db, f"Pipeline error: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            proj = (
+                db.query(Project)
+                .filter(Project.id == project_id, Project.user_id == user_id)
+                .first()
+            )
+            if proj:
+                _abort_generation_pipeline(
+                    db,
+                    project_id,
+                    user_id,
+                    public_message=PUBLIC_MSG_PIPELINE_FAILED,
+                    error_code="pipeline_failed",
+                    exc=e,
+                )
+            else:
+                _pipelines_failed.add(1, attributes=attributes)
+                step = (_pipeline_progress.get(project_id) or {}).get("step", 0)
+                _pipeline_progress[project_id] = {
+                    "step": step,
+                    "running": False,
+                    "error": PUBLIC_MSG_PIPELINE_FAILED,
+                    "error_code": "pipeline_failed",
+                    "notice": None,
+                    "project_removed": True,
+                    "user_id": user_id,
+                }
         finally:
             db.close()
+
+
+def _rollback_project_after_endpoint_failure(db: Session, project_id: int, user_id: int) -> None:
+    """Used by legacy /scrape, /generate-script, /generate-scenes when they fail."""
+    try:
+        db.rollback()
+    except Exception:
+        pass
+    proj = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.user_id == user_id)
+        .first()
+    )
+    if not proj:
+        return
+    try:
+        remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+    except Exception as e:
+        logger.exception(
+            "[PIPELINE] Endpoint rollback failed for project %s: %s",
+            project_id,
+            e,
+            extra={"project_id": project_id, "user_id": user_id},
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+def _abort_generation_pipeline(
+    db: Session,
+    project_id: int,
+    user_id: int,
+    *,
+    public_message: str,
+    error_code: str,
+    exc: BaseException | None = None,
+) -> None:
+    """Remove project + storage, decrement quota, expose a user-safe error on /status."""
+    if exc is not None:
+        logger.error(
+            "[PIPELINE] Aborting generation for project %s (%s): %s",
+            project_id,
+            error_code,
+            exc,
+            exc_info=exc,
+            extra={"project_id": project_id, "user_id": user_id},
+        )
+    else:
+        logger.error(
+            "[PIPELINE] Aborting generation for project %s (%s)",
+            project_id,
+            error_code,
+            extra={"project_id": project_id, "user_id": user_id},
+        )
+
+    step = (_pipeline_progress.get(project_id) or {}).get("step", 0)
+
+    try:
+        db.rollback()
+    except Exception:
+        pass
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.user_id == user_id)
+        .first()
+    )
+    if project:
+        try:
+            remove_failed_generation_project(
+                db,
+                project,
+                decrement_user_video_quota=True,
+            )
+        except Exception as cleanup_err:
+            logger.exception(
+                "[PIPELINE] Failed to remove project %s after error: %s",
+                project_id,
+                cleanup_err,
+                extra={"project_id": project_id, "user_id": user_id},
+            )
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    _pipelines_failed.add(
+        1,
+        attributes={
+            "pipeline.project_id": project_id,
+            "pipeline.error_code": error_code,
+        },
+    )
+
+    _pipeline_progress[project_id] = {
+        "step": step,
+        "running": False,
+        "error": public_message,
+        "error_code": error_code,
+        "notice": None,
+        "user_id": user_id,
+        "project_removed": True,
+    }
 
 
 def _set_error(project_id: int, project, db: Session, msg: str):
@@ -559,6 +761,28 @@ async def _generate_scenes(project: Project, db: Session):
                 },
             }
 
+        # Custom templates: inject CTA props into the last (outro) scene
+        if is_custom_template(template_id) and i == len(scenes) - 1 and len(scenes) > 1:
+            cta_from_visual, _ = strip_b2v_cta_from_visual(scene.visual_description or "")
+            cta = (cta_from_visual or "").strip()
+            try:
+                if scene.remotion_code:
+                    old_desc = json.loads(scene.remotion_code)
+                    old_cta_props = old_desc.get("ctaProps") or {}
+                    old_cta = old_cta_props.get("ctaButtonText")
+                    if isinstance(old_cta, str) and old_cta.strip():
+                        cta = old_cta.strip()
+            except (json.JSONDecodeError, TypeError):
+                pass
+            if not cta:
+                cta = "Get started"
+            descriptor["ctaProps"] = {
+                "socials": ending_socials_default,
+                "showWebsiteButton": bool(source_link),
+                "websiteLink": source_link,
+                "ctaButtonText": cta,
+            }
+
         has_layout_config = "layoutConfig" in descriptor
         if scene.remotion_code:
             try:
@@ -642,12 +866,15 @@ def scrape_blog_endpoint(
     """Scrape blog content and images from the project's URL."""
     project = _get_project(project_id, user.id, db)
     try:
-        project = scrape_blog(project, db)
+        return scrape_blog(project, db)
+    except BlogScrapeFailed as e:
+        logger.warning("[SCRAPE_ENDPOINT] BlogScrapeFailed project=%s: %s", project_id, e)
+        _rollback_project_after_endpoint_failure(db, project_id, user.id)
+        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
     except Exception as e:
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
-    return project
+        logger.exception("[SCRAPE_ENDPOINT] project=%s", project_id)
+        _rollback_project_after_endpoint_failure(db, project_id, user.id)
+        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
 
 
 @router.post("/generate-script", response_model=ProjectOut)
@@ -663,9 +890,9 @@ async def generate_script_endpoint(
     try:
         await _generate_script(project, db)
     except Exception as e:
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Script generation failed: {str(e)}")
+        logger.exception("[GENERATE_SCRIPT_ENDPOINT] project=%s", project_id)
+        _rollback_project_after_endpoint_failure(db, project_id, user.id)
+        raise HTTPException(status_code=410, detail=PUBLIC_MSG_PIPELINE_FAILED)
     return project
 
 
@@ -682,9 +909,9 @@ async def generate_scenes_endpoint(
     try:
         await _generate_scenes(project, db)
     except Exception as e:
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Scene generation failed: {str(e)}")
+        logger.exception("[GENERATE_SCENES_ENDPOINT] project=%s", project_id)
+        _rollback_project_after_endpoint_failure(db, project_id, user.id)
+        raise HTTPException(status_code=410, detail=PUBLIC_MSG_PIPELINE_FAILED)
     return project
 
 
@@ -784,10 +1011,18 @@ async def render_video_endpoint(
             detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
         )
 
+    # Align per-video credits with Stripe (same as project creation) before any limit check.
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_row.sync_video_limit_bonus(db)
+    user_row = db.query(User).filter(User.id == user.id).first()
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     # Re-render: deduct a video count (same as creating a new video)
     if force_render:
-        user_row = db.query(User).filter(User.id == user.id).first()
-        if not user_row or not user_row.can_create_video:
+        if not user_row.can_create_video:
             raise HTTPException(
                 status_code=403,
                 detail="Video limit reached. Re-rendering counts as a new video. Upgrade your plan or buy more credits to continue."

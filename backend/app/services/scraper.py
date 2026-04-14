@@ -24,6 +24,11 @@ from app.observability.logging import get_logger
 
 logger = get_logger(__name__)
 
+
+class BlogScrapeFailed(Exception):
+    """Raised when no usable text could be extracted from the blog URL (blocked, empty, or unsupported)."""
+
+
 # Browser headers for image downloads and fallback scraping
 _BROWSER_HEADERS = {
     "User-Agent": (
@@ -139,9 +144,9 @@ def scrape_blog(project: Project, db: Session) -> Project:
             )
 
     if not text or len(text.strip()) < _MIN_CONTENT_LENGTH:
-        raise ValueError(
+        raise BlogScrapeFailed(
             "Could not extract meaningful content from the URL. "
-            "The site may require JavaScript rendering or the page may be empty."
+            "The site may require JavaScript rendering, block scrapers, or the page may be empty."
         )
 
     # Download images (only from the original blog page — no external sources)
