@@ -745,6 +745,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 sc = desc_parsed.get("structuredContent")
                 if sc:
                     scene_entry["structuredContent"] = sc
+                cta_props = desc_parsed.get("ctaProps")
+                if cta_props:
+                    scene_entry["ctaProps"] = cta_props
             except (json.JSONDecodeError, TypeError):
                 pass
             logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s, structuredContent=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"), scene_entry.get("structuredContent", {}).get("contentType", "none"))
