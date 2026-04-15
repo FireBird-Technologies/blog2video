@@ -12,6 +12,7 @@ import { BLACKSWAN_LAYOUT_REGISTRY } from "./layouts";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
   id: number;
@@ -35,6 +36,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -52,13 +54,14 @@ export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0,
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
       return {
-        durationInFrames: Math.max(Math.ceil(totalSeconds * FPS), FPS * 5),
+        durationInFrames: Math.max(totalFrames, FPS * 5),
         fps: FPS,
         width: isPortrait ? 1080 : 1920,
         height: isPortrait ? 1920 : 1080,
@@ -127,6 +130,7 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
 
   return (
@@ -137,7 +141,11 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -169,7 +177,9 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
+            {scene.voiceoverFile && (
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
           </Sequence>
         );
       })}

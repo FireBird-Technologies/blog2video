@@ -5,6 +5,7 @@ import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // Modern slide-up wipe transition for gridcraft
 const GridcraftTransition: React.FC<{ bgColor?: string }> = ({ bgColor }) => {
@@ -55,6 +56,7 @@ export interface GridcraftVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  playbackSpeed?: number;
 }
 
 export const GridcraftVideoComposition: React.FC<
@@ -70,8 +72,10 @@ export const GridcraftVideoComposition: React.FC<
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
@@ -84,7 +88,11 @@ export const GridcraftVideoComposition: React.FC<
       <Blobs />
 
       {scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -115,7 +123,9 @@ export const GridcraftVideoComposition: React.FC<
             <AbsoluteFill style={{ zIndex: 1 }}>
               <LayoutComponent {...layoutProps} />
             </AbsoluteFill>
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
             {index < scenes.length - 1 && (
               <Sequence from={durationFrames - 15} durationInFrames={15}>
                 <GridcraftTransition bgColor={bgColor || COLORS.BG} />
