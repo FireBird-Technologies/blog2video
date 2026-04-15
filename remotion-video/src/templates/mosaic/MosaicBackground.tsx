@@ -51,20 +51,26 @@ export function bgTilePalette(bg: string): string[] {
   try {
     const [h, s, l] = hexToHsl(bg);
     const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-    const d = l < 50 ? 1 : -1;
+    const isLight = l >= 50;
+    // Dark bg  → lighten tiles significantly so they read as mosaic texture (+14…+40)
+    // Light bg → darken tiles only very subtly (-2…-14) so they stay light/pale
+    const offsets = isLight
+      ? [14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [40, 36, 34, 30, 28, 26, 24, 22, 20, 18, 16, 14];
+    const d = isLight ? -1 : 1;
     return [
-      hslToHex(h, clamp(s - 4, 0, 100), clamp(l + 40 * d, 5, 95)),
-      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 36 * d, 5, 95)),
-      hslToHex(h, clamp(s,     0, 100), clamp(l + 34 * d, 5, 95)),
-      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + 30 * d, 5, 95)),
-      hslToHex(h, clamp(s - 3, 0, 100), clamp(l + 28 * d, 5, 95)),
-      hslToHex(h, clamp(s + 4, 0, 100), clamp(l + 26 * d, 5, 95)),
-      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 24 * d, 5, 95)),
-      hslToHex(h, clamp(s,     0, 100), clamp(l + 22 * d, 5, 95)),
-      hslToHex(h, clamp(s + 3, 0, 100), clamp(l + 20 * d, 5, 95)),
-      hslToHex(h, clamp(s - 1, 0, 100), clamp(l + 18 * d, 5, 95)),
-      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + 16 * d, 5, 95)),
-      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 14 * d, 5, 95)),
+      hslToHex(h, clamp(s - 4, 0, 100), clamp(l + offsets[0]  * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + offsets[1]  * d, 5, 95)),
+      hslToHex(h, clamp(s,     0, 100), clamp(l + offsets[2]  * d, 5, 95)),
+      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + offsets[3]  * d, 5, 95)),
+      hslToHex(h, clamp(s - 3, 0, 100), clamp(l + offsets[4]  * d, 5, 95)),
+      hslToHex(h, clamp(s + 4, 0, 100), clamp(l + offsets[5]  * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + offsets[6]  * d, 5, 95)),
+      hslToHex(h, clamp(s,     0, 100), clamp(l + offsets[7]  * d, 5, 95)),
+      hslToHex(h, clamp(s + 3, 0, 100), clamp(l + offsets[8]  * d, 5, 95)),
+      hslToHex(h, clamp(s - 1, 0, 100), clamp(l + offsets[9]  * d, 5, 95)),
+      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + offsets[10] * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + offsets[11] * d, 5, 95)),
     ];
   } catch {
     return ["#F7F3EC", "#F4F0E8", "#F2EDE4", "#EFEBE0",
