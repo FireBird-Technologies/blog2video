@@ -15,6 +15,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -23,6 +24,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 16, 12);
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
   const panelBg     = tp[1] + "F2"; // near-lightest tile stop, 95% opacity
@@ -117,7 +119,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           <div style={{
               marginTop: 20,
               fontFamily: family,
-              fontSize: titleFontSize ?? 54,
+              fontSize: titleFontSize ?? (p ? 56 : 48),
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.1,
               opacity: fade,

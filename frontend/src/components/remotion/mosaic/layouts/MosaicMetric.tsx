@@ -54,6 +54,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -76,13 +77,16 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
-  const list = metrics && metrics.length > 0 ? metrics.slice(0, 3) : [{ value: "97", label: title || "craft precision", suffix: "%" }];
+  const list = metrics && metrics.length > 0 ? metrics.slice(0, 3) : [];
   const first = list[0];
   const line = accentColor || MOSAIC_COLORS.gold;
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
   const panelBg = tp[1] + "F2";     // near-lightest tile stop, 95% opacity
   const panelBorder = tp[6] + "60"; // mid-palette stop, ~38% opacity
+  const descBase = descriptionFontSize ?? (p ? 18 : 22);
+  const descScale = descBase / (p ? 18 : 22);
 
   return (
     <AbsoluteFill>
@@ -112,41 +116,62 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
             transform: `scale(${0.97 + ringIn * 0.03})`,
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 860,
-            }}
-          >
-            <TileWordSvg
-              text={`${first.value}${first.suffix || ""}`}
-              tileSize={mosaicTileSize ?? (titleFontSize ? Math.max(Math.floor(titleFontSize / 10), 9) : 14)}
-              gap={mosaicTileGap ?? 1}
-              revealProgress={ringIn}
-              colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}              fontFamily={fontFamily}              style={{ width: "100%", height: "auto", aspectRatio: "8 / 1.65" }}
-            />
-          </div>
-          <div style={{ marginTop: 14, height: 1, background: `${line}` }} />
-          <div
-            style={{
-              marginTop: 14,
-              fontFamily: family,
-              fontSize: descriptionFontSize ?? 32,
-              color: textColor || MOSAIC_COLORS.textSecondary,
-              fontStyle: "italic",
-            }}
-          >
-            {first.label}
-          </div>
+          {/* Metric value: fontFamily → plain text; default → mosaic tile SVG */}
+          {first && (
+            <>
+              <div style={{ display: "flex", justifyContent: "center", height: titleFontSize ?? (p ? 90 : 131) }}>
+                {fontFamily ? (
+                  <div
+                    style={{
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      fontFamily,
+                      fontWeight: 900,
+                      fontSize: titleFontSize ?? (p ? 90 : 131),
+                      letterSpacing: "0.03em",
+                      whiteSpace: "nowrap",
+                      color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
+                      opacity: ringIn,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    {`${first.value}${first.suffix || ""}`}
+                  </div>
+                ) : (
+                  <TileWordSvg
+                    text={`${first.value}${first.suffix || ""}`}
+                    tileSize={mosaicTileSize ?? Math.max(Math.floor((titleFontSize ?? (p ? 90 : 131)) / 7), 8)}
+                    gap={mosaicTileGap ?? 1}
+                    revealProgress={ringIn}
+                    colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
+                    style={{ height: "100%", width: "auto" }}
+                  />
+                )}
+              </div>
+              <div style={{ marginTop: 14, height: 1, background: `${line}` }} />
+              <div
+                style={{
+                  marginTop: 14,
+                  fontFamily: family,
+                  fontSize: descBase,
+                  color: textColor || MOSAIC_COLORS.textSecondary,
+                  fontStyle: "italic",
+                }}
+              >
+                {first.label}
+              </div>
+            </>
+          )}
           {list.length > 1 ? (
             <div style={{ marginTop: 30, display: "flex", gap: 48, justifyContent: "center" }}>
               {list.slice(1).map((metric, idx) => (
                 <div key={`${metric.value}-${metric.label}`} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: family, fontSize: 40, color: accentColor || MOSAIC_COLORS.gold, fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ fontFamily: family, fontSize: Math.round(40 * descScale), color: accentColor || MOSAIC_COLORS.gold, fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.value}
                     {metric.suffix || ""}
                   </div>
-                  <div style={{ marginTop: 6, fontFamily: family, fontSize: 24, color: textColor || MOSAIC_COLORS.textSecondary, fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ marginTop: 6, fontFamily: family, fontSize: Math.round(24 * descScale), color: textColor || MOSAIC_COLORS.textSecondary, fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.label}
                   </div>
                 </div>

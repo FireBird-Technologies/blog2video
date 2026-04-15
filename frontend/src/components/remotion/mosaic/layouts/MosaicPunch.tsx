@@ -55,6 +55,7 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
   textColor,
   titleFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -62,6 +63,7 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
+  const p = aspectRatio === "portrait";
   const motion = getSceneTransition(frame, durationInFrames, 24, 18);
   // Tile sweep — 100 frames ≈ 3.3s
   const tileEntry = interpolate(frame, [0, 100], [0, 1], {
@@ -137,60 +139,50 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
           style={{
             transform: `scale(${scale})`,
             opacity: opacity * motion.exit,
-            width: "100%",
-            maxWidth: 980,
+            display: "flex",
+            justifyContent: "center",
+            width: "90%",
             filter: `blur(${(1 - motion.exit) * 2}px)`,
           }}
         >
-          {fontFamily ? (
-            <div
-              style={{
-                width: "100%",
-                aspectRatio: "8 / 1.45",
-                display: "flex",
-                alignItems: "center",
-                fontFamily,
-                fontWeight: 900,
-                fontSize: "clamp(3rem, 8vw, 9rem)",
-                letterSpacing: "0.04em",
-                color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
-                opacity: interpolate(motion.entry, [0.1, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-                overflow: "hidden",
-              }}
-            >
-              {value}
-            </div>
-          ) : (
-            <TileWordSvg
-              text={value}
-              tileSize={mosaicTileSize ?? (titleFontSize ? Math.max(Math.floor(titleFontSize / 12), 9) : 12)}
-              gap={mosaicTileGap ?? 1}
-              revealProgress={motion.entry}
-              revealMode="cluster"
-              exitProgress={exitBreak}
-              colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
-              style={{ width: "100%", height: "auto", aspectRatio: "8 / 1.45" }}
-            />
-          )}
+          {/* Height-driven container: titleFontSize controls how tall (and thus how wide) the mosaic text renders */}
+          <div style={{ height: titleFontSize ?? (p ? 110 : 142) }}>
+            {fontFamily ? (
+              <div
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  fontFamily,
+                  fontWeight: 900,
+                  fontSize: titleFontSize ?? (p ? 110 : 142),
+                  letterSpacing: "0.04em",
+                  whiteSpace: "nowrap",
+                  color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
+                  opacity: interpolate(motion.entry, [0.1, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+                }}
+              >
+                {value}
+              </div>
+            ) : (
+              <TileWordSvg
+                text={value}
+                tileSize={mosaicTileSize ?? Math.max(Math.round((titleFontSize ?? (p ? 110 : 142)) / 8), 8)}
+                gap={mosaicTileGap ?? 1}
+                revealProgress={motion.entry}
+                revealMode="cluster"
+                exitProgress={exitBreak}
+                colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
+                style={{ height: "100%", width: "auto" }}
+              />
+            )}
+          </div>
         </div>
         <div style={{ position: "absolute", top: "34%", left: "8%", right: "8%", height: 1, background: "rgba(42,42,40,0.25)", opacity: 0.35 * motion.exit }} />
         <div style={{ position: "absolute", left: "50%", top: "8%", bottom: "8%", width: 1, background: "rgba(42,42,40,0.25)", opacity: 0.35 }} />
         <div style={{ position: "absolute", top: "34%", left: "12%", width: 260 * seamGrow, height: 1, background: line, opacity: 0.8 * motion.exit }} />
         <div style={{ position: "absolute", bottom: "34%", right: "12%", width: 260 * seamGrow, height: 1, background: line, opacity: 0.8 * motion.exit }} />
-        <div
-          style={{
-            position: "absolute",
-            bottom: "20%",
-            fontFamily: fontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
-            fontStyle: "italic",
-            letterSpacing: "0.14em",
-            fontSize: 24,
-            color: textColor || MOSAIC_COLORS.textSecondary,
-            opacity: motion.entry * motion.exit,
-          }}
-        >
-          fire and tide and time
-        </div>
+       
       </AbsoluteFill>
     </AbsoluteFill>
   );

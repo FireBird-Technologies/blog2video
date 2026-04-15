@@ -18,6 +18,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -70,6 +71,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
   const panelBg = tp[1] + "F2";     // near-lightest tile stop, 95% opacity
@@ -170,22 +172,11 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
               opacity: frameDraw * motion.exit,
             }}
           />
-          <div
-            style={{
-              color: textColor || MOSAIC_COLORS.textSecondary,
-              fontFamily: family,
-              letterSpacing: "0.25em",
-              textTransform: "uppercase",
-              fontSize: 14,
-              marginBottom: 18,
-            }}
-          >
-            Stone Text Layout
-          </div>
+         
           <div
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? 52,
+              fontSize: titleFontSize ?? (p ? 52 : 44),
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.5,
             }}
@@ -199,57 +190,6 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   <MosaicTiledText key={`tx-${idx}`} text={part} revealProgress={tileEntry} speed={1.3} fontFamily={fontFamily} />
                 ),
               )}
-          </div>
-            <div style={{ height: 1, margin: "24px 0", background: dividerColor }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-            <div>
-              <div
-                style={{
-                  fontFamily: family,
-                  fontSize: 12,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                    color: textColor || MOSAIC_COLORS.textSecondary,
-                }}
-              >
-                Material
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontFamily: family,
-                  fontStyle: "italic",
-                  fontSize: descriptionFontSize ?? 24,
-                    color: textColor || MOSAIC_COLORS.textSecondary,
-                }}
-              >
-                Marble, limestone, smalti glass
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontFamily: family,
-                  fontSize: 12,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                    color: textColor || MOSAIC_COLORS.textSecondary,
-                }}
-              >
-                Period
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontFamily: family,
-                  fontStyle: "italic",
-                  fontSize: descriptionFontSize ?? 24,
-                    color: textColor || MOSAIC_COLORS.textSecondary,
-                }}
-              >
-                2nd century to present day
-              </div>
-            </div>
           </div>
         </div>
       </AbsoluteFill>
