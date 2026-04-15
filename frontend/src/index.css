@@ -59,6 +59,16 @@
 .hero-animate > *:nth-child(5) { animation-delay: 400ms; }
 .hero-animate > *:nth-child(6) { animation-delay: 500ms; }
 
+/* ─── Platform showcase testimonial marquee (3× loop segment) ─────────────── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+@keyframes ticker-scroll-rtl {
+  0%   { transform: translateX(-33.333%); }
+  100% { transform: translateX(0); }
+}
+
 /* ─── Thin scrollbar, no end arrows ─────────────────────────── */
 
 /* Firefox */

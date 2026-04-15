@@ -8,6 +8,7 @@ import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
@@ -170,6 +171,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverUrl?: string;
+  playbackSpeed: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -180,6 +182,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverUrl,
+  playbackSpeed,
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -239,7 +242,7 @@ const NewscastSequenceInner: React.FC<{
           </div>
         </div>
       </NewscastSceneZTransition>
-      {voiceoverUrl ? <Audio src={voiceoverUrl} /> : null}
+      {voiceoverUrl ? <Audio src={voiceoverUrl} playbackRate={playbackSpeed} /> : null}
     </AbsoluteFill>
   );
 };
@@ -269,6 +272,7 @@ export interface NewscastVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  playbackSpeed?: number;
 }
 
 export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
@@ -282,17 +286,19 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   const sceneFrameOffsets = React.useMemo(() => {
     const offsets = new Array<number>(scenes.length);
     let acc = 0;
     for (let i = 0; i < scenes.length; i += 1) {
       offsets[i] = acc;
-      acc += Math.max(1, Math.round(scenes[i].durationSeconds * FPS));
+      acc += getSceneDurationFrames(scenes[i].durationSeconds, FPS, resolvedPlaybackSpeed);
     }
     return offsets;
-  }, [scenes]);
+  }, [scenes, resolvedPlaybackSpeed]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
@@ -301,7 +307,11 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
         const startFrame = sceneFrameOffsets[index] ?? 0;
 
-        const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
 
         const LayoutComponent =
           NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
@@ -348,6 +358,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverUrl={scene.voiceoverUrl}
+              playbackSpeed={resolvedPlaybackSpeed}
             />
           </Sequence>
         );

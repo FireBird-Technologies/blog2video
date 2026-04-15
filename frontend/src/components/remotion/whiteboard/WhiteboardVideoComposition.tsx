@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface WhiteboardSceneInput {
   id: number;
@@ -26,6 +27,7 @@ export interface WhiteboardVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  playbackSpeed?: number;
 }
 
 export const WhiteboardVideoComposition: React.FC<
@@ -41,14 +43,20 @@ export const WhiteboardVideoComposition: React.FC<
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#F7F3E8", fontFamily }}>
       {scenes.map((scene) => {
-        const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -76,7 +84,9 @@ export const WhiteboardVideoComposition: React.FC<
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
           </Sequence>
         );
       })}
