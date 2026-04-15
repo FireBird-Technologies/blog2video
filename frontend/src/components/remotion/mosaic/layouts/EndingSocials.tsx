@@ -78,7 +78,7 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
           {title}
         </div>
         <div style={{ width: 300 * lineIn, height: 2, background: line, marginTop: 16, marginBottom: 16 }} />
-        <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? 28, color: MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
+        <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? 28, color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
           {narration}
         </div>
         {showCta ? (

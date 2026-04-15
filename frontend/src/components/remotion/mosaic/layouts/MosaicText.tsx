@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { MosaicBackground } from "../MosaicBackground";
+import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MosaicTiledText } from "../MosaicTiledText";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
@@ -71,6 +71,10 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
+  const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
+  const panelBg = tp[1] + "F2";     // near-lightest tile stop, 95% opacity
+  const panelBorder = tp[6] + "60"; // mid-palette stop, ~38% opacity
+  const dividerColor = tp[8] + "55"; // slightly deeper, 33% opacity
   const highlight = (highlightPhrase || "").trim();
   const content =
     highlight && narration.includes(highlight)
@@ -146,8 +150,8 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
           style={{
             width: "100%",
             maxWidth: 1120,
-            border: "1px solid rgba(42,42,40,0.18)",
-            background: "rgba(234,228,218,0.94)",
+            border: `1px solid ${panelBorder}`,
+            background: panelBg,
             padding: "42px 52px",
             position: "relative",
             opacity: panelIntro * motion.exit,
@@ -161,14 +165,14 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
             style={{
               position: "absolute",
               inset: 8,
-              border: "1px solid rgba(42,42,40,0.2)",
+              border: `1px solid ${tp[7] + "44"}`,
               pointerEvents: "none",
               opacity: frameDraw * motion.exit,
             }}
           />
           <div
             style={{
-              color: MOSAIC_COLORS.textSecondary,
+              color: textColor || MOSAIC_COLORS.textSecondary,
               fontFamily: family,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
@@ -188,15 +192,15 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
           >
               {parts.map((part, idx) =>
                 idx % 2 === 1 ? (
-                  <span key={`hl-${idx}`} style={{ color: MOSAIC_COLORS.gold, fontWeight: 700 }}>
-                    <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.3} />
+                  <span key={`hl-${idx}`} style={{ color: accentColor || MOSAIC_COLORS.gold, fontWeight: 700 }}>
+                    <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.3} fontFamily={fontFamily} />
                   </span>
                 ) : (
-                  <MosaicTiledText key={`tx-${idx}`} text={part} revealProgress={tileEntry} speed={1.3} />
+                  <MosaicTiledText key={`tx-${idx}`} text={part} revealProgress={tileEntry} speed={1.3} fontFamily={fontFamily} />
                 ),
               )}
           </div>
-            <div style={{ height: 1, margin: "24px 0", background: "rgba(42,42,40,0.25)" }} />
+            <div style={{ height: 1, margin: "24px 0", background: dividerColor }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <div>
               <div
@@ -205,7 +209,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontSize: 12,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                    color: MOSAIC_COLORS.textSecondary,
+                    color: textColor || MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Material
@@ -216,7 +220,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontFamily: family,
                   fontStyle: "italic",
                   fontSize: descriptionFontSize ?? 24,
-                    color: MOSAIC_COLORS.textSecondary,
+                    color: textColor || MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Marble, limestone, smalti glass
@@ -229,7 +233,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontSize: 12,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                    color: MOSAIC_COLORS.textSecondary,
+                    color: textColor || MOSAIC_COLORS.textSecondary,
                 }}
               >
                 Period
@@ -240,7 +244,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
                   fontFamily: family,
                   fontStyle: "italic",
                   fontSize: descriptionFontSize ?? 24,
-                    color: MOSAIC_COLORS.textSecondary,
+                    color: textColor || MOSAIC_COLORS.textSecondary,
                 }}
               >
                 2nd century to present day

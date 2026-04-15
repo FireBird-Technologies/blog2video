@@ -7,6 +7,69 @@ import { TileWordSvg } from "../mosaicPrimitives";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
 import type { MosaicLayoutProps } from "../types";
 
+/** hex → [h 0-360, s 0-100, l 0-100] */
+function hexToHsl(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+/** [h 0-360, s 0-100, l 0-100] → hex */
+function hslToHex(h: number, s: number, l: number): string {
+  const sl = s / 100, ll = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sl * Math.min(ll, 1 - ll);
+  const f = (n: number) => ll - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "00")).join("");
+}
+
+/** 8-stop palette centred on the accent colour (lighter → darker with slight hue drift) */
+function accentPalette(accent: string): string[] {
+  try {
+    const [h, s, l] = hexToHsl(accent);
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    return [
+      hslToHex(h,              clamp(s - 5,  0, 100), clamp(l + 24, 20, 90)),
+      hslToHex(h,              clamp(s,      0, 100), clamp(l + 14, 20, 90)),
+      hslToHex(h,              clamp(s + 5,  0, 100), clamp(l +  6, 20, 90)),
+      hslToHex(h,              s,                     l),
+      hslToHex((h + 6) % 360, clamp(s + 5,  0, 100), clamp(l -  8, 10, 80)),
+      hslToHex(h,              clamp(s + 8,  0, 100), clamp(l - 16, 10, 80)),
+      hslToHex((h - 6 + 360) % 360, clamp(s + 5, 0, 100), clamp(l - 22, 10, 80)),
+      hslToHex(h,              clamp(s - 15, 0, 100), clamp(l - 10, 10, 80)),
+    ];
+  } catch {
+    return [accent];
+  }
+}
+
+/** 3-stop muted palette for narration derived from the text colour */
+function narrationPalette(textColor: string): string[] {
+  try {
+    const [h, s, l] = hexToHsl(textColor);
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    return [
+      hslToHex(h, clamp(s - 20, 0, 100), clamp(l + 18, 15, 75)),
+      hslToHex(h, clamp(s - 10, 0, 100), clamp(l + 28, 15, 80)),
+      hslToHex(h, s,                     l),
+    ];
+  } catch {
+    return [textColor];
+  }
+}
+
 /** Split text into word-wrapped lines not exceeding maxChars each */
 function wrapToLines(text: string, maxChars: number): string[] {
   const words = text.split(" ").filter(Boolean);
@@ -127,34 +190,50 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
           filter: `blur(${(1 - motion.exit) * 2}px)`,
         }}
       >
-        {/* ── Title — one TileWordSvg per wrapped line ─────────── */}
+        {/* ── Title — plain text with custom font, or TileWordSvg per line ─────────── */}
         <div
           style={{
             width: "100%",
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            opacity: titleIn * motion.exit,
+            opacity: titleIn,
             transform: `translateY(${(1 - titleIn) * 16}px)`,
           }}
         >
-          {titleLines.map((line, i) => (
-            <div key={i} style={{ width: "100%", height: titleLineH }}>
-              <TileWordSvg
-                text={line}
-                tileSize={mosaicTileSize ?? 7}
-                gap={mosaicTileGap ?? 1}
-                revealProgress={titleBlocksIn}
-                revealMode="linear"
-                exitProgress={0}
-                colors={["#E0B870", "#D4A860", "#DAA040", "#C87828", "#D06030", "#C03820", "#A83018", "#4A7880"]}
-                style={{ width: "100%", height: "100%" }}
-              />
+          {fontFamily ? (
+            <div
+              style={{
+                fontFamily,
+                fontWeight: 900,
+                fontSize: titleFontSize ?? (isPortrait ? 80 : 96),
+                color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
+                lineHeight: 1.15,
+                letterSpacing: "0.03em",
+                textTransform: "uppercase",
+              }}
+            >
+              {(title || "TESSERAE").toUpperCase()}
             </div>
-          ))}
+          ) : (
+            titleLines.map((line, i) => (
+              <div key={i} style={{ width: "100%", height: titleLineH }}>
+                <TileWordSvg
+                  text={line}
+                  tileSize={mosaicTileSize ?? 7}
+                  gap={mosaicTileGap ?? 1}
+                  revealProgress={titleBlocksIn}
+                  revealMode="linear"
+                  exitProgress={0}
+                  colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
+            ))
+          )}
         </div>
 
-        {/* ── Narration — one TileWordSvg per wrapped line ──────── */}
+        {/* ── Narration — plain text with custom font, or TileWordSvg per line ──────── */}
         <div
           style={{
             width: "100%",
@@ -162,23 +241,38 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             flexDirection: "column",
             gap: 6,
             marginTop: isPortrait ? 60 : 24,
-            opacity: subIn * motion.exit,
+            opacity: subIn,
           }}
         >
-          {narrationLines.map((line, i) => (
-            <div key={i} style={{ width: "100%", height: narLineH }}>
-              <TileWordSvg
-                text={line}
-                tileSize={mosaicTileSize ?? 5}
-                gap={mosaicTileGap ?? 1}
-                revealProgress={subIn}
-                revealMode="linear"
-                exitProgress={0}
-                colors={["#4A7880", "#5A9090", "#3A6070"]}
-                style={{ width: "100%", height: "100%" }}
-              />
+          {fontFamily ? (
+            <div
+              style={{
+                fontFamily,
+                fontSize: descriptionFontSize ?? (isPortrait ? 48 : 56),
+                color: narrationPalette(textColor || MOSAIC_COLORS.textSecondary)[0],
+                lineHeight: 1.3,
+                letterSpacing: "0.02em",
+                textTransform: "uppercase",
+              }}
+            >
+              {(narration || "STONE").toUpperCase()}
             </div>
-          ))}
+          ) : (
+            narrationLines.map((line, i) => (
+              <div key={i} style={{ width: "100%", height: narLineH }}>
+                <TileWordSvg
+                  text={line}
+                  tileSize={mosaicTileSize ?? 5}
+                  gap={mosaicTileGap ?? 1}
+                  revealProgress={subIn}
+                  revealMode="linear"
+                  exitProgress={0}
+                  colors={narrationPalette(textColor || MOSAIC_COLORS.textSecondary)}
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </div>
+            ))
+          )}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

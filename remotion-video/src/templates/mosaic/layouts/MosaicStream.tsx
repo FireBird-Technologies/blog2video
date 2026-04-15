@@ -92,7 +92,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                   transform: `translateX(${(1 - t) * 18 - (1 - out) * 22}px)`,
                 }}
               >
-                <div style={{ fontFamily: family, color: MOSAIC_COLORS.gold, fontSize: isPortrait ? 26 : 18, fontWeight: 700 }}>
+                <div style={{ fontFamily: family, color: accentColor || MOSAIC_COLORS.gold, fontSize: isPortrait ? 26 : 18, fontWeight: 700 }}>
                   {String(index + 1).padStart(2, "0")}
                 </div>
                 <div
@@ -100,7 +100,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                     marginTop: 6,
                     width: 6,
                     height: 44,
-                    background: isActive ? MOSAIC_COLORS.gold : "rgba(42,42,40,0.35)",
+                    background: isActive ? (accentColor || MOSAIC_COLORS.gold) : "rgba(42,42,40,0.35)",
                   }}
                 />
                 <div
@@ -122,7 +122,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
         <div
           style={{
             marginTop: 16,
-            color: MOSAIC_COLORS.textSecondary,
+            color: textColor || MOSAIC_COLORS.textSecondary,
             fontFamily: family,
             fontSize: descriptionFontSize ?? (isPortrait ? 34 : 24),
             opacity: 0.9 * motion.exit,

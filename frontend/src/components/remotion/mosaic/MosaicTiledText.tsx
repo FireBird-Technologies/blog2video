@@ -5,6 +5,7 @@ interface MosaicTiledTextProps {
   text: string;
   revealProgress: number;
   style?: React.CSSProperties;
+  fontFamily?: string;
   /** Speed factor: higher = faster reveal. Default 1.0 */
   speed?: number;
 }
@@ -17,8 +18,22 @@ export const MosaicTiledText: React.FC<MosaicTiledTextProps> = ({
   text,
   revealProgress,
   style = {},
+  fontFamily,
   speed = 1.0,
 }) => {
+  // Plain-text mode: custom font selected → simple fade-in, no pixel tiling
+  if (fontFamily) {
+    const opacity = interpolate(revealProgress, [0.05, 0.5], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    return (
+      <span style={{ ...style, display: "inline-block", fontFamily, opacity }}>
+        {text}
+      </span>
+    );
+  }
+
   const chars = text.split("");
   const totalChars = chars.length;
 

@@ -82,18 +82,18 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
             {out.split("__HL__").map((part, i) =>
               i % 2 === 1 ? (
                 <span key={`hl-${i}`} style={{ color: accentColor || MOSAIC_COLORS.gold, borderBottom: `1px solid ${accentColor || MOSAIC_COLORS.gold}` }}>
-                  <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.2} />
+                  <MosaicTiledText text={part} revealProgress={tileEntry} speed={1.2} fontFamily={fontFamily} />
                 </span>
               ) : (
-                <MosaicTiledText key={`tx-${i}`} text={part} revealProgress={tileEntry} speed={1.2} />
+                <MosaicTiledText key={`tx-${i}`} text={part} revealProgress={tileEntry} speed={1.2} fontFamily={fontFamily} />
               ),
             )}
           </div>
-          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 28, color: MOSAIC_COLORS.textSecondary }}>
-            <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} />
+          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 28, color: textColor || MOSAIC_COLORS.textSecondary }}>
+            <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} fontFamily={fontFamily} />
           </div>
           {cta ? (
-            <div style={{ marginTop: 22, color: MOSAIC_COLORS.textSecondary, fontFamily: family, fontSize: 18, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            <div style={{ marginTop: 22, color: textColor || MOSAIC_COLORS.textSecondary, fontFamily: family, fontSize: 18, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               {cta}
             </div>
           ) : null}
