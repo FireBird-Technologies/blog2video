@@ -20,6 +20,10 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
   descriptionFontSize,
   fontFamily,
   aspectRatio,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -52,11 +56,14 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
         frameReveal={tileEntry * motion.exit}
         frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="center"
-        tileEntryIntensity={11}
+        tileEntryPattern={mosaicPattern}
+        tileEntryIntensity={mosaicIntensity ?? 11}
         tileExitProgress={tileExit}
         tileExitSeed={47}
-        tileExitIntensity={24}
+        tileExitIntensity={mosaicIntensity ?? 24}
+        tileExitPattern={mosaicPattern}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
       <AbsoluteFill
         style={{

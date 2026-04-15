@@ -9,7 +9,7 @@ const seededNoise = (index: number, seed: number, x: number, y: number) => {
   return fract(Math.sin(mixed) * 43758.5453);
 };
 
-export type MosaicTileEntryPattern = "linear" | "diagonal" | "center" | "scatter";
+export type MosaicTileEntryPattern = "linear" | "diagonal" | "center" | "scatter" | "ltr";
 
 type TileMotionParams = {
   progress: number;
@@ -22,10 +22,16 @@ type TileMotionParams = {
 
 type TileEntryParams = TileMotionParams & {
   pattern?: MosaicTileEntryPattern;
+  /** Width / height ratio of the visual viewport (e.g. 16/9 for landscape).
+   *  Used by the "center" pattern to produce a visually-circular wavefront. */
+  aspectCorrection?: number;
 };
 
 type TileExitParams = TileMotionParams & {
   seed?: number;
+  pattern?: MosaicTileEntryPattern;
+  /** @see TileEntryParams.aspectCorrection */
+  aspectCorrection?: number;
 };
 
 export const getSceneTransition = (
@@ -71,24 +77,32 @@ export const getTileEntryProgress = ({
   y,
   intensity = 24,
   pattern = "center",
+  aspectCorrection,
 }: TileEntryParams) => {
   const nx = clamp01(x / 100);
   const ny = clamp01(y / 100);
   const linearOrder = index / Math.max(1, total - 1);
   const diagonalOrder = clamp01(nx * 0.7 + ny * 0.3);
-  const dx = nx - 0.5;
+  // Aspect-corrected Euclidean distance → visually circular wavefront
+  const ar = aspectCorrection ?? 1;
+  const dx = (nx - 0.5) * ar;
   const dy = ny - 0.5;
-  const centerOrder = clamp01(Math.sqrt(dx * dx + dy * dy) / 0.71);
+  const maxDist = Math.sqrt(Math.pow(0.5 * ar, 2) + 0.25);
+  const centerOrder = clamp01(Math.sqrt(dx * dx + dy * dy) / maxDist);
   // scatter: fully random per-tile order (seed 42 for entry, distinct from exit seed)
   const scatterOrder = seededNoise(index, 42, x, y);
   const order =
-    pattern === "diagonal"
-      ? diagonalOrder
-      : pattern === "linear"
-        ? linearOrder
-        : pattern === "scatter"
-          ? scatterOrder
-          : centerOrder;
+    pattern === "center"
+      ? centerOrder
+      : pattern === "diagonal"
+        ? diagonalOrder
+        : pattern === "linear"
+          ? linearOrder
+          : pattern === "scatter"
+            ? scatterOrder
+            : pattern === "ltr"
+              ? nx
+              : centerOrder;
 
   return clamp01((clamp01(progress) - order) * intensity);
 };
@@ -101,9 +115,40 @@ export const getTileExitBreakProgress = ({
   y,
   intensity = 26,
   seed = 17,
+  pattern,
+  aspectCorrection,
 }: TileExitParams) => {
   const nx = clamp01(x / 100);
   const ny = clamp01(y / 100);
+
+  // If a pattern is given, mirror the entry order so the exit sweeps the same way
+  if (pattern) {
+    const linearOrder = index / Math.max(1, total - 1);
+    const diagonalOrder = clamp01(nx * 0.7 + ny * 0.3);
+    // Aspect-corrected Euclidean distance → visually circular wavefront
+    const ar = aspectCorrection ?? 1;
+    const dx = (nx - 0.5) * ar;
+    const dy = ny - 0.5;
+    const maxDist = Math.sqrt(Math.pow(0.5 * ar, 2) + 0.25);
+    const centerOrder = clamp01(Math.sqrt(dx * dx + dy * dy) / maxDist);
+    const scatterOrder = seededNoise(index, seed, x, y);
+    const order =
+      pattern === "center"
+        ? centerOrder
+        : pattern === "diagonal"
+          ? diagonalOrder
+          : pattern === "linear"
+            ? linearOrder
+            : pattern === "scatter"
+              ? scatterOrder
+              : pattern === "ltr"
+                ? nx
+                : centerOrder;
+    const breakAmount = clamp01((clamp01(progress) - order) * intensity);
+    return 1 - breakAmount;
+  }
+
+  // Default: seeded-scatter exit
   const randomOrder = seededNoise(index, seed, x, y);
   const scatterOrder = clamp01(
     randomOrder * 0.72 +

@@ -15,6 +15,10 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -59,11 +63,14 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         frameReveal={boxBuild * motion.exit}
         frameDrift={boxBuild}
         tileBuildProgress={boxBuild}
-        tileEntryPattern="center"
-        tileEntryIntensity={11}
+        tileEntryPattern={mosaicPattern}
+        tileEntryIntensity={mosaicIntensity ?? 11}
         tileExitProgress={tileExit}
         tileExitSeed={29}
-        tileExitIntensity={24}
+        tileExitIntensity={mosaicIntensity ?? 24}
+        tileExitPattern={mosaicPattern}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
       
       {/* Mosaic Grid Layout Container */}
