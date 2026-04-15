@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-const TRANS_WINDOW_SEC = 2.1;
+const TRANS_WINDOW_SEC = 1.2;
 
 export const NEWSCAST_TRANSITION_STYLES = [
   "zoom_soft",

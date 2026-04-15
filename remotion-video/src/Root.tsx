@@ -36,6 +36,10 @@ import {
   calculateNewscastMetadata,
 } from "./templates/newscast/NewscastVideo";
 import {
+  BlackswanVideo,
+  calculateBlackswanMetadata,
+} from "./templates/blackswan/BlackswanVideo";
+import {
   GeneratedVideo,
   calculateGeneratedMetadata,
 } from "./templates/generated/GeneratedVideo";
@@ -150,6 +154,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateNewscastMetadata}
+      />
+      <Composition
+        id="BlackswanVideo"
+        component={BlackswanVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateBlackswanMetadata}
       />
       <Composition
         id="GeneratedVideo"

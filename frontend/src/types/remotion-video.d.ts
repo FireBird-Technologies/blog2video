@@ -49,3 +49,9 @@ declare module "@remotion-video/templates/newscast/layouts" {
   export type NewscastLayoutType = string;
   export type NewscastLayoutProps = Record<string, any>;
 }
+
+declare module "@remotion-video/templates/blackswan/layouts" {
+  export const BLACKSWAN_LAYOUT_REGISTRY: Record<string, any>;
+  export type BlackswanLayoutType = string;
+  export type BlackswanLayoutProps = Record<string, any>;
+}

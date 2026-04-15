@@ -1,13 +1,24 @@
 import ReactDOM from "react-dom";
 
+export type ErrorModalHeadingVariant = "default" | "pipeline";
+
 interface Props {
   open: boolean;
   message: string;
+  variant?: ErrorModalHeadingVariant;
   showUpgrade?: boolean;
   onClose: () => void;
 }
 
-export default function ErrorModal({ open, message, showUpgrade, onClose }: Props) {
+const PIPELINE_HEADING = "Oops 😢";
+
+export default function ErrorModal({
+  open,
+  message,
+  variant = "default",
+  showUpgrade,
+  onClose,
+}: Props) {
   if (!open) return null;
 
   return ReactDOM.createPortal(
@@ -24,9 +35,13 @@ export default function ErrorModal({ open, message, showUpgrade, onClose }: Prop
         aria-labelledby="error-modal-title"
       >
         <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+          <div
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+              variant === "pipeline" ? "bg-amber-100" : "bg-red-100"
+            }`}
+          >
             <svg
-              className="w-5 h-5 text-red-600"
+              className={`w-5 h-5 ${variant === "pipeline" ? "text-amber-700" : "text-red-600"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -42,7 +57,7 @@ export default function ErrorModal({ open, message, showUpgrade, onClose }: Prop
           </div>
           <div className="flex-1 min-w-0">
             <h3 id="error-modal-title" className="text-base font-semibold text-gray-900 mb-1">
-              Error
+              {variant === "pipeline" ? PIPELINE_HEADING : "Error"}
             </h3>
             <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">
               {message}
