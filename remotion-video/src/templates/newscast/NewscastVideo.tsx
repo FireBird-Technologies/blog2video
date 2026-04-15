@@ -17,6 +17,7 @@ import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
@@ -178,6 +179,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverSrc?: string;
+  playbackSpeed: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -188,6 +190,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverSrc,
+  playbackSpeed,
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -246,7 +249,7 @@ const NewscastSequenceInner: React.FC<{
           </div>
         </div>
       </NewscastSceneZTransition>
-      {voiceoverSrc ? <Audio src={voiceoverSrc} /> : null}
+      {voiceoverSrc ? <Audio src={voiceoverSrc} playbackRate={playbackSpeed} /> : null}
     </AbsoluteFill>
   );
 };
@@ -274,6 +277,7 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -291,8 +295,11 @@ export const calculateNewscastMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
+      );
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
 
       // Newscast base resolution: 1280×720 in landscape, 720×1280 in portrait
@@ -356,6 +363,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   if (!data) return <AbsoluteFill style={{ backgroundColor: "#FAFAF8" }} />;
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -369,7 +377,11 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       {data.scenes.map((scene, sceneIndex) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-        const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -419,6 +431,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverSrc={scene.voiceoverFile ? staticFile(scene.voiceoverFile) : undefined}
+              playbackSpeed={playbackSpeed}
             />
           </Sequence>
         );

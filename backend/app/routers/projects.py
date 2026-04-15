@@ -130,6 +130,8 @@ _ALLOWED_MIME_TYPES = {
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
+_MIN_PLAYBACK_SPEED = 0.5
+_MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
 
 
@@ -177,6 +179,18 @@ def _normalize_video_length(video_length: str | None) -> str:
             detail="video_length must be one of: auto, short, medium, detailed",
         )
     return raw
+
+
+def _normalize_playback_speed(playback_speed: float | None) -> float:
+    if playback_speed is None:
+        return 1.0
+    value = round(float(playback_speed), 2)
+    if value < _MIN_PLAYBACK_SPEED or value > _MAX_PLAYBACK_SPEED:
+        raise HTTPException(
+            status_code=422,
+            detail="playback_speed must be between 0.5 and 2.5",
+        )
+    return value
 
 
 def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
@@ -464,6 +478,7 @@ def create_project(
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(getattr(data, "video_length", None)),
+        playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
         content_language=normalize_preferred_language_code(data.content_language),
         status=ProjectStatus.CREATED,
     )
@@ -498,6 +513,8 @@ def update_project(
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         elif field == "video_length":
             update_data[field] = _normalize_video_length(value)
+        elif field == "playback_speed":
+            update_data[field] = _normalize_playback_speed(value)
         else:
             if value is not None:
                 update_data[field] = value
@@ -742,6 +759,7 @@ def create_projects_bulk(
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
             video_length=_normalize_video_length(getattr(data, "video_length", None)),
+            playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
             content_language=normalize_preferred_language_code(data.content_language),
             status=ProjectStatus.CREATED,
         )
@@ -856,6 +874,7 @@ def create_project_from_upload(
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(video_length),
+        playback_speed=_normalize_playback_speed(None),
         content_language=normalize_preferred_language_code(content_language),
         status=ProjectStatus.CREATED,
     )
