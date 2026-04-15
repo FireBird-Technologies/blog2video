@@ -192,7 +192,9 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
-  | "select" | "select" | "number" | "range";
+  | "select"
+  | "number"
+  | "range";
 
 interface FieldDef {
   key: string;
@@ -203,6 +205,11 @@ interface FieldDef {
   maxItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Display/render default when the value hasn't been saved yet. */
+  default?: string | number;
 }
 
 function normalizeColorValue(input: unknown, fallback: string): string {
@@ -569,12 +576,6 @@ function buildChartTableFromDataVizLayoutProps(lp: Record<string, unknown>): { h
     headers: ["Label", "Value"],
     rows: [],
   }), mode, inferredLineSeriesCount);
-  options?: { value: string; label: string }[];
-  min?: number;
-  max?: number;
-  step?: number;
-  /** Display/render default when the value hasn't been saved yet. */
-  default?: string | number;
 }
 
 const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
@@ -2394,7 +2395,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "select") {
                         const opts = field.options ?? [];
-                        const defaultVal = opts[0]?.value ?? "";
+                        const defaultVal = field.default ?? opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
                         return (
                           <div key={field.key}>
@@ -2410,22 +2411,6 @@ export default function SceneEditModal({
                                 <option key={o.value} value={o.value}>
                                   {o.label}
                                 </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (field.type === "select" && field.options) {
-                        return (
-                          <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
-                            <select
-                              value={String(editableLayoutProps[field.key] ?? field.default ?? field.options[0]?.value ?? "")}
-                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                              className="w-full px-3 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-                            >
-                              {field.options.map((opt) => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
                               ))}
                             </select>
                           </div>
