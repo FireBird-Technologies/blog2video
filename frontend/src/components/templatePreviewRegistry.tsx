@@ -7,6 +7,7 @@ import MatrixPreview from "./templatePreviews/MatrixPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
+import BlackswanPreview from "./templatePreviews/BlackswanPreview";
 
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC> = {
@@ -18,6 +19,7 @@ export const TEMPLATE_PREVIEWS: Record<string, FC> = {
   whiteboard: WhiteboardPreview,
   newspaper: NewsPaperPreview,
   newscast: NewscastPreview,
+  blackswan: BlackswanPreview,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -31,6 +33,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   newscast: {
     title: "Newscast",
     subtitle: "Broadcast news package — ticker, lower third, glass panels, and data beats",
+  },
+  blackswan: {
+    title: "Black Swan",
+    subtitle: "Neon-on-black cinematic ripples, swan energy, and data scenes",
   },
 };
 

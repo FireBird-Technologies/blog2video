@@ -88,13 +88,28 @@ class User(Base):
 
         current_bonus = self.video_limit_bonus or 0
 
-        if self.plan != PlanTier.FREE and current_bonus > active_credits:
+        total_purchased_credits = (
+            db.query(Subscription)
+            .filter(
+                Subscription.user_id == self.id,
+                Subscription.plan_id == per_video_plan.id,
+                Subscription.status == SubscriptionStatus.COMPLETED,
+            )
+            .count()
+        )
+
+        expired_credits = total_purchased_credits - active_credits
+
+        # Only reduce expired portion
+        if expired_credits > 0 and self.plan != PlanTier.FREE:
+            new_bonus = max(0, current_bonus - expired_credits)
+
             print(
                 f"[USER] sync_video_limit_bonus: user {self.id} "
-                f"video_limit_bonus {current_bonus} → {active_credits} "
-                f"(expired credits dropped)"
+                f"expired {expired_credits}, bonus {current_bonus} → {new_bonus}"
             )
-            self.video_limit_bonus = active_credits
+
+            self.video_limit_bonus = new_bonus
             db.commit()
             return True
 
