@@ -47,6 +47,7 @@ export interface GeneratedVideoData {
   logoOpacity?: number;
   logoSize?: number;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   /** Font for headings/titles (from theme or user override) */
   headingFont?: string | null;
