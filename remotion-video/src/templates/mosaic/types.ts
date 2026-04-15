@@ -31,4 +31,9 @@ export interface MosaicLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+  // Mosaic tile customization
+  mosaicPattern?: "linear" | "diagonal" | "center" | "scatter";
+  mosaicIntensity?: number;
+  mosaicTileSize?: number;
+  mosaicTileGap?: number;
 }

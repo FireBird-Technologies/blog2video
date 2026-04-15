@@ -18,6 +18,10 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -60,6 +64,12 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  const sweepIn = interpolate(
+    frame,
+    [contentRevealStart - 8, contentRevealStart + 44],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const highlight = (highlightPhrase || "").trim();
   const content =
@@ -77,26 +87,32 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
         frameReveal={tileEntry * motion.exit}
         frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="center"
-        tileEntryIntensity={13}
+        tileEntryPattern={mosaicPattern ?? "diagonal"}
+        tileEntryIntensity={mosaicIntensity ?? 13}
         tileExitProgress={tileExit}
         tileExitSeed={23}
-        tileExitIntensity={24}
+        tileExitIntensity={mosaicIntensity ?? 24}
+        tileExitPattern={mosaicPattern ?? "diagonal"}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
-      <MosaicBackground
-        bgColor={bgColor}
-        accentColor={accentColor}
-        variant="coverField"
-        opacity={fullScreenCoverOpacity}
-        frameReveal={0}
-        frameDrift={0}
-        tileBuildProgress={fullScreenCoverBuild}
-        tileEntryPattern="center"
-        tileEntryIntensity={11}
-        tileExitProgress={fullScreenCoverExit}
-        tileExitSeed={71}
-        tileExitIntensity={22}
-      />
+      <div style={{ position: "absolute", inset: 0, opacity: fullScreenCoverOpacity, pointerEvents: "none" }}>
+        <MosaicBackground
+          bgColor={bgColor}
+          accentColor={accentColor}
+          variant="coverField"
+          frameReveal={0}
+          frameDrift={0}
+          tileBuildProgress={fullScreenCoverBuild}
+          tileEntryPattern="ltr"
+          tileEntryIntensity={mosaicIntensity ?? 11}
+          tileExitProgress={fullScreenCoverExit}
+          tileExitSeed={71}
+          tileExitIntensity={mosaicIntensity ?? 22}
+          tileGridSize={mosaicTileSize}
+          tileGridGap={mosaicTileGap}
+        />
+      </div>
 
       {/* ── Image panel — left 46%, revealed tile-by-tile left-to-right ── */}
       {imageUrl && (
@@ -106,8 +122,8 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
               imageUrl={imageUrl}
               revealProgress={tileEntry}
               clarityProgress={panelIntro}
-              pattern="center"
-              intensity={13}
+              pattern={mosaicPattern ?? "diagonal"}
+              intensity={mosaicIntensity ?? 13}
               style={{ opacity: motion.exit }}
               overlay={
                 <div
@@ -137,6 +153,8 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
             opacity: panelIntro * motion.exit,
             transform: `translateY(${(1 - panelIntro) * 12}px) scale(${0.94 + panelIntro * 0.06})`,
             filter: `blur(${(1 - panelIntro) * 2 + (1 - motion.exit) * 1.8}px)`,
+            clipPath: `inset(0 ${(1 - sweepIn) * 102}% 0 0)`,
+            willChange: "clip-path",
           }}
         >
           <div
@@ -163,7 +181,7 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
           <div
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? 48,
+              fontSize: titleFontSize ?? 52,
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.5,
             }}

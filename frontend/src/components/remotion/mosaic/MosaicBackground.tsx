@@ -30,24 +30,38 @@ const TILE_PALETTE = [
   "#DDD4C5", "#DAD1C2", "#D6CEC1", "#D3CABB",
 ];
 
-const makeFieldTiles = (_count: number, _variant: MosaicBackgroundVariant) => {
-  const cols = 96;
-  const rows = 54;
-  const tileW = 100 / cols;  // ≈1.042 SVG units ≈ 20px
-  const tileH = 100 / rows;  // ≈1.852 SVG units ≈ 20px
-  return Array.from({ length: cols * rows }, (_, i) => {
+const makeFieldTiles = (tileSizePx: number = 20, gapPx: number = 0) => {
+  /* Reference canvas 1920×1080,  viewBox 0 0 100 100 */
+  const refW = 1920;
+  const refH = 1080;
+  let cols = Math.max(4, Math.ceil(refW / tileSizePx));
+  let rows = Math.max(4, Math.ceil(refH / tileSizePx));
+  /* Cap total SVG rects for render performance */
+  const maxTiles = 8000;
+  if (cols * rows > maxTiles) {
+    const s = Math.sqrt(maxTiles / (cols * rows));
+    cols = Math.max(4, Math.round(cols * s));
+    rows = Math.max(4, Math.round(rows * s));
+  }
+  const cellW = 100 / cols;
+  const cellH = 100 / rows;
+  /* Convert pixel gap → SVG-viewBox units */
+  const gW = gapPx * (100 / refW);
+  const gH = gapPx * (100 / refH);
+  const tiles = Array.from({ length: cols * rows }, (_, i) => {
     const row = Math.floor(i / cols);
     const col = i % cols;
     const hash = (row * 7 + col * 13 + row * col * 3) % TILE_PALETTE.length;
     return {
-      x: col * tileW,
-      y: row * tileH,
-      w: tileW,
-      h: tileH,
+      x: col * cellW + gW / 2,
+      y: row * cellH + gH / 2,
+      w: Math.max(0.01, cellW - gW),
+      h: Math.max(0.01, cellH - gH),
       fill: TILE_PALETTE[hash],
       order: i,
     };
   });
+  return { cols, rows, tiles };
 };
 
 export const MosaicBackground: React.FC<{
@@ -63,8 +77,13 @@ export const MosaicBackground: React.FC<{
   tileExitProgress?: number;
   tileExitSeed?: number;
   tileExitIntensity?: number;
+  tileExitPattern?: MosaicTileEntryPattern;
   /** Pass false to suppress the tile-grid border overlay (e.g. on text-heavy scenes) */
   showTileGrid?: boolean;
+  /** Size of each tile in px (controls grid cols/rows). Default: 20 */
+  tileGridSize?: number;
+  /** Grout gap between tiles in px. Default: 0 */
+  tileGridGap?: number;
 }> = ({
   bgColor,
   accentColor,
@@ -78,16 +97,21 @@ export const MosaicBackground: React.FC<{
   tileExitProgress = 0,
   tileExitSeed = 17,
   tileExitIntensity = 26,
+  tileExitPattern,
   showTileGrid,
+  tileGridSize,
+  tileGridGap,
 }) => {
   const base = bgColor || MOSAIC_COLORS.deepNavy;
   const gold = accentColor || MOSAIC_COLORS.gold;
-  const tiles = makeFieldTiles(170, variant);
+  const { cols, rows, tiles } = makeFieldTiles(tileGridSize ?? 20, tileGridGap ?? 0);
   const showFrame = true;
   const buildProgress = Math.min(1, Math.max(0, tileBuildProgress));
   const breakProgress = Math.min(1, Math.max(0, tileExitProgress));
   const entryPattern =
     tileEntryPattern || (variant === "streamField" ? "diagonal" : "center");
+  // Aspect correction: cols/rows ≈ 16/9 for landscape tile grids
+  const gridAspect = cols / rows;
 
   // Hide grid on clean text/metric layouts unless explicitly requested
   const showGrid =
@@ -122,6 +146,7 @@ export const MosaicBackground: React.FC<{
             y: cy,
             pattern: entryPattern,
             intensity: tileEntryIntensity,
+            aspectCorrection: gridAspect,
           });
           const tileExit = getTileExitBreakProgress({
             progress: breakProgress,
@@ -131,6 +156,8 @@ export const MosaicBackground: React.FC<{
             y: cy,
             seed: tileExitSeed,
             intensity: tileExitIntensity,
+            pattern: tileExitPattern,
+            aspectCorrection: gridAspect,
           });
           return (
             <rect
@@ -147,7 +174,7 @@ export const MosaicBackground: React.FC<{
           );
         })}
 
-        {(variant === "titleBands" || variant === "default") && (
+        {variant === "default" && (
           <>
             <path d="M0 66 C20 50, 40 76, 60 62 C74 52, 86 60, 100 50" stroke="#2A2A28" strokeWidth="2.8" fill="none" opacity={0.12 + frameReveal * 0.16} />
             <path d="M0 70 C20 54, 40 78, 60 64 C74 54, 86 62, 100 53" stroke={gold} strokeWidth="0.32" fill="none" opacity={0.3 + frameReveal * 0.5} />
@@ -187,7 +214,7 @@ export const MosaicBackground: React.FC<{
               "linear-gradient(to right,  rgba(74,120,140,0.14) 0.5px, transparent 0.5px)",
               "linear-gradient(to bottom, rgba(194,98,64,0.16) 0.5px, transparent 0.5px)",
             ].join(", "),
-            backgroundSize: "4px 4px",
+            backgroundSize: `${100 / cols}% ${100 / rows}%`,
             pointerEvents: "none",
             zIndex: 2,
             opacity: buildProgress,

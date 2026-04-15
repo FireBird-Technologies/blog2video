@@ -11,7 +11,6 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { MosaicSceneReveal } from "./MosaicSceneReveal";
 
 interface SceneData {
   id: number;
@@ -160,22 +159,6 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
             <LayoutComponent {...layoutProps} />
-            {/* Opening sweep: cream tiles dissolve left-to-right */}
-            <MosaicSceneReveal
-              durationFrames={durationFrames}
-              tileSize={4}
-              gap={0}
-              bgColor={mosaicBg}
-              phase="enter"
-            />
-            {/* Closing sweep: cream tiles reassemble left-to-right */}
-            <MosaicSceneReveal
-              durationFrames={durationFrames}
-              tileSize={4}
-              gap={0}
-              bgColor={mosaicBg}
-              phase="exit"
-            />
             {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
           </Sequence>
         );

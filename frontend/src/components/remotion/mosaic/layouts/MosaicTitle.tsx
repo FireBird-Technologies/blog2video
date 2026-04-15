@@ -7,6 +7,25 @@ import { TileWordSvg } from "../mosaicPrimitives";
 import { getSceneTransition, getStaggeredReveal } from "../transitions";
 import type { MosaicLayoutProps } from "../types";
 
+/** Split text into word-wrapped lines not exceeding maxChars each */
+function wrapToLines(text: string, maxChars: number): string[] {
+  const words = text.split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if (current === "") {
+      current = word;
+    } else if ((current + " " + word).length <= maxChars) {
+      current += " " + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [text];
+}
+
 export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   title,
   narration,
@@ -17,10 +36,16 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
+  aspectRatio,
 }) => {
+  const isPortrait = aspectRatio === "portrait";
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const motion = getSceneTransition(frame, durationInFrames, 34, 24);
+  const motion = getSceneTransition(frame, durationInFrames, 34, 12);
   // Tile sweep — 130 frames ≈ 4.3s
   const tileEntry = interpolate(frame, [0, 130], [0, 1], {
     extrapolateLeft: "clamp",
@@ -31,19 +56,11 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   const titleIn        = getStaggeredReveal(frame, contentStart,      45);
   const titleBlocksIn  = getStaggeredReveal(frame, contentStart,      80);
   const subIn          = getStaggeredReveal(frame, contentStart + 12, 34);
-  const taglineIn      = getStaggeredReveal(frame, contentStart + 24, 30);
   // Border builds IN SYNC with tiles from frame 0
   const borderSettle   = getStaggeredReveal(frame, 0, 110);
-  const seamDraw       = getStaggeredReveal(frame, contentStart + 10, 30);
   const tileExit = interpolate(
     frame,
-    [Math.max(0, durationInFrames - 24), durationInFrames],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
-  const exitBreak = interpolate(
-    frame,
-    [Math.max(0, durationInFrames - 26), durationInFrames],
+    [Math.max(0, durationInFrames - 18), durationInFrames],
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
@@ -54,6 +71,11 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   });
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
 
+  const titleLines = wrapToLines((title || "TESSERAE").toUpperCase(), isPortrait ? 14 : 16);
+  const narrationLines = wrapToLines((narration || "STONE").toUpperCase(), isPortrait ? 18 : 22);
+  const titleLineH = titleFontSize ? Math.round(titleFontSize * 1.5) : (isPortrait ? 100 : 110);
+  const narLineH   = descriptionFontSize ? Math.round(descriptionFontSize * 1.8) : (isPortrait ? 58 : 66);
+
   return (
     <AbsoluteFill>
       <MosaicBackground
@@ -63,11 +85,14 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
         frameReveal={borderSettle * motion.exit}
         frameDrift={0.3 + tileEntry * 0.7}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="center"
-        tileEntryIntensity={13}
+        tileEntryPattern={mosaicPattern ?? "scatter"}
+        tileEntryIntensity={mosaicIntensity ?? 13}
         tileExitProgress={tileExit}
         tileExitSeed={19}
-        tileExitIntensity={26}
+        tileExitIntensity={mosaicIntensity ?? 26}
+        tileExitPattern={mosaicPattern ?? "scatter"}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
 
       {/* ── Full-bleed image revealed tile-by-tile with center ripple ── */}
@@ -76,8 +101,8 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
           imageUrl={imageUrl}
           revealProgress={tileEntry}
           clarityProgress={imageReveal}
-          pattern="center"
-          intensity={13}
+          pattern={mosaicPattern ?? "scatter"}
+          intensity={mosaicIntensity ?? 13}
           style={{ opacity: motion.exit }}
           overlay={
             <div
@@ -93,86 +118,67 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
 
       <AbsoluteFill
         style={{
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: isPortrait ? "space-evenly" : "center",
           textAlign: "center",
-          padding: "0 8%",
+          padding: isPortrait ? "12% 6%" : "0 8%",
           opacity: motion.presence,
-          transform: `translateY(${(1 - motion.exit) * 8}px)`,
-          filter: `blur(${(1 - motion.exit) * 2.2}px)`,
+          filter: `blur(${(1 - motion.exit) * 2}px)`,
         }}
       >
-        <div
-          style={{
-            fontFamily: family,
-            fontStyle: "italic",
-            fontSize: 22,
-            letterSpacing: "0.22em",
-            color: MOSAIC_COLORS.textSecondary,
-            textTransform: "uppercase",
-            opacity: subIn * 0.9 * motion.exit,
-            marginBottom: 22,
-          }}
-        >
-          Tesserae - Mosaic Template System
-        </div>
-
-        {/* ── Title word — 4px tiles, 0px gap, LTR sweep ───────── */}
+        {/* ── Title — one TileWordSvg per wrapped line ─────────── */}
         <div
           style={{
             width: "100%",
-            maxWidth: 940,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
             opacity: titleIn * motion.exit,
             transform: `translateY(${(1 - titleIn) * 16}px)`,
           }}
         >
-          <TileWordSvg
-            text={title || "TESSERAE"}
-            tileSize={4}
-            gap={0}
-            revealProgress={titleBlocksIn}
-            revealMode="linear"
-            exitProgress={exitBreak}
-            colors={["#E0B870", "#D4A860", "#DAA040", "#C87828", "#D06030", "#C03820", "#A83018", "#4A7880"]}
-            style={{ width: "100%", height: "auto", aspectRatio: "7 / 1.3" }}
-          />
+          {titleLines.map((line, i) => (
+            <div key={i} style={{ width: "100%", height: titleLineH }}>
+              <TileWordSvg
+                text={line}
+                tileSize={mosaicTileSize ?? 7}
+                gap={mosaicTileGap ?? 1}
+                revealProgress={titleBlocksIn}
+                revealMode="linear"
+                exitProgress={0}
+                colors={["#E0B870", "#D4A860", "#DAA040", "#C87828", "#D06030", "#C03820", "#A83018", "#4A7880"]}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          ))}
         </div>
 
-        {/* ── Narration word — 4px tiles, 0px gap, LTR sweep ───── */}
-        <div style={{ width: "100%", maxWidth: 580, marginTop: 12, opacity: subIn * motion.exit }}>
-          <TileWordSvg
-            text={narration || "STONE"}
-            tileSize={4}
-            gap={0}
-            revealProgress={subIn}
-            revealMode="linear"
-            exitProgress={exitBreak * 0.8}
-            colors={["#4A7880", "#5A9090", "#3A6070"]}
-            style={{ width: "100%", height: "auto", aspectRatio: "7 / 1.1" }}
-          />
-        </div>
-
+        {/* ── Narration — one TileWordSvg per wrapped line ──────── */}
         <div
           style={{
-            marginTop: 16,
-            height: 1,
-            width: 300 * seamDraw * motion.exit,
-            background: accentColor || MOSAIC_COLORS.gold,
-            opacity: titleIn * 0.7 * motion.exit,
-          }}
-        />
-        <div
-          style={{
-            marginTop: 18,
-            fontFamily: family,
-            fontStyle: "italic",
-            fontSize: descriptionFontSize ?? 36,
-            color: MOSAIC_COLORS.textSecondary,
-            opacity: taglineIn * motion.exit,
-            transform: `translateY(${(1 - taglineIn) * 12 + (1 - motion.exit) * 8}px)`,
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            marginTop: isPortrait ? 60 : 24,
+            opacity: subIn * motion.exit,
           }}
         >
-          Stone cut. Tide set. Fire held.
+          {narrationLines.map((line, i) => (
+            <div key={i} style={{ width: "100%", height: narLineH }}>
+              <TileWordSvg
+                text={line}
+                tileSize={mosaicTileSize ?? 5}
+                gap={mosaicTileGap ?? 1}
+                revealProgress={subIn}
+                revealMode="linear"
+                exitProgress={0}
+                colors={["#4A7880", "#5A9090", "#3A6070"]}
+                style={{ width: "100%", height: "100%" }}
+              />
+            </div>
+          ))}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

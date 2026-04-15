@@ -17,6 +17,10 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -55,11 +59,14 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
         frameReveal={tileEntry * motion.exit}
         frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="center"
-        tileEntryIntensity={13}
+        tileEntryPattern={mosaicPattern ?? "diagonal"}
+        tileEntryIntensity={mosaicIntensity ?? 13}
         tileExitProgress={tileExit}
         tileExitSeed={43}
-        tileExitIntensity={24}
+        tileExitIntensity={mosaicIntensity ?? 24}
+        tileExitPattern={mosaicPattern ?? "diagonal"}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 12%" }}>
         <div style={{ opacity: inOpacity * motion.exit, filter: `blur(${sharpen}px)` }}>
@@ -67,7 +74,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
           <div
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? 58,
+              fontSize: titleFontSize ?? 68,
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.34,
             }}
@@ -82,7 +89,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
               ),
             )}
           </div>
-          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 24, color: MOSAIC_COLORS.textSecondary }}>
+          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 28, color: MOSAIC_COLORS.textSecondary }}>
             <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} />
           </div>
           {cta ? (

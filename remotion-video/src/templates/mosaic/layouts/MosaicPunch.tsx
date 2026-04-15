@@ -16,6 +16,10 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
   textColor,
   titleFontSize,
   fontFamily,
+  mosaicPattern,
+  mosaicIntensity,
+  mosaicTileSize,
+  mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -58,11 +62,14 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
         frameReveal={tileEntry * motion.exit}
         frameDrift={tileEntry}
         tileBuildProgress={tileEntry}
-        tileEntryPattern="center"
-        tileEntryIntensity={13}
+        tileEntryPattern={mosaicPattern ?? "scatter"}
+        tileEntryIntensity={mosaicIntensity ?? 13}
         tileExitProgress={tileExit}
         tileExitSeed={31}
-        tileExitIntensity={32}
+        tileExitIntensity={mosaicIntensity ?? 32}
+        tileExitPattern={mosaicPattern ?? "scatter"}
+        tileGridSize={mosaicTileSize}
+        tileGridGap={mosaicTileGap}
       />
 
       {/* ── Full-bleed image revealed tile-by-tile with center ripple ── */}
@@ -71,8 +78,8 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
           imageUrl={imageUrl}
           revealProgress={tileEntry}
           clarityProgress={imageReveal}
-          pattern="center"
-          intensity={13}
+          pattern={mosaicPattern ?? "scatter"}
+          intensity={mosaicIntensity ?? 13}
           style={{ opacity: motion.exit }}
           overlay={
             <div
@@ -98,8 +105,8 @@ export const MosaicPunch: React.FC<MosaicLayoutProps> = ({
         >
           <TileWordSvg
             text={value}
-            tileSize={titleFontSize ? Math.max(Math.floor(titleFontSize / 12), 9) : 12}
-            gap={1}
+            tileSize={mosaicTileSize ?? (titleFontSize ? Math.max(Math.floor(titleFontSize / 12), 9) : 12)}
+            gap={mosaicTileGap ?? 1}
             revealProgress={motion.entry}
             revealMode="cluster"
             exitProgress={exitBreak}
