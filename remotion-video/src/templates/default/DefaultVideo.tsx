@@ -12,6 +12,7 @@ import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Schema rows → barChart / lineChart / histogram for data_visualization */
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
@@ -76,6 +77,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -94,9 +96,10 @@ export const calculateDefaultMetadata: CalculateMetadataFunction<VideoProps> =
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
 
       const sceneFrames = data.scenes.map((s) =>
-        Math.max(1, Math.round((Number(s.durationSeconds) || 5) * FPS))
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed)
       );
       const totalFrames = sceneFrames.reduce((a, b) => a + b, 0);
 
@@ -230,6 +233,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -241,9 +245,10 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.max(
-          1,
-          Math.round((Number(scene.durationSeconds) || 5) * FPS)
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -289,7 +294,7 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
             {/* Voiceover audio */}
             {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
 
             {/* Transition overlay */}
