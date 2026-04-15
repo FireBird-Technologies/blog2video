@@ -15,6 +15,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -23,6 +24,7 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 16, 12);
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
   const panelBg     = tp[1] + "F2"; // near-lightest tile stop, 95% opacity
@@ -96,8 +98,6 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: interpolate(panelSpring(10), [0, 1], [0, 1]),
           transform: `translateX(${interpolate(panelSpring(10), [0, 1], [-20, 0])}px)`
         }}>
-          <div style={{ color: accentColor || MOSAIC_COLORS.gold, fontSize: 12, letterSpacing: 2, fontFamily: family }}>STATUS: ACTIVE</div>
-          <div style={{ height: 2, width: "100%", background: accentColor || MOSAIC_COLORS.gold, marginTop: 8, opacity: 0.3 }} />
         </div>
 
         {/* MAIN CENTER MOSAIC (The Bento Primary Tile) */}
@@ -111,13 +111,10 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: motion.presence,
           transform: `scale(${interpolate(panelSpring(5), [0, 1], [0.95, 1])})`,
         }}>
-          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
-            Central Processing
-          </div>
           <div style={{
               marginTop: 20,
               fontFamily: family,
-              fontSize: titleFontSize ?? 54,
+              fontSize: titleFontSize ?? (p ? 56 : 48),
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.1,
               opacity: fade,
@@ -139,12 +136,6 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           opacity: interpolate(panelSpring(20), [0, 1], [0, 1]),
           transform: `translateY(${interpolate(panelSpring(20), [0, 1], [20, 0])}px)`
         }}>
-          <div style={{ color: textColor || MOSAIC_COLORS.textPrimary, fontSize: 14, fontFamily: family, opacity: 0.8 }}>
-            SEC_ID: 00{idx + 1}
-          </div>
-          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontSize: 10, fontFamily: family, marginTop: 4 }}>
-            INLAID SEQUENCE V2.6
-          </div>
         </div>
 
       </AbsoluteFill>

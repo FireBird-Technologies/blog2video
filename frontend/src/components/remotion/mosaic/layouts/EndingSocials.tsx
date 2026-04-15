@@ -44,6 +44,7 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const line = accentColor || MOSAIC_COLORS.gold;
   const showCta = showWebsiteButton !== false && Boolean((websiteLink || "").trim());
@@ -74,11 +75,11 @@ export const EndingSocials: React.FC<MosaicLayoutProps> = ({
           opacity: motion.presence,
         }}
       >
-        <div style={{ fontFamily: family, fontSize: titleFontSize ?? 72, color: textColor || MOSAIC_COLORS.textPrimary, fontWeight: 700, opacity: titleIn }}>
+        <div style={{ fontFamily: family, fontSize: titleFontSize ?? (p ? 92 : 72), color: textColor || MOSAIC_COLORS.textPrimary, fontWeight: 700, opacity: titleIn }}>
           {title}
         </div>
         <div style={{ width: 300 * lineIn, height: 2, background: line, marginTop: 16, marginBottom: 16 }} />
-        <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? 28, color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
+        <div style={{ fontFamily: family, fontSize: descriptionFontSize ?? (p ? 38 : 30), color: textColor || MOSAIC_COLORS.textSecondary, opacity: bodyIn }}>
           {narration}
         </div>
         {showCta ? (

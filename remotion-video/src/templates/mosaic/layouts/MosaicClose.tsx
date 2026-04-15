@@ -17,6 +17,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   fontFamily,
+  aspectRatio,
   mosaicPattern,
   mosaicIntensity,
   mosaicTileSize,
@@ -25,6 +26,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 24, 14);
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   // Text starts at frame 65 (≈56% of tile sweep done)
   const contentStart = 65;
@@ -74,7 +76,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
           <div
             style={{
               fontFamily: family,
-              fontSize: titleFontSize ?? 68,
+              fontSize: titleFontSize ?? (p ? 64 : 56),
               color: textColor || MOSAIC_COLORS.textPrimary,
               lineHeight: 1.34,
             }}
@@ -89,7 +91,7 @@ export const MosaicClose: React.FC<MosaicLayoutProps> = ({
               ),
             )}
           </div>
-          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? 28, color: textColor || MOSAIC_COLORS.textSecondary }}>
+          <div style={{ marginTop: 16, fontFamily: family, fontSize: descriptionFontSize ?? (p ? 30 : 24), color: textColor || MOSAIC_COLORS.textSecondary }}>
             <MosaicTiledText text={narration} revealProgress={tileEntry} speed={1.5} fontFamily={fontFamily} />
           </div>
           {cta ? (

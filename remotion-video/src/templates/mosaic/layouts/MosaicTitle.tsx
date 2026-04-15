@@ -106,6 +106,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
   aspectRatio,
 }) => {
   const isPortrait = aspectRatio === "portrait";
+  const p = isPortrait;
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 34, 12);
@@ -206,7 +207,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
               style={{
                 fontFamily,
                 fontWeight: 900,
-                fontSize: titleFontSize ?? (isPortrait ? 80 : 96),
+                fontSize: titleFontSize ?? (p ? 96 : 84),
                 color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
                 lineHeight: 1.15,
                 letterSpacing: "0.03em",
@@ -248,7 +249,7 @@ export const MosaicTitle: React.FC<MosaicLayoutProps> = ({
             <div
               style={{
                 fontFamily,
-                fontSize: descriptionFontSize ?? (isPortrait ? 48 : 56),
+                fontSize: descriptionFontSize ?? (p ? 42 : 34),
                 color: narrationPalette(textColor || MOSAIC_COLORS.textSecondary)[0],
                 lineHeight: 1.3,
                 letterSpacing: "0.02em",

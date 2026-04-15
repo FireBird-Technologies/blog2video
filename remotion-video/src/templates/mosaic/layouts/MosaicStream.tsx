@@ -24,6 +24,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
+  const p = isPortrait;
   const motion = getSceneTransition(frame, durationInFrames, 26, 20);
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const stream = items && items.length > 0 ? items : [title];
@@ -107,7 +108,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
                   style={{
                     fontFamily: family,
                     color: textColor || MOSAIC_COLORS.textPrimary,
-                    fontSize: titleFontSize ?? (isPortrait ? 48 : 34),
+                    fontSize: titleFontSize ?? (p ? 46 : 42),
                     lineHeight: 1.2,
                     borderBottom: "1px solid rgba(42,42,40,0.2)",
                     paddingBottom: 10 * out,
@@ -119,18 +120,7 @@ export const MosaicStream: React.FC<MosaicLayoutProps> = ({
             );
           })}
         </div>
-        <div
-          style={{
-            marginTop: 16,
-            color: textColor || MOSAIC_COLORS.textSecondary,
-            fontFamily: family,
-            fontSize: descriptionFontSize ?? (isPortrait ? 34 : 24),
-            opacity: 0.9 * motion.exit,
-            fontStyle: "italic",
-          }}
-        >
-          Ordered inlaid sequence
-        </div>
+        
       </AbsoluteFill>
     </AbsoluteFill>
   );

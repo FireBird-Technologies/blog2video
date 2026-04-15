@@ -61,8 +61,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   mosaicTileGap,
 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames, width, height } = useVideoConfig();
-  const isPortrait = aspectRatio === "portrait" || width < height;
+  const { durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 18, 14);
   // Content starts when tiles are ≥55% done (frame 55)
   const contentStart = 55;
@@ -78,6 +77,7 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
+  const p = aspectRatio === "portrait";
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
   const list = metrics && metrics.length > 0 ? metrics.slice(0, 3) : [{ value: "97", label: title || "craft precision", suffix: "%" }];
   const first = list[0];
@@ -85,6 +85,8 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
   const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
   const panelBg = tp[1] + "F2";     // near-lightest tile stop, 95% opacity
   const panelBorder = tp[6] + "60"; // mid-palette stop, ~38% opacity
+  const descBase = descriptionFontSize ?? (p ? 18 : 22);
+  const descScale = descBase / (p ? 18 : 22);
 
   return (
     <AbsoluteFill>
@@ -107,34 +109,29 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", textAlign: "center" }}>
         <div
           style={{
-            border: `2px solid ${line}bb`,
-            padding: isPortrait ? "80px 52px" : "80px 80px",
+            border: `1px solid ${line}88`,
+            padding: "40px 70px",
             background: panelBg,
             opacity: motion.presence,
             transform: `scale(${0.97 + ringIn * 0.03})`,
-            width: `${width - 40}px`,
-            boxSizing: "border-box" as const,
           }}
         >
-          <div
-            style={{
-              width: "100%",
-            }}
-          >
+          {/* Metric value: fontFamily → plain text; default → mosaic tile SVG */}
+          <div style={{ display: "flex", justifyContent: "center", height: titleFontSize ?? (p ? 90 : 131) }}>
             {fontFamily ? (
               <div
                 style={{
-                  width: "100%",
-                  aspectRatio: "8 / 2.4",
+                  height: "100%",
                   display: "flex",
                   alignItems: "center",
                   fontFamily,
                   fontWeight: 900,
-                  fontSize: "clamp(3rem, 10vw, 11rem)",
+                  fontSize: titleFontSize ?? (p ? 90 : 131),
                   letterSpacing: "0.03em",
+                  whiteSpace: "nowrap",
                   color: (accentPalette(accentColor || MOSAIC_COLORS.gold))[0],
-                  opacity: interpolate(ringIn, [0.1, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
-                  overflow: "hidden",
+                  opacity: ringIn,
+                  lineHeight: 1.1,
                 }}
               >
                 {`${first.value}${first.suffix || ""}`}
@@ -142,20 +139,20 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
             ) : (
               <TileWordSvg
                 text={`${first.value}${first.suffix || ""}`}
-                tileSize={mosaicTileSize ?? (titleFontSize ? Math.max(Math.floor(titleFontSize / 10), 9) : (isPortrait ? 22 : 20))}
+                tileSize={mosaicTileSize ?? Math.max(Math.floor((titleFontSize ?? (p ? 90 : 131)) / 7), 8)}
                 gap={mosaicTileGap ?? 1}
                 revealProgress={ringIn}
                 colors={accentPalette(accentColor || MOSAIC_COLORS.gold)}
-                style={{ width: "100%", height: "auto", aspectRatio: "8 / 2.4" }}
+                style={{ height: "100%", width: "auto" }}
               />
             )}
           </div>
-          <div style={{ marginTop: 24, height: 2, background: `${line}` }} />
+          <div style={{ marginTop: 14, height: 1, background: `${line}` }} />
           <div
             style={{
-              marginTop: 24,
+              marginTop: 14,
               fontFamily: family,
-              fontSize: descriptionFontSize ?? (isPortrait ? 48 : 42),
+              fontSize: descBase,
               color: textColor || MOSAIC_COLORS.textSecondary,
               fontStyle: "italic",
             }}
@@ -163,14 +160,14 @@ export const MosaicMetric: React.FC<MosaicLayoutProps> = ({
             {first.label}
           </div>
           {list.length > 1 ? (
-            <div style={{ marginTop: 48, display: "flex", gap: 64, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ marginTop: 30, display: "flex", gap: 48, justifyContent: "center" }}>
               {list.slice(1).map((metric, idx) => (
                 <div key={`${metric.value}-${metric.label}`} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: family, fontSize: isPortrait ? 72 : 64, color: accentColor || MOSAIC_COLORS.gold, fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ fontFamily: family, fontSize: Math.round(40 * descScale), color: accentColor || MOSAIC_COLORS.gold, fontWeight: 700, opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.value}
                     {metric.suffix || ""}
                   </div>
-                  <div style={{ marginTop: 8, fontFamily: family, fontSize: isPortrait ? 38 : 34, color: textColor || MOSAIC_COLORS.textSecondary, fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
+                  <div style={{ marginTop: 6, fontFamily: family, fontSize: Math.round(24 * descScale), color: textColor || MOSAIC_COLORS.textSecondary, fontStyle: "italic", opacity: secondaryIn * (1 - idx * 0.06) }}>
                     {metric.label}
                   </div>
                 </div>
