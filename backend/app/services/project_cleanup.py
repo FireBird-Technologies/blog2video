@@ -29,7 +29,7 @@ def format_scrape_failed_public_message(blog_url: str | None) -> str:
         return (
             "(Your uploaded document) This document does not allow automated extraction "
             "(or we could not read its content). "
-            "We apologise for the inconvenience. No video count has been deducted — "
+            "We apologise for the inconvenience. No video count has been deducted."
             "please try uploading another document."
         )
     if not raw:
@@ -37,14 +37,14 @@ def format_scrape_failed_public_message(blog_url: str | None) -> str:
     else:
         display = raw
     return (
-        f"({display}) This site does not allow scraping (or we could not read its content). "
-        "We apologise for the inconvenience. No video count has been deducted — please try another link."
+        f"({display}) does not allow scraping (or we could not read its content). "
+        "We apologise for the inconvenience. No video count has been deducted. Please try another link."
     )
 
 
 PUBLIC_MSG_PIPELINE_FAILED = (
-    "An unexpected error occurred while generating your video (script or scene generation). "
-    "We apologise for the inconvenience. No video count has been deducted — please try again or contact support for help."
+    "An unexpected error occurred while generating your video. "
+    "We apologise for the inconvenience. No video count has been deducted. Please try again or contact support for help."
 )
 
 

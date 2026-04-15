@@ -5,6 +5,7 @@ FROM python:3.11-slim
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
   curl gnupg ca-certificates git \
+  ffmpeg \
   fonts-liberation fonts-noto-color-emoji fonts-noto-core \
   libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
   libxcomposite1 libxdamage1 libxrandr2 libgbm1 \

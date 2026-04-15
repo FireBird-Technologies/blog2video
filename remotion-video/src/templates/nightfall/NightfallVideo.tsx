@@ -13,6 +13,7 @@ import { NIGHTFALL_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NightfallLayoutType, NightfallLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Convert schema format (barChartRows, etc.) to component format (barChart, etc.) for data_visualization */
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
@@ -73,6 +74,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -126,11 +128,11 @@ export const calculateNightfallMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
 
       const isPortrait = data.aspectRatio === "portrait";
 
@@ -199,6 +201,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -210,7 +213,11 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -267,7 +274,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <LayoutComponent {...layoutProps} />
 
             {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
 
             {index < data.scenes.length - 1 && (
