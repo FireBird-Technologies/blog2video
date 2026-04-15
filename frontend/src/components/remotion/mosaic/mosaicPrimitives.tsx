@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, interpolate } from "remotion";
 import { MOSAIC_COLORS } from "./constants";
 
 type FrameDensity = "dense" | "soft";
@@ -71,7 +71,9 @@ export const MosaicFrame: React.FC<{
   density?: FrameDensity;
   inset?: number;
   revealProgress?: number;
-}> = ({ opacity = 0.9, density = "dense", inset = 0, revealProgress = 1 }) => {
+  palette?: string[];
+}> = ({ opacity = 0.9, density = "dense", inset = 0, revealProgress = 1, palette: borderPalette }) => {
+  const PALETTE = borderPalette ?? BORDER_PALETTE;
   const tile = density === "dense" ? 18 : 14;
   const topCols = density === "dense" ? 44 : 58;
   const sideRows = density === "dense" ? 24 : 30;
@@ -82,25 +84,25 @@ export const MosaicFrame: React.FC<{
         <g opacity={opacity * revealProgress}>
           {Array.from({ length: topCols }).map((_, i) => (
             <React.Fragment key={`top-${i}`}>
-              <rect x={i * tile} y={0} width={tile - 1} height={tile - 1} fill={pick(BORDER_PALETTE, i)} />
+              <rect x={i * tile} y={0} width={tile - 1} height={tile - 1} fill={pick(PALETTE, i)} />
               <rect
                 x={i * tile}
                 y={450 - tile}
                 width={tile - 1}
                 height={tile - 1}
-                fill={pick(BORDER_PALETTE, i + 11)}
+                fill={pick(PALETTE, i + 11)}
               />
             </React.Fragment>
           ))}
           {Array.from({ length: sideRows }).map((_, i) => (
             <React.Fragment key={`side-${i}`}>
-              <rect x={0} y={tile + i * tile} width={tile - 1} height={tile - 1} fill={pick(BORDER_PALETTE, i + 7)} />
+              <rect x={0} y={tile + i * tile} width={tile - 1} height={tile - 1} fill={pick(PALETTE, i + 7)} />
               <rect
                 x={800 - tile}
                 y={tile + i * tile}
                 width={tile - 1}
                 height={tile - 1}
-                fill={pick(BORDER_PALETTE, i + 17)}
+                fill={pick(PALETTE, i + 17)}
               />
             </React.Fragment>
           ))}
@@ -164,6 +166,7 @@ export const TileWordSvg: React.FC<{
   revealProgress?: number;
   revealMode?: TileRevealMode;
   exitProgress?: number;
+  fontFamily?: string;
 }> = ({
   text,
   tileSize = 10,
@@ -173,8 +176,39 @@ export const TileWordSvg: React.FC<{
   revealProgress = 1,
   revealMode = "linear",
   exitProgress = 0,
+  fontFamily,
 }) => {
   const palette = colors && colors.length > 0 ? colors : ["#D06030", "#C03820", "#C87828", "#E0B870", "#4A7880", "#5A9090"];
+
+  // Plain-text mode: when a custom font family is selected, skip pixel tiles
+  if (fontFamily) {
+    const opacity = interpolate(revealProgress, [0.05, 0.45], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    return (
+      // Outer div keeps width + aspectRatio from style so height is computed correctly
+      <div style={{ ...style, position: "relative" }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            fontFamily,
+            fontWeight: 700,
+            color: palette[0],
+            opacity,
+            fontSize: "clamp(2rem, 9vw, 7rem)",
+            letterSpacing: "0.05em",
+            overflow: "hidden",
+          }}
+        >
+          {text}
+        </div>
+      </div>
+    );
+  }
   const chars = text.split("").map(safeChar);
   let cursor = 0;
   const placements = chars.map((char) => {

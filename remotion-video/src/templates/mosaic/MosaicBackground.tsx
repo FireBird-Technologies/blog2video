@@ -19,18 +19,61 @@ type MosaicBackgroundVariant =
   | "closeField"
   | "default";
 
-/**
- * Dense tile grid covering the entire viewport.
- * 96 cols × 54 rows = 5,184 tiles, each ~20px square on 1920×1080.
- * Every tile has a 4-sided grout stroke so the animated rects ARE the small visible tiles.
- */
-const TILE_PALETTE = [
-  "#F7F3EC", "#F4F0E8", "#F2EDE4", "#EFEBE0",
-  "#EAE4DA", "#E7E0D6", "#E4DCCF", "#E0D8CB",
-  "#DDD4C5", "#DAD1C2", "#D6CEC1", "#D3CABB",
-];
+/** hex → [h 0-360, s 0-100, l 0-100] */
+function hexToHsl(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+/** [h 0-360, s 0-100, l 0-100] → hex */
+function hslToHex(h: number, s: number, l: number): string {
+  const sl = s / 100, ll = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sl * Math.min(ll, 1 - ll);
+  const f = (n: number) => ll - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+/** 12-stop tile palette derived from the background colour.
+ *  Dark bg → lighter tiles (+14..+40 L). Light bg → slightly darker tiles (−14..−40 L). */
+export function bgTilePalette(bg: string): string[] {
+  try {
+    const [h, s, l] = hexToHsl(bg);
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const d = l < 50 ? 1 : -1;
+    return [
+      hslToHex(h, clamp(s - 4, 0, 100), clamp(l + 40 * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 36 * d, 5, 95)),
+      hslToHex(h, clamp(s,     0, 100), clamp(l + 34 * d, 5, 95)),
+      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + 30 * d, 5, 95)),
+      hslToHex(h, clamp(s - 3, 0, 100), clamp(l + 28 * d, 5, 95)),
+      hslToHex(h, clamp(s + 4, 0, 100), clamp(l + 26 * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 24 * d, 5, 95)),
+      hslToHex(h, clamp(s,     0, 100), clamp(l + 22 * d, 5, 95)),
+      hslToHex(h, clamp(s + 3, 0, 100), clamp(l + 20 * d, 5, 95)),
+      hslToHex(h, clamp(s - 1, 0, 100), clamp(l + 18 * d, 5, 95)),
+      hslToHex(h, clamp(s + 2, 0, 100), clamp(l + 16 * d, 5, 95)),
+      hslToHex(h, clamp(s - 2, 0, 100), clamp(l + 14 * d, 5, 95)),
+    ];
+  } catch {
+    return ["#F7F3EC", "#F4F0E8", "#F2EDE4", "#EFEBE0",
+            "#EAE4DA", "#E7E0D6", "#E4DCCF", "#E0D8CB",
+            "#DDD4C5", "#DAD1C2", "#D6CEC1", "#D3CABB"];
+  }
+}
 
-const makeFieldTiles = (tileSizePx: number = 20, gapPx: number = 0) => {
+const makeFieldTiles = (tileSizePx: number = 20, gapPx: number = 0, palette: string[]) => {
   /* Reference canvas 1920×1080,  viewBox 0 0 100 100 */
   const refW = 1920;
   const refH = 1080;
@@ -51,13 +94,13 @@ const makeFieldTiles = (tileSizePx: number = 20, gapPx: number = 0) => {
   const tiles = Array.from({ length: cols * rows }, (_, i) => {
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const hash = (row * 7 + col * 13 + row * col * 3) % TILE_PALETTE.length;
+    const hash = (row * 7 + col * 13 + row * col * 3) % palette.length;
     return {
       x: col * cellW + gW / 2,
       y: row * cellH + gH / 2,
       w: Math.max(0.01, cellW - gW),
       h: Math.max(0.01, cellH - gH),
-      fill: TILE_PALETTE[hash],
+      fill: palette[hash],
       order: i,
     };
   });
@@ -104,7 +147,18 @@ export const MosaicBackground: React.FC<{
 }) => {
   const base = bgColor || MOSAIC_COLORS.deepNavy;
   const gold = accentColor || MOSAIC_COLORS.gold;
-  const { cols, rows, tiles } = makeFieldTiles(tileGridSize ?? 20, tileGridGap ?? 0);
+  // Derive tile palette, grout, grid-line, and glow colours dynamically from bgColor/accentColor
+  const tilePalette = bgTilePalette(base);
+  // Use a slightly lightened palette stop as the canvas fill so the background
+  // feels harmonised with the tile colours rather than the raw dark base showing through.
+  const lightBase = tilePalette[9];
+  const { cols, rows, tiles } = makeFieldTiles(tileGridSize ?? 20, tileGridGap ?? 0, tilePalette);
+  // Border/grout come from the same palette array as the tiles — fully synchronous
+  const groutColor   = tilePalette[10]; // lightest/darkest stop closest to base → subtle grout line
+  const gridLineColor = tilePalette[3]; // mid-bright stop → visible grid overlay
+  // Border tiles use a 12-stop palette centred on the accent colour
+  const accentBorderPalette = bgTilePalette(gold);
+  const glowRgb = (() => { try { const c = gold.replace("#", ""); return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)]; } catch { return [194, 98, 64]; } })();
   const showFrame = true;
   const buildProgress = Math.min(1, Math.max(0, tileBuildProgress));
   const breakProgress = Math.min(1, Math.max(0, tileExitProgress));
@@ -122,7 +176,7 @@ export const MosaicBackground: React.FC<{
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: base,
+        backgroundColor: lightBase,
         overflow: "hidden",
       }}
     >
@@ -134,7 +188,7 @@ export const MosaicBackground: React.FC<{
         preserveAspectRatio="none"
         style={{ position: "absolute", inset: 0 }}
       >
-        <rect x="0" y="0" width="100" height="100" fill={base} />
+        <rect x="0" y="0" width="100" height="100" fill={lightBase} />
         {tiles.map((t, i) => {
           const cx = t.x + t.w / 2;
           const cy = t.y + t.h / 2;
@@ -167,19 +221,15 @@ export const MosaicBackground: React.FC<{
               width={t.w}
               height={t.h}
               fill={t.fill}
-              stroke="rgba(42,42,40,0.22)"
+              stroke={groutColor}
+              strokeOpacity="0.25"
               strokeWidth="0.06"
               opacity={tileReveal * tileExit}
             />
           );
         })}
 
-        {variant === "default" && (
-          <>
-            <path d="M0 66 C20 50, 40 76, 60 62 C74 52, 86 60, 100 50" stroke="#2A2A28" strokeWidth="2.8" fill="none" opacity={0.12 + frameReveal * 0.16} />
-            <path d="M0 70 C20 54, 40 78, 60 64 C74 54, 86 62, 100 53" stroke={gold} strokeWidth="0.32" fill="none" opacity={0.3 + frameReveal * 0.5} />
-          </>
-        )}
+
         <line x1="7" y1="12" x2="93" y2="12" stroke={gold} strokeWidth="0.24" opacity={0.2 + frameReveal * 0.3} />
         <line x1="7" y1="88" x2="93" y2="88" stroke={gold} strokeWidth="0.24" opacity={0.2 + frameReveal * 0.3} />
       </svg>
@@ -187,7 +237,7 @@ export const MosaicBackground: React.FC<{
       {/* ── Layer 2: Decorative primitives ──────────── */}
       {(variant === "metricField" || variant === "punchField") ? <MosaicRadialGuides accentColor={gold} /> : null}
       {(variant === "punchField" || variant === "closeField") ? <MosaicShards driftProgress={frameDrift} /> : null}
-      {showFrame ? <MosaicFrame revealProgress={frameReveal} density={variant === "phrasesFrame" ? "soft" : "dense"} opacity={variant === "panelField" ? 0.75 : 0.88} /> : null}
+      {showFrame ? <MosaicFrame revealProgress={frameReveal} density={variant === "phrasesFrame" ? "soft" : "dense"} opacity={variant === "panelField" ? 0.75 : 0.88} palette={accentBorderPalette} /> : null}
 
       {/* ── Layer 3: Warm radial glow ──────────── */}
       <div
@@ -195,7 +245,8 @@ export const MosaicBackground: React.FC<{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 28% 8%, rgba(194,98,64,0.06), rgba(234,228,218,0) 55%)",
+            `radial-gradient(circle at 28% 8%, rgba(${glowRgb[0]},${glowRgb[1]},${glowRgb[2]},0.07), transparent 55%)`,
+
           opacity,
           pointerEvents: "none",
         }}
@@ -211,8 +262,8 @@ export const MosaicBackground: React.FC<{
             position: "absolute",
             inset: 0,
             backgroundImage: [
-              "linear-gradient(to right,  rgba(74,120,140,0.14) 0.5px, transparent 0.5px)",
-              "linear-gradient(to bottom, rgba(194,98,64,0.16) 0.5px, transparent 0.5px)",
+              `linear-gradient(to right,  ${gridLineColor}20 0.5px, transparent 0.5px)`,
+              `linear-gradient(to bottom, ${gridLineColor}30 0.5px, transparent 0.5px)`,
             ].join(", "),
             backgroundSize: `${100 / cols}% ${100 / rows}%`,
             pointerEvents: "none",

@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, spring } from "remotion";
-import { MosaicBackground } from "../MosaicBackground";
+import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MOSAIC_COLORS, MOSAIC_DEFAULT_FONT_FAMILY } from "../constants";
 import { DiamondIndicators } from "../mosaicPrimitives";
 import { getSceneTransition } from "../transitions";
@@ -24,6 +24,10 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
   const { fps, durationInFrames } = useVideoConfig();
   const motion = getSceneTransition(frame, durationInFrames, 16, 12);
   const family = fontFamily || MOSAIC_DEFAULT_FONT_FAMILY;
+  const tp = bgTilePalette(bgColor || MOSAIC_COLORS.deepNavy);
+  const panelBg     = tp[1] + "F2"; // near-lightest tile stop, 95% opacity
+  const panelBgSoft = tp[1] + "B3"; // same stop, 70% opacity for side tiles
+  const panelBorder = tp[6] + "60"; // mid-palette stop, ~38% opacity
   
   // Custom Buildup Logic
   const boxBuild = interpolate(frame, [0, 130], [0, 1], {
@@ -86,9 +90,9 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         {/* TOP LEFT TILE: System Status */}
         <div style={{
           gridColumn: "1",
-          border: "1px solid rgba(42,42,40,0.18)",
+          border: `1px solid ${panelBorder}`,
           padding: 15,
-          background: "rgba(234,228,218,0.7)",
+          background: panelBgSoft,
           opacity: interpolate(panelSpring(10), [0, 1], [0, 1]),
           transform: `translateX(${interpolate(panelSpring(10), [0, 1], [-20, 0])}px)`
         }}>
@@ -99,15 +103,15 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
         {/* MAIN CENTER MOSAIC (The Bento Primary Tile) */}
         <div style={{ 
           gridColumn: "2",
-          border: "1px solid rgba(42,42,40,0.22)", 
+          border: `1px solid ${panelBorder}`,
           padding: "60px 40px", 
-          background: "rgba(234,228,218,0.92)", 
+          background: panelBg,
           position: "relative", 
-          boxShadow: "0 20px 50px rgba(42,42,40,0.12)",
+          boxShadow: `0 20px 50px ${tp[9] + "20"}`,
           opacity: motion.presence,
           transform: `scale(${interpolate(panelSpring(5), [0, 1], [0.95, 1])})`,
         }}>
-          <div style={{ color: "#6B645E", fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
+          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontFamily: family, letterSpacing: "0.5em", textTransform: "uppercase", fontSize: 12 }}>
             Central Processing
           </div>
           <div style={{
@@ -131,14 +135,14 @@ export const MosaicPhrases: React.FC<MosaicLayoutProps> = ({
           gridRow: "3",
           borderLeft: `4px solid ${accentColor || MOSAIC_COLORS.gold}`,
           padding: 15,
-          background: "rgba(234,228,218,0.7)",
+          background: panelBgSoft,
           opacity: interpolate(panelSpring(20), [0, 1], [0, 1]),
           transform: `translateY(${interpolate(panelSpring(20), [0, 1], [20, 0])}px)`
         }}>
-          <div style={{ color: MOSAIC_COLORS.textPrimary, fontSize: 14, fontFamily: family, opacity: 0.8 }}>
+          <div style={{ color: textColor || MOSAIC_COLORS.textPrimary, fontSize: 14, fontFamily: family, opacity: 0.8 }}>
             SEC_ID: 00{idx + 1}
           </div>
-          <div style={{ color: MOSAIC_COLORS.textSecondary, fontSize: 10, fontFamily: family, marginTop: 4 }}>
+          <div style={{ color: textColor || MOSAIC_COLORS.textSecondary, fontSize: 10, fontFamily: family, marginTop: 4 }}>
             INLAID SEQUENCE V2.6
           </div>
         </div>

@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { bgTilePalette } from "./MosaicBackground";
 
 export interface MosaicSceneInput {
   id: number;
@@ -42,9 +43,10 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
 }) => {
   const FPS = 30;
   let currentFrame = 0;
+  const lightBase = bgTilePalette(bgColor || "#0F1E2D")[9];
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bgColor || "#0F1E2D", fontFamily }}>
+    <AbsoluteFill style={{ backgroundColor: lightBase, fontFamily }}>
       {scenes.map((scene) => {
         const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
         const startFrame = currentFrame;
