@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
 import { getTemplateConfig } from "../remotion/templateConfig";
 
@@ -78,6 +78,14 @@ export default function MosaicPreview() {
     }),
     [activeScene, accentColor, bgColor, textColor],
   );
+
+  useEffect(() => {
+    const ms = Math.max(500, Math.round(activeScene.durationSeconds * 1000));
+    const t = setTimeout(() => {
+      setActiveSceneIndex((i) => (i + 1) % MOSAIC_PREVIEW_SCENES.length);
+    }, ms);
+    return () => clearTimeout(t);
+  }, [activeSceneIndex, activeScene.durationSeconds]);
 
   return (
     <div className="w-full">
