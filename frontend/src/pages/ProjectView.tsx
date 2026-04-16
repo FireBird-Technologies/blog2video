@@ -2209,7 +2209,7 @@ export default function ProjectView() {
         className="glass-card flex items-center justify-center"
         style={{ minHeight: "60vh" }}
       >
-        <div className="w-full max-w-md text-center px-6 py-12">
+          <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
           <div className="w-12 h-12 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xs animate-pulse">
             B2V
           </div>
@@ -2316,7 +2316,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-md text-center px-6 py-12">
+            <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2400,7 +2400,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-sm text-center px-6 py-12">
+            <div className="w-full max-w-sm text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-green-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2449,14 +2449,14 @@ export default function ProjectView() {
         {!rendering && !saving && (
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/30">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-medium text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-sm font-medium text-gray-900 truncate">
                   {project.name}
                 </h2>
                 <StatusBadge status={statusForBadge} />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0">
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
@@ -3462,12 +3462,12 @@ export default function ProjectView() {
         />
       )}
       {/* Pill tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit" data-tour="tabs-container">
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-full sm:w-fit" data-tour="tabs-container">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center ${
               activeTab === tab.id
                 ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-gray-400 hover:text-gray-600"
@@ -3590,97 +3590,90 @@ export default function ProjectView() {
 
                           <div className="flex-1 min-w-0">
                             {/* Clickable scene header */}
-                            <button
+                              <button
                               type="button"
                               onClick={() =>
                                 setExpandedScene(isExpanded ? null : scene.id)
                               }
-                              className="w-full text-left glass-card p-4 border-l-2 border-l-purple-200 hover:border-l-purple-400 transition-all rounded-r-lg border"
+                              className="w-full text-left glass-card p-4 md:border-l-2 md:border-l-purple-200 md:hover:border-l-purple-400 transition-all rounded-r-lg border"
                             >
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  {scene.order}
-                                </span>
-                                <h3 className="text-sm font-medium text-gray-900 flex-1 truncate">
-                                  {scene.title}
-                                </h3>
-
-                                {/* Edit — icon + label, opens modal */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSceneEditModal(scene);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
-                                  title="Edit scene"
-                                  data-tour={idx === 0 ? "scene-edit-first" : undefined}
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                  <span className="text-xs font-medium">Edit</span>
-                                </button>
-
-                                {/* Status pills */}
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                      scene.remotion_code
-                                        ? "bg-green-50 text-green-600"
-                                        : "bg-gray-50 text-gray-300"
-                                    }`}
-                                  >
-                                    Scene
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <div className="flex items-start sm:items-center gap-3 w-full">
+                                  <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    {scene.order}
                                   </span>
-                                  {project.voice_gender !== "none" && (
-                                    <span
-                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                        scene.voiceover_path
-                                          ? "bg-green-50 text-green-600"
-                                          : "bg-gray-50 text-gray-300"
-                                      }`}
-                                    >
-                                      Audio
-                                    </span>
-                                  )}
-                                  <span className="text-[11px] text-gray-300 ml-1">
-                                    {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
-                                  </span>
-
-                                  {/* Expand chevron */}
-                                  <svg
-                                    className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${
-                                      isExpanded ? "rotate-180" : ""
-                                    }`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="text-xs md:text-sm font-medium text-gray-900 whitespace-normal leading-tight">
+                                      {scene.title}
+                                    </h3>
+                                  </div>
                                 </div>
 
-                                {/* Delete — at the end of the row */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSceneToDelete(scene);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-auto"
-                                  title="Delete scene"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                  <span className="text-xs font-medium">Delete</span>
-                                </button>
+                                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSceneEditModal(scene);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                      title="Edit scene"
+                                      data-tour={idx === 0 ? "scene-edit-first" : undefined}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
+                                    </button>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                          scene.remotion_code ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
+                                        }`}
+                                      >
+                                        Scene
+                                      </span>
+                                      {project.voice_gender !== "none" && (
+                                        <span
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                            scene.voiceover_path ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
+                                          }`}
+                                        >
+                                          Audio
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] text-gray-300 ml-1">
+                                        {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
+                                      </span>
+
+                                      <svg
+                                        className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${isExpanded ? "rotate-180" : ""}`}
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSceneToDelete(scene);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-2 sm:ml-4"
+                                    title="Delete scene"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    <span className="hidden sm:inline-block text-xs font-medium">Delete</span>
+                                  </button>
+                                </div>
                               </div>
                             </button>
 

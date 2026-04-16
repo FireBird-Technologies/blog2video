@@ -411,7 +411,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Usage banner */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <p className="text-xs text-gray-400">
             {user?.videos_used_this_period ?? 0} of {user?.video_limit ?? 3}{" "}
@@ -432,7 +432,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+      <div className="flex flex-wrap gap-1 p-1 bg-gray-100/60 rounded-xl">
         {(["projects", "templates", "voices"] as const).map((tab) => (
           <button
             key={tab}
@@ -456,7 +456,7 @@ export default function Dashboard() {
       ) : (
       <>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
         <button
           onClick={() => {
@@ -554,7 +554,7 @@ export default function Dashboard() {
               return (
                 <li
                   key={id}
-                  className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
+                  className="flex flex-col sm:flex-row items-center sm:justify-between text-sm py-1.5 border-b border-gray-100 last:border-0"
                 >
                   <div className="truncate flex-1 min-w-0 cursor-pointer text-gray-700 hover:text-purple-600" onClick={() => navigate(`/project/${id}`)}>
                     <span className="truncate block" title={name}>{name}</span>
@@ -564,7 +564,7 @@ export default function Dashboard() {
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-64">
+                  <div className="flex flex-col items-end flex-shrink-0 ml-3 w-full md:w-64 min-w-0">
                     <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                       <div
                         className={`h-1.5 transition-all ${
@@ -616,7 +616,7 @@ export default function Dashboard() {
               className="glass-card px-5 py-4 animate-pulse"
               aria-hidden
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="flex-1 min-w-0 space-y-3">
                   <div className="flex items-center gap-2.5">
                     <div className="h-4 bg-gray-200 rounded w-3/4 max-w-[300px]" />
@@ -649,29 +649,31 @@ export default function Dashboard() {
           <div
             key={project.id}
             onClick={() => navigate(`/project/${project.id}`)}
-            className="glass-card px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
+            className="glass-card w-full px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 mb-1">
-                  <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-purple-600 transition-colors">
+                  <h3 className="text-sm font-medium text-gray-900 leading-tight break-words group-hover:text-purple-600 transition-colors">
                     {project.name}
                   </h3>
                   <StatusBadge status={project.status} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span className="truncate max-w-[200px]">
+                <div className="flex flex-col gap-0.5 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="truncate max-w-[220px]">
                     {project.blog_url?.startsWith("upload://")
                       ? "Uploaded documents"
                       : project.blog_url || "—"}
                   </span>
-                  <span>{project.scene_count} scenes</span>
-                  <span>{formatDate(project.created_at)}</span>
+                  <div className="flex items-center gap-3">
+                    <span>{project.scene_count} scenes</span>
+                    <span>{formatDate(project.created_at)}</span>
+                  </div>
                 </div>
               </div>
               <button
                 onClick={(e) => handleDeleteClick(project.id, project.name, e)}
-                className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 title="Delete"
               >
                 <svg
