@@ -2898,10 +2898,13 @@ export default function ProjectView() {
                   <span>
                     Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
                   </span>
-                  <br /><br />
-                  <span className="text-xs text-yellow-600 mb-6">
-                    The selected playback speed will be reflected in your downloaded video.
-                  </span>
+                  {playbackSpeedDraft !== 1 && (() => {
+                    const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+                    const mins = Math.floor(renderedSecs / 60);
+                    const secs = Math.round(renderedSecs % 60);
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    return <><br /><br /><span className="text-xs text-yellow-600">Your video will be rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</span></>;
+                  })()}
                 </>
               )}
             </p>
@@ -2993,9 +2996,16 @@ export default function ProjectView() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowReRenderWarning(false); setRenderConfirmLoading(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
               This will deduct your video count. Continue only if you have new changes in your video.
             </p>
+            {playbackSpeedDraft !== 1 && (() => {
+              const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+              const mins = Math.floor(renderedSecs / 60);
+              const secs = Math.round(renderedSecs % 60);
+              const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+              return <p className="text-xs text-yellow-600 mb-6">Your video will be re-rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</p>;
+            })()}
             <div className="flex gap-3">
               <button
                 type="button"
