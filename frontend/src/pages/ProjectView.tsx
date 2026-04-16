@@ -512,6 +512,24 @@ export default function ProjectView() {
       setSettingsFontId(project.font_family ?? null);
       const current = Number(project.playback_speed ?? 1);
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
+      // Seed global typography sliders from the first scene that has stored values.
+      // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
+      if (project.scenes && project.scenes.length > 0) {
+        for (const s of project.scenes) {
+          if (!s.remotion_code) continue;
+          try {
+            const d = JSON.parse(s.remotion_code);
+            const lp = d.layoutProps ?? d.layoutConfig ?? {};
+            if (typeof lp.titleFontSize === "number") {
+              setGlobalTitleSize(Math.min(200, Math.max(20, lp.titleFontSize)));
+            }
+            if (typeof lp.descriptionFontSize === "number") {
+              setGlobalDescSize(Math.min(80, Math.max(12, lp.descriptionFontSize)));
+            }
+            break;
+          } catch { /* ignore */ }
+        }
+      }
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
       project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.playback_speed]);
@@ -3767,7 +3785,7 @@ export default function ProjectView() {
                                         </h4>
                                         <div className="space-y-3">
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Title font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Metric size" : layoutId === "mosaic_punch" ? "Punch size" : "Title font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
@@ -3795,7 +3813,7 @@ export default function ProjectView() {
                                             </div>
                                           </div>
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Display text font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Label size" : "Display text font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
