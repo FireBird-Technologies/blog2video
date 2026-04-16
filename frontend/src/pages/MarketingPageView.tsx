@@ -10,6 +10,9 @@ import {
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
+const CUSTOM_TEMPLATE_ID = "custom-branded-templates";
+const CUSTOM_TEMPLATE_LINK = "/custom-branded-video-templates";
+
 export default function MarketingPageView() {
   const location = useLocation();
   const page = getMarketingPage(location.pathname);
@@ -17,6 +20,20 @@ export default function MarketingPageView() {
   if (!page) return <NotFoundPage />;
 
   const recommendedTemplate = getTemplateProfile(page.recommendedTemplate);
+  const recommendedTemplateCard =
+    page.recommendedTemplate === CUSTOM_TEMPLATE_ID
+      ? {
+          name: "Custom Templates",
+          href: CUSTOM_TEMPLATE_LINK,
+          ctaLabel: "Explore custom templates",
+        }
+      : recommendedTemplate
+        ? {
+            name: recommendedTemplate.name,
+            href: `/templates/${recommendedTemplate.slug}`,
+            ctaLabel: "Explore the template",
+          }
+        : null;
   const relatedLinks = getStructuredInternalLinks(page.relatedPaths);
 
   return (
@@ -127,22 +144,22 @@ export default function MarketingPageView() {
             </div>
 
             <aside className="space-y-6">
-              {recommendedTemplate ? (
+              {recommendedTemplateCard ? (
                 <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-6">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
                     Recommended Template
                   </p>
                   <h3 className="text-xl font-semibold text-gray-900">
-                    {recommendedTemplate.name}
+                    {recommendedTemplateCard.name}
                   </h3>
                   <p className="mt-3 text-sm leading-relaxed text-gray-600">
                     {page.recommendedTemplateReason}
                   </p>
                   <Link
-                    to={`/templates/${recommendedTemplate.slug}`}
+                    to={recommendedTemplateCard.href}
                     className="mt-4 inline-flex text-sm font-medium text-purple-700 hover:text-purple-800"
                   >
-                    Explore the template
+                    {recommendedTemplateCard.ctaLabel}
                   </Link>
                 </div>
               ) : null}
