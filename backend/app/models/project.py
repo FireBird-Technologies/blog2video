@@ -73,6 +73,9 @@ class Project(Base):
     
     # AI-assisted editing usage tracking
     ai_assisted_editing_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Soft-delete flag — False means the project has been deactivated (files purged)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow

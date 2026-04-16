@@ -834,8 +834,8 @@ async def _generate_scenes(project: Project, db: Session):
             #     project_url=project_url,
             # )
             
-            # Schedule follow-up email 23.5 hours after project creation (Resend scheduled send)
-            scheduled_at = project.created_at + timedelta(hours=23, minutes=30)
+            # Schedule follow-up email 30 min before 7-day deletion (6d 23h 30m after creation)
+            scheduled_at = project.created_at + timedelta(days=6, hours=23, minutes=30)
             # Only schedule follow-up email for unpaid users
             if user.plan == PlanTier.FREE:
                 email_service.schedule_followup_email(
