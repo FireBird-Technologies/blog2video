@@ -66,6 +66,7 @@ export interface Project {
   logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  playback_speed?: number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
   created_at: string;

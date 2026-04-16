@@ -5,6 +5,7 @@ import {
   SceneLayoutProps,
 } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
   const out = { ...lp };
@@ -66,6 +67,7 @@ export interface DefaultVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  playbackSpeed?: number;
 }
 
 export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = ({
@@ -79,16 +81,19 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   let currentFrame = 0;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor, fontFamily: fontFamily }}>
       {scenes.map((scene) => {
-        const durationFrames = Math.max(
-          1,
-          Math.round((Number(scene.durationSeconds) || 5) * FPS)
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -121,7 +126,9 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
             name={scene.title}
           >
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            {scene.voiceoverUrl && (
+              <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
           </Sequence>
         );
       })}

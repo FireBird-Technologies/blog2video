@@ -127,6 +127,7 @@ export interface Project {
   aspect_ratio: string;
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed";
+  playback_speed?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_template_missing?: boolean;
@@ -888,6 +889,7 @@ export const updateProject = (
     text_color?: string;
     font_family?: string | null;
     aspect_ratio?: string;
+    playback_speed?: number;
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 

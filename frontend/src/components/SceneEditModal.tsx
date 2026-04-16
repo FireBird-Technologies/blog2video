@@ -93,6 +93,15 @@ const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [num
     fact_check: { title: [36, 48], desc: [22, 24] },
     news_timeline: { title: [36, 48], desc: [15, 18] },
   },
+  mosaic: {
+    mosaic_title: { title: [150, 100], desc: [64, 44] },
+    mosaic_text: { title: [86, 56], desc: [50, 32] },
+    mosaic_punch: { title: [200, 130], desc: [34, 22] },
+    mosaic_stream: { title: [76, 50], desc: [42, 28] },
+    mosaic_metric: { title: [162, 106], desc: [34, 24] },
+    mosaic_phrases: { title: [90, 62], desc: [40, 26] },
+    mosaic_close: { title: [104, 72], desc: [52, 34] },
+  },
   custom: {
     // Custom template arrangements (font sizes are approximate)
     "full-center": { title: [36, 48], desc: [18, 22] },
@@ -183,7 +192,9 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
-  | "select";
+  | "select"
+  | "number"
+  | "range";
 
 interface FieldDef {
   key: string;
@@ -194,6 +205,11 @@ interface FieldDef {
   maxItems?: number;
   /** Options when type === "select" */
   options?: { value: string; label: string }[];
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Display/render default when the value hasn't been saved yet. */
+  default?: string | number;
 }
 
 function normalizeColorValue(input: unknown, fallback: string): string {
@@ -683,6 +699,94 @@ const LAYOUT_TEXT_FIELDS: Record<string, FieldDef[]> = {
   data_stream: [{ key: "items", label: "Items", type: "string_array", maxItems: 8 }],
   cipher_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
     subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 3 }],
+  // Mosaic template
+  mosaic_text: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "diagonal", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_punch: [
+    { key: "word", label: "Word / phrase", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "scatter", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_stream: [
+    { key: "items", label: "Items", type: "string_array", maxItems: 8 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "linear", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_metric: [{ key: "metrics", label: "Metrics", type: "object_array",
+    subFields: [{ key: "value", label: "Value" }, { key: "label", label: "Label" }, { key: "suffix", label: "Suffix", placeholder: "%" }], maxItems: 5 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_phrases: [
+    { key: "phrases", label: "Phrases", type: "string_array", maxItems: 8 },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_close: [
+    { key: "highlightPhrase", label: "Highlight phrase", type: "string" },
+    { key: "cta", label: "Call to action", type: "string" },
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "diagonal", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  mosaic_title: [
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "scatter", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
+  ending_socials: [
+    { key: "mosaicPattern", label: "Tile reveal pattern", type: "select", default: "center", options: [
+      { value: "center", label: "Center" },
+      { value: "diagonal", label: "Diagonal" },
+      { value: "linear", label: "Linear" },
+      { value: "scatter", label: "Scatter" },
+    ]},
+    { key: "mosaicTileSize", label: "Tile size (px)", type: "range", min: 4, max: 40, step: 1, default: 20 },
+    { key: "mosaicTileGap", label: "Tile grout gap (px)", type: "range", min: 0, max: 4, step: 0.5, default: 0 },
+  ],
   data_visualization: [
     { key: "barChartRows", label: "Bar chart data", type: "object_array",
       subFields: [{ key: "label", label: "Label" }, { key: "value", label: "Value", placeholder: "Number" }], maxItems: 12 },
@@ -2291,7 +2395,7 @@ export default function SceneEditModal({
                       }
                       if (field.type === "select") {
                         const opts = field.options ?? [];
-                        const defaultVal = opts[0]?.value ?? "";
+                        const defaultVal = field.default ?? opts[0]?.value ?? "";
                         const sel = String(editableLayoutProps[field.key] ?? defaultVal);
                         return (
                           <div key={field.key}>
@@ -2309,6 +2413,42 @@ export default function SceneEditModal({
                                 </option>
                               ))}
                             </select>
+                          </div>
+                        );
+                      }
+                      if (field.type === "number") {
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <input
+                              type="number"
+                              value={editableLayoutProps[field.key] !== undefined ? Number(editableLayoutProps[field.key]) : (field.default ?? field.min ?? 0)}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
+                              min={field.min}
+                              max={field.max}
+                              step={field.step ?? 1}
+                              className={inputClass}
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "range") {
+                        const rangeVal = editableLayoutProps[field.key] !== undefined ? Number(editableLayoutProps[field.key]) : (field.default ?? field.min ?? 0);
+                        return (
+                          <div key={field.key}>
+                            <div className="flex justify-between items-baseline mb-1">
+                              <label className="text-xs text-gray-400">{field.label}</label>
+                              <span className="text-xs font-medium text-purple-600 tabular-nums">{rangeVal}</span>
+                            </div>
+                            <input
+                              type="range"
+                              value={rangeVal}
+                              onChange={(e) => setEditableLayoutProps((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
+                              min={field.min}
+                              max={field.max}
+                              step={field.step ?? 1}
+                              className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer accent-purple-600"
+                            />
                           </div>
                         );
                       }
