@@ -5,6 +5,8 @@ import {
   Sequence,
   staticFile,
   CalculateMetadataFunction,
+  delayRender,
+  continueRender,
 } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
@@ -73,11 +75,21 @@ export const calculateMosaicMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  // delayRender tells Remotion to wait before capturing any frame.
+  // Required on Linux (HuggingFace/Cloud Run) where --enable-multiprocess-on-linux
+  // spawns a fresh browser process per frame — without this, frames are captured
+  // before the async fetch resolves and data stays null for every frame.
+  const [dataHandle] = useState(() =>
+    delayRender("Loading mosaic data", { timeoutInMilliseconds: 15_000 }),
+  );
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
-      .then(setData)
+      .then((d: VideoData) => {
+        setData(d);
+        continueRender(dataHandle);
+      })
       .catch(() => {
         setData({
           projectName: "Mosaic Preview",
@@ -98,6 +110,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             },
           ],
         });
+        continueRender(dataHandle);
       });
   }, [dataUrl]);
 
@@ -125,7 +138,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#EAE4DA",
+        backgroundColor: data.bgColor || "#EAE4DA",
         fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
       }}
     >
@@ -139,9 +152,9 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           MOSAIC_LAYOUT_REGISTRY.mosaic_text;
         const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-        // Force cream/beige palette for mosaic template
-        const mosaicBg = "#EAE4DA";
-        const mosaicText = "#2A2A28";
+        // Use user's bg color with cream/beige as default
+        const mosaicBg = data.bgColor || "#EAE4DA";
+        const mosaicText = data.textColor || "#2A2A28";
         const mosaicAccent = data.accentColor || "#C26240";
 
         const layoutProps: MosaicLayoutProps = {
@@ -153,7 +166,10 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: mosaicText,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-          fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
+          // Pass null when no custom font is selected so layout components
+          // use SVG tile text (the mosaic pixel-art style). Only pass the
+          // resolved font when the user has explicitly chosen a custom font.
+          fontFamily: resolvedFontFamily || null,
         };
 
         return (
