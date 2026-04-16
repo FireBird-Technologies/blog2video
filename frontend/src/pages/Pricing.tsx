@@ -178,8 +178,8 @@ export default function Pricing() {
       </div>
 
       {/* Plans */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 sm:gap-8 max-w-[1600px] mx-auto">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 max-w-[1600px] mx-auto">
           {/* Free */}
           <div className="glass-card p-5 sm:p-7 flex flex-col">
             <div className="mb-6">
@@ -536,12 +536,13 @@ export default function Pricing() {
       </div>
 
       {/* Feature comparison */}
-      <div className="max-w-6xl mx-auto px-6 pb-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Compare plans
         </h3>
-        <div className="glass-card overflow-hidden overflow-x-auto">
-          <table className="w-full min-w-[600px] text-sm">
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left py-4 px-3 sm:px-6 font-medium text-gray-500">
@@ -649,11 +650,12 @@ export default function Pricing() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
       {/* FAQ */}
-      <div className="max-w-4xl mx-auto px-6 pb-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Frequently asked questions
         </h3>

@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
 import {
@@ -227,7 +228,10 @@ function PlaybackSpeedControl({
   const [open, setOpen] = useState(false);
   const [sliderSpeed, setSliderSpeed] = useState(currentSpeed);
   const ref = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const lastCommittedSpeedRef = useRef<number>(currentSpeed);
+  // Popup is rendered via portal into document.body so no ancestor overflow/transform clips it
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
     setSliderSpeed(currentSpeed);
@@ -241,14 +245,50 @@ function PlaybackSpeedControl({
     void onChange?.(next);
   }, [onChange, sliderSpeed]);
 
-  // Close on outside click
+  // Calculate fixed-position coordinates for the popup so it is never clipped
+  const openPopup = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const POPUP_HEIGHT = 290; // approximate height of the popup
+    const rightOffset = window.innerWidth - rect.right;
+    // Prefer opening upward; fall back to downward on small screens
+    if (rect.top >= POPUP_HEIGHT + 6) {
+      setPopupStyle({
+        position: "fixed",
+        bottom: window.innerHeight - rect.top + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    } else {
+      setPopupStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        right: rightOffset,
+        zIndex: 9999,
+      });
+    }
+    setOpen(true);
+  }, []);
+
+  // Close on outside click or touch — check both the button wrapper and the portal popup
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = (e.type === "touchstart"
+        ? (e as TouchEvent).touches[0]?.target
+        : (e as MouseEvent).target) as Node | null;
+      if (
+        ref.current?.contains(target) ||
+        popupRef.current?.contains(target)
+      ) return;
+      setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", handler as EventListener);
+    document.addEventListener("touchstart", handler as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler as EventListener);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
   }, [open]);
 
   const btnStyle: React.CSSProperties = {
@@ -280,13 +320,12 @@ function PlaybackSpeedControl({
         pointerEvents: "auto",
       }}
     >
-      {/* Popup menu — opens upward */}
-      {open && (
+      {/* Popup menu — rendered via portal into document.body so no ancestor overflow/transform clips it */}
+      {open && createPortal(
         <div
+          ref={popupRef}
           style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            right: 0,
+            ...popupStyle,
             background: "#ffffff",
             border: "1px solid rgba(15,23,42,0.12)",
             borderRadius: 12,
@@ -388,12 +427,13 @@ function PlaybackSpeedControl({
               aria-label="Playback speed slider"
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Icon button */}
       <button
-        onClick={() => { if (!saving && onChange) setOpen((v) => !v); }}
+        onClick={() => { if (!saving && onChange) { open ? setOpen(false) : openPopup(); } }}
         style={btnStyle}
         title={`Playback speed: ${currentSpeed.toFixed(1)}×`}
         aria-label="Playback speed"
