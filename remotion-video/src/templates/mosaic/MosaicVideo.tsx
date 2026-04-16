@@ -138,7 +138,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#EAE4DA",
+        backgroundColor: data.bgColor || "#EAE4DA",
         fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
       }}
     >
@@ -154,7 +154,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         // Use user's bg color with cream/beige as default
         const mosaicBg = data.bgColor || "#EAE4DA";
-        const mosaicText = "#2A2A28";
+        const mosaicText = data.textColor || "#2A2A28";
         const mosaicAccent = data.accentColor || "#C26240";
 
         const layoutProps: MosaicLayoutProps = {
