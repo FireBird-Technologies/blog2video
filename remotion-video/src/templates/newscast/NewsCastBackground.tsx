@@ -314,7 +314,7 @@ export const NewsCastBackground: React.FC<{
             }
           </Geographies>
           <defs>
-            <clipPath id="newscast-land-clip-render">
+            <clipPath id="newscast-land-clip-frontend">
               <Geographies geography={WORLD_TOPOLOGY_URL}>
                 {({ geographies }) =>
                   geographies.map((geo) => (
@@ -324,7 +324,7 @@ export const NewsCastBackground: React.FC<{
               </Geographies>
             </clipPath>
           </defs>
-          <g clipPath="url(#newscast-land-clip-render)">
+          <g clipPath="url(#newscast-land-clip-frontend)">
             {PIXEL_DOTS.map((dot, i) => {
               const state = dotStates[i];
               if (!state || state.opacity < 0.02 || i % 3 !== 0) return null;
@@ -460,6 +460,24 @@ export const NewsCastBackground: React.FC<{
     );
   }
 
+  // Minimal globe-related defaults to satisfy TypeScript until real globe logic is restored.
+  const globeLeft = "50%";
+  const globeTop = "50%";
+  const globeTranslateX = 0;
+  const globeTranslateY = 0;
+  const globeSizePx = 240;
+  const canUseGlobe = false;
+  const Globe: React.ComponentType<any> = () => null;
+  const globeRef = React.createRef<any>();
+  const globeImageUrl = "";
+  const bumpImageUrl = "";
+  const isHero = false;
+  const heroPhongMaterial: any = undefined;
+  const onGlobeReady = () => {};
+  const rotYNorm = 0;
+  const SVG_LAND_BIAS_DEG = 0;
+  const rotX = 0;
+
   return (
     <AbsoluteFill style={{ backgroundColor: solidBackground ? DEFAULT_BG : "transparent", overflow: "hidden" }}>
       {/* Starfield + fine grid */}
@@ -489,6 +507,8 @@ export const NewsCastBackground: React.FC<{
           zIndex: 1,
         }}
       />
+
+      {/* globe watermark removed */}
     </AbsoluteFill>
   );
 };
