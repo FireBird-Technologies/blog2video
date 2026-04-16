@@ -1,5 +1,6 @@
-import React, { useMemo, useEffect, useState, useCallback } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
 import { Player } from "@remotion/player";
+import type { PlayerRef } from "@remotion/player";
 import {
   AbsoluteFill,
   Sequence,
@@ -8,11 +9,13 @@ import {
 import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
+import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import {
   compileComponentCode,
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
+import { CtaOverlay } from "./remotion/CtaOverlay";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -43,6 +46,7 @@ const StableCustomComposition: React.FC<any> = ({
   const aspectRatio = (project.aspect_ratio || "landscape") as "landscape" | "portrait";
   const totalScenes = scenes.length;
   const FPS = 30;
+  const playbackSpeed = 1;
 
   const sceneAssignments: { type: string; variantKey: string }[] = [];
   let contentIdx = 0;
@@ -86,7 +90,7 @@ const StableCustomComposition: React.FC<any> = ({
   let offset = 0;
   for (const s of scenes) {
     frameOffsets.push(offset);
-    const dur = Math.max(1, Math.round(s.durationSeconds * FPS));
+    const dur = getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed);
     frameDurations.push(dur);
     offset += dur;
   }
@@ -109,7 +113,7 @@ const StableCustomComposition: React.FC<any> = ({
           imageUrl: s.imageUrl,
           sceneIndex: i,
           totalScenes,
-          logoUrl: project.logo_r2_url || undefined,
+          logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
           brandColors,
           aspectRatio,
           contentType: sc.contentType as SceneProps["contentType"],
@@ -132,8 +136,20 @@ const StableCustomComposition: React.FC<any> = ({
         // console.log(`[F7-DEBUG] [CustomComp] scene ${i}: displayText=${sceneProps.displayText?.substring(0,60)}, contentType=${sceneProps.contentType}, bullets=${sceneProps.bullets?.length}`);
         return (
           <Sequence key={s.id} from={frameOffsets[i]} durationInFrames={frameDurations[i]}>
-            <SceneComp {...sceneProps} />
-            {s.voiceoverUrl && <Audio src={s.voiceoverUrl} />}
+            {s.ctaProps ? (
+              <CtaOverlay
+                ctaProps={s.ctaProps as any}
+                brandColors={brandColors}
+                aspectRatio={aspectRatio}
+                headingFont={headingFont}
+                bodyFont={bodyFont}
+                title={sceneProps.displayText}
+                logoUrl={sceneProps.logoUrl}
+              />
+            ) : (
+              <SceneComp {...sceneProps} />
+            )}
+            {s.voiceoverUrl && <Audio src={s.voiceoverUrl} playbackRate={1} />}
           </Sequence>
         );
       })}
@@ -158,6 +174,8 @@ interface VideoPreviewProps {
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
+  onPlaybackSpeedChange?: (speed: number) => void | Promise<void>;
+  playbackSpeedSaving?: boolean;
   precompiledTemplateData?: {
     intro_code: string | null;
     content_codes: string[] | null;
@@ -174,6 +192,7 @@ interface SceneInput {
   layoutProps: Record<string, unknown>;
   layoutConfig?: Record<string, unknown>;
   structuredContent?: Record<string, unknown>;
+  ctaProps?: Record<string, unknown>;
   durationSeconds: number;
   imageUrl?: string;
   voiceoverUrl?: string;
@@ -182,11 +201,257 @@ interface SceneInput {
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
 
+// ─── YouTube-style playback speed control ────────────────────────────────────
+
+const SPEED_OPTIONS: (0.5 | 1 | 1.5 | 2 | 2.5)[] = [0.5, 1, 1.5, 2, 2.5];
+
+function PlaybackSpeedControl({
+  currentSpeed,
+  saving,
+  onChange,
+  playerContainerRef,
+}: {
+  currentSpeed: number;
+  saving: boolean;
+  onChange?: (speed: number) => void | Promise<void>;
+  playerContainerRef?: React.RefObject<PlayerRef | null>;
+}) {
+  // Keep Remotion's control bar visible while cursor is inside this component.
+  // Remotion hides controls on "mouseleave" from its container; dispatching a
+  // synthetic "mousemove" on that container tricks it into staying shown.
+  const keepPlayerControlsVisible = useCallback(() => {
+    const container = playerContainerRef?.current?.getContainerNode();
+    if (!container) return;
+    container.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true }));
+  }, [playerContainerRef]);
+  const [open, setOpen] = useState(false);
+  const [sliderSpeed, setSliderSpeed] = useState(currentSpeed);
+  const ref = useRef<HTMLDivElement>(null);
+  const lastCommittedSpeedRef = useRef<number>(currentSpeed);
+
+  useEffect(() => {
+    setSliderSpeed(currentSpeed);
+    lastCommittedSpeedRef.current = currentSpeed;
+  }, [currentSpeed]);
+
+  const commitSliderSpeed = useCallback(() => {
+    const next = Math.min(2.5, Math.max(0.5, Math.round(sliderSpeed * 10) / 10));
+    if (Math.abs(next - lastCommittedSpeedRef.current) < 0.001) return;
+    lastCommittedSpeedRef.current = next;
+    void onChange?.(next);
+  }, [onChange, sliderSpeed]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    border: "none",
+    background: open ? "rgba(255,255,255,0.15)" : "transparent",
+    cursor: saving || !onChange ? "default" : "pointer",
+    color: "#f9fafb",
+    transition: "background 150ms",
+    position: "relative",
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseEnter={keepPlayerControlsVisible}
+      onMouseMove={keepPlayerControlsVisible}
+      style={{
+        position: "absolute",
+        // Sit inside the Remotion control bar row, just to the left of the fullscreen button
+        right: 40,
+        bottom: 30,
+        zIndex: 40,
+        pointerEvents: "auto",
+      }}
+    >
+      {/* Popup menu — opens upward */}
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 6px)",
+            right: 0,
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.12)",
+            borderRadius: 12,
+            backdropFilter: "blur(6px)",
+            padding: "8px 0",
+            minWidth: 200,
+            boxShadow: "0 12px 28px rgba(15,23,42,0.2)",
+          }}
+        >
+          <p
+            style={{
+              color: "#64748b",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              textTransform: "none",
+              padding: "0 14px 8px",
+              margin: 0,
+              borderBottom: "1px solid rgba(15,23,42,0.1)",
+            }}
+          >
+            Playback speed
+          </p>
+          {SPEED_OPTIONS.map((speed) => {
+            const active = speed === currentSpeed;
+            return (
+              <button
+                key={speed}
+                onClick={() => {
+                  if (speed === currentSpeed) { setOpen(false); return; }
+                  setOpen(false);
+                  setSliderSpeed(speed);
+                  void onChange?.(speed);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  background: active ? "rgba(147,51,234,0.25)" : "transparent",
+                  border: "none",
+                  color: active ? "#7c3aed" : "#0f172a",
+                  fontSize: 12,
+                  fontWeight: active ? 600 : 500,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "background 120ms",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(15,23,42,0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <span>{speed === 1 ? "Normal" : `${speed}×`}</span>
+                {active && (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+          <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(15,23,42,0.1)" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 500, color: "#64748b" }}>Custom speed</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>
+                {sliderSpeed.toFixed(1)}×
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.5}
+              max={2.5}
+              step={0.1}
+              value={sliderSpeed}
+              onChange={(e) => {
+                setSliderSpeed(Number(e.target.value));
+              }}
+              onMouseUp={commitSliderSpeed}
+              onTouchEnd={commitSliderSpeed}
+              onKeyUp={commitSliderSpeed}
+              onBlur={commitSliderSpeed}
+              style={{
+                width: "100%",
+                cursor: "pointer",
+                accentColor: "#a855f7",
+                height: 3,
+              }}
+              aria-label="Playback speed slider"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Icon button */}
+      <button
+        onClick={() => { if (!saving && onChange) setOpen((v) => !v); }}
+        style={btnStyle}
+        title={`Playback speed: ${currentSpeed.toFixed(1)}×`}
+        aria-label="Playback speed"
+      >
+        {saving ? (
+          /* Spinner */
+          <svg width="22" height="22" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+            <circle cx="8" cy="8" r="6" stroke="rgba(255,255,255,0.25)" strokeWidth="2"/>
+            <path d="M14 8a6 6 0 0 0-6-6" stroke="#f9fafb" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          /* Speedometer / gauge icon (matches YouTube style) */
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+            {/* Outer arc */}
+            <path
+              d="M3.5 13.5A7.5 7.5 0 1 1 16.5 13.5"
+              stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"
+            />
+            {/* Tick marks */}
+            <line x1="10" y1="3" x2="10" y2="4.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="4.5" y1="5.5" x2="5.6" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            <line x1="15.5" y1="5.5" x2="14.4" y2="6.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            {/* Needle pointing toward top-right */}
+            <line x1="10" y1="10" x2="13.8" y2="6.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            {/* Center dot */}
+            <circle cx="10" cy="10" r="1.2" fill="currentColor"/>
+          </svg>
+        )}
+        {/* Speed label */}
+        {!saving && (
+          <span style={{
+            position: "absolute",
+            bottom: -1,
+            right: -1,
+            fontSize: 8,
+            fontWeight: 700,
+            lineHeight: 1,
+            color: "#fff",
+            borderRadius: 3,
+            padding: "1px 2px",
+          }}>
+            {`${currentSpeed.toFixed(1)}×`}
+          </span>
+        )}
+      </button>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 export default function VideoPreview({
   project,
   logoSizeOverride,
   logoOpacityOverride,
   logoPositionOverride,
+  onPlaybackSpeedChange,
+  playbackSpeedSaving = false,
   precompiledTemplateData,
 }: VideoPreviewProps) {
   const templateId = normalizeBuiltInTemplateId(project.template);
@@ -194,6 +459,10 @@ export default function VideoPreview({
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = templateId.startsWith("custom_");
+
+  // Ref to Remotion Player — passed to PlaybackSpeedControl so it can keep
+  // the Player's control bar visible while the cursor is over the speed button.
+  const playerRef = useRef<PlayerRef>(null);
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -370,6 +639,7 @@ export default function VideoPreview({
       let layoutProps: Record<string, unknown> = {};
       let layoutConfig: Record<string, unknown> | undefined;
       let structuredContent: Record<string, unknown> | undefined;
+      let ctaProps: Record<string, unknown> | undefined;
 
       if (scene.remotion_code) {
         try {
@@ -378,6 +648,9 @@ export default function VideoPreview({
             // Custom templates: always extract structuredContent
             if (descriptor.structuredContent) {
               structuredContent = descriptor.structuredContent;
+            }
+            if (descriptor.ctaProps) {
+              ctaProps = descriptor.ctaProps;
             }
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
@@ -468,6 +741,7 @@ export default function VideoPreview({
         layoutProps,
         ...(layoutConfig ? { layoutConfig } : {}),
         ...(structuredContent ? { structuredContent } : {}),
+        ...(ctaProps ? { ctaProps } : {}),
         durationSeconds: (Number(scene.duration_seconds) || 5) + (Number(scene.extra_hold_seconds) || 0),
         imageUrl: sceneImageMap[idx],
         voiceoverUrl,
@@ -480,7 +754,7 @@ export default function VideoPreview({
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;
       const extra = Number(s.extra_hold_seconds) || 0;
-      return Math.max(1, Math.round((base + extra) * FPS));
+      return getSceneDurationFrames(base + extra, FPS, 1);
     });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
     // Keep duration aligned with Remotion metadata calculation (no extra padded tail).
@@ -499,17 +773,9 @@ export default function VideoPreview({
   );
   const mediaSourcesKey = useMemo(() => mediaSources.join("||"), [mediaSources]);
 
-  // Recompute when scene descriptor data changes (title, display_text, remotion_code)
-  // so the Player remounts and shows the latest content.
-  const sceneDataKey = useMemo(
-    () => {
-      const key = project.scenes.map((s) => `${s.id}:${s.title}:${s.display_text ?? ""}:${s.remotion_code ?? ""}`).join("|");
-      return key;
-    },
-    [project.scenes, isCustom],
-  );
   useEffect(() => {
     let cancelled = false;
+    const cleanupFns: Array<() => void> = [];
     setMediaReady(false);
     setIsPreloadingMedia(true);
     const imageUrls = mediaSources.filter((src) =>
@@ -523,9 +789,19 @@ export default function VideoPreview({
       (src) =>
         new Promise<void>((resolve) => {
           const img = new Image();
-          img.onload = () => resolve();
-          img.onerror = () => resolve(); // don't block on error
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          img.onload = done;
+          img.onerror = done; // don't block on error
           img.src = src;
+          cleanupFns.push(() => {
+            img.onload = null;
+            img.onerror = null;
+          });
         }),
     );
 
@@ -535,15 +811,28 @@ export default function VideoPreview({
           const audio = document.createElement("audio");
           audio.preload = "auto";
           audio.muted = true;
-          const done = () => resolve();
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
           // Consider audio ready only once metadata/playability is available.
-          audio.addEventListener("loadedmetadata", done, { once: true });
-          audio.addEventListener("canplay", done, { once: true });
-          audio.addEventListener("canplaythrough", done, { once: true });
-          audio.addEventListener("error", done, { once: true });
+          audio.addEventListener("loadedmetadata", done);
+          audio.addEventListener("canplay", done);
+          audio.addEventListener("canplaythrough", done);
+          audio.addEventListener("error", done);
           audio.src = src;
           // Safety timeout — keep generous to avoid starting before media is warm.
-          setTimeout(done, 15000);
+          const timeoutId = window.setTimeout(done, 15000);
+          cleanupFns.push(() => {
+            window.clearTimeout(timeoutId);
+            audio.removeEventListener("loadedmetadata", done);
+            audio.removeEventListener("canplay", done);
+            audio.removeEventListener("canplaythrough", done);
+            audio.removeEventListener("error", done);
+            audio.src = "";
+          });
         }),
     );
 
@@ -555,10 +844,12 @@ export default function VideoPreview({
 
     return () => {
       cancelled = true;
+      cleanupFns.forEach((fn) => fn());
     };
   }, [mediaSourcesKey]);
 
   const isPortrait = project.aspect_ratio === "portrait";
+  const currentPlaybackSpeed = Math.max(0.5, Math.min(2.5, getPlaybackSpeed(project.playback_speed)));
 
   const colors = config.defaultColors;
 
@@ -567,6 +858,7 @@ export default function VideoPreview({
     accentColor: project.accent_color || colors.accent,
     bgColor: project.bg_color || colors.bg,
     textColor: project.text_color || colors.text,
+    playbackSpeed: 1,
     logo: project.logo_r2_url || null,
     logoPosition: logoPositionOverride ?? project.logo_position ?? "bottom_right",
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
@@ -649,6 +941,7 @@ export default function VideoPreview({
     >
       <div
         style={{
+          position: "relative",
           maxWidth: "min(100%, 90vw)",
           maxHeight: "min(100%, 90vh)",
           width: isPortrait ? "auto" : "100%",
@@ -661,7 +954,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${mediaSourcesKey}-${sceneDataKey}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -676,6 +969,8 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
+          ref={playerRef}
+          playbackRate={currentPlaybackSpeed}
           controls
           style={{
             width: "100%",
@@ -683,6 +978,12 @@ export default function VideoPreview({
             display: "block",
             overflow: "hidden",
           }}
+        />
+        <PlaybackSpeedControl
+          currentSpeed={currentPlaybackSpeed}
+          saving={playbackSpeedSaving}
+          onChange={onPlaybackSpeedChange}
+          playerContainerRef={playerRef}
         />
       </div>
     </div>

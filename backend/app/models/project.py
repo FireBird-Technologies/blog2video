@@ -61,6 +61,7 @@ class Project(Base):
     # Video length selection controls how many scenes are generated.
     # Values: auto, short (6-8), medium (12-15), detailed (15-20)
     video_length: Mapped[str] = mapped_column(String(10), default="auto")
+    playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
     # All generated content (script, display text, voiceover) is produced in this language.

@@ -62,6 +62,8 @@ import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
+type PlaybackSpeedOption = number;
+const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
 
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
@@ -475,6 +477,10 @@ export default function ProjectView() {
   const [settingsFontId, setSettingsFontId] = useState<string | null>(null);
   const [savingFontFamily, setSavingFontFamily] = useState(false);
   const [showFontDropdown, setShowFontDropdown] = useState(false);
+  const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
+  const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
+  const savingPlaybackSpeedRef = useRef(false);
+  const pendingPlaybackSpeedRef = useRef<number | null>(null);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
   const [templateMetas, setTemplateMetas] = useState<TemplateMeta[]>([]);
   const [customTemplatesList, setCustomTemplatesList] = useState<CustomTemplateItem[]>([]);
@@ -504,9 +510,29 @@ export default function ProjectView() {
       setSettingsBgColor(project.bg_color || "#FFFFFF");
       setSettingsTextColor(project.text_color || "#000000");
       setSettingsFontId(project.font_family ?? null);
+      const current = Number(project.playback_speed ?? 1);
+      setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
+      // Seed global typography sliders from the first scene that has stored values.
+      // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
+      if (project.scenes && project.scenes.length > 0) {
+        for (const s of project.scenes) {
+          if (!s.remotion_code) continue;
+          try {
+            const d = JSON.parse(s.remotion_code);
+            const lp = d.layoutProps ?? d.layoutConfig ?? {};
+            if (typeof lp.titleFontSize === "number") {
+              setGlobalTitleSize(Math.min(200, Math.max(20, lp.titleFontSize)));
+            }
+            if (typeof lp.descriptionFontSize === "number") {
+              setGlobalDescSize(Math.min(80, Math.max(12, lp.descriptionFontSize)));
+            }
+            break;
+          } catch { /* ignore */ }
+        }
+      }
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity,
-      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family]);
+      project?.accent_color, project?.bg_color, project?.text_color, project?.font_family, project?.playback_speed]);
 
   useEffect(() => {
     if (project) {
@@ -525,6 +551,12 @@ export default function ProjectView() {
   const [pipelineStep, setPipelineStep] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStarted = useRef(false);
+  /** One pipeline terminal failure per poll session; also suppresses duplicate "load project" 404 modal after rollback. */
+  const pipelineTerminalFailureHandledRef = useRef(false);
+
+  useEffect(() => {
+    pipelineTerminalFailureHandledRef.current = false;
+  }, [projectId]);
 
   // Render state
   const [rendering, setRendering] = useState(false);
@@ -940,27 +972,73 @@ export default function ProjectView() {
 //   // tryAutoDownload();
 // }, [rendered, project?.r2_video_url]); 
 
-  const loadProject = useCallback(async () => {
-    try {
-      const res = await getProject(projectId);
-      setProject(res.data);
-      setHasError(false); // clear any previous load errors on success
-      if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
-        setRendered(true);
+  const loadProject = useCallback(
+    async (opts?: { silent404?: boolean }) => {
+      try {
+        const res = await getProject(projectId);
+        setProject(res.data);
+        setHasError(false); // clear any previous load errors on success
+        if (res.data.status === "done" || (res.data.status === "rendering" && res.data.r2_video_url)) {
+          setRendered(true);
+        }
+        // Fetch layout image-support info (non-blocking)
+        getValidLayouts(projectId).then((lr) => {
+          setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
+          setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
+        }).catch(() => {/* ignore */});
+        return res.data;
+      } catch (err: unknown) {
+        const status =
+          err &&
+          typeof err === "object" &&
+          "response" in err &&
+          typeof (err as { response?: { status?: number } }).response?.status === "number"
+            ? (err as { response: { status: number } }).response.status
+            : undefined;
+        // Poller can call loadProject right after the worker deletes the row (race with stale `running: true`).
+        if (status === 404 && opts?.silent404) {
+          return null;
+        }
+        // After scrape/pipeline rollback the project row is gone; polling may still call loadProject once.
+        if (status === 404 && pipelineTerminalFailureHandledRef.current) {
+          setHasError(true);
+          return null;
+        }
+        showError("Failed to load project"); setHasError(true);
+        return null;
+      } finally {
+        setLoading(false);
       }
-      // Fetch layout image-support info (non-blocking)
-      getValidLayouts(projectId).then((lr) => {
-        setLayoutsWithoutImage(new Set(lr.data.layouts_without_image ?? []));
-        setLayoutPropSchema(lr.data.layout_prop_schema ?? null);
-      }).catch(() => {/* ignore */});
-      return res.data;
-    } catch {
-      showError("Failed to load project"); setHasError(true);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
+    },
+    [projectId, showError],
+  );
+
+  const handlePreviewPlaybackSpeedChange = useCallback(
+    async (speed: number) => {
+      if (!project) return;
+      const normalized = Math.min(2.5, Math.max(0.5, Math.round(speed * 10) / 10));
+      setPlaybackSpeedDraft(normalized);
+      pendingPlaybackSpeedRef.current = normalized;
+      if (savingPlaybackSpeedRef.current) return;
+
+      setSavingPlaybackSpeed(true);
+      savingPlaybackSpeedRef.current = true;
+      try {
+        while (pendingPlaybackSpeedRef.current !== null) {
+          const nextSpeed = pendingPlaybackSpeedRef.current;
+          pendingPlaybackSpeedRef.current = null;
+          await updateProject(project.id, { playback_speed: nextSpeed });
+          await loadProject();
+        }
+      } catch (err) {
+        showError(getErrorMessage(err, "Failed to save playback speed."));
+      } finally {
+        setSavingPlaybackSpeed(false);
+        savingPlaybackSpeedRef.current = false;
+      }
+    },
+    [project, loadProject, showError],
+  );
 
   const stopTemplateRelayoutPolling = useCallback(() => {
     if (templateRelayoutPollRef.current) {
@@ -1045,8 +1123,41 @@ export default function ProjectView() {
   // Auto-start generation when project loads and isn't complete
   useEffect(() => {
     const init = async () => {
-      const proj = await loadProject();
-      if (!proj || generationStarted.current) return;
+      // silent404: scrape can delete the row before this GET returns; avoid "Failed to load" before tombstone.
+      const proj = await loadProject({ silent404: true });
+      if (!proj || generationStarted.current) {
+        if (!proj && !generationStarted.current) {
+          try {
+            const st = await getPipelineStatus(projectId);
+            const d = st.data;
+            const tombstoneMsg =
+              typeof d.error === "string" && d.error.trim() ? d.error.trim() : null;
+            const rolledBack =
+              Boolean(d.project_removed) || d.status === "failed";
+            if (tombstoneMsg || rolledBack) {
+              if (!pipelineTerminalFailureHandledRef.current) {
+                pipelineTerminalFailureHandledRef.current = true;
+                showError(
+                  tombstoneMsg ||
+                    "Something went wrong while creating your video. Please try again.",
+                  { variant: "pipeline" },
+                );
+              }
+              setHasError(true);
+              setPipelineRunning(false);
+              if (rolledBack) {
+                navigate("/dashboard", { replace: true });
+              }
+              return;
+            }
+          } catch {
+            // ignore — fall through to generic not-found handling
+          }
+          showError("Failed to load project");
+          setHasError(true);
+        }
+        return;
+      }
 
       // Check for pending document upload (from Dashboard upload flow)
       const pendingFiles = getPendingUpload(projectId);
@@ -1063,7 +1174,10 @@ export default function ProjectView() {
           await startGeneration(projectId);
           startPolling();
         } catch (err: any) {
-          showError(getErrorMessage(err, "Failed to upload documents.")); setHasError(true);
+          showError(getErrorMessage(err, "Failed to upload documents."), {
+            variant: "pipeline",
+          });
+          setHasError(true);
           setPipelineRunning(false);
         }
         return;
@@ -1088,6 +1202,7 @@ export default function ProjectView() {
     setPipelineRunning(true);
     setPipelineStep(0);
     setHasError(false);
+    pipelineTerminalFailureHandledRef.current = false;
 
     try {
       await startGeneration(projectId);
@@ -1100,21 +1215,44 @@ export default function ProjectView() {
 
   const startPolling = () => {
     stopPolling();
+    pipelineTerminalFailureHandledRef.current = false;
     pollingRef.current = setInterval(async () => {
       try {
         const res = await getPipelineStatus(projectId);
         const { step, running, error: pipelineError, status, notice } = res.data;
+        const rolledBackProject =
+          Boolean(res.data.project_removed) || status === "failed";
+        const pipelineErrMsg =
+          typeof pipelineError === "string" && pipelineError.trim()
+            ? pipelineError.trim()
+            : null;
 
         setPipelineStep(step);
 
-        if (pipelineError) {
-          // Log the detailed pipeline error, but show a friendly, generic message to the user.
-          console.error("Pipeline error while generating video:", pipelineError);
-          showError(DEFAULT_ERROR_MESSAGE);
+        // Terminal generation failure (scrape/script/scene rollback, or tombstone after delete).
+        // Treat `status === "failed"` like an error even if `error` is missing briefly — avoids
+        // falling through to `loadProject()` and showing a second "Failed to load project" modal.
+        if (pipelineErrMsg || rolledBackProject) {
+          if (!pipelineTerminalFailureHandledRef.current) {
+            pipelineTerminalFailureHandledRef.current = true;
+            const message =
+              pipelineErrMsg ||
+              "Something went wrong while creating your video. Please try again.";
+            console.error("Pipeline error while generating video:", message);
+            showError(message, { variant: "pipeline" });
+          }
           setHasError(true);
           setPipelineRunning(false);
           stopPolling();
-          await loadProject();
+          if (rolledBackProject) {
+            navigate("/dashboard", { replace: true });
+          } else {
+            try {
+              await loadProject({ silent404: true });
+            } finally {
+              pipelineTerminalFailureHandledRef.current = false;
+            }
+          }
           return;
         }
 
@@ -1130,7 +1268,7 @@ export default function ProjectView() {
             // Progress was lost (container restart / cold start).
             // Keep polling — the pipeline task is still running on the
             // original instance or will be retried.
-            await loadProject();
+            await loadProject({ silent404: true });
             return;
           }
           setPipelineRunning(false);
@@ -1142,11 +1280,11 @@ export default function ProjectView() {
               { title: "Video shortened" }
             );
           }
-          await loadProject();
+          await loadProject({ silent404: true });
           return;
         }
 
-        await loadProject();
+        await loadProject({ silent404: true });
       } catch {
         // Network hiccup -- keep polling
       }
@@ -2587,6 +2725,8 @@ export default function ProjectView() {
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
                         logoPositionOverride={logoPosition}
+                        onPlaybackSpeedChange={handlePreviewPlaybackSpeedChange}
+                        playbackSpeedSaving={savingPlaybackSpeed}
                       />
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
@@ -2751,9 +2891,22 @@ export default function ProjectView() {
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              {downloadWarningMode === "download"
-                ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
-                : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
+              {downloadWarningMode === "download" ? (
+                "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video."
+              ) : (
+                <>
+                  <span>
+                    Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
+                  </span>
+                  {playbackSpeedDraft !== 1 && (() => {
+                    const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+                    const mins = Math.floor(renderedSecs / 60);
+                    const secs = Math.round(renderedSecs % 60);
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    return <><br /><br /><span className="text-xs text-yellow-600">Your video will be rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</span></>;
+                  })()}
+                </>
+              )}
             </p>
 
 
@@ -2843,9 +2996,16 @@ export default function ProjectView() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowReRenderWarning(false); setRenderConfirmLoading(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Re-render video</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
               This will deduct your video count. Continue only if you have new changes in your video.
             </p>
+            {playbackSpeedDraft !== 1 && (() => {
+              const renderedSecs = totalAudioDuration / playbackSpeedDraft;
+              const mins = Math.floor(renderedSecs / 60);
+              const secs = Math.round(renderedSecs % 60);
+              const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+              return <p className="text-xs text-yellow-600 mb-6">Your video will be re-rendered at <strong>{playbackSpeedDraft}×</strong> speed — approximately <strong>{timeStr}</strong> long.</p>;
+            })()}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -3645,7 +3805,7 @@ export default function ProjectView() {
                                         </h4>
                                         <div className="space-y-3">
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Title font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Metric size" : layoutId === "mosaic_punch" ? "Punch size" : "Title font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
@@ -3673,7 +3833,7 @@ export default function ProjectView() {
                                             </div>
                                           </div>
                                           <div>
-                                            <label className="text-xs text-gray-400 mb-1 block">Display text font size</label>
+                                            <label className="text-xs text-gray-400 mb-1 block">{layoutId === "mosaic_metric" ? "Label size" : "Display text font size"}</label>
                                             <div className="flex items-center gap-2">
                                               <input
                                                 type="range"
