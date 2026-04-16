@@ -691,11 +691,11 @@ export default function MyVoices() {
       )}
 
       <div>
-        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2">
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             {prebuiltTab === "Custom voice" ? "Custom voice" : "Prebuilt voices"}
           </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl">
             {VOICE_SECTION_TABS.map((tab) => (
               <button
                 key={tab}

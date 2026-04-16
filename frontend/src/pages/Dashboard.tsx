@@ -651,27 +651,29 @@ export default function Dashboard() {
             onClick={() => navigate(`/project/${project.id}`)}
             className="glass-card w-full px-5 py-4 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all cursor-pointer group"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 mb-1">
                   <h3 className="text-sm font-medium text-gray-900 leading-tight break-words group-hover:text-purple-600 transition-colors">
                     {project.name}
                   </h3>
                   <StatusBadge status={project.status} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  <span className="truncate max-w-[200px]">
+                <div className="flex flex-col gap-0.5 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="truncate max-w-[220px]">
                     {project.blog_url?.startsWith("upload://")
                       ? "Uploaded documents"
                       : project.blog_url || "—"}
                   </span>
-                  <span>{project.scene_count} scenes</span>
-                  <span>{formatDate(project.created_at)}</span>
+                  <div className="flex items-center gap-3">
+                    <span>{project.scene_count} scenes</span>
+                    <span>{formatDate(project.created_at)}</span>
+                  </div>
                 </div>
               </div>
               <button
                 onClick={(e) => handleDeleteClick(project.id, project.name, e)}
-                className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 title="Delete"
               >
                 <svg

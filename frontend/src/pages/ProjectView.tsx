@@ -2209,7 +2209,7 @@ export default function ProjectView() {
         className="glass-card flex items-center justify-center"
         style={{ minHeight: "60vh" }}
       >
-        <div className="w-full max-w-md text-center px-6 py-12">
+          <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
           <div className="w-12 h-12 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xs animate-pulse">
             B2V
           </div>
@@ -2316,7 +2316,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-md text-center px-6 py-12">
+            <div className="w-full max-w-md text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-purple-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2400,7 +2400,7 @@ export default function ProjectView() {
             className="glass-card flex items-center justify-center"
             style={{ minHeight: "60vh" }}
           >
-            <div className="w-full max-w-sm text-center px-6 py-12">
+            <div className="w-full max-w-sm text-center px-4 sm:px-6 py-10 sm:py-12">
               <div className="w-14 h-14 mx-auto mb-6 bg-green-600 rounded-2xl flex items-center justify-center">
                 <svg
                   className="w-7 h-7 text-white"
@@ -2449,14 +2449,14 @@ export default function ProjectView() {
         {!rendering && !saving && (
           <div className="glass-card overflow-hidden flex flex-col">
             {/* Header bar */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200/30">
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm font-medium text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-gray-200/30 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-sm font-medium text-gray-900 truncate">
                   {project.name}
                 </h2>
                 <StatusBadge status={statusForBadge} />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Video format (landscape / portrait) — left of download */}
                 <div className="flex items-center shrink-0">
                   <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
@@ -3462,12 +3462,12 @@ export default function ProjectView() {
         />
       )}
       {/* Pill tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit" data-tour="tabs-container">
+      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-full sm:w-fit" data-tour="tabs-container">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center ${
               activeTab === tab.id
                 ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
                 : "text-gray-400 hover:text-gray-600"
