@@ -153,7 +153,10 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: mosaicText,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-          fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
+          // Pass null when no custom font is selected so layout components
+          // use SVG tile text (the mosaic pixel-art style). Only pass the
+          // resolved font when the user has explicitly chosen a custom font.
+          fontFamily: resolvedFontFamily || null,
         };
 
         return (
