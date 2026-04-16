@@ -20,7 +20,7 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
     order: 1,
     title: "Mosaic Title",
     durationSeconds: 7,
-    narration: "Blue tessera fields with golden guide lines.",
+    narration: "Warm stone tessera fields with terracotta linework.",
     layout: "mosaic_title",
     layoutProps: {},
   },
@@ -29,13 +29,13 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
     order: 2,
     title: "Mosaic Stream",
     durationSeconds: 8,
-    narration: "Ordered scene language for inlaid storytelling.",
+    narration: "Handcrafted editorial layouts on soft beige.",
     layout: "mosaic_stream",
     layoutProps: {
       items: [
-        "Lay foundational stone pattern",
-        "Inlay subtle golden linework",
-        "Blend cool and warm tessera tones",
+        "Lay warm stone pattern",
+        "Inlay fine terracotta linework",
+        "Blend soft cream and earthen tones",
       ],
     },
   },
@@ -44,7 +44,7 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
     order: 3,
     title: "Mosaic Metric",
     durationSeconds: 7,
-    narration: "Craft precision measured in every tile.",
+    narration: "Precision crafted in every tessera tile.",
     layout: "mosaic_metric",
     layoutProps: {
       metrics: [{ value: "97", label: "craft precision", suffix: "%" }],
@@ -52,7 +52,7 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
   },
 ];
 
-const TEMPLATE_COLORS = { accent: "#D4AF37", bg: "#0F1E2D", text: "#E6EEF7" } as const;
+// Use the template-configured default colors so previews match defaults
 
 export default function MosaicPreview() {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
@@ -62,24 +62,26 @@ export default function MosaicPreview() {
   const config = getTemplateConfig("mosaic");
   const Composition = config.component as React.ComponentType<any>;
 
+  const { accent: accentColor, bg: bgColor, text: textColor } = config.defaultColors;
+
   const inputProps = useMemo(
     () => ({
       scenes: [activeScene],
-      accentColor: TEMPLATE_COLORS.accent,
-      bgColor: TEMPLATE_COLORS.bg,
-      textColor: TEMPLATE_COLORS.text,
+      accentColor,
+      bgColor,
+      textColor,
       logo: null,
       logoPosition: "bottom_right",
       logoOpacity: 0,
       logoSize: 0,
       aspectRatio: "landscape",
     }),
-    [activeScene],
+    [activeScene, accentColor, bgColor, textColor],
   );
 
   return (
     <div className="w-full">
-      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
         <Player
           component={Composition}
           inputProps={inputProps}
@@ -101,7 +103,8 @@ export default function MosaicPreview() {
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
-                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5 bg-yellow-400" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
+                className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
+                style={isActive ? { background: accentColor } : undefined}
                 aria-label={`Preview ${scene.title} layout`}
                 title={scene.title}
                 type="button"

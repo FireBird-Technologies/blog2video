@@ -274,9 +274,9 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     fallbackLayout: "mosaic_text",
     validLayouts: MOSAIC_LAYOUTS,
     defaultColors: {
-      accent: "#D4AF37",
-      bg: "#0F1E2D",
-      text: "#E6EEF7",
+      accent: "#C26240",
+      bg: "#EAE4DA",
+      text: "#2A2A28",
     },
     baseWidth: 1920,
     baseHeight: 1080,
