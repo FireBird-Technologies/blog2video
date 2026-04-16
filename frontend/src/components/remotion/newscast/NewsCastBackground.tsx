@@ -460,6 +460,24 @@ export const NewsCastBackground: React.FC<{
     );
   }
 
+  // Minimal globe-related defaults to satisfy TypeScript until real globe logic is restored.
+  const globeLeft = "50%";
+  const globeTop = "50%";
+  const globeTranslateX = 0;
+  const globeTranslateY = 0;
+  const globeSizePx = 240;
+  const canUseGlobe = false;
+  const Globe: React.ComponentType<any> = () => null;
+  const globeRef = React.createRef<any>();
+  const globeImageUrl = "";
+  const bumpImageUrl = "";
+  const isHero = false;
+  const heroPhongMaterial: any = undefined;
+  const onGlobeReady = () => {};
+  const rotYNorm = 0;
+  const SVG_LAND_BIAS_DEG = 0;
+  const rotX = 0;
+
   return (
     <AbsoluteFill style={{ backgroundColor: solidBackground ? DEFAULT_BG : "transparent", overflow: "hidden" }}>
       {/* Starfield + fine grid */}
@@ -490,150 +508,7 @@ export const NewsCastBackground: React.FC<{
         }}
       />
 
-      {/* Globe watermark */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "block",
-          pointerEvents: "none",
-          zIndex: 2,
-          opacity: globeOpacity,
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            left: globeLeft,
-            top: globeTop,
-            transform: `translate(-50%,-50%) translate(${globeTranslateX}px, ${globeTranslateY}px)`,
-            width: globeSizePx,
-            height: globeSizePx,
-            filter: "drop-shadow(0 0 22px rgba(0,0,0,0.45))",
-            perspective: 900,
-          }}
-        >
-          {canUseGlobe ? (
-            <Globe
-              ref={globeRef}
-              width={globeSizePx}
-              height={globeSizePx}
-              globeImageUrl={globeImageUrl}
-              bumpImageUrl={bumpImageUrl}
-              globeMaterial={isHero ? heroPhongMaterial : undefined}
-              backgroundColor="rgba(0,0,0,0)"
-              backgroundImageUrl={null}
-              showGlobe
-              showGraticules={isHero}
-              showAtmosphere={false}
-              atmosphereColor={isHero ? "rgba(90,160,240,0.28)" : "rgba(55,130,255,0.32)"}
-              atmosphereAltitude={isHero ? 0.18 : 0.2}
-              enablePointerInteraction={false}
-              onGlobeReady={onGlobeReady}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                transformStyle: "preserve-3d",
-                transform: `rotateY(${rotYNorm + SVG_LAND_BIAS_DEG}deg) rotateX(${rotX}deg)`,
-              }}
-            >
-              <svg className="globe-svg" viewBox="0 0 400 400" width="100%" height="100%">
-                <defs>
-                  <radialGradient id="globeFill" cx="35%" cy="30%" r="75%">
-                    <stop offset="0%" stopColor="#E8F2FF" stopOpacity="0.36" />
-                    <stop offset="38%" stopColor="#3B82F6" stopOpacity="0.24" />
-                    <stop offset="72%" stopColor="#1E5FD4" stopOpacity="0.16" />
-                    <stop offset="100%" stopColor="#060614" stopOpacity="0" />
-                  </radialGradient>
-                  <linearGradient id="globeTerminator" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#060614" stopOpacity="0" />
-                    <stop offset="55%" stopColor="#060614" stopOpacity="0.10" />
-                    <stop offset="100%" stopColor="#060614" stopOpacity="0.28" />
-                  </linearGradient>
-                  <clipPath id="globeClip">
-                    <circle cx="200" cy="200" r="180" />
-                  </clipPath>
-                </defs>
-
-                {/* Soft sphere shading (behind wireframe) */}
-                <circle cx="200" cy="200" r="180" fill="url(#globeFill)" opacity="1" />
-                <g clipPath="url(#globeClip)">
-                  <rect x="20" y="20" width="360" height="360" fill="url(#globeTerminator)" opacity="0.75" />
-                </g>
-
-                {/* Shell */}
-                <circle cx="200" cy="200" r="180" fill="none" stroke="white" strokeWidth="1.5" />
-
-                {/* Latitude parallels */}
-                <ellipse cx="200" cy="200" rx="180" ry="50" fill="none" stroke="white" strokeWidth="0.8" opacity="0.72" />
-                <ellipse cx="200" cy="200" rx="180" ry="110" fill="none" stroke="white" strokeWidth="0.8" opacity="0.66" />
-                <ellipse cx="200" cy="200" rx="180" ry="160" fill="none" stroke="white" strokeWidth="0.5" opacity="0.50" />
-
-                {/* Longitude meridians */}
-                <ellipse cx="200" cy="200" rx="50" ry="180" fill="none" stroke="white" strokeWidth="0.8" opacity="0.72" />
-                <ellipse cx="200" cy="200" rx="110" ry="180" fill="none" stroke="white" strokeWidth="0.8" opacity="0.66" />
-                <ellipse cx="200" cy="200" rx="160" ry="180" fill="none" stroke="white" strokeWidth="0.5" opacity="0.50" />
-
-                {/* Equator + prime meridian */}
-                <line x1="20" y1="200" x2="380" y2="200" stroke="white" strokeWidth="1" opacity="0.55" />
-                <line x1="200" y1="20" x2="200" y2="380" stroke="white" strokeWidth="1" opacity="0.55" />
-
-                {/* Continent blobs (hand-drawn) */}
-                <path
-                  d="M140,120 Q160,100 185,115 Q200,105 215,120 Q230,110 240,130 Q250,150 240,170 Q225,185 210,180 Q195,195 175,185 Q155,180 145,165 Q130,145 140,120Z"
-                  fill="#D8E8FF"
-                  opacity="0.55"
-                />
-                <path
-                  d="M155,195 Q170,190 185,200 Q195,215 180,230 Q165,240 150,228 Q138,215 145,202Z"
-                  fill="#D8E8FF"
-                  opacity="0.48"
-                />
-                <path
-                  d="M250,155 Q265,145 280,155 Q295,170 285,185 Q270,195 255,185 Q240,172 250,155Z"
-                  fill="#D8E8FF"
-                  opacity="0.48"
-                />
-                <path
-                  d="M190,240 Q210,235 225,248 Q235,260 225,270 Q210,278 197,268 Q185,255 190,240Z"
-                  fill="#D8E8FF"
-                  opacity="0.42"
-                />
-
-                {/* Orbit rings */}
-                <ellipse
-                  cx="200"
-                  cy="200"
-                  rx="200"
-                  ry="55"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="0.5"
-                  opacity="0.28"
-                  transform="rotate(-20 200 200)"
-                  strokeDasharray="6 4"
-                />
-                <ellipse
-                  cx="200"
-                  cy="200"
-                  rx="200"
-                  ry="40"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="0.4"
-                  opacity="0.2"
-                  transform="rotate(30 200 200)"
-                  strokeDasharray="4 8"
-                />
-              </svg>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* globe watermark removed */}
     </AbsoluteFill>
   );
 };
