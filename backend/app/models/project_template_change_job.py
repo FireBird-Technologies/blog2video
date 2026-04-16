@@ -9,8 +9,8 @@ class ProjectTemplateChangeJob(Base):
     __tablename__ = "project_template_change_jobs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     target_template: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
     total_scenes: Mapped[int] = mapped_column(Integer, default=0)
@@ -22,5 +22,5 @@ class ProjectTemplateChangeJob(Base):
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    project = relationship("Project")
-    user = relationship("User")
+    project = relationship("Project", back_populates="template_change_jobs")
+    user = relationship("User", back_populates="template_change_jobs")
