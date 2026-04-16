@@ -2873,9 +2873,19 @@ export default function ProjectView() {
               {downloadWarningMode === "download" ? "Before you download" : "Before you render"}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              {downloadWarningMode === "download"
-                ? "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video. "
-                : "Make sure You have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count."}
+              {downloadWarningMode === "download" ? (
+                "If you have made changes/edits after your last render, you need to re-render to get them in the downloaded video."
+              ) : (
+                <>
+                  <span>
+                    Make sure you have made all the changes/edits before rendering. Re-rendering of video later will result in deduction of a video count.
+                  </span>
+                  <br /><br />
+                  <span className="text-xs text-yellow-600 mb-6">
+                    The selected playback speed will be reflected in your downloaded video.
+                  </span>
+                </>
+              )}
             </p>
 
 
@@ -4397,84 +4407,6 @@ export default function ProjectView() {
                     </>
                   ) : (
                     "Save colors"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Applies to preview and final rendered video (including voiceover).
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2">
-                {PLAYBACK_SPEED_OPTIONS.map((speed) => {
-                  const active = playbackSpeedDraft === speed;
-                  return (
-                    <button
-                      key={speed}
-                      type="button"
-                      onClick={() => setPlaybackSpeedDraft(speed)}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                        active
-                          ? "bg-purple-50 text-purple-700 border-purple-300"
-                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      {speed}x
-                    </button>
-                  );
-                })}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Custom speed</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">
-                    {playbackSpeedDraft.toFixed(1)}x
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={2.5}
-                  step={0.1}
-                  value={playbackSpeedDraft}
-                  onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
-              </div>
-              {project.r2_video_url && project.playback_speed !== playbackSpeedDraft ? (
-                <p className="text-[11px] text-amber-600">
-                  Changing speed makes the current downloaded MP4 outdated. Save this and re-render to update it.
-                </p>
-              ) : null}
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingPlaybackSpeed}
-                  onClick={async () => {
-                    setSavingPlaybackSpeed(true);
-                    try {
-                      const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
-                      await updateProject(project.id, { playback_speed: normalized });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save playback speed."));
-                    } finally {
-                      setSavingPlaybackSpeed(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingPlaybackSpeed ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save speed"
                   )}
                 </button>
               </div>
