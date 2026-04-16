@@ -12,6 +12,8 @@ import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
+import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
+import UserReviewsSection from "../components/UserReviewsSection";
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
@@ -649,6 +651,8 @@ export default function Landing() {
         </div>
       </section>
 
+      <PlatformShowcaseSection />
+
       <LandingDemoSection demos={demos} />
 
       {/* ─── Multiple templates ─── */}
@@ -968,6 +972,8 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      <UserReviewsSection />
 
       {/* ─── Pricing preview ─── */}
       <section className="py-20">

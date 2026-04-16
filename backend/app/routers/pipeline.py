@@ -36,7 +36,7 @@ from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
-    PUBLIC_MSG_SCRAPE_FAILED,
+    format_scrape_failed_public_message,
 )
 from app.services.language_detection import get_content_language_for_project
 from app.services.voiceover import generate_all_voiceovers
@@ -243,7 +243,7 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
-                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
+                            public_message=format_scrape_failed_public_message(project.blog_url),
                             error_code="scrape_failed",
                             exc=e,
                         )
@@ -255,7 +255,7 @@ async def _run_pipeline(project_id: int, user_id: int):
                             db,
                             project_id,
                             user_id,
-                            public_message=PUBLIC_MSG_SCRAPE_FAILED,
+                            public_message=format_scrape_failed_public_message(project.blog_url),
                             error_code="scrape_failed",
                             exc=e,
                         )
@@ -870,11 +870,17 @@ def scrape_blog_endpoint(
     except BlogScrapeFailed as e:
         logger.warning("[SCRAPE_ENDPOINT] BlogScrapeFailed project=%s: %s", project_id, e)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
-        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
+        raise HTTPException(
+            status_code=410,
+            detail=format_scrape_failed_public_message(project.blog_url),
+        )
     except Exception as e:
         logger.exception("[SCRAPE_ENDPOINT] project=%s", project_id)
         _rollback_project_after_endpoint_failure(db, project_id, user.id)
-        raise HTTPException(status_code=410, detail=PUBLIC_MSG_SCRAPE_FAILED)
+        raise HTTPException(
+            status_code=410,
+            detail=format_scrape_failed_public_message(project.blog_url),
+        )
 
 
 @router.post("/generate-script", response_model=ProjectOut)
