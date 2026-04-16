@@ -97,11 +97,14 @@ const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", stri
   detailed: "Detailed  ~  3 – 8 mins",
 };
 
-const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx"];
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+  "text/markdown",
+  "text/x-markdown",
 ];
 
 const VOICE_PREVIEW_KEYS = ["female_american", "female_british", "male_american", "male_british"];
@@ -313,7 +316,7 @@ function containsDot(s: string): boolean {
   return s.trim().includes(".");
 }
 
-const FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".odt", ".odp", ".ods", ".txt", ".rtf", ".csv"];
+const FILE_EXTENSIONS = [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".odt", ".odp", ".ods", ".txt", ".md", ".markdown", ".rtf", ".csv"];
 
 /** Returns the matched file extension if the URL ends with a document extension, else null. */
 function getFileExtension(s: string): string | null {
@@ -792,7 +795,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const incoming = Array.from(newFiles);
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
-        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, or PPTX.`);
+        setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, or TXT.`);
         return;
       }
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -1440,11 +1443,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <p className="text-sm text-gray-500">
               Drop files here or <span className="text-purple-600 font-medium">browse</span>
             </p>
-            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint</p>
+            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text</p>
             <input
               ref={docInputRef}
               type="file"
-              accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              accept=".pdf,.docx,.pptx,.md,.markdown,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown,text/x-markdown"
               multiple
               className="hidden"
               onChange={(e) => { addDocFiles(e.target.files); e.target.value = ""; }}

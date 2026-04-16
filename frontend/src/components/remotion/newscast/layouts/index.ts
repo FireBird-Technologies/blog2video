@@ -6,6 +6,7 @@ import { GlassImage } from "./GlassImage";
 import { GlassNarrative } from "./GlassNarrative";
 import { GlassStack } from "./GlassStack";
 import { GlowMetric } from "./GlowMetric";
+import { DataVisualization } from "./DataVisualization";
 import { KineticInsight } from "./KineticInsight";
 import { SplitGlass } from "./SplitGlass";
 import { EndingSocials } from "./EndingSocials";
@@ -21,6 +22,7 @@ export const NEWSCAST_LAYOUT_REGISTRY: Record<
   opening: CinematicTitle,
   anchor_narrative: GlassNarrative,
   live_metrics_board: GlowMetric,
+  data_visualization: DataVisualization,
   briefing_code_panel: GlassCode,
   headline_insight: KineticInsight,
   story_stack: GlassStack,
