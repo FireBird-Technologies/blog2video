@@ -35,7 +35,7 @@ export default function PublicHeader() {
   return (
     <nav className="bg-white/70 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/60">
       {/* Banner above navbar so it appears first on scroll */}
-      <DiscountBanner containerClassName="max-w-6xl" />
+      {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <Link to="/" className="flex items-center gap-3">
