@@ -516,7 +516,7 @@ export default function Landing() {
       {/* ─── Nav ─── */}
       <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
         {/* Banner above navbar so it appears first on scroll */}
-        <DiscountBanner containerClassName="max-w-6xl" />
+        {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
