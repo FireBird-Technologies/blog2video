@@ -1,6 +1,7 @@
 {
   "id": "mosaic",
   "name": "Mosaic",
+  "new_template": true,
   "description": "Warm stone-and-cream tessera style with terracotta accents and fine linework. Editorial serif typography with structured, handcrafted layouts on soft beige backgrounds.",
   "styles": [
     "explainer",
