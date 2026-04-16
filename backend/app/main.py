@@ -305,6 +305,7 @@ _always_allowed = [
     "https://blog2video.app",
     "https://www.blog2video.app",
     "https://muhammad-mehdi-backend-b2v.hf.space",
+    "https://blog2video.pages.dev"
 ]
 for origin in _always_allowed:
     if origin not in _origins:
