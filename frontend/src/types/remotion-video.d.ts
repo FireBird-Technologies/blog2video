@@ -26,6 +26,12 @@ declare module "@remotion-video/templates/matrix/layouts" {
   export type MatrixLayoutProps = Record<string, any>;
 }
 
+declare module "@remotion-video/templates/mosaic/layouts" {
+  export const MOSAIC_LAYOUT_REGISTRY: Record<string, any>;
+  export type MosaicLayoutType = string;
+  export type MosaicLayoutProps = Record<string, any>;
+}
+
 declare module "@remotion-video/templates/whiteboard/layouts" {
   export const WHITEBOARD_LAYOUT_REGISTRY: Record<string, any>;
   export type WhiteboardLayoutType = string;
