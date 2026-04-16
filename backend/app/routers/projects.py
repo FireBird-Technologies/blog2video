@@ -1035,7 +1035,7 @@ def list_projects(
             func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
         )
         .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
-        .filter(Project.user_id == user.id)
+        .filter(Project.user_id == user.id, Project.is_active == True)  # noqa: E712
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -1132,7 +1132,11 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    db.delete(project)
+    project.is_active = False
+    project.r2_video_key = None
+    project.r2_video_url = None
+    project.logo_r2_key = None
+    project.logo_r2_url = None
     db.commit()
     return {"detail": "Project deleted"}
 
@@ -2225,7 +2229,7 @@ def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
     """Get a project owned by the given user, or raise 404."""
     project = (
         db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id)
+        .filter(Project.id == project_id, Project.user_id == user_id, Project.is_active == True)  # noqa: E712
         .first()
     )
     if not project:
