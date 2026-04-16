@@ -5,6 +5,8 @@ import {
   Sequence,
   staticFile,
   CalculateMetadataFunction,
+  delayRender,
+  continueRender,
 } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
@@ -73,11 +75,21 @@ export const calculateMosaicMetadata: CalculateMetadataFunction<VideoProps> =
 
 export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const [data, setData] = useState<VideoData | null>(null);
+  // delayRender tells Remotion to wait before capturing any frame.
+  // Required on Linux (HuggingFace/Cloud Run) where --enable-multiprocess-on-linux
+  // spawns a fresh browser process per frame — without this, frames are captured
+  // before the async fetch resolves and data stays null for every frame.
+  const [dataHandle] = useState(() =>
+    delayRender("Loading mosaic data", { timeoutInMilliseconds: 15_000 }),
+  );
 
   useEffect(() => {
     fetch(staticFile(dataUrl.replace(/^\//, "")))
       .then((res) => res.json())
-      .then(setData)
+      .then((d: VideoData) => {
+        setData(d);
+        continueRender(dataHandle);
+      })
       .catch(() => {
         setData({
           projectName: "Mosaic Preview",
@@ -98,6 +110,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             },
           ],
         });
+        continueRender(dataHandle);
       });
   }, [dataUrl]);
 
