@@ -1694,7 +1694,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               </div>
             )}
           </div>
-          <div className="px-4 py-2.5 bg-purple-50/80 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-purple-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-gray-800">
@@ -1728,7 +1728,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
             Video Style
           </label>
-          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl">
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
             {VIDEO_STYLES.map((s) => {
               const isSelected = videoStyle === s.id;
               return (
@@ -1751,9 +1751,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
           Suggested templates for the selected video style
         </p>
-        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[260px] sm:max-h-[220px] overflow-y-auto bg-gray-50/40">
           <>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <CraftYourTemplateCard
                 variant="default"
                 isPro={isPro}
@@ -1882,13 +1882,13 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
           Video Colors
         </label>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
           {[
             { label: "Accent", value: accentColor, setter: setAccentColor },
             { label: "Background", value: bgColor, setter: setBgColor },
             { label: "Text", value: textColor, setter: setTextColor },
           ].map(({ label, value, setter }) => (
-            <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+            <label key={label} className="flex items-center gap-2 cursor-pointer group">
               <span
                 className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
                 style={{ backgroundColor: value }}
@@ -2505,7 +2505,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                 { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
                 { label: "Text", value: text, setter: (v: string) => setBulkColor("text", v) },
               ].map(({ label, value, setter }) => (
-                <label key={label} className="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <label key={label} className="flex items-center gap-2 cursor-pointer group">
                   <span
                     className="w-8 h-8 rounded-full border-2 border-gray-200 group-hover:border-gray-400 transition-all shadow-sm relative overflow-hidden"
                     style={{ backgroundColor: value }}
@@ -2643,18 +2643,18 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
           <button
             type="button"
             onClick={goBack}
-            className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
+            className="w-full sm:w-auto px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60"
           >
             Back
           </button>
           <button
             type="button"
             onClick={goNext}
-            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             Go to step 3
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
