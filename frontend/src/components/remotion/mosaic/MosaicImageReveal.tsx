@@ -37,6 +37,7 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
   style,
 }) => {
   const [tileColors, setTileColors] = useState<TileColor[]>([]);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [handle] = useState(() => delayRender());
 
   const cols = 36; // Reduced for stronger mosaic effect (was 48)
@@ -48,9 +49,16 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = imageUrl;
+    // Append ?cors=1 so this request is a separate cache entry from any prior
+    // non-CORS load of the same URL. Without this, the browser may serve a
+    // disk-cached response that has no Access-Control-Allow-Origin header,
+    // causing getImageData() to fail even when R2 CORS is configured.
+    const sep = imageUrl.includes("?") ? "&" : "?";
+    img.src = `${imageUrl}${sep}cors=1`;
 
     img.onload = () => {
+      setImageLoaded(true);
+
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) {
@@ -58,57 +66,61 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
         return;
       }
 
-      canvas.width = cols;
-      canvas.height = rows;
-      ctx.drawImage(img, 0, 0, cols, rows);
+      try {
+        canvas.width = cols;
+        canvas.height = rows;
+        ctx.drawImage(img, 0, 0, cols, rows);
 
-      const tiles: TileColor[] = [];
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const pixel = ctx.getImageData(col, row, 1, 1).data;
-          const r = pixel[0];
-          const g = pixel[1];
-          const b = pixel[2];
+        const tiles: TileColor[] = [];
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const pixel = ctx.getImageData(col, row, 1, 1).data;
+            const r = pixel[0];
+            const g = pixel[1];
+            const b = pixel[2];
 
-          // Add subtle color variation for authentic mosaic look
-          const variance = 6;
-          const vr = Math.min(255, Math.max(0, r + (Math.random() - 0.5) * variance));
-          const vg = Math.min(255, Math.max(0, g + (Math.random() - 0.5) * variance));
-          const vb = Math.min(255, Math.max(0, b + (Math.random() - 0.5) * variance));
+            // Add subtle color variation for authentic mosaic look
+            const variance = 6;
+            const vr = Math.min(255, Math.max(0, r + (Math.random() - 0.5) * variance));
+            const vg = Math.min(255, Math.max(0, g + (Math.random() - 0.5) * variance));
+            const vb = Math.min(255, Math.max(0, b + (Math.random() - 0.5) * variance));
 
-          const order = row * cols + col;
-          const x = col * tileW;
-          const y = row * tileH;
-          const cx = (col + 0.5) * tileW;
-          const cy = (row + 0.5) * tileH;
+            const order = row * cols + col;
+            const x = col * tileW;
+            const y = row * tileH;
+            const cx = (col + 0.5) * tileW;
+            const cy = (row + 0.5) * tileH;
 
-          tiles.push({
-            fill: `rgb(${Math.round(vr)},${Math.round(vg)},${Math.round(vb)})`,
-            x,
-            y,
-            w: tileW,
-            h: tileH,
-            cx,
-            cy,
-            order,
-          });
+            tiles.push({
+              fill: `rgb(${Math.round(vr)},${Math.round(vg)},${Math.round(vb)})`,
+              x,
+              y,
+              w: tileW,
+              h: tileH,
+              cx,
+              cy,
+              order,
+            });
+          }
         }
+
+        setTileColors(tiles);
+      } catch (e) {
+        console.error("[MosaicImageReveal] Canvas read failed (likely CORS tainted canvas):", e);
       }
 
-      setTileColors(tiles);
       continueRender(handle);
     };
 
     img.onerror = () => {
+      // Image blocked (e.g. R2 missing CORS headers for this origin).
+      // Mark as loaded so the display <img> below still renders without crossOrigin.
+      setImageLoaded(true);
       continueRender(handle);
     };
   }, [imageUrl, cols, rows, tileW, tileH, handle]);
 
-  if (tileColors.length === 0) {
-    return null;
-  }
-
-  if (tileColors.length === 0) {
+  if (!imageLoaded) {
     return null;
   }
 
@@ -117,7 +129,6 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
       {/* Base clear image - fades in as clarity increases */}
       <img
         src={imageUrl}
-        crossOrigin="anonymous"
         style={{
           position: "absolute",
           inset: 0,
