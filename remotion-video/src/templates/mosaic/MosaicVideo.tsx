@@ -152,8 +152,8 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           MOSAIC_LAYOUT_REGISTRY.mosaic_text;
         const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-        // Force cream/beige palette for mosaic template
-        const mosaicBg = "#EAE4DA";
+        // Use user's bg color with cream/beige as default
+        const mosaicBg = data.bgColor || "#EAE4DA";
         const mosaicText = "#2A2A28";
         const mosaicAccent = data.accentColor || "#C26240";
 
