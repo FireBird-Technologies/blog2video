@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AbsoluteFill, useCurrentFrame, interpolate, continueRender, delayRender } from "remotion";
 import { getTileEntryProgress, type MosaicTileEntryPattern } from "./transitions";
 
@@ -37,6 +37,7 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const [tileColors, setTileColors] = useState<TileColor[]>([]);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [handle] = useState(() => delayRender());
 
   const tileProgress = interpolate(
@@ -55,9 +56,16 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = imageUrl;
+    // Append ?cors=1 so this request is a separate cache entry from any prior
+    // non-CORS load of the same URL. Without this, the browser may serve a
+    // disk-cached response that has no Access-Control-Allow-Origin header,
+    // causing getImageData() to fail even when R2 CORS is configured.
+    const sep = imageUrl.includes("?") ? "&" : "?";
+    img.src = `${imageUrl}${sep}cors=1`;
 
     img.onload = () => {
+      setImageLoaded(true);
+
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) {
@@ -65,53 +73,61 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
         return;
       }
 
-      canvas.width = cols;
-      canvas.height = rows;
-      ctx.drawImage(img, 0, 0, cols, rows);
+      try {
+        canvas.width = cols;
+        canvas.height = rows;
+        ctx.drawImage(img, 0, 0, cols, rows);
 
-      const tiles: TileColor[] = [];
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const pixel = ctx.getImageData(col, row, 1, 1).data;
-          const r = pixel[0];
-          const g = pixel[1];
-          const b = pixel[2];
-          
-          // Add slight color variation for mosaic authenticity
-          const variance = 8;
-          const vr = Math.floor(r + (Math.random() - 0.5) * variance);
-          const vg = Math.floor(g + (Math.random() - 0.5) * variance);
-          const vb = Math.floor(b + (Math.random() - 0.5) * variance);
-          
-          const order = row * cols + col;
-          const x = col * tileW;
-          const y = row * tileH;
-          const cx = (col + 0.5) * tileW;
-          const cy = (row + 0.5) * tileH;
+        const tiles: TileColor[] = [];
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const pixel = ctx.getImageData(col, row, 1, 1).data;
+            const r = pixel[0];
+            const g = pixel[1];
+            const b = pixel[2];
 
-          tiles.push({
-            fill: `rgb(${Math.max(0, Math.min(255, vr))},${Math.max(0, Math.min(255, vg))},${Math.max(0, Math.min(255, vb))})`,
-            x,
-            y,
-            w: tileW,
-            h: tileH,
-            cx,
-            cy,
-            order,
-          });
+            // Add slight color variation for mosaic authenticity
+            const variance = 8;
+            const vr = Math.floor(r + (Math.random() - 0.5) * variance);
+            const vg = Math.floor(g + (Math.random() - 0.5) * variance);
+            const vb = Math.floor(b + (Math.random() - 0.5) * variance);
+
+            const order = row * cols + col;
+            const x = col * tileW;
+            const y = row * tileH;
+            const cx = (col + 0.5) * tileW;
+            const cy = (row + 0.5) * tileH;
+
+            tiles.push({
+              fill: `rgb(${Math.max(0, Math.min(255, vr))},${Math.max(0, Math.min(255, vg))},${Math.max(0, Math.min(255, vb))})`,
+              x,
+              y,
+              w: tileW,
+              h: tileH,
+              cx,
+              cy,
+              order,
+            });
+          }
         }
+
+        setTileColors(tiles);
+      } catch {
+        // Canvas is tainted (CORS) — component renders overlays without mosaic tile colors
       }
 
-      setTileColors(tiles);
       continueRender(handle);
     };
 
     img.onerror = () => {
+      // Image blocked (e.g. R2 missing CORS headers for this origin).
+      // Mark as loaded so overlays still render.
+      setImageLoaded(true);
       continueRender(handle);
     };
   }, [imageUrl, cols, rows, tileW, tileH, handle]);
 
-  if (tileColors.length === 0) {
+  if (!imageLoaded) {
     return null;
   }
 
