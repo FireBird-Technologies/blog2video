@@ -17,10 +17,12 @@ import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposit
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
+import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
+  RemotionMosaicVideoComposition,
   RemotionNewspaperVideoComposition,
   RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
@@ -142,6 +144,17 @@ const MATRIX_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const MOSAIC_LAYOUTS = new Set([
+  "mosaic_title",
+  "mosaic_text",
+  "mosaic_punch",
+  "mosaic_stream",
+  "mosaic_metric",
+  "mosaic_phrases",
+  "mosaic_close",
+  "ending_socials",
+]);
+
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
   "marker_story",
@@ -255,6 +268,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  mosaic: {
+    component: MosaicVideoComposition as React.ComponentType<any>,
+    heroLayout: "mosaic_title",
+    fallbackLayout: "mosaic_text",
+    validLayouts: MOSAIC_LAYOUTS,
+    defaultColors: {
+      accent: "#D4AF37",
+      bg: "#0F1E2D",
+      text: "#E6EEF7",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
   whiteboard: {
     component: WhiteboardVideoComposition as React.ComponentType<any>,
     heroLayout: "drawn_title",
@@ -343,6 +369,8 @@ export function getTemplateConfig(
               ? RemotionSpotlightVideoComposition
               : id === "matrix"
                 ? RemotionMatrixVideoComposition
+                : id === "mosaic"
+                  ? RemotionMosaicVideoComposition
                 : id === "whiteboard"
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
