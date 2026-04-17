@@ -63,6 +63,10 @@ class Project(Base):
     video_length: Mapped[str] = mapped_column(String(10), default="auto")
     playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
 
+    # Background music
+    bgm_track_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    bgm_volume: Mapped[float] = mapped_column(Float, default=0.10)
+
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
     # All generated content (script, display text, voiceover) is produced in this language.
     # Null = auto-detect from blog_content when needed. Later: user choice / translate option.

@@ -13,6 +13,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 
 interface SceneData {
   id: number;
@@ -37,6 +38,8 @@ interface VideoData {
   logoSize?: string;
   aspectRatio?: string;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -189,6 +192,10 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           aspectRatio={data.aspectRatio || "landscape"}
         />
       ) : null}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
+      )}
     </AbsoluteFill>
   );
 };
