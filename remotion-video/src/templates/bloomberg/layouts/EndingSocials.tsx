@@ -2,16 +2,68 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps, BloombergSocial } from "../types";
 import { SocialIcons } from "../../SocialIcons";
+import { BackgroundGraph } from "./BackgroundGraph";
+
+const SUPPORTED_SOCIALS = new Set([
+  "instagram",
+  "youtube",
+  "medium",
+  "substack",
+  "facebook",
+  "linkedin",
+  "tiktok",
+]);
+
+function parseEnabled(value: unknown, fallback = true): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+  }
+  return fallback;
+}
 
 function normalizeSocials(raw: BloombergLayoutProps["socials"]): BloombergSocial[] {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw as BloombergSocial[];
-  // Legacy object map { platform: handle }
-  return Object.entries(raw).map(([platform, label]) => ({
-    platform,
-    enabled: "true",
-    label: String(label),
-  }));
+  if (Array.isArray(raw)) {
+    return (raw as BloombergSocial[])
+      .map((item) => ({
+        ...item,
+        platform: String(item.platform || "").trim().toLowerCase(),
+        enabled: parseEnabled(item.enabled, true),
+        label: item.label?.trim(),
+      }))
+      .filter((item) => SUPPORTED_SOCIALS.has(item.platform));
+  }
+  // Legacy object map can be:
+  // { platform: "label/url" } OR { platform: "false" } OR { platform: { enabled, label/url/text } }
+  const normalized: BloombergSocial[] = [];
+  for (const [platform, value] of Object.entries(raw)) {
+    const normalizedPlatform = String(platform).trim().toLowerCase();
+    if (!SUPPORTED_SOCIALS.has(normalizedPlatform)) continue;
+
+    if (value !== null && typeof value === "object") {
+      const row = value as { enabled?: unknown; label?: unknown; text?: unknown; url?: unknown };
+      const label = String(row.label ?? row.text ?? row.url ?? "").trim();
+      const enabled = parseEnabled(row.enabled, Boolean(label));
+      if (!enabled) continue;
+      normalized.push({ platform: normalizedPlatform, enabled, label });
+      continue;
+    }
+
+    const rawText = String(value ?? "").trim();
+    const enabled = parseEnabled(value, Boolean(rawText));
+    if (!enabled) continue;
+
+    const label =
+      typeof value === "string" && ["true", "false", "1", "0", "yes", "no", "on", "off"].includes(rawText.toLowerCase())
+        ? ""
+        : rawText;
+    normalized.push({ platform: normalizedPlatform, enabled, label });
+  }
+
+  return normalized;
 }
 
 export const EndingSocials: React.FC<BloombergLayoutProps> = ({
@@ -42,7 +94,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
 
   const socialList = normalizeSocials(socials);
   const enabledSocials = socialList.filter(
-    (s) => s.enabled === true || s.enabled === "true",
+    (s) => parseEnabled(s.enabled, true) && Boolean(s.platform),
   );
 
   // Blinking cursor
@@ -51,6 +103,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
       {/* Top bar */}
+       <BackgroundGraph accentColor={blue} textColor={amber} variant="socials" />
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 48,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
