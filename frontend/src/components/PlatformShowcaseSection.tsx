@@ -267,7 +267,7 @@ export default function PlatformShowcaseSection() {
       {/* ── Publication logo ticker (left → right, independent) ── */}
       <div className="mt-10 mb-12">
         <p className="text-xs font-medium text-gray-400 text-center tracking-widest uppercase mb-6">
-          used by writers of
+          ❤️ by writers of
         </p>
         <PublicationLogoTicker running={tickerRunning} />
       </div>
