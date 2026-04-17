@@ -318,12 +318,12 @@
       "label": "Terminal Split",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
+          "portrait": 102,
           "landscape": 107
         },
         "descriptionFontSize": {
-          "portrait": 30,
-          "landscape": 33
+          "portrait": 45,
+          "landscape": 41
         },
         "leftLabel": "BEFORE",
         "rightLabel": "AFTER",
@@ -375,11 +375,11 @@
       "label": "Terminal Quote",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
-          "landscape": 89
+          "portrait": 97,
+          "landscape": 97
         },
         "descriptionFontSize": {
-          "portrait": 34,
+          "portrait": 56,
           "landscape": 59
         },
         "quote": "The signal is always in the data. The noise is everywhere else.",
@@ -420,11 +420,11 @@
       "label": "Terminal List",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
-          "landscape": 108
+          "portrait": 96,
+          "landscape": 95
         },
         "descriptionFontSize": {
-          "portrait": 32,
+          "portrait": 41,
           "landscape": 36
         },
         "items": [
@@ -464,12 +464,12 @@
       "label": "Terminal Metric",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
-          "landscape": 97
+          "portrait": 104,
+          "landscape": 108
         },
         "descriptionFontSize": {
-          "portrait": 30,
-          "landscape": 37
+          "portrait": 41,
+          "landscape": 36
         },
         "metrics": [
           {
@@ -534,12 +534,12 @@
       "label": "Terminal Profile",
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 97
+          "portrait": 105,
+          "landscape": 107
         },
         "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 30
+          "portrait": 33,
+          "landscape": 35
         },
         "items": [
           "CLASSIC       Amber on black. Pure terminal baseline.",
@@ -580,12 +580,12 @@
       "label": "Terminal Options",
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 84
+          "portrait": 90,
+          "landscape": 97
         },
         "descriptionFontSize": {
-          "portrait": 26,
-          "landscape": 29
+          "portrait": 36,
+          "landscape": 32
         },
         "items": [
           "STRIKE | TYPE | BID  | ASK  | IV    | DELTA | GAMMA",

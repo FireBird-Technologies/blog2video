@@ -613,16 +613,15 @@ export default function Landing() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight mb-6">
-            Keep your audience updated,
+            Your writen voice
             <br />
             <span className="bg-gradient-to-r from-purple-600 to-violet-500 bg-clip-text text-transparent">
-              without a video team
+              into video
             </span>
           </h1>
 
           <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-6 leading-relaxed">
-            Turn blog posts, product updates, launch notes, and newsletter ideas into narrated videos in minutes.
-            Blog2Video helps solopreneurs publish consistently without editors, agencies, or complicated video software.
+            Turn blog posts and updates into narrated videos in minutes.
           </p>
 
           <p className="text-sm text-gray-400 mb-10 max-w-xl mx-auto">
