@@ -1603,7 +1603,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             {logoFile && (
               <div className="mt-2">
                 <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {([
                     { value: "top_left", label: "Top Left" },
                     { value: "top_right", label: "Top Right" },
@@ -2509,12 +2509,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </div>
 
         {/* Video colors (same UI as single) + Logo (bulk-only extra, placed to the right) */}
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        <div className="flex flex-col gap-5">
+          <div className="min-w-0">
+            <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider text-center sm:text-left">
               Video Colors
             </label>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-3">
               {[
                 { label: "Accent", value: accent, setter: (v: string) => setBulkColor("accent", v) },
                 { label: "Background", value: bg, setter: (v: string) => setBulkColor("bg", v) },
@@ -2538,7 +2538,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
           </div>
 
-          <div className="min-w-[240px]">
+          <div className="w-full max-w-[420px]">
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
             </label>
@@ -2585,7 +2585,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             {bulkLogoFile[activeIndex] && (
               <div className="mt-2">
                 <label className="block text-[10px] text-gray-400 mb-1">Position</label>
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {([
                     { value: "top_left", label: "Top Left" },
                     { value: "top_right", label: "Top Right" },
