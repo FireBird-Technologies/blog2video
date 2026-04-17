@@ -2523,7 +2523,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
           </div>
 
-          <div className="w-full max-w-[420px]">
+          <div className="w-full">
             <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
               Logo <span className="text-gray-300 font-normal">(optional · max 2 MB)</span>
             </label>
