@@ -6,7 +6,9 @@ import { defaultCta, templateProfiles } from "./marketingBase";
 import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
 import type { BlogPost, MarketingPage } from "./seoTypes";
+import { getSubstackDirectoryPage, substackDirectoryPaths } from "./substackDirectory";
 import { templatePages } from "./templatePages";
+import { getTool, getToolByPath, tools, toolsHub } from "./tools";
 import { useCasePages } from "./useCasePages";
 
 export const siteUrl = "https://blog2video.app";
@@ -28,6 +30,7 @@ export const topNavLinks = [
   { href: "/blog-to-video", label: "Blog to Video" },
   { href: "/for-technical-bloggers", label: "Use Cases" },
   { href: "/templates/geometric-explainer", label: "Templates" },
+  { href: toolsHub.path, label: "Tools" },
   { href: "/blogs", label: "Blog" },
   { href: "/pricing", label: "Pricing" },
 ];
@@ -43,6 +46,19 @@ export const templateMenuLinks = [
     label: "Custom Templates",
     description: "Create a reusable branded template from your website or brand system.",
   },
+];
+
+export const toolsMenuLinks = [
+  {
+    href: toolsHub.path,
+    label: "All Tools",
+    description: "Browse calculators, analyzers, formatters, generators, and the Substack directory.",
+  },
+  ...tools.map((tool) => ({
+    href: tool.path,
+    label: tool.title,
+    description: tool.description,
+  })),
 ];
 
 export const footerGroups = [
@@ -94,6 +110,17 @@ export const footerGroups = [
     ],
   },
   {
+    title: "Tools",
+    links: [
+      toolsHub.path,
+      "/tools/medium-partner-program-earnings-calculator",
+      "/tools/substack-revenue-calculator",
+      "/tools/markdown-to-medium-substack-formatter",
+      "/tools/headline-analyzer",
+      "/tools/quote-card-generator",
+    ],
+  },
+  {
     title: "Resources",
     links: [
       "/distribution-flywheel",
@@ -129,15 +156,22 @@ export function getDisplayTitle(path: string): string {
   if (path === "/pricing") return "Pricing";
   if (path === "/contact") return "Contact";
   if (path === "/blogs") return "Blog";
+  if (path === toolsHub.path) return "Tools";
 
   const marketingPage = getMarketingPage(path);
   if (marketingPage) return marketingPage.heroTitle;
+
+  const tool = getToolByPath(path);
+  if (tool) return tool.title;
 
   const blogSlugPrefix = "/blogs/";
   if (path.startsWith(blogSlugPrefix)) {
     const post = getBlogPost(path.replace(blogSlugPrefix, ""));
     if (post) return post.title;
   }
+
+  const substackDirectoryPage = getSubstackDirectoryPage(path);
+  if (substackDirectoryPage) return substackDirectoryPage.title;
 
   return "Blog2Video";
 }
@@ -148,24 +182,92 @@ export function getPublicPaths(): string[] {
     "/pricing",
     "/contact",
     "/blogs",
+    toolsHub.path,
     ...marketingPages.map((page) => page.path),
+    ...tools.map((tool) => tool.path),
+    ...substackDirectoryPaths,
     ...blogPosts.map((post) => `/blogs/${post.slug}`),
   ];
 }
 
+export function getPublicLinkDetails(path: string) {
+  if (path === "/blogs") {
+    return {
+      path,
+      label: "Blog",
+      description:
+        "Educational content, SEO workflows, repurposing playbooks, and product updates for Blog2Video.",
+    };
+  }
+
+  if (path === "/pricing") {
+    return {
+      path,
+      label: "Pricing",
+      description: "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
+    };
+  }
+
+  if (path === "/contact") {
+    return {
+      path,
+      label: "Contact",
+      description: "Talk to Blog2Video about support, enterprise use cases, and team workflows.",
+    };
+  }
+
+  if (path === toolsHub.path) {
+    return {
+      path,
+      label: "Tools",
+      description: toolsHub.description,
+    };
+  }
+
+  const marketingPage = getMarketingPage(path);
+  if (marketingPage) {
+    return {
+      path,
+      label: marketingPage.heroTitle,
+      description: marketingPage.description,
+    };
+  }
+
+  const tool = getToolByPath(path);
+  if (tool) {
+    return {
+      path,
+      label: tool.title,
+      description: tool.description,
+    };
+  }
+
+  if (path.startsWith("/blogs/")) {
+    const post = getBlogPost(path.replace("/blogs/", ""));
+    if (post) {
+      return {
+        path,
+        label: post.title,
+        description: post.description,
+      };
+    }
+  }
+
+  const substackDirectoryPage = getSubstackDirectoryPage(path);
+  if (substackDirectoryPage) {
+    return {
+      path,
+      label: substackDirectoryPage.title,
+      description: substackDirectoryPage.description,
+    };
+  }
+
+  return null;
+}
+
 export function getStructuredInternalLinks(paths: string[]) {
   return paths
-    .map((path) => {
-      if (path.startsWith("/blogs/")) {
-        const post = getBlogPost(path.replace("/blogs/", ""));
-        return post ? { path, label: post.title, description: post.description } : null;
-      }
-
-      const page = getMarketingPage(path);
-      return page
-        ? { path, label: page.heroTitle, description: page.description }
-        : null;
-    })
+    .map((path) => getPublicLinkDetails(path))
     .filter(Boolean) as Array<{ path: string; label: string; description: string }>;
 }
 
@@ -173,4 +275,12 @@ export function getTemplateProfile(slug: string) {
   return templateProfiles.find((template) => template.slug === slug);
 }
 
-export { blogPosts, defaultCta, templateProfiles };
+export {
+  blogPosts,
+  defaultCta,
+  getTool,
+  getToolByPath,
+  templateProfiles,
+  tools,
+  toolsHub,
+};

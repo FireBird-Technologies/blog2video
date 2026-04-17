@@ -11,6 +11,10 @@ import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
+import ToolsHub from "./pages/ToolsHub";
+import ToolPage from "./pages/ToolPage";
+import SubstackDirectoryNichePage from "./pages/SubstackDirectoryNichePage";
+import SubstackPublicationPage from "./pages/SubstackPublicationPage";
 import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
@@ -69,6 +73,20 @@ function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        <Route path="/tools" element={<ToolsHub />} />
+        <Route
+          path="/tools/substack-directory/publication/:publicationSlug"
+          element={<SubstackPublicationPage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug/pricing/:pricingSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route path="/tools/:slug" element={<ToolPage />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}
