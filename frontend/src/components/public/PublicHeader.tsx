@@ -128,19 +128,19 @@ export default function PublicHeader() {
                 </button>
 
                 {toolsOpen && (
-                  <div className="absolute left-1/2 top-full mt-3 w-96 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
+                  <div className="absolute left-1/2 top-full mt-3 w-[32rem] -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
                     {toolsMenuLinks.map((tool) => (
                       <Link
                         key={tool.href}
                         to={tool.href}
-                        className={`block rounded-lg px-3 py-2.5 transition-colors ${
+                        className={`block rounded-xl px-4 py-3 transition-colors ${
                           location.pathname === tool.href
                             ? "bg-purple-50 text-purple-700"
                             : "hover:bg-gray-50"
                         }`}
                       >
-                        <p className="text-sm font-medium text-gray-900">{tool.label}</p>
-                        <p className="text-xs text-gray-500">{tool.description}</p>
+                        <p className="text-base font-semibold text-gray-900">{tool.label}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-gray-500">{tool.description}</p>
                       </Link>
                     ))}
                   </div>
