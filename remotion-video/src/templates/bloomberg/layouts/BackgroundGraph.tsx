@@ -4,7 +4,7 @@ interface BackgroundGraphProps {
   accentColor: string;
   textColor: string;
   opacity?: number;
-  variant?: "list" | "quote" | "split";
+  variant?: "list" | "quote" | "split" | "options" | "metric" | "socials";
 }
 
 function makePrng(seed: number) {
@@ -116,6 +116,21 @@ export const BackgroundGraph: React.FC<BackgroundGraphProps> = ({
       line2: { seed: 523, yCenter: 0.55, amplitude: 0.22, pts: 64 },
       numberSeed: 29,
     },
+    options: {
+      line1: { seed: 717, yCenter: 0.53, amplitude: 0.3, pts: 72 },
+      line2: { seed: 941, yCenter: 0.44, amplitude: 0.24, pts: 70 },
+      numberSeed: 37,
+    },
+    metric: {
+      line1: { seed: 1103, yCenter: 0.5, amplitude: 0.2, pts: 56 },
+      line2: { seed: 1321, yCenter: 0.57, amplitude: 0.17, pts: 52 },
+      numberSeed: 43,
+    },
+    socials: {
+      line1: { seed: 1487, yCenter: 0.45, amplitude: 0.28, pts: 68 },
+      line2: { seed: 1609, yCenter: 0.58, amplitude: 0.22, pts: 60 },
+      numberSeed: 53,
+    },
   } as const;
 
   const cfg = variantConfig[variant];
@@ -133,7 +148,7 @@ export const BackgroundGraph: React.FC<BackgroundGraphProps> = ({
   const numOpacity = interpolate(frame, [15, 35], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   return (
-    <div style={{ position: "absolute", inset: 0, opacity: opacity * 0.18, pointerEvents: "none" }}>
+    <div style={{ position: "absolute", inset: 0, opacity: opacity * 0.28, pointerEvents: "none" }}>
       <svg
         width={W}
         height={H}
