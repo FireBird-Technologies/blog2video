@@ -3,10 +3,11 @@ import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
 import { tools, toolsHub } from "../content/siteContent";
+import type { ToolCategory } from "../content/seoTypes";
 import { substackDirectoryPaths } from "../content/substackDirectory";
 import { toolsHubSchema } from "../seo/schema";
 
-const categoryLabels = {
+const categoryLabels: Record<ToolCategory, string> = {
   calculator: "Calculators",
   formatter: "Formatter",
   directory: "Directory",
