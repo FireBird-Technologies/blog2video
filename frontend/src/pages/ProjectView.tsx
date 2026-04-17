@@ -4450,7 +4450,7 @@ export default function ProjectView() {
             </div>
           </div>
 
-          <div>
+          {/* <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
             <p className="text-xs text-gray-400 mb-5">
               Applies to preview and final rendered video (including voiceover).
@@ -4526,7 +4526,7 @@ export default function ProjectView() {
                 </button>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Background Music */}
           <div>
