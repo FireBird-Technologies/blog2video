@@ -128,6 +128,9 @@ export interface Project {
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed";
   playback_speed?: number;
+  bgm_track_id?: string | null;
+  bgm_volume?: number;
+  bgm_track_url?: string | null;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_template_missing?: boolean;
@@ -345,6 +348,15 @@ export const resumeSubscription = () =>
   api.post("/billing/resume");
 
 // ─── Project API ──────────────────────────────────────────
+
+export interface BgmTrack {
+  track_id: string;
+  display_name: string;
+  mood: string;
+  r2_url: string;
+}
+
+export const getBgmTracks = () => api.get<BgmTrack[]>("/background-music/tracks");
 
 export interface TemplateMeta {
   id: string;
@@ -670,7 +682,8 @@ export const createProject = (
   template?: string,
   video_style?: VideoStyleId,
   video_length?: "auto" | "short" | "medium" | "detailed",
-  content_language?: string | null
+  content_language?: string | null,
+  bgm_track_id?: string | null
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -689,6 +702,7 @@ export const createProject = (
     video_style,
     video_length,
     content_language,
+    bgm_track_id,
   });
 
 /** One project config for bulk create (same shape as single create). */
@@ -754,6 +768,7 @@ export const createProjectFromDocs = (
     video_style?: VideoStyleId;
     video_length?: "auto" | "short" | "medium" | "detailed";
     content_language?: string | null;
+    bgm_track_id?: string | null;
   } = {}
 ) => {
   const formData = new FormData();
@@ -779,6 +794,7 @@ export const createProjectFromDocs = (
   if (config.video_length !== undefined && config.video_length !== null) {
     formData.append("video_length", config.video_length);
   }
+  if (config.bgm_track_id) formData.append("bgm_track_id", config.bgm_track_id);
   return api.post<Project>("/projects/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
@@ -890,6 +906,8 @@ export const updateProject = (
     font_family?: string | null;
     aspect_ratio?: string;
     playback_speed?: number;
+    bgm_track_id?: string | null;
+    bgm_volume?: number;
   }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 

@@ -85,6 +85,7 @@ _SHARED_SRC_FILES = [
     "src/index.ts",
     "src/components/LogoOverlay.tsx",
     "src/components/Transitions.tsx",
+    "src/components/BackgroundMusic.tsx",
     # Shared playback speed helpers imported by all template compositions.
     "src/templates/playbackSpeed.ts",
     "src/components/LogoOverlay.tsx",
@@ -794,6 +795,21 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         if _download_url_to_file(project.logo_r2_url, logo_dest):
             logo_file = f"logo.{logo_ext}"
 
+    # Download background music from R2 if configured
+    bgm_file = None
+    bgm_track_id = getattr(project, "bgm_track_id", None)
+    print(f"[F7-DEBUG] write_remotion_data: bgm_track_id={bgm_track_id!r}")
+    if bgm_track_id:
+        from app.services.background_music import get_track_r2_url
+        bgm_url = get_track_r2_url(bgm_track_id)
+        print(f"[F7-DEBUG] write_remotion_data: resolved BGM URL={bgm_url!r}")
+        if bgm_url:
+            bgm_dest = os.path.join(public_dir, "bgm.mp3")
+            dl_ok = _download_url_to_file(bgm_url, bgm_dest)
+            print(f"[F7-DEBUG] write_remotion_data: BGM download success={dl_ok}")
+            if dl_ok:
+                bgm_file = "bgm.mp3"
+
     raw_speed = round(float(getattr(project, "playback_speed", 1.0) or 1.0), 2)
     playback_speed = min(max(raw_speed, _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
 
@@ -812,8 +828,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         # Composition-level speed remains 1.0; final speed is applied globally in preview player
         # and via ffmpeg post-processing for downloaded renders.
         "playbackSpeed": 1.0,
+        "bgmFile": bgm_file,
+        "bgmVolume": round(float(getattr(project, "bgm_volume", 0.10) or 0.10), 2),
         "scenes": scene_data,
     }
+    print(f"[F7-DEBUG] write_remotion_data: final bgmFile={data['bgmFile']!r}, bgmVolume={data['bgmVolume']!r}")
 
     # Include theme + brandColors for custom templates (GeneratedVideo composition)
     if is_custom_template(template_id):

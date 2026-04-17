@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal } from "../contexts/ErrorModalContext";
 import { BulkLinksSection } from "./BulkLinksSection";
-import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
+import { getTemplates, getVoicePreviews, getMyVoices, getPrebuiltVoices, listCustomTemplates, getBgmTracks, BACKEND_URL, type TemplateMeta, type VoicePreview, type BulkProjectItem, type CustomTemplateItem, type SavedVoiceFromAPI, type ElevenLabsVoice } from "../api/client";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
@@ -62,7 +62,8 @@ interface Props {
     template?: string,
     videoStyle?: VideoStyleId,
     videoLength?: "short" | "medium" | "detailed",
-    contentLanguage?: string | null
+    contentLanguage?: string | null,
+    bgmTrackId?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
   onSubmitBulk?: (items: BulkProjectItem[], logoOptions: { logoIndices: number[]; logoFiles: File[] } | null) => Promise<void>;
@@ -400,6 +401,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   voiceGenderRef.current = voiceGender;
   customVoiceIdRef.current = customVoiceId;
 
+  // Background music
+  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
+  const [selectedBgmTrackId, setSelectedBgmTrackId] = useState<string | null>(null);
+  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
   const [template, setTemplate] = useState("default");
@@ -555,6 +562,11 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     getVoicePreviews()
       .then((r) => {
         if (mounted) setVoicePreviews(r.data);
+      })
+      .catch(() => {});
+    getBgmTracks()
+      .then((r) => {
+        if (mounted) setBgmTracks(r.data);
       })
       .catch(() => {});
     setMyVoicesLoading(true);
@@ -956,6 +968,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
     step3EnteredAtRef.current = null;
     audioRef.current?.pause();
+    bgmAudioRef.current?.pause();
 
     if (mode === "bulk" && onSubmitBulk) {
       const valid = bulkRows
@@ -1105,7 +1118,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         template !== "default" ? template : undefined,
         videoStyle,
         videoLength,
-        contentLanguage === "auto" ? null : contentLanguage
+        contentLanguage === "auto" ? null : contentLanguage,
+        selectedBgmTrackId
       );
       setDocFiles([]);
       setName("");
@@ -1142,7 +1156,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           template !== "default" ? template : undefined,
           videoStyle,
           videoLength,
-          contentLanguage === "auto" ? null : contentLanguage
+          contentLanguage === "auto" ? null : contentLanguage,
+          selectedBgmTrackId
         );
       }
       setUrls([""]);
@@ -2834,6 +2849,114 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </p>
         )}
       </div>
+
+      {/* ─── Background Music (optional) ─────────────────── */}
+      {bgmTracks.length > 0 && (
+        <div className="space-y-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Background Music <span className="normal-case text-gray-300">— optional</span>
+          </label>
+          <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
+            {/* None option */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBgmTrackId(null);
+                bgmAudioRef.current?.pause();
+                setBgmPlayingId(null);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                !selectedBgmTrackId
+                  ? "border-purple-400 bg-purple-50/60"
+                  : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-700">None</span>
+                <p className="text-[11px] text-gray-400">No background music</p>
+              </div>
+              {!selectedBgmTrackId && (
+                <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+
+            {bgmTracks.map((track) => {
+              const isSelected = selectedBgmTrackId === track.track_id;
+              const isPlaying = bgmPlayingId === track.track_id;
+              return (
+                <div
+                  key={track.track_id}
+                  onClick={() => setSelectedBgmTrackId(isSelected ? null : track.track_id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-purple-400 bg-purple-50/60"
+                      : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+                  }`}
+                >
+                  {/* Play/pause button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPlaying) {
+                        bgmAudioRef.current?.pause();
+                        setBgmPlayingId(null);
+                      } else {
+                        if (bgmAudioRef.current) {
+                          bgmAudioRef.current.pause();
+                        }
+                        const audio = new Audio(track.r2_url);
+                        audio.onended = () => setBgmPlayingId(null);
+                        audio.play().catch(() => {});
+                        bgmAudioRef.current = audio;
+                        setBgmPlayingId(track.track_id);
+                      }
+                    }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                      isPlaying
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                    }`}
+                  >
+                    {isPlaying ? (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
+                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                  </div>
+
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
