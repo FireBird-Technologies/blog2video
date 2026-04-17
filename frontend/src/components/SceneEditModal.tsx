@@ -954,6 +954,68 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
+  /** Bloomberg Terminal — layout content keys. ending_socials uses the dedicated CTA / socials block. */
+  bloomberg: {
+    terminal_boot: [
+      { key: "items", label: "Boot log lines", type: "string_array", maxItems: 8 },
+    ],
+    terminal_narrative: [],
+    terminal_chart: [
+      { key: "items", label: "Indicator stats", type: "string_array", maxItems: 6 },
+    ],
+    terminal_dashboard: [
+      {
+        key: "metrics",
+        label: "KPI tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Change / suffix" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_ticker: [
+      { key: "items", label: "Ticker rows", type: "string_array", maxItems: 10 },
+    ],
+    terminal_table: [
+      { key: "items", label: "Table rows (first row = header)", type: "string_array", maxItems: 12 },
+    ],
+    terminal_split: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    terminal_quote: [
+      { key: "quote", label: "Quote", type: "text" },
+      { key: "highlightWord", label: "Highlight word", type: "string" },
+    ],
+    terminal_list: [
+      { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
+    ],
+    terminal_metric: [
+      {
+        key: "metrics",
+        label: "Metric tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Suffix", placeholder: "%" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_profile: [
+      { key: "items", label: "Profile rows", type: "string_array", maxItems: 8 },
+    ],
+    terminal_options: [
+      { key: "items", label: "Options chain rows (first row = header)", type: "string_array", maxItems: 10 },
+    ],
+    ending_socials: [],
+  },
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
