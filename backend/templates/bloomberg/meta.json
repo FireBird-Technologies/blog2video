@@ -152,11 +152,11 @@
       "label": "Terminal Dashboard",
       "defaults": {
         "titleFontSize": {
-          "portrait": 64,
-          "landscape": 91
+          "portrait": 103,
+          "landscape": 144
         },
         "descriptionFontSize": {
-          "portrait": 28,
+          "portrait": 54,
           "landscape": 38
         },
         "metrics": [
