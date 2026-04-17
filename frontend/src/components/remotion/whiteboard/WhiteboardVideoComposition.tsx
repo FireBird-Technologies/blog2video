@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface WhiteboardSceneInput {
@@ -25,6 +26,8 @@ export interface WhiteboardVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -41,6 +44,8 @@ export const WhiteboardVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -99,6 +104,10 @@ export const WhiteboardVideoComposition: React.FC<
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

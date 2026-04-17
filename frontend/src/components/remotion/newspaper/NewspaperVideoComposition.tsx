@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { NEWSPAPER_LAYOUT_REGISTRY } from "./layouts";
 import type { NewspaperLayoutType, BlogLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface NewspaperSceneInput {
@@ -26,6 +27,8 @@ export interface NewspaperVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -42,6 +45,8 @@ export const NewspaperVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -113,6 +118,10 @@ export const NewspaperVideoComposition: React.FC<
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

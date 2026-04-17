@@ -13,6 +13,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MatrixLayoutType, MatrixLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -42,6 +43,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -249,6 +252,10 @@ export const MatrixVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

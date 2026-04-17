@@ -13,6 +13,7 @@ import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
@@ -279,6 +280,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -444,6 +447,10 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           maxOpacity={data.logoOpacity ?? 0.9}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );
