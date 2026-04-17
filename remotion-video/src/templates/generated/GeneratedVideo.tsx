@@ -24,6 +24,7 @@ import {
   continueRender,
 } from "remotion";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { GeneratedVideoData, GeneratedSceneData, GeneratedSceneProps } from "./types";
 
@@ -318,6 +319,10 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           maxOpacity={data.logoOpacity ?? 0.9}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

@@ -2,6 +2,7 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { MOSAIC_LAYOUT_REGISTRY } from "./layouts";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { bgTilePalette } from "./MosaicBackground";
 
 export interface MosaicSceneInput {
@@ -25,6 +26,8 @@ export interface MosaicVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
 }
@@ -38,6 +41,8 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
 }) => {
@@ -89,6 +94,10 @@ export const MosaicVideoComposition: React.FC<MosaicVideoCompositionProps> = ({
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

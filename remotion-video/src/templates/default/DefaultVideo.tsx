@@ -12,6 +12,7 @@ import { LAYOUT_REGISTRY, LayoutType, SceneLayoutProps } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import { TransitionWipe } from "../../components/Transitions";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 /** Schema rows → barChart / lineChart / histogram for data_visualization */
@@ -79,6 +80,8 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
+  bgmFile?: string | null;
+  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -316,6 +319,11 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
+      )}
+
+      {/* Background music */}
+      {data.bgmFile && (
+        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

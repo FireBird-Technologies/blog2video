@@ -244,7 +244,8 @@ export default function Dashboard() {
     template?: string,
     videoStyle?: VideoStyleId,
     videoLength?: "auto" | "short" | "medium" | "detailed",
-    contentLanguage?: string | null
+    contentLanguage?: string | null,
+    bgmTrackId?: string | null
   ) => {
     setCreating(true);
     try {
@@ -268,6 +269,7 @@ export default function Dashboard() {
           video_style: videoStyle,
           video_length: videoLength,
           content_language: contentLanguage,
+          bgm_track_id: bgmTrackId,
         });
       } else {
         // URL flow
@@ -287,7 +289,8 @@ export default function Dashboard() {
           template,
           videoStyle,
           videoLength,
-          contentLanguage
+          contentLanguage,
+          bgmTrackId
         );
       }
 

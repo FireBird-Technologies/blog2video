@@ -4,6 +4,7 @@ import { AbsoluteFill, Audio, Sequence, useCurrentFrame, useVideoConfig } from "
 import { NEWSCAST_LAYOUT_REGISTRY } from "./layouts";
 import type { NewscastLayoutProps, NewscastLayoutType } from "./layouts/types";
 import { LogoOverlay } from "../LogoOverlay";
+import { BackgroundMusic } from "../BackgroundMusic";
 import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
@@ -270,6 +271,8 @@ export interface NewscastVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
+  bgmUrl?: string | null;
+  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -284,6 +287,8 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   logoPosition,
   logoOpacity,
   logoSize,
+  bgmUrl,
+  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -372,6 +377,10 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
+      )}
+    
+      {bgmUrl && (
+        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );
