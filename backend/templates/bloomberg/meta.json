@@ -318,12 +318,12 @@
       "label": "Terminal Split",
       "defaults": {
         "titleFontSize": {
-          "portrait": 72,
+          "portrait": 102,
           "landscape": 107
         },
         "descriptionFontSize": {
-          "portrait": 30,
-          "landscape": 33
+          "portrait": 45,
+          "landscape": 41
         },
         "leftLabel": "BEFORE",
         "rightLabel": "AFTER",
@@ -376,7 +376,7 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 72,
-          "landscape": 89
+          "landscape": 97
         },
         "descriptionFontSize": {
           "portrait": 34,
@@ -421,7 +421,7 @@
       "defaults": {
         "titleFontSize": {
           "portrait": 72,
-          "landscape": 108
+          "landscape": 95
         },
         "descriptionFontSize": {
           "portrait": 32,
