@@ -4,7 +4,16 @@ import {
   siteName,
   siteUrl,
 } from "../content/siteContent";
-import type { BlogPost, FaqItem, MarketingPage } from "../content/seoTypes";
+import { pricingLabels } from "../content/substackDirectory";
+import { tools, toolsHub } from "../content/tools";
+import type {
+  BlogPost,
+  FaqItem,
+  MarketingPage,
+  SubstackNiche,
+  SubstackPublication,
+  ToolDefinition,
+} from "../content/seoTypes";
 
 function breadcrumbList(items: Array<{ name: string; path: string }>) {
   return {
@@ -174,6 +183,33 @@ export function blogIndexSchema() {
   ];
 }
 
+export function toolsHubSchema() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: toolsHub.title,
+      url: `${siteUrl}${toolsHub.path}`,
+      description: toolsHub.description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Blog2Video tools",
+      itemListElement: tools.map((tool, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: tool.title,
+        url: `${siteUrl}${tool.path}`,
+      })),
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+    ]),
+  ];
+}
+
 export function marketingPageSchema(page: MarketingPage) {
   const schemas: Record<string, unknown>[] = [
     {
@@ -208,6 +244,124 @@ export function marketingPageSchema(page: MarketingPage) {
     name: `FAQ — ${page.heroTitle}`,
   });
   if (faq) schemas.push(faq);
+
+  return schemas;
+}
+
+export function toolPageSchema(tool: ToolDefinition) {
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: tool.title,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: `${siteUrl}${tool.path}`,
+      image: defaultOgImage,
+      description: tool.description,
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+      offers: {
+        "@type": "Offer",
+        priceCurrency: "USD",
+        price: "0",
+        availability: "https://schema.org/InStock",
+        url: `${siteUrl}${tool.path}`,
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: tool.title, path: tool.path },
+    ]),
+  ];
+
+  const faq = faqSchema(tool.faq, {
+    pageUrl: `${siteUrl}${tool.path}`,
+    name: `FAQ — ${tool.title}`,
+  });
+  if (faq) schemas.push(faq);
+
+  return schemas;
+}
+
+export function substackDirectoryNicheSchema(
+  niche: SubstackNiche,
+  publications: SubstackPublication[],
+  path: string,
+  faq: FaqItem[],
+  pricing?: "free" | "paid" | "freemium"
+) {
+  const name = pricing ? `${pricingLabels[pricing]} ${niche.title}` : niche.title;
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name,
+      url: `${siteUrl}${path}`,
+      description: niche.description,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: `${name} publication list`,
+      itemListElement: publications.map((publication, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: publication.name,
+        url: `${siteUrl}/tools/substack-directory/publication/${publication.slug}`,
+      })),
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: "Substack Directory", path: "/tools/substack-directory" },
+      { name, path },
+    ]),
+  ];
+
+  const faqPage = faqSchema(faq, {
+    pageUrl: `${siteUrl}${path}`,
+    name: `FAQ — ${name}`,
+  });
+  if (faqPage) schemas.push(faqPage);
+
+  return schemas;
+}
+
+export function substackDirectoryPublicationSchema(
+  publication: SubstackPublication,
+  path: string,
+  faq: FaqItem[]
+) {
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      name: `${publication.name} on Substack`,
+      url: `${siteUrl}${path}`,
+      description: publication.description,
+      mainEntity: {
+        "@type": "CreativeWork",
+        name: publication.name,
+        description: publication.tagline,
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Tools", path: toolsHub.path },
+      { name: "Substack Directory", path: "/tools/substack-directory" },
+      { name: publication.name, path },
+    ]),
+  ];
+
+  const faqPage = faqSchema(faq, {
+    pageUrl: `${siteUrl}${path}`,
+    name: `FAQ — ${publication.name}`,
+  });
+  if (faqPage) schemas.push(faqPage);
 
   return schemas;
 }
