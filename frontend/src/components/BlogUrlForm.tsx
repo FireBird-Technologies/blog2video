@@ -382,7 +382,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkTemplateMasterIndex, setBulkTemplateMasterIndex] = useState(0);
   const [bulkApplyVoiceAll, setBulkApplyVoiceAll] = useState(true);
   const [bulkVoiceMasterIndex, setBulkVoiceMasterIndex] = useState(0);
-  const [bulkBgmTrackId, setBulkBgmTrackId] = useState<(string | null)[]>([null]);
 
   // Step 2 — voice
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
@@ -884,7 +883,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         setBulkLogoFile((prev) => resizeTo(prev, n, null));
         setBulkLogoPosition((prev) => resizeTo(prev, n, "bottom_right"));
         setBulkLogoOpacity((prev) => resizeTo(prev, n, 0.9));
-        setBulkBgmTrackId((prev) => resizeTo(prev, n, null));
         setBulkActiveIndex(0);
       }
       setStep(2);
@@ -1049,7 +1047,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           (bulkContentLanguage[i] ?? "auto") === "auto"
             ? null
             : (bulkContentLanguage[i] ?? "auto"),
-        bgm_track_id: bulkBgmTrackId[i] ?? null,
       };
       });
       const logoIndices: number[] = [];
@@ -1085,7 +1082,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       setBulkTemplateMasterIndex(0);
       setBulkApplyVoiceAll(true);
       setBulkVoiceMasterIndex(0);
-      setBulkBgmTrackId([null]);
       setVideoLength("short");
       setContentLanguage("auto");
       return;
@@ -2712,116 +2708,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     male_british: "Calm & authoritative, smooth delivery",
   };
 
-  const renderBgmPicker = (
-    currentTrackId: string | null,
-    onSelect: (trackId: string | null) => void,
-    extraHeader?: React.ReactNode,
-  ) => bgmTracks.length > 0 ? (
-    <div className="space-y-2">
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-        Background Music <span className="normal-case text-gray-300">— optional</span>
-      </label>
-      {extraHeader}
-      <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
-        <button
-          type="button"
-          onClick={() => {
-            onSelect(null);
-            bgmAudioRef.current?.pause();
-            setBgmPlayingId(null);
-          }}
-          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-            !currentTrackId
-              ? "border-purple-400 bg-purple-50/60"
-              : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
-          }`}
-        >
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-sm font-medium text-gray-700">None</span>
-            <p className="text-[11px] text-gray-400">No background music</p>
-          </div>
-          {!currentTrackId && (
-            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
-              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          )}
-        </button>
-
-        {bgmTracks.map((track) => {
-          const isSelected = currentTrackId === track.track_id;
-          const isPlaying = bgmPlayingId === track.track_id;
-          return (
-            <div
-              key={track.track_id}
-              onClick={() => onSelect(isSelected ? null : track.track_id)}
-              className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
-                isSelected
-                  ? "border-purple-400 bg-purple-50/60"
-                  : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isPlaying) {
-                    bgmAudioRef.current?.pause();
-                    setBgmPlayingId(null);
-                  } else {
-                    if (bgmAudioRef.current) {
-                      bgmAudioRef.current.pause();
-                    }
-                    const audio = new Audio(track.r2_url);
-                    audio.onended = () => setBgmPlayingId(null);
-                    audio.play().catch(() => {});
-                    bgmAudioRef.current = audio;
-                    setBgmPlayingId(track.track_id);
-                  }
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                  isPlaying
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-200 text-gray-500 hover:bg-gray-300"
-                }`}
-              >
-                {isPlaying ? (
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                    <rect x="6" y="4" width="4" height="16" rx="1" />
-                    <rect x="14" y="4" width="4" height="16" rx="1" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-              </button>
-
-              <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
-                <p className="text-[11px] text-gray-400">{track.mood}</p>
-              </div>
-
-              {isSelected && (
-                <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  ) : null;
-
   const step3Voice = (
     <div className="space-y-5">
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-50/60 border border-purple-200/50">
@@ -2964,7 +2850,113 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         )}
       </div>
 
-      {renderBgmPicker(selectedBgmTrackId, setSelectedBgmTrackId)}
+      {/* ─── Background Music (optional) ─────────────────── */}
+      {bgmTracks.length > 0 && (
+        <div className="space-y-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Background Music <span className="normal-case text-gray-300">— optional</span>
+          </label>
+          <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
+            {/* None option */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBgmTrackId(null);
+                bgmAudioRef.current?.pause();
+                setBgmPlayingId(null);
+              }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                !selectedBgmTrackId
+                  ? "border-purple-400 bg-purple-50/60"
+                  : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-medium text-gray-700">None</span>
+                <p className="text-[11px] text-gray-400">No background music</p>
+              </div>
+              {!selectedBgmTrackId && (
+                <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+
+            {bgmTracks.map((track) => {
+              const isSelected = selectedBgmTrackId === track.track_id;
+              const isPlaying = bgmPlayingId === track.track_id;
+              return (
+                <div
+                  key={track.track_id}
+                  onClick={() => setSelectedBgmTrackId(isSelected ? null : track.track_id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-purple-400 bg-purple-50/60"
+                      : "border-gray-200/60 bg-gray-50/40 hover:border-gray-300/60"
+                  }`}
+                >
+                  {/* Play/pause button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPlaying) {
+                        bgmAudioRef.current?.pause();
+                        setBgmPlayingId(null);
+                      } else {
+                        if (bgmAudioRef.current) {
+                          bgmAudioRef.current.pause();
+                        }
+                        const audio = new Audio(track.r2_url);
+                        audio.onended = () => setBgmPlayingId(null);
+                        audio.play().catch(() => {});
+                        bgmAudioRef.current = audio;
+                        setBgmPlayingId(track.track_id);
+                      }
+                    }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                      isPlaying
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                    }`}
+                  >
+                    {isPlaying ? (
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-700">{track.display_name}</span>
+                    <p className="text-[11px] text-gray-400">{track.mood}</p>
+                  </div>
+
+                  {isSelected && (
+                    <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button
@@ -3026,7 +3018,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const rowCustomVoiceId = bulkCustomVoiceId[activeIndex] ?? "";
     const rowContentLanguage = bulkContentLanguage[activeIndex] ?? "auto";
     const rowVideoLength = bulkVideoLength[activeIndex] ?? "short";
-    const rowBgmTrackIdShared = bulkBgmTrackId[activeIndex] ?? null;
 
     const applyVoiceToAll = () => {
       const targetIndices = indexed.map(({ i }) => i);
@@ -3065,13 +3056,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         });
         return next;
       });
-      setBulkBgmTrackId((prev) => {
-        const next = [...prev];
-        targetIndices.forEach((idx) => {
-          next[idx] = rowBgmTrackIdShared;
-        });
-        return next;
-      });
     };
 
     return (
@@ -3097,7 +3081,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           </div>
         </div>
 
-        {/* Voice, language, length & BGM — synced when apply-to-all is on */}
+        {/* Apply voice selection to all */}
         <div className="flex items-center justify-start mb-2 ml-1">
           <label className="flex items-center gap-2 text-[11px] text-gray-500 cursor-pointer select-none">
             <input
@@ -3345,26 +3329,6 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </p>
           )}
         </div>
-
-        {renderBgmPicker(rowBgmTrackIdShared, (value) => {
-          const targetIndices = indexed.map(({ i }) => i);
-          if (bulkApplyVoiceAll && activeIndex === masterIndex) {
-            setBulkBgmTrackId((prev) => {
-              const next = [...prev];
-              targetIndices.forEach((idx) => {
-                next[idx] = value;
-              });
-              return next;
-            });
-          } else {
-            if (bulkApplyVoiceAll) setBulkApplyVoiceAll(false);
-            setBulkBgmTrackId((prev) => {
-              const next = [...prev];
-              next[activeIndex] = value;
-              return next;
-            });
-          }
-        })}
 
         <div className="flex gap-2 pt-1">
           <button

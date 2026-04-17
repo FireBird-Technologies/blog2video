@@ -723,7 +723,6 @@ export interface BulkProjectItem {
   custom_voice_id?: string;
   aspect_ratio?: string;
   content_language?: string | null;
-  bgm_track_id?: string | null;
 }
 
 export interface BulkCreateResponse {
