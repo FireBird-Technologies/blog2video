@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
+import { BackgroundGraph } from "./BackgroundGraph";
 
 export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
   title,
@@ -22,7 +23,7 @@ export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
 
-  const tSize = titleFontSize ?? (p ? 72 : 89);
+  const tSize = titleFontSize ?? (p ? 72 : 97);
   const dSize = descriptionFontSize ?? (p ? 34 : 59);
   const labelSize = dSize * 0.38;
 
@@ -53,6 +54,7 @@ export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+      <BackgroundGraph accentColor={blue} textColor={amber} variant="quote" />
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
@@ -65,17 +67,30 @@ export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>DESK NOTE</span>
       </div>
 
-      {/* Title */}
+      {/* MODIFIED: Centered Title (Larger & Slightly Lower) */}
       <div style={{
-        position: "absolute", top: topH + (p ? 14 : 10), left: pad, right: pad,
-        color: amber, fontSize: tSize * 0.45, opacity: titleOpacity, letterSpacing: -0.5,
+        position: "absolute", 
+        top: topH + (p ? 30 : 25), // Adjusting top position to bring it lower
+        left: 0, 
+        right: 0,
+        textAlign: "center", 
+        color: amber, 
+        fontSize: tSize * 0.55, // Increasing size from 0.45 to 0.55
+        opacity: titleOpacity, 
+        letterSpacing: -0.5,
+        fontWeight: "bold",
+        textTransform: "uppercase"
       }}>
         {title}
       </div>
 
-      {/* Top rule */}
+      {/* MODIFIED: Top rule (Adjusted to accommodate lower title) */}
       <div style={{
-        position: "absolute", top: topH + (p ? 70 : 60), left: pad, right: pad, height: 1,
+        position: "absolute", 
+        top: topH + (p ? 100 : 90), // Adjusting Top rule to remain below title
+        left: pad, 
+        right: pad, 
+        height: 1,
         backgroundColor: BLOOMBERG_COLORS.border,
         opacity: topLineOpacity,
       }} />
