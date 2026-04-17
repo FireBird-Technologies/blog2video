@@ -122,14 +122,14 @@ export default function Pricing() {
       {/* Pricing header */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-purple-500/[0.03] rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-[280px] h-[280px] sm:w-[600px] sm:h-[600px] bg-purple-500/[0.03] rounded-full blur-3xl" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-6 text-center">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20 pb-6 text-center">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">
             Pricing
           </p>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-4">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-4">
             Simple, transparent pricing
           </h1>
           <p className="text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
@@ -178,10 +178,10 @@ export default function Pricing() {
       </div>
 
       {/* Plans */}
-      <div className="max-w-[1600px] mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 max-w-[1600px] mx-auto">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-8 max-w-[1600px] mx-auto">
           {/* Free */}
-          <div className="glass-card p-7 flex flex-col">
+          <div className="glass-card p-5 sm:p-7 flex flex-col">
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Free
@@ -189,7 +189,7 @@ export default function Pricing() {
               <p className="text-sm text-gray-400">Try it out</p>
             </div>
             <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">$0</span>
+              <span className="text-3xl sm:text-4xl font-bold text-gray-900">$0</span>
             </div>
             <ul className="space-y-3 mb-8 flex-1">
               {[
@@ -246,7 +246,7 @@ export default function Pricing() {
               <p className="text-sm text-gray-400">Pay as you go</p>
             </div>
             <div className="mb-6">
-              <span className="text-4xl font-bold text-gray-900">$3</span>
+              <span className="text-3xl sm:text-4xl font-bold text-gray-900">$3</span>
               <span className="text-sm text-gray-400 ml-1">/video</span>
             </div>
             <ul className="space-y-3 mb-8 flex-1">
@@ -303,7 +303,7 @@ export default function Pricing() {
             <div className="mb-6">
               {isAnnual ? (
                 <>
-                  <span className="text-4xl font-bold text-gray-900">$20</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$20</span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-sm text-gray-400 line-through">$25/mo</span>
@@ -315,7 +315,7 @@ export default function Pricing() {
                 </>
               ) : (
                 <>
-                  <span className="text-4xl font-bold text-gray-900">$25</span>
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">$25</span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
                   <p className="text-xs text-gray-400 mt-1">or $20/mo billed annually</p>
                 </>
@@ -398,7 +398,7 @@ export default function Pricing() {
             <div className="mb-6">
               {isAnnual ? (
                 <>
-                  <span className="text-4xl font-bold text-gray-900">
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">
                     ${annualMonthlyPrice}
                   </span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
@@ -416,7 +416,7 @@ export default function Pricing() {
                 </>
               ) : (
                 <>
-                  <span className="text-4xl font-bold text-gray-900">
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">
                     ${monthlyPrice}
                   </span>
                   <span className="text-sm text-gray-400 ml-1">/month</span>
@@ -479,7 +479,7 @@ export default function Pricing() {
           </div>
 
           {/* Customized Subscription */}
-          <div className="glass-card p-7 flex flex-col border-2 border-purple-300">
+          <div className="glass-card p-5 sm:p-7 flex flex-col border-2 border-purple-300">
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-1">
                 Customized
@@ -536,30 +536,31 @@ export default function Pricing() {
       </div>
 
       {/* Feature comparison */}
-      <div className="max-w-6xl mx-auto px-6 pb-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Compare plans
         </h3>
         <div className="glass-card overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left py-4 px-6 font-medium text-gray-500">
+                <th className="text-left py-4 px-3 sm:px-6 font-medium text-gray-500">
                   Feature
                 </th>
-                <th className="py-4 px-6 font-medium text-gray-500 text-center">
+                <th className="py-4 px-3 sm:px-6 font-medium text-gray-500 text-center">
                   Free
                 </th>
-                <th className="py-4 px-6 font-medium text-gray-500 text-center">
+                <th className="py-4 px-3 sm:px-6 font-medium text-gray-500 text-center">
                   Per Video
                 </th>
-                <th className="py-4 px-6 font-medium text-gray-600 text-center">
+                <th className="py-4 px-3 sm:px-6 font-medium text-gray-600 text-center">
                   Standard
                 </th>
-                <th className="py-4 px-6 font-medium text-purple-600 text-center">
+                <th className="py-4 px-3 sm:px-6 font-medium text-purple-600 text-center">
                   Pro
                 </th>
-                <th className="py-4 px-6 font-medium text-purple-600 text-center">
+                <th className="py-4 px-3 sm:px-6 font-medium text-purple-600 text-center">
                   Customized
                 </th>
               </tr>
@@ -583,10 +584,10 @@ export default function Pricing() {
                   key={row.feature}
                   className={i % 2 === 0 ? "bg-gray-50/50" : ""}
                 >
-                  <td className="py-3.5 px-6 text-gray-700">
+                  <td className="py-3.5 px-3 sm:px-6 text-gray-700">
                     {row.feature}
                   </td>
-                  <td className="py-3.5 px-6 text-center">
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
                     {typeof row.free === "boolean" ? (
                       row.free ? (
                         <GreenCheck />
@@ -597,7 +598,7 @@ export default function Pricing() {
                       <span className="text-gray-500">{row.free}</span>
                     )}
                   </td>
-                  <td className="py-3.5 px-6 text-center">
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
                     {typeof row.perVideo === "boolean" ? (
                       row.perVideo ? (
                         <GreenCheck />
@@ -608,7 +609,7 @@ export default function Pricing() {
                       <span className="text-gray-500">{row.perVideo}</span>
                     )}
                   </td>
-                  <td className="py-3.5 px-6 text-center">
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
                     {typeof row.standard === "boolean" ? (
                       row.standard ? (
                         <GreenCheck />
@@ -619,7 +620,7 @@ export default function Pricing() {
                       <span className="text-gray-700">{row.standard}</span>
                     )}
                   </td>
-                  <td className="py-3.5 px-6 text-center">
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
                     {typeof row.pro === "boolean" ? (
                       row.pro ? (
                         <GreenCheck />
@@ -632,7 +633,7 @@ export default function Pricing() {
                       </span>
                     )}
                   </td>
-                  <td className="py-3.5 px-6 text-center">
+                  <td className="py-3.5 px-3 sm:px-6 text-center">
                     {typeof row.customized === "boolean" ? (
                       row.customized ? (
                         <GreenCheck />
@@ -649,11 +650,12 @@ export default function Pricing() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
       {/* FAQ */}
-      <div className="max-w-4xl mx-auto px-6 pb-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
           Frequently asked questions
         </h3>

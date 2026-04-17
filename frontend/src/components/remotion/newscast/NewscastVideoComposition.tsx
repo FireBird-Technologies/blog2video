@@ -8,11 +8,13 @@ import { NewsCastBackground } from "./NewsCastBackground";
 import { NewsCastChrome } from "./NewsCastChrome";
 import { NewscastSceneZTransition } from "./NewscastSceneZTransition";
 import { NEWSCAST_BACKGROUND_VARIANT } from "./backgroundVariant";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   opening: "opening",
   anchor_narrative: "anchor_narrative",
   live_metrics_board: "live_metrics_board",
+  data_visualization: "data_visualization",
   briefing_code_panel: "briefing_code_panel",
   headline_insight: "headline_insight",
   story_stack: "story_stack",
@@ -38,8 +40,6 @@ const LEGACY_TO_NEWCAST_LAYOUT_ID: Record<string, NewscastLayoutType> = {
   newscast_split_glass: "side_by_side_brief",
   newscast_chapter_break: "segment_break",
   newscast_glass_image: "field_image_focus",
-  /** Legacy: layout removed; render as anchor narrative */
-  data_visualization: "anchor_narrative",
   ending_socials: "ending_socials",
 };
 
@@ -50,6 +50,7 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
   opening: "cinematic_title",
   anchor_narrative: "glass_narrative",
   live_metrics_board: "glow_metric",
+  data_visualization: "data_visualization",
   briefing_code_panel: "glass_code",
   headline_insight: "kinetic_insight",
   story_stack: "glass_stack",
@@ -62,6 +63,103 @@ const NEWCAST_LAYOUT_TO_LEGACY_KEY: Record<NewscastLayoutType, string> = {
 const toLegacyNewscastLayoutId = (layout: NewscastLayoutType): string =>
   NEWCAST_LAYOUT_TO_LEGACY_KEY[layout];
 
+const normalizeNewscastDataVizProps = (
+  lp: Partial<NewscastLayoutProps>,
+): Partial<NewscastLayoutProps> => {
+  const out: Record<string, unknown> = { ...lp };
+
+  if (typeof out.chartType === "string") {
+    out.chartType = String(out.chartType).trim().toLowerCase();
+  }
+
+  const lineChart = out.lineChart as
+    | {
+        labels?: unknown[];
+        datasets?: Array<{ label?: unknown; values?: unknown[] | string }>;
+      }
+    | undefined;
+  if (lineChart && typeof lineChart === "object") {
+    if (!out.lineChartLabels && Array.isArray(lineChart.labels)) {
+      out.lineChartLabels = lineChart.labels.map((v) => String(v ?? ""));
+    }
+    if (!out.lineChartDatasets && Array.isArray(lineChart.datasets)) {
+      out.lineChartDatasets = lineChart.datasets.map((dataset) => ({
+        label: String(dataset?.label ?? ""),
+        valuesStr: Array.isArray(dataset?.values)
+          ? dataset.values.map((v) => String(v ?? "")).join(",")
+          : String(dataset?.values ?? ""),
+      }));
+    }
+  }
+
+  const barChart = out.barChart as { labels?: unknown[]; values?: unknown[] } | undefined;
+  if (!out.barChartRows && barChart && typeof barChart === "object") {
+    const labels = Array.isArray(barChart.labels) ? barChart.labels : [];
+    const values = Array.isArray(barChart.values) ? barChart.values : [];
+    out.barChartRows = labels.map((label, index) => ({
+      label: String(label ?? ""),
+      value: String(values[index] ?? ""),
+    }));
+  }
+
+  const histogram = out.histogram as { labels?: unknown[]; values?: unknown[] } | undefined;
+  if (!out.histogramRows && histogram && typeof histogram === "object") {
+    const labels = Array.isArray(histogram.labels) ? histogram.labels : [];
+    const values = Array.isArray(histogram.values) ? histogram.values : [];
+    out.histogramRows = labels.map((label, index) => ({
+      label: String(label ?? ""),
+      value: String(values[index] ?? ""),
+    }));
+  }
+
+  const legacyChart = out.chart as
+    | {
+        type?: string;
+        labels?: unknown[];
+        datasets?: Array<{ label?: unknown; values?: unknown[] | string }>;
+        rows?: Array<{ label?: unknown; value?: unknown }>;
+      }
+    | undefined;
+  if (legacyChart && typeof legacyChart === "object") {
+    if (!out.chartType && legacyChart.type) out.chartType = String(legacyChart.type);
+    if (!out.lineChartLabels && Array.isArray(legacyChart.labels)) {
+      out.lineChartLabels = legacyChart.labels.map((v) => String(v ?? ""));
+    }
+    if (!out.lineChartDatasets && Array.isArray(legacyChart.datasets)) {
+      out.lineChartDatasets = legacyChart.datasets.map((dataset) => ({
+        label: String(dataset?.label ?? ""),
+        valuesStr: Array.isArray(dataset?.values)
+          ? dataset.values.map((v) => String(v ?? "")).join(",")
+          : String(dataset?.values ?? ""),
+      }));
+    }
+    if (!out.barChartRows && Array.isArray(legacyChart.rows)) {
+      out.barChartRows = legacyChart.rows.map((row) => ({
+        label: String(row?.label ?? ""),
+        value: String(row?.value ?? ""),
+      }));
+    }
+  }
+
+  const legacyTable = out.table as
+    | { headers?: unknown[]; rows?: unknown[][] }
+    | undefined;
+  if (!out.chartTable && legacyTable && typeof legacyTable === "object") {
+    out.chartTable = {
+      headers: Array.isArray(legacyTable.headers)
+        ? legacyTable.headers.map((h) => String(h ?? ""))
+        : [],
+      rows: Array.isArray(legacyTable.rows)
+        ? legacyTable.rows.map((row) =>
+            Array.isArray(row) ? row.map((cell) => (cell == null ? "" : (cell as string | number))) : [],
+          )
+        : [],
+    };
+  }
+
+  return out as Partial<NewscastLayoutProps>;
+};
+
 /** Per-sequence body: wires global `rotationFrame` for continuous background motion across scenes. */
 const NewscastSequenceInner: React.FC<{
   startFrame: number;
@@ -73,6 +171,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps: NewscastLayoutProps;
   LayoutComponent: React.ComponentType<NewscastLayoutProps>;
   voiceoverUrl?: string;
+  playbackSpeed: number;
 }> = ({
   startFrame,
   durationInFrames,
@@ -83,6 +182,7 @@ const NewscastSequenceInner: React.FC<{
   layoutProps,
   LayoutComponent,
   voiceoverUrl,
+  playbackSpeed,
 }) => {
   const localFrame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -130,6 +230,7 @@ const NewscastSequenceInner: React.FC<{
                 lowerThirdTag={layoutProps.lowerThirdTag}
                 lowerThirdHeadline={layoutProps.lowerThirdHeadline}
                 lowerThirdSub={layoutProps.lowerThirdSub}
+                showLowerThird={layoutType !== "data_visualization"}
                 aspectRatio={layoutProps.aspectRatio}
                 accentColor={layoutProps.accentColor}
                 textColor={layoutProps.textColor}
@@ -141,7 +242,7 @@ const NewscastSequenceInner: React.FC<{
           </div>
         </div>
       </NewscastSceneZTransition>
-      {voiceoverUrl ? <Audio src={voiceoverUrl} /> : null}
+      {voiceoverUrl ? <Audio src={voiceoverUrl} playbackRate={playbackSpeed} /> : null}
     </AbsoluteFill>
   );
 };
@@ -171,6 +272,7 @@ export interface NewscastVideoCompositionProps {
   logoSize?: number;
   aspectRatio?: string;
   fontFamily?: string;
+  playbackSpeed?: number;
 }
 
 export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> = ({
@@ -184,30 +286,47 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
   logoSize,
   aspectRatio,
   fontFamily,
+  playbackSpeed,
 }) => {
   const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+  const sceneFrameOffsets = React.useMemo(() => {
+    const offsets = new Array<number>(scenes.length);
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      offsets[i] = acc;
+      acc += getSceneDurationFrames(scenes[i].durationSeconds, FPS, resolvedPlaybackSpeed);
+    }
+    return offsets;
+  }, [scenes, resolvedPlaybackSpeed]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#FAFAF8", fontFamily }}>
       {scenes.map((scene, index) => {
         const normalizedLayout = normalizeNewscastLayoutId(scene.layout);
         const legacyLayout = toLegacyNewscastLayoutId(normalizedLayout);
-        const startFrame = scenes
-          .slice(0, index)
-          .reduce((acc, s) => acc + Math.max(1, Math.round(s.durationSeconds * FPS)), 0);
+        const startFrame = sceneFrameOffsets[index] ?? 0;
 
-        const durationFrames = Math.max(1, Math.round(scene.durationSeconds * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          resolvedPlaybackSpeed,
+        );
 
         const LayoutComponent =
           NEWSCAST_LAYOUT_REGISTRY[normalizedLayout as NewscastLayoutType] ||
           NEWSCAST_LAYOUT_REGISTRY.anchor_narrative;
 
         const base = (scene.layoutProps ?? {}) as Partial<NewscastLayoutProps>;
+        const normalizedBase =
+          normalizedLayout === "data_visualization"
+            ? normalizeNewscastDataVizProps(base)
+            : base;
         const lc = scene.layoutConfig;
         const layoutProps: NewscastLayoutProps = {
-          ...base,
-          titleFontSize: base.titleFontSize ?? lc?.titleFontSize,
-          descriptionFontSize: base.descriptionFontSize ?? lc?.descriptionFontSize,
+          ...normalizedBase,
+          titleFontSize: normalizedBase.titleFontSize ?? lc?.titleFontSize,
+          descriptionFontSize: normalizedBase.descriptionFontSize ?? lc?.descriptionFontSize,
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
@@ -239,6 +358,7 @@ export const NewscastVideoComposition: React.FC<NewscastVideoCompositionProps> =
               layoutProps={layoutProps}
               LayoutComponent={LayoutComponent}
               voiceoverUrl={scene.voiceoverUrl}
+              playbackSpeed={resolvedPlaybackSpeed}
             />
           </Sequence>
         );

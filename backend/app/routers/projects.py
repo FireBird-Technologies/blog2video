@@ -33,6 +33,10 @@ from app.services.remotion import (
     cancel_running_render,
 )
 from app.services.doc_extractor import extract_from_documents
+from app.services.project_cleanup import (
+    remove_failed_generation_project,
+    PUBLIC_MSG_PIPELINE_FAILED,
+)
 from app.services.template_service import validate_template_id, get_preview_colors, get_valid_layouts, get_layouts_without_image, is_custom_template, _load_custom_template_data, get_meta
 from app.services.edit_tracker import track_project_edit, track_scene_edit
 from app.services.language_detection import normalize_preferred_language_code
@@ -50,9 +54,20 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
         data = _load_custom_template_data(project.template, db=db)
         project.custom_theme = data["theme"] if data else None
         project.custom_template_missing = data is None
+        # Expose BrandKit logo URL so the frontend preview can show it
+        brand_logo_url = None
+        if data:
+            bk = data.get("brand_kit")
+            if bk:
+                logos = bk.get("logos") or []
+                if logos:
+                    first = logos[0]
+                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
+        project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
         project.custom_template_missing = False
+        project.brand_logo_url = None
     return project
 
 
@@ -108,11 +123,36 @@ _ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   # .docx
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",  # .pptx
+    "text/plain",  # .txt
+    "text/markdown",  # .md
+    "text/x-markdown",  # .md
 }
-_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
 _VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
+_MIN_PLAYBACK_SPEED = 0.5
+_MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
+
+
+def _sanitize_data_viz_layout_props(layout: str | None, layout_props: dict | None) -> dict:
+    props = dict(layout_props or {})
+    if (layout or "").strip().lower().replace("-", "_") != "data_visualization":
+        return props
+    for key in ("lineChartLabels", "lineChartDatasets", "barChartRows", "histogramRows"):
+        props.pop(key, None)
+    return props
+
+
+def _sanitize_descriptor_for_data_viz(descriptor: dict | None) -> dict:
+    out = dict(descriptor or {})
+    layout = out.get("layout")
+    layout_props = out.get("layoutProps") if isinstance(out.get("layoutProps"), dict) else {}
+    out["layoutProps"] = _sanitize_data_viz_layout_props(
+        layout=str(layout) if layout is not None else "",
+        layout_props=layout_props,
+    )
+    return out
 
 
 def _normalize_video_style(video_style: str | None) -> str:
@@ -139,6 +179,18 @@ def _normalize_video_length(video_length: str | None) -> str:
             detail="video_length must be one of: auto, short, medium, detailed",
         )
     return raw
+
+
+def _normalize_playback_speed(playback_speed: float | None) -> float:
+    if playback_speed is None:
+        return 1.0
+    value = round(float(playback_speed), 2)
+    if value < _MIN_PLAYBACK_SPEED or value > _MAX_PLAYBACK_SPEED:
+        raise HTTPException(
+            status_code=422,
+            detail="playback_speed must be between 0.5 and 2.5",
+        )
+    return value
 
 
 def _normalize_voice_accent_for_db(voice_accent: str | None) -> str:
@@ -343,6 +395,7 @@ def _run_project_template_change_job(job_id: int) -> None:
                         "layoutProps": _build_ending_socials_props(project, scene),
                     }
 
+                new_descriptor = _sanitize_descriptor_for_data_viz(new_descriptor)
                 scene.remotion_code = json.dumps(new_descriptor)
                 descriptor_layout = _extract_layout_from_descriptor_obj(
                     descriptor=new_descriptor,
@@ -425,6 +478,7 @@ def create_project(
         aspect_ratio=data.aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(getattr(data, "video_length", None)),
+        playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
         content_language=normalize_preferred_language_code(data.content_language),
         status=ProjectStatus.CREATED,
     )
@@ -459,6 +513,8 @@ def update_project(
             update_data[field] = normalize_preferred_language_code(value) if value is not None else None
         elif field == "video_length":
             update_data[field] = _normalize_video_length(value)
+        elif field == "playback_speed":
+            update_data[field] = _normalize_playback_speed(value)
         else:
             if value is not None:
                 update_data[field] = value
@@ -703,6 +759,7 @@ def create_projects_bulk(
             aspect_ratio=data.aspect_ratio or "landscape",
             video_style=normalized_video_style,
             video_length=_normalize_video_length(getattr(data, "video_length", None)),
+            playback_speed=_normalize_playback_speed(getattr(data, "playback_speed", None)),
             content_language=normalize_preferred_language_code(data.content_language),
             status=ProjectStatus.CREATED,
         )
@@ -754,7 +811,7 @@ def create_project_from_upload(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new project from uploaded documents (PDF, DOCX, PPTX). Counts against video limit."""
+    """Create a new project from uploaded documents (PDF, DOCX, PPTX, MD, TXT). Counts against video limit."""
     if not user.can_create_video:
         raise HTTPException(
             status_code=403,
@@ -773,7 +830,7 @@ def create_project_from_upload(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         # Check file size (read content to measure, then reset)
         content = f.file.read()
@@ -817,6 +874,7 @@ def create_project_from_upload(
         aspect_ratio=aspect_ratio or "landscape",
         video_style=normalized_video_style,
         video_length=_normalize_video_length(video_length),
+        playback_speed=_normalize_playback_speed(None),
         content_language=normalize_preferred_language_code(content_language),
         status=ProjectStatus.CREATED,
     )
@@ -842,9 +900,27 @@ def create_project_from_upload(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after extraction error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -873,7 +949,7 @@ def upload_documents_to_project(
         if file_ext not in _ALLOWED_EXTENSIONS and f.content_type not in _ALLOWED_MIME_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX.",
+                detail=f"File '{f.filename}' is not supported. Accepted formats: PDF, DOCX, PPTX, MD, TXT.",
             )
         content = f.file.read()
         if len(content) > _MAX_FILE_SIZE:
@@ -892,9 +968,27 @@ def upload_documents_to_project(
             e,
             extra={"project_id": project.id, "user_id": user.id},
         )
-        project.status = ProjectStatus.ERROR
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Document extraction failed: {str(e)}")
+        pid = project.id
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        proj = db.query(Project).filter(Project.id == pid, Project.user_id == user.id).first()
+        if proj:
+            try:
+                remove_failed_generation_project(db, proj, decrement_user_video_quota=True)
+            except Exception as cleanup_err:
+                logger.exception(
+                    "[PROJECTS] Failed to roll back project %s after upload-documents error: %s",
+                    pid,
+                    cleanup_err,
+                    extra={"project_id": pid, "user_id": user.id},
+                )
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=PUBLIC_MSG_PIPELINE_FAILED)
 
     return _prepare_project_response(project, user, db)
 
@@ -941,7 +1035,7 @@ def list_projects(
             func.coalesce(scene_counts.c.cnt, 0).label("scene_count"),
         )
         .outerjoin(scene_counts, Project.id == scene_counts.c.project_id)
-        .filter(Project.user_id == user.id)
+        .filter(Project.user_id == user.id, Project.is_active == True)  # noqa: E712
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -1038,7 +1132,11 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    db.delete(project)
+    project.is_active = False
+    project.r2_video_key = None
+    project.r2_video_url = None
+    project.logo_r2_key = None
+    project.logo_r2_url = None
     db.commit()
     return {"detail": "Project deleted"}
 
@@ -1140,7 +1238,7 @@ def delete_asset(
                     layout_props.pop("assignedImage", None)
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
-                    scene.remotion_code = json.dumps(desc)
+                    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
                     scenes_updated = True
             except (json.JSONDecodeError, TypeError):
                 continue
@@ -1235,6 +1333,14 @@ def update_scene(
         if key not in MANUAL_TRACKED_FIELDS:
             continue
 
+        if key == "remotion_code" and isinstance(value, str) and value.strip():
+            try:
+                parsed_descriptor = json.loads(value)
+                if isinstance(parsed_descriptor, dict):
+                    value = json.dumps(_sanitize_descriptor_for_data_viz(parsed_descriptor))
+            except Exception:
+                pass
+
         old_value = getattr(scene, key)
 
         track_scene_edit(
@@ -1318,10 +1424,10 @@ def bulk_update_scene_typography(
                         scene_id=scene.id,
                         field_name="remotion_code",
                         old_value=scene.remotion_code,
-                        new_value=json.dumps(descriptor),
+                        new_value=json.dumps(_sanitize_descriptor_for_data_viz(descriptor)),
                         is_ai_assisted=False,
                     )
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     db.commit()
 
@@ -1587,13 +1693,10 @@ async def update_scene_image(
         descriptor["layoutProps"] = {}
     descriptor["layoutProps"]["assignedImage"] = image_filename
     descriptor["layoutProps"].pop("hideImage", None)
-    scene.remotion_code = json.dumps(descriptor)
+    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
-    # Invalidate cached render
-    if project.r2_video_url:
-        project.r2_video_url = None
-        project.r2_video_key = None
-        project.status = ProjectStatus.GENERATED
+    # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
+    # runs a new render (render pipeline replaces URLs/keys on success).
 
     db.commit()
     db.refresh(scene)
@@ -1857,7 +1960,7 @@ async def regenerate_scene(
             descriptor["sceneTypeOverride"] = "content"
             descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         if hasattr(scene, "display_text"):
             scene.display_text = new_display_text
         track_scene_edit(
@@ -2034,7 +2137,7 @@ async def regenerate_scene(
                 descriptor["sceneTypeOverride"] = "content"
                 descriptor["contentVariantIndex"] = variant_idx
 
-        scene.remotion_code = json.dumps(descriptor)
+        scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
         track_scene_edit(
                         db,
                         project_id=project_id,
@@ -2126,7 +2229,7 @@ def _get_user_project(project_id: int, user_id: int, db: Session) -> Project:
     """Get a project owned by the given user, or raise 404."""
     project = (
         db.query(Project)
-        .filter(Project.id == project_id, Project.user_id == user_id)
+        .filter(Project.id == project_id, Project.user_id == user_id, Project.is_active == True)  # noqa: E712
         .first()
     )
     if not project:

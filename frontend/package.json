@@ -23,7 +23,9 @@
     "@fontsource/patrick-hand": "^5.2.8",
     "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/poppins": "^5.2.7",
+    "@fontsource/righteous": "^5.2.7",
     "@fontsource/roboto-slab": "^5.2.8",
+    "@fontsource/sekuya": "^5.2.1",
     "@fontsource/source-sans-3": "^5.2.9",
     "@fontsource/source-serif-4": "^5.2.9",
     "@heroicons/react": "^2.2.0",
@@ -47,6 +49,7 @@
     "react-joyride": "^2.7.2",
     "react-router-dom": "^6.26.0",
     "react-simple-maps": "^3.0.0",
+    "recharts": "^3.8.1",
     "remotion": "4.0.434",
     "topojson-client": "^3.1.0",
     "tsx": "^4.21.0"

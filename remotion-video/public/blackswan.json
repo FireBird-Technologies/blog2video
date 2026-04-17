@@ -1,0 +1,43 @@
+{
+  "projectName": "BLACKSWAN Studio Sample",
+  "accentColor": "#00E5FF",
+  "bgColor": "#000000",
+  "textColor": "#DFFFFF",
+  "aspectRatio": "landscape",
+  "fontFamily": null,
+  "scenes": [
+    {
+      "id": 1,
+      "order": 1,
+      "title": "BLACK SWAN",
+      "narration": "Neon narratives on still water.",
+      "layout": "droplet_intro",
+      "layoutProps": {},
+      "durationSeconds": 6,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 2,
+      "order": 2,
+      "title": "Title",
+      "narration": "",
+      "layout": "swan_title",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    },
+    {
+      "id": 3,
+      "order": 3,
+      "title": "Narrative",
+      "narration": "",
+      "layout": "neon_narrative",
+      "layoutProps": {},
+      "durationSeconds": 5,
+      "voiceoverFile": null,
+      "images": []
+    }
+  ]
+}

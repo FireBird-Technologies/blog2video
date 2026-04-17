@@ -37,6 +37,8 @@ import OutroScene from "./SceneOutro";
 // with imports of SceneContent0, SceneContent1, etc.
 import { CONTENT_VARIANTS } from "./contentRegistry";
 import { GeneratedTransition } from "./GeneratedTransition";
+import { GeneratedCtaOverlay } from "./GeneratedCtaOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -55,12 +57,12 @@ export const calculateGeneratedMetadata: CalculateMetadataFunction<VideoProps> =
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: GeneratedVideoData = await res.json();
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
 
-      const totalSeconds = data.scenes.reduce(
-        (sum, s) => sum + (s.durationSeconds || 5),
-        0,
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
       );
-      const totalFrames = Math.ceil((totalSeconds + 2) * FPS);
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
@@ -217,6 +219,7 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
   let currentFrame = 0;
   const totalScenes = data.scenes.length;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
 
   console.log(
     `[GeneratedVideo] Rendering ${totalScenes} scenes with ${CONTENT_VARIANTS.length} content variants`,
@@ -230,9 +233,10 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.max(
-          1,
-          Math.round((Number(scene.durationSeconds) || 5) * FPS),
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
         );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
@@ -280,9 +284,21 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             durationInFrames={durationFrames}
             name={scene.title}
           >
-            <SceneComp {...sceneProps} />
+            {scene.ctaProps ? (
+              <GeneratedCtaOverlay
+                ctaProps={scene.ctaProps}
+                brandColors={brandColors}
+                aspectRatio={(data.aspectRatio as "landscape" | "portrait") || "landscape"}
+                headingFont={headingFont}
+                bodyFont={bodyFont}
+                title={sceneProps.displayText}
+                logoUrl={sceneProps.logoUrl}
+              />
+            ) : (
+              <SceneComp {...sceneProps} />
+            )}
             {scene.voiceoverFile && (
-              <Audio src={staticFile(scene.voiceoverFile)} />
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
             )}
 
             {/* Brand-aware transition overlay between scenes */}

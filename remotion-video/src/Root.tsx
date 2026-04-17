@@ -20,6 +20,10 @@ import {
   calculateMatrixMetadata,
 } from "./templates/matrix/MatrixVideo";
 import {
+  MosaicVideo,
+  calculateMosaicMetadata,
+} from "./templates/mosaic/MosaicVideo";
+import {
   WhiteboardVideo,
   calculateWhiteboardMetadata,
 } from "./templates/whiteboard/WhiteboardVideo";
@@ -31,6 +35,10 @@ import {
   NewscastVideo,
   calculateNewscastMetadata,
 } from "./templates/newscast/NewscastVideo";
+import {
+  BlackswanVideo,
+  calculateBlackswanMetadata,
+} from "./templates/blackswan/BlackswanVideo";
 import {
   GeneratedVideo,
   calculateGeneratedMetadata,
@@ -100,6 +108,18 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={calculateMatrixMetadata}
       />
       <Composition
+        id="MosaicVideo"
+        component={MosaicVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateMosaicMetadata}
+      />
+      <Composition
         id="WhiteboardVideo"
         component={WhiteboardVideo}
         durationInFrames={30 * 300}
@@ -134,6 +154,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateNewscastMetadata}
+      />
+      <Composition
+        id="BlackswanVideo"
+        component={BlackswanVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateBlackswanMetadata}
       />
       <Composition
         id="GeneratedVideo"
