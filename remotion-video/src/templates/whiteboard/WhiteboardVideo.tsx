@@ -12,7 +12,6 @@ import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
-import { BackgroundMusic } from "../../components/BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
@@ -38,8 +37,6 @@ interface VideoData {
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
-  bgmFile?: string | null;
-  bgmVolume?: number;
   scenes: SceneData[];
 }
 
@@ -179,10 +176,6 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           maxOpacity={data.logoOpacity ?? 0.9}
           aspectRatio={data.aspectRatio || "landscape"}
         />
-      )}
-
-      {data.bgmFile && (
-        <BackgroundMusic src={staticFile(data.bgmFile)} volume={data.bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

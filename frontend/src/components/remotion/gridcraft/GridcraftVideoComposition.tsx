@@ -3,7 +3,6 @@ import { GRIDCRAFT_LAYOUT_REGISTRY } from "./layouts";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "./constants";
 import type { GridcraftLayoutType, GridcraftLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
-import { BackgroundMusic } from "../BackgroundMusic";
 import { Blobs } from "./components/Blobs";
 import { COLORS } from "./utils/styles";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
@@ -55,8 +54,6 @@ export interface GridcraftVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
-  bgmUrl?: string | null;
-  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -73,8 +70,6 @@ export const GridcraftVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
-  bgmUrl,
-  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -150,10 +145,6 @@ export const GridcraftVideoComposition: React.FC<
             aspectRatio={aspectRatio || "landscape"}
           />
         </AbsoluteFill>
-      )}
-    
-      {bgmUrl && (
-        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

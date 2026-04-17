@@ -53,8 +53,6 @@ export interface GeneratedVideoData {
   headingFont?: string | null;
   /** Font for body/description text (from theme or user override) */
   bodyFont?: string | null;
-  bgmFile?: string | null;
-  bgmVolume?: number;
   scenes: GeneratedSceneData[];
   /** Brand colors derived from template theme */
   brandColors?: {

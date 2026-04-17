@@ -5,7 +5,6 @@ import {
   SceneLayoutProps,
 } from "./layouts";
 import { LogoOverlay } from "../LogoOverlay";
-import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 function convertDataVizProps(lp: Record<string, unknown>): Record<string, unknown> {
@@ -66,8 +65,6 @@ export interface DefaultVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
-  bgmUrl?: string | null;
-  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -82,8 +79,6 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
   logoPosition,
   logoOpacity,
   logoSize,
-  bgmUrl,
-  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -147,10 +142,6 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
-      )}
-    
-      {bgmUrl && (
-        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

@@ -26,12 +26,7 @@ export const createProject = (
   logo_position?: string,
   logo_opacity?: number,
   custom_voice_id?: string,
-  aspect_ratio?: string,
-  template?: string,
-  video_style?: string,
-  video_length?: string,
-  content_language?: string | null,
-  bgm_track_id?: string | null,
+  aspect_ratio?: string
 ) =>
   api.post<Project>("/projects", {
     blog_url,
@@ -46,11 +41,6 @@ export const createProject = (
     logo_opacity,
     custom_voice_id,
     aspect_ratio,
-    template,
-    video_style,
-    video_length,
-    content_language,
-    bgm_track_id,
   });
 
 export const uploadLogo = (projectId: number, file: File) => {
