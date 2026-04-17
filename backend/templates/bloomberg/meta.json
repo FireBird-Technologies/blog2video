@@ -1,0 +1,755 @@
+{
+  "id": "bloomberg",
+  "name": "Bloomberg",
+  "new_template": true,
+  "description": "Bloomberg terminal-inspired financial storytelling: amber monospace on pure black, dense data panels, KPI grids, and chart scenes for trader-facing explainer videos.",
+  "styles": [
+    "explainer",
+    "promotional"
+  ],
+  "preview_colors": {
+    "accent": "#5EA2FF",
+    "bg": "#000000",
+    "text": "#FFB340"
+  },
+  "composition_id": "BloombergVideo",
+  "hero_layout": "terminal_boot",
+  "fallback_layout": "terminal_narrative",
+  "valid_layouts": [
+    "terminal_boot",
+    "terminal_narrative",
+    "terminal_chart",
+    "terminal_dashboard",
+    "terminal_ticker",
+    "terminal_table",
+    "terminal_split",
+    "terminal_quote",
+    "terminal_list",
+    "terminal_metric",
+    "terminal_profile",
+    "terminal_options",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "terminal_boot": {
+      "label": "Terminal Boot",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 99,
+          "landscape": 101
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 39
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Boot Log Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Boot Log Lines",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "terminal_narrative": {
+      "label": "Terminal Narrative",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 87,
+          "landscape": 64
+        },
+        "descriptionFontSize": {
+          "portrait": 41,
+          "landscape": 30
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "terminal_chart": {
+      "label": "Terminal Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 77
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 36
+        },
+        "items": [
+          "MA20: 184.40",
+          "MA50: 179.20",
+          "RSI: 62.4",
+          "MACD: +1.82"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Stats Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Chart Stats / Indicators",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "terminal_dashboard": {
+      "label": "Terminal Dashboard",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 91
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 38
+        },
+        "metrics": [
+          {
+            "value": "S&P 500",
+            "label": "INDEX",
+            "suffix": "+0.84%"
+          },
+          {
+            "value": "NASDAQ",
+            "label": "INDEX",
+            "suffix": "+1.12%"
+          },
+          {
+            "value": "DXY",
+            "label": "DOLLAR",
+            "suffix": "-0.22%"
+          },
+          {
+            "value": "10Y",
+            "label": "YIELD",
+            "suffix": "4.31%"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "KPI Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "metrics",
+          "label": "KPI Tiles",
+          "type": "object_array",
+          "maxItems": 6,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value / Ticker"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Change / Suffix"
+            }
+          ]
+        }
+      ]
+    },
+    "terminal_ticker": {
+      "label": "Terminal Ticker",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 97
+        },
+        "descriptionFontSize": {
+          "portrait": 28,
+          "landscape": 32
+        },
+        "items": [
+          "AAPL  +2.14%  $189.40",
+          "NVDA  +4.88%  $847.20",
+          "MSFT  +1.32%  $415.60",
+          "TSLA  -1.74%  $172.30",
+          "AMZN  +0.96%  $189.10"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Ticker Row Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Ticker Rows",
+          "type": "string_array",
+          "maxItems": 10
+        }
+      ]
+    },
+    "terminal_table": {
+      "label": "Terminal Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 79
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 28
+        },
+        "items": [
+          "POSITION | QTY | ENTRY | CURRENT | P&L",
+          "AAPL     | 100 | 172.40 | 189.40 | +$1,700",
+          "NVDA     |  50 | 620.00 | 847.20 | +$11,360",
+          "TSLA     |  80 | 185.00 | 172.30 | -$1,016"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Table Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Table Rows (row 0 = header)",
+          "type": "string_array",
+          "maxItems": 12
+        }
+      ]
+    },
+    "terminal_split": {
+      "label": "Terminal Split",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 107
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 33
+        },
+        "leftLabel": "BEFORE",
+        "rightLabel": "AFTER",
+        "leftDescription": "Baseline market state with elevated volatility and negative momentum.",
+        "rightDescription": "Recovery phase with improving breadth and positive risk appetite."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Label",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Label",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Description",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Description",
+          "type": "text"
+        }
+      ]
+    },
+    "terminal_quote": {
+      "label": "Terminal Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 89
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 59
+        },
+        "quote": "The signal is always in the data. The noise is everywhere else.",
+        "highlightWord": "signal"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Sub-text Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "highlightWord",
+          "label": "Highlight Word",
+          "type": "string"
+        }
+      ]
+    },
+    "terminal_list": {
+      "label": "Terminal List",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 108
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 36
+        },
+        "items": [
+          "Monitor FOMC minutes for rate guidance",
+          "Watch 10Y yield for breakout confirmation",
+          "Track VIX below 20 for risk-on continuation"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "List Item Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "List Items",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "terminal_metric": {
+      "label": "Terminal Metric",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 97
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 37
+        },
+        "metrics": [
+          {
+            "value": "4.31",
+            "label": "10Y YIELD",
+            "suffix": "%"
+          },
+          {
+            "value": "18.4",
+            "label": "VIX",
+            "suffix": ""
+          },
+          {
+            "value": "104.2",
+            "label": "DXY",
+            "suffix": ""
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Label Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 80,
+          "step": 1
+        },
+        {
+          "key": "metrics",
+          "label": "Metrics",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Value"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "suffix",
+              "label": "Suffix"
+            }
+          ]
+        }
+      ]
+    },
+    "terminal_profile": {
+      "label": "Terminal Profile",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 97
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 30
+        },
+        "items": [
+          "CLASSIC       Amber on black. Pure terminal baseline.",
+          "BLUE-HOUR     Cool blue accent. After-hours session.",
+          "RISK-RED      Red dominant. Drawdown / alert mode.",
+          "MACRO-GOLD    Gold palette. Macro and rates focus.",
+          "DARK-CONTRAST High contrast whites. Print clarity."
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Profile Row Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Profile Rows",
+          "type": "string_array",
+          "maxItems": 8
+        }
+      ]
+    },
+    "terminal_options": {
+      "label": "Terminal Options",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 29
+        },
+        "items": [
+          "STRIKE | TYPE | BID  | ASK  | IV    | DELTA | GAMMA",
+          "185    | CALL | 5.20 | 5.40 | 28.4% | 0.52  | 0.041",
+          "190    | CALL | 2.80 | 2.95 | 30.1% | 0.38  | 0.038",
+          "195    | CALL | 1.10 | 1.20 | 32.8% | 0.24  | 0.030",
+          "185    | PUT  | 4.90 | 5.10 | 27.9% | -0.48 | 0.040",
+          "180    | PUT  | 2.40 | 2.55 | 29.5% | -0.32 | 0.033"
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 16,
+          "max": 160,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Chain Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Options Chain Rows (row 0 = header)",
+          "type": "string_array",
+          "maxItems": 12
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending Socials",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 76,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 30
+        },
+        "hideImage": true,
+        "ctaButtonText": "Get Started",
+        "websiteLink": "https://yourwebsite.com",
+        "showWebsiteButton": true,
+        "socials": [
+          {
+            "platform": "facebook",
+            "enabled": "true",
+            "label": "Facebook"
+          },
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "false",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "false",
+            "label": "TikTok"
+          }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "CTA Text Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Narration Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Text",
+          "type": "string"
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website / URL",
+          "type": "string"
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website Link",
+          "type": "boolean"
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "terminal_boot",
+    "terminal_dashboard",
+    "terminal_ticker",
+    "terminal_table",
+    "terminal_split",
+    "terminal_quote",
+    "terminal_list",
+    "terminal_metric",
+    "terminal_profile",
+    "terminal_options",
+    "ending_socials"
+  ],
+  "features": [
+    "Bloomberg terminal aesthetic on pure black",
+    "Amber monospace typography throughout",
+    "Dense data panels: KPI grids, options chains, portfolio tables",
+    "Financial scene set: chart, dashboard, ticker, macro, options"
+  ]
+}
