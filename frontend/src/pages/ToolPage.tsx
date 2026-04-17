@@ -52,6 +52,32 @@ export default function ToolPage() {
 
         <section className="mx-auto max-w-6xl px-6 py-16">
           <ToolWidget slug={tool.slug} />
+          <div className="mt-8 rounded-3xl border border-purple-100 bg-purple-50/70 p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
+              Next Step
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-gray-900">
+              Turn this finished article into video with Blog2Video
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-gray-600">
+              Once this tool helps you shape the copy, headline, formatting, or angle, paste the
+              same piece into Blog2Video and generate a narrated video from it.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                to="/blog-to-video"
+                className="inline-flex items-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+              >
+                Try Blog2Video free
+              </Link>
+              <Link
+                to="/tools"
+                className="inline-flex items-center rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+              >
+                Back to all tools
+              </Link>
+            </div>
+          </div>
         </section>
 
         <section className="border-y border-gray-100 bg-gray-50/70">
@@ -103,24 +129,6 @@ export default function ToolPage() {
                     </Link>
                   ))}
                 </div>
-              </div>
-              <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-6">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">
-                  Use It With Blog2Video
-                </p>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Turn the written assets these tools sharpen into video next.
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                  Once the headline, formatting, or monetization angle is clear, Blog2Video helps you
-                  turn the finished article or newsletter into a publishable video workflow.
-                </p>
-                <Link
-                  to="/blog-to-video"
-                  className="mt-4 inline-flex rounded-full bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
-                >
-                  Try the blog-to-video workflow
-                </Link>
               </div>
             </aside>
           </div>

@@ -49,30 +49,44 @@ export default function ToolsHub() {
                 Built for Medium, Substack, and writing-first workflows
               </span>
             </div>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Link
+                to="/blog-to-video"
+                className="inline-flex items-center rounded-full bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
+              >
+                Try Blog2Video free
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900"
+              >
+                See pricing
+              </Link>
+            </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-6xl px-6 py-16">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
             {tools.map((tool) => (
               <Link
                 key={tool.slug}
                 to={tool.path}
-                className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-sm font-bold text-purple-700">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-base font-bold text-purple-700">
                     {tool.icon}
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-600">
                       {categoryLabels[tool.category]}
                     </p>
-                    <h2 className="mt-1 text-xl font-semibold text-gray-900">{tool.title}</h2>
+                    <h2 className="mt-1 text-2xl font-semibold text-gray-900">{tool.title}</h2>
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-relaxed text-gray-600">{tool.description}</p>
-                <div className="mt-5 flex flex-wrap gap-2">
+                <p className="mt-5 text-base leading-relaxed text-gray-600">{tool.description}</p>
+                <div className="mt-6 flex flex-wrap gap-2">
                   {tool.badges.slice(0, 3).map((badge) => (
                     <span
                       key={badge}
@@ -81,6 +95,9 @@ export default function ToolsHub() {
                       {badge}
                     </span>
                   ))}
+                </div>
+                <div className="mt-8 inline-flex items-center text-sm font-semibold text-purple-700">
+                  Open tool <span className="ml-2">→</span>
                 </div>
               </Link>
             ))}
