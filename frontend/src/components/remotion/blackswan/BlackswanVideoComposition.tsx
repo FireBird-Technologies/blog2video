@@ -2,7 +2,6 @@ import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { BLACKSWAN_LAYOUT_REGISTRY } from "./layouts";
 import type { BlackswanLayoutProps, BlackswanLayoutType } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
-import { BackgroundMusic } from "../BackgroundMusic";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 export interface BlackswanSceneInput {
@@ -26,8 +25,6 @@ export interface BlackswanVideoCompositionProps {
   logoPosition?: string;
   logoOpacity?: number;
   logoSize?: number;
-  bgmUrl?: string | null;
-  bgmVolume?: number;
   aspectRatio?: string;
   fontFamily?: string;
   playbackSpeed?: number;
@@ -44,8 +41,6 @@ export const BlackswanVideoComposition: React.FC<
   logoPosition,
   logoOpacity,
   logoSize,
-  bgmUrl,
-  bgmVolume,
   aspectRatio,
   fontFamily,
   playbackSpeed,
@@ -105,10 +100,6 @@ export const BlackswanVideoComposition: React.FC<
           size={logoSize ?? 100}
           aspectRatio={aspectRatio || "landscape"}
         />
-      )}
-    
-      {bgmUrl && (
-        <BackgroundMusic src={bgmUrl} volume={bgmVolume ?? 0.10} />
       )}
     </AbsoluteFill>
   );

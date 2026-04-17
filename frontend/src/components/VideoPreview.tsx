@@ -17,7 +17,6 @@ import {
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
 import { CtaOverlay } from "./remotion/CtaOverlay";
-import { BackgroundMusic } from "./remotion/BackgroundMusic";
 
 const StableCustomComposition: React.FC<any> = ({
   isCustom,
@@ -166,10 +165,6 @@ const StableCustomComposition: React.FC<any> = ({
             aspectRatio={aspectRatio}
           />
         </AbsoluteFill>
-      )}
-
-      {project.bgm_track_url && (
-        <BackgroundMusic src={project.bgm_track_url} volume={project.bgm_volume ?? 0.10} />
       )}
     </AbsoluteFill>
   );
@@ -909,8 +904,6 @@ export default function VideoPreview({
     logoOpacity: logoOpacityOverride ?? project.logo_opacity ?? 0.9,
     logoSize: logoSizeOverride ?? (typeof project.logo_size === "number" ? project.logo_size : 100),
     aspectRatio: project.aspect_ratio || "landscape",
-    bgmUrl: project.bgm_track_url || null,
-    bgmVolume: project.bgm_volume ?? 0.10,
     ...(resolvedFontFamily ? { fontFamily: resolvedFontFamily } : {}),
     ...(project.custom_theme ? { theme: project.custom_theme } : {}),
   };

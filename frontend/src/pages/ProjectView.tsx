@@ -37,8 +37,6 @@ import {
   getProjectTemplateChangeStatus,
   type TemplateMeta,
   type CustomTemplateItem,
-  getBgmTracks,
-  type BgmTrack,
 } from "../api/client";
 import Joyride, { CallBackProps, STATUS, Step } from "react-joyride";
 import { useAuth } from "../hooks/useAuth";
@@ -481,13 +479,6 @@ export default function ProjectView() {
   const [showFontDropdown, setShowFontDropdown] = useState(false);
   const [playbackSpeedDraft, setPlaybackSpeedDraft] = useState<number>(1);
   const [savingPlaybackSpeed, setSavingPlaybackSpeed] = useState(false);
-  // Background music
-  const [bgmTracks, setBgmTracks] = useState<import("../api/client").BgmTrack[]>([]);
-  const [bgmTrackDraft, setBgmTrackDraft] = useState<string | null>(null);
-  const [bgmVolumeDraft, setBgmVolumeDraft] = useState<number>(0.10);
-  const [savingBgm, setSavingBgm] = useState(false);
-  const [bgmPlayingId, setBgmPlayingId] = useState<string | null>(null);
-  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
   const savingPlaybackSpeedRef = useRef(false);
   const pendingPlaybackSpeedRef = useRef<number | null>(null);
   const fontDropdownRef = useRef<HTMLDivElement>(null);
@@ -521,8 +512,6 @@ export default function ProjectView() {
       setSettingsFontId(project.font_family ?? null);
       const current = Number(project.playback_speed ?? 1);
       setPlaybackSpeedDraft(Math.min(2.5, Math.max(0.5, Number.isFinite(current) ? current : 1)));
-      setBgmTrackDraft(project.bgm_track_id ?? null);
-      setBgmVolumeDraft(project.bgm_volume ?? 0.10);
       // Seed global typography sliders from the first scene that has stored values.
       // This avoids the slider defaulting to 60 when e.g. mosaic_metric scenes have 131.
       if (project.scenes && project.scenes.length > 0) {
@@ -552,11 +541,6 @@ export default function ProjectView() {
       setLogoOpacity(project.logo_opacity ?? 0.9);
     }
   }, [project?.id, project?.logo_position, project?.logo_size, project?.logo_opacity]);
-
-  // Fetch BGM tracks once
-  useEffect(() => {
-    getBgmTracks().then((r) => setBgmTracks(r.data)).catch(() => {});
-  }, []);
 
   // Upload-based project detection
   const isUploadProject = project?.blog_url?.startsWith("upload://") ?? false;
@@ -4444,207 +4428,6 @@ export default function ProjectView() {
                     </>
                   ) : (
                     "Save colors"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Playback Speed</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Applies to preview and final rendered video (including voiceover).
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-wrap gap-2">
-                {PLAYBACK_SPEED_OPTIONS.map((speed) => {
-                  const active = playbackSpeedDraft === speed;
-                  return (
-                    <button
-                      key={speed}
-                      type="button"
-                      onClick={() => setPlaybackSpeedDraft(speed)}
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                        active
-                          ? "bg-purple-50 text-purple-700 border-purple-300"
-                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      {speed}x
-                    </button>
-                  );
-                })}
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Custom speed</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">
-                    {playbackSpeedDraft.toFixed(1)}x
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={2.5}
-                  step={0.1}
-                  value={playbackSpeedDraft}
-                  onChange={(e) => setPlaybackSpeedDraft(Number(e.target.value))}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
-              </div>
-              {project.r2_video_url && project.playback_speed !== playbackSpeedDraft ? (
-                <p className="text-[11px] text-amber-600">
-                  Changing speed makes the current downloaded MP4 outdated. Save this and re-render to update it.
-                </p>
-              ) : null}
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingPlaybackSpeed}
-                  onClick={async () => {
-                    setSavingPlaybackSpeed(true);
-                    try {
-                      const normalized = Math.min(2.5, Math.max(0.5, Math.round(playbackSpeedDraft * 10) / 10));
-                      await updateProject(project.id, { playback_speed: normalized });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save playback speed."));
-                    } finally {
-                      setSavingPlaybackSpeed(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingPlaybackSpeed ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save speed"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Background Music */}
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Background Music</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Ambient music behind voiceover narration.
-            </p>
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div>
-                <label className="text-xs text-gray-500 mb-2 block">Track</label>
-                <select
-                  value={bgmTrackDraft ?? ""}
-                  onChange={(e) => setBgmTrackDraft(e.target.value || null)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none"
-                >
-                  <option value="">None</option>
-                  {bgmTracks.map((t) => (
-                    <option key={t.track_id} value={t.track_id}>
-                      {t.display_name} — {t.mood}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Preview */}
-              {bgmTrackDraft && (() => {
-                const track = bgmTracks.find((t) => t.track_id === bgmTrackDraft);
-                if (!track) return null;
-                const isPlaying = bgmPlayingId === track.track_id;
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isPlaying) {
-                        bgmAudioRef.current?.pause();
-                        setBgmPlayingId(null);
-                      } else {
-                        bgmAudioRef.current?.pause();
-                        const audio = new Audio(track.r2_url);
-                        audio.onended = () => setBgmPlayingId(null);
-                        audio.play().catch(() => {});
-                        bgmAudioRef.current = audio;
-                        setBgmPlayingId(track.track_id);
-                      }
-                    }}
-                    className="flex items-center gap-2 text-xs text-purple-600 hover:text-purple-700 transition-colors"
-                  >
-                    {isPlaying ? (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <rect x="6" y="4" width="4" height="16" rx="1" />
-                          <rect x="14" y="4" width="4" height="16" rx="1" />
-                        </svg>
-                        Pause preview
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                        Preview track
-                      </>
-                    )}
-                  </button>
-                );
-              })()}
-
-              <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
-                  <span>Volume</span>
-                  <span className="text-purple-600 font-semibold tabular-nums">
-                    {Math.round(bgmVolumeDraft * 100)}%
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round(bgmVolumeDraft * 100)}
-                  onChange={(e) => setBgmVolumeDraft(Number(e.target.value) / 100)}
-                  className="w-full h-1 rounded-full appearance-none bg-gray-200 accent-purple-600"
-                />
-              </div>
-
-              {project.r2_video_url && (project.bgm_track_id !== bgmTrackDraft || project.bgm_volume !== bgmVolumeDraft) ? (
-                <p className="text-[11px] text-amber-600">
-                  Changing BGM makes the current MP4 outdated. Save and re-render to update.
-                </p>
-              ) : null}
-
-              <div className="flex justify-end mt-auto">
-                <button
-                  type="button"
-                  disabled={savingBgm}
-                  onClick={async () => {
-                    setSavingBgm(true);
-                    try {
-                      await updateProject(project.id, {
-                        bgm_track_id: bgmTrackDraft,
-                        bgm_volume: Math.round(bgmVolumeDraft * 100) / 100,
-                      });
-                      await loadProject();
-                    } catch (err) {
-                      showError(getErrorMessage(err, "Failed to save background music."));
-                    } finally {
-                      setSavingBgm(false);
-                    }
-                  }}
-                  className="px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {savingBgm ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    "Save music"
                   )}
                 </button>
               </div>
