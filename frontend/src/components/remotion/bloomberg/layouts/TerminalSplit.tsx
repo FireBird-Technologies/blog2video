@@ -36,6 +36,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
+  const panelBg = "rgba(22, 31, 45, 0.48)";
 
   // Vertical spacing adjustments for "shortened" boxes
   const titleHeight = 80;
@@ -77,7 +78,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: pad, height: "25%",
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
+            backgroundColor: panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -91,7 +92,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened) */}
           <div style={{
             position: "absolute", top: "58%", left: pad, right: pad, height: "25%",
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
+            backgroundColor: panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -108,7 +109,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened height via bottom constraint) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: "51%", bottom: botH + 120,
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
+            backgroundColor: panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -128,7 +129,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened height) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: "51%", right: pad, bottom: botH + 120,
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
+            backgroundColor: panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",

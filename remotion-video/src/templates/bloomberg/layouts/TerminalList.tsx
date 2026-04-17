@@ -22,8 +22,8 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
 
-  const tSize = titleFontSize ?? (p ? 64 : 88);
-  const dSize = descriptionFontSize ?? (p ? 34 : 42); 
+  const tSize = titleFontSize ?? (p ? 96 : 95);
+  const dSize = descriptionFontSize ?? (p ? 41 : 36); 
   const labelSize = dSize * 0.4;
 
   const headerOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });

@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
-import { BackgroundGraph } from "./BackgroundGraph";
+import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 
 export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
   title,
@@ -23,8 +23,8 @@ export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
 
-  const tSize = titleFontSize ?? (p ? 72 : 97);
-  const dSize = descriptionFontSize ?? (p ? 34 : 59);
+  const tSize = titleFontSize ?? (p ? 97 : 97);
+  const dSize = descriptionFontSize ?? (p ? 56 : 59);
   const labelSize = dSize * 0.38;
 
   const topLineOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
@@ -54,7 +54,7 @@ export const TerminalQuote: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
-      <BackgroundGraph accentColor={blue} textColor={amber} variant="quote" />
+      <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
