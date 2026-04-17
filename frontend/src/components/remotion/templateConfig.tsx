@@ -18,6 +18,7 @@ import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
+import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -29,6 +30,7 @@ import {
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
   RemotionBlackswanVideoComposition,
+  RemotionBloombergVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -202,6 +204,22 @@ const BLACKSWAN_LAYOUTS = new Set([
   "flight_path",
   "ending_socials"
 ]);
+
+const BLOOMBERG_LAYOUTS = new Set([
+  "terminal_boot",
+  "terminal_narrative",
+  "terminal_chart",
+  "terminal_dashboard",
+  "terminal_ticker",
+  "terminal_table",
+  "terminal_split",
+  "terminal_quote",
+  "terminal_list",
+  "terminal_metric",
+  "terminal_profile",
+  "terminal_options",
+  "ending_socials",
+]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -333,6 +351,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  bloomberg: {
+    component: BloombergVideoComposition as React.ComponentType<any>,
+    heroLayout: "terminal_boot",
+    fallbackLayout: "terminal_narrative",
+    validLayouts: BLOOMBERG_LAYOUTS,
+    defaultColors: {
+      accent: "#5EA2FF",
+      bg: "#000000",
+      text: "#FFB340",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -379,6 +410,8 @@ export function getTemplateConfig(
                       ? RemotionNewscastVideoComposition
                       : id === "blackswan"
                         ? RemotionBlackswanVideoComposition
+                        : id === "bloomberg"
+                          ? RemotionBloombergVideoComposition
                     : null;
 
     if (overrideComponent) {

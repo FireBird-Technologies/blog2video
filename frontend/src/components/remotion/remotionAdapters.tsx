@@ -52,6 +52,11 @@ import {
   type BlackswanLayoutType as RemotionBlackswanLayoutType,
   type BlackswanLayoutProps as RemotionBlackswanLayoutProps,
 } from "@remotion-video/templates/blackswan/layouts";
+import {
+  BLOOMBERG_LAYOUT_REGISTRY as REMOTION_BLOOMBERG_LAYOUT_REGISTRY,
+  type BloombergLayoutType as RemotionBloombergLayoutType,
+  type BloombergLayoutProps as RemotionBloombergLayoutProps,
+} from "@remotion-video/templates/bloomberg/layouts";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -1295,4 +1300,96 @@ export const RemotionNewscastVideoComposition: React.FC<
   );
 };
 
+// ─── Bloomberg ────────────────────────────────────────────────────────────────
 
+export interface RemotionBloombergSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionBloombergLayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionBloombergVideoCompositionProps {
+  scenes: RemotionBloombergSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+export const RemotionBloombergVideoComposition: React.FC<
+  RemotionBloombergVideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+  let currentFrame = 0;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
+      {scenes.map((scene) => {
+        const durationFrames = Math.round(scene.durationSeconds * FPS);
+        const startFrame = currentFrame;
+        currentFrame += durationFrames;
+
+        const LayoutComponent =
+          REMOTION_BLOOMBERG_LAYOUT_REGISTRY[scene.layout] ??
+          REMOTION_BLOOMBERG_LAYOUT_REGISTRY.terminal_narrative;
+
+        const layoutProps: RemotionBloombergLayoutProps = {
+          ...(scene.layoutProps as Record<string, unknown>),
+          title: scene.title,
+          narration: scene.narration,
+          accentColor: accentColor || "#5EA2FF",
+          bgColor: bgColor || "#000000",
+          textColor: textColor || "#FFB340",
+          aspectRatio: aspectRatio || "landscape",
+          imageUrl: scene.imageUrl,
+          layoutType: scene.layout,
+          fontFamily,
+        };
+
+        return (
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <LayoutComponent {...layoutProps} />
+            {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
