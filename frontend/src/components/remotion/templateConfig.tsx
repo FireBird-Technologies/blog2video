@@ -16,15 +16,19 @@ import { MatrixVideoComposition } from "./matrix/MatrixVideoComposition";
 import { WhiteboardVideoComposition } from "./whiteboard/WhiteboardVideoComposition";
 import { NewspaperVideoComposition } from "./newspaper/NewspaperVideoComposition";
 import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
+import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
+import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
   RemotionMatrixVideoComposition,
+  RemotionMosaicVideoComposition,
   RemotionNewspaperVideoComposition,
   RemotionNewscastVideoComposition,
   RemotionNightfallVideoComposition,
   RemotionSpotlightVideoComposition,
   RemotionWhiteboardVideoComposition,
+  RemotionBlackswanVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -55,6 +59,7 @@ export interface TemplateConfig {
     logoOpacity?: number;
     logoSize?: number;
     aspectRatio?: string;
+    playbackSpeed?: number;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     theme?: any;
   }>;
@@ -139,6 +144,17 @@ const MATRIX_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const MOSAIC_LAYOUTS = new Set([
+  "mosaic_title",
+  "mosaic_text",
+  "mosaic_punch",
+  "mosaic_stream",
+  "mosaic_metric",
+  "mosaic_phrases",
+  "mosaic_close",
+  "ending_socials",
+]);
+
 const WHITEBOARD_LAYOUTS = new Set([
   "drawn_title",
   "marker_story",
@@ -166,6 +182,7 @@ const NEWSCAST_LAYOUTS = new Set([
   "opening",
   "anchor_narrative",
   "live_metrics_board",
+  "data_visualization",
   "briefing_code_panel",
   "headline_insight",
   "story_stack",
@@ -173,6 +190,17 @@ const NEWSCAST_LAYOUTS = new Set([
   "segment_break",
   "field_image_focus",
   "ending_socials",
+]);
+const BLACKSWAN_LAYOUTS = new Set([
+  "droplet_intro",
+  "neon_narrative",
+  "arc_features",
+  "pulse_metric",
+  "signal_split",
+  "dive_insight",
+  "reactor_code",
+  "flight_path",
+  "ending_socials"
 ]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
@@ -240,6 +268,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  mosaic: {
+    component: MosaicVideoComposition as React.ComponentType<any>,
+    heroLayout: "mosaic_title",
+    fallbackLayout: "mosaic_text",
+    validLayouts: MOSAIC_LAYOUTS,
+    defaultColors: {
+      accent: "#C26240",
+      bg: "#EAE4DA",
+      text: "#2A2A28",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
   whiteboard: {
     component: WhiteboardVideoComposition as React.ComponentType<any>,
     heroLayout: "drawn_title",
@@ -279,6 +320,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1280,
     baseHeight: 720,
   },
+  blackswan: {
+    component: BlackswanVideoComposition as React.ComponentType<any>,
+    heroLayout: "droplet_intro",
+    fallbackLayout: "neon_narrative",
+    validLayouts: BLACKSWAN_LAYOUTS,
+    defaultColors: {
+      accent: "#00E5FF",
+      bg: "#000000",
+      text: "#DFFFFF",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -315,12 +369,16 @@ export function getTemplateConfig(
               ? RemotionSpotlightVideoComposition
               : id === "matrix"
                 ? RemotionMatrixVideoComposition
+                : id === "mosaic"
+                  ? RemotionMosaicVideoComposition
                 : id === "whiteboard"
                   ? RemotionWhiteboardVideoComposition
                   : id === "newspaper"
                     ? RemotionNewspaperVideoComposition
                     : id === "newscast"
                       ? RemotionNewscastVideoComposition
+                      : id === "blackswan"
+                        ? RemotionBlackswanVideoComposition
                     : null;
 
     if (overrideComponent) {

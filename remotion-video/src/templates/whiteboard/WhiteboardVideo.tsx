@@ -12,6 +12,7 @@ import { WHITEBOARD_LAYOUT_REGISTRY } from "./layouts";
 import { resolveFontFamily } from "../../fonts/registry";
 import type { WhiteboardLayoutType, WhiteboardLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
   id: number;
@@ -34,6 +35,7 @@ interface VideoData {
   logoPosition?: string;
   logoOpacity?: number;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -60,8 +62,11 @@ export const calculateWhiteboardMetadata: CalculateMetadataFunction<VideoProps> 
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
+      );
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
@@ -113,6 +118,7 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   if (!data) return <AbsoluteFill style={{ backgroundColor: "#F7F3E8" }} />;
 
   const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
   let currentFrame = 0;
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
 
@@ -124,7 +130,11 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       }}
     >
       {data.scenes.map((scene, index) => {
-        const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -147,7 +157,9 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
+            {scene.voiceoverFile && (
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
             {index < data.scenes.length - 1 && (
               <Sequence from={Math.max(0, durationFrames - 14)} durationInFrames={14}>
                 <WhiteboardTransition bgColor={data.bgColor || "#F7F3E8"} />

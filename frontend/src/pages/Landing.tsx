@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
@@ -12,6 +12,8 @@ import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
 import AccountDeletedModal from "../components/AccountDeletedModal";
 import LandingResourceSection from "../components/public/LandingResourceSection";
+import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
+import UserReviewsSection from "../components/UserReviewsSection";
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
@@ -33,12 +35,28 @@ interface DemoVideo {
 const INITIAL_DEMOS: DemoVideo[] = [
   {
     id: "demo-1",
-    title: "Blog2Video Demo",
-    youtubeId: "64UTm77OZqU",
-    blogUrl: "https://www.firebird-technologies.com/p/honest-review-of-lovable-from-an",
-    blogTitle: "Honest Review of Lovable from an AI Perspective",
-    blogExcerpt: "An in-depth analysis of Lovable's features and capabilities from an AI standpoint.",
+    title: "Iran-US Cease Fire",
+    youtubeId: "OX6qKxmkNJA",
+    blogUrl: "https://www.bbc.com/news/live/c5yw4g3z7qgt",
+    blogTitle: "Iran–US Ceasefire Deal Amid Escalating Israel-Lebanon Conflict",
+    blogExcerpt: "Iran and the United States reach a temporary ceasefire agreement, while tensions rise as Israel launches fresh strikes in Lebanon, signaling a fragile and uncertain regional situation.",
   },
+  {
+    id: "demo-2",
+    title: "US Democracy Test",
+    youtubeId: "BxgEddDuU80",
+    blogUrl: "https://www.newsweek.com/2026-midterms-a-critical-test-for-us-democracy-as-ranking-plummets-11696460",
+    blogTitle: "2026 Midterms, a Critical Test for US Democracy as Ranking Plummets",
+    blogExcerpt: "As the U.S. sees a significant decline in global democracy rankings, the 2026 midterms emerge as a defining moment that could determine the strength, credibility, and future of its democratic system.",
+  },
+  {
+    id: "demo-3",
+    title: "The Soccer Star",
+    youtubeId: "oECzBB7kExo",
+    blogUrl: "https://www.biography.com/athletes/cristiano-ronaldo",
+    blogTitle: "Soccer Star Cristiano Ronaldo Confirmed He’ll Retire ‘Soon.’ Here's When That Might Be.",
+    blogExcerpt: "Cristiano Ronaldo signals that retirement is on the horizon, sparking debate over when one of football’s greatest players will finally step away from the game.",
+  }
   // Add more like:
   // { id: "demo-2", title: "...", youtubeId: "...", blogUrl: "...", blogTitle: "...", blogExcerpt: "..." },
 ];
@@ -70,11 +88,358 @@ const NAV_LINKS = [
   { href: "/blogs", label: "Blogs" },
 ];
 
+const LANDING_YT_HOST_ID = "landing-yt-demo-host";
+/** One duration for fade-out and fade-in so blog, connector, video meta, and mask stay in sync (ms). */
+const DEMO_CROSSFADE_MS = 480;
+/** After destroy(), delay before re-creating the player so the host node is clean (ms). */
+const YT_RECREATE_AFTER_DESTROY_MS = 64;
+/** Shared easing — smooth start/end, identical on all demo layers */
+const DEMO_CROSSFADE_EASE = "ease-[cubic-bezier(0.33,1,0.68,1)]";
+
+/** YouTube IFrame API player states (numeric). */
+const YT_PLAYING = 1;
+
+type LandingYtPlayer = {
+  destroy: () => void;
+};
+
+function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
+  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  /** Index shown in the blog + video cards (lags activeVideoIdx during cross-fade). */
+  const [shownIdx, setShownIdx] = useState(0);
+  const [contentPhase, setContentPhase] = useState<"in" | "out">("in");
+  const [apiReady, setApiReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean((window as unknown as { YT?: { Player?: unknown } }).YT?.Player);
+  });
+
+  const playerRef = useRef<LandingYtPlayer | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+  const stuckGuardRef = useRef<number | null>(null);
+  const demosLenRef = useRef(demos.length);
+  demosLenRef.current = demos.length;
+
+  const clearIdleAdvanceRef = useRef(() => {});
+  clearIdleAdvanceRef.current = () => {
+    if (idleTimerRef.current != null) {
+      window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  };
+
+  const clearStuckGuardRef = useRef(() => {});
+  clearStuckGuardRef.current = () => {
+    if (stuckGuardRef.current != null) {
+      window.clearTimeout(stuckGuardRef.current);
+      stuckGuardRef.current = null;
+    }
+  };
+
+  const scheduleIdleAdvanceRef = useRef(() => {});
+  scheduleIdleAdvanceRef.current = () => {
+    clearIdleAdvanceRef.current();
+    const n = demosLenRef.current;
+    if (n <= 1) return;
+    idleTimerRef.current = window.setTimeout(() => {
+      idleTimerRef.current = null;
+      setActiveVideoIdx((i) => (i + 1) % n);
+    }, 5000);
+  };
+
+  const onYtStateChangeRef = useRef((_state: number) => {});
+  onYtStateChangeRef.current = (state: number) => {
+    // Only pause carousel while the video is actually playing. Treating BUFFERING as
+    // "playing" left the idle timer cleared forever when the embed stuck in buffering.
+    if (state === YT_PLAYING) {
+      clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
+    } else {
+      clearStuckGuardRef.current();
+      scheduleIdleAdvanceRef.current();
+    }
+  };
+
+  useEffect(() => {
+    const w = window as unknown as {
+      YT?: { Player: new (id: string, opts: Record<string, unknown>) => unknown };
+      onYouTubeIframeAPIReady?: () => void;
+    };
+    if (w.YT?.Player) {
+      setApiReady(true);
+      return;
+    }
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      setApiReady(true);
+    };
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+    }
+  }, []);
+
+  const visibleYoutubeId = demos[shownIdx]?.youtubeId;
+
+  useEffect(() => {
+    if (!apiReady || !visibleYoutubeId) return;
+
+    const w = window as unknown as {
+      YT: { Player: new (id: string, opts: Record<string, unknown>) => LandingYtPlayer };
+    };
+
+    const destroyPlayer = () => {
+      const existing = playerRef.current;
+      if (!existing) return;
+      try {
+        existing.destroy();
+      } catch {
+        /* ignore */
+      }
+      playerRef.current = null;
+    };
+
+    destroyPlayer();
+    clearIdleAdvanceRef.current();
+    clearStuckGuardRef.current();
+
+    let cancelled = false;
+    const createT = window.setTimeout(() => {
+      if (cancelled) return;
+      if (!document.getElementById(LANDING_YT_HOST_ID)) return;
+      try {
+        const player = new w.YT.Player(LANDING_YT_HOST_ID, {
+          videoId: visibleYoutubeId,
+          width: "100%",
+          height: "100%",
+          playerVars: {
+            enablejsapi: 1,
+            modestbranding: 1,
+            rel: 0,
+            origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
+          events: {
+            onReady: (e: { target: { getPlayerState: () => number } }) => {
+              onYtStateChangeRef.current(e.target.getPlayerState());
+            },
+            onStateChange: (e: { data: number }) => {
+              onYtStateChangeRef.current(e.data);
+            },
+          },
+        });
+        playerRef.current = player;
+        clearStuckGuardRef.current();
+        stuckGuardRef.current = window.setTimeout(() => {
+          stuckGuardRef.current = null;
+          scheduleIdleAdvanceRef.current();
+        }, 12000);
+      } catch {
+        /* ignore */
+      }
+    }, YT_RECREATE_AFTER_DESTROY_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(createT);
+      destroyPlayer();
+      clearIdleAdvanceRef.current();
+      clearStuckGuardRef.current();
+    };
+  }, [apiReady, shownIdx, visibleYoutubeId]);
+
+  useEffect(() => {
+    if (activeVideoIdx === shownIdx) {
+      // If the user changes tabs (or Strict Mode re-runs) while fading, the timeout is
+      // cleared but phase can stay "out" — resync so the section never stays invisible.
+      setContentPhase("in");
+      return;
+    }
+    setContentPhase("out");
+    const t = window.setTimeout(() => {
+      setShownIdx(activeVideoIdx);
+      setContentPhase("in");
+    }, DEMO_CROSSFADE_MS);
+    return () => window.clearTimeout(t);
+  }, [activeVideoIdx, shownIdx]);
+
+  const v = demos[shownIdx];
+  /* Keep in sync with DEMO_CROSSFADE_MS (Tailwind must see a static class name). */
+  const crossfadeDurationClass = "duration-[480ms]";
+  const demoCrossFadeLayer = `motion-reduce:transition-none transition-[opacity,transform] ${DEMO_CROSSFADE_EASE} ${crossfadeDurationClass} ${
+    contentPhase === "out"
+      ? "opacity-0 translate-y-2"
+      : "opacity-100 translate-y-0"
+  }`;
+  /** Opacity-only mask over the iframe — keeps motion in sync with cards without transforming the embed */
+  const demoVideoBlackout = `absolute inset-0 z-[1] bg-black pointer-events-none motion-reduce:transition-none transition-opacity ${DEMO_CROSSFADE_EASE} ${crossfadeDurationClass} ${
+    contentPhase === "out" ? "opacity-100" : "opacity-0"
+  }`;
+
+  return (
+    <section id="demo" className="py-20 border-t border-gray-100">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="reveal">
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+            See it in action
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            From blog post to video — automatically
+          </h2>
+          <p className="text-sm text-gray-500 text-center mb-12 max-w-lg mx-auto leading-relaxed">
+            Paste a URL and Blog2Video handles the rest. Here&apos;s a real example.
+          </p>
+        </div>
+
+        {demos.length > 1 && (
+          <div className="flex items-center justify-center gap-2 mb-8 reveal">
+            {demos.map((video, idx) => (
+              <button
+                key={video.id}
+                type="button"
+                onClick={() => setActiveVideoIdx(idx)}
+                className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+                  activeVideoIdx === idx
+                    ? "bg-purple-600 text-white"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {video.title}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {demos.length > 0 && v && (
+          <div className="reveal-scale">
+            <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch">
+            <div className={demoCrossFadeLayer}>
+            <a
+              href={v.blogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
+            >
+              <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
+                {v.blogImage ? (
+                  <img
+                    src={v.blogImage}
+                    alt={v.blogTitle || "Blog"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
+                    <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+                      />
+                    </svg>
+                    <span className="text-xs">Blog post</span>
+                  </div>
+                )}
+                <div className="absolute top-3 left-3">
+                  <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold text-gray-700 rounded-full shadow-sm">
+                    Blog Post
+                  </span>
+                </div>
+              </div>
+              <div className="p-5 flex-1 flex flex-col">
+                {v.blogUrl && (
+                  <p className="text-[10px] text-gray-400 truncate mb-2">
+                    {new URL(v.blogUrl).hostname}
+                  </p>
+                )}
+                <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-2 line-clamp-2 flex-1">
+                  {v.blogTitle || "Original blog post"}
+                </h3>
+                {v.blogExcerpt && (
+                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
+                    {v.blogExcerpt}
+                  </p>
+                )}
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 group-hover:gap-2 transition-all mt-auto">
+                  Read article
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </span>
+              </div>
+            </a>
+            </div>
+
+            <div className={`hidden md:flex flex-col items-center justify-center px-4 ${demoCrossFadeLayer}`}>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                  Blog2Video
+                </span>
+              </div>
+            </div>
+            <div className={`flex md:hidden items-center justify-center py-4 ${demoCrossFadeLayer}`}>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
+                  <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
+                  Blog2Video
+                </span>
+              </div>
+            </div>
+
+            <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+              {/* YouTube host stays outside opacity/transform cross-fade — animating the grid broke iframe API in several browsers */}
+              <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
+                <div id={LANDING_YT_HOST_ID} className="absolute inset-0 z-0 w-full h-full" />
+                <div className={demoVideoBlackout} aria-hidden />
+                <div className="absolute top-3 left-3 z-[2] pointer-events-none">
+                  <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
+                    Generated Video
+                  </span>
+                </div>
+              </div>
+              <div className={`p-5 flex-1 flex flex-col ${demoCrossFadeLayer}`}>
+                <p className="text-[10px] text-gray-400 mb-2">youtube.com</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
+                  {v.blogTitle || v.title}
+                </h3>
+                <div className="flex items-center gap-3 mt-auto">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Watch the video
+                  </span>
+                  <span className="text-[10px] text-gray-400">AI narration + visuals</span>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { showError } = useErrorModal();
-  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
   const [accountDeletedOpen, setAccountDeletedOpen] = useState(false);
@@ -151,7 +516,7 @@ export default function Landing() {
       {/* ─── Nav ─── */}
       <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
         {/* Banner above navbar so it appears first on scroll */}
-        <DiscountBanner containerClassName="max-w-6xl" />
+        {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -283,170 +648,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── See it in action (right after hero) ─── */}
-      <section id="demo" className="py-20 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="reveal">
-            <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
-              See it in action
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
-              From blog post to video — automatically
-            </h2>
-            <p className="text-sm text-gray-500 text-center mb-12 max-w-lg mx-auto leading-relaxed">
-              Paste a URL and Blog2Video handles the rest. Here's a real example.
-            </p>
-          </div>
+      <PlatformShowcaseSection />
 
-          {/* Video tabs */}
-          {demos.length > 1 && (
-            <div className="flex items-center justify-center gap-2 mb-8 reveal">
-              {demos.map((video, idx) => (
-                <button
-                  key={video.id}
-                  onClick={() => setActiveVideoIdx(idx)}
-                  className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
-                    activeVideoIdx === idx
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
-                >
-                  {video.title}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {demos.length > 0 && (() => {
-            const v = demos[activeVideoIdx];
-            return (
-              <div className="grid md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch reveal-scale">
-                {/* ── Blog Card (left) ── */}
-                <a
-                  href={v.blogUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
-                >
-                  {/* Blog image / placeholder */}
-                  <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
-                    {v.blogImage ? (
-                      <img
-                        src={v.blogImage}
-                        alt={v.blogTitle || "Blog"}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300">
-                        <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                        </svg>
-                        <span className="text-xs">Blog post</span>
-                      </div>
-                    )}
-                    {/* "Blog" badge */}
-                    <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-semibold text-gray-700 rounded-full shadow-sm">
-                        Blog Post
-                      </span>
-                    </div>
-                  </div>
-                  {/* Blog meta */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    {v.blogUrl && (
-                      <p className="text-[10px] text-gray-400 truncate mb-2">
-                        {new URL(v.blogUrl).hostname}
-                      </p>
-                    )}
-                    <h3 className="text-sm font-semibold text-gray-900 group-hover:text-purple-600 transition-colors mb-2 line-clamp-2 flex-1">
-                      {v.blogTitle || "Original blog post"}
-                    </h3>
-                    {v.blogExcerpt && (
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
-                        {v.blogExcerpt}
-                      </p>
-                    )}
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 group-hover:gap-2 transition-all mt-auto">
-                      Read article
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </span>
-                  </div>
-                </a>
-
-                {/* ── Arrow connector (center) ── */}
-                <div className="hidden md:flex flex-col items-center justify-center px-4">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
-                      Blog2Video
-                    </span>
-                  </div>
-                </div>
-                {/* Mobile arrow */}
-                <div className="flex md:hidden items-center justify-center py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-200">
-                      <svg className="w-4 h-4 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">
-                      Blog2Video
-                    </span>
-                  </div>
-                </div>
-
-                {/* ── Video Card (right) ── */}
-                <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
-                  {/* YouTube embed */}
-                  <div className="aspect-[16/9] relative flex-shrink-0 bg-black">
-                    <iframe
-                      key={v.youtubeId}
-                      src={`https://www.youtube.com/embed/${v.youtubeId}?rel=0&modestbranding=1`}
-                      title={v.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                      style={{ border: "none" }}
-                    />
-                    {/* "Video" badge */}
-                    <div className="absolute top-3 left-3 pointer-events-none">
-                      <span className="px-2.5 py-1 bg-purple-600 text-[10px] font-semibold text-white rounded-full shadow-sm">
-                        Generated Video
-                      </span>
-                    </div>
-                  </div>
-                  {/* Video meta */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <p className="text-[10px] text-gray-400 mb-2">
-                      youtube.com
-                    </p>
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 flex-1">
-                      {v.blogTitle || v.title}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-auto">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Watch the video
-                      </span>
-                      <span className="text-[10px] text-gray-400">AI narration + visuals</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      </section>
+      <LandingDemoSection demos={demos} />
 
       {/* ─── Multiple templates ─── */}
       <section className="py-20 border-t border-gray-100">
@@ -766,6 +970,8 @@ export default function Landing() {
         </div>
       </section>
 
+      <UserReviewsSection />
+
       {/* ─── Pricing preview ─── */}
       <section className="py-20">
         <div className="max-w-6xl mx-auto px-6 text-center reveal">
@@ -779,23 +985,23 @@ export default function Landing() {
             or custom plans for enterprise teams.
           </p>
 
-          <div className="flex flex-row items-center justify-center gap-3 overflow-x-auto pb-2">
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Free</p>
               <p className="text-3xl font-bold text-gray-900">$0</p>
               <p className="text-xs text-gray-400 mt-1">3 videos free</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
               <p className="text-3xl font-bold text-gray-900">$3</p>
               <p className="text-xs text-gray-400 mt-1">pay as you go</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
               <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 ring-1 ring-purple-200 relative">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center ring-1 ring-purple-200 relative">
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
@@ -803,7 +1009,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
             </div>
-            <div className="glass-card px-7 py-6 text-center w-[170px] flex-shrink-0 border-2 border-purple-300">
+            <div className="glass-card px-4 sm:px-7 py-6 text-center border-2 border-purple-300">
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
               <p className="text-3xl font-bold text-gray-900">Custom</p>
               <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>

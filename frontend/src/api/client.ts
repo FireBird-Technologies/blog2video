@@ -127,9 +127,11 @@ export interface Project {
   aspect_ratio: string;
   video_style?: VideoStyleId;
   video_length?: "auto" | "short" | "medium" | "detailed";
+  playback_speed?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_template_missing?: boolean;
+  brand_logo_url?: string | null;
   review_state?: ReviewState | null;
   created_at: string;
   updated_at: string;
@@ -849,6 +851,9 @@ export interface PipelineStatus {
   step: number;
   running: boolean;
   error: string | null;
+  error_code?: string | null;
+  /** True when the server removed the project after a failed generation (quota reverted). */
+  project_removed?: boolean;
   notice?: {
     code: string;
     message?: string;
@@ -878,7 +883,14 @@ export const bulkUpdateSceneTypography = (
 
 export const updateProject = (
   projectId: number,
-  data: { accent_color?: string; bg_color?: string; text_color?: string; font_family?: string | null }
+  data: {
+    accent_color?: string;
+    bg_color?: string;
+    text_color?: string;
+    font_family?: string | null;
+    aspect_ratio?: string;
+    playback_speed?: number;
+  }
 ) => api.patch<Project>(`/projects/${projectId}/update-project`, data);
 
 export const updateScene = (

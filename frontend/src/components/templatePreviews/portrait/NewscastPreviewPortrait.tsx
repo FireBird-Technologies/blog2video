@@ -161,24 +161,26 @@ export default function NewscastPreviewPortrait() {
             style={{ width: "100%", height: "100%" }}
           />
           
-          {/* Minimal Navigation Dots */}
-          <div style={{ 
-            position: "absolute", 
-            bottom: 16, 
-            left: 0, 
-            right: 0, 
-            display: "flex", 
-            justifyContent: "center", 
-            gap: 6,
-            zIndex: 10 
-          }}>
+          {/* Compact navigation dots — no scene titles */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 10,
+              left: 0,
+              right: 0,
+              display: "flex",
+              justifyContent: "center",
+              gap: 3,
+              zIndex: 10,
+            }}
+          >
             {NEWCAST_PREVIEW_SCENES.map((_, i) => (
               <div
                 key={i}
                 style={{
-                  width: i === activeIdx ? 20 : 6,
-                  height: 6,
-                  borderRadius: 3,
+                  width: i === activeIdx ? 10 : 3,
+                  height: 3,
+                  borderRadius: 2,
                   backgroundColor: i === activeIdx ? T_COLORS.accent : "rgba(255,255,255,0.3)",
                   transition: "all 0.4s ease",
                 }}
@@ -187,12 +189,6 @@ export default function NewscastPreviewPortrait() {
           </div>
         </div>
       </ScaledCanvas>
-
-      <div style={{ textAlign: "center", marginTop: "16px" }}>
-        <p style={{ color: "white", fontSize: "0.9rem", fontWeight: 600, margin: 0 }}>
-          {activeScene.title}
-        </p>
-      </div>
     </div>
   );
 }

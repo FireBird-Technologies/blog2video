@@ -66,6 +66,7 @@ export interface Project {
   logo_size: number;
   custom_voice_id: string | null;
   aspect_ratio: string;
+  playback_speed?: number;
   custom_template_missing?: boolean;
   review_state?: ReviewState | null;
   created_at: string;
@@ -217,6 +218,15 @@ export interface PipelineStatus {
   step: number;
   running: boolean;
   error: string | null;
+  error_code?: string | null;
+  project_removed?: boolean;
+  notice?: {
+    code: string;
+    message?: string;
+    requested_video_length?: string;
+    effective_video_length?: string;
+    video_style?: string;
+  } | null;
   studio_port: number | null;
 }
 

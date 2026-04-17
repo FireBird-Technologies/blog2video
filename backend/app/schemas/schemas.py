@@ -2,6 +2,9 @@ from datetime import datetime
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from typing import Optional
 
+MIN_PLAYBACK_SPEED = 0.5
+MAX_PLAYBACK_SPEED = 2.5
+
 
 # ─── Project ───────────────────────────────────────────────
 
@@ -22,8 +25,19 @@ class ProjectCreate(BaseModel):
     custom_voice_id: Optional[str] = None    # ElevenLabs voice ID (Pro users)
     aspect_ratio: Optional[str] = "landscape"  # "landscape" or "portrait"
     video_style: Optional[str] = "explainer"   # explainer | promotional | storytelling
-    video_length: Optional[str] = "auto"  # auto | short (7-10) | medium (12-15) | detailed (15-20)
+    video_length: Optional[str] = "auto"  # auto | short (6-8) | medium (12-15) | detailed (15-20)
+    playback_speed: Optional[float] = 1.0
     content_language: Optional[str] = None     # preferred target language (ISO code or name)
+
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_create_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
 
 
 class ProjectUpdate(BaseModel):
@@ -33,6 +47,28 @@ class ProjectUpdate(BaseModel):
     font_family: Optional[str] = None
     content_language: Optional[str] = None
     video_length: Optional[str] = None
+    aspect_ratio: Optional[str] = None  # "landscape" | "portrait"
+    playback_speed: Optional[float] = None
+
+    @field_validator("aspect_ratio")
+    @classmethod
+    def validate_aspect_ratio(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        n = (v or "").strip().lower()
+        if n not in ("landscape", "portrait"):
+            raise ValueError("aspect_ratio must be 'landscape' or 'portrait'")
+        return n
+
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
 
 
 class ProjectTemplateChangeRequest(BaseModel):
@@ -186,10 +222,12 @@ class ProjectOut(BaseModel):
     aspect_ratio: str = "landscape"
     video_style: str = "explainer"
     video_length: str = "auto"
+    playback_speed: float = 1.0
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
     custom_template_missing: bool = False
+    brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
     created_at: datetime
     updated_at: datetime
@@ -229,6 +267,17 @@ class BulkProjectItem(BaseModel):
     aspect_ratio: Optional[str] = "landscape"
     content_language: Optional[str] = None
     video_length: Optional[str] = "auto"
+    playback_speed: Optional[float] = 1.0
+
+    @field_validator("playback_speed")
+    @classmethod
+    def validate_bulk_playback_speed(cls, v: Optional[float]) -> Optional[float]:
+        if v is None:
+            return None
+        value = round(float(v), 2)
+        if value < MIN_PLAYBACK_SPEED or value > MAX_PLAYBACK_SPEED:
+            raise ValueError("playback_speed must be between 0.5 and 2.5")
+        return value
 
 
 class BulkCreateResponse(BaseModel):

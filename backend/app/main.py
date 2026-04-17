@@ -47,33 +47,38 @@ def _delete_project_storage(project: Project) -> None:
 async def _periodic_free_tier_cleanup():
     """
     Every hour, delete projects for FREE-tier users that haven't been
-    updated in 24 hours. Deletes from both local storage and R2.
+    updated in 7 days. Deletes from both local storage and R2.
     """
     while True:
         await asyncio.sleep(3600)  # run every hour
         db = SessionLocal()
         try:
-            cutoff = datetime.utcnow() - timedelta(hours=24)
+            cutoff = datetime.utcnow() - timedelta(hours=168)  # 7 days
             free_users = db.query(User).filter(User.plan == PlanTier.FREE).all()
 
-            deleted_count = 0
+            deactivated_count = 0
             for user in free_users:
                 stale_projects = (
                     db.query(Project)
                     .filter(
                         Project.user_id == user.id,
                         Project.updated_at < cutoff,
+                        Project.is_active == True,  # noqa: E712
                     )
                     .all()
                 )
                 for project in stale_projects:
                     _delete_project_storage(project)
-                    db.delete(project)
-                    deleted_count += 1
+                    project.is_active = False
+                    project.r2_video_key = None
+                    project.r2_video_url = None
+                    project.logo_r2_key = None
+                    project.logo_r2_url = None
+                    deactivated_count += 1
 
             db.commit()
-            if deleted_count > 0:
-                print(f"[CLEANUP] Free tier: deleted {deleted_count} stale projects")
+            if deactivated_count > 0:
+                print(f"[CLEANUP] Free tier: deactivated {deactivated_count} stale projects")
         except Exception as e:
             print(f"[CLEANUP] Free tier cleanup error: {e}")
             db.rollback()
@@ -300,6 +305,7 @@ _always_allowed = [
     "https://blog2video.app",
     "https://www.blog2video.app",
     "https://muhammad-mehdi-backend-b2v.hf.space",
+    "https://blog2video.pages.dev"
 ]
 for origin in _always_allowed:
     if origin not in _origins:

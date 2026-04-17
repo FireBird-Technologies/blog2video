@@ -42,6 +42,8 @@ _render_processes_lock = threading.Lock()
 _render_progress: dict[int, dict] = {}
 _RENDER_LOG_TAIL_MAX = 80
 _render_progress_last_upload_at: dict[int, float] = {}
+_MIN_PLAYBACK_SPEED = 0.5
+_MAX_PLAYBACK_SPEED = 2.5
 
 # Per-project workspace locks to prevent concurrent file writes
 _workspace_locks: dict[int, threading.Lock] = {}
@@ -83,6 +85,8 @@ _SHARED_SRC_FILES = [
     "src/index.ts",
     "src/components/LogoOverlay.tsx",
     "src/components/Transitions.tsx",
+    # Shared playback speed helpers imported by all template compositions.
+    "src/templates/playbackSpeed.ts",
     "src/components/LogoOverlay.tsx",
     # Shared font registry so templates can resolve font IDs to CSS families
     "src/fonts/registry.ts",
@@ -552,7 +556,10 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 hide_image_flags[idx] = False
                 dirty.add(idx)
 
-        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips)
+        # Step 3: Scene-type pre-assignment (intro gets hero, outro skips image)
+        # Persist layoutProps for both: intro hero must write assignedImage to DB (otherwise
+        # removing that image does not set hideImage and another generic fills the slot).
+        # Outro must write hideImage so the UI/remotion do not auto-assign a generic later.
         for i, scene in enumerate(scenes):
             if scene_image_map[i]:
                 continue
@@ -562,11 +569,44 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     scene_type = "intro"
                 elif i == len(scenes) - 1 and len(scenes) > 1:
                     scene_type = "outro"
-            if scene_type == "intro" and hero_image_file and hero_image_file in generic_files and hero_image_file not in used_generic_files:
+
+            if scene_type == "outro":
+                hide_image_flags[i] = True
+                lp = scene_layout_props[i]
+                if scene_layouts[i] not in no_image_layouts:
+                    changed = False
+                    if lp.get("assignedImage"):
+                        lp.pop("assignedImage", None)
+                        changed = True
+                    if not lp.get("hideImage"):
+                        lp["hideImage"] = True
+                        changed = True
+                    if changed:
+                        dirty.add(i)
+                continue
+
+            if hide_image_flags[i] or scene_layouts[i] in no_image_layouts:
+                continue
+
+            if (
+                scene_type == "intro"
+                and hero_image_file
+                and hero_image_file in generic_files
+                and hero_image_file not in used_generic_files
+            ):
                 scene_image_map[i] = [hero_image_file]
                 used_generic_files.add(hero_image_file)
-            elif scene_type == "outro":
-                hide_image_flags[i] = True
+                lp = scene_layout_props[i]
+                changed = False
+                if lp.get("assignedImage") != hero_image_file:
+                    lp["assignedImage"] = hero_image_file
+                    changed = True
+                if lp.get("hideImage"):
+                    lp.pop("hideImage", None)
+                    hide_image_flags[i] = False
+                    changed = True
+                if changed:
+                    dirty.add(i)
 
         # Step 4: Assign remaining generics (1 per scene)
         generic_idx = 0
@@ -709,6 +749,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 sc = desc_parsed.get("structuredContent")
                 if sc:
                     scene_entry["structuredContent"] = sc
+                cta_props = desc_parsed.get("ctaProps")
+                if cta_props:
+                    scene_entry["ctaProps"] = cta_props
             except (json.JSONDecodeError, TypeError):
                 pass
             logger.info("[REMOTION] Scene %s: layoutConfig → arrangement=%s, elements=%s, decorations=%s, structuredContent=%s", i, layout_config.get("arrangement"), len(layout_config.get("elements", [])), layout_config.get("decorations"), scene_entry.get("structuredContent", {}).get("contentType", "none"))
@@ -751,6 +794,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         if _download_url_to_file(project.logo_r2_url, logo_dest):
             logo_file = f"logo.{logo_ext}"
 
+    raw_speed = round(float(getattr(project, "playback_speed", 1.0) or 1.0), 2)
+    playback_speed = min(max(raw_speed, _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
+
     data = {
         "projectName": project.name,
         "heroImage": hero_image_file,
@@ -763,6 +809,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         "logoOpacity": getattr(project, "logo_opacity", 0.9) or 0.9,
         "logoSize": float(getattr(project, "logo_size", 100)),
         "aspectRatio": getattr(project, "aspect_ratio", None) or "landscape",
+        # Composition-level speed remains 1.0; final speed is applied globally in preview player
+        # and via ffmpeg post-processing for downloaded renders.
+        "playbackSpeed": 1.0,
         "scenes": scene_data,
     }
 
@@ -1219,6 +1268,67 @@ def _build_render_cmd(
     cmd.extend(["--width", str(preset["width"]), "--height", str(preset["height"])])
 
     return cmd
+
+
+def _build_atempo_chain(speed: float) -> str:
+    """
+    Build an ffmpeg atempo filter chain.
+    atempo supports 0.5..2.0 per stage, so values outside that range are chained.
+    """
+    speed = min(max(float(speed), _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
+    factors: list[float] = []
+    remaining = speed
+    while remaining > 2.0:
+        factors.append(2.0)
+        remaining /= 2.0
+    while remaining < 0.5:
+        factors.append(0.5)
+        remaining /= 0.5
+    factors.append(remaining)
+    return ",".join(f"atempo={f:.5f}".rstrip("0").rstrip(".") for f in factors)
+
+
+def _apply_global_playback_speed_to_mp4(input_path: str, speed: float) -> str:
+    """
+    Apply global speed to already-rendered MP4 so animation + transitions + audio
+    all match the selected playback speed.
+    """
+    speed = min(max(round(float(speed), 2), _MIN_PLAYBACK_SPEED), _MAX_PLAYBACK_SPEED)
+    if abs(speed - 1.0) < 1e-9:
+        return input_path
+
+    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    root, ext = os.path.splitext(input_path)
+    output_path = f"{root}_speed_{str(speed).replace('.', '_')}{ext}"
+    atempo_chain = _build_atempo_chain(speed)
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-i",
+        input_path,
+        "-filter:v",
+        f"setpts=PTS/{speed}",
+        "-filter:a",
+        atempo_chain,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "18",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        output_path,
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    if result.returncode != 0 or not os.path.exists(output_path):
+        raise RuntimeError(
+            f"ffmpeg speed post-process failed (speed={speed}): {result.stderr or result.stdout}"
+        )
+    return output_path
 
 
 def render_video(project: Project, resolution: str = "1080p") -> str:
@@ -1705,6 +1815,30 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
         if retcode == 0 and output_path and os.path.exists(output_path) and _is_valid_mp4(output_path):
             _render_progress[project_id]["progress"] = 100
             _render_progress[project_id]["rendered_frames"] = prog.get("total_frames", 0)
+
+            # Apply global playback speed to the final MP4 (animations + audio together).
+            final_output_path = output_path
+            try:
+                from app.database import SessionLocal
+                db = SessionLocal()
+                try:
+                    p = db.query(Project).filter(Project.id == project_id).first()
+                    speed = round(float(getattr(p, "playback_speed", 1.0) or 1.0), 2) if p else 1.0
+                finally:
+                    db.close()
+                final_output_path = _apply_global_playback_speed_to_mp4(output_path, speed)
+                if final_output_path != output_path and os.path.exists(final_output_path):
+                    try:
+                        os.replace(final_output_path, output_path)
+                    except Exception:
+                        # Fallback to using the speed-processed file directly.
+                        output_path = final_output_path
+            except Exception as e:
+                logger.warning(
+                    "[REMOTION] Playback speed post-process skipped for project %s: %s",
+                    project_id,
+                    e,
+                )
 
             # Upload rendered video to R2 (also sets ProjectStatus.DONE in DB)
             r2_url = upload_rendered_video_to_r2(project_id, output_path)

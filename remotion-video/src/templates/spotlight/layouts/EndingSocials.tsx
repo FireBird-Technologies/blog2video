@@ -29,7 +29,7 @@ export const EndingSocials: React.FC<SpotlightLayoutProps> = ({
   const resolvedCta = (ctaButtonText ?? "").trim() || "Get started";
   const bodyFont = fontFamily ?? SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY;
 
-  const resolvedTitleSize = titleFontSize ?? (p ? 95 : 81);
+  const resolvedTitleSize = titleFontSize ?? (p ? 74 : 64);
   const resolvedCtaSize = resolvedTitleSize + 30;
 
   let currentDelay = 20; 

@@ -59,8 +59,9 @@ class Project(Base):
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
     # Video length selection controls how many scenes are generated.
-    # Values: auto, short (7-10), medium (12-15), detailed (15-20)
+    # Values: auto, short (6-8), medium (12-15), detailed (15-20)
     video_length: Mapped[str] = mapped_column(String(10), default="auto")
+    playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.
     # All generated content (script, display text, voiceover) is produced in this language.
@@ -72,6 +73,9 @@ class Project(Base):
     
     # AI-assisted editing usage tracking
     ai_assisted_editing_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Soft-delete flag — False means the project has been deactivated (files purged)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
@@ -88,3 +92,4 @@ class Project(Base):
     project_edit_history = relationship("ProjectEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     scene_edit_history = relationship("SceneEditHistory", back_populates="project", cascade="all, delete-orphan", passive_deletes=True,)
     reviews = relationship("Review", back_populates="project", cascade="all, delete-orphan")
+    template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
