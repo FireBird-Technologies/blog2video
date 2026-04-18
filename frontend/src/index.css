@@ -9,14 +9,17 @@
 }
 
 @layer components {
-  /* ─── Glass / emboss card — light context ─── */
+  /* ─── True transparent glass card ─── */
   .glass-card {
-    @apply bg-white border rounded-2xl;
-    border-color: rgba(167, 139, 250, 0.14);
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.70);
+    border-radius: 1rem;
     box-shadow:
-      0 2px 20px rgba(124, 58, 237, 0.055),
-      0 1px 3px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.90);
   }
 
   /* ─── Dark glass — hero / dark section context ─── */

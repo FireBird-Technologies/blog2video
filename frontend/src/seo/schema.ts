@@ -75,26 +75,33 @@ export function homepageSchema() {
       name: siteName,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
+      url: siteUrl,
+      image: defaultOgImage,
       description:
         "Turn blog posts, articles, PDFs, and documents into structured narrated videos.",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-        availability: "https://schema.org/InStock",
-        url: `${siteUrl}/pricing`,
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
       },
     },
   ];
 }
 
 export function pricingSchema() {
-  const sharedOfferFields = {
-    availability: "https://schema.org/InStock",
-    url: `${siteUrl}/pricing`,
-  };
-
   return [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: "Blog2Video Pricing",
+      url: `${siteUrl}/pricing`,
+      description:
+        "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
+      image: defaultOgImage,
+    },
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
@@ -105,40 +112,14 @@ export function pricingSchema() {
       description:
         "Turn blog posts, articles, PDFs, and documents into narrated videos with reusable templates and AI scene editing.",
       image: defaultOgImage,
+      brand: {
+        "@type": "Organization",
+        name: organizationName,
+      },
       publisher: {
         "@type": "Organization",
         name: organizationName,
       },
-      offers: [
-        {
-          "@type": "Offer",
-          name: "Free",
-          price: "0",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Per Video",
-          price: "3",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Standard",
-          price: "25",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-        {
-          "@type": "Offer",
-          name: "Pro",
-          price: "50",
-          priceCurrency: "USD",
-          ...sharedOfferFields,
-        },
-      ],
     },
     breadcrumbList([
       { name: "Home", path: "/" },
@@ -221,16 +202,13 @@ export function marketingPageSchema(page: MarketingPage) {
       url: `${siteUrl}${page.path}`,
       image: defaultOgImage,
       description: page.description,
-      publisher: {
+      brand: {
         "@type": "Organization",
         name: organizationName,
       },
-      offers: {
-        "@type": "Offer",
-        priceCurrency: "USD",
-        price: "0",
-        availability: "https://schema.org/InStock",
-        url: `${siteUrl}/pricing`,
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
       },
     },
     breadcrumbList([
@@ -259,16 +237,13 @@ export function toolPageSchema(tool: ToolDefinition) {
       url: `${siteUrl}${tool.path}`,
       image: defaultOgImage,
       description: tool.description,
-      publisher: {
+      brand: {
         "@type": "Organization",
         name: organizationName,
       },
-      offers: {
-        "@type": "Offer",
-        priceCurrency: "USD",
-        price: "0",
-        availability: "https://schema.org/InStock",
-        url: `${siteUrl}${tool.path}`,
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
       },
     },
     breadcrumbList([
