@@ -277,7 +277,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
   }`;
 
   return (
-    <section id="demo" className="py-20 border-t border-gray-100">
+    <section id="demo" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
       <div className="max-w-6xl mx-auto px-6">
         <div className="reveal">
           <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -292,21 +292,24 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
         </div>
 
         {demos.length > 1 && (
-          <div className="flex items-center justify-center gap-2 mb-8 reveal">
-            {demos.map((video, idx) => (
-              <button
-                key={video.id}
-                type="button"
-                onClick={() => setActiveVideoIdx(idx)}
-                className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
-                  activeVideoIdx === idx
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {video.title}
-              </button>
-            ))}
+          <div className="flex items-center justify-center mb-8 reveal">
+            <div className="inline-flex p-1 rounded-full border border-white/60 backdrop-blur-xl" style={{ background: "rgba(255,255,255,0.50)", boxShadow: "0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+              {demos.map((video, idx) => (
+                <button
+                  key={video.id}
+                  type="button"
+                  onClick={() => setActiveVideoIdx(idx)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 ${
+                    activeVideoIdx === idx
+                      ? "text-gray-900"
+                      : "text-gray-400 hover:text-gray-700"
+                  }`}
+                  style={activeVideoIdx === idx ? { background: "rgba(255,255,255,0.90)", boxShadow: "0 1px 6px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)" } : {}}
+                >
+                  {video.title}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -318,7 +321,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               href={v.blogUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="glass-card overflow-hidden group hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all flex flex-col"
+              className="overflow-hidden group transition-all duration-300 flex flex-col rounded-2xl border border-white/70 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}
             >
               <div className="aspect-[16/9] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden flex-shrink-0">
                 {v.blogImage ? (
@@ -395,7 +398,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
               </div>
             </div>
 
-            <div className="glass-card overflow-hidden flex flex-col ring-2 ring-purple-100 hover:ring-purple-200 transition-all hover:shadow-[0_4px_20px_rgba(124,58,237,0.1)]">
+            <div className="overflow-hidden flex flex-col transition-all duration-300 rounded-2xl border border-purple-100/60 hover:-translate-y-0.5" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               {/* YouTube host stays outside opacity/transform cross-fade — animating the grid broke iframe API in several browsers */}
               <div className="aspect-[16/9] relative flex-shrink-0 bg-black w-full overflow-hidden">
                 <div id={LANDING_YT_HOST_ID} className="absolute inset-0 z-0 w-full h-full" />
@@ -514,7 +517,7 @@ export default function Landing() {
         schema={homepageSchema()}
       />
       {/* ─── Nav ─── */}
-      <nav className="bg-white/60 backdrop-blur-xl sticky top-0 z-50 border-b border-gray-200/50">
+      <nav className="sticky top-0 z-50 border-b border-white/50 backdrop-blur-2xl" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)" }}>
         {/* Banner above navbar so it appears first on scroll */}
         {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
@@ -570,7 +573,7 @@ export default function Landing() {
                   aria-hidden="true"
                   onClick={() => setNavOpen(false)}
                 />
-                <div className="absolute right-0 top-full mt-1 py-2 w-48 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
+                <div className="absolute right-0 top-full mt-1 py-2 w-48 rounded-xl border border-white/60 backdrop-blur-2xl z-50" style={{ background: "rgba(255,255,255,0.80)", boxShadow: "0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
                   {NAV_LINKS.map(({ href, label }) =>
                     href.startsWith("#") ? (
                       <a
@@ -601,13 +604,8 @@ export default function Landing() {
 
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-purple-500/[0.03] rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-violet-500/[0.03] rounded-full blur-3xl" />
-        </div>
-
         <div className="relative max-w-4xl mx-auto px-6 pt-28 pb-20 text-center hero-animate">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/70 backdrop-blur-sm mb-8" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
             <span className="text-xs font-medium text-purple-700">For solopreneurs, creators &amp; lean teams</span>
           </div>
@@ -681,7 +679,7 @@ export default function Landing() {
       </section>
 
       {/* ─── Pain points / value props ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -777,7 +775,7 @@ export default function Landing() {
             </div>
 
             {/* Solution */}
-            <div className="glass-card p-7 relative overflow-hidden ring-2 ring-purple-100 reveal">
+            <div className="p-7 relative overflow-hidden rounded-2xl border border-purple-100/60 reveal" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.08), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <div className="absolute top-0 left-0 w-full h-1 bg-purple-500" />
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">3</span>
@@ -795,7 +793,7 @@ export default function Landing() {
           </div>
 
           {/* Key differentiator callout */}
-          <div className="mt-10 glass-card p-6 bg-purple-50/50 border border-purple-100 text-center reveal">
+          <div className="mt-10 p-6 rounded-2xl border border-white/70 text-center reveal" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
             <p className="text-sm text-gray-700 leading-relaxed max-w-2xl mx-auto">
               <span className="font-semibold">The key insight:</span> Instead of using expensive AI image
               and video models, Blog2Video uses AI to <span className="font-semibold text-purple-700">write code</span> that
@@ -807,7 +805,7 @@ export default function Landing() {
       </section>
 
       {/* ─── 4-Step Process ─── */}
-      <section id="how" className="py-20">
+      <section id="how" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -871,7 +869,7 @@ export default function Landing() {
       </section>
 
       {/* ─── Features ─── */}
-      <section id="features" className="py-20 border-t border-gray-100">
+      <section id="features" className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -942,7 +940,7 @@ export default function Landing() {
       </section>
 
       {/* ─── Who is it for ─── */}
-      <section className="py-20">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="reveal">
             <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
@@ -973,7 +971,7 @@ export default function Landing() {
       <UserReviewsSection />
 
       {/* ─── Pricing preview ─── */}
-      <section className="py-20">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-6xl mx-auto px-6 text-center reveal">
           <p className="text-xs font-medium text-purple-600 mb-4 tracking-widest uppercase">Pricing</p>
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
@@ -1001,7 +999,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">$25<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $20/mo annual</p>
             </div>
-            <div className="glass-card px-4 sm:px-7 py-6 text-center ring-1 ring-purple-200 relative">
+            <div className="relative px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/60" style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.10), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
               <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
@@ -1009,7 +1007,7 @@ export default function Landing() {
               <p className="text-3xl font-bold text-gray-900">$50<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">or $40/mo annual</p>
             </div>
-            <div className="glass-card px-4 sm:px-7 py-6 text-center border-2 border-purple-300">
+            <div className="px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/50" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
               <p className="text-sm font-medium text-gray-900 mb-1">Customized</p>
               <p className="text-3xl font-bold text-gray-900">Custom</p>
               <p className="text-xs text-gray-400 mt-1">Enterprise & teams</p>
@@ -1029,7 +1027,7 @@ export default function Landing() {
       <LandingResourceSection />
 
       {/* ─── CTA ─── */}
-      <section className="py-20 border-t border-gray-100">
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-4">
             Keep your audience updated in video
@@ -1038,12 +1036,15 @@ export default function Landing() {
             Turn the content you already publish into videos you can share everywhere, without freelancers, agencies, or extra production overhead.
           </p>
           <div className="flex justify-center">
-            <GoogleAuthButton
-              onSuccess={handleGoogleSuccess}
-              onError={() => showError("Google sign-in failed")}
-              text="continue_with"
-              width="300"
-            />
+            <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-2xl border border-white/70" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>
+              <GoogleAuthButton
+                onSuccess={handleGoogleSuccess}
+                onError={() => showError("Google sign-in failed")}
+                text="continue_with"
+                width="300"
+              />
+              <p className="text-xs text-gray-400">3 videos free — no credit card required</p>
+            </div>
           </div>
         </div>
       </section>
