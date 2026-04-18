@@ -3,6 +3,146 @@ import type { MarketingPage } from "./seoTypes";
 
 export const coreCommercialPages: MarketingPage[] = [
   createPage({
+    path: "/blog-to-video-ai",
+    title: "Blog to Video AI | Turn Any Blog Post Into Video | Blog2Video",
+    description:
+      "Convert blog posts into narrated videos with AI. Paste a URL, choose a voice and template, and publish faster with Blog2Video.",
+    eyebrow: "Commercial workflow",
+    heroTitle: "Turn Any Blog Post Into Video With AI",
+    heroDescription:
+      "Blog2Video helps writers, marketers, and founders turn published blog posts into narrated videos without rebuilding the message inside a traditional editor.",
+    category: "commercial",
+    primaryKeyword: "blog to video ai",
+    keywordVariant: "AI blog post to video",
+    badges: ["AI voiceover", "URL-first workflow", "Built for blogs"],
+    proofPoints: [
+      "Starts with the article you already published instead of a blank prompt.",
+      "Turns blog structure into scenes, narration, and visuals that stay faithful to the source.",
+      "Makes it easier to reuse blog content on YouTube, social, and newsletter embeds.",
+    ],
+    sections: [
+      {
+        title: "Why blog-to-video AI works",
+        body: [
+          "A good blog post already contains the raw ingredients for a strong video: a headline, a narrative arc, proof points, and a clear takeaway. Blog2Video uses that existing structure so you do not have to reinvent the content in another format.",
+          "Instead of treating your article like a vague text prompt, the workflow keeps the logic of the original piece intact and turns it into scenes, visuals, and voiceover that feel connected to what you wrote.",
+        ],
+        bullets: [
+          "Paste a blog URL to generate the first draft from real content.",
+          "Pick a template and voice that match the tone of the article.",
+          "Review the generated scenes, then render for YouTube or social distribution.",
+        ],
+      },
+      {
+        title: "Built for content teams and solo creators",
+        body: [
+          "This workflow is strongest when you already publish articles, explainers, launch posts, or newsletters and want to get more value from each asset. One finished post can become a site page, a newsletter angle, and a video without multiplying the work.",
+        ],
+      },
+    ],
+    recommendedTemplate: "gridcraft",
+    recommendedTemplateReason:
+      "Gridcraft is a strong default for blog-to-video AI because it preserves article structure, comparisons, steps, and metrics without making the video feel generic.",
+    faq: [
+      {
+        question: "What is blog to video AI?",
+        answer:
+          "Blog to video AI is a workflow that turns a written blog post into a narrated video using the original article as the source. Blog2Video uses the structure of the post to generate scenes, voiceover, and visuals that stay aligned with the content.",
+      },
+      {
+        question: "Can AI turn a blog post into a video automatically?",
+        answer:
+          "Yes. With Blog2Video, you paste a public blog URL, choose a voice and template, and generate a structured first draft automatically. You can then review and refine before publishing.",
+      },
+      {
+        question: "Who is blog-to-video AI best for?",
+        answer:
+          "It works best for writers, founders, educators, agencies, and marketing teams that already publish long-form content and want to extend it to video without starting over.",
+      },
+      ...createFaq(
+        "blog to video AI workflows",
+        "Writers and marketers who already have valuable articles",
+        "Blog2Video uses the article itself as structured source material, which produces a more faithful result than generic AI video tools that start from prompts and stock footage."
+      ),
+    ],
+    relatedPaths: [
+      "/blog-to-video",
+      "/ai-blog-to-video",
+      "/blog-to-youtube-video",
+      "/blogs/how-to-turn-a-blog-post-into-a-video",
+    ],
+  }),
+  createPage({
+    path: "/ai-blog-to-video",
+    title: "AI Blog to Video Converter for Writers and Marketers",
+    description:
+      "Use AI to convert blogs into videos with voiceover, templates, and structured scenes. Built for teams that start with written content.",
+    eyebrow: "Commercial workflow",
+    heroTitle: "Convert Blogs to Video With AI",
+    heroDescription:
+      "If your workflow starts with articles, launch posts, explainers, or newsletters, Blog2Video gives you a practical AI blog-to-video path that feels built for writing-first teams.",
+    category: "commercial",
+    primaryKeyword: "ai blog to video",
+    keywordVariant: "AI blog to video converter",
+    badges: ["For content teams", "Reuse existing posts", "Publish faster"],
+    proofPoints: [
+      "Works well for SEO posts, product launch content, founder updates, and educational articles.",
+      "Creates a usable video draft from the writing you already finished instead of asking for more prompts.",
+      "Makes multi-channel distribution easier without forcing a separate video production workflow.",
+    ],
+    sections: [
+      {
+        title: "Why AI blog-to-video is different from generic text-to-video",
+        body: [
+          "Most text-to-video tools treat your writing as disposable input. That leads to vague scripts, stock-footage-heavy results, and output that no longer sounds like the original post.",
+          "Blog2Video is better suited to AI blog-to-video use cases because it is designed around repurposing finished written assets. The point is not to invent a new story. It is to translate the one you already wrote into a format people can watch.",
+        ],
+      },
+      {
+        title: "Strong use cases",
+        body: [
+          "This page is especially relevant for teams publishing thought leadership, tutorials, product education, or newsletter-driven content. When the writing is already doing the strategic work, AI should help convert it into video, not erase it.",
+        ],
+        bullets: [
+          "Turn launch announcements into video recaps.",
+          "Convert evergreen SEO articles into YouTube explainers.",
+          "Repurpose newsletter issues into serialized video content.",
+        ],
+      },
+    ],
+    recommendedTemplate: "nightfall",
+    recommendedTemplateReason:
+      "Nightfall fits AI blog-to-video use cases where the goal is a polished, premium-looking output from existing written content.",
+    faq: [
+      {
+        question: "What is an AI blog to video converter?",
+        answer:
+          "An AI blog-to-video converter transforms a written article into a structured video draft with narration and visuals. Blog2Video is built specifically for this workflow and starts from your live content rather than a blank canvas.",
+      },
+      {
+        question: "Does AI blog-to-video work for long articles?",
+        answer:
+          "Yes. It is especially useful for longer explainers, tutorials, and thought-leadership posts because the article already contains the structure and points that the video needs.",
+      },
+      {
+        question: "Why not use a generic AI video generator instead?",
+        answer:
+          "Generic generators often flatten articles into vague scripts. Blog2Video is stronger when the source material matters because it preserves structure, examples, and the intent of the original writing.",
+      },
+      ...createFaq(
+        "AI blog-to-video conversion",
+        "Writing-first teams that want more leverage from every article",
+        "Blog2Video is optimized for repurposing finished blogs into publishable videos, which is a better match for real content operations than generic text-to-video tools."
+      ),
+    ],
+    relatedPaths: [
+      "/blog-to-video-ai",
+      "/blog-to-video",
+      "/for-medium-writers",
+      "/blogs/best-ai-tools-to-convert-articles-into-videos",
+    ],
+  }),
+  createPage({
     path: "/blog-to-video",
     title: "Blog to Video Converter | Turn Posts Into Videos | Blog2Video",
     description:
@@ -70,6 +210,76 @@ export const coreCommercialPages: MarketingPage[] = [
       "/blog-to-youtube-video",
       "/for-technical-bloggers",
       "/blogs/how-to-turn-a-blog-post-into-a-video",
+    ],
+  }),
+  createPage({
+    path: "/how-to-turn-a-blog-post-into-a-youtube-video",
+    title: "How to Turn a Blog Post Into a YouTube Video | Blog2Video",
+    description:
+      "Learn how to turn a blog post into a YouTube-ready video with better structure, narration, visuals, and publishing flow.",
+    eyebrow: "Distribution workflow",
+    heroTitle: "How To Turn A Blog Post Into A YouTube Video",
+    heroDescription:
+      "If you already publish strong articles, you do not need to start from zero on YouTube. Blog2Video helps you reshape the same ideas into a video people will actually watch.",
+    category: "commercial",
+    primaryKeyword: "post video on youtube",
+    keywordVariant: "posting to youtube",
+    badges: ["YouTube workflow", "Repurpose blog posts", "Educational video"],
+    proofPoints: [
+      "Turns existing blog structure into a YouTube-friendly explainer flow.",
+      "Helps creators move from written SEO content to YouTube without doubling production work.",
+      "Works well for tutorials, product explainers, founder updates, and newsletter recaps.",
+    ],
+    sections: [
+      {
+        title: "Start with the post that already works",
+        body: [
+          "The best blog-to-YouTube workflow usually starts with an article that already has search traction, a clear lesson, or a strong point of view. That gives you a tested angle before you invest in video production.",
+          "Instead of rewriting the whole thing from scratch, trim the article into a format that makes sense on screen. Keep the hook, supporting sections, examples, and closing takeaway, then let Blog2Video turn that structure into scenes and narration.",
+        ],
+        bullets: [
+          "Choose a blog post with a clear headline and strong internal structure.",
+          "Keep the opening hook tight so the YouTube version earns attention quickly.",
+          "Use visuals and section transitions that match the pace of spoken video.",
+        ],
+      },
+      {
+        title: "Make YouTube a repeatable channel",
+        body: [
+          "Posting to YouTube becomes much easier when it is part of the same publishing system as your written content. Instead of treating video like a separate creative project, use your article as the source and turn it into a second format each time you publish.",
+        ],
+      },
+    ],
+    recommendedTemplate: "spotlight",
+    recommendedTemplateReason:
+      "Spotlight is a strong fit when turning blog posts into YouTube videos because it supports sharp hooks, bold section transitions, and audience-retention-friendly pacing.",
+    faq: [
+      {
+        question: "How do I turn a blog post into a YouTube video?",
+        answer:
+          "Start with a blog post that already has a strong angle. Tighten the opening, keep the major sections, and use Blog2Video to turn the article into a narrated video with scenes, visuals, and a YouTube-ready structure.",
+      },
+      {
+        question: "What kind of blog posts work best on YouTube?",
+        answer:
+          "Tutorials, explainers, product launch posts, case studies, and opinionated thought-leadership pieces usually convert best because they already contain a clear hook and a useful narrative arc.",
+      },
+      {
+        question: "Is posting to YouTube worth it if I already blog?",
+        answer:
+          "Yes. Blogging captures search demand, while YouTube creates another discovery surface and can drive branded search, subscribers, and return attention to the original site content.",
+      },
+      ...createFaq(
+        "blog-post-to-YouTube workflows",
+        "Creators who already publish written content and want more distribution",
+        "Blog2Video makes YouTube publishing easier by starting from the article you already wrote instead of forcing you into a separate video creation process."
+      ),
+    ],
+    relatedPaths: [
+      "/blog-to-youtube-video",
+      "/blog-to-video",
+      "/distribution-flywheel",
+      "/blogs/how-technical-bloggers-can-repurpose-posts-into-youtube-videos",
     ],
   }),
   createPage({

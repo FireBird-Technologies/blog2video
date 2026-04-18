@@ -108,7 +108,9 @@ function downloadText(filename: string, content: string) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
 
@@ -558,7 +560,7 @@ function formatMarkdownForTarget(input: string, target: "medium" | "substack") {
 
   if (!changes.length) changes.push("No structural changes were needed.");
 
-  return { output, changes };
+  return { output: output.trim(), changes };
 }
 
 function MarkdownFormatter() {
@@ -665,6 +667,7 @@ function analyzeHeadline(headline: string, mode: HeadlineMode) {
   const breakdown = [
     {
       label: "Length",
+      max: 18,
       score:
         mode === "youtube"
           ? length >= 5 && length <= 10
@@ -674,11 +677,11 @@ function analyzeHeadline(headline: string, mode: HeadlineMode) {
             ? 18
             : 10,
     },
-    { label: "Specificity", score: hasSpecificNoun ? 18 : 10 },
-    { label: "Clarity", score: hasStrongVerb ? 18 : 11 },
-    { label: "Audience fit", score: hasAudience ? 16 : 9 },
-    { label: "Curiosity / hook", score: hasCuriosity || hasNumber ? 16 : 10 },
-    { label: "Platform fit", score: mode === "youtube" && hasNumber ? 14 : 12 },
+    { label: "Specificity", max: 18, score: hasSpecificNoun ? 18 : 10 },
+    { label: "Clarity", max: 18, score: hasStrongVerb ? 18 : 11 },
+    { label: "Audience fit", max: 16, score: hasAudience ? 16 : 9 },
+    { label: "Curiosity / hook", max: 16, score: hasCuriosity || hasNumber ? 16 : 10 },
+    { label: "Platform fit", max: 14, score: mode === "youtube" && hasNumber ? 14 : 12 },
   ];
   score = breakdown.reduce((total, item) => total + item.score, 0);
 
@@ -752,12 +755,12 @@ function HeadlineAnalyzer() {
               <div key={item.label}>
                 <div className="mb-1 flex items-center justify-between text-sm text-gray-600">
                   <span>{item.label}</span>
-                  <span>{item.score}/18</span>
+                  <span>{item.score}/{item.max}</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100">
                   <div
                     className="h-2 rounded-full bg-gradient-to-r from-purple-500 to-violet-500"
-                    style={{ width: `${(item.score / 18) * 100}%` }}
+                    style={{ width: `${(item.score / item.max) * 100}%` }}
                   />
                 </div>
               </div>
@@ -872,7 +875,9 @@ function QuoteCardGenerator() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `quote-card-${ratio}.png`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
   return (
