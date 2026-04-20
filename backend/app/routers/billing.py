@@ -17,6 +17,11 @@ from app.models.subscription import (
     Subscription, SubscriptionStatus, SubscriptionPlan,
 )
 from app.observability.logging import get_logger
+from app.services.per_video_pricing import (
+    per_unit_cents as per_video_unit_cents,
+    MIN_QUANTITY as PER_VIDEO_MIN_QTY,
+    MAX_QUANTITY as PER_VIDEO_MAX_QTY,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -31,6 +36,7 @@ class CheckoutResponse(BaseModel):
 
 class PerVideoCheckoutRequest(BaseModel):
     project_id: int | None = None  # Optional: if None, buys a video credit
+    quantity: int = 1  # Number of video credits to purchase (ignored when project_id set)
 
 
 class PortalResponse(BaseModel):
@@ -260,9 +266,20 @@ def create_per_video_checkout(
     If project_id is provided, unlocks that specific project.
     If project_id is omitted (e.g. from Pricing page), buys a video credit.
     """
+    # Project-specific unlock is always qty=1 by design
+    if body.project_id and body.quantity != 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Project-specific unlock only supports quantity=1",
+        )
+
+    qty = max(PER_VIDEO_MIN_QTY, min(body.quantity, PER_VIDEO_MAX_QTY))
+    unit_amount = per_video_unit_cents(qty)
+
     meta = {
         "user_id": str(user.id),
         "type": "per_video",
+        "qty": str(qty),
     }
     success_url = f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{settings.FRONTEND_URL}/pricing"
@@ -291,13 +308,23 @@ def create_per_video_checkout(
         user.stripe_customer_id = customer.id
         db.commit()
 
+    product_name = (
+        "blog2video — 1 video credit"
+        if qty == 1
+        else f"blog2video — {qty} video pack"
+    )
+
     session = stripe.checkout.Session.create(
         customer=user.stripe_customer_id,
         mode="payment",
         line_items=[
             {
-                "price": settings.STRIPE_PER_VIDEO_PRICE_ID,
-                "quantity": 1,
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": product_name},
+                    "unit_amount": unit_amount,
+                },
+                "quantity": qty,
             }
         ],
         allow_promotion_codes=True,
@@ -979,9 +1006,20 @@ def _handle_checkout_completed(session: dict, db: Session):
                 )
         elif user_id:
             # No project — this is a video credit purchase (from Pricing page)
+            try:
+                qty = max(1, int(metadata.get("qty", "1")))
+            except (TypeError, ValueError):
+                qty = 1
+            amount_total = session.get("amount_total")  # cents paid, incl. discounts
+            amount_paid_cents = (
+                int(amount_total)
+                if amount_total is not None
+                else (plan.price_cents * qty if plan else 0)
+            )
+
             user = db.query(User).filter(User.id == int(user_id)).first()
             if user:
-                user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + 1
+                user.video_limit_bonus = getattr(user, "video_limit_bonus", 0) + qty
 
                 if plan:
                     sub = Subscription(
@@ -989,7 +1027,7 @@ def _handle_checkout_completed(session: dict, db: Session):
                         plan_id=plan.id,
                         status=SubscriptionStatus.COMPLETED,
                         stripe_checkout_session_id=session_id,
-                        amount_paid_cents=plan.price_cents,
+                        amount_paid_cents=amount_paid_cents,
                         videos_used=0,
                         current_period_start=now,
                         current_period_end=credit_expiry,
@@ -998,11 +1036,12 @@ def _handle_checkout_completed(session: dict, db: Session):
 
                 db.commit()
                 logger.info(
-                    "[BILLING] Per-video credit purchased for user %s, expires %s, new video_limit_bonus=%s",
+                    "[BILLING] Per-video credits purchased: user=%s qty=%s expires=%s new_bonus=%s",
                     user_id,
+                    qty,
                     credit_expiry.date(),
                     user.video_limit_bonus,
-                    extra={"user_id": int(user_id)},
+                    extra={"user_id": int(user_id), "qty": qty},
                 )
     else:
         # ── Pro or Standard subscription checkout ───────────────────────────
