@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
   Scene,
@@ -6,6 +7,8 @@ import {
   Asset,
   updateScene,
   updateSceneImage,
+  assignExistingImageToScene,
+  updateSceneImageFocus,
   generateSceneImage,
   regenerateScene,
   getValidLayouts,
@@ -17,6 +20,10 @@ import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+
+/** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
+const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -1079,7 +1086,9 @@ interface Props {
   scene: Scene;
   project: Project;
   imageItems: SceneImageItem[];
+  availableImageItems: SceneImageItem[];
   onSaved: () => void;
+  openImageAdjustOnOpen?: boolean;
 }
 
 type EditMode = "manual" | "ai";
@@ -1090,7 +1099,9 @@ export default function SceneEditModal({
   scene,
   project,
   imageItems,
+  availableImageItems,
   onSaved,
+  openImageAdjustOnOpen = false,
 }: Props) {
   const [editMode, setEditMode] = useState<EditMode>("manual");
   const [title, setTitle] = useState(scene.title);
@@ -1132,7 +1143,19 @@ export default function SceneEditModal({
   const [endingCtaButtonText, setEndingCtaButtonText] = useState("");
   const [selectedLayout, setSelectedLayout] = useState("");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imageSourceChooserOpen, setImageSourceChooserOpen] = useState(false);
+  const [scrapedImagesModalOpen, setScrapedImagesModalOpen] = useState(false);
+  const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
+  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageFocusX, setImageFocusX] = useState(50);
+  const [imageFocusY, setImageFocusY] = useState(50);
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -1142,6 +1165,16 @@ export default function SceneEditModal({
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [showAiImageUpgradeModal, setShowAiImageUpgradeModal] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
+  const localImageInputRef = useRef<HTMLInputElement>(null);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
+  const shouldAutoOpenAdjustRef = useRef(false);
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
@@ -1240,10 +1273,13 @@ export default function SceneEditModal({
     setSelectedLayout("__keep__");
     setSelectedImageFile(null);
     setImagePreviewUrl(null);
+    setImageFocusX(50);
+    setImageFocusY(50);
     setGeneratingImage(false);
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
     setShowAiImageUpgradeModal(false);
+    shouldAutoOpenAdjustRef.current = openImageAdjustOnOpen;
     let layoutId: string | null = null;
     let ts = "";
     let ds = "";
@@ -1267,6 +1303,8 @@ export default function SceneEditModal({
         if (!ts && typeof lp.titleFontSize === "number") ts = String(lp.titleFontSize);
         if (!ds && typeof lp.descriptionFontSize === "number") ds = String(lp.descriptionFontSize);
         lpCopy = { ...lp };
+        if (typeof lp.imageFocusX === "number") setImageFocusX(Math.max(0, Math.min(100, lp.imageFocusX)));
+        if (typeof lp.imageFocusY === "number") setImageFocusY(Math.max(0, Math.min(100, lp.imageFocusY)));
         // data_visualization charts: convert stored shapes to editable form
         if (layoutId === "data_visualization") {
           const lpAny = lp as Record<string, unknown>;
@@ -1465,7 +1503,7 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, openImageAdjustOnOpen]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -1475,6 +1513,14 @@ export default function SceneEditModal({
         .catch(() => showError("Failed to load layouts"));
     }
   }, [open, project.id, layouts]);
+
+  useEffect(() => {
+    if (!open || !shouldAutoOpenAdjustRef.current || imageAdjustOpen) return;
+    const src = imagePreviewUrl || imageItems[0]?.url || null;
+    if (!src) return;
+    shouldAutoOpenAdjustRef.current = false;
+    openImageAdjustModal(src);
+  }, [open, imageAdjustOpen, imagePreviewUrl, imageItems]);
 
   // Merge schema defaults for missing layout props (e.g. new props added via rebuild)
   // useEffect(() => {
@@ -1523,7 +1569,7 @@ export default function SceneEditModal({
     return () => document.removeEventListener("mousedown", handler);
   }, [layoutOpen]);
 
-  const handleSave = async () => {
+  const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
     if (editMode === "manual") {
       setLoading(true);
       try {
@@ -1584,6 +1630,7 @@ export default function SceneEditModal({
             remotionCode = JSON.stringify(desc);
           } else {
             const lp = { ...(desc.layoutProps as Record<string, unknown> || {}), ...editableLayoutProps };
+            const zoomToSave = typeof override?.imageZoom === "number" ? Math.max(1, override.imageZoom) : undefined;
             // data_visualization: convert editable chart form back to stored shapes
             const layoutId = (desc.layout as string) || "";
             if (layoutId === "data_visualization") {
@@ -1692,10 +1739,16 @@ export default function SceneEditModal({
             else delete lp.descriptionFontSize;
             if (isEndingScene) {
               lp.hideImage = true;
+              delete lp.assignedImage;
+              delete lp.imageFocusX;
+              delete lp.imageFocusY;
+              delete lp.imageZoom;
               lp.socials = endingSocials;
               lp.showWebsiteButton = endingShowWebsiteButton;
               lp.websiteLink = (endingWebsiteLink || "").trim();
               lp.ctaButtonText = (endingCtaButtonText || "").trim();
+            } else if (zoomToSave !== undefined) {
+              lp.imageZoom = zoomToSave;
             }
             desc.layoutProps = lp;
             remotionCode = JSON.stringify(desc);
@@ -1773,6 +1826,18 @@ export default function SceneEditModal({
         if (selectedImageFile) {
           await updateSceneImage(project.id, scene.id, selectedImageFile);
         }
+        const hasExistingSceneImage = imageItems.length > 0;
+        const focusXToSave = override?.imageFocusX ?? imageFocusX;
+        const focusYToSave = override?.imageFocusY ?? imageFocusY;
+        const zoomToPatch =
+          typeof override?.imageZoom === "number"
+            ? Math.max(1, override.imageZoom)
+            : typeof editableLayoutProps.imageZoom === "number"
+              ? Math.max(1, Number(editableLayoutProps.imageZoom))
+              : undefined;
+        if (supportsImage && (selectedImageFile || hasExistingSceneImage)) {
+          await updateSceneImageFocus(project.id, scene.id, focusXToSave, focusYToSave, zoomToPatch);
+        }
         onSaved();
         onClose();
       } catch (err: unknown) {
@@ -1840,6 +1905,8 @@ export default function SceneEditModal({
         hideImage: true,
       };
       delete layoutProps.assignedImage;
+      delete layoutProps.imageFocusX;
+      delete layoutProps.imageFocusY;
       descriptor.layoutProps = layoutProps;
 
       await updateScene(project.id, scene.id, {
@@ -1859,8 +1926,45 @@ export default function SceneEditModal({
     }
   };
 
+  const handleOpenImageSourceChooser = () => {
+    setImageSourceChooserOpen(true);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleChooseLocalUpload = () => {
+    setImageSourceChooserOpen(false);
+    localImageInputRef.current?.click();
+  };
+
+  const handleChooseScrapedImages = () => {
+    setImageSourceChooserOpen(false);
+    setSelectedExistingAssetId(null);
+    setScrapedImagesModalOpen(true);
+  };
+
+  const handleAssignExistingImage = async () => {
+    if (!selectedExistingAssetId) return;
+    setAssigningExistingImage(true);
+    try {
+      await assignExistingImageToScene(project.id, scene.id, selectedExistingAssetId);
+      setSelectedImageFile(null);
+      setImagePreviewUrl(null);
+      setScrapedImagesModalOpen(false);
+      onSaved();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to assign image";
+      showError(String(msg));
+    } finally {
+      setAssigningExistingImage(false);
+    }
+  };
+
   const hasSceneText =
     Boolean((scene.title || "").trim()) || Boolean((scene.narration_text || "").trim());
+  const scrapedImageItems = availableImageItems;
 
   const handleGenerateImageClick = () => {
     if (!isPro) {
@@ -1913,6 +2017,128 @@ export default function SceneEditModal({
   const handleDiscardGeneratedImage = () => {
     setGeneratedImageBase64(null);
     setGeneratedPrompt(null);
+  };
+
+  const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
+  const openImageAdjustModal = (src: string) => {
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, currentZoom)));
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeImageAdjustModal = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveImageAdjustModal = async () => {
+    const nextFocusX = clampFocus(imageAdjustFocusX);
+    const nextFocusY = clampFocus(imageAdjustFocusY);
+    const nextZoom = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+    setImageFocusX(nextFocusX);
+    setImageFocusY(nextFocusY);
+    setEditableLayoutProps((prev) => ({ ...prev, imageZoom: nextZoom }));
+    closeImageAdjustModal();
+    await handleSave({ imageFocusX: nextFocusX, imageFocusY: nextFocusY, imageZoom: nextZoom });
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
   };
 
   if (!open) return null;
@@ -2864,9 +3090,19 @@ export default function SceneEditModal({
                         />
                         <button
                           type="button"
+                          onClick={() => openImageAdjustModal(url)}
+                          className="absolute top-0.5 right-7 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveImage(asset.id)}
                           disabled={removingAssetId === asset.id}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                         >
                           {removingAssetId === asset.id ? (
                             <span className="text-[10px]">…</span>
@@ -2887,11 +3123,21 @@ export default function SceneEditModal({
                         />
                         <button
                           type="button"
+                          onClick={() => openImageAdjustModal(imagePreviewUrl)}
+                          className="absolute top-0.5 right-7 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          title="Adjust image"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => {
                             setSelectedImageFile(null);
                             setImagePreviewUrl(null);
                           }}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -2899,17 +3145,23 @@ export default function SceneEditModal({
                         </button>
                       </div>
                     )}
-                    <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer transition-colors">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/jpg"
-                        onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
+                    <button
+                      type="button"
+                      onClick={handleOpenImageSourceChooser}
+                      className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                      title="Add image"
+                    >
                       <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                    </label>
+                    </button>
+                    <input
+                      ref={localImageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/jpg"
+                      onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
                     <button
                       type="button"
                       onClick={handleGenerateImageClick}
@@ -2932,6 +3184,13 @@ export default function SceneEditModal({
                   </div>
                   {!hasSceneText && (
                     <p className="text-xs text-gray-400 mt-1.5">Add a title or narration to use AI image generation.</p>
+                  )}
+                  {(imageItems.length > 0 || selectedImageFile) && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500">
+                        Click the edit icon on the image thumbnail to adjust framing with a draggable crop box.
+                      </p>
+                    </div>
                   )}
                   </>
                 ) : (
@@ -3096,7 +3355,9 @@ export default function SceneEditModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => {
+              void handleSave();
+            }}
             disabled={loading || (editMode === "ai" && (!aiHasChanges || !canUseAI))}
             className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -3111,6 +3372,117 @@ export default function SceneEditModal({
       onClose={() => setShowAiImageUpgradeModal(false)}
       projectId={project?.id}
     />
+
+    {imageSourceChooserOpen && (
+      <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => setImageSourceChooserOpen(false)}
+        />
+        <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+          <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
+          <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleChooseScrapedImages}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+              From existing scraped images
+            </button>
+            <button
+              type="button"
+              onClick={handleChooseLocalUpload}
+              className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+              </svg>
+              File upload
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {scrapedImagesModalOpen && (
+      <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={() => !assigningExistingImage && setScrapedImagesModalOpen(false)}
+        />
+        <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+              title="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
+            {scrapedImageItems.length === 0 ? (
+              <p className="text-sm text-gray-500">No images available.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {scrapedImageItems.map(({ asset, url }) => {
+                  const selected = selectedExistingAssetId === asset.id;
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => setSelectedExistingAssetId(asset.id)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
+                        selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
+                      }`}
+                    >
+                      <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                      {selected && (
+                        <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={() => setScrapedImagesModalOpen(false)}
+              disabled={assigningExistingImage}
+              className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAssignExistingImage}
+              disabled={!selectedExistingAssetId || assigningExistingImage}
+              className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+            >
+              {assigningExistingImage ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* AI generated image preview popup */}
     {generatedImageBase64 && (
@@ -3154,6 +3526,103 @@ export default function SceneEditModal({
               alt="AI generated"
               className="max-w-full max-h-[70vh] w-auto h-auto object-contain rounded-lg shadow-inner"
             />
+          </div>
+        </div>
+      </div>
+    )}
+
+    {imageAdjustOpen && imageAdjustSrc && (
+      <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
+        <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={closeImageAdjustModal} />
+        <div
+          className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+              <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+              title="Close"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+            <div className="p-4 sm:p-5">
+            <div
+              ref={imageAdjustPreviewRef}
+              onMouseDown={handleAdjustMouseDown}
+              onTouchStart={handleAdjustTouchStart}
+              className={`relative mx-auto w-full max-w-2xl aspect-video rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+              }`}
+            >
+              <img
+                src={imageAdjustSrc}
+                alt="Adjust preview"
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{
+                  objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                  transform: `scale(${imageAdjustZoom})`,
+                  transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                }}
+                draggable={false}
+              />
+            </div>
+            <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                <input
+                  type="range"
+                  min={IMAGE_ADJUST_ZOOM_MIN}
+                  max={IMAGE_ADJUST_ZOOM_MAX}
+                  step={0.05}
+                  value={imageAdjustZoom}
+                  onChange={(e) =>
+                    setImageAdjustZoom(
+                      Math.min(
+                        IMAGE_ADJUST_ZOOM_MAX,
+                        Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value))
+                      )
+                    )
+                  }
+                  className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                />
+                <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                  {imageAdjustZoom.toFixed(2)}×
+                </span>
+              </label>
+            </div>
+            <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+              Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+              {imageAdjustZoom.toFixed(2)}×
+            </div>
+            </div>
+          </div>
+          <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+            <button
+              type="button"
+              onClick={closeImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveImageAdjustModal}
+              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Save framing
+            </button>
           </div>
         </div>
       </div>

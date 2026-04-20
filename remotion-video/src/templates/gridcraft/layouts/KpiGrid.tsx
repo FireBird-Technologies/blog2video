@@ -1,8 +1,9 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 // Animation Constants
 const CARD_STAGGER_DELAY = 12; // frames between each card's animation start
@@ -60,8 +61,9 @@ const formatAnimatedValue = (animatedNum: number, targetNum: number, suffix: str
 
 export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
   dataPoints,
-  highlightIndex = 0,
-  imageUrl,
+  highlightIndex = 0,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   aspectRatio,
@@ -112,7 +114,11 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
             boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
-          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <ZoomCropImg
+            src={imageUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+          />
         </div>
       )}
       <div
@@ -227,3 +233,4 @@ export const KpiGrid: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
+

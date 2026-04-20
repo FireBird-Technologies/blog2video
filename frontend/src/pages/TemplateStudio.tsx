@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from "react";
+import ReactDOM from "react-dom";
 import { Player } from "@remotion/player";
 import {
   applyTemplateAiPreview,
@@ -25,7 +35,14 @@ import {
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
+const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
+
 type AspectRatio = "landscape" | "portrait";
+
+function clampFocusPct(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
 type ResponsiveValue = { portrait: number; landscape: number };
 
 function isResponsiveValue(value: unknown): value is ResponsiveValue {
@@ -496,6 +513,8 @@ function SceneSettingsModal({
   imageUrl, setImageUrl, fetchedImageUrl, imageFetching, imageError,
   accentColor, setAccentColor, bgColor, setBgColor, textColor, setTextColor,
   durationSeconds, setDurationSeconds,
+  layoutSupportsImage,
+  onOpenImageAdjust,
 }: {
   open: boolean; onClose: () => void;
   title: string; setTitle: (v: string) => void;
@@ -506,10 +525,19 @@ function SceneSettingsModal({
   bgColor: string; setBgColor: (v: string) => void;
   textColor: string; setTextColor: (v: string) => void;
   durationSeconds: number; setDurationSeconds: (v: number) => void;
+  layoutSupportsImage: boolean;
+  onOpenImageAdjust?: () => void;
 }) {
   if (!open) return null;
 
   const sliderPct = Math.round(((durationSeconds - 2) / 10) * 100);
+  const canOpenFramingEditor =
+    Boolean(onOpenImageAdjust) &&
+    layoutSupportsImage &&
+    imageUrl.trim() &&
+    Boolean(fetchedImageUrl) &&
+    !imageFetching &&
+    !imageError;
 
   return (
     <div
@@ -588,6 +616,31 @@ function SceneSettingsModal({
                 ) : (
                   <span style={{ fontSize: "11px", color: imageError ? "#dc2626" : T.textMuted, padding: "14px", fontFamily: FONT }}>{imageError || "No image"}</span>
                 )}
+              </div>
+            )}
+            {canOpenFramingEditor && (
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, lineHeight: 1.45, fontFamily: FONT }}>
+                  Pan and zoom match the project scene editor. Preview uses a 16:9 frame; values apply to the final render.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onOpenImageAdjust?.()}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: `1px solid ${T.accentMid}`,
+                    background: T.accentLight,
+                    color: T.accentDark,
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: FONT,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  Adjust framing…
+                </button>
               </div>
             )}
           </div>
@@ -831,6 +884,9 @@ export default function TemplateStudio() {
   const [aspectRatio, setAspectRatio]         = useState<AspectRatio>("landscape");
   const [durationSeconds, setDurationSeconds] = useState<number>(5);
   const [imageUrl, setImageUrl]               = useState<string>("");
+  const [imageFocusX, setImageFocusX]         = useState<number>(50);
+  const [imageFocusY, setImageFocusY]         = useState<number>(50);
+  const [imageZoom, setImageZoom]             = useState<number>(1);
   const [accentColor, setAccentColor]         = useState<string>("#9333ea");
   const [bgColor, setBgColor]                 = useState<string>("#ffffff");
   const [textColor, setTextColor]             = useState<string>("#111827");
@@ -841,6 +897,21 @@ export default function TemplateStudio() {
   const [imageFetching, setImageFetching]     = useState(false);
   const [imageError, setImageError]           = useState<string>("");
   const [sceneModalOpen, setSceneModalOpen]   = useState(false);
+
+  const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
+  const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
   const [aiInstruction, setAiInstruction]     = useState("");
   const [aiLayoutImage, setAiLayoutImage]     = useState<File | null>(null);
   const [aiLoading, setAiLoading]             = useState(false);
@@ -933,6 +1004,12 @@ export default function TemplateStudio() {
     if (sd.title)                   setTitle(sd.title);
     if (sd.narration !== undefined) setNarration(sd.narration);
     if (sd.durationSeconds)         setDurationSeconds(sd.durationSeconds);
+    const iz = defaults.imageZoom;
+    if (typeof iz === "number" && !Number.isNaN(iz)) {
+      setImageZoom(Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, iz)));
+    } else {
+      setImageZoom(1);
+    }
   }, [schema]);
 
   const config = useMemo(
@@ -968,6 +1045,126 @@ export default function TemplateStudio() {
     return () => { cancelled = true; };
   }, [imageUrl]);
 
+  const openTemplateImageAdjust = () => {
+    if (!fetchedImageUrl || imageFetching) return;
+    setImageAdjustFocusX(imageFocusX);
+    setImageAdjustFocusY(imageFocusY);
+    setImageAdjustZoom(
+      Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, imageZoom)),
+    );
+    setImageAdjustSrc(fetchedImageUrl);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+    setImageAdjustOpen(true);
+  };
+
+  const closeTemplateImageAdjust = () => {
+    setImageAdjustOpen(false);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const saveTemplateImageAdjust = () => {
+    setImageFocusX(clampFocusPct(imageAdjustFocusX));
+    setImageFocusY(clampFocusPct(imageAdjustFocusY));
+    setImageZoom(
+      Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom)),
+    );
+    closeTemplateImageAdjust();
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustOpen || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustOpen, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (!imageAdjustOpen || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor),
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustOpen, imageAdjustSrc]);
+
   const resolvedLayoutProps = useMemo(() => {
     if (!schema) return layoutProps;
     const next: Record<string, unknown> = { ...layoutProps };
@@ -977,8 +1174,17 @@ export default function TemplateStudio() {
         if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
       }
     });
+    if (layoutSupportsImage && imageUrl.trim()) {
+      next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+      next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+      next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+    } else {
+      delete next.imageFocusX;
+      delete next.imageFocusY;
+      delete next.imageZoom;
+    }
     return next;
-  }, [schema, layoutProps, isPortrait]);
+  }, [schema, layoutProps, isPortrait, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
 
   const inputProps = useMemo(() => {
     const effectiveImageUrl =
@@ -2219,7 +2425,112 @@ export default function TemplateStudio() {
         bgColor={bgColor} setBgColor={setBgColor}
         textColor={textColor} setTextColor={setTextColor}
         durationSeconds={durationSeconds} setDurationSeconds={setDurationSeconds}
+        layoutSupportsImage={layoutSupportsImage}
+        onOpenImageAdjust={openTemplateImageAdjust}
       />
+
+      {imageAdjustOpen && imageAdjustSrc &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[1100] flex items-center justify-center p-2 sm:p-4 min-h-0">
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={closeTemplateImageAdjust}
+              aria-hidden
+            />
+            <div
+              className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                    Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                  title="Close"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                <div className="p-4 sm:p-5">
+                  <div
+                    ref={imageAdjustPreviewRef}
+                    onMouseDown={handleAdjustMouseDown}
+                    onTouchStart={handleAdjustTouchStart}
+                    className={`relative mx-auto w-full max-w-2xl aspect-video rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                      isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+                    }`}
+                  >
+                    <img
+                      src={imageAdjustSrc}
+                      alt="Adjust preview"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                        transform: `scale(${imageAdjustZoom})`,
+                        transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                      }}
+                      draggable={false}
+                    />
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                    <label className="flex items-center gap-3 text-sm text-gray-700">
+                      <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                      <input
+                        type="range"
+                        min={IMAGE_ADJUST_ZOOM_MIN}
+                        max={IMAGE_ADJUST_ZOOM_MAX}
+                        step={0.05}
+                        value={imageAdjustZoom}
+                        onChange={(e) =>
+                          setImageAdjustZoom(
+                            Math.min(
+                              IMAGE_ADJUST_ZOOM_MAX,
+                              Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value)),
+                            ),
+                          )
+                        }
+                        className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                      />
+                      <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                        {imageAdjustZoom.toFixed(2)}×
+                      </span>
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                    Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+                    {imageAdjustZoom.toFixed(2)}×
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                <button
+                  type="button"
+                  onClick={closeTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveTemplateImageAdjust}
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Save framing
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -29,6 +29,8 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
   title,
   narration,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   titleFontSize,
@@ -97,7 +99,7 @@ export const ChapterBreak: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity }}>
-      <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
       <div
         aria-hidden
         style={{

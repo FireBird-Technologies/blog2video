@@ -270,12 +270,14 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   accentColor: string;
   bgColor: string;
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
@@ -397,6 +399,10 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             ? normalizeNewscastDataVizProps(base)
             : base;
         const lc = scene.layoutConfig;
+        const focusX = Number((lp.imageFocusX as number | undefined) ?? 50);
+        const focusY = Number((lp.imageFocusY as number | undefined) ?? 50);
+        const imageZoom = Math.max(1, Number((lp.imageZoom as number | undefined) ?? 1));
+        const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
 
         const layoutProps: NewscastLayoutProps = {
           ...normalizedBase,
@@ -412,6 +418,8 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             imageUrlFromAssets ??
             scene.imageUrl ??
             (typeof lp.imageUrl === "string" ? lp.imageUrl : undefined),
+          imageObjectPosition,
+  imageZoom,
           fontFamily: resolvedFontFamily || undefined,
           globeRotationFrameOffset: startFrame,
         };
@@ -442,6 +450,7 @@ export const NewscastVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}

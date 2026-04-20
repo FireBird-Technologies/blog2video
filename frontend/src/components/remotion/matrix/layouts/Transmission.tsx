@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 // Define default spring config for various effects
 const springConfigSoftBounce = {
@@ -29,8 +30,9 @@ const springConfigEaseOut = {
 export const Transmission: React.FC<MatrixLayoutProps> = ({
   phrases,
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -163,13 +165,10 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
                     border: `1px solid ${accent}33`,
                   }}
                 >
-                  <Img
+                  <ZoomCropImg
                     src={imageUrl}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
+                    imageObjectPosition={imageObjectPosition}
+                    imageZoom={imageZoom}
                   />
                 </div>
               </div>
@@ -225,3 +224,4 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+
