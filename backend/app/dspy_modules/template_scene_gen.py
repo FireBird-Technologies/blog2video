@@ -6,6 +6,11 @@ from app.dspy_modules import ensure_dspy_configured
 from app.services.chart_planner import (
     get_chartable_tables_from_visual_hint,
     generate_chart_props_from_table_hints,
+    generate_terminal_chart_candlestick_items,
+    generate_terminal_table_items,
+    is_candlestick_table,
+    has_candlestick_table_in_visual_hint,
+    _extract_tables_from_visual_hint,
 )
 from app.services.template_service import (
     get_prompt,
@@ -464,10 +469,56 @@ class TemplateSceneGenerator:
 
         return out
 
+    def _merge_bloomberg_table_props(
+        self,
+        layout: str,
+        props: dict,
+        visual_description: str,
+    ) -> dict:
+        """Generate deterministic items[] props for bloomberg table layouts.
+
+        - terminal_chart: extract time-series values → "{label}: {value}" items
+        - terminal_table: format table rows as pipe-delimited items strings
+        Only runs for bloomberg; returns props unchanged for all other layouts.
+        """
+        if layout not in {"terminal_chart", "terminal_table"}:
+            return props
+
+        tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
+        if not tables:
+            return props
+
+        out = dict(props or {})
+
+        if layout == "terminal_chart":
+            # Search all tables for one with OHLCV columns, not just tables[0]
+            candlestick_table = next((t for t in tables if is_candlestick_table(t)), None)
+            if candlestick_table is None:
+                out["_invalid_layout"] = True
+                return out
+            items = generate_terminal_chart_candlestick_items(candlestick_table, max_items=60)
+            if items:
+                out["items"] = items
+        else:  # terminal_table
+            items = generate_terminal_table_items(tables[0], max_items=12)
+            if items:
+                out["items"] = items
+
+        return out
+
     def _plan_newscast_data_visualization_targets(self, scenes_data: list[dict]) -> None:
         self._newscast_forced_data_viz_scenes = set()
         self._newscast_data_viz_table_by_scene = {}
         if self.template_id != "newscast" or not scenes_data:
+            return
+
+        # If the script generator already bound data_visualization scenes upstream (the preferred
+        # path), trust those bindings and skip the post-hoc positional override entirely.
+        upstream_bound = any(
+            str(s.get("preferred_layout") or "").strip().lower() == "data_visualization"
+            for s in scenes_data
+        )
+        if upstream_bound:
             return
 
         first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
@@ -940,8 +991,10 @@ class TemplateSceneGenerator:
                 self._valid_arrangements, self._hero_arrangement,
             )
 
-        # Built-in newscast only: when multiple tables are present in hints, force
-        # 2-3 scenes toward data_visualization and rotate table sources.
+        # Built-in templates: run template-specific table targeting as a fallback.
+        # For newscast this may force data_visualization scenes; for bloomberg the
+        # upstream binding (pipeline._generate_script) is preferred — these methods
+        # guard against the LLM ignoring chartable_tables_json entirely.
         if not self._is_custom:
             self._plan_newscast_data_visualization_targets(scenes_data)
 
@@ -1056,6 +1109,21 @@ class TemplateSceneGenerator:
                     narration=narration,
                     scene_index=scene_index,
                 )
+                validated_props = self._merge_bloomberg_table_props(
+                    layout=layout,
+                    props=validated_props,
+                    visual_description=visual_description,
+                )
+
+                # Guard: terminal_chart requires OHLCV data; fall back if not present.
+                if validated_props.pop("_invalid_layout", False):
+                    layout = self._fallback_layout
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: terminal_chart rejected (no OHLCV data), falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
 
                 chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
                 chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -1140,6 +1208,20 @@ class TemplateSceneGenerator:
             narration=narration,
             scene_index=scene_index,
         )
+        validated_props = self._merge_bloomberg_table_props(
+            layout=layout,
+            props=validated_props,
+            visual_description=visual_description,
+        )
+
+        # Guard: terminal_chart requires OHLCV data; fall back if not present.
+        if validated_props.pop("_invalid_layout", False):
+            layout = normalized or self._fallback_layout
+            validated_props = {}
+            logger.info(
+                "[SCENE_GEN] Regenerate: terminal_chart rejected (no OHLCV data), falling back to '%s'",
+                layout,
+            )
 
         chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
         chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None

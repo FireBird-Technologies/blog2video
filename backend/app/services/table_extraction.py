@@ -11,6 +11,7 @@ MAX_ROWS_PER_TABLE = 20
 MAX_COLS_PER_TABLE = 8
 MAX_CELL_CHARS = 120
 _SYNTH_HEADER_RE = re.compile(r"^col_\d+$", re.IGNORECASE)
+_OHLCV_REQUIRED = frozenset({"open", "high", "low", "close"})
 
 
 def _looks_like_header_row(row: list[str]) -> bool:
@@ -32,8 +33,10 @@ def _clean_cell(value: Any) -> str:
 
 
 def _normalize_table(headers: list[str], rows: list[list[str]], source: str) -> dict[str, Any] | None:
+    header_set = {h.lower() for h in headers if h}
+    row_cap = 60 if _OHLCV_REQUIRED.issubset(header_set) else MAX_ROWS_PER_TABLE
     clean_rows: list[list[str]] = []
-    for row in rows[:MAX_ROWS_PER_TABLE]:
+    for row in rows[:row_cap]:
         cells = [_clean_cell(cell) for cell in row[:MAX_COLS_PER_TABLE]]
         if any(cells):
             clean_rows.append(cells)
@@ -210,3 +213,39 @@ def build_table_context_hint(
         "TABLE_DATA_HINT_JSON:\n"
         + json.dumps({"tables": clipped}, ensure_ascii=False, separators=(",", ":"))
     )
+
+
+def build_chartable_tables_payload(
+    chartable_tables: list[tuple[int, dict[str, Any]]],
+    chart_type_by_index: dict[int, str] | None = None,
+    preferred_layout_by_index: dict[int, str] | None = None,
+    max_rows: int = 8,
+) -> str:
+    """Serialize table bindings for the BlogToScript LLM prompt.
+
+    Each entry includes the original table index, headers, sample rows, source,
+    inferred chartType, and an optional preferred_layout so the LLM knows which
+    layout to emit for the scene (e.g. "terminal_chart", "terminal_table",
+    "data_visualization").  Returns empty string when there are no tables.
+    """
+    if not chartable_tables:
+        return ""
+    entries = []
+    for orig_idx, table in chartable_tables:
+        if not isinstance(table, dict):
+            continue
+        chart_type = (chart_type_by_index or {}).get(orig_idx, "auto")
+        entry: dict[str, Any] = {
+            "index": orig_idx,
+            "chartType": chart_type,
+            "source": table.get("source"),
+            "headers": table.get("headers", []),
+            "rows": (table.get("rows", []) or [])[:max_rows],
+        }
+        pl = (preferred_layout_by_index or {}).get(orig_idx)
+        if pl:
+            entry["preferred_layout"] = pl
+        entries.append(entry)
+    if not entries:
+        return ""
+    return json.dumps(entries, ensure_ascii=False, separators=(",", ":"))

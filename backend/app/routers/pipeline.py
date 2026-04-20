@@ -31,7 +31,13 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content
+from app.services.chart_planner import (
+    get_chartable_tables_from_visual_hint,
+    get_line_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+    is_candlestick_table,
+)
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
@@ -559,6 +565,79 @@ async def _generate_script(project: Project, db: Session):
         not is_custom_template(template_id)
         and "ending_socials" in get_valid_layouts(template_id)
     )
+
+    # Pre-compute table bindings for templates that have dedicated data/table layouts.
+    # Each template block builds `chartable_tables_json` (passed to ScriptGenerator) and
+    # `_all_extracted_tables` (used in the scene-save loop to embed single-table hints).
+    chartable_tables_json = ""
+    _all_extracted_tables: list[dict] = []
+
+    if template_id == "newscast":
+        # newscast: dedicate scenes to data_visualization for any chartable table (line/bar/histogram).
+        # Requires ≥2 chartable tables; caps at 3 scenes.
+        _all_extracted_tables = extract_tables_from_content(
+            getattr(project, "blog_content", None) or ""
+        )
+        if len(_all_extracted_tables) >= 2:
+            _tmp_hint = build_table_context_hint(_all_extracted_tables, max_tables=len(_all_extracted_tables))
+            _chartable = get_chartable_tables_from_visual_hint(_tmp_hint)
+            _capped = _chartable[: min(3, len(_chartable))]
+            if len(_capped) >= 2:
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _capped
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _capped, chart_type_by_index=_chart_type_by_idx
+                )
+
+    elif template_id == "bloomberg":
+        # bloomberg: one terminal_chart scene per line-chartable table, one terminal_table
+        # scene per any remaining usable table — no caps, use all qualifying scraped tables.
+        _all_extracted_tables = extract_tables_from_content(
+            getattr(project, "blog_content", None) or ""
+        )
+        if _all_extracted_tables:
+            _tmp_hint = build_table_context_hint(
+                _all_extracted_tables, max_tables=len(_all_extracted_tables)
+            )
+            # terminal_chart: every line-chartable table gets its own scene
+            _line_tables = get_line_chartable_tables_from_visual_hint(_tmp_hint)
+            _used_indices = {idx for idx, _ in _line_tables}
+
+            # Also bind OHLCV/candlestick tables that failed the line-chartable check
+            _candlestick_tables = [
+                (idx, t) for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices and is_candlestick_table(t)
+            ]
+            _line_tables = _line_tables + _candlestick_tables
+            _used_indices = {idx for idx, _ in _line_tables}
+
+            # terminal_table: every remaining table with headers + ≥1 row gets its own scene
+            _table_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 1
+            ]
+
+            _bindings = _line_tables + _table_tables
+            if _bindings:
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _bindings
+                }
+                _layout_by_idx = {
+                    orig_idx: "terminal_chart" if orig_idx in _used_indices else "terminal_table"
+                    for orig_idx, _ in _bindings
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _bindings,
+                    chart_type_by_index=_chart_type_by_idx,
+                    preferred_layout_by_index=_layout_by_idx,
+                )
+
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -569,6 +648,7 @@ async def _generate_script(project: Project, db: Session):
         layout_catalog=layout_catalog,
         content_language=content_language,
         include_ending_socials=include_ending_socials,
+        chartable_tables_json=chartable_tables_json,
     )
 
     project.name = result["title"]
@@ -590,6 +670,18 @@ async def _generate_script(project: Project, db: Session):
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
+        elif (
+            scene_data.get("preferred_layout") in {"data_visualization", "terminal_chart", "terminal_table"}
+            and _all_extracted_tables
+        ):
+            # Embed only the single bound table so scene_gen has exactly one table to use.
+            bound_idx = scene_data.get("data_table_index")
+            if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                _bound_table = _all_extracted_tables[bound_idx]
+                _mr = 60 if is_candlestick_table(_bound_table) else 8
+                hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
+                if hint:
+                    vd = (vd.rstrip() + "\n\n" + hint).strip()
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -615,16 +707,13 @@ async def _generate_scenes(project: Project, db: Session):
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
     """
     scenes = project.scenes
-    extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
-    # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
-    table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
 
-    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
+    # Each data_visualization scene already carries its single bound TABLE_DATA_HINT_JSON
+    # (embedded during _generate_script); no blanket append needed here.
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
-        if table_context_hint:
-            vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
         scenes_data.append(
             {
                 "title": s.title,

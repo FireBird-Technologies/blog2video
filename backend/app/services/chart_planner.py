@@ -94,22 +94,6 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(t) > 2}
 
 
-def _are_series_labels_comparable(labels: list[str]) -> bool:
-    if len(labels) < 2:
-        return False
-    stop = {"series", "value", "values", "data", "index"}
-    token_sets = []
-    for label in labels:
-        toks = {t for t in _tokenize(label) if t not in stop}
-        token_sets.append(toks)
-    base = token_sets[0]
-    if not base:
-        return False
-    for other in token_sets[1:]:
-        if base & other:
-            return True
-    return False
-
 
 def _extract_tables_from_visual_hint(visual_description: str) -> list[dict[str, Any]]:
     if not visual_description:
@@ -143,6 +127,161 @@ def get_chartable_tables_from_visual_hint(
         for i, t in enumerate(tables)
         if isinstance(t, dict) and _build_chart_props_from_table(t)
     ]
+
+
+def get_line_chartable_tables_from_visual_hint(
+    visual_description: str,
+) -> list[tuple[int, dict[str, Any]]]:
+    """Return (original_index, table) pairs for tables that produce a line chart."""
+    tables = _extract_tables_from_visual_hint(visual_description)
+    result = []
+    for i, t in enumerate(tables):
+        if not isinstance(t, dict):
+            continue
+        props = _build_chart_props_from_table(t)
+        if props.get("chartType") == "line":
+            result.append((i, t))
+    return result
+
+
+_CANDLESTICK_REQUIRED = {"open", "high", "low", "close"}
+
+
+def is_candlestick_table(table: dict[str, Any]) -> bool:
+    """Return True if the table contains OHLCV columns (Open, High, Low, Close)."""
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    found = set()
+    for h in headers:
+        for r in _CANDLESTICK_REQUIRED:
+            if r in h:
+                found.add(r)
+    return _CANDLESTICK_REQUIRED.issubset(found)
+
+
+def has_candlestick_table_in_visual_hint(visual_description: str) -> bool:
+    """Return True if any table in the visual hint looks like OHLCV data."""
+    tables = _extract_tables_from_visual_hint(visual_description)
+    return any(is_candlestick_table(t) for t in tables if isinstance(t, dict))
+
+
+def _parse_volume_to_billions(raw: str) -> float:
+    s = str(raw or "").replace("$", "").replace(",", "").strip()
+    multiplier = 1.0
+    if s.upper().endswith("B"):
+        s = s[:-1]
+    elif s.upper().endswith("M"):
+        s, multiplier = s[:-1], 0.001
+    elif s.upper().endswith("K"):
+        s, multiplier = s[:-1], 0.000001
+    try:
+        return float(s) * multiplier
+    except ValueError:
+        return 0.0
+
+
+def generate_terminal_chart_candlestick_items(table: dict[str, Any], max_items: int = 60) -> list[str]:
+    """Format an OHLCV table as candlestick items for TerminalChart.
+
+    Each item: "<date_label>|<open>|<high>|<low>|<close>|<vol_billions>"
+    """
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    rows = [r for r in (table.get("rows", []) or []) if isinstance(r, list)]
+    if not rows:
+        return []
+
+    def _find_col(*keywords: str) -> int | None:
+        for kw in keywords:
+            for i, h in enumerate(headers):
+                if kw in h:
+                    return i
+        return None
+
+    date_col = _find_col("date start", "date") or 0
+    open_col = _find_col("open")
+    high_col = _find_col("high")
+    low_col = _find_col("low")
+    close_col = _find_col("close")
+    vol_col = _find_col("volume")
+
+    if None in (open_col, high_col, low_col, close_col):
+        return []
+
+    items = []
+    for row in rows[:max_items]:
+        label = str(row[date_col] if date_col < len(row) else "").strip()
+        label = label.split(",")[0].strip()  # "Mar 21, 2026" → "Mar 21"
+
+        o = _parse_number(row[open_col] if open_col < len(row) else "")
+        h = _parse_number(row[high_col] if high_col < len(row) else "")
+        l = _parse_number(row[low_col] if low_col < len(row) else "")
+        c = _parse_number(row[close_col] if close_col < len(row) else "")
+
+        if None in (o, h, l, c):
+            continue
+
+        vol = 0.0
+        if vol_col is not None and vol_col < len(row):
+            vol = _parse_volume_to_billions(row[vol_col])
+
+        items.append(f"{label}|{o:.2f}|{h:.2f}|{l:.2f}|{c:.2f}|{vol:.2f}")
+
+    return items
+
+
+def generate_terminal_chart_items(table: dict[str, Any], max_items: int = 8) -> list[str]:
+    """Format a time-series table as items strings for the TerminalChart layout.
+
+    Produces "{label}: {value}" per row using the first column as the label and the
+    first numeric column as the value.  The Remotion component extracts numbers from
+    these strings to drive the synthetic candlestick chart.
+    """
+    rows = [r for r in (table.get("rows", []) or []) if isinstance(r, list) and len(r) >= 2]
+    if len(rows) < 2:
+        return []
+
+    # Find first numeric column (skip column 0 which is the label)
+    col_count = max(len(r) for r in rows)
+    numeric_col = None
+    for c in range(1, col_count):
+        if sum(1 for r in rows if _parse_number(r[c] if c < len(r) else "") is not None) >= 2:
+            numeric_col = c
+            break
+    if numeric_col is None:
+        return []
+
+    items = []
+    for r in rows[:max_items]:
+        label = str(r[0] if r else "").strip()
+        raw_val = r[numeric_col] if numeric_col < len(r) else ""
+        num = _parse_number(raw_val)
+        if num is None:
+            continue
+        val_str = f"{num:g}"
+        items.append(f"{label}: {val_str}" if label else val_str)
+
+    return items
+
+
+def generate_terminal_table_items(table: dict[str, Any], max_items: int = 12) -> list[str]:
+    """Format a table as pipe-delimited items strings for the TerminalTable layout.
+
+    Returns a list where item[0] is the header row and the rest are data rows,
+    all pipe-delimited and uppercased to match the Bloomberg terminal aesthetic.
+    max_items includes the header row, so data rows = max_items - 1.
+    """
+    headers = [str(h or "").strip() for h in (table.get("headers", []) or [])]
+    rows = [r for r in (table.get("rows", []) or []) if isinstance(r, list)]
+    if not headers or len(rows) < 1:
+        return []
+
+    def _fmt_row(cells: list) -> str:
+        return " | ".join(str(c or "").strip().upper() for c in cells)
+
+    header_str = _fmt_row(headers)
+    data_strs = [_fmt_row(r) for r in rows[: max_items - 1] if any(str(c or "").strip() for c in r)]
+
+    items = [header_str] + data_strs
+    return items[:max_items]
 
 
 def _score_table_for_scene(table: dict[str, Any], scene_text: str) -> float:
