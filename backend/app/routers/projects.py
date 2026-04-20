@@ -283,64 +283,6 @@ def _clear_image_assignment(lp: dict) -> None:
     lp.pop("imageZoom", None)
 
 
-def _count_scenes_using_assigned_image(db: Session, project_id: int, filename: str) -> int:
-    """How many scenes reference this filename as assignedImage (not hidden)."""
-    from app.models.scene import Scene
-
-    n = 0
-    scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
-    for scene in scenes:
-        if not scene.remotion_code:
-            continue
-        try:
-            desc = json.loads(scene.remotion_code)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        lp = desc.get("layoutProps") if isinstance(desc.get("layoutProps"), dict) else {}
-        if lp.get("hideImage"):
-            continue
-        if lp.get("assignedImage") == filename:
-            n += 1
-    return n
-
-
-def _delete_image_asset_row_and_files(db: Session, project_id: int, filename: str, user_id: int) -> None:
-    """Remove Asset row and local/R2 files for this filename (caller commits)."""
-    from app.models.asset import Asset
-
-    asset = (
-        db.query(Asset)
-        .filter(Asset.project_id == project_id, Asset.filename == filename)
-        .first()
-    )
-    if not asset:
-        return
-    local_path = asset.local_path
-    r2_key = asset.r2_key
-    db.delete(asset)
-    db.flush()
-    if local_path and os.path.isfile(local_path):
-        try:
-            os.remove(local_path)
-        except OSError as e:
-            logger.warning(
-                "[PROJECTS] Failed to remove image file %s: %s",
-                local_path,
-                e,
-                extra={"project_id": project_id, "user_id": user_id},
-            )
-    if r2_key:
-        try:
-            r2_storage.delete_file(r2_key)
-        except Exception as e:
-            logger.warning(
-                "[PROJECTS] R2 delete failed for %s: %s",
-                r2_key,
-                e,
-                extra={"project_id": project_id, "user_id": user_id},
-            )
-
-
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
     social_flags = detect_social_platforms_in_text(getattr(project, "blog_content", None) or "")
     socials = {
@@ -1731,8 +1673,8 @@ async def update_scene_image(
     db: Session = Depends(get_db),
 ):
     """Upload/replace scene image without regenerating the scene layout.
-    If the scene already had an image assigned, that file is removed only when
-    no other scene still references the same filename (shared images are kept)."""
+    Any previous image assigned to this scene is only cleared from the scene;
+    the old asset row and files remain (delete explicitly via the asset API if needed)."""
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
@@ -1747,37 +1689,6 @@ async def update_scene_image(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
-
-    old_assigned = None
-    if scene.remotion_code:
-        try:
-            desc = json.loads(scene.remotion_code)
-            old_assigned = (desc.get("layoutProps") or {}).get("assignedImage")
-        except (json.JSONDecodeError, TypeError):
-            pass
-    if old_assigned and isinstance(old_assigned, str):
-        # Unassign previous for this scene only; delete file only if unused elsewhere
-        if _count_scenes_using_assigned_image(db, project_id, old_assigned) <= 1:
-            old_asset = (
-                db.query(Asset)
-                .filter(Asset.project_id == project_id, Asset.filename == old_assigned)
-                .first()
-            )
-            if old_asset:
-                prev_local = old_asset.local_path
-                prev_r2 = old_asset.r2_key
-                db.delete(old_asset)
-                db.flush()
-                if prev_local and os.path.isfile(prev_local):
-                    try:
-                        os.remove(prev_local)
-                    except OSError as e:
-                        print(f"[IMAGE_UPDATE] Failed to remove old file {prev_local}: {e}")
-                if prev_r2:
-                    try:
-                        r2_storage.delete_file(prev_r2)
-                    except Exception as e:
-                        print(f"[IMAGE_UPDATE] R2 delete failed for {prev_r2}: {e}")
 
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
     if image.content_type not in allowed_types:
@@ -2027,9 +1938,6 @@ def duplicate_scene_image(
 
     target_desc = _parse_scene_descriptor(target_scene)
     target_lp = _ensure_layout_props_dict(target_desc)
-    prev = target_lp.get("assignedImage") if isinstance(target_lp.get("assignedImage"), str) else None
-    if prev and prev != source_filename and _count_scenes_using_assigned_image(db, project_id, prev) <= 1:
-        _delete_image_asset_row_and_files(db, project_id, prev, user.id)
 
     target_lp["assignedImage"] = source_filename
     target_lp["hideImage"] = False
@@ -2080,9 +1988,6 @@ def assign_existing_image_to_scene(
 
     target_desc = _parse_scene_descriptor(target_scene)
     target_lp = _ensure_layout_props_dict(target_desc)
-    prev = target_lp.get("assignedImage") if isinstance(target_lp.get("assignedImage"), str) else None
-    if prev and prev != source_asset.filename and _count_scenes_using_assigned_image(db, project_id, prev) <= 1:
-        _delete_image_asset_row_and_files(db, project_id, prev, user.id)
 
     target_lp["assignedImage"] = source_asset.filename
     target_lp["hideImage"] = False
