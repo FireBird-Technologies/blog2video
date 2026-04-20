@@ -41,6 +41,7 @@ class Project(Base):
     player_port: Mapped[int | None] = mapped_column(nullable=True)
     r2_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     r2_video_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    embed_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
 
     # Logo overlay
     logo_r2_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
