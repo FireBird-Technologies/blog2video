@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     # Email
     EMAIL_PROVIDER: str = "resend"              # currently only "resend" is supported
     RESEND_API_KEY: str = ""
+    UNOSEND_API_KEY: str = ""  # reserved — blast email uses Resend; Unosend path commented in email.py
     FROM_EMAIL: str = "sales@blog2video.app"    # contact/internal emails
     NOREPLY_EMAIL: str = "noreply@blog2video.app"  # user-facing notifications
 

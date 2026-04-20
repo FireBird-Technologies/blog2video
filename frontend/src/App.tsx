@@ -22,6 +22,8 @@ import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
+import AdminPasswordProtectedRoute from "./components/layout/AdminPasswordProtectedRoute";
+import AdminEmailBlast from "./pages/AdminEmailBlast";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -134,6 +136,15 @@ function AppRoutes() {
                 <TemplateStudio />
               </PasswordProtectedRoute>
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/auto-email"
+          element={
+            <AdminPasswordProtectedRoute>
+              <AdminEmailBlast />
+            </AdminPasswordProtectedRoute>
           }
         />
 

@@ -456,6 +456,87 @@ class EmailService:
 
 
 
+    @staticmethod
+    def _blast_paragraph_inner(text: str) -> str:
+        """Escape HTML and turn each newline into <br /> so single line breaks render in email clients."""
+        lines = text.split("\n")
+        return "<br />\n".join(html.escape(line) for line in lines)
+
+    @staticmethod
+    def _build_blast_html(subject: str, body_text: str) -> str:
+        # Split on blank lines → separate <p> blocks; single newlines inside a block → <br />
+        paragraphs = "".join(
+            f'<p style="margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.65;">'
+            f"{EmailService._blast_paragraph_inner(p.strip())}</p>"
+            for p in body_text.split("\n\n") if p.strip()
+        )
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Blog<span style="color:#c4b5fd;">2</span>Video
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              {paragraphs}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                You received this because you have an account at Blog2Video.<br/>
+                &copy; 2026 Blog2Video &middot; All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_blast_email(self, user_email: str, user_name: str, subject: str, body: str) -> None:
+        first_name = (user_name or "").split()[0] if user_name else "there"
+        personalized_body = f"Hi {first_name},\n\n{body}"
+        html_content = self._build_blast_html(subject, personalized_body)
+        text_content = f"Hi {first_name},\n\n{body}\n\n— The Blog2Video Team\n"
+
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email="Arslan Shahid <arslan@blog2video.app>",
+        )
+
+        # Unosend (blast only — transactional mail uses Resend via self.provider):
+        # from unosend import Unosend
+        # client = Unosend(api_key=getattr(settings, "UNOSEND_API_KEY", ""))
+        # response = client.emails.send(
+        #     from_address="Arslan Shahid <arslan@blog2video.app>",
+        #     to=user_email,
+        #     subject=subject,
+        #     html=html_content,
+        #     text=text_content,
+        # )
+        # if response.error:
+        #     raise EmailServiceError(f"Unosend error sending to {user_email}: {response.error.message}")
+
     def send_free_tier_video_limit_announcement(
         self,
         user_email: str,
