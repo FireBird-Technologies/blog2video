@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
+import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 
 export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
   title,

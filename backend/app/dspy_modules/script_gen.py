@@ -206,6 +206,27 @@ class BlogToScript(dspy.Signature):
         )
     )
 
+    chartable_tables_json: str = dspy.InputField(
+        desc=(
+            "JSON array of table-to-scene bindings extracted from the blog. Each entry has keys: "
+            '"index" (int, original table index), "chartType" (\'line\'|\'bar\'|\'histogram\'|\'auto\'), '
+            '"headers" (list of str), "rows" (list of list of str, up to 8 sample rows), "source" (str), '
+            'and OPTIONAL "preferred_layout" (str) specifying the layout to use for that scene '
+            '(e.g. "terminal_chart", "terminal_table", "data_visualization"). '
+            "Empty string when no tables are available. "
+            "When non-empty: you MUST emit exactly one scene per entry. "
+            "Use the entry's \"preferred_layout\" value as the scene's preferred_layout; "
+            "if the entry has no preferred_layout, default to \"data_visualization\". "
+            "Each such scene MUST include a \"data_table_index\" field (int) set to that entry's \"index\" value. "
+            "That scene's narration MUST be grounded entirely in the specific table — cite at least one concrete "
+            "number, column label, or trend visible in the rows. "
+            "Match the framing to chartType: line=trend/over-time, bar=comparison, histogram=distribution. "
+            "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
+            "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
+            "MUST NOT reference these tables in their narration."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc=(
@@ -226,6 +247,8 @@ class BlogToScript(dspy.Signature):
             '"narration": "Let\'s explore how AI transforms software development.", '
             '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
             '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
+            ' When chartable_tables_json is non-empty: each data_visualization scene MUST include '
+            '"data_table_index" (int) matching its bound entry\'s "index" value from chartable_tables_json. '
             ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
             'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
             'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
@@ -285,6 +308,7 @@ class ScriptGenerator:
         layout_catalog: str = "",
         content_language: str = "English",
         include_ending_socials: bool = False,
+        chartable_tables_json: str = "",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -309,6 +333,7 @@ class ScriptGenerator:
             content_language=(content_language or "English").strip(),
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
+            chartable_tables_json=chartable_tables_json or "",
         )
 
         # Parse the scenes JSON and apply limits
@@ -491,6 +516,9 @@ class ScriptGenerator:
                 }
                 if preferred_layout == "ending_socials" and cta_btn:
                     row["cta_button_text"] = cta_btn
+                raw_idx = scene.get("data_table_index")
+                if preferred_layout == "data_visualization" and isinstance(raw_idx, int):
+                    row["data_table_index"] = raw_idx
                 validated.append(row)
 
             return validated

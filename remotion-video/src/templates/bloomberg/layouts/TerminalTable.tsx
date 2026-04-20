@@ -2,6 +2,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
+const GREEN = "#4CAF50";
+
 export const TerminalTable: React.FC<BloombergLayoutProps> = ({
   title,
   narration,
@@ -28,18 +30,25 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
   const fadeIn = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
   const titleOpacity = interpolate(frame, [4, 20], [0, 1], { extrapolateRight: "clamp" });
 
-  const rows = items.length > 0 ? items : [
+  const rawRows = items.length > 0 ? items : [
     "POSITION | QTY | ENTRY  | CURRENT | P&L",
     "AAPL     | 100 | 172.40 |  189.40 | +$1,700",
     "NVDA     |  50 | 620.00 |  847.20 | +$11,360",
     "TSLA     |  80 | 185.00 |  172.30 | -$1,016",
   ];
 
-  const [header, ...dataRows] = rows;
+  const parsedRows = rawRows.map(row => row.split("|").map(cell => cell.trim()));
+  const [headerCols, ...dataCols] = parsedRows;
+
+  const colCount = headerCols?.length ?? 1;
+  const colFlexes = headerCols?.map((_, i) => i === 0 ? 2 : 1) ?? Array(colCount).fill(1);
 
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
+  const rowPad = p ? "16px 20px" : "13px 20px";
+  const rowFontSize = dSize * 0.78;
+  const headerFontSize = dSize * 0.7;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
@@ -72,35 +81,73 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
         display: "flex", flexDirection: "column",
         opacity: fadeIn,
       }}>
-        {header && (
+        {/* Header row */}
+        {headerCols && (
           <div style={{
+            display: "flex",
             backgroundColor: BLOOMBERG_COLORS.headerBg,
-            border: `1px solid ${amber}`,
+            borderLeft: `3px solid ${blue}`,
+            borderTop: `1px solid ${amber}`,
+            borderRight: `1px solid ${amber}`,
             borderBottom: `2px solid ${amber}`,
-            padding: p ? "14px 20px" : "12px 20px",
-            color: blue,
-            fontSize: dSize * 0.8,
-            letterSpacing: 2,
+            padding: rowPad,
           }}>
-            {header}
+            {headerCols.map((col, ci) => (
+              <div key={ci} style={{
+                flex: colFlexes[ci],
+                color: blue,
+                fontSize: headerFontSize,
+                letterSpacing: 2,
+                textAlign: ci === 0 ? "left" : "right",
+                textTransform: "uppercase",
+              }}>
+                {col}
+              </div>
+            ))}
           </div>
         )}
 
-        {dataRows.map((row, i) => {
+        {/* Data rows */}
+        {dataCols.map((cols, i) => {
           const rowOpacity = interpolate(frame, [i * 6 + 10, i * 6 + 22], [0, 1], { extrapolateRight: "clamp" });
-          const isNeg = row.includes("-$") || row.includes("-0") || row.includes("-1") || row.includes("-2") || row.includes("-3");
+          const rowSlideX = interpolate(frame, [i * 6 + 10, i * 6 + 22], [24, 0], { extrapolateRight: "clamp" });
           const rowBg = i % 2 === 0 ? BLOOMBERG_COLORS.panelBg : BLOOMBERG_COLORS.bg;
+
+          const lastCol = cols[cols.length - 1] ?? "";
+          const isNeg = /^-/.test(lastCol);
+          const isPos = /^\+/.test(lastCol);
+          const accentBorder = isNeg ? BLOOMBERG_COLORS.neg : isPos ? GREEN : BLOOMBERG_COLORS.border;
+
           return (
             <div key={i} style={{
+              display: "flex",
               backgroundColor: rowBg,
-              border: `1px solid ${BLOOMBERG_COLORS.border}`,
-              borderTop: "none",
-              padding: p ? "14px 20px" : "12px 20px",
-              color: isNeg ? BLOOMBERG_COLORS.neg : amber,
-              fontSize: dSize * 0.8,
+              borderLeft: `3px solid ${accentBorder}`,
+              borderRight: `1px solid ${BLOOMBERG_COLORS.border}`,
+              borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+              padding: rowPad,
               opacity: rowOpacity,
+              transform: `translateX(${rowSlideX}px)`,
             }}>
-              {row}
+              {cols.map((cell, ci) => {
+                const isLast = ci === cols.length - 1;
+                const cellColor = isLast && isNeg
+                  ? BLOOMBERG_COLORS.neg
+                  : isLast && isPos
+                  ? GREEN
+                  : amber;
+                return (
+                  <div key={ci} style={{
+                    flex: colFlexes[ci],
+                    color: cellColor,
+                    fontSize: rowFontSize,
+                    textAlign: ci === 0 ? "left" : "right",
+                    fontWeight: isLast ? "bold" : "normal",
+                  }}>
+                    {cell}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -120,10 +167,14 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
         borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
-        display: "flex", alignItems: "center", padding: `0 ${pad}px`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
           MBN TERMINAL  ·  DATA TABLE
+        </span>
+        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 1 }}>
+          {dataCols.length} RECORDS
         </span>
       </div>
     </AbsoluteFill>

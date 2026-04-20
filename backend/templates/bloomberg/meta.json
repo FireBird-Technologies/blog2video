@@ -142,9 +142,9 @@
         },
         {
           "key": "items",
-          "label": "Chart Stats / Indicators",
+          "label": "Candlestick Rows (date|open|high|low|close|vol)",
           "type": "string_array",
-          "maxItems": 8
+          "maxItems": 60
         }
       ]
     },
