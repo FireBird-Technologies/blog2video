@@ -149,9 +149,11 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
             {hasImage && (
               <div
                 style={{
-                  flex: "0 0 38%",
-                  height: "100%",
-                  padding: "8% 0 8% 8%",
+                  flex: p ? "0 0 auto" : "0 0 38%",
+                  width: p ? "76%" : undefined,
+                  maxWidth: p ? 760 : undefined,
+                  height: p ? "44%" : "100%",
+                  padding: p ? "0" : "8% 0 8% 8%",
                   // Apply image animations
                   opacity: imageOpacity,
                   transform: `translateY(${imageTranslateY}px) scale(${imageScale})`,

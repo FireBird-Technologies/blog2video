@@ -33,6 +33,7 @@ import {
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
 const IMAGE_ADJUST_ZOOM_MIN = 1;
@@ -900,6 +901,7 @@ export default function TemplateStudio() {
 
   const [imageAdjustOpen, setImageAdjustOpen] = useState(false);
   const [imageAdjustSrc, setImageAdjustSrc]   = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
@@ -1047,6 +1049,14 @@ export default function TemplateStudio() {
 
   const openTemplateImageAdjust = () => {
     if (!fetchedImageUrl || imageFetching) return;
+    const templateCfg = getTemplateConfig(selectedTemplateId || "default");
+    const ar = getImageBoxAspectRatio(
+      selectedLayout ? normalizeLayoutId(selectedLayout) : null,
+      aspectRatio,
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
     setImageAdjustFocusX(imageFocusX);
     setImageAdjustFocusY(imageFocusY);
     setImageAdjustZoom(
@@ -2465,7 +2475,12 @@ export default function TemplateStudio() {
                     ref={imageAdjustPreviewRef}
                     onMouseDown={handleAdjustMouseDown}
                     onTouchStart={handleAdjustTouchStart}
-                    className={`relative mx-auto w-full max-w-2xl aspect-video rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                    style={{
+                      aspectRatio: imageAdjustAspectRatio,
+                      maxHeight: "70vh",
+                      maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                    }}
+                    className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
                       isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                     }`}
                   >

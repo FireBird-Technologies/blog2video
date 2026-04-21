@@ -61,6 +61,8 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 type PlaybackSpeedOption = number;
@@ -638,6 +640,7 @@ export default function ProjectView() {
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [isAdjustDragging, setIsAdjustDragging] = useState(false);
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
@@ -2243,6 +2246,24 @@ export default function ProjectView() {
   const openSceneImageAdjustModal = (scene: Scene, src: string) => {
     const focus = getSceneFocus(scene);
     const zoom = getSceneImageZoom(scene);
+
+    // Compute the correct aspect ratio for the modal preview
+    let layoutId: string | null = null;
+    try {
+      if (scene.remotion_code) {
+        const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string }; sceneTypeOverride?: string };
+        layoutId = desc.layoutConfig?.arrangement ?? desc.sceneTypeOverride ?? desc.layout ?? null;
+      }
+    } catch { /* ignore */ }
+    const templateCfg = getTemplateConfig(project?.template || "default");
+    const ar = getImageBoxAspectRatio(
+      layoutId ? normalizeLayoutId(layoutId) : null,
+      project?.aspect_ratio || "landscape",
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
+
     setImageAdjustSceneId(scene.id);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
@@ -4467,7 +4488,12 @@ export default function ProjectView() {
                           ref={imageAdjustPreviewRef}
                           onMouseDown={handleAdjustMouseDown}
                           onTouchStart={handleAdjustTouchStart}
-                          className={`relative mx-auto w-full max-w-2xl aspect-video rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                          style={{
+                            aspectRatio: imageAdjustAspectRatio,
+                            maxHeight: "70vh",
+                            maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                          }}
+                          className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
                             isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
                           }`}
                         >
