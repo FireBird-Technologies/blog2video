@@ -49,6 +49,9 @@ export interface BloombergLayoutProps {
   items?: string[];
   metrics?: BloombergMetric[];
 
+  // Raw OHLCV table for terminal_chart (editable in modal, parsed directly by component)
+  ohlcvTable?: { headers: string[]; rows: string[][] };
+
   // terminal_split
   leftLabel?: string;
   rightLabel?: string;

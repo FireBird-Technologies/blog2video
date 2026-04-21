@@ -49,6 +49,9 @@ export interface BloombergLayoutProps {
   items?: string[];
   metrics?: BloombergMetric[];
 
+  // Raw OHLCV table for terminal_chart (editable in modal, parsed directly by component)
+  ohlcvTable?: { headers: string[]; rows: string[][] };
+
   // terminal_split
   leftLabel?: string;
   rightLabel?: string;
@@ -64,4 +67,16 @@ export interface BloombergLayoutProps {
   websiteLink?: string;
   showWebsiteButton?: boolean;
   ctaButtonText?: string;
+}
+
+export interface BloombergSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: BloombergLayoutType;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
 }

@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+import { OHLCVTableEditor } from "./OHLCVTableEditor";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -192,6 +193,7 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
+  | "ohlcv_table"
   | "select"
   | "number"
   | "range";
@@ -961,7 +963,7 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     terminal_narrative: [],
     terminal_chart: [
-      { key: "items", label: "Indicator stats", type: "string_array", maxItems: 6 },
+      { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
     ],
     terminal_dashboard: [
       {
@@ -1228,6 +1230,7 @@ export default function SceneEditModal({
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
+  const isBloombergTemplate = normalizedTemplateId === "bloomberg";
 
   const currentLayoutId = (() => {
     try {
@@ -2245,8 +2248,10 @@ export default function SceneEditModal({
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
                   currentLayoutId === "data_visualization";
+                const suppressExtraKeysForBloombergChart =
+                  isBloombergTemplate && currentLayoutId === "terminal_chart";
                 const extraKeys =
-                  suppressExtraKeysForDataViz
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart)
                     ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
@@ -2282,6 +2287,22 @@ export default function SceneEditModal({
                               />
                               <span className="text-xs text-gray-500 tabular-nums">{currentColor.toUpperCase()}</span>
                             </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "ohlcv_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <OHLCVTableEditor
+                              value={raw}
+                              onChange={(next) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                              }
+                            />
                           </div>
                         );
                       }

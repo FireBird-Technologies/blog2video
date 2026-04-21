@@ -20,7 +20,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
-  const pos = blue;
+  const pos = "#7BE495";
   const neg = BLOOMBERG_COLORS.neg;
 
   const tSize = titleFontSize ?? (p ? 64 : 97);

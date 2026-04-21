@@ -676,6 +676,12 @@ async def _generate_script(project: Project, db: Session):
         ):
             # Embed only the single bound table so scene_gen has exactly one table to use.
             bound_idx = scene_data.get("data_table_index")
+            # For terminal_chart with no bound index, auto-find the first OHLCV table.
+            if scene_data.get("preferred_layout") == "terminal_chart" and not isinstance(bound_idx, int):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
                 _bound_table = _all_extracted_tables[bound_idx]
                 _mr = 60 if is_candlestick_table(_bound_table) else 8
