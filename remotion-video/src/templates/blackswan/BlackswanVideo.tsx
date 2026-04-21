@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
+  interpolate,
   Sequence,
   staticFile,
+  useCurrentFrame,
   CalculateMetadataFunction,
   continueRender,
   delayRender,
@@ -28,6 +30,7 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -44,6 +47,27 @@ interface VideoData {
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
+
+const BlackswanTransition: React.FC = () => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 12], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const scale = interpolate(frame, [0, 15], [1, 1.04], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: "#000000",
+        opacity,
+        transform: `scale(${scale})`,
+      }}
+    />
+  );
+};
 
 export const calculateBlackswanMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
@@ -140,7 +164,7 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene) => {
+      {data.scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -165,6 +189,8 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#DFFFFF",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           layoutType: scene.layout,
           fontFamily: resolvedFontFamily || undefined,
         };
@@ -179,6 +205,11 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {index < data.scenes.length - 1 && (
+              <Sequence from={Math.max(0, durationFrames - 15)} durationInFrames={15}>
+                <BlackswanTransition />
+              </Sequence>
             )}
           </Sequence>
         );
@@ -196,3 +227,4 @@ export const BlackswanVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     </AbsoluteFill>
   );
 };
+
