@@ -2936,12 +2936,12 @@ export default function ProjectView() {
                 readOnly
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pr-10 text-xs font-mono text-gray-700 resize-none focus:outline-none"
                 rows={5}
-                value={`<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n></iframe>`}
+                value={`<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`}
               />
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n></iframe>`
+                    `<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`
                   );
                   setEmbedCopied(true);
                   setTimeout(() => setEmbedCopied(false), 2000);
@@ -2960,6 +2960,7 @@ export default function ProjectView() {
                 )}
               </button>
             </div>
+    
           </div>
         </div>,
         document.body
