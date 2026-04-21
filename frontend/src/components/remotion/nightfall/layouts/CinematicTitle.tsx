@@ -21,8 +21,9 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
   bgColor,
   aspectRatio,
   titleFontSize,
-  descriptionFontSize,
-  imageUrl,
+  descriptionFontSize,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   fontFamily,
 }) => {
   const frame = useCurrentFrame();
@@ -125,6 +126,9 @@ export const CinematicTitle: React.FC<NightfallLayoutProps> = ({
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
                 display: "block",
               }}
             />

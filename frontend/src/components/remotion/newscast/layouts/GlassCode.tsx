@@ -26,6 +26,8 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
   codeLanguage = "javascript",
   codeLines = [],
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   titleFontSize,
@@ -51,7 +53,7 @@ export const GlassCode: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity: t }}>
-      <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
       <div
         style={{
           position: "absolute",

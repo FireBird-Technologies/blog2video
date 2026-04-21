@@ -16,8 +16,9 @@ import type { NightfallLayoutProps } from "../types";
  */
 
 export const GlowMetric: React.FC<NightfallLayoutProps> = ({
-  title,
-  imageUrl,
+  title,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -213,6 +214,9 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
                   width: "100%",
                   height: "100%",
                   objectFit: "cover", // Always cover to fill space
+                  objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
                   borderRadius: p ? 0 : 12, // No radius for portrait, keep for landscape
                   border: p ? "none" : `1px solid ${accentColor}30`, // No border for portrait, keep for landscape
                 }}
@@ -443,3 +447,4 @@ export const GlowMetric: React.FC<NightfallLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

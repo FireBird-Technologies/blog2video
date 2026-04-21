@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import { LinkIcon } from "@heroicons/react/24/outline";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
@@ -14,14 +14,15 @@ import {
   fetchVideoBlob,
   downloadStudioZip,
   launchStudio,
-  toggleAssetExclusion,
+  deleteAsset,
   uploadProjectDocuments,
   reorderScenes,
   updateScene,
   updateSceneImage,
+  assignExistingImageToScene,
   generateSceneImage,
+  updateSceneImageFocus,
   deleteScene,
-  deleteAsset,
   getValidLayouts,
   updateProjectLogo,
   uploadLogo,
@@ -60,10 +61,16 @@ import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
 import { FONT_REGISTRY, resolveFontFamily } from "../fonts/registry";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 type PlaybackSpeedOption = number;
 const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
+
+/** Image framing modal: uniform zoom only (no rectangular crop resize). */
+const IMAGE_ADJUST_ZOOM_MIN = 1;
+const IMAGE_ADJUST_ZOOM_MAX = 8;
 
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
@@ -631,12 +638,33 @@ export default function ProjectView() {
   // Scenes tab: expanded scene detail, edit modal, drag reorder
   const [expandedScene, setExpandedScene] = useState<number | null>(null);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
+  const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
+  const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
+  const [isAdjustDragging, setIsAdjustDragging] = useState(false);
+  const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
+  const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
+  const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [savingImageAdjust, setSavingImageAdjust] = useState(false);
+  const imageAdjustPreviewRef = useRef<HTMLDivElement>(null);
+  const imageAdjustFocusRef = useRef({ x: 50, y: 50 });
+  const imageAdjustPanRef = useRef<{
+    startX: number;
+    startY: number;
+    startFx: number;
+    startFy: number;
+  } | null>(null);
   const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
   const [dragOverSceneId, setDragOverSceneId] = useState<number | null>(null);
   const [reorderSaving, setReorderSaving] = useState(false);
   const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
   const [uploadingSceneId, setUploadingSceneId] = useState<number | null>(null);
+  const [imageSourceChooserSceneId, setImageSourceChooserSceneId] = useState<number | null>(null);
+  const [scrapedImagesPickerSceneId, setScrapedImagesPickerSceneId] = useState<number | null>(null);
+  const [selectedExistingAssetId, setSelectedExistingAssetId] = useState<number | null>(null);
+  const [localUploadTargetSceneId, setLocalUploadTargetSceneId] = useState<number | null>(null);
+  const [assigningExistingImage, setAssigningExistingImage] = useState(false);
   const [generatingImageSceneId, setGeneratingImageSceneId] = useState<number | null>(null);
   const [generatedImageSceneId, setGeneratedImageSceneId] = useState<number | null>(null);
   const [generatedImageBase64, setGeneratedImageBase64] = useState<string | null>(null);
@@ -663,6 +691,7 @@ export default function ProjectView() {
   const [showReviewPopup, setShowReviewPopup] = useState(false);
   const [firstProjectPopupDismissed, setFirstProjectPopupDismissed] = useState(false);
   const reviewPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localSceneImageInputRef = useRef<HTMLInputElement>(null);
   const dismissTabsGuide = useCallback(() => {
     if (tourShownThisSessionRef.current && user) localStorage.setItem(tabsGuideSeenKey, "true");
     tourShownThisSessionRef.current = false;
@@ -872,8 +901,12 @@ export default function ProjectView() {
   const fontSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const fontPendingRef = useRef<Record<number, { title: number; desc: number }>>({});
 
-  // Images tab: toggling exclusion
-  const [togglingAsset, setTogglingAsset] = useState<number | null>(null);
+  // Images tab: delete asset confirmation
+  const [deletingImageAssetId, setDeletingImageAssetId] = useState<number | null>(null);
+  const [imageAssetDeletePending, setImageAssetDeletePending] = useState<{
+    id: number;
+    filename: string;
+  } | null>(null);
 
   // Video blob URL for playback (fetched via backend to avoid CORS, loads completely)
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
@@ -1833,25 +1866,23 @@ export default function ProjectView() {
     }
   };
 
-  const handleToggleExclusion = async (assetId: number) => {
-    if (!project || !isPro) return;
-    setTogglingAsset(assetId);
+  const handleRequestDeleteBlogImage = (asset: { id: number; filename: string }) => {
+    if (!project) return;
+    setImageAssetDeletePending({ id: asset.id, filename: asset.filename });
+  };
+
+  const handleConfirmDeleteBlogImage = async () => {
+    if (!project || !imageAssetDeletePending) return;
+    const id = imageAssetDeletePending.id;
+    setDeletingImageAssetId(id);
     try {
-      const res = await toggleAssetExclusion(projectId, assetId);
-      // Update local state
-      setProject((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          assets: prev.assets.map((a) =>
-            a.id === assetId ? { ...a, excluded: res.data.excluded } : a
-          ),
-        };
-      });
-    } catch {
-      // Silently fail
+      await deleteAsset(project.id, id);
+      setImageAssetDeletePending(null);
+      await loadProject();
+    } catch (err) {
+      showError(getErrorMessage(err, "Failed to delete image."));
     } finally {
-      setTogglingAsset(null);
+      setDeletingImageAssetId(null);
     }
   };
 
@@ -1878,6 +1909,73 @@ export default function ProjectView() {
 
   const assignedTemplateId = project?.template || "default";
   const readyCustomForPicker = customTemplatesList.filter((ct) => !!ct.intro_code);
+
+  useEffect(() => {
+    imageAdjustFocusRef.current = { x: imageAdjustFocusX, y: imageAdjustFocusY };
+  }, [imageAdjustFocusX, imageAdjustFocusY]);
+
+  useEffect(() => {
+    if (!isAdjustDragging || !imageAdjustSceneId || !imageAdjustSrc) return;
+    const pan = imageAdjustPanRef.current;
+    if (!pan) return;
+
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    const applyPan = (clientX: number, clientY: number) => {
+      const el = imageAdjustPreviewRef.current;
+      if (!el || !imageAdjustPanRef.current) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const { startX, startY, startFx, startFy } = imageAdjustPanRef.current;
+      const dxPct = ((clientX - startX) / rect.width) * 100;
+      const dyPct = ((clientY - startY) / rect.height) * 100;
+      setImageAdjustFocusX(clamp(startFx - dxPct));
+      setImageAdjustFocusY(clamp(startFy - dyPct));
+    };
+
+    const onMouseMove = (e: MouseEvent) => applyPan(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      e.preventDefault();
+      applyPan(touch.clientX, touch.clientY);
+    };
+    const endPan = () => {
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", endPan);
+    window.addEventListener("touchend", endPan);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", endPan);
+      window.removeEventListener("touchend", endPan);
+    };
+  }, [isAdjustDragging, imageAdjustSceneId, imageAdjustSrc]);
+
+  useLayoutEffect(() => {
+    if (imageAdjustSceneId === null || !imageAdjustSrc) return;
+    const el = imageAdjustPreviewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      setImageAdjustZoom((z) => {
+        const factor = delta > 0 ? 0.97 : 1.03;
+        const next = Math.min(
+          IMAGE_ADJUST_ZOOM_MAX,
+          Math.max(IMAGE_ADJUST_ZOOM_MIN, z * factor)
+        );
+        return Math.round(next * 100) / 100;
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [imageAdjustSceneId, imageAdjustSrc]);
 
   if (loading) {
     return (
@@ -1942,6 +2040,10 @@ export default function ProjectView() {
       if (ad !== bd) return ad - bd;
       return (a.id ?? 0) - (b.id ?? 0);
     });
+  const scrapedImageOptions = imageAssets.map((asset) => ({
+    asset,
+    url: resolveAssetUrl(asset, project.id),
+  }));
   const sceneImageMap: Record<number, string[]> = {};
   const sceneImageAssetsMap: Record<number, SceneImageItem[]> = {};
   const hideImageFlags: boolean[] = new Array(project.scenes.length).fill(false);
@@ -1957,9 +2059,7 @@ export default function ProjectView() {
 
     const usedGenericFiles = new Set<string>();
 
-    // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
-    // This ensures images move with their scenes when reordered, and scenes explicitly
-    // marked hideImage=true never get an auto-assigned generic image.
+    // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
     project.scenes.forEach((scene, idx) => {
       let layoutProps: Record<string, unknown> = {};
       if (scene.remotion_code) {
@@ -1974,38 +2074,20 @@ export default function ProjectView() {
       const hideImage = Boolean((layoutProps as any).hideImage);
       hideImageFlags[idx] = hideImage;
       if (hideImage) {
-        // Skip auto-assignment for scenes with hideImage=true
         return;
       }
 
       const assignedImage = layoutProps.assignedImage as string | undefined;
       if (assignedImage && filenameToAsset.has(assignedImage)) {
-        const m = assignedImage.match(/^scene_(\d+)_/);
-        if (m) {
-          // Scene-specific assignment must match current scene id (one image per scene)
-          const assignedSceneId = parseInt(m[1], 10);
-          if (assignedSceneId === scene.id) {
-            const asset = filenameToAsset.get(assignedImage)!;
-            const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx] = [url];
-            sceneImageAssetsMap[idx] = [{ url, asset }];
-            usedGenericFiles.add(assignedImage);
-          }
-        } else {
-          // Generic assignment: enforce 1 generic -> 1 scene (one image per scene)
-          if (!usedGenericFiles.has(assignedImage)) {
-            const asset = filenameToAsset.get(assignedImage)!;
-            const url = resolveAssetUrl(asset, project.id);
-            sceneImageMap[idx] = [url];
-            sceneImageAssetsMap[idx] = [{ url, asset }];
-            usedGenericFiles.add(assignedImage);
-          }
-        }
+        const asset = filenameToAsset.get(assignedImage)!;
+        const url = resolveAssetUrl(asset, project.id);
+        sceneImageMap[idx] = [url];
+        sceneImageAssetsMap[idx] = [{ url, asset }];
+        usedGenericFiles.add(assignedImage);
       }
     });
 
-    // 2) Second pass: Scene-specific images (overwrite stored assignments)
-    // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
+    // 2) Orphan scene_<id>_ files on disk with no layoutProps — bind to matching scene only
     const sceneSpecific: { sceneId: number; url: string; asset: (typeof activeImageAssets)[0] }[] = [];
     const genericAssets: typeof activeImageAssets = [];
     for (const asset of activeImageAssets) {
@@ -2021,18 +2103,25 @@ export default function ProjectView() {
         genericAssets.push(asset);
       }
     }
-    // Apply scene-specific images (later uploads overwrite by same scene_id)
     for (const { sceneId, url, asset } of sceneSpecific) {
       const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-      if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
-        // Overwrite any existing assignment; scene-specific re-enables images
-        sceneImageMap[sceneIdx] = [url];
-        sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+      if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+      let layoutProps: Record<string, unknown> = {};
+      if (project.scenes[sceneIdx].remotion_code) {
+        try {
+          const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+          layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+        } catch {
+          /* legacy */
+        }
       }
+      if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+      sceneImageMap[sceneIdx] = [url];
+      sceneImageAssetsMap[sceneIdx] = [{ url, asset }];
+      usedGenericFiles.add(asset.filename);
     }
 
-    // 3) Third pass: Generic images: assign in order to scenes that don't have one yet
-    // IMPORTANT: Skip scenes with hideImage=true. Find next unused generic per scene (match backend).
+    // 3) Auto-fill remaining scenes with unused generic images (match backend)
     let genericIdx = 0;
     for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
       if (sceneImageMap[sceneIdx].length > 0 || hideImageFlags[sceneIdx]) continue;
@@ -2049,10 +2138,29 @@ export default function ProjectView() {
     }
   }
 
-  const handleRemoveSceneImage = async (assetId: number) => {
+  const handleRemoveSceneImage = async (scene: Scene, assetId: number) => {
     setRemovingAssetId(assetId);
     try {
-      await deleteAsset(project.id, assetId);
+      let descriptor: Record<string, unknown> = {};
+      if (scene.remotion_code) {
+        try {
+          descriptor = JSON.parse(scene.remotion_code);
+        } catch {
+          descriptor = {};
+        }
+      }
+      const layoutProps: Record<string, unknown> = {
+        ...((descriptor.layoutProps as Record<string, unknown>) || {}),
+        hideImage: true,
+      };
+      delete layoutProps.assignedImage;
+      delete layoutProps.imageFocusX;
+      delete layoutProps.imageFocusY;
+      delete layoutProps.imageZoom;
+      descriptor.layoutProps = layoutProps;
+      await updateScene(project.id, scene.id, {
+        remotion_code: JSON.stringify(descriptor),
+      });
       await loadProject();
     } finally {
       setRemovingAssetId(null);
@@ -2066,6 +2174,172 @@ export default function ProjectView() {
       await loadProject();
     } finally {
       setUploadingSceneId(null);
+    }
+  };
+
+  const handleOpenImageSourceChooser = (sceneId: number) => {
+    setImageSourceChooserSceneId(sceneId);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleChooseLocalUpload = () => {
+    if (!imageSourceChooserSceneId) return;
+    setLocalUploadTargetSceneId(imageSourceChooserSceneId);
+    setImageSourceChooserSceneId(null);
+    localSceneImageInputRef.current?.click();
+  };
+
+  const handleChooseScrapedImages = () => {
+    if (!imageSourceChooserSceneId) return;
+    setScrapedImagesPickerSceneId(imageSourceChooserSceneId);
+    setImageSourceChooserSceneId(null);
+    setSelectedExistingAssetId(null);
+  };
+
+  const handleLocalSceneFilePicked = (file: File | null) => {
+    if (!file || !localUploadTargetSceneId) return;
+    handleAddSceneImage(localUploadTargetSceneId, file).catch((err) =>
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE)
+    );
+  };
+
+  const handleAssignExistingImageToScene = async () => {
+    if (!scrapedImagesPickerSceneId || !selectedExistingAssetId) return;
+    setAssigningExistingImage(true);
+    try {
+      await assignExistingImageToScene(project.id, scrapedImagesPickerSceneId, selectedExistingAssetId);
+      setScrapedImagesPickerSceneId(null);
+      setSelectedExistingAssetId(null);
+      await loadProject();
+    } catch (err) {
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setAssigningExistingImage(false);
+    }
+  };
+
+  const clampFocus = (value: number) => Math.max(0, Math.min(100, value));
+
+  const getSceneFocus = (scene: Scene): { x: number; y: number } => {
+    try {
+      if (!scene.remotion_code) return { x: 50, y: 50 };
+      const parsed = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown } };
+      const xRaw = typeof parsed.layoutProps?.imageFocusX === "number" ? parsed.layoutProps.imageFocusX : 50;
+      const yRaw = typeof parsed.layoutProps?.imageFocusY === "number" ? parsed.layoutProps.imageFocusY : 50;
+      return { x: clampFocus(xRaw), y: clampFocus(yRaw) };
+    } catch {
+      return { x: 50, y: 50 };
+    }
+  };
+
+  const getSceneImageZoom = (scene: Scene): number => {
+    try {
+      if (!scene.remotion_code) return 1;
+      const parsed = JSON.parse(scene.remotion_code) as { layoutProps?: { imageZoom?: unknown } };
+      const zoomRaw = typeof parsed.layoutProps?.imageZoom === "number" ? parsed.layoutProps.imageZoom : 1;
+      return Math.max(1, zoomRaw);
+    } catch {
+      return 1;
+    }
+  };
+
+  const openSceneImageAdjustModal = (scene: Scene, src: string) => {
+    const focus = getSceneFocus(scene);
+    const zoom = getSceneImageZoom(scene);
+
+    // Compute the correct aspect ratio for the modal preview
+    let layoutId: string | null = null;
+    try {
+      if (scene.remotion_code) {
+        const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string }; sceneTypeOverride?: string };
+        layoutId = desc.layoutConfig?.arrangement ?? desc.sceneTypeOverride ?? desc.layout ?? null;
+      }
+    } catch { /* ignore */ }
+    const templateCfg = getTemplateConfig(project?.template || "default");
+    const ar = getImageBoxAspectRatio(
+      layoutId ? normalizeLayoutId(layoutId) : null,
+      project?.aspect_ratio || "landscape",
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
+
+    setImageAdjustSceneId(scene.id);
+    setImageAdjustSrc(src);
+    setIsAdjustDragging(false);
+    setImageAdjustFocusX(focus.x);
+    setImageAdjustFocusY(focus.y);
+    setImageAdjustZoom(Math.min(IMAGE_ADJUST_ZOOM_MAX, Math.max(IMAGE_ADJUST_ZOOM_MIN, zoom)));
+    imageAdjustPanRef.current = null;
+  };
+
+  const closeSceneImageAdjustModal = () => {
+    if (savingImageAdjust) return;
+    setImageAdjustSceneId(null);
+    setImageAdjustSrc(null);
+    setIsAdjustDragging(false);
+    imageAdjustPanRef.current = null;
+  };
+
+  const handleAdjustMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const handleAdjustTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    e.preventDefault();
+    imageAdjustPanRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startFx: imageAdjustFocusRef.current.x,
+      startFy: imageAdjustFocusRef.current.y,
+    };
+    setIsAdjustDragging(true);
+  };
+
+  const saveSceneImageAdjust = async () => {
+    if (!imageAdjustSceneId) return;
+    setSavingImageAdjust(true);
+    try {
+      const zoomToSave = Math.max(1, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageAdjustZoom));
+      const targetScene = project.scenes.find((s) => s.id === imageAdjustSceneId);
+      if (targetScene?.remotion_code) {
+        const descriptor = JSON.parse(targetScene.remotion_code) as { layoutProps?: Record<string, unknown> };
+        const layoutProps = { ...(descriptor.layoutProps || {}) };
+        layoutProps.imageFocusX = clampFocus(imageAdjustFocusX);
+        layoutProps.imageFocusY = clampFocus(imageAdjustFocusY);
+        layoutProps.imageZoom = zoomToSave;
+        layoutProps.hideImage = false;
+        descriptor.layoutProps = layoutProps;
+        await updateScene(project.id, imageAdjustSceneId, {
+          remotion_code: JSON.stringify(descriptor),
+        });
+      } else {
+        await updateSceneImageFocus(
+          project.id,
+          imageAdjustSceneId,
+          clampFocus(imageAdjustFocusX),
+          clampFocus(imageAdjustFocusY),
+          zoomToSave
+        );
+      }
+      await loadProject();
+      setImageAdjustSceneId(null);
+      setImageAdjustSrc(null);
+      setIsAdjustDragging(false);
+      imageAdjustPanRef.current = null;
+    } catch (err) {
+      showError(getErrorMessage(err) || DEFAULT_ERROR_MESSAGE);
+    } finally {
+      setSavingImageAdjust(false);
     }
   };
 
@@ -3107,6 +3381,17 @@ export default function ProjectView() {
         onConfirm={applyTemplateRelayout}
       />
 
+      <ConfirmDeleteModal
+        open={imageAssetDeletePending != null}
+        onClose={() => setImageAssetDeletePending(null)}
+        title="Delete this image?"
+        subtitle={imageAssetDeletePending?.filename}
+        warningMessage="This removes the file from the project. Scenes that used it will hide their image. This cannot be undone."
+        confirmLabel="Yes, delete"
+        confirmLoadingLabel="Deleting…"
+        onConfirm={handleConfirmDeleteBlogImage}
+      />
+
       {showTemplateChangeModal &&
         project &&
         ReactDOM.createPortal(
@@ -3898,20 +4183,54 @@ export default function ProjectView() {
                                               key={asset.id}
                                               className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
                                             >
+                                              {(() => {
+                                                let focusX = 50;
+                                                let focusY = 50;
+                                                let zoom = 1;
+                                                try {
+                                                  if (scene.remotion_code) {
+                                                    const parsed = JSON.parse(scene.remotion_code) as {
+                                                      layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown };
+                                                    };
+                                                    if (typeof parsed.layoutProps?.imageFocusX === "number") focusX = clampFocus(parsed.layoutProps.imageFocusX);
+                                                    if (typeof parsed.layoutProps?.imageFocusY === "number") focusY = clampFocus(parsed.layoutProps.imageFocusY);
+                                                    if (typeof parsed.layoutProps?.imageZoom === "number") zoom = Math.max(1, parsed.layoutProps.imageZoom);
+                                                  }
+                                                } catch {
+                                                  /* ignore */
+                                                }
+                                                return (
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-auto object-cover"
+                                                className="h-24 w-20 object-cover"
+                                                style={{
+                                                  objectPosition: `${focusX}% ${focusY}%`,
+                                                  transform: `scale(${zoom})`,
+                                                  transformOrigin: "center center",
+                                                }}
                                                 loading="lazy"
                                                 onError={(e) => {
                                                   (e.target as HTMLImageElement).style.display = "none";
                                                 }}
                                               />
+                                                );
+                                              })()}
                                               <button
                                                 type="button"
-                                                onClick={() => handleRemoveSceneImage(asset.id)}
+                                                onClick={() => openSceneImageAdjustModal(scene, url)}
+                                                className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Adjust image"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                </svg>
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSceneImage(scene, asset.id)}
                                                 disabled={removingAssetId === asset.id}
-                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                                               >
                                                 {removingAssetId === asset.id ? (
                                                   <span className="text-[10px]">…</span>
@@ -3947,26 +4266,16 @@ export default function ProjectView() {
                                               </>
                                             )}
                                           </button>
-                                          <label
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenImageSourceChooser(scene.id)}
+                                            disabled={uploadingSceneId === scene.id}
                                             className={`flex items-center justify-center w-20 h-24 border-2 border-dashed rounded-lg flex-shrink-0 transition-colors ${
                                               uploadingSceneId === scene.id && generatedImageSceneId !== scene.id
                                                 ? "border-purple-300 bg-purple-50/50 cursor-wait"
-                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 cursor-pointer"
+                                                : "border-gray-300 bg-gray-50/50 hover:bg-gray-100/50"
                                             }`}
                                           >
-                                            <input
-                                              type="file"
-                                              accept="image/png,image/jpeg,image/webp,image/jpg"
-                                              className="hidden"
-                                              disabled={uploadingSceneId === scene.id}
-                                              onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                  handleAddSceneImage(scene.id, file);
-                                                  e.target.value = "";
-                                                }
-                                              }}
-                                            />
                                             {uploadingSceneId === scene.id && generatedImageSceneId !== scene.id ? (
                                               <span className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
                                             ) : (
@@ -3974,7 +4283,7 @@ export default function ProjectView() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                               </svg>
                                             )}
-                                          </label>
+                                          </button>
                                         </div>
                                         {(generateImageError && (generateErrorSceneId === scene.id || generatedImageSceneId === scene.id)) && (
                                           <p className="text-xs text-red-600 mt-1.5">{generateImageError}</p>
@@ -4009,8 +4318,248 @@ export default function ProjectView() {
                     scene={sceneEditModal}
                     project={project}
                     imageItems={sceneImageAssetsMap[project.scenes.findIndex((s) => s.id === sceneEditModal.id)] || []}
+                    availableImageItems={activeImageAssets.map((asset) => ({
+                      asset,
+                      url: resolveAssetUrl(asset, project.id),
+                    }))}
                     onSaved={loadProject}
                   />
+                )}
+
+                <input
+                  ref={localSceneImageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    handleLocalSceneFilePicked(file);
+                    e.target.value = "";
+                    setLocalUploadTargetSceneId(null);
+                  }}
+                />
+
+                {imageSourceChooserSceneId !== null && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[125] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => setImageSourceChooserSceneId(null)}
+                    />
+                    <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-5">
+                        <h3 className="text-lg font-semibold text-gray-900">Add scene image</h3>
+                        <p className="text-xs text-gray-500 mt-1">Choose where to pick the image from.</p>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={handleChooseScrapedImages}
+                            className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
+                            </svg>
+                            From existing scraped images
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleChooseLocalUpload}
+                            className="w-full h-24 p-2 rounded-xl border p-3 rounded-xl border border-gray-300 text-gray-700 hover:border-purple-300 hover:text-purple-700 hover:bg-purple-50/40 transition-colors text-sm flex flex-col items-center justify-center text-center gap-2"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 4v12m0 0l-4-4m4 4l4-4" />
+                            </svg>
+                            File upload
+                          </button>
+                        </div>
+                      </div>
+                  </div>,
+                  document.body
+                )}
+
+                {scrapedImagesPickerSceneId !== null && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[126] flex items-center justify-center p-4">
+                    <div
+                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                      onClick={() => !assigningExistingImage && setScrapedImagesPickerSceneId(null)}
+                    />
+                    <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+                      <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">Select scraped image</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">Pick one image to assign to this scene.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setScrapedImagesPickerSceneId(null)}
+                          disabled={assigningExistingImage}
+                          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors disabled:opacity-50"
+                          title="Close"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="p-5 bg-gray-50 max-h-[60vh] overflow-auto">
+                        {scrapedImageOptions.length === 0 ? (
+                          <p className="text-sm text-gray-500">No images available.</p>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {scrapedImageOptions.map(({ asset, url }) => {
+                              const selected = selectedExistingAssetId === asset.id;
+                              return (
+                                <button
+                                  key={asset.id}
+                                  type="button"
+                                  onClick={() => setSelectedExistingAssetId(asset.id)}
+                                  className={`relative rounded-xl overflow-hidden border-2 transition-colors ${
+                                    selected ? "border-purple-500" : "border-gray-200 hover:border-purple-300"
+                                  }`}
+                                >
+                                  <img src={url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                                  {selected && (
+                                    <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-5 py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => setScrapedImagesPickerSceneId(null)}
+                          disabled={assigningExistingImage}
+                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAssignExistingImageToScene}
+                          disabled={!selectedExistingAssetId || assigningExistingImage}
+                          className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+                        >
+                          {assigningExistingImage ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+
+                {/* Scene image adjust modal (from expanded images section) */}
+                {imageAdjustSceneId !== null && imageAdjustSrc && ReactDOM.createPortal(
+                  <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 min-h-0">
+                    <div
+                      className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+                      onClick={closeSceneImageAdjustModal}
+                    />
+                    <div
+                      className="relative w-full max-w-3xl max-h-[calc(100dvh-0.75rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden min-h-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Adjust image framing</h3>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                            Drag to pan when zoomed in. Use the slider or scroll wheel to zoom, then save.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={closeSceneImageAdjustModal}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                          title="Close"
+                          disabled={savingImageAdjust}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50">
+                        <div className="p-4 sm:p-5">
+                        <div
+                          ref={imageAdjustPreviewRef}
+                          onMouseDown={handleAdjustMouseDown}
+                          onTouchStart={handleAdjustTouchStart}
+                          style={{
+                            aspectRatio: imageAdjustAspectRatio,
+                            maxHeight: "70vh",
+                            maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+                          }}
+                          className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+                            isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
+                          }`}
+                        >
+                          <img
+                            src={imageAdjustSrc}
+                            alt="Adjust preview"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{
+                              objectPosition: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                              transform: `scale(${imageAdjustZoom})`,
+                              transformOrigin: `${imageAdjustFocusX}% ${imageAdjustFocusY}%`,
+                            }}
+                            draggable={false}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-col gap-2 max-w-2xl mx-auto w-full">
+                          <label className="flex items-center gap-3 text-sm text-gray-700">
+                            <span className="w-14 shrink-0 tabular-nums">Zoom</span>
+                            <input
+                              type="range"
+                              min={IMAGE_ADJUST_ZOOM_MIN}
+                              max={IMAGE_ADJUST_ZOOM_MAX}
+                              step={0.05}
+                              value={imageAdjustZoom}
+                              onChange={(e) =>
+                                setImageAdjustZoom(
+                                  Math.min(
+                                    IMAGE_ADJUST_ZOOM_MAX,
+                                    Math.max(IMAGE_ADJUST_ZOOM_MIN, Number(e.target.value))
+                                  )
+                                )
+                              }
+                              className="flex-1 min-w-0 h-1 w-full cursor-pointer appearance-none accent-purple-600 [&::-webkit-slider-runnable-track]:h-0.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600 [&::-moz-range-track]:h-0.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-gray-200 [&::-moz-range-thumb]:h-2.5 [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-purple-600"
+                            />
+                            <span className="w-12 text-right text-xs text-gray-500 tabular-nums">
+                              {imageAdjustZoom.toFixed(2)}×
+                            </span>
+                          </label>
+                        </div>
+                        <div className="mt-3 text-xs text-gray-500 text-center tabular-nums">
+                          Position: X {Math.round(imageAdjustFocusX)}% · Y {Math.round(imageAdjustFocusY)}% · Zoom{" "}
+                          {imageAdjustZoom.toFixed(2)}×
+                        </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 px-4 py-3 sm:px-5 sm:py-4 border-t border-gray-200 flex justify-end gap-2 bg-white">
+                        <button
+                          type="button"
+                          onClick={closeSceneImageAdjustModal}
+                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+                          disabled={savingImageAdjust}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveSceneImageAdjust}
+                          className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors text-sm disabled:opacity-60"
+                          disabled={savingImageAdjust}
+                        >
+                          {savingImageAdjust ? "Saving..." : "Save framing"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
                 )}
 
                 {/* Delete scene confirmation modal */}
@@ -4447,29 +4996,9 @@ export default function ProjectView() {
                     Blog Images
                   </h2>
                   <span className="text-xs text-gray-400">
-                    {imageAssets.filter((a) => !a.excluded).length} active
-                    {imageAssets.some((a) => a.excluded) &&
-                      ` / ${imageAssets.filter((a) => a.excluded).length} excluded`}
+                    {imageAssets.length} image{imageAssets.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                {!isPro && (
-                  <span className="text-[10px] text-gray-300 flex items-center gap-1">
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                    Pro — exclude images
-                  </span>
-                )}
               </div>
               {imageAssets.length === 0 ? (
                 <p className="text-sm text-gray-400 py-8">
@@ -4479,16 +5008,12 @@ export default function ProjectView() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {imageAssets.map((asset) => {
                     const url = resolveAssetUrl(asset, project.id);
-                    const isToggling = togglingAsset === asset.id;
+                    const isDeleting = deletingImageAssetId === asset.id;
 
                     return (
                       <div
                         key={asset.id}
-                        className={`relative group rounded-xl overflow-hidden border transition-all ${
-                          asset.excluded
-                            ? "border-red-200 opacity-50"
-                            : "border-gray-200/40 hover:border-gray-300"
-                        }`}
+                        className="relative group rounded-xl overflow-hidden border border-gray-200/40 hover:border-gray-300 transition-all"
                       >
                         <img
                           src={url}
@@ -4501,27 +5026,6 @@ export default function ProjectView() {
                           }}
                         />
 
-                        {/* Excluded overlay */}
-                        {asset.excluded && (
-                          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                              <svg
-                                className="w-6 h-6 text-red-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Info bar */}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
                           <p className="text-[10px] text-white/80 truncate">
@@ -4529,47 +5033,31 @@ export default function ProjectView() {
                           </p>
                         </div>
 
-                        {/* Toggle exclude button (Pro only) */}
-                        {isPro && (
-                          <button
-                            onClick={() => handleToggleExclusion(asset.id)}
-                            disabled={isToggling}
-                            className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all border ${
-                              asset.excluded
-                                ? "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600"
-                                : "border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 opacity-0 group-hover:opacity-100"
-                            } ${isToggling ? "animate-pulse" : ""}`}
-                            title={
-                              asset.excluded
-                                ? "Include this image"
-                                : "Exclude this image"
-                            }
-                          >
-                            {isToggling ? (
-                              <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                            ) : asset.excluded ? (
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-3 h-3"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRequestDeleteBlogImage(asset)}
+                          disabled={isDeleting}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all border border-red-200/90 text-red-600 bg-white/90 hover:bg-red-600 hover:text-white hover:border-red-600 opacity-0 group-hover:opacity-100 disabled:opacity-60"
+                          title="Delete this image from the project"
+                        >
+                          {isDeleting ? (
+                            <span className="w-2.5 h-2.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                          ) : (
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     );
                   })}

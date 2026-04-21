@@ -14,8 +14,9 @@ import type { SpotlightLayoutProps } from "../types";
  */
 export const CascadeList: React.FC<SpotlightLayoutProps> = ({
   title,
-  items,
-  imageUrl,
+  items,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   aspectRatio,
@@ -56,8 +57,10 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              objectPosition: imageObjectPosition ?? "50% 50%",
               opacity: bgOpacity,
-              transform: `scale(${bgScale})`,
+              transform: `scale(${Math.max(1, imageZoom ?? 1) * bgScale})`,
+              transformOrigin: imageObjectPosition ?? "50% 50%",
             }}
           />
         ) : (
@@ -139,3 +142,4 @@ export const CascadeList: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+
