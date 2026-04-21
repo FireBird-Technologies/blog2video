@@ -3088,12 +3088,12 @@ export default function SceneEditModal({
                     {imageItems.map(({ url, asset }) => (
                       <div
                         key={asset.id}
-                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200/40 w-20 h-20 flex-shrink-0"
                       >
                         <img
                           src={url}
                           alt=""
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = "none";
@@ -3102,7 +3102,7 @@ export default function SceneEditModal({
                         <button
                           type="button"
                           onClick={() => openImageAdjustModal(url)}
-                          className="absolute top-0.5 right-7 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                           title="Adjust image"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
@@ -3113,7 +3113,7 @@ export default function SceneEditModal({
                           type="button"
                           onClick={() => handleRemoveImage(asset.id)}
                           disabled={removingAssetId === asset.id}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                         >
                           {removingAssetId === asset.id ? (
                             <span className="text-[10px]">…</span>
@@ -3126,16 +3126,16 @@ export default function SceneEditModal({
                       </div>
                     ))}
                     {selectedImageFile && imagePreviewUrl && (
-                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 flex-shrink-0">
+                      <div className="relative group rounded-lg overflow-hidden border-2 border-purple-400 w-20 h-20 flex-shrink-0">
                         <img
                           src={imagePreviewUrl}
                           alt="New image"
-                          className="h-20 w-auto object-cover"
+                          className="w-full h-full object-cover"
                         />
                         <button
                           type="button"
                           onClick={() => openImageAdjustModal(imagePreviewUrl)}
-                          className="absolute top-0.5 right-7 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                           title="Adjust image"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
@@ -3148,7 +3148,7 @@ export default function SceneEditModal({
                             setSelectedImageFile(null);
                             setImagePreviewUrl(null);
                           }}
-                          className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                          className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

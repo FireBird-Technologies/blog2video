@@ -4203,7 +4203,7 @@ export default function ProjectView() {
                                               <img
                                                 src={url}
                                                 alt=""
-                                                className="h-24 w-auto object-cover"
+                                                className="h-24 w-20 object-cover"
                                                 style={{
                                                   objectPosition: `${focusX}% ${focusY}%`,
                                                   transform: `scale(${zoom})`,
@@ -4219,7 +4219,7 @@ export default function ProjectView() {
                                               <button
                                                 type="button"
                                                 onClick={() => openSceneImageAdjustModal(scene, url)}
-                                                className="absolute top-0.5 right-7 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                className="absolute top-1 right-8 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
                                                 title="Adjust image"
                                               >
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
@@ -4230,7 +4230,7 @@ export default function ProjectView() {
                                                 type="button"
                                                 onClick={() => handleRemoveSceneImage(scene, asset.id)}
                                                 disabled={removingAssetId === asset.id}
-                                                className="absolute top-0.5 right-0.5 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/90 text-purple-700 hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 disabled:opacity-50 transition-colors"
                                               >
                                                 {removingAssetId === asset.id ? (
                                                   <span className="text-[10px]">…</span>
