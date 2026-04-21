@@ -14,6 +14,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
   descriptionFontSize,
   aspectRatio = "landscape",
   metrics = [],
+  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -43,6 +44,12 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+      {imageUrl && (
+        <>
+          <img src={imageUrl} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
       <BackgroundGraph accentColor={blue} textColor={amber} variant="metric" />
       {/* Top bar - Title removed from here */}
       <div style={{

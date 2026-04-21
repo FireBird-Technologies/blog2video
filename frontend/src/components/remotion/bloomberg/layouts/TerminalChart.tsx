@@ -28,21 +28,20 @@ interface ChartPoint extends OHLCVRaw {
   isUp: boolean;
 }
 
-// ---- Candlestick shape factory (closure captures pMinBase) ----
+// ---- Candlestick shape factory (closure captures pMinBase + theme colors) ----
 const makeCandleShape =
-  (pMinBase: number) =>
+  (pMinBase: number, upColor: string, downColor: string) =>
   (props: any): React.ReactElement | null => {
     const { x, y, width, height, payload } = props;
     if (!payload || !height || height <= 0 || !width || width <= 0) return null;
     const { open, high, low, close } = payload as OHLCVRaw;
-    // pu = pixels per price unit (constant across all candles)
     const pu = height / Math.max(high - pMinBase, 0.001);
     const yH = y;
     const yL = y + (high - low) * pu;
     const yO = y + (high - open) * pu;
     const yC = y + (high - close) * pu;
     const isUp = close >= open;
-    const color = isUp ? "#00ff88" : "#ff4444";
+    const color = isUp ? upColor : downColor;
     const midX = x + width / 2;
     const bw = Math.max(2, width * 0.8);
     const bodyTop = Math.min(yO, yC);
@@ -55,12 +54,58 @@ const makeCandleShape =
     );
   };
 
-const VolumeShape = (props: any): React.ReactElement | null => {
-  const { x, y, width, height, payload } = props;
-  if (!payload) return null;
-  const color = (payload as ChartPoint).isUp ? "#00ff88" : "#ff4444";
-  return <rect x={x} y={y} width={width} height={Math.max(1, height)} fill={color} opacity={0.75} />;
-};
+const makeVolumeShape =
+  (upColor: string, downColor: string) =>
+  (props: any): React.ReactElement | null => {
+    const { x, y, width, height, payload } = props;
+    if (!payload) return null;
+    const color = (payload as ChartPoint).isUp ? upColor : downColor;
+    return <rect x={x} y={y} width={width} height={Math.max(1, height)} fill={color} opacity={0.75} />;
+  };
+
+// ---- Parse ohlcvTable (raw table with "$" values) into OHLCVRaw[] ----
+function parseOHLCVTable(table: { headers: string[]; rows: string[][] }): OHLCVRaw[] {
+  const headers = table.headers.map((h) => h.toLowerCase().trim());
+  const findCol = (...keys: string[]) => {
+    for (const k of keys) {
+      const i = headers.findIndex((h) => h.includes(k));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const parseNum = (s: string) => {
+    const clean = (s || "").replace(/[$,\s]/g, "");
+    const n = parseFloat(clean);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const parseVol = (s: string) => {
+    const clean = (s || "").replace(/[$,\s]/g, "");
+    if (clean.toUpperCase().endsWith("B")) return parseFloat(clean) || 0;
+    if (clean.toUpperCase().endsWith("M")) return (parseFloat(clean) || 0) / 1000;
+    return parseFloat(clean) || 0;
+  };
+  const dateCol = findCol("date start", "date");
+  const openCol = findCol("open");
+  const highCol = findCol("high");
+  const lowCol = findCol("low");
+  const closeCol = findCol("close");
+  const volCol = findCol("volume");
+  if (openCol < 0 || highCol < 0 || lowCol < 0 || closeCol < 0) return [];
+  return table.rows
+    .map((row) => {
+      const rawDate = row[dateCol >= 0 ? dateCol : 0] ?? "";
+      const label = rawDate.split(",")[0].trim();
+      return {
+        date: label,
+        open: parseNum(row[openCol] ?? ""),
+        high: parseNum(row[highCol] ?? ""),
+        low: parseNum(row[lowCol] ?? ""),
+        close: parseNum(row[closeCol] ?? ""),
+        volume: volCol >= 0 ? parseVol(row[volCol] ?? "") : 0,
+      };
+    })
+    .filter((d) => d.open > 0 && d.high > 0 && d.low > 0 && d.close > 0);
+}
 
 // ---- Main component ----
 export const TerminalChart: React.FC<BloombergLayoutProps> = ({
@@ -74,6 +119,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   descriptionFontSize,
   aspectRatio = "landscape",
   items = [],
+  ohlcvTable,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -97,11 +143,16 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
     const parts = s.split("|");
     return parts.length === 6 && !Number.isNaN(parseFloat(parts[1])) && !Number.isNaN(parseFloat(parts[2]));
   };
-  const ohlcvMode = items.length >= 2 && isOHLCVItem(String(items[0]));
+
+  // ohlcvTable takes priority over items pipe strings
+  const ohlcvFromTable = ohlcvTable && ohlcvTable.rows.length >= 2 ? parseOHLCVTable(ohlcvTable) : null;
+  const ohlcvMode = ohlcvFromTable
+    ? ohlcvFromTable.length >= 2
+    : items.length >= 2 && isOHLCVItem(String(items[0]));
 
   // ---- OHLCV recharts path ----
   if (ohlcvMode) {
-    const raw: OHLCVRaw[] = items.map((s) => {
+    const raw: OHLCVRaw[] = ohlcvFromTable ?? items.map((s) => {
       const [date, o, h, l, c, v] = String(s).split("|");
       return {
         date: date ?? "",
@@ -148,7 +199,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
     const xTickInterval = Math.max(0, Math.ceil(visN / 7) - 1);
     const yDomain: [number, number] = [0, pMaxBase - pMinBase];
-    const CandleShape = makeCandleShape(pMinBase);
+    const CandleShape = makeCandleShape(pMinBase, blue, neg);
+    const VolumeBar = makeVolumeShape(blue, neg);
     const axisLabelSize = p ? 16 : 11;
     const yMargin = p ? 70 : 54;
 
@@ -265,7 +317,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 <Bar
                   dataKey="volume"
                   isAnimationActive={false}
-                  shape={<VolumeShape />}
+                  shape={<VolumeBar />}
                 />
               </ComposedChart>
             </ResponsiveContainer>

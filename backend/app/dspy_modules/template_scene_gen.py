@@ -499,6 +499,11 @@ class TemplateSceneGenerator:
             items = generate_terminal_chart_candlestick_items(candlestick_table, max_items=60)
             if items:
                 out["items"] = items
+            # Also store the raw table so the component + modal can use/edit it directly
+            out["ohlcvTable"] = {
+                "headers": candlestick_table.get("headers", []),
+                "rows": candlestick_table.get("rows", []),
+            }
         else:  # terminal_table
             items = generate_terminal_table_items(tables[0], max_items=12)
             if items:

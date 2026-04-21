@@ -1,7 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
-import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 
 export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
   title,
@@ -21,7 +20,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
-  const pos = blue;
+  const pos = "#7BE495";
 
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 54 : 38);
@@ -47,7 +46,6 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
-      <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
