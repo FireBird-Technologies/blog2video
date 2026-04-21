@@ -17,6 +17,8 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -70,6 +72,9 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
               width: "100%",
               height: "100%",
               objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
             }}
           />
         </div>
@@ -190,3 +195,4 @@ export const SpotlightImage: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

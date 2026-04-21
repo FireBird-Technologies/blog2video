@@ -4,8 +4,9 @@ import type { WhiteboardLayoutProps } from "../types";
 
 export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -200,7 +201,9 @@ export const MarkerStory: React.FC<WhiteboardLayoutProps> = ({
               zIndex: 2,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%" }} />
           </div>
         )}
       </div>

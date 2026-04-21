@@ -5,15 +5,17 @@ import { BlackswanFlock } from "./birds";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 // Righteous — same family as DropletIntro
 const mono = "'Righteous', cursive";
 const display = "'Righteous', cursive";
 
 /** Image panel centered with accent border + corner glow */
-const ImageWithAccentBorder: React.FC<{ src: string; accentColor: string; opacity?: number }> = ({ src, accentColor, opacity = 1 }) => (
-  <div style={{ position: "relative", width: "100%", height: "100%", opacity }}>
-    <img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+const ImageWithAccentBorder: React.FC<{ src: string; imageObjectPosition?: string;
+  imageZoom?: number; accentColor: string; opacity?: number }> = ({ src, imageObjectPosition, imageZoom, accentColor, opacity = 1 }) => (
+  <div style={{ position: "relative", width: "100%", height: "100%", opacity, overflow: "hidden" }}>
+    <ZoomCropImg src={src} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} alt="" />
     {/* Glowing border */}
     <div style={{
       position: "absolute",
@@ -55,6 +57,8 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
+    imageObjectPosition,
+  imageZoom,
   } = props;
 
   const frame = useCurrentFrame();
@@ -106,7 +110,7 @@ export const DiveInsight: React.FC<BlackswanLayoutProps> = (props) => {
             zIndex: 1,
           }}
         >
-          <ImageWithAccentBorder src={imageUrl!} accentColor={accentColor} />
+          <ImageWithAccentBorder src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} />
         </div>
 
         {/* Quote + text — below image */}

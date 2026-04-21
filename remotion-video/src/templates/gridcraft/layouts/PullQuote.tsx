@@ -1,11 +1,12 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import {
   GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY,
   GRIDCRAFT_DEFAULT_SERIF_FONT_FAMILY,
 } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   quote,
@@ -13,8 +14,9 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
   highlightPhrase,
   title,
   subtitle,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -114,7 +116,11 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
             transform: `scale(${imageScale})`,
           }}
         >
-          <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <ZoomCropImg
+            src={imageUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+          />
         </div>
       )}
       <div
@@ -207,3 +213,4 @@ export const PullQuote: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
+

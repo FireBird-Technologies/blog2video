@@ -140,6 +140,8 @@ export const NewsHeadline: React.FC<
   stats,
   category,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   leftThought,
   fontFamily,
 }) => {
@@ -192,6 +194,7 @@ export const NewsHeadline: React.FC<
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          objectPosition: "50% 50%",
           opacity: 0.12,
           filter: "grayscale(75%) contrast(1.08)",
           zIndex: 1,
@@ -233,6 +236,9 @@ export const NewsHeadline: React.FC<
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
                 display: "block",
                 // ✅ Dissolve animation combined with newsprint filter
                 filter: `
