@@ -20,6 +20,8 @@ import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+import { getTemplateConfig } from "./remotion/templateConfig";
+import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxConfig";
 
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
@@ -1156,6 +1158,7 @@ export default function SceneEditModal({
   const [imageAdjustFocusX, setImageAdjustFocusX] = useState(50);
   const [imageAdjustFocusY, setImageAdjustFocusY] = useState(50);
   const [imageAdjustZoom, setImageAdjustZoom] = useState(1);
+  const [imageAdjustAspectRatio, setImageAdjustAspectRatio] = useState("16 / 9");
   const [layouts, setLayouts] = useState<LayoutInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [removingAssetId, setRemovingAssetId] = useState<number | null>(null);
@@ -2089,6 +2092,14 @@ export default function SceneEditModal({
   }, [imageAdjustOpen, imageAdjustSrc]);
 
   const openImageAdjustModal = (src: string) => {
+    const templateCfg = getTemplateConfig(project.template || "default");
+    const ar = getImageBoxAspectRatio(
+      currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+      project.aspect_ratio || "landscape",
+      templateCfg.baseWidth,
+      templateCfg.baseHeight,
+    );
+    setImageAdjustAspectRatio(ar);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);
     const currentZoom = Math.max(1, Number((editableLayoutProps.imageZoom as number) || 1));
@@ -3562,10 +3573,16 @@ export default function SceneEditModal({
               ref={imageAdjustPreviewRef}
               onMouseDown={handleAdjustMouseDown}
               onTouchStart={handleAdjustTouchStart}
-              className={`relative mx-auto w-full max-w-2xl aspect-video rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
+              style={{
+                aspectRatio: imageAdjustAspectRatio,
+                maxHeight: "70vh",
+                maxWidth: `min(100%, 42rem, calc(70vh * ${imageAdjustAspectRatio.split(" / ")[0]} / ${imageAdjustAspectRatio.split(" / ")[1]}))`,
+              }}
+              className={`relative mx-auto rounded-xl overflow-hidden border-2 border-gray-200 select-none touch-none ${
                 isAdjustDragging ? "cursor-grabbing" : "cursor-grab"
               }`}
             >
+
               <img
                 src={imageAdjustSrc}
                 alt="Adjust preview"
