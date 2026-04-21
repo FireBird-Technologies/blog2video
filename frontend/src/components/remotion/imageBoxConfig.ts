@@ -82,11 +82,11 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 0.5  }, // 1080 × 960
   },
 
-  // flexRow: right flex:1 cell with 60px top/bottom padding
-  // portrait: explicit height "45%", full width
+  // Use a landscape-oriented preview box for landscape projects to avoid portrait-looking framing.
+  // Portrait keeps the tall 45% height treatment from the layout.
   image_caption: {
-    landscape: { w: 0.45, h: 0.89 }, // ~864 × 960
-    portrait:  { w: 1.0,  h: 0.45 }, // 1080 × 864
+    landscape: { w: 0.50,  h: 0.6 }, // ~960 × 304 (landscape ratio)
+    portrait:  { w: 0.907, h: 0.45  }, // ~980 × 864 on 1080×1920
   },
 
   // flexRow: right flex:1 cell — image is half the canvas width
@@ -124,15 +124,17 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 1.0  },
   },
 
-  // flex "0 0 42%", height 380 px landscape / width 100%, height 400 px portrait
+  // Landscape: image lives inside a centered card (max-width 1400) at flex 42%, fixed 380 px height.
+  // Portrait: image is full-width inside padded card content, fixed 400 px height.
   glass_narrative: {
-    landscape: { w: 0.42, h: 0.352 }, // ~806 × 380
-    portrait:  { w: 1.0,  h: 0.208 }, // 1080 × 400
+    landscape: { w: 0.274, h: 0.352 }, // ~527 × 380 on 1920×1080
+    portrait:  { w: 0.751, h: 0.208 }, // ~811 × 400 on 1080×1920
   },
 
-  // flex "0 0 55%", full height landscape / flex:1 ~50% height portrait
+  // Landscape: image sits in the left panel and should stay landscape-oriented in adjust modal.
+  // Portrait: split-screen card, image section is the top flex:1 half.
   glow_metric: {
-    landscape: { w: 0.55, h: 1.0  }, // 1056 × 1080
+    landscape: { w: 0.40, h: 0.50 }, // landscape image box (avoid portrait-looking preview)
     portrait:  { w: 1.0,  h: 0.5  }, // 1080 × 960
   },
 
@@ -158,11 +160,11 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
   // GRIDCRAFT template  (canvas 1920 × 1080)
   // ─────────────────────────────────────────────────────────────────────────
 
-  // CSS grid "2fr 1fr": image is the 1fr column (1/3 width) landscape,
-  // CSS grid "2fr 1fr" rows: image is the 1fr row (1/3 height) portrait
+  // Landscape: right-top grid cell in a 2fr/1fr x 1fr/1fr grid inside a 90%×80% container.
+  // Portrait: bottom-left grid cell in a 1fr/1fr x 2fr/1fr grid inside same container.
   bento_hero: {
-    landscape: { w: 0.333, h: 1.0   }, // 640 × 1080
-    portrait:  { w: 1.0,   h: 0.333 }, // 1080 × 640
+    landscape: { w: 0.30,  h: 0.40  }, // ~576 × 432
+    portrait:  { w: 0.45,  h: 0.267 }, // ~486 × 512
   },
 
   // flex "0 0 38%", height 320 px landscape / width 80%, height 220 px portrait
@@ -191,7 +193,11 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.90, h: 0.24 }, // 972 × 461
   },
 
-  // editorial_body has no image in its component — falls back to full canvas via omission
+  // Editorial split card: image is one flex half of a 90%×80% container.
+  editorial_body: {
+    landscape: { w: 0.45, h: 0.80  }, // ~864 × 864
+    portrait:  { w: 0.90, h: 0.40  }, // ~972 × 768
+  },
 
   // flex "0 0 38%", height 320 px landscape / width 100%, height 180 px portrait
   kpi_grid: {
@@ -205,10 +211,10 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 1.0,  h: 0.34 },
   },
 
-  // decorative media area behind quote panel
+  // PullQuote image card inside padded quote panel.
   pull_quote: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
+    landscape: { w: 0.308, h: 0.259 }, // ~592 × 280
+    portrait:  { w: 0.63,  h: 0.104 }, // ~680 × 200
   },
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -245,10 +251,10 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.70, h: 0.104 }, // 756 × 200
   },
 
-  // full-bleed word reveal
+  // Optional image card below headline: width 42% / height 32% landscape, 72% / 26% portrait
   word_punch: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
+    landscape: { w: 0.42, h: 0.32  }, // ~806 × 346
+    portrait:  { w: 0.72, h: 0.26  }, // ~778 × 499
   },
 
   // flex "0 0 38%", full height landscape / full width, height 280 px portrait
@@ -264,10 +270,10 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     portrait:  { w: 0.64, h: 0.44 }, // ~691 × 845
   },
 
-  // full-bleed closer image treatment
+  // Optional image card: width 38% / height 320 px landscape, 70% / 220 px portrait
   closer: {
-    landscape: { w: 1.0, h: 1.0 },
-    portrait:  { w: 1.0, h: 1.0 },
+    landscape: { w: 0.38, h: 0.396 }, // ~730 × 320
+    portrait:  { w: 0.70, h: 0.115 }, // 756 × 220
   },
 
   // ─────────────────────────────────────────────────────────────────────────
