@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * TerminalText — Green Terminal Typewriter
@@ -11,8 +12,9 @@ import type { MatrixLayoutProps } from "../types";
  */
 export const TerminalText: React.FC<MatrixLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   highlightWord,
   accentColor,
   bgColor,
@@ -128,9 +130,10 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
               position: "relative",
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
             {/* Scanline overlay */}
             <div
@@ -220,3 +223,4 @@ export const TerminalText: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

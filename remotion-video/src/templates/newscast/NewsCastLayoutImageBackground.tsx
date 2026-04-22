@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, Img } from "remotion";
+import { AbsoluteFill } from "remotion";
+import { ZoomCropImg } from "./components/ZoomCropImg";
 import { DEFAULT_NEWSCAST_ACCENT, toRgba } from "./themeUtils";
 
 /**
@@ -9,21 +10,23 @@ import { DEFAULT_NEWSCAST_ACCENT, toRgba } from "./themeUtils";
 export const NewsCastLayoutImageBackground: React.FC<{
   imageUrl?: string;
   accentColor?: string;
-}> = ({ imageUrl, accentColor }) => {
+  imageObjectPosition?: string;
+  imageZoom?: number;
+}> = ({ imageUrl, accentColor, imageObjectPosition, imageZoom }) => {
   if (!imageUrl) return null;
+
+  const plateZoom = 1.04 * Math.max(1, imageZoom ?? 1);
 
   return (
     <AbsoluteFill aria-hidden style={{ zIndex: 0, overflow: "hidden" }}>
-      <Img
-        src={imageUrl}
-        alt=""
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          transform: "scale(1.04)",
-        }}
-      />
+      <div style={{ position: "absolute", inset: 0 }}>
+        <ZoomCropImg
+          src={imageUrl}
+          imageObjectPosition={imageObjectPosition}
+          imageZoom={plateZoom}
+          alt=""
+        />
+      </div>
       {/* Editorial overlays (navy to reduce bright photos) */}
       <div
         style={{
@@ -47,4 +50,5 @@ export const NewsCastLayoutImageBackground: React.FC<{
     </AbsoluteFill>
   );
 };
+
 

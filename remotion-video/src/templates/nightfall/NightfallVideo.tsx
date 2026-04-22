@@ -242,27 +242,10 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#E2E8F0",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
         };
-
-        // Debug: Log layoutProps for data_visualization scenes
-        if (scene.layout === "data_visualization") {
-          console.log("[NightfallVideo] data_visualization scene:", {
-            layout: scene.layout,
-            layoutProps: scene.layoutProps,
-            mergedLayoutProps: layoutProps,
-          });
-        }
-
-        // Debug: Log imageUrl for glass_image scenes
-        if (scene.layout === "glass_image") {
-          console.log("[NightfallVideo] glass_image scene:", {
-            layout: scene.layout,
-            sceneImages: scene.images,
-            imageUrl,
-            layoutProps: layoutProps,
-          });
-        }
 
         return (
           <Sequence
@@ -278,7 +261,7 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             )}
 
             {index < data.scenes.length - 1 && (
-              <Sequence from={durationFrames - 15} durationInFrames={15}>
+              <Sequence from={Math.max(0, durationFrames - 15)} durationInFrames={15}>
                 <NightfallTransition />
               </Sequence>
             )}
@@ -298,3 +281,4 @@ export const NightfallVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     </AbsoluteFill>
   );
 };
+

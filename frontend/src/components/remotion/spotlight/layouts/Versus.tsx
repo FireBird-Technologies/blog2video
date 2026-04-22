@@ -1,9 +1,10 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import {
   SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY,
   SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY,
 } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * Versus — Contrast Split
@@ -17,8 +18,9 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
   leftLabel,
   rightLabel,
   leftDescription,
-  rightDescription,
-  imageUrl,
+  rightDescription,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   aspectRatio,
   titleFontSize,
@@ -82,7 +84,11 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
           }}
         >
           <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <ZoomCropImg
+              src={imageUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+            />
           </div>
         </div>
       )}
@@ -226,3 +232,4 @@ export const Versus: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

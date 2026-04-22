@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Audio,
+  interpolate,
   Sequence,
   staticFile,
+  useCurrentFrame,
   CalculateMetadataFunction,
   delayRender,
   continueRender,
@@ -13,6 +15,7 @@ import { resolveFontFamily } from "../../fonts/registry";
 import { MOSAIC_DEFAULT_FONT_FAMILY } from "./constants";
 import type { MosaicLayoutType, MosaicLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 
 interface SceneData {
   id: number;
@@ -28,6 +31,7 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   accentColor: string;
   bgColor: string;
   textColor: string;
@@ -36,6 +40,7 @@ interface VideoData {
   logoOpacity?: number;
   logoSize?: string;
   aspectRatio?: string;
+  playbackSpeed?: number;
   fontFamily?: string | null;
   scenes: SceneData[];
 }
@@ -43,6 +48,15 @@ interface VideoData {
 interface VideoProps extends Record<string, unknown> {
   dataUrl: string;
 }
+
+const MosaicTransition: React.FC<{ bgColor: string }> = ({ bgColor }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [0, 14], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return <AbsoluteFill style={{ backgroundColor: bgColor, opacity, zIndex: 10 }} />;
+};
 
 export const calculateMosaicMetadata: CalculateMetadataFunction<VideoProps> =
   async ({ props }) => {
@@ -53,8 +67,11 @@ export const calculateMosaicMetadata: CalculateMetadataFunction<VideoProps> =
       if (!res.ok) throw new Error(`Failed to fetch ${url}`);
       const data: VideoData = await res.json();
 
-      const totalSeconds = data.scenes.reduce((sum, s) => sum + (s.durationSeconds || 5), 0);
-      const totalFrames = Math.ceil(totalSeconds * FPS);
+      const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+      const sceneFrames = data.scenes.map((s) =>
+        getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
+      );
+      const totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
       const isPortrait = data.aspectRatio === "portrait";
 
       return {
@@ -115,8 +132,6 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   }, [dataUrl]);
 
   const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
-  const FPS = 30;
-  let currentFrame = 0;
 
   if (!data) {
     return (
@@ -135,6 +150,10 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     );
   }
 
+  const FPS = 30;
+  const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
+  let currentFrame = 0;
+
   return (
     <AbsoluteFill
       style={{
@@ -142,8 +161,12 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || MOSAIC_DEFAULT_FONT_FAMILY,
       }}
     >
-      {data.scenes.map((scene) => {
-        const durationFrames = Math.max(1, Math.round((Number(scene.durationSeconds) || 5) * FPS));
+      {data.scenes.map((scene, index) => {
+        const durationFrames = getSceneDurationFrames(
+          scene.durationSeconds,
+          FPS,
+          playbackSpeed,
+        );
         const startFrame = currentFrame;
         currentFrame += durationFrames;
 
@@ -152,35 +175,36 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           MOSAIC_LAYOUT_REGISTRY.mosaic_text;
         const imageUrl = scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
-        // Use user's bg color with cream/beige as default
-        const mosaicBg = data.bgColor || "#EAE4DA";
-        const mosaicText = data.textColor || "#2A2A28";
-        const mosaicAccent = data.accentColor || "#C26240";
-
         const layoutProps: MosaicLayoutProps = {
           ...(scene.layoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
-          accentColor: mosaicAccent,
-          bgColor: mosaicBg,
-          textColor: mosaicText,
+          accentColor: data.accentColor || "#C26240",
+          bgColor: data.bgColor || "#EAE4DA",
+          textColor: data.textColor || "#2A2A28",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
-          // Pass null when no custom font is selected so layout components
-          // use SVG tile text (the mosaic pixel-art style). Only pass the
-          // resolved font when the user has explicitly chosen a custom font.
-          fontFamily: resolvedFontFamily || null,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
+          fontFamily: resolvedFontFamily || undefined,
         };
 
         return (
           <Sequence key={scene.id} from={startFrame} durationInFrames={durationFrames} name={scene.title}>
             <LayoutComponent {...layoutProps} />
-            {scene.voiceoverFile && <Audio src={staticFile(scene.voiceoverFile)} />}
+            {scene.voiceoverFile && (
+              <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {index < data.scenes.length - 1 && (
+              <Sequence from={Math.max(0, durationFrames - 14)} durationInFrames={14}>
+                <MosaicTransition bgColor={data.bgColor || "#EAE4DA"} />
+              </Sequence>
+            )}
           </Sequence>
         );
       })}
 
-      {data.logo ? (
+      {data.logo && (
         <LogoOverlay
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
@@ -188,7 +212,7 @@ export const MosaicVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
-      ) : null}
+      )}
     </AbsoluteFill>
   );
 };
