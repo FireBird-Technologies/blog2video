@@ -36,6 +36,7 @@ import {
   listCustomTemplates,
   changeProjectTemplateRegenerateLayouts,
   getProjectTemplateChangeStatus,
+  generateEmbedToken,
   type TemplateMeta,
   type CustomTemplateItem,
 } from "../api/client";
@@ -613,6 +614,10 @@ export default function ProjectView() {
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showEmbedModal, setShowEmbedModal] = useState(false);
+  const [embedToken, setEmbedToken] = useState<string | null>(null);
+  const [embedLoading, setEmbedLoading] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
@@ -1804,6 +1809,20 @@ export default function ProjectView() {
   };
 
 
+  const handleGetEmbedLink = async () => {
+    if (!project) return;
+    setEmbedLoading(true);
+    try {
+      const res = await generateEmbedToken(project.id);
+      setEmbedToken(res.data.embed_token);
+      setShowEmbedModal(true);
+    } catch {
+      showError("Could not generate embed link. Please try again.");
+    } finally {
+      setEmbedLoading(false);
+    }
+  };
+
   const handleCopyDownloadLink = async () => {
     try {
       if (!project?.r2_video_url) {
@@ -2960,6 +2979,20 @@ export default function ProjectView() {
                     )}
                   </>
                 )}
+
+                {/* Link to Embed — always visible */}
+                {project?.scenes && project.scenes.length > 0 && (
+                  <button
+                    onClick={handleGetEmbedLink}
+                    disabled={embedLoading}
+                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    {embedLoading ? "Loading..." : "Link to Embed"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3157,6 +3190,56 @@ export default function ProjectView() {
       )}
 
       {/* Download warning — show before starting download when video is already rendered */}
+      {showEmbedModal && embedToken && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowEmbedModal(false); setEmbedCopied(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => { setShowEmbedModal(false); setEmbedCopied(false); }}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Embed this video</h3>
+            <p className="text-sm text-gray-600 mb-5">Paste this snippet into your website to show the live preview — no rendering required.</p>
+            <div className="relative">
+              <textarea
+                readOnly
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pr-10 text-xs font-mono text-gray-700 resize-none focus:outline-none"
+                rows={5}
+                value={`<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `<iframe\n  src="${(import.meta.env.VITE_APP_URL || window.location.origin)}/preview/${embedToken}"\n  width="800"\n  height="${project?.aspect_ratio === 'portrait' ? '711' : '450'}"\n  frameborder="0"\n  allowfullscreen\n  style="border:none;"\n  data-powered-by="https://blog2video.app"\n  data-creator="https://www.firebird-technologies.com/about"\n></iframe>`
+                  );
+                  setEmbedCopied(true);
+                  setTimeout(() => setEmbedCopied(false), 2000);
+                }}
+                className="absolute top-2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Copy to clipboard"
+              >
+                {embedCopied ? (
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+    
+          </div>
+        </div>,
+        document.body
+      )}
+
       {showDownloadWarning && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9998] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadWarning(false)} />

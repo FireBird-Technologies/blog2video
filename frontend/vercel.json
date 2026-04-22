@@ -3,6 +3,14 @@
     { "handle": "filesystem" },
     { "src": "^/dashboard$", "dest": "/index.html" },
     { "src": "^/project/(.*)$", "dest": "/index.html" },
-    { "src": "^/subscription$", "dest": "/index.html" }
+    { "src": "^/subscription$", "dest": "/index.html" },
+    {
+      "src": "^/preview/(.*)$",
+      "dest": "/index.html",
+      "headers": {
+        "X-Frame-Options": "ALLOWALL",
+        "Content-Security-Policy": "frame-ancestors *"
+      }
+    }
   ]
 }
