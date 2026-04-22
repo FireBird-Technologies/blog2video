@@ -1151,7 +1151,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Soft-delete a project and remove rendered video artifacts only."""
+    """Manually delete a project row from DB and remove all project storage."""
     project = _get_user_project(project_id, user.id, db)
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
@@ -1165,12 +1165,12 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-    # Delete rendered video object from R2 only.
-    if r2_storage.is_r2_configured() and project.r2_video_key:
+    # Delete all project files from R2 (images/audio/video/logo)
+    if r2_storage.is_r2_configured():
         try:
-            r2_storage.delete_object(project.r2_video_key)
+            r2_storage.delete_project_files(project.user_id, project.id)
         except Exception as e:
-            print(f"[PROJECTS] R2 video cleanup failed for project {project.id}: {e}")
+            print(f"[PROJECTS] R2 cleanup failed for project {project.id}: {e}")
 
     # Delete local files
     project_media = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
@@ -1178,9 +1178,7 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    project.is_active = False
-    project.r2_video_key = None
-    project.r2_video_url = None
+    db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
 
