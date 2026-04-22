@@ -36,7 +36,6 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 56 : 48;
   const botH = p ? 44 : 36;
   const pad = p ? 40 : 48;
-  const panelBg = "rgba(22, 31, 45, 0.48)";
 
   // Vertical spacing adjustments for "shortened" boxes
   const titleHeight = 80;
@@ -53,7 +52,6 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:COMP</span>
       </div>
 
       {/* NEW: Centered Title Section */}
@@ -63,13 +61,12 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         left: 0,
         right: 0,
         textAlign: "center",
-        color: amber,
         fontSize: tSize * 0.6,
         fontWeight: "bold",
         opacity: headerOpacity,
         textTransform: "uppercase"
       }}>
-        {title}
+        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {p ? (
@@ -78,7 +75,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: pad, height: "25%",
-            backgroundColor: panelBg,
+            backgroundColor: BLOOMBERG_COLORS.panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -92,7 +89,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened) */}
           <div style={{
             position: "absolute", top: "58%", left: pad, right: pad, height: "25%",
-            backgroundColor: panelBg,
+            backgroundColor: BLOOMBERG_COLORS.panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -109,7 +106,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened height via bottom constraint) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: "51%", bottom: botH + 120,
-            backgroundColor: panelBg,
+            backgroundColor: BLOOMBERG_COLORS.panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -129,7 +126,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened height) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: "51%", right: pad, bottom: botH + 120,
-            backgroundColor: panelBg,
+            backgroundColor: BLOOMBERG_COLORS.panelBg,
             border: `1px solid ${BLOOMBERG_COLORS.border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
@@ -160,7 +157,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  COMPARISON
+          COMPARISON
         </span>
       </div>
     </AbsoluteFill>

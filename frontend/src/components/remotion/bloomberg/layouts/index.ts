@@ -5,7 +5,7 @@ import { TerminalDashboard } from "./TerminalDashboard";
 import { TerminalTicker } from "./TerminalTicker";
 import { TerminalTable } from "./TerminalTable";
 import { TerminalSplit } from "./TerminalSplit";
-import { TerminalQuote } from "./TerminalQuote";
+import { TerminalDataViz } from "./TerminalDataViz";
 import { TerminalList } from "./TerminalList";
 import { TerminalMetric } from "./TerminalMetric";
 import { TerminalProfile } from "./TerminalProfile";
@@ -26,7 +26,7 @@ export const BLOOMBERG_LAYOUT_REGISTRY: Record<
   terminal_ticker: TerminalTicker,
   terminal_table: TerminalTable,
   terminal_split: TerminalSplit,
-  terminal_quote: TerminalQuote,
+  terminal_dataviz: TerminalDataViz,
   terminal_list: TerminalList,
   terminal_metric: TerminalMetric,
   terminal_profile: TerminalProfile,

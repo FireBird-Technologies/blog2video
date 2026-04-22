@@ -60,16 +60,14 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
         opacity: fadeIn,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:PORT</span>
-        <span style={{ color: amber, fontSize: tSize * 0.28 }}>{title}</span>
       </div>
 
       {/* Title */}
       <div style={{
         position: "absolute", top: topH + (p ? 14 : 10), left: pad, right: pad,
-        color: amber, fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+        fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
       }}>
-        {title}
+        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {/* Table */}
@@ -78,7 +76,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
         top: topH + (p ? 74 : 62),
         left: pad, right: pad,
         bottom: botH + (p ? 52 : 46),
-        display: "flex", flexDirection: "column",
+        display: "flex", flexDirection: "column", justifyContent: "center",
         opacity: fadeIn,
       }}>
         {/* Header row */}
@@ -98,7 +96,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
                 color: blue,
                 fontSize: headerFontSize,
                 letterSpacing: 2,
-                textAlign: ci === 0 ? "left" : "right",
+                textAlign: "center",
                 textTransform: "uppercase",
               }}>
                 {col}
@@ -141,7 +139,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
                     flex: colFlexes[ci],
                     color: cellColor,
                     fontSize: rowFontSize,
-                    textAlign: ci === 0 ? "left" : "right",
+                    textAlign: "center",
                     fontWeight: isLast ? "bold" : "normal",
                   }}>
                     {cell}
@@ -156,8 +154,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
       {/* Narration footer */}
       <div style={{
         position: "absolute", bottom: botH + 8, left: pad, right: pad,
-        color: BLOOMBERG_COLORS.muted, fontSize: dSize * 0.65,
-        opacity: interpolate(frame, [20, 35], [0, 1], { extrapolateRight: "clamp" }),
+        color: amber, fontSize: dSize * 0.65,
       }}>
         {narration}
       </div>
@@ -171,7 +168,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
         padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  DATA TABLE
+          DATA TABLE
         </span>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 1 }}>
           {dataCols.length} RECORDS

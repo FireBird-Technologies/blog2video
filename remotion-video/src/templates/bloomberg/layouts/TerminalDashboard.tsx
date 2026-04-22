@@ -65,9 +65,6 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
         opacity: headerOpacity,
       }}>
         {p && <IndexGlyph color={amber} size={30} />}
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:MRKT</span>
-        {!p && <span style={{ color: amber, fontSize: tSize * 0.28 }}>{title}</span>}
-        {p && <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>MARKET OVERVIEW</span>}
         <div style={{ flex: 1 }} />
         <span style={{
           display: "inline-block", width: 10, height: 10, borderRadius: 5,
@@ -87,20 +84,8 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
             display: "flex", flexDirection: "column", gap: 14, alignItems: "center",
             opacity: titleOpacity,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", justifyContent: "center" }}>
-              <span style={{
-                display: "inline-block", width: 8, height: 8, borderRadius: 4,
-                backgroundColor: amber, opacity: livePulse,
-              }} />
-              <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 4 }}>
-                MBN:MRKT · SNAPSHOT
-              </span>
-              <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-                · REF #{String(1000 + (frame % 999)).padStart(4, "0")}
-              </span>
-            </div>
-            <div style={{ color: amber, fontSize: tSize * 0.62, lineHeight: 1.1, textAlign: "center" }}>
-              {title}
+            <div style={{ fontSize: tSize * 0.62, lineHeight: 1.1, textAlign: "center" }}>
+              <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
             </div>
             <div style={{
               height: 2, width: "40%",
@@ -182,9 +167,9 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
         <>
           <div style={{
             position: "absolute", top: topH + 12, left: pad, right: pad,
-            color: amber, fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+            fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
           }}>
-            {title}
+            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
           <div style={{
@@ -228,8 +213,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       {/* Narration footer */}
       <div style={{
         position: "absolute", bottom: botH + (p ? 14 : 8), left: pad, right: pad,
-        color: BLOOMBERG_COLORS.muted, fontSize: dSize * 0.65,
-        opacity: interpolate(frame, [20, 35], [0, 1], { extrapolateRight: "clamp" }),
+        color: amber, fontSize: dSize * 0.65,
       }}>
         {narration}
       </div>
@@ -242,7 +226,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  MARKET OVERVIEW
+          MARKET OVERVIEW
         </span>
         {p && (
           <>

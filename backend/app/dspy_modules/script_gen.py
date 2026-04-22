@@ -206,6 +206,14 @@ class BlogToScript(dspy.Signature):
         )
     )
 
+    template_style_hint: str = dspy.InputField(
+        desc=(
+            "Optional template-specific narration style instructions that OVERRIDE the general rules above. "
+            "When non-empty, apply these instructions to EVERY scene's narration, not just data scenes. "
+            "Empty string means no special override — follow the standard rules."
+        )
+    )
+
     chartable_tables_json: str = dspy.InputField(
         desc=(
             "JSON array of table-to-scene bindings extracted from the blog. Each entry has keys: "
@@ -218,9 +226,25 @@ class BlogToScript(dspy.Signature):
             "Use the entry's \"preferred_layout\" value as the scene's preferred_layout; "
             "if the entry has no preferred_layout, default to \"data_visualization\". "
             "Each such scene MUST include a \"data_table_index\" field (int) set to that entry's \"index\" value. "
-            "That scene's narration MUST be grounded entirely in the specific table — cite at least one concrete "
-            "number, column label, or trend visible in the rows. "
-            "Match the framing to chartType: line=trend/over-time, bar=comparison, histogram=distribution. "
+            "That scene's narration MUST be grounded entirely in the specific table — analyse the data, not just "
+            "recite it. Identify the key pattern (growth, decline, comparison, outlier), explain what it means "
+            "in the context of the article, and give the viewer the insight they couldn't get just by looking at "
+            "the raw numbers. At minimum cite one concrete figure to anchor the analysis. "
+            "For terminal_chart scenes specifically: narration must NEVER just read out numbers or describe what is "
+            "visually on screen. Instead, analyse the data and explain what it MEANS. "
+            "If a 'chart_analysis' object is present, use its pre-computed insights (verdict, trend, momentum, "
+            "biggest_move, range_position, volatility) as your foundation. "
+            "If 'chart_analysis' is absent, derive the analysis yourself from the rows: identify the direction "
+            "(is the close column rising or falling overall?), the magnitude of change, any notable spikes or drops, "
+            "and what the pattern implies. In either case, always: "
+            "(1) state the overall verdict in plain English (e.g. 'prices climbed steadily', 'a sharp reversal hit'), "
+            "(2) explain the 'so what' — why this pattern matters in the context of the blog's topic, "
+            "(3) connect the chart movement to a real-world cause or consequence mentioned in the article, "
+            "(4) write for a smart non-finance reader — avoid all jargon, no RSI/Bollinger/MA references unless "
+            "the article itself discusses them, and if you must use a finance term, explain it in the same breath. "
+            "E.g. instead of 'RSI climbed past 60', write 'buyers stepped in aggressively after the dip, pushing "
+            "the stock back toward its highs — reflecting the recovery story this article describes'. "
+            "Match framing to chartType: line=trend over time, bar=comparison between categories, histogram=distribution. "
             "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
             "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
             "MUST NOT reference these tables in their narration."
@@ -297,6 +321,44 @@ class ScriptGenerator:
         self._generator = dspy.ChainOfThought(BlogToScript)
         self.generator = dspy.asyncify(self._generator)
 
+    _TEMPLATE_STYLE_HINTS: dict[str, str] = {
+        "bloomberg": (
+            "BLOOMBERG TERMINAL STYLE — mandatory for every single scene, no exceptions: "
+            "You are writing narration for a Bloomberg TV analyst segment, not a data readout. "
+            "The viewer can already SEE the numbers on screen — your job is to deliver the INSIGHT behind them. "
+            "\n\n"
+            "CORE RULE — insight before numbers: Every narration must open with the analytical takeaway, "
+            "then support it with one or two specific figures. NEVER open by listing numbers. "
+            "BAD: 'Revenue was $4.2B, up 34% year-over-year.' "
+            "GOOD: 'Growth is accelerating well ahead of the sector — revenue surged 34% to $4.2B, "
+            "a pace the company hasn't sustained since 2019.' "
+            "\n\n"
+            "RULES — apply all of these: "
+            "(1) Lead with the SO WHAT, not the WHAT. What does this data mean for the company, market, or viewer? "
+            "Every scene must answer: why does this number matter right now? "
+            "(2) Never describe visuals. Ban these phrases entirely: 'as you can see', 'the chart shows', "
+            "'displayed here', 'this graph illustrates', 'looking at the data', 'the numbers show'. "
+            "(3) One insight per scene, fully developed. State the finding → support with a figure → "
+            "explain the implication ('margins fell to 18%, the lowest in five years — cost inflation is "
+            "outrunning pricing power, squeezing the bottom line even as the top line grows'). "
+            "(4) Use analyst language: 'signals', 'indicates', 'points to', 'suggests', 'underscores', "
+            "'reflects', 'driven by', 'pressured by', 'accelerated by', 'despite', 'amid'. "
+            "Avoid dry academic phrases like 'it can be observed that' or 'data indicates a trend'. "
+            "(5) Capture cause and effect explicitly. If something drove a result, say so: "
+            "'the Fed's 50bps cut triggered a relief rally, lifting tech valuations 12% in a single week.' "
+            "(6) Build narrative continuity across scenes. Each scene should advance a central argument, "
+            "not stand as an isolated fact. Reference the thread: 'this margin pressure compounds the "
+            "demand slowdown flagged in the previous quarter.' "
+            "(7) Anchor every scene with at least one concrete figure from the blog — "
+            "a percentage, dollar amount, date, or named comparison. Vague generalisations are forbidden. "
+            "(8) Tone: confident, precise, slightly urgent. Think Bloomberg TV 6am markets open brief — "
+            "analytical, data-grounded, and delivered with conviction from the first word to the last. "
+            "(9) BANNED OPENERS — never start a narration with: 'The data shows', 'Looking at', "
+            "'As we can see', 'This chart', 'These numbers', 'The table', 'Here we see', 'In this scene'. "
+            "Start with the insight, a named entity, or a strong verb."
+        ),
+    }
+
     async def generate(
         self,
         blog_content: str,
@@ -309,6 +371,7 @@ class ScriptGenerator:
         content_language: str = "English",
         include_ending_socials: bool = False,
         chartable_tables_json: str = "",
+        template_id: str = "",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -321,6 +384,7 @@ class ScriptGenerator:
         social_flags = detect_social_platforms_in_text(blog_content)
         social_hint = format_social_platforms_for_script_prompt(social_flags)
         fallback_ending = self._build_fallback_ending_scene(social_flags)
+        template_style_hint = self._TEMPLATE_STYLE_HINTS.get(template_id or "", "")
 
         result = await self.generator(
             blog_content=blog_content,
@@ -334,6 +398,7 @@ class ScriptGenerator:
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
             chartable_tables_json=chartable_tables_json or "",
+            template_style_hint=template_style_hint,
         )
 
         # Parse the scenes JSON and apply limits

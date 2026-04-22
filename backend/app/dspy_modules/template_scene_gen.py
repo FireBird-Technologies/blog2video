@@ -479,9 +479,10 @@ class TemplateSceneGenerator:
 
         - terminal_chart: extract time-series values → "{label}: {value}" items
         - terminal_table: format table rows as pipe-delimited items strings
+        - terminal_dataviz: extract chartTable + chartType from non-candlestick tables
         Only runs for bloomberg; returns props unchanged for all other layouts.
         """
-        if layout not in {"terminal_chart", "terminal_table"}:
+        if layout not in {"terminal_chart", "terminal_table", "terminal_dataviz"}:
             return props
 
         tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
@@ -504,10 +505,48 @@ class TemplateSceneGenerator:
                 "headers": candlestick_table.get("headers", []),
                 "rows": candlestick_table.get("rows", []),
             }
-        else:  # terminal_table
+            # Derive ticker tag from table source or first non-date/numeric header token
+            if not out.get("ticker"):
+                source = str(candlestick_table.get("source") or "").strip()
+                headers = [str(h) for h in candlestick_table.get("headers", []) if h]
+                # Prefer source (e.g. "AAPL price data" → "AAPL"), then first header that looks like a symbol
+                symbol = ""
+                if source:
+                    first_token = source.split()[0].upper().rstrip(".,;:")
+                    if 1 <= len(first_token) <= 8 and first_token.isalpha():
+                        symbol = first_token
+                if not symbol and headers:
+                    for h in headers:
+                        tok = h.strip().upper().rstrip(".,;:")
+                        if 1 <= len(tok) <= 8 and tok.isalpha() and tok not in {"DATE", "TIME", "OPEN", "HIGH", "LOW", "CLOSE", "VOL", "VOLUME", "ADJ"}:
+                            symbol = tok
+                            break
+                if symbol:
+                    out["ticker"] = symbol
+        elif layout == "terminal_table":
             items = generate_terminal_table_items(tables[0], max_items=12)
             if items:
                 out["items"] = items
+        else:  # terminal_dataviz
+            # Use generate_chart_props_from_table_hints to get chartTable + chartType
+            # from non-candlestick tables (candlestick ones belong to terminal_chart)
+            planned = generate_chart_props_from_table_hints(
+                visual_description=visual_description,
+                scene_title="",
+                narration="",
+            )
+            if planned and planned.get("chartTable"):
+                out["chartTable"] = planned["chartTable"]
+                if not out.get("chartType") and planned.get("chartType"):
+                    out["chartType"] = planned["chartType"]
+            elif tables:
+                # Fallback: build chartTable directly from first non-candlestick table
+                non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                if non_cs:
+                    out["chartTable"] = {
+                        "headers": non_cs.get("headers", []),
+                        "rows": non_cs.get("rows", []),
+                    }
 
         return out
 
@@ -576,6 +615,58 @@ class TemplateSceneGenerator:
             orig_idx = chartable_tables[n % len(chartable_tables)][0]
             self._newscast_data_viz_table_by_scene[scene_idx] = orig_idx
             scenes_data[scene_idx]["preferred_layout"] = "data_visualization"
+
+    def _plan_bloomberg_dataviz_targets(self, scenes_data: list[dict]) -> None:
+        """Mirror of _plan_newscast_data_visualization_targets for bloomberg.
+
+        If the LLM already chose terminal_dataviz for any scene, trust it and exit.
+        Otherwise, find non-candlestick chartable tables and proactively assign
+        terminal_dataviz to eligible mid-video scenes (up to 2).
+        """
+        if self.template_id != "bloomberg" or not scenes_data:
+            return
+
+        upstream_bound = any(
+            str(s.get("preferred_layout") or "").strip().lower() == "terminal_dataviz"
+            for s in scenes_data
+        )
+        if upstream_bound:
+            return
+
+        first_visual = str((scenes_data[0] or {}).get("visual_description") or "")
+        all_tables = [t for t in _extract_tables_from_visual_hint(first_visual) if isinstance(t, dict)]
+        non_cs_tables = [t for t in all_tables if not is_candlestick_table(t)]
+        if not non_cs_tables:
+            return
+
+        target_count = min(2, len(non_cs_tables))
+
+        eligible: list[int] = []
+        total = len(scenes_data)
+        for i, scene in enumerate(scenes_data):
+            if i == 0:
+                continue
+            preferred = str(scene.get("preferred_layout") or "").strip().lower()
+            if preferred in {"ending_socials", "terminal_boot", "terminal_chart"}:
+                continue
+            if total <= 4 and i == total - 1:
+                continue
+            eligible.append(i)
+
+        if not eligible:
+            return
+
+        chosen: list[int] = []
+        for slot in range(target_count):
+            pos = round((slot + 1) * (len(eligible) + 1) / (target_count + 1)) - 1
+            pos = max(0, min(len(eligible) - 1, pos))
+            candidate = eligible[pos]
+            if candidate not in chosen:
+                chosen.append(candidate)
+
+        chosen = sorted(chosen)[:target_count]
+        for scene_idx in chosen:
+            scenes_data[scene_idx]["preferred_layout"] = "terminal_dataviz"
 
     def _validate_props(self, layout: str, props: dict) -> dict:
         """Validate props against layout schema in meta. If no schema, pass through."""
@@ -1002,6 +1093,7 @@ class TemplateSceneGenerator:
         # guard against the LLM ignoring chartable_tables_json entirely.
         if not self._is_custom:
             self._plan_newscast_data_visualization_targets(scenes_data)
+            self._plan_bloomberg_dataviz_targets(scenes_data)
 
         results: list[dict] = [{}] * total
 
@@ -1122,13 +1214,29 @@ class TemplateSceneGenerator:
 
                 # Guard: terminal_chart requires OHLCV data; fall back if not present.
                 if validated_props.pop("_invalid_layout", False):
-                    layout = self._fallback_layout
-                    validated_props = {}
-                    logger.info(
-                        "[SCENE_GEN] Scene %s: terminal_chart rejected (no OHLCV data), falling back to '%s'",
-                        scene_index,
-                        layout,
-                    )
+                    # Prefer terminal_dataviz if there are non-candlestick chartable tables
+                    tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
+                    non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                    if "terminal_dataviz" in self._valid_layouts and non_cs:
+                        layout = "terminal_dataviz"
+                        validated_props = {
+                            "chartTable": {
+                                "headers": non_cs.get("headers", []),
+                                "rows": non_cs.get("rows", []),
+                            }
+                        }
+                        logger.info(
+                            "[SCENE_GEN] Scene %s: terminal_chart rejected (no OHLCV), rerouted to terminal_dataviz",
+                            scene_index,
+                        )
+                    else:
+                        layout = self._fallback_layout
+                        validated_props = {}
+                        logger.info(
+                            "[SCENE_GEN] Scene %s: terminal_chart rejected (no OHLCV data), falling back to '%s'",
+                            scene_index,
+                            layout,
+                        )
 
                 chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
                 chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None
@@ -1221,12 +1329,26 @@ class TemplateSceneGenerator:
 
         # Guard: terminal_chart requires OHLCV data; fall back if not present.
         if validated_props.pop("_invalid_layout", False):
-            layout = normalized or self._fallback_layout
-            validated_props = {}
-            logger.info(
-                "[SCENE_GEN] Regenerate: terminal_chart rejected (no OHLCV data), falling back to '%s'",
-                layout,
-            )
+            tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
+            non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+            if "terminal_dataviz" in self._valid_layouts and non_cs:
+                layout = "terminal_dataviz"
+                validated_props = {
+                    "chartTable": {
+                        "headers": non_cs.get("headers", []),
+                        "rows": non_cs.get("rows", []),
+                    }
+                }
+                logger.info(
+                    "[SCENE_GEN] Regenerate: terminal_chart rejected (no OHLCV), rerouted to terminal_dataviz",
+                )
+            else:
+                layout = normalized or self._fallback_layout
+                validated_props = {}
+                logger.info(
+                    "[SCENE_GEN] Regenerate: terminal_chart rejected (no OHLCV data), falling back to '%s'",
+                    layout,
+                )
 
         chart_table = validated_props.get("chartTable") if isinstance(validated_props, dict) else None
         chart_rows = chart_table.get("rows") if isinstance(chart_table, dict) else None

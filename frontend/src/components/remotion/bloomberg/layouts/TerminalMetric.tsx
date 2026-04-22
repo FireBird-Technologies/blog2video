@@ -59,7 +59,6 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:ECON</span>
       </div>
 
       {/* Main Content Container: Centers Title + Metrics + Narration */}
@@ -75,15 +74,14 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
         
         {/* Title: Only shown here, above metrics */}
         <div style={{
-          color: amber, 
-          fontSize: tSize * 0.6, 
-          opacity: titleOpacity, 
+          fontSize: tSize * 0.6,
+          opacity: titleOpacity,
           letterSpacing: -0.5,
           fontWeight: "bold",
           textAlign: "center",
           textTransform: "uppercase"
         }}>
-          {title}
+          <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
         </div>
 
         {/* Metric tiles */}
@@ -142,7 +140,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  KEY METRICS
+          KEY METRICS
         </span>
       </div>
     </AbsoluteFill>

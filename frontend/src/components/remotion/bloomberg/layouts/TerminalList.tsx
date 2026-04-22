@@ -50,7 +50,6 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${p ? 40 : 48}px`,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:LIST</span>
       </div>
 
       {/* Main Container - Shifted Upwards & Left Aligned */}
@@ -68,14 +67,13 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
         
         {/* Title */}
         <div style={{
-          color: amber,
-          fontSize: tSize,
+          fontSize: tSize * 0.55,
           opacity: titleOpacity,
-          letterSpacing: -1,
+          letterSpacing: -0.5,
           fontWeight: "bold",
-          marginBottom: p ? 40 : 50,
+          marginBottom: p ? 28 : 36,
         }}>
-          {title}
+          <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
         </div>
 
         {/* List Box */}
@@ -114,23 +112,6 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
         </div>
       </div>
 
-      {/* Narration - Bottom and Center Aligned */}
-      <div style={{
-        position: "absolute",
-        bottom: botH + 30, // Positioned safely above the bottom bar
-        left: pad,
-        right: pad,
-        textAlign: "center",
-        color: BLOOMBERG_COLORS.muted, 
-        fontSize: dSize * 0.75, // Kept the larger font size
-        lineHeight: 1.4,
-        opacity: interpolate(frame, [listItems.length * 8 + 20, listItems.length * 8 + 35], [0, 1], { extrapolateRight: "clamp" }),
-      }}>
-        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-          {narration}
-        </div>
-      </div>
-
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
@@ -139,7 +120,7 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${p ? 40 : 48}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  WATCH LIST
+          WATCH LIST
         </span>
       </div>
     </AbsoluteFill>

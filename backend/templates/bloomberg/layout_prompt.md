@@ -10,7 +10,7 @@ Use these layout IDs exactly for `preferred_layout`:
 - `terminal_ticker`    — screener / movers list
 - `terminal_table`     — data table (portfolio, financials)
 - `terminal_split`     — two-column contrast panel
-- `terminal_quote`     — pull-quote / desk note
+- `terminal_dataviz`   — bar / line / histogram chart from extracted table data
 - `terminal_list`      — bullet / watch list
 - `terminal_metric`    — large dominant metric tiles
 - `terminal_profile`   — display profile matrix (THME only)
@@ -21,7 +21,7 @@ Placement rules
 ---------------
 
 - Scene 0 MUST be `terminal_boot`.
-- The LAST scene MUST be `ending_socials` when CTA or social data is available; otherwise close with `terminal_quote` or `terminal_metric`.
+- The LAST scene MUST be `ending_socials` when CTA or social data is available; otherwise close with `terminal_metric` or `terminal_narrative`.
 - Never repeat the same layout in consecutive scenes.
 - For videos with 6+ scenes, include at least one data layout (`terminal_dashboard`, `terminal_metric`, or `terminal_table`).
 - Use `terminal_narrative` as the primary fallback when uncertain.
@@ -38,7 +38,7 @@ Selection heuristics
 - If narration lists top movers or screener results → `terminal_ticker`
 - If narration covers portfolio positions or financial statements → `terminal_table`
 - If narration contrasts two market states or scenarios → `terminal_split`
-- If narration has one memorable thesis or desk note → `terminal_quote`
+- If narration has numeric comparison / trend data that is NOT candlestick price data → `terminal_dataviz`
 - If narration provides a watch list or action items → `terminal_list`
 - If narration highlights dominant macro figures or rates → `terminal_metric`
 - If narration covers options chain / vol / skew → `terminal_options`
@@ -51,12 +51,12 @@ Props quick-reference
 |---------------------|-----------------------------------------------------------------------------------|
 | terminal_boot       | `items` (string[], 4–8 boot log lines)                                            |
 | terminal_narrative  | *(none — uses global title + narration)*                                          |
-| terminal_chart      | `items` (string[], 3–8 indicator readout lines)                                   |
+| terminal_chart      | `ticker` (string, short symbol tag e.g. "AAPL US" or "BTC/USD" — shown in the indicator panel header); `items` (string[], 3–8 indicator readout lines) |
 | terminal_dashboard  | `metrics` (array of `{value, label, suffix}`, 2–6 items)                         |
 | terminal_ticker     | `items` (string[], 4–10 preformatted ticker rows)                                 |
 | terminal_table      | `items` (string[], row 0 = header, rows 1–N = data, up to 12)                    |
 | terminal_split      | `leftLabel`, `rightLabel`, `leftDescription`, `rightDescription`                  |
-| terminal_quote      | `quote` (string), `highlightWord` (optional single word in quote)                 |
+| terminal_dataviz    | `chartTable` ({headers: string[], rows: string[][]}, extracted from data), `chartType` ("bar"\|"line"\|"histogram"\|"auto") |
 | terminal_list       | `items` (string[], 3–8 short clause items)                                        |
 | terminal_metric     | `metrics` (array of `{value, label, suffix}`, 1–4 items)                         |
 | terminal_profile    | `items` (string[], 3–8 profile rows: "NAME   Description")                       |
