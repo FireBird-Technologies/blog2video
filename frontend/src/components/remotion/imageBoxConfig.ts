@@ -519,6 +519,46 @@ export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
     landscape: { w: 0.309, h: 0.88 }, // ~396 × 634 on 1280×720
     portrait:  { w: 1.0,  h: 0.391 }, // 720 × 500
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHRONICLE template  (canvas 1920 × 1080)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Two-page spread: image is the right page (~flex 1.1 of ~50% canvas width).
+  // Portrait stacks: image is ~88% × 35%.
+  parchment_scroll: {
+    landscape: { w: 0.52, h: 0.70 }, // ~998 × 756
+    portrait:  { w: 0.88, h: 0.35 }, // ~950 × 672
+  },
+
+  // Quote with optional inline image plate (flex 0 0 30%, ~60% width within column)
+  illuminated_quote: {
+    landscape: { w: 0.30, h: 0.40 }, // ~576 × 432
+    portrait:  { w: 0.60, h: 0.20 }, // ~648 × 384
+  },
+
+  // Two-page versus folio: each side holds an embossed image (~70% wide on each half).
+  // We use the larger half for the preview box.
+  versus_folio: {
+    landscape: { w: 0.35, h: 0.55 }, // ~672 × 594
+    portrait:  { w: 1.00, h: 0.28 }, // ~1080 × 537 (top page)
+  },
+
+  // Unfurled cartographer's map — occupies most of the canvas.
+  map_reveal: {
+    landscape: { w: 0.80, h: 0.85 }, // ~1536 × 918
+    portrait:  { w: 0.95, h: 0.70 }, // ~1026 × 1344
+  },
+
+  // Ledger-of-facts header image (optional): ~55% wide landscape, 85% wide portrait
+  ledger_stats: {
+    landscape: { w: 0.55, h: 0.40 }, // ~1056 × 432
+    portrait:  { w: 0.85, h: 0.30 }, // ~918 × 576
+  },
+
+  // book_open, chapter_plate, ledger_stats, chronicle_timeline, decree_seal and
+  // ending_socials hide the image (layouts_without_image). Let them fall back to
+  // the default full-canvas placeholder since no image adjustment is exposed.
 };
 
 /**

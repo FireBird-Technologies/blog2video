@@ -9,6 +9,7 @@ import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
 import BlackswanPreview from "./templatePreviews/BlackswanPreview";
 import MosaicPreview from "./templatePreviews/MosaicPreview";
+import ChroniclePreview from "./templatePreviews/ChroniclePreview";
 
 /** Preview components keyed by built-in template id from the API. */
 export const TEMPLATE_PREVIEWS: Record<string, FC> = {
@@ -22,6 +23,7 @@ export const TEMPLATE_PREVIEWS: Record<string, FC> = {
   newscast: NewscastPreview,
   blackswan: BlackswanPreview,
   mosaic: MosaicPreview,
+  chronicle: ChroniclePreview,
 };
 
 export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
@@ -43,6 +45,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   mosaic: {
     title: "Mosaic",
     subtitle: "Tessellated tile layouts with elegant guide lines and data panels",
+  },
+  chronicle: {
+    title: "Chronicle",
+    subtitle: "Medieval tome — parchment pages, illuminated drop caps, and wax seals",
   },
 };
 
