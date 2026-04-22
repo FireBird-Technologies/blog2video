@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     # App
     FRONTEND_URL: str = "http://localhost:5173"
+    BACKEND_URL: str = "http://localhost:8000"
 
     # Database
     DATABASE_URL: str = "sqlite:///./blog2video.db"

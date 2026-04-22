@@ -567,9 +567,7 @@ class EmailService:
             email.strip().lower().encode(),
             hashlib.sha256,
         ).hexdigest()
-        base = getattr(settings, "FRONTEND_URL", "https://blog2video.app").rstrip("/")
-        # Point to the backend API unsubscribe endpoint
-        api_base = base.replace("localhost:5173", "localhost:8000").replace("blog2video.app", "api.blog2video.app")
+        api_base = getattr(settings, "BACKEND_URL", "http://localhost:8000").rstrip("/")
         import urllib.parse
         return f"{api_base}/unsubscribe?email={urllib.parse.quote(email.strip().lower())}&token={token}"
 
