@@ -1384,6 +1384,8 @@ export const RemotionBloombergVideoComposition: React.FC<
           textColor: textColor || "#FFB340",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          imageObjectPosition: `${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))}% ${Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))}%`,
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           layoutType: scene.layout,
           fontFamily,
         };

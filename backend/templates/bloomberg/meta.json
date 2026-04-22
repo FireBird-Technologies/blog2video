@@ -790,10 +790,8 @@
     "terminal_table",
     "terminal_split",
     "terminal_dataviz",
-    "terminal_list",
-    "terminal_metric",
-    "terminal_profile",
-    "terminal_options",
+    "terminal_narrative",
+    "terminal_chart",
     "ending_socials"
   ],
   "features": [
