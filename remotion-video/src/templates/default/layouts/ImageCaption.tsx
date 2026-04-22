@@ -6,6 +6,8 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
   title,
   narration,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -158,7 +160,14 @@ export const ImageCaption: React.FC<SceneLayoutProps> = ({
         >
           <AnimatedImage
             src={imageUrl!} // imageUrl is guaranteed to exist here due to `hasImage` condition
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
+            }}
           />
         </div>
       )}

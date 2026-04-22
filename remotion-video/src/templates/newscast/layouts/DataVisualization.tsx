@@ -703,7 +703,12 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden" }}>
-      <NewsCastLayoutImageBackground imageUrl={props.imageUrl} accentColor={red} />
+      <NewsCastLayoutImageBackground
+        imageUrl={props.imageUrl}
+        imageObjectPosition={props.imageObjectPosition}
+        imageZoom={props.imageZoom}
+        accentColor={red}
+      />
       <div
         style={{
           position: "absolute",

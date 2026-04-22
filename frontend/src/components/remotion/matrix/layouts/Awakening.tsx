@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * Awakening — Blur-to-Sharp Closer
@@ -14,8 +15,9 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
   title,
   narration,
   highlightPhrase,
-  cta,
-  imageUrl,
+  cta,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -216,9 +218,10 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
               border: `1px solid ${accent}33`,
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         )}
@@ -267,3 +270,4 @@ export const Awakening: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

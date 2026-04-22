@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import type { BlackswanLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 import { NeonWater } from "./neonWater";
 import { BlackswanArcBirdPass, neonTitleTubeStyle, StarField } from "./scenePrimitives";
 
@@ -31,9 +32,11 @@ function narrationBottomReservePct(narrationText: string, portrait: boolean): nu
 /** Image panel with glowing accent corners — `cover` + clip so large assets never spill into text/water. */
 const ImageWithCornerGlow: React.FC<{
   src: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   borderGlow?: boolean;
-}> = ({ src, accentColor, borderGlow = false }) => (
+}> = ({ src, imageObjectPosition, imageZoom, accentColor, borderGlow = false }) => (
   <div
     style={{
       position: "relative",
@@ -44,17 +47,7 @@ const ImageWithCornerGlow: React.FC<{
       minHeight: 0,
     }}
   >
-    <img
-      src={src}
-      alt=""
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        objectPosition: "center center",
-        display: "block",
-      }}
-    />
+    <ZoomCropImg src={src} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} alt="" />
     {/* Subtle inner shadow border */}
     <div style={{
       position: "absolute",
@@ -201,6 +194,8 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
     fontFamily,
     aspectRatio = "landscape",
     imageUrl,
+    imageObjectPosition,
+  imageZoom,
   } = props;
 
   const frame = useCurrentFrame();
@@ -330,7 +325,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
                 minHeight: 0,
               }}
             >
-              <ImageWithCornerGlow src={imageUrl!} accentColor={accentColor} />
+              <ImageWithCornerGlow src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} />
             </div>
           </div>
         </div>
@@ -438,7 +433,7 @@ export const ArcFeatures: React.FC<BlackswanLayoutProps> = (props) => {
               minHeight: 0,
             }}
           >
-            <ImageWithCornerGlow src={imageUrl!} accentColor={accentColor} borderGlow />
+            <ImageWithCornerGlow src={imageUrl!} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={accentColor} borderGlow />
           </div>
 
           {/* Feature cards */}

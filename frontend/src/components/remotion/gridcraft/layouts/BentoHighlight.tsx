@@ -1,9 +1,10 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, Easing } from "remotion";
+import { useCurrentFrame, useVideoConfig, spring, interpolate, Easing } from "remotion";
 import type { SpringConfig } from "remotion";
 import { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { glass, COLORS } from "../utils/styles";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   // Backend props
@@ -11,9 +12,9 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
   supportingFacts,
   // Fallbacks
   title,
-  dataPoints,
-
-  imageUrl,
+  dataPoints,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   subtitle,
   textColor,
   accentColor,
@@ -109,10 +110,11 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
         }}
       >
         {hasImage && (
-          <div style={{ flex: 1, position: "relative", overflow: "hidden", minWidth: 0 }}>
-            <Img
+          <div style={{ flex: 1, position: "relative", overflow: "hidden", minWidth: 0, minHeight: 0 }}>
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.3) 100%)", mixBlendMode: "overlay" }} />
           </div>
@@ -225,3 +227,4 @@ export const BentoHighlight: React.FC<GridcraftLayoutProps> = ({
     </div>
   );
 };
+

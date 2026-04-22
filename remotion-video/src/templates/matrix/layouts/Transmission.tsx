@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 // Define default spring config for various effects
 const springConfigSoftBounce = {
@@ -29,8 +30,9 @@ const springConfigEaseOut = {
 export const Transmission: React.FC<MatrixLayoutProps> = ({
   phrases,
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -147,9 +149,11 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
             {hasImage && (
               <div
                 style={{
-                  flex: "0 0 38%",
-                  height: "100%",
-                  padding: "8% 0 8% 8%",
+                  flex: p ? "0 0 auto" : "0 0 38%",
+                  width: p ? "76%" : undefined,
+                  maxWidth: p ? 760 : undefined,
+                  height: p ? "44%" : "100%",
+                  padding: p ? "0" : "8% 0 8% 8%",
                   // Apply image animations
                   opacity: imageOpacity,
                   transform: `translateY(${imageTranslateY}px) scale(${imageScale})`,
@@ -163,13 +167,10 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
                     border: `1px solid ${accent}33`,
                   }}
                 >
-                  <Img
+                  <ZoomCropImg
                     src={imageUrl}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
+                    imageObjectPosition={imageObjectPosition}
+                    imageZoom={imageZoom}
                   />
                 </div>
               </div>
@@ -225,3 +226,4 @@ export const Transmission: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

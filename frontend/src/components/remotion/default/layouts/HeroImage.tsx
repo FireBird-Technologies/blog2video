@@ -14,6 +14,8 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
     title,
     narration,
     imageUrl,
+    imageObjectPosition,
+  imageZoom,
     accentColor,
     bgColor,
     textColor,
@@ -108,10 +110,13 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         <div
           style={{
             flex: 1,
+            minWidth: 0,
+            minHeight: 0,
             position: "relative",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
+            overflow: "hidden",
             transform: `${
               isPortrait
                 ? `translateY(${imageHalfTranslate}px)`
@@ -122,6 +127,7 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
         >
           <AbsoluteFill
             style={{
+              overflow: "hidden",
               transform: `scale(${
                 interpolate(
                   spring({ frame, fps, config: { damping: 200 } }),
@@ -132,10 +138,28 @@ export const HeroImage: React.FC<SceneLayoutProps> = (props) => {
               opacity: vanishItemOpacity,
             }}
           >
-            <AnimatedImage
-              src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                overflow: "hidden",
+              }}
+            >
+              <AnimatedImage
+                src={imageUrl}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: imageObjectPosition ?? "50% 50%",
+                  transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                  transformOrigin: imageObjectPosition ?? "50% 50%",
+                }}
+              />
+            </div>
           </AbsoluteFill>
         </div>
       )}

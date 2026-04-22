@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Img } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { NewscastLayoutProps } from "./types";
 import {
   DEFAULT_NEWSCAST_ACCENT,
@@ -17,11 +17,13 @@ import {
   panelTumbleStyle,
   panelTumbleUp,
 } from "../newscastLayoutMotion";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 const GOLD = "#D4AA50";
 
-export const GlassImage: React.FC<NewscastLayoutProps> = ({
-  imageUrl,
+export const GlassImage: React.FC<NewscastLayoutProps> = ({imageUrl,
+  imageObjectPosition,
+  imageZoom,
   title,
   narration,
   category,
@@ -60,7 +62,12 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
             transformOrigin: "center center",
           }}
         >
-          <Img src={imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <ZoomCropImg
+            src={imageUrl}
+            imageObjectPosition={imageObjectPosition}
+            imageZoom={imageZoom}
+            alt=""
+          />
           <div
             aria-hidden
             style={{
@@ -157,4 +164,5 @@ export const GlassImage: React.FC<NewscastLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+
 

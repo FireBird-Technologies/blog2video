@@ -106,11 +106,19 @@ export const DefaultVideoComposition: React.FC<DefaultVideoCompositionProps> = (
             ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
             : scene.layoutProps;
 
+        const lp = scene.layoutProps as Record<string, unknown>;
+        const imageFocusX = Number(lp?.imageFocusX ?? 50);
+        const imageFocusY = Number(lp?.imageFocusY ?? 50);
+        const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
+        const imageZoom = Math.max(1, Number(lp?.imageZoom ?? 1));
+
         const layoutProps: SceneLayoutProps = {
           ...(rawLayoutProps as Record<string, unknown>),
           title: scene.title,
           narration: scene.narration,
           imageUrl: scene.imageUrl,
+          imageObjectPosition,
+          imageZoom,
           accentColor,
           bgColor,
           textColor,

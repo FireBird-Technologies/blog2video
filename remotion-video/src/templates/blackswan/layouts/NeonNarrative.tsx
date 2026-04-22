@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Swan } from "../components/Swan";
 import type { BlackswanLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 import { NeonWater } from "./neonWater";
 import { neonTitleTubeStyle, StarField } from "./scenePrimitives";
 import { blackswanNeonPalette } from "./blackswanAccent";
@@ -171,10 +172,12 @@ export const NeonNarrative: React.FC<BlackswanLayoutProps> = (props) => {
     <AbsoluteFill style={{ backgroundColor: bgColor, overflow: "hidden" }}>
       {/* Background image — full screen, very low opacity with black overlay so all content remains legible */}
       {props.imageUrl && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-          <img
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.18, overflow: "hidden" }}>
+          <ZoomCropImg
             src={props.imageUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.18 }}
+            imageObjectPosition={props.imageObjectPosition}
+            imageZoom={props.imageZoom}
+            alt=""
           />
           {/* Modified: Reduced the opacity of the dark overlay from 0.5 to 0.35 */}
           <div style={{ position: "absolute", inset: 0, backgroundColor: bgColor, opacity: 0.35 }} />
