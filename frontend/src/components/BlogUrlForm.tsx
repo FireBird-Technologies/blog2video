@@ -1413,11 +1413,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               type="button"
               onClick={() => {
                 const demoUrls = [
-                  "https://blog2video.app/blogs/create-summary-videos-from-pdfs",
-                  "https://blog2video.app/blogs/translate-blog-to-video-50-languages",
-                  "https://blog2video.app/blogs/blog2video-vs-notebooklm",
-                  "https://blog2video.app/blogs/how-to-turn-documentation-into-product-walkthrough-videos",
-                  "https://blog2video.app/blogs/optimizing-video-content-for-social-media",
+                  "https://blog2video.app/"
+                  
                 ];
                 const picked = demoUrls[Math.floor(Math.random() * demoUrls.length)];
                 setUrls((prev) => prev.map((u, idx) => (idx === 0 ? picked : u)));
