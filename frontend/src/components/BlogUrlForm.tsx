@@ -1408,7 +1408,25 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
           )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
-            Use a paywall-free link for best results.
+            Use a paywall-free link for best results.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                const demoUrls = [
+                  "https://blog2video.app/blogs/create-summary-videos-from-pdfs",
+                  "https://blog2video.app/blogs/translate-blog-to-video-50-languages",
+                  "https://blog2video.app/blogs/blog2video-vs-notebooklm",
+                  "https://blog2video.app/blogs/how-to-turn-documentation-into-product-walkthrough-videos",
+                  "https://blog2video.app/blogs/optimizing-video-content-for-social-media",
+                ];
+                const picked = demoUrls[Math.floor(Math.random() * demoUrls.length)];
+                setUrls((prev) => prev.map((u, idx) => (idx === 0 ? picked : u)));
+                setUrlError(null);
+              }}
+              className="text-purple-500 hover:text-purple-700 underline underline-offset-2 transition-colors"
+            >
+              Try a demo link
+            </button>
           </p>
         </div>
       )}
