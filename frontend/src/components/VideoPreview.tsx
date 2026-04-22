@@ -562,15 +562,15 @@ export default function VideoPreview({
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
-      // In local dev, prefer local media files over R2 URLs
-      // R2 URLs may not be accessible or may have connection issues locally
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
       const isLocalDev = !BACKEND_URL || 
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
       let base: string;
       if (isLocalDev) {
-        base = localPath;
+        base = asset.r2_url ? asset.r2_url : localPath;
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }

@@ -12,6 +12,8 @@ Notifications:
   - send_free_tier_video_limit_announcement() → campaign: free plan included-video limit raised
 """
 
+import hashlib
+import hmac
 import html
 import logging
 from abc import ABC, abstractmethod
@@ -162,7 +164,7 @@ class EmailService:
     # ── Shared HTML builder ───────────────────────────────────
 
     @staticmethod
-    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str) -> str:
+    def _build_html(headline: str, body_paragraph: str, cta_label: str, cta_url: str, unsubscribe_url: str = "") -> str:
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -201,6 +203,7 @@ class EmailService:
               <p style="margin:0;font-size:12px;color:#9ca3af;">
                 You received this because you have an account at Blog2Video.<br/>
                 &copy; 2026 Blog2Video &middot; All rights reserved.
+                {f'<br/><a href="{unsubscribe_url}" style="color:#9ca3af;">Unsubscribe</a>' if unsubscribe_url else ""}
               </p>
             </td>
           </tr>
@@ -456,34 +459,172 @@ class EmailService:
 
 
 
-    def send_free_tier_video_limit_announcement(
-        self,
-        user_email: str,
-        user_name: str,
-        *,
-        free_video_limit: int = 3,
-        dashboard_url: Optional[str] = None,
-    ) -> None:
-        """
-        One-off / campaign email: tell free-plan users the included video limit was raised.
-        Plain text only (no HTML template).
-        """
-        base = "https://blog2video.app"
-        cta_url = dashboard_url or f"{base}"
-        display = (user_name or "").strip() or "there"
-        subject = "Growing your blog has never been easier"
+    @staticmethod
+    def _blast_paragraph_inner(text: str) -> str:
+        """Escape HTML and turn each newline into <br /> so single line breaks render in email clients."""
+        lines = text.split("\n")
+        return "<br />\n".join(html.escape(line) for line in lines)
 
-        text = (
-            f"Hey {display},\n\n"
-            f"Good news, we have added {free_video_limit} free videos in your account.\n\n"
-            "More opportunities to create, experiment, and bring your ideas to life at no cost.\n\n"
-            "Most people don’t fully use what they already have. Make sure you do.\n\n"
-            f"Start creating more now: {cta_url}\n\n"
-            "Team Blog2Video \n"
+    @staticmethod
+    def _build_blast_html(subject: str, body_text: str, unsubscribe_url: str = "") -> str:
+        # Split on blank lines → separate <p> blocks; single newlines inside a block → <br />
+        paragraphs = "".join(
+            f'<p style="margin:0 0 16px;font-size:15px;color:#4b5563;line-height:1.65;">'
+            f"{EmailService._blast_paragraph_inner(p.strip())}</p>"
+            for p in body_text.split("\n\n") if p.strip()
         )
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html.escape(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:#9333EA;padding:32px 40px;text-align:center;">
+              <span style="font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Blog<span style="color:#c4b5fd;">2</span>Video
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              {paragraphs}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                You received this because you have an account at Blog2Video.<br/>
+                &copy; 2026 Blog2Video &middot; All rights reserved.
+              </p>
+              {f'<p style="margin:8px 0 0;font-size:12px;"><a href="{unsubscribe_url}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a></p>' if unsubscribe_url else ""}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_blast_email(self, user_email: str, user_name: str, subject: str, body: str) -> None:
+        first_name = (user_name or "").split()[0] if user_name else "there"
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+
+        text_content = (
+            f"Hi {first_name},\n\n"
+            f"{body}\n\n"
+            f"---\n"
+            f"To unsubscribe from these emails, visit: {unsubscribe_url}\n"
+        )
+
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"Hi {html.escape(first_name)},\n\n"
+            f"{html.escape(body)}"
+            f"</pre>"
+            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0 0 6px;'>"
+            f"Visit us at <a href='https://blog2video.app' style='color:#9ca3af;text-decoration:underline;text-decoration-color:#9ca3af;'>blog2video.app</a>"
+            f"</p>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
+            f"To unsubscribe from these emails, "
+            f"<a href='{unsubscribe_url}' style='color:#9ca3af;text-decoration:underline;text-decoration-color:#9ca3af;'>click here</a>."
+            f"</p>"
+        )
+
         self.provider.send_email(
             to=user_email,
             subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email="Arslan Shahid <arslan@blog2video.app>",
+        )
+
+        # Unosend (blast only — transactional mail uses Resend via self.provider):
+        # from unosend import Unosend
+        # client = Unosend(api_key=getattr(settings, "UNOSEND_API_KEY", ""))
+        # response = client.emails.send(
+        #     from_address="Arslan Shahid <arslan@blog2video.app>",
+        #     to=user_email,
+        #     subject=subject,
+        #     html=html_content,
+        #     text=text_content,
+        # )
+        # if response.error:
+        #     raise EmailServiceError(f"Unosend error sending to {user_email}: {response.error.message}")
+
+    def _make_unsubscribe_url(self, email: str) -> str:
+        token = hmac.new(
+            settings.JWT_SECRET.encode(),
+            email.strip().lower().encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        api_base = getattr(settings, "BACKEND_URL", "http://localhost:8000").rstrip("/")
+        import urllib.parse
+        return f"{api_base}/unsubscribe?email={urllib.parse.quote(email.strip().lower())}&token={token}"
+
+
+    def send_weekly_updates(
+        self,
+        user_email: str,
+        user_name: str,
+        dashboard_url: Optional[str] = None,
+    ) -> None:
+        """Product update email: plain text body with unsubscribe link in footer."""
+        base = "https://blog2video.app"
+        cta_url = dashboard_url or base
+        display = (user_name or "").strip() or "there"
+        subject = "WE JUST SHIPPED 🚀🚀🚀"
+        unsubscribe_url = self._make_unsubscribe_url(user_email)
+
+        text = (
+            f"Hi {display},\n\n"
+            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
+            "• Two new templates: Mosaic & Black Swan — add more visual variety to your videos.\n"
+            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
+            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
+            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
+            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
+            f"Log in to try the new features: {cta_url}\n\n"
+            "We'd love to hear what you think.\n\n"
+            "Team Blog2Video\n\n"
+            "---\n"
+            f"To unsubscribe from these emails, click here: {unsubscribe_url}\n"
+        )
+
+        # Minimal HTML — plain text visually, clickable unsubscribe link in footer
+        html_body = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"Hi {html.escape(display)},\n\n"
+            "We've been busy shipping improvements to Blog2Video. Here's what's new:\n\n"
+            "• Two new templates: Mosaic &amp; Black Swan — add more visual variety to your videos.\n"
+            "• Adjustable playback speed — fine-tune pacing during preview and render.\n"
+            "• Smarter voiceovers — numbers, dates, and stats now sound natural every time.\n"
+            "• Expert-crafted templates — professionally designed, ready to use out of the box.\n"
+            "• Enhanced data visualization in Newscaster — richer charts for stats and trends.\n\n"
+            f"Log in to try the new features: {cta_url}\n\n"
+            "We'd love to hear what you think.\n\n"
+            "Arslan"
+            f"</pre>"
+            f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
+            f"<p style='font-size:12px;color:#9ca3af;margin:0;'>"
+            f"To unsubscribe from these emails, "
+            f"<a href='{unsubscribe_url}' style='color:#9ca3af;'>Unsubscribe</a>."
+            f"</p>"
+        )
+
+        self.provider.send_email(
+            to=user_email,
+            subject=subject,
+            html_content=html_body,
             text_content=text,
             from_email="Arslan Shahid <arslan@blog2video.app>",
         )

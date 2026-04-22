@@ -1,5 +1,5 @@
 """
-Send a product email to all users on the free plan (User.plan == FREE).
+Send a product email to all active users (all plans).
 
 Uses Resend via app email settings (.env: RESEND_API_KEY, NOREPLY_EMAIL, FRONTEND_URL).
 
@@ -8,14 +8,14 @@ Default is dry-run (lists recipients only). Pass --send to actually deliver.
 Run from repo root or backend:
 
   cd backend
-  python scripts/notify_free_users_video_limit.py
-  python scripts/notify_free_users_video_limit.py --send
-  python scripts/notify_free_users_video_limit.py --send --sleep 0.25
-  python scripts/notify_free_users_video_limit.py --limit 5 --send
+  python scripts/notify_users_about_updates.py
+  python scripts/notify_users_about_updates.py --send
+  python scripts/notify_users_about_updates.py --send --sleep 0.25
+  python scripts/notify_users_about_updates.py --limit 5 --send
 
   # Batched sends (stable order: user id). Day 1: first 50, day 2: next 50, etc.
-  python scripts/notify_free_users_video_limit.py --offset 0 --limit 50 --send
-  python scripts/notify_free_users_video_limit.py --offset 50 --limit 50 --send
+  python scripts/notify_users_about_updates.py --offset 0 --limit 50 --send
+  python scripts/notify_users_about_updates.py --offset 50 --limit 50 --send
 """
 
 from __future__ import annotations
@@ -35,17 +35,17 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models.user import PlanTier, User
+from app.models.user import User
 from app.services.email import EmailServiceError, email_service
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def _iter_free_users(db: Session, *, offset: int, limit: int | None):
+def _iter_all_users(db: Session, *, offset: int, limit: int | None):
     q = (
         db.query(User)
-        .filter(User.plan == PlanTier.FREE, User.is_active.is_(True))
+        .filter(User.is_active.is_(True), User.email_unsubscribed.is_(False))
         .order_by(User.id)
     )
     if offset > 0:
@@ -56,7 +56,7 @@ def _iter_free_users(db: Session, *, offset: int, limit: int | None):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Email free-plan users about the higher free video limit.")
+    parser = argparse.ArgumentParser(description="Email all active users about product updates.")
     parser.add_argument(
         "--send",
         action="store_true",
@@ -94,20 +94,20 @@ def main() -> int:
 
     db = SessionLocal()
     try:
-        users = _iter_free_users(db, offset=args.offset, limit=args.limit)
+        users = _iter_all_users(db, offset=args.offset, limit=args.limit)
     finally:
         db.close()
 
     if not users:
         logger.info(
-            "No active free-plan users in this window (offset=%s, limit=%s).",
+            "No active users in this window (offset=%s, limit=%s).",
             args.offset,
             args.limit if args.limit is not None else "all",
         )
         return 0
 
     logger.info(
-        "Matched %s active free-plan user(s) (offset=%s, limit=%s).",
+        "Matched %s active user(s) (offset=%s, limit=%s).",
         len(users),
         args.offset,
         args.limit if args.limit is not None else "all",
@@ -123,10 +123,9 @@ def main() -> int:
     failed: list[tuple[int, str, str]] = []
     for u in users:
         try:
-            email_service.send_free_tier_video_limit_announcement(
+            email_service.send_weekly_updates(
                 user_email=u.email,
                 user_name=u.name,
-                free_video_limit=3,
             )
             ok += 1
         except EmailServiceError as e:
