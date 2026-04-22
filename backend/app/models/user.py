@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import String, Enum, DateTime, Integer, Boolean
+from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
 
@@ -73,8 +73,10 @@ class User(Base):
         if not per_video_plan:
             return False
 
-        active_credits = (
-            db.query(Subscription)
+        # Sum Subscription.quantity so slider packs (N credits in one row)
+        # are counted correctly.
+        active_credits = int(
+            db.query(func.coalesce(func.sum(Subscription.quantity), 0))
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
@@ -84,19 +86,19 @@ class User(Base):
                     (Subscription.current_period_end > now)
                 ),
             )
-            .count()
+            .scalar() or 0
         )
 
         current_bonus = self.video_limit_bonus or 0
 
-        total_purchased_credits = (
-            db.query(Subscription)
+        total_purchased_credits = int(
+            db.query(func.coalesce(func.sum(Subscription.quantity), 0))
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
                 Subscription.status == SubscriptionStatus.COMPLETED,
             )
-            .count()
+            .scalar() or 0
         )
 
         expired_credits = total_purchased_credits - active_credits
