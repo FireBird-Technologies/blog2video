@@ -29,6 +29,12 @@ LAYOUT_IMAGE_ASPECT: dict[tuple[str, str], dict[str, str]] = {
     ("matrix", "fork_choice"): {"landscape": "3:2", "portrait": "2:3"},
     # Mosaic: mosaic_text uses 46% width for image panel (vertical orientation)
     ("mosaic", "mosaic_text"): {"landscape": "9:16", "portrait": "9:16"},
+    # Chronicle: page-shaped and banner image slots
+    ("chronicle", "parchment_scroll"): {"landscape": "3:4", "portrait": "3:2"},
+    ("chronicle", "illuminated_quote"): {"landscape": "3:4", "portrait": "3:2"},
+    ("chronicle", "versus_folio"): {"landscape": "3:4", "portrait": "16:9"},
+    ("chronicle", "ledger_stats"): {"landscape": "3:2", "portrait": "3:2"},
+    # chronicle map_reveal is near full-bleed → use video aspect (no entry)
 }
 
 # OpenAI gpt-image-1 supported sizes
