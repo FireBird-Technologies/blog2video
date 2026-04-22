@@ -23,6 +23,8 @@ import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 import EmbedPreviewPage from "./pages/EmbedPreviewPage";
+import AdminPasswordProtectedRoute from "./components/layout/AdminPasswordProtectedRoute";
+import AdminEmailBlast from "./pages/AdminEmailBlast";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -140,6 +142,15 @@ function AppRoutes() {
 
         {/* Public embed preview — no auth required */}
         <Route path="/preview/:token" element={<EmbedPreviewPage />} />
+
+        <Route
+          path="/auto-email"
+          element={
+            <AdminPasswordProtectedRoute>
+              <AdminEmailBlast />
+            </AdminPasswordProtectedRoute>
+          }
+        />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />
