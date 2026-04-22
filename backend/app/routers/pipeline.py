@@ -679,13 +679,32 @@ async def _generate_scenes(project: Project, db: Session):
                 content_language=content_lang,
             )
 
+            # Load image box aspect ratios stored at template generation time
+            tpl_data = _load_custom_template_data(template_id, db=db)
+            ar_map = (tpl_data or {}).get("image_box_aspect_ratios") or {}
+            intro_ar: str = ar_map.get("intro") or "16 / 9"
+            outro_ar: str = ar_map.get("outro") or "16 / 9"
+            content_ars: list[str] = ar_map.get("content") or []
+            default_content_ar: str = content_ars[0] if content_ars else "16 / 9"
+
+            n = len(structured_contents)
+
             # Build descriptors in the format the rest of the pipeline expects
             # layoutConfig must be present so downstream checks detect custom template scenes
             descriptors = []
-            for sc in structured_contents:
+            for idx, sc in enumerate(structured_contents):
+                if n == 1:
+                    ar = intro_ar
+                elif idx == 0:
+                    ar = intro_ar
+                elif idx == n - 1:
+                    ar = outro_ar
+                else:
+                    ar = default_content_ar
                 descriptors.append({
                     "structuredContent": sc,
                     "layoutConfig": {},
+                    "layoutProps": {"imageBoxAspectRatio": ar},
                 })
 
             print(f"[F7-DEBUG] [PIPELINE] Custom template: extracted structured content for {len(descriptors)} scenes in 1 call")

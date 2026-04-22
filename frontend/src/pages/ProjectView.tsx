@@ -2267,20 +2267,34 @@ export default function ProjectView() {
     const zoom = getSceneImageZoom(scene);
 
     // Compute the correct aspect ratio for the modal preview
-    let layoutId: string | null = null;
-    try {
-      if (scene.remotion_code) {
-        const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string }; sceneTypeOverride?: string };
-        layoutId = desc.layoutConfig?.arrangement ?? desc.sceneTypeOverride ?? desc.layout ?? null;
+    let ar: string;
+    if (project?.template?.startsWith("custom_")) {
+      try {
+        const desc = JSON.parse(scene.remotion_code || "{}") as {
+          layoutProps?: { imageBoxAspectRatio?: string };
+        };
+        ar = desc.layoutProps?.imageBoxAspectRatio || "16 / 9";
+      } catch {
+        ar = "16 / 9";
       }
-    } catch { /* ignore */ }
-    const templateCfg = getTemplateConfig(project?.template || "default");
-    const ar = getImageBoxAspectRatio(
-      layoutId ? normalizeLayoutId(layoutId) : null,
-      project?.aspect_ratio || "landscape",
-      templateCfg.baseWidth,
-      templateCfg.baseHeight,
-    );
+    } else {
+      let layoutId: string | null = null;
+      try {
+        if (scene.remotion_code) {
+          const desc = JSON.parse(scene.remotion_code) as { layout?: string; layoutConfig?: { arrangement?: string } };
+          // Intentionally exclude sceneTypeOverride — "intro"/"content"/"outro" are not layout IDs
+          // and would incorrectly map to built-in layout dims via the alias table.
+          layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? null;
+        }
+      } catch { /* ignore */ }
+      const templateCfg = getTemplateConfig(project?.template || "default");
+      ar = getImageBoxAspectRatio(
+        layoutId ? normalizeLayoutId(layoutId) : null,
+        project?.aspect_ratio || "landscape",
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+    }
     setImageAdjustAspectRatio(ar);
 
     setImageAdjustSceneId(scene.id);
@@ -4253,6 +4267,11 @@ export default function ProjectView() {
                                     } catch { return null; }
                                   })();
                                   const sceneSupportsImage = !sceneLayout || !layoutsWithoutImage.has(sceneLayout);
+                                  const isCustomTpl = (project.template || "").startsWith("custom_");
+                                  const ctId = isCustomTpl ? parseInt((project.template || "").replace("custom_", ""), 10) : NaN;
+                                  const ctOgImage = isCustomTpl
+                                    ? (customTemplatesList.find((ct) => ct.id === ctId)?.og_image || "")
+                                    : "";
                                   return (
                                     <div>
                                       <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
@@ -4261,6 +4280,41 @@ export default function ProjectView() {
                                       {sceneSupportsImage ? (
                                         <>
                                         <div className="flex flex-wrap gap-2 items-start">
+                                          {isCustomTpl && !(sceneImageAssetsMap[idx] || []).length && ctOgImage && (
+                                            <div className="relative group rounded-lg overflow-hidden border border-gray-200/40 flex-shrink-0">
+                                              {(() => {
+                                                let focusX = 50; let focusY = 50; let zoom = 1;
+                                                try {
+                                                  if (scene.remotion_code) {
+                                                    const p = JSON.parse(scene.remotion_code) as { layoutProps?: { imageFocusX?: unknown; imageFocusY?: unknown; imageZoom?: unknown } };
+                                                    if (typeof p.layoutProps?.imageFocusX === "number") focusX = p.layoutProps.imageFocusX;
+                                                    if (typeof p.layoutProps?.imageFocusY === "number") focusY = p.layoutProps.imageFocusY;
+                                                    if (typeof p.layoutProps?.imageZoom === "number") zoom = Math.max(1, p.layoutProps.imageZoom);
+                                                  }
+                                                } catch { /* ignore */ }
+                                                return (
+                                                  <img
+                                                    src={ctOgImage}
+                                                    alt=""
+                                                    className="h-24 w-20 object-cover"
+                                                    style={{ objectPosition: `${focusX}% ${focusY}%`, transform: `scale(${zoom})`, transformOrigin: "center center" }}
+                                                    loading="lazy"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                                  />
+                                                );
+                                              })()}
+                                              <button
+                                                type="button"
+                                                onClick={() => openSceneImageAdjustModal(scene, ctOgImage)}
+                                                className="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-white/90 bg-white/95 text-purple-700 shadow-sm hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                                                title="Adjust image"
+                                              >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M16.5 3.964a2.5 2.5 0 113.536 3.536L7 20.5H3v-4L16.5 3.964z" />
+                                                </svg>
+                                              </button>
+                                            </div>
+                                          )}
                                           {(sceneImageAssetsMap[idx] || []).map(({ url, asset }) => (
                                             <div
                                               key={asset.id}

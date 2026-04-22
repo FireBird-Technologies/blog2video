@@ -25,6 +25,7 @@ class CustomTemplate(Base):
     # The codegen LLM decides how many to generate (typically 4-8). Scenes cycle through them.
     content_codes: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list of code strings
     content_archetype_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of archetype IDs matching content_codes order
+    image_box_aspect_ratios: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON: {"intro": "16 / 9", "content": ["16 / 9", ...], "outro": "16 / 9"}
 
     # Set to True when background code generation permanently fails
     generation_failed: Mapped[bool] = mapped_column(default=False)

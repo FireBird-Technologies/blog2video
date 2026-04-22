@@ -110,11 +110,16 @@ const StableCustomComposition: React.FC<any> = ({
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
         const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
         const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(
+          1,
+          Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
+        );
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
+          imageZoom,
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -151,7 +156,17 @@ const StableCustomComposition: React.FC<any> = ({
                 logoUrl={sceneProps.logoUrl}
               />
             ) : (
-              <SceneComp {...sceneProps} />
+              <AbsoluteFill
+                style={{
+                  ["--img-pos" as string]: sceneProps.imageObjectPosition,
+                  ["--img-zoom" as string]: String(imageZoom),
+                }}
+              >
+                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+                  <SceneComp {...sceneProps} />
+                </div>
+              </AbsoluteFill>
             )}
             {s.voiceoverUrl && <Audio src={s.voiceoverUrl} playbackRate={1} />}
           </Sequence>
@@ -688,6 +703,10 @@ export default function VideoPreview({
             if (descriptor.ctaProps) {
               ctaProps = descriptor.ctaProps;
             }
+            // Custom templates also store image controls in layoutProps.
+            // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
+            // are ignored in preview even though they exist in DB.
+            layoutProps = descriptor.layoutProps || {};
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";

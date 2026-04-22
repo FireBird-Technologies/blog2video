@@ -2092,13 +2092,18 @@ export default function SceneEditModal({
   }, [imageAdjustOpen, imageAdjustSrc]);
 
   const openImageAdjustModal = (src: string) => {
-    const templateCfg = getTemplateConfig(project.template || "default");
-    const ar = getImageBoxAspectRatio(
-      currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
-      project.aspect_ratio || "landscape",
-      templateCfg.baseWidth,
-      templateCfg.baseHeight,
-    );
+    let ar: string;
+    if (project.template?.startsWith("custom_")) {
+      ar = (editableLayoutProps.imageBoxAspectRatio as string | undefined) || "16 / 9";
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        project.aspect_ratio || "landscape",
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+    }
     setImageAdjustAspectRatio(ar);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);

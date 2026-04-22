@@ -82,6 +82,8 @@ export interface GeneratedSceneData {
   durationSeconds: number;
   voiceoverFile: string | null;
   images: string[];
+  /** External image URL (og_image from brand kit) — used when no local image is assigned */
+  ogImageUrl?: string;
   sceneType?: "intro" | "content" | "outro";
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;

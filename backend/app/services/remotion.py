@@ -870,6 +870,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     if is_custom_template(template_id):
         from app.services.template_service import _load_custom_template_data
         custom_data = _load_custom_template_data(template_id, db=db)
+        if custom_data:
+            ct_og_image = custom_data.get("og_image", "")
+            if ct_og_image:
+                for sd in scene_data:
+                    if not sd.get("images"):
+                        sd["ogImageUrl"] = ct_og_image
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
             theme_colors = custom_data["theme"].get("colors", {})

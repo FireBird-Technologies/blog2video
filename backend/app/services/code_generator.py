@@ -100,9 +100,10 @@ class GenerateSceneCode(dspy.Signature):
     Images & Logo (MANDATORY — every scene MUST handle these):
     - ALWAYS check props.logoUrl safely and render it when present:
       {props.logoUrl && typeof props.logoUrl === 'string' && (
-        <Img src={props.logoUrl} style={{width: 80, height: 80, objectFit: "contain", ...}} />
+        <Img src={props.logoUrl} data-logo="1" style={{width: 80, height: 80, objectFit: "contain", ...}} />
       )}
       ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
+      ALWAYS add data-logo="1" on the logo Img element (this distinguishes it from content images).
       Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it.
     - ALWAYS check props.imageUrl safely and render it prominently when present — NOT just a dim background.
       Use: const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
@@ -111,6 +112,14 @@ class GenerateSceneCode(dspy.Signature):
       Layer gradient overlays for text readability: linear-gradient(to top, rgba(bg,0.95) 0%, transparent 70%)
       plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
       ALWAYS set explicit width + height on image Img elements.
+    - Image focus & zoom (MANDATORY when rendering props.imageUrl):
+      If using <Img> element: add data-content-img="1" and include in style:
+        objectFit: "cover", objectPosition: props.imageObjectPosition || "50% 50%",
+        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
+      If using a <div> with backgroundImage: add data-content-img="1" and include in style:
+        backgroundSize: "cover", backgroundPosition: props.imageObjectPosition || "50% 50%",
+        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
+      This lets users adjust image focus/zoom without regenerating the template.
     - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
       WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
       WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
@@ -160,7 +169,8 @@ class GenerateSceneCode(dspy.Signature):
     - AbsoluteFill, Sequence, Img, random(seed)
 
     Component Props:
-    { displayText, narrationText, imageUrl?, sceneIndex, totalScenes,
+    { displayText, narrationText, imageUrl?, imageObjectPosition?: string, imageZoom?: number,
+      sceneIndex, totalScenes,
       logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text },
       aspectRatio: "landscape" | "portrait",
       titleFontSize?: number, descriptionFontSize?: number,
@@ -184,6 +194,15 @@ class GenerateSceneCode(dspy.Signature):
     )
 
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
+    image_box_aspect_ratio: str = dspy.OutputField(
+        desc=(
+            "CSS aspect-ratio string for the image container in this scene. "
+            "Examples: '16 / 9' for landscape widescreen, '4 / 3' for classic landscape, "
+            "'1 / 1' for square, '9 / 16' for portrait. "
+            "Output the ratio that matches the image box dimensions you used in the scene code. "
+            "If the scene has no image box, output '16 / 9' as the default."
+        )
+    )
 
 
 # ─── Reward function for dspy.Refine ──────────────────────────
@@ -455,8 +474,8 @@ def _generate_single_scene_sync(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> str:
-    """Generate a single scene using DSPy ChainOfThought + Refine (sync)."""
+) -> tuple[str, str]:
+    """Generate a single scene using DSPy ChainOfThought + Refine (sync). Returns (code, image_box_aspect_ratio)."""
     ensure_dspy_configured()
 
     base_module = dspy.ChainOfThought(
@@ -489,10 +508,11 @@ def _generate_single_scene_sync(
 
     elapsed = time.time() - t0
     code = clean_code(result.code or "")
+    image_box_aspect_ratio = (result.image_box_aspect_ratio or "16 / 9").strip()
     line_count = code.count("\n") + 1
 
-    print(f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: {line_count} lines in {elapsed:.1f}s")
-    return code
+    print(f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: {line_count} lines in {elapsed:.1f}s, ar={image_box_aspect_ratio!r}")
+    return code, image_box_aspect_ratio
 
 
 _SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="scene-gen")
@@ -505,8 +525,8 @@ async def _generate_single_scene(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> str:
-    """Async wrapper — runs the sync Refine call in a dedicated thread pool."""
+) -> tuple[str, str]:
+    """Async wrapper — runs the sync Refine call in a dedicated thread pool. Returns (code, image_box_aspect_ratio)."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         _SCENE_EXECUTOR,
@@ -627,7 +647,9 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         ),
     )
 
-    scenes = await asyncio.gather(*tasks)
+    scene_tuples = await asyncio.gather(*tasks)
+    scenes = [code for code, _ in scene_tuples]
+    scene_aspect_ratios = [ar for _, ar in scene_tuples]
 
     # Log what was generated
     scene_labels = [intro_archetype["id"]] + [a["id"] for a in content_archetypes] + [outro_archetype["id"]]
@@ -663,4 +685,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         "content_codes": content_codes,
         # Full archetype metadata for content-aware matching at video time
         "archetype_ids": [{"id": a["id"], "best_for": a["best_for"]} for a in content_archetypes],
+        # Image box aspect ratios per scene type — used to configure the image adjustment modal
+        "intro_aspect_ratio": scene_aspect_ratios[0],
+        "outro_aspect_ratio": scene_aspect_ratios[-1],
+        "content_aspect_ratios": scene_aspect_ratios[1:-1],
     }

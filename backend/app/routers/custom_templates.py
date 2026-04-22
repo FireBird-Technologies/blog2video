@@ -542,6 +542,11 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             tpl.outro_code = variants["outro_code"]
             tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
             tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
+            tpl.image_box_aspect_ratios = json.dumps({
+                "intro": variants.get("intro_aspect_ratio", "16 / 9"),
+                "content": variants.get("content_aspect_ratios", []),
+                "outro": variants.get("outro_aspect_ratio", "16 / 9"),
+            })
             print(f"[F7-DEBUG] [CODEGEN] Stored {len(variants.get('content_codes', []))} content archetypes: {variants.get('archetype_ids', [])}")
 
             _codegen_progress[template_id]["step"] = "saving"
