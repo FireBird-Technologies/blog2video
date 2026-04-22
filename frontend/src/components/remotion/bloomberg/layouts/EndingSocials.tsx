@@ -111,7 +111,6 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: "0 48px", gap: 24,
         opacity: topBarOpacity,
       }}>
-        <span style={{ color: blue, fontSize: 13, letterSpacing: 3 }}>MBN:CLOS</span>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 12 }}>SESSION CLOSE</span>
       </div>
 
@@ -138,7 +137,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
             <div style={{
               color: amber, fontSize: titleFontSize * 0.65, letterSpacing: 1,
             }}>
-              MBN&gt;&nbsp;{ctaButtonText}
+             {ctaButtonText}
               <span style={{ opacity: cursorVisible ? 1 : 0, color: blue }}>_</span>
             </div>
 
@@ -191,7 +190,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
         opacity: topBarOpacity,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 11, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  END OF SESSION
+          END OF SESSION
         </span>
       </div>
     </AbsoluteFill>

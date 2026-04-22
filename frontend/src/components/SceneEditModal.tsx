@@ -963,6 +963,7 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     terminal_narrative: [],
     terminal_chart: [
+      { key: "ticker", label: "Ticker / symbol tag", type: "string" },
       { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
     ],
     terminal_dashboard: [
@@ -990,9 +991,9 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "leftDescription", label: "Left description", type: "text" },
       { key: "rightDescription", label: "Right description", type: "text" },
     ],
-    terminal_quote: [
-      { key: "quote", label: "Quote", type: "text" },
-      { key: "highlightWord", label: "Highlight word", type: "string" },
+    terminal_dataviz: [
+      { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      { key: "chartType", label: "Chart type (auto, bar, line, histogram)", type: "string" },
     ],
     terminal_list: [
       { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
@@ -1449,6 +1450,14 @@ export default function SceneEditModal({
             delete (lpCopy as Record<string, unknown>).chartType;
           }
         }
+        // Bloomberg terminal_dataviz: normalize chartTable on modal open
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          lpCopy.chartTable = chartTableHasData(directChartTable)
+            ? directChartTable
+            : { headers: ["Label", "Value"], rows: [["", ""]] };
+        }
       } catch { /* ignore */ }
     }
     // For custom templates, CTA data lives in ctaProps, not layoutProps
@@ -1733,6 +1742,11 @@ export default function SceneEditModal({
                 delete lp.lineChart;
                 delete lp.histogram;
               }
+            }
+            // Bloomberg terminal_dataviz: normalize chartTable on save
+            if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+              const chartTable = normalizeChartTableValue((lp as Record<string, unknown>).chartTable);
+              lp.chartTable = chartTable;
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
             const bar = lp.barChart as { labels?: unknown[]; values?: number[] } | undefined;
@@ -2250,8 +2264,10 @@ export default function SceneEditModal({
                   currentLayoutId === "data_visualization";
                 const suppressExtraKeysForBloombergChart =
                   isBloombergTemplate && currentLayoutId === "terminal_chart";
+                const suppressExtraKeysForBloombergDataViz =
+                  isBloombergTemplate && currentLayoutId === "terminal_dataviz";
                 const extraKeys =
-                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart)
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
                     ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(

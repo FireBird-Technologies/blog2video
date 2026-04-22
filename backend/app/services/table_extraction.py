@@ -3,6 +3,7 @@ import re
 from typing import Any
 
 from bs4 import BeautifulSoup
+from app.services.chart_planner import compute_ohlcv_chart_analysis, is_candlestick_table
 
 
 TABLE_SECTION_MARKER = "EXTRACTED_TABLES_JSON"
@@ -245,6 +246,10 @@ def build_chartable_tables_payload(
         pl = (preferred_layout_by_index or {}).get(orig_idx)
         if pl:
             entry["preferred_layout"] = pl
+        if is_candlestick_table(table):
+            analysis = compute_ohlcv_chart_analysis(table)
+            if analysis.get("summary"):
+                entry["chart_analysis"] = analysis
         entries.append(entry)
     if not entries:
         return ""

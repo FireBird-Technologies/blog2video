@@ -6,12 +6,14 @@ export type BloombergLayoutType =
   | "terminal_ticker"
   | "terminal_table"
   | "terminal_split"
-  | "terminal_quote"
+  | "terminal_dataviz"
   | "terminal_list"
   | "terminal_metric"
   | "terminal_profile"
   | "terminal_options"
   | "ending_socials";
+
+export type BloombergChartType = "auto" | "bar" | "line" | "histogram";
 
 export interface BloombergMetric {
   value: string;
@@ -52,15 +54,18 @@ export interface BloombergLayoutProps {
   // Raw OHLCV table for terminal_chart (editable in modal, parsed directly by component)
   ohlcvTable?: { headers: string[]; rows: string[][] };
 
+  // terminal_chart — short symbol/tag shown in the indicator signals panel header (e.g. "AAPL US")
+  ticker?: string;
+
   // terminal_split
   leftLabel?: string;
   rightLabel?: string;
   leftDescription?: string;
   rightDescription?: string;
 
-  // terminal_quote
-  quote?: string;
-  highlightWord?: string;
+  // terminal_dataviz
+  chartType?: BloombergChartType;
+  chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
 
   // ending_socials
   socials?: BloombergSocial[] | Record<string, string>;

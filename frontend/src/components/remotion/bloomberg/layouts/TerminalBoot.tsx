@@ -1,4 +1,4 @@
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
@@ -15,16 +15,12 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
   items = [],
 }) => {
   const frame = useCurrentFrame();
+  const { height: canvasH } = useVideoConfig();
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
-
-  const tSize = titleFontSize ?? (p ? 99 : 101);
-  const dSize = descriptionFontSize ?? (p ? 34 : 39);
-  const logSize = dSize * 0.72;
-  const labelSize = dSize * 0.4;
 
   const panelOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
 
@@ -53,6 +49,17 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
   const topH = p ? 64 : 56;
   const botH = p ? 48 : 40;
   const pad = p ? 40 : 56;
+
+  // Derive font sizes from available canvas height so content never overflows.
+  // Content rows: title(1) + connecting(1) + header(1) + bootLines + cursor(1) + narration(1) ≈ nLines+5
+  // Each row ≈ 2.2× dSize; fixed overhead (padding, borders) ≈ 150px
+  const safeH = canvasH - topH - botH;
+  const nLines = bootLines.length;
+  const maxDSize = Math.floor((safeH - 150) / (nLines * 2.2 + 6));
+  const dSize = descriptionFontSize ?? Math.min(p ? 34 : 39, maxDSize);
+  const tSize = titleFontSize ?? Math.round(dSize * (p ? 2.9 : 2.7));
+  const logSize = dSize * 0.72;
+  const labelSize = dSize * 0.4;
 
   const barPx = p ? 18 : 14; // dot size in progress bars
   const totalBars = 20;
@@ -86,9 +93,6 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
         borderBottom: `1px solid ${amber}`,
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
-        {/* MBN mark */}
-        <MbnMark color={amber} blue={blue} size={p ? 32 : 28} />
-        <span style={{ color: blue, fontSize: labelSize * 1.25, letterSpacing: 3 }}>MBN TERMINAL</span>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>BOOT SEQUENCE</span>
         <div style={{ flex: 1 }} />
         <span style={{
@@ -103,11 +107,12 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
       {/* Boot panel */}
       <div style={{
         position: "absolute",
-        top: "50%", left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: p ? "88%" : "64%",
+        top: topH, bottom: botH, left: 0, right: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "hidden",
         opacity: panelOpacity,
       }}>
+      <div style={{ width: p ? "88%" : "64%" }}>
         {/* Title */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 14,
@@ -163,7 +168,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
             const lineOpacity = interpolate(frame, [start - 4, start + 4], [0, 1], { extrapolateRight: "clamp" });
             const done = prog >= 1;
             const filled = Math.round(prog * totalBars);
-            const isPrompt = line.startsWith("MBN>");
+            const isPrompt = line.startsWith(">");
             // Tick flash on completion
             const justDone = frame >= start + perLineDuration && frame < start + perLineDuration + 6;
 
@@ -236,6 +241,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
         }}>
           {narration}
         </div>
+      </div>
       </div>
 
       {/* Bottom bar */}

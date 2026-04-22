@@ -52,7 +52,6 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:COMP</span>
       </div>
 
       {/* NEW: Centered Title Section */}
@@ -62,13 +61,12 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         left: 0,
         right: 0,
         textAlign: "center",
-        color: amber,
         fontSize: tSize * 0.6,
         fontWeight: "bold",
         opacity: headerOpacity,
         textTransform: "uppercase"
       }}>
-        {title}
+        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {p ? (
@@ -159,7 +157,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  COMPARISON
+          COMPARISON
         </span>
       </div>
     </AbsoluteFill>

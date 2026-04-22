@@ -649,6 +649,7 @@ async def _generate_script(project: Project, db: Session):
         content_language=content_language,
         include_ending_socials=include_ending_socials,
         chartable_tables_json=chartable_tables_json,
+        template_id=template_id or "",
     )
 
     project.name = result["title"]

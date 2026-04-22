@@ -1,7 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
-import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 
 export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   title,
@@ -13,7 +12,6 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   titleFontSize,
   descriptionFontSize,
   aspectRatio = "landscape",
-  imageUrl,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -53,13 +51,6 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
-      {imageUrl && (
-        <>
-          <img src={imageUrl} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.65)" }} />
-        </>
-      )}
-      <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -79,7 +70,6 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
         opacity: eyebrowOp,
       }}>
         <DocGlyph color={amber} size={p ? 30 : 26} />
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:NARR</span>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>NARRATIVE · DESK NOTE</span>
         <div style={{ flex: 1 }} />
         <span style={{
@@ -91,29 +81,28 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>{mm}:{ss} EST</span>
       </div>
 
+      {/* Waveform strip pinned to top, below top bar */}
+      <div style={{
+        position: "absolute", top: topH, left: 0, right: 0,
+        height: p ? 64 : 56,
+        padding: `8px ${pad}px`,
+        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+        opacity: eyebrowOp,
+      }}>
+        <Waveform color={amber} width={"100%" as any} height={p ? 48 : 40} frame={frame} seed={7} />
+      </div>
+
       {/* Content */}
       {p ? (
         /* Portrait: stacked */
         <div style={{
           position: "absolute",
-          top: topH + 20, left: pad, right: pad, bottom: botH + 12,
+          top: topH + 64 + 20, left: pad, right: pad, bottom: botH + 12,
           display: "flex", flexDirection: "column", justifyContent: "center", gap: 28,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, opacity: eyebrowOp }}>
-            <span style={{
-              display: "inline-block", width: 8, height: 8, borderRadius: 4,
-              backgroundColor: amber, opacity: livePulse,
-            }} />
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 4 }}>
-              MBN:NARR  ·  DESK NOTE
-            </span>
-            <div style={{ flex: 1, height: 1, backgroundColor: BLOOMBERG_COLORS.border }} />
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 2 }}>
-              REF #{String(1000 + (frame % 999)).padStart(4, "0")}
-            </span>
-          </div>
-          <div style={{ color: amber, fontSize: tSize, lineHeight: 1.15, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
-            {title}
+          <div style={{ fontSize: tSize, lineHeight: 1.15, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
+            <span style={{ backgroundColor: amber, color: "#000000", display: "inline", padding: "3px 14px 6px" }}>{title}</span>
           </div>
           <div style={{
             height: 2, width: "40%",
@@ -137,25 +126,11 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       ) : (
         /* Landscape: full-width stacked — waveform bars above title */
         <div style={{
-          position: "absolute", top: topH + 16, left: pad, right: pad, bottom: botH + 10,
+          position: "absolute", top: topH + 56 + 16, left: pad, right: pad, bottom: botH + 10,
           display: "flex", flexDirection: "column", justifyContent: "center", gap: 22,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, opacity: eyebrowOp }}>
-            <span style={{
-              display: "inline-block", width: 8, height: 8, borderRadius: 4,
-              backgroundColor: amber, opacity: livePulse,
-            }} />
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 4 }}>
-              MBN:NARR  ·  DESK NOTE
-            </span>
-            <div style={{ flex: 1, height: 1, backgroundColor: BLOOMBERG_COLORS.border }} />
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 2 }}>
-              REF #{String(1000 + (frame % 999)).padStart(4, "0")}
-            </span>
-          </div>
-
-          <div style={{ color: amber, fontSize: tSize, lineHeight: 1.1, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
-            {title}
+          <div style={{ fontSize: tSize, lineHeight: 1.1, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
+            <span style={{ backgroundColor: amber, color: "#000000", display: "inline", padding: "3px 14px 6px" }}>{title}</span>
           </div>
           <div style={{
             height: 1, width: "35%",
@@ -186,7 +161,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  NARRATIVE SESSION
+          NARRATIVE SESSION
         </span>
         <div style={{ flex: 1 }} />
         <span style={{
@@ -271,6 +246,30 @@ const CornerBrackets: React.FC<{ color: string; pad: number }> = ({ color, pad }
       {bracket({ bottom: pad, left: pad, transform: "scaleY(-1)" })}
       {bracket({ bottom: pad, right: pad, transform: "scale(-1,-1)" })}
     </>
+  );
+};
+
+const Waveform: React.FC<{ color: string; width: number | string; height: number; frame: number; seed: number }> = ({
+  color, height, frame, seed,
+}) => {
+  const N = 48;
+  const bars: number[] = [];
+  for (let i = 0; i < N; i++) {
+    const v =
+      0.35 +
+      0.25 * Math.abs(Math.sin((i + seed) * 0.7 + frame / 9)) +
+      0.2 * Math.abs(Math.sin((i + seed) * 1.9 + frame / 5));
+    bars.push(Math.min(1, v));
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height }}>
+      {bars.map((b, i) => (
+        <span key={i} style={{
+          flex: 1, height: `${b * 100}%`,
+          backgroundColor: color, opacity: 0.45 + b * 0.55,
+        }} />
+      ))}
+    </div>
   );
 };
 

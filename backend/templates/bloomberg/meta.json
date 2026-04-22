@@ -4,8 +4,7 @@
   "new_template": true,
   "description": "Bloomberg terminal-inspired financial storytelling: amber monospace on pure black, dense data panels, KPI grids, and chart scenes for trader-facing explainer videos.",
   "styles": [
-    "explainer",
-    "promotional"
+    "explainer"
   ],
   "preview_colors": {
     "accent": "#5EA2FF",
@@ -23,7 +22,7 @@
     "terminal_ticker",
     "terminal_table",
     "terminal_split",
-    "terminal_quote",
+    "terminal_dataviz",
     "terminal_list",
     "terminal_metric",
     "terminal_profile",
@@ -371,48 +370,99 @@
         }
       ]
     },
-    "terminal_quote": {
-      "label": "Terminal Quote",
+    "terminal_dataviz": {
+      "label": "Data Visualization",
       "defaults": {
         "titleFontSize": {
-          "portrait": 97,
-          "landscape": 97
+          "portrait": 103,
+          "landscape": 144
         },
         "descriptionFontSize": {
-          "portrait": 56,
-          "landscape": 59
+          "portrait": 54,
+          "landscape": 38
         },
-        "quote": "The signal is always in the data. The noise is everywhere else.",
-        "highlightWord": "signal"
+        "chartType": "auto",
+        "chartTable": {
+          "headers": [
+            "Month",
+            "Revenue",
+            "Cost"
+          ],
+          "rows": [
+            [
+              "Jan",
+              "120",
+              "90"
+            ],
+            [
+              "Feb",
+              "130",
+              "95"
+            ],
+            [
+              "Mar",
+              "125",
+              "98"
+            ],
+            [
+              "Apr",
+              "140",
+              "100"
+            ],
+            [
+              "May",
+              "155",
+              "105"
+            ]
+          ]
+        }
       },
       "fields": [
         {
+          "key": "chartTable",
+          "label": "Chart Data",
+          "type": "chart_table"
+        },
+        {
           "key": "titleFontSize",
-          "label": "Quote Font Size",
+          "label": "Title Font Size",
           "type": "number",
           "responsive": true,
-          "min": 18,
+          "min": 16,
           "max": 200,
           "step": 1
         },
         {
           "key": "descriptionFontSize",
-          "label": "Sub-text Font Size",
+          "label": "Body Font Size",
           "type": "number",
           "responsive": true,
           "min": 10,
-          "max": 120,
+          "max": 80,
           "step": 1
         },
         {
-          "key": "quote",
-          "label": "Quote",
-          "type": "text"
-        },
-        {
-          "key": "highlightWord",
-          "label": "Highlight Word",
-          "type": "string"
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto",
+              "value": "auto"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
         }
       ]
     },
@@ -739,7 +789,7 @@
     "terminal_ticker",
     "terminal_table",
     "terminal_split",
-    "terminal_quote",
+    "terminal_dataviz",
     "terminal_list",
     "terminal_metric",
     "terminal_profile",

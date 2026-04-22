@@ -369,7 +369,8 @@ export type LayoutPropFieldType =
   | "color"
   | "select"
   | "string_array"
-  | "object_array";
+  | "object_array"
+  | "chart_table";
 
 export interface LayoutPropSubField {
   key: string;

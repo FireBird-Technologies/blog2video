@@ -71,8 +71,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:SCRN</span>
-        <span style={{ color: amber, fontSize: tSize * 0.28 }}>{title}</span>
+        <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
         <span style={{
           display: "inline-block", width: 10, height: 10, borderRadius: 5,
@@ -104,12 +103,12 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       {/* Title */}
       <div style={{
         position: "absolute", top: topH + marqueeH + (p ? 14 : 10), left: pad, right: pad,
-        color: amber, fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
+        fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
         display: "flex", alignItems: "center", gap: 14,
         justifyContent: p ? "center" : "flex-start",
       }}>
         <ChartGlyph color={amber} size={tSize * 0.5} />
-        <span>{title}</span>
+        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {/* Column headers */}
@@ -238,7 +237,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  SCREENER
+          SCREENER
         </span>
         <div style={{ flex: 1 }} />
         <span style={{

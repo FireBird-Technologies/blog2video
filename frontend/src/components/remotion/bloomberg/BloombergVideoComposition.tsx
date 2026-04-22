@@ -3,6 +3,11 @@ import { BLOOMBERG_LAYOUT_REGISTRY } from "./layouts";
 import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import {
+  BLOOMBERG_TRANSITION_DURATION,
+  BloombergTransition,
+  pickBloombergTransition,
+} from "./BloombergTransition";
 
 export interface BloombergSceneInput {
   id: number;
@@ -51,7 +56,7 @@ export const BloombergVideoComposition: React.FC<
 
   return (
     <AbsoluteFill style={{ backgroundColor: bgColor || "#000000", fontFamily }}>
-      {scenes.map((scene) => {
+      {scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -77,6 +82,15 @@ export const BloombergVideoComposition: React.FC<
           fontFamily,
         };
 
+        const isLast = index === scenes.length - 1;
+        const showTransition =
+          !isLast && durationFrames > BLOOMBERG_TRANSITION_DURATION + 2;
+        const transitionFrom = Math.max(
+          0,
+          durationFrames - BLOOMBERG_TRANSITION_DURATION,
+        );
+        const variant = pickBloombergTransition(scene.layout);
+
         return (
           <Sequence
             key={scene.id}
@@ -87,6 +101,22 @@ export const BloombergVideoComposition: React.FC<
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && (
               <Audio src={scene.voiceoverUrl} playbackRate={resolvedPlaybackSpeed} />
+            )}
+            {showTransition && (
+              <Sequence
+                from={transitionFrom}
+                durationInFrames={BLOOMBERG_TRANSITION_DURATION}
+                name={`transition:${variant}`}
+              >
+                <BloombergTransition
+                  variant={variant}
+                  accentColor={accentColor || "#5EA2FF"}
+                  textColor={textColor || "#FFB340"}
+                  bgColor={bgColor || "#000000"}
+                  aspectRatio={aspectRatio || "landscape"}
+                  fontFamily={fontFamily}
+                />
+              </Sequence>
             )}
           </Sequence>
         );

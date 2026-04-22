@@ -58,7 +58,6 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:OPTS</span>
       </div>
 
       {/* Centered Title */}
@@ -165,7 +164,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL · OPTIONS MONITOR
+          OPTIONS MONITOR
         </span>
       </div>
     </AbsoluteFill>

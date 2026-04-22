@@ -52,7 +52,6 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
         opacity: headerOpacity,
       }}>
-        <span style={{ color: blue, fontSize: labelSize * 1.2, letterSpacing: 3 }}>MBN:PREF</span>
       </div>
 
       {/* Main Centered Container */}
@@ -151,7 +150,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  PREFERENCES
+          PREFERENCES
         </span>
       </div>
     </AbsoluteFill>

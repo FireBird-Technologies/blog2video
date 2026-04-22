@@ -228,6 +228,152 @@ def generate_terminal_chart_candlestick_items(table: dict[str, Any], max_items: 
     return items
 
 
+def compute_ohlcv_chart_analysis(table: dict[str, Any]) -> dict[str, str]:
+    """Derive plain-English chart analysis from an OHLCV table.
+
+    Returns a dict with keys: verdict, trend, momentum, biggest_move,
+    range_position, volatility, summary.  All values are human-readable
+    sentences suitable for direct inclusion in narration prompts.
+    """
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    rows = [r for r in (table.get("rows", []) or []) if isinstance(r, list)]
+    if not rows:
+        return {}
+
+    def _find_col(*kws: str) -> int | None:
+        for kw in kws:
+            for i, h in enumerate(headers):
+                if kw in h:
+                    return i
+        return None
+
+    close_col = _find_col("close")
+    open_col = _find_col("open")
+    high_col = _find_col("high")
+    low_col = _find_col("low")
+    date_col = _find_col("date") or 0
+
+    if None in (close_col, open_col, high_col, low_col):
+        return {}
+
+    def _pn(row: list, col: int | None) -> float | None:
+        if col is None or col >= len(row):
+            return None
+        return _parse_number(row[col])
+
+    candles: list[dict] = []
+    for row in rows:
+        o = _pn(row, open_col)
+        h = _pn(row, high_col)
+        l = _pn(row, low_col)
+        c = _pn(row, close_col)
+        if None in (o, h, l, c):
+            continue
+        label = str(row[date_col] if date_col < len(row) else "").strip().split(",")[0]
+        candles.append({"o": o, "h": h, "l": l, "c": c, "label": label})
+
+    n = len(candles)
+    if n < 2:
+        return {}
+
+    closes = [k["c"] for k in candles]
+    highs = [k["h"] for k in candles]
+    lows = [k["l"] for k in candles]
+    p_max = max(highs)
+    p_min = min(lows)
+    p_range = max(p_max - p_min, 0.001)
+    first_close = closes[0]
+    last_close = closes[-1]
+
+    # 1. Overall trend
+    pct_change = ((last_close - first_close) / max(abs(first_close), 0.001)) * 100
+    direction = "up" if pct_change >= 0 else "down"
+    verdict = (
+        "BULLISH TREND" if pct_change > 5
+        else "BEARISH DECLINE" if pct_change < -5
+        else "CONSOLIDATING"
+    )
+    trend = (
+        f"{direction.capitalize()} {abs(pct_change):.1f}% over {n} trading periods "
+        f"(from {first_close:.2f} to {last_close:.2f})"
+    )
+
+    # 2. Recent momentum (last ~12% of bars, min 3)
+    recent_window = max(3, int(n * 0.12))
+    recent_closes = closes[-recent_window:]
+    recent_delta = recent_closes[-1] - recent_closes[0]
+    recent_pct = (recent_delta / max(abs(recent_closes[0]), 0.001)) * 100
+    recent_label = candles[-recent_window]["label"] or f"{recent_window} periods ago"
+    if abs(recent_pct) < 0.4:
+        momentum = f"Price has been flat since {recent_label} — no clear short-term direction"
+    elif recent_pct > 0 and pct_change > 0:
+        momentum = f"Accelerating — gained another {recent_pct:.1f}% since {recent_label}, building on the uptrend"
+    elif recent_pct > 0 and pct_change <= 0:
+        momentum = f"Recovering — up {recent_pct:.1f}% since {recent_label} after the broader decline"
+    elif pct_change > 0:
+        momentum = f"Stalling — down {abs(recent_pct):.1f}% since {recent_label} despite the overall uptrend"
+    else:
+        momentum = f"Still under pressure — fell another {abs(recent_pct):.1f}% since {recent_label}"
+
+    # 3. Biggest single-bar move
+    body_pcts = [((k["c"] - k["o"]) / max(abs(k["o"]), 0.001)) * 100 for k in candles]
+    biggest_i = max(range(n), key=lambda i: abs(body_pcts[i]))
+    biggest_pct = body_pcts[biggest_i]
+    biggest_label = candles[biggest_i]["label"] or f"bar {biggest_i + 1}"
+    sign = "+" if biggest_pct >= 0 else ""
+    move_type = "surge" if biggest_pct >= 0 else "selloff"
+    biggest_move = (
+        f"Biggest single-period move: {sign}{biggest_pct:.1f}% on {biggest_label} "
+        f"— a sharp {move_type} that stands out in this period"
+    )
+
+    # 4. Where price sits vs. the period range
+    pos_in_range = (last_close - p_min) / p_range
+    if pos_in_range > 0.75:
+        range_position = (
+            f"Currently near its {n}-period high of {p_max:.2f} "
+            f"— buyers remain in control"
+        )
+    elif pos_in_range < 0.25:
+        range_position = (
+            f"Sitting close to its {n}-period low of {p_min:.2f} "
+            f"— sellers have dominated this stretch"
+        )
+    else:
+        range_position = (
+            f"Trading mid-range between {p_min:.2f} and {p_max:.2f} "
+            f"— no decisive winner yet between buyers and sellers"
+        )
+
+    # 5. Volatility — average daily range as % of close
+    avg_daily_range = sum((k["h"] - k["l"]) / max(k["c"], 0.001) for k in candles) / n * 100
+    if avg_daily_range < 1.5:
+        volatility = f"Low volatility period — average daily swing of {avg_daily_range:.1f}%, tight and orderly"
+    elif avg_daily_range > 3.5:
+        volatility = (
+            f"Highly volatile — average daily swing of {avg_daily_range:.1f}%, "
+            f"expect large intraday moves in either direction"
+        )
+    else:
+        volatility = f"Moderate volatility — average daily swing of {avg_daily_range:.1f}%"
+
+    summary = (
+        f"Chart verdict: {verdict}. "
+        f"{trend}. {momentum}. {biggest_move}. "
+        f"{range_position}. {volatility}."
+    )
+
+    return {
+        "verdict": verdict,
+        "trend": trend,
+        "momentum": momentum,
+        "biggest_move": biggest_move,
+        "range_position": range_position,
+        "volatility": volatility,
+        "summary": summary,
+    }
+
+
 def generate_terminal_chart_items(table: dict[str, Any], max_items: int = 8) -> list[str]:
     """Format a time-series table as items strings for the TerminalChart layout.
 

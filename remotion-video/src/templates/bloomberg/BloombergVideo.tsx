@@ -13,6 +13,11 @@ import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
+import {
+  BLOOMBERG_TRANSITION_DURATION,
+  BloombergTransition,
+  pickBloombergTransition,
+} from "./BloombergTransition";
 
 interface SceneData {
   id: number;
@@ -85,7 +90,7 @@ const BLOOMBERG_PREVIEW_FALLBACK: VideoData = {
     {
       id: 1,
       order: 1,
-      title: "MBN> System Ready",
+      title: "> System Ready",
       narration: "Bloomberg terminal session initialized.",
       layout: "terminal_boot",
       layoutProps: {},
@@ -140,7 +145,7 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         fontFamily: resolvedFontFamily || undefined,
       }}
     >
-      {data.scenes.map((scene) => {
+      {data.scenes.map((scene, index) => {
         const durationFrames = getSceneDurationFrames(
           scene.durationSeconds,
           FPS,
@@ -169,6 +174,15 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           fontFamily: resolvedFontFamily || undefined,
         };
 
+        const isLast = index === data.scenes.length - 1;
+        const showTransition =
+          !isLast && durationFrames > BLOOMBERG_TRANSITION_DURATION + 2;
+        const transitionFrom = Math.max(
+          0,
+          durationFrames - BLOOMBERG_TRANSITION_DURATION,
+        );
+        const variant = pickBloombergTransition(scene.layout);
+
         return (
           <Sequence
             key={scene.id}
@@ -179,6 +193,22 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
+            )}
+            {showTransition && (
+              <Sequence
+                from={transitionFrom}
+                durationInFrames={BLOOMBERG_TRANSITION_DURATION}
+                name={`transition:${variant}`}
+              >
+                <BloombergTransition
+                  variant={variant}
+                  accentColor={data.accentColor || "#5EA2FF"}
+                  textColor={data.textColor || "#FFB340"}
+                  bgColor={data.bgColor || "#000000"}
+                  aspectRatio={data.aspectRatio || "landscape"}
+                  fontFamily={resolvedFontFamily || undefined}
+                />
+              </Sequence>
             )}
           </Sequence>
         );

@@ -15,7 +15,7 @@ Core rules:
 
 ## terminal_boot
 
-**Visual:** Centered boot panel on pure black. A sequence of amber log lines appear in the terminal window, finishing with an `MBN> _` prompt. Title is the system/session name.
+**Visual:** Centered boot panel on pure black. A sequence of amber log lines appear in the terminal window, finishing with an `> _` prompt. Title is the system/session name.
 
 **Best for:** The opening scene — system startup, session open, topic introduction as a boot sequence.
 
@@ -180,7 +180,7 @@ Core rules:
 
 ## ending_socials
 
-**Visual:** Pure black stage with a centered amber terminal prompt block. CTA text rendered as a blinking terminal command (e.g. `MBN> Get Started_`). Below: website URL in muted amber, a thin amber rule, narration text, then a row of social platform icons with amber labels.
+**Visual:** Pure black stage with a centered amber terminal prompt block. CTA text rendered as a blinking terminal command (e.g. `> Get Started_`). Below: website URL in muted amber, a thin amber rule, narration text, then a row of social platform icons with amber labels.
 
 **Best for:** Final outro scene with social handles and CTA. Terminal-native, not marketing-slide.
 
@@ -214,7 +214,7 @@ Core rules:
 - `narration`: **12–20 words** for voiceover; desk-language, speakable in one breath.
 
 **Per layout (structured props):**
-- **`terminal_boot`:** Generate terse `[OK]`/`[SYS]`/`[INIT]` prefixed log lines relevant to the topic. End with `MBN> _` style prompt.
+- **`terminal_boot`:** Generate terse `[OK]`/`[SYS]`/`[INIT]` prefixed log lines relevant to the topic. End with `> _` style prompt.
 - **`terminal_chart`:** Extract indicator values from narration; if none given, generate plausible placeholders clearly labeled with `MA`, `RSI`, `MACD`, `VOL` etc.
 - **`terminal_dashboard`:** Map each index/asset to a KPI tile; use `+` prefix for gains, `-` for losses.
 - **`terminal_ticker`:** One row per asset/name from the narration; align ticker, change %, and price with spaces.
