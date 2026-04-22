@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { MosaicBackground, bgTilePalette } from "../MosaicBackground";
 import { MosaicImageReveal } from "../MosaicImageReveal";
 import { MosaicTiledText } from "../MosaicTiledText";
@@ -11,6 +11,8 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
   title,
   narration,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   highlightPhrase,
   accentColor,
   bgColor,
@@ -126,6 +128,8 @@ export const MosaicText: React.FC<MosaicLayoutProps> = ({
           <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
             <MosaicImageReveal
               imageUrl={imageUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
               revealProgress={tileEntry}
               clarityProgress={panelIntro}
               pattern={mosaicPattern ?? "diagonal"}

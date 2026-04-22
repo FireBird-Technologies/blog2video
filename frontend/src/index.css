@@ -2,12 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+}
+
 @layer components {
+  /* ─── Glass / emboss card — light context ─── */
+  .glass-card {
+    @apply bg-white border rounded-2xl;
+    border-color: rgba(167, 139, 250, 0.14);
+    box-shadow:
+      0 2px 20px rgba(124, 58, 237, 0.055),
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  /* ─── Dark glass — hero / dark section context ─── */
+  .glass-dark {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 4px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    @apply rounded-3xl backdrop-blur-2xl;
+  }
+
+  /* ─── Legacy glass util (kept for other pages) ─── */
   .glass {
     @apply bg-white/60 backdrop-blur-xl border border-white/20 shadow-[0_1px_3px_rgba(0,0,0,0.04)];
-  }
-  .glass-card {
-    @apply bg-white/70 backdrop-blur-lg border border-gray-200/50 shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-2xl;
   }
 }
 

@@ -49,6 +49,18 @@ _MAX_PLAYBACK_SPEED = 2.5
 _workspace_locks: dict[int, threading.Lock] = {}
 
 
+def _clamp_focus_value(value: object | None) -> float:
+    try:
+        num = float(value)
+    except Exception:
+        return 50.0
+    if num < 0:
+        return 0.0
+    if num > 100:
+        return 100.0
+    return round(num, 2)
+
+
 def _get_workspace_lock(project_id: int) -> threading.Lock:
     """Get or create a per-project workspace lock."""
     if project_id not in _workspace_locks:
@@ -464,9 +476,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     layout = desc["layoutConfig"].get("arrangement", fallback)
                 else:
                     layout = desc.get("layout", fallback)
-                lp = desc.get("layoutProps", {}) or {}
+                lp = dict(desc.get("layoutProps", {}) or {})
             except (json.JSONDecodeError, TypeError):
                 pass
+        if lp.get("assignedImage") and not lp.get("hideImage"):
+            lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
+            lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
         parsed_descs.append(desc)
         scene_layouts.append(layout)
         scene_layout_props.append(lp)
@@ -484,7 +499,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         except Exception:
             image_assets.sort(key=lambda a: a.id)
 
-        used_generic_files: set[str] = set()
         scene_specific: list[tuple[int, str]] = []
         generic_files: list[str] = []
         for asset in image_assets:
@@ -493,12 +507,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 scene_specific.append((int(m.group(1)), asset.filename))
             else:
                 generic_files.append(asset.filename)
-        scene_specific_files = {fn for _, fn in scene_specific}
 
         # Build scene_id -> index lookup
         id_to_idx = {s.id: i for i, s in enumerate(scenes)}
 
-        # Step 1: Process stored assignments + layout constraints
+        # Step 1: Honor stored assignedImage (any filename); multiple scenes may share one file.
         for i, scene in enumerate(scenes):
             layout = scene_layouts[i]
             lp = scene_layout_props[i]
@@ -508,6 +521,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 changed = False
                 if lp.get("assignedImage"):
                     lp.pop("assignedImage", None)
+                    lp.pop("imageFocusX", None)
+                    lp.pop("imageFocusY", None)
+                    lp.pop("imageZoom", None)
                     changed = True
                 if not lp.get("hideImage"):
                     lp["hideImage"] = True
@@ -523,38 +539,46 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
 
             if hide_image_flags[i]:
                 lp.pop("assignedImage", None)
+                lp.pop("imageFocusX", None)
+                lp.pop("imageFocusY", None)
+                lp.pop("imageZoom", None)
                 dirty.add(i)
-            elif assigned in all_image_files:
-                m = re.match(r"^scene_(\d+)_", str(assigned))
-                if m:
-                    if int(m.group(1)) == scene.id:
-                        scene_image_map[i] = [assigned]
-                    else:
-                        lp.pop("assignedImage", None)
-                        dirty.add(i)
-                else:
-                    if assigned in used_generic_files:
-                        lp.pop("assignedImage", None)
-                        dirty.add(i)
-                    else:
-                        used_generic_files.add(str(assigned))
-                        scene_image_map[i] = [assigned]
-            else:
-                lp.pop("assignedImage", None)
-                dirty.add(i)
+                continue
 
-        # Step 2: Scene-specific images (override stored assignments)
+            if str(assigned) not in all_image_files:
+                lp.pop("assignedImage", None)
+                lp.pop("imageFocusX", None)
+                lp.pop("imageFocusY", None)
+                lp.pop("imageZoom", None)
+                dirty.add(i)
+                continue
+
+            scene_image_map[i] = [str(assigned)]
+            lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
+            lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
+
+        # Step 2: Orphan scene_<id>_ files on disk with no layoutProps assignment — bind once per scene.
         for scene_id, filename in scene_specific:
             idx = id_to_idx.get(scene_id, -1)
             if idx < 0 or scene_layouts[idx] in no_image_layouts:
                 continue
-            scene_image_map[idx] = [filename]
+            if hide_image_flags[idx]:
+                continue
             lp = scene_layout_props[idx]
-            if lp.get("assignedImage") != filename or lp.get("hideImage"):
-                lp["assignedImage"] = filename
-                lp.pop("hideImage", None)
-                hide_image_flags[idx] = False
-                dirty.add(idx)
+            if lp.get("assignedImage") or lp.get("hideImage"):
+                continue
+            scene_image_map[idx] = [filename]
+            lp["assignedImage"] = filename
+            lp.pop("hideImage", None)
+            lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
+            lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
+            hide_image_flags[idx] = False
+            dirty.add(idx)
+
+        used_generic_files: set[str] = set()
+        for i in range(len(scenes)):
+            for fn in scene_image_map.get(i, []):
+                used_generic_files.add(fn)
 
         # Step 3: Scene-type pre-assignment (intro gets hero, outro skips image)
         # Persist layoutProps for both: intro hero must write assignedImage to DB (otherwise
@@ -577,6 +601,9 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                     changed = False
                     if lp.get("assignedImage"):
                         lp.pop("assignedImage", None)
+                        lp.pop("imageFocusX", None)
+                        lp.pop("imageFocusY", None)
+                        lp.pop("imageZoom", None)
                         changed = True
                     if not lp.get("hideImage"):
                         lp["hideImage"] = True
@@ -601,6 +628,8 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 if lp.get("assignedImage") != hero_image_file:
                     lp["assignedImage"] = hero_image_file
                     changed = True
+                lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
+                lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
                 if lp.get("hideImage"):
                     lp.pop("hideImage", None)
                     hide_image_flags[i] = False
@@ -616,15 +645,37 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             while generic_idx < len(generic_files):
                 candidate = generic_files[generic_idx]
                 generic_idx += 1
-                if candidate in used_generic_files or candidate in scene_specific_files:
+                if candidate in used_generic_files:
                     continue
                 scene_image_map[i] = [candidate]
                 used_generic_files.add(candidate)
                 lp = scene_layout_props[i]
                 if lp.get("assignedImage") != candidate:
                     lp["assignedImage"] = candidate
+                    lp["imageFocusX"] = _clamp_focus_value(lp.get("imageFocusX", 50))
+                    lp["imageFocusY"] = _clamp_focus_value(lp.get("imageFocusY", 50))
                     dirty.add(i)
                 break
+
+        # Step 5: For image-capable scenes with no assigned image, persist hideImage=true.
+        # This prevents future auto-assignment from generic pool after a user de-assigns.
+        for i in range(len(scenes)):
+            if scene_layouts[i] in no_image_layouts or scene_image_map[i]:
+                continue
+            lp = scene_layout_props[i]
+            changed = False
+            if lp.get("assignedImage"):
+                lp.pop("assignedImage", None)
+                lp.pop("imageFocusX", None)
+                lp.pop("imageFocusY", None)
+                lp.pop("imageZoom", None)
+                changed = True
+            if not lp.get("hideImage"):
+                lp["hideImage"] = True
+                hide_image_flags[i] = True
+                changed = True
+            if changed:
+                dirty.add(i)
 
     # Serialize modified descriptors back to scenes (single write per scene)
     if dirty:
@@ -738,6 +789,7 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             "durationSeconds": round(effective_duration, 1),
             "voiceoverFile": voiceover_filename,
             "images": scene_images,
+            "layoutProps": layout_props,
         }
 
         if layout_config is not None:
@@ -758,7 +810,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         else:
             # Built-in templates: legacy format
             scene_entry["layout"] = layout
-            scene_entry["layoutProps"] = layout_props
             # Still pass structuredContent if present (custom templates always have it)
             if is_custom_template(template_id) and scene.remotion_code:
                 try:

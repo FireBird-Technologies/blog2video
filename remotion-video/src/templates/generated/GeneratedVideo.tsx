@@ -244,6 +244,10 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const SceneComp = getSceneComponent(scene, index, totalScenes);
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+        const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
+        const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
+        const imageZoom = Math.max(1, Number(scene.layoutProps?.imageZoom ?? 1));
+        const imageObjectPosition = `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`;
 
         // Spread structured content (bullets, metrics, quotes, etc.) onto scene props
         const sc = (scene.structuredContent || {}) as Record<string, unknown>;
@@ -251,6 +255,8 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           displayText: scene.displayText || scene.narration || scene.title,
           narrationText: scene.narrationText || scene.narration || "",
           imageUrl,
+          imageObjectPosition,
+  imageZoom,
           sceneIndex: index,
           totalScenes,
           logoUrl: (data.logo || data.brandLogo) ? staticFile((data.logo || data.brandLogo)!) : undefined,

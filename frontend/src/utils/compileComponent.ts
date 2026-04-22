@@ -21,6 +21,8 @@ export interface SceneProps {
   displayText: string;
   narrationText: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   sceneIndex: number;
   totalScenes: number;
   logoUrl?: string;

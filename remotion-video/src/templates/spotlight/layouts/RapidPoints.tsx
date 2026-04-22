@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { SPOTLIGHT_DISPLAY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * RapidPoints — Fast-Cut Phrases
@@ -12,8 +13,9 @@ import type { SpotlightLayoutProps } from "../types";
 export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
   phrases,
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -72,15 +74,21 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
             {hasImage && (
               <div
                 style={{
-                  flex: "0 0 38%",
-                  height: "100%",
-                  padding: "8% 0 8% 8%",
+                  flex: p ? "0 0 auto" : "0 0 38%",
+                  width: p ? "76%" : undefined,
+                  maxWidth: p ? 760 : undefined,
+                  height: p ? "44%" : "100%",
+                  padding: p ? "0" : "8% 0 8% 8%",
                   opacity: imageOpacity,
                   transform: `scale(${imageScale})`,
                 }}
               >
                 <div style={{ width: "100%", height: "100%", borderRadius: 4, overflow: "hidden" }}>
-                  <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <ZoomCropImg
+                    src={imageUrl}
+                    imageObjectPosition={imageObjectPosition}
+                    imageZoom={imageZoom}
+                  />
                 </div>
               </div>
             )}
@@ -123,3 +131,4 @@ export const RapidPoints: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+
