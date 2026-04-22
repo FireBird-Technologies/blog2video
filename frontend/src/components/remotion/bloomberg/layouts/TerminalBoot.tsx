@@ -252,7 +252,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
-          MBN TERMINAL  ·  LIVE SESSION
+          LIVE SESSION
         </span>
         <div style={{ flex: 1 }} />
         <MiniStat label="CPU" value={42 + (frame % 8)} color={amber} size={labelSize} />

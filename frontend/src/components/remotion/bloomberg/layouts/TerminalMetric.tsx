@@ -1,7 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
-import { BackgroundGraph } from "./BackgroundGraph";
+import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 
 export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
   title,
@@ -50,7 +50,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
           <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.65)" }} />
         </>
       )}
-      <BackgroundGraph accentColor={blue} textColor={amber} variant="metric" />
+      <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       {/* Top bar - Title removed from here */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
