@@ -1385,4 +1385,9 @@ export const createCustomVoiceClone = (formData: FormData) =>
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
 
+// ─── Embed API ────────────────────────────────────────────
+
+export const generateEmbedToken = (projectId: number) =>
+  api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
+
 export default api;

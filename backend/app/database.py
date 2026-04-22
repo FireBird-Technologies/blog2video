@@ -83,6 +83,8 @@ def _migrate_sqlite(eng) -> None:
             "aspect_ratio": "VARCHAR(20) DEFAULT 'landscape'",
             "ai_assisted_editing_count": "INTEGER DEFAULT 0",
             "font_family": "VARCHAR(255)",
+            "is_active": "BOOLEAN DEFAULT 1",
+            "embed_token": "VARCHAR(64)",
         }
         with eng.begin() as conn:
             for col_name, col_def in migrations.items():
