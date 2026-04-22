@@ -1151,7 +1151,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a project and all related data (local + R2 storage)."""
+    """Manually delete a project row from DB and remove all project storage."""
     project = _get_user_project(project_id, user.id, db)
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
@@ -1165,7 +1165,7 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-    # Delete R2 files
+    # Delete all project files from R2 (images/audio/video/logo)
     if r2_storage.is_r2_configured():
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
@@ -1178,11 +1178,7 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    project.is_active = False
-    project.r2_video_key = None
-    project.r2_video_url = None
-    project.logo_r2_key = None
-    project.logo_r2_url = None
+    db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
 

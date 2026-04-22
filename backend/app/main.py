@@ -28,16 +28,16 @@ from app.observability.logging import configure_logging
 
 # ─── Scheduled cleanup for stale data (free + paid tiers) ────
 
-def _delete_project_storage(project: Project) -> None:
-    """Delete all storage (local + R2) for a project."""
-    # Delete from R2
-    if r2_storage.is_r2_configured():
+def _delete_project_video_storage(project: Project) -> None:
+    """Delete rendered video artifacts only; preserve images/audio/logo assets."""
+    # Delete rendered video object from R2 only.
+    if r2_storage.is_r2_configured() and project.r2_video_key:
         try:
-            r2_storage.delete_project_files(project.user_id, project.id)
+            r2_storage.delete_object(project.r2_video_key)
         except Exception as e:
-            print(f"[CLEANUP] R2 deletion failed for project {project.id}: {e}")
+            print(f"[CLEANUP] R2 video deletion failed for project {project.id}: {e}")
 
-    # Delete local files
+    # Delete local files (workspace + output) under project media folder.
     project_media = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}")
     if os.path.exists(project_media):
         safe_remove_workspace(get_workspace_dir(project.id))
@@ -46,8 +46,8 @@ def _delete_project_storage(project: Project) -> None:
 
 async def _periodic_free_tier_cleanup():
     """
-    Every hour, delete projects for FREE-tier users that haven't been
-    updated in 7 days. Deletes from both local storage and R2.
+    Every hour, soft-delete projects for FREE-tier users that haven't been
+    updated in 7 days. Delete rendered video artifacts only.
     """
     while True:
         await asyncio.sleep(3600)  # run every hour
@@ -68,12 +68,10 @@ async def _periodic_free_tier_cleanup():
                     .all()
                 )
                 for project in stale_projects:
-                    _delete_project_storage(project)
+                    _delete_project_video_storage(project)
                     project.is_active = False
                     project.r2_video_key = None
                     project.r2_video_url = None
-                    project.logo_r2_key = None
-                    project.logo_r2_url = None
                     deactivated_count += 1
 
             db.commit()
@@ -88,7 +86,7 @@ async def _periodic_free_tier_cleanup():
 
 async def _periodic_paid_tier_cleanup():
     """
-    Every 6 hours, delete projects for paid users whose subscription
+    Every 6 hours, clean projects for paid users whose subscription
     has been canceled/expired for more than 30 days, OR whose last
     payment (per-video) was more than 30 days ago.
 
@@ -143,7 +141,7 @@ async def _periodic_paid_tier_cleanup():
                 .all()
             )
 
-            deleted_count = 0
+            deactivated_count = 0
 
             # Clean expired subscription users' projects
             for user_id in user_ids_to_clean:
@@ -156,31 +154,31 @@ async def _periodic_paid_tier_cleanup():
                     .filter(
                         Project.user_id == user_id,
                         Project.updated_at < cutoff_30d,
+                        Project.is_active == True,  # noqa: E712
                     )
                     .all()
                 )
                 for project in stale_projects:
-                    _delete_project_storage(project)
-                    db.delete(project)
-                    deleted_count += 1
+                    _delete_project_video_storage(project)
+                    project.is_active = False
+                    project.r2_video_key = None
+                    project.r2_video_url = None
+                    deactivated_count += 1
 
-            # Clean old per-video project files (keep DB record, delete storage)
+            # Clean old per-video project render artifacts (keep DB record and media assets).
             for sub in old_per_video:
                 if sub.project_id:
                     project = db.query(Project).filter(Project.id == sub.project_id).first()
                     if project and project.updated_at < cutoff_30d:
-                        _delete_project_storage(project)
-                        # Clear R2 references but keep the project record
+                        _delete_project_video_storage(project)
                         project.r2_video_key = None
                         project.r2_video_url = None
-                        for asset in project.assets:
-                            asset.r2_key = None
-                            asset.r2_url = None
-                        deleted_count += 1
+                        project.is_active = False
+                        deactivated_count += 1
 
             db.commit()
-            if deleted_count > 0:
-                print(f"[CLEANUP] Paid tier: cleaned {deleted_count} expired projects")
+            if deactivated_count > 0:
+                print(f"[CLEANUP] Paid tier: soft-deactivated {deactivated_count} stale projects")
         except Exception as e:
             print(f"[CLEANUP] Paid tier cleanup error: {e}")
             db.rollback()
