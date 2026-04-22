@@ -81,7 +81,7 @@ def generate_embed_token(
 
 @router.get("/project/{token}")
 def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse:
-    project = db.query(Project).filter(Project.embed_token == token, Project.is_active == True).first()
+    project = db.query(Project).filter(Project.embed_token == token).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
