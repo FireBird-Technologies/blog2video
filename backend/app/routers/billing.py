@@ -5,6 +5,7 @@ Supports both Pro subscription ($50/mo) and per-video purchase ($3).
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import stripe
 
@@ -88,20 +89,23 @@ def list_plans(db: Session = Depends(get_db)):
 
 def _count_active_per_video_credits(user_id: int, db: Session) -> int:
     """
-    Count per-video Subscription records for a user that are COMPLETED and
-    not yet expired (current_period_end is in the future or not set).
+    Sum per-video credits for a user from Subscription rows that are COMPLETED
+    and not yet expired (current_period_end is in the future or not set).
+
+    Sums Subscription.quantity rather than counting rows, because a single
+    slider purchase of N credits is stored as one row with quantity=N.
 
     These are the only credits that should contribute to video_limit_bonus.
     Free grants given manually (directly setting video_limit_bonus in the DB)
-    are NOT represented here, so they are excluded by this count.
+    are NOT represented here, so they are excluded by this sum.
     """
     now = datetime.utcnow()
     per_video_plan = db.query(SubscriptionPlan).filter_by(slug="per_video").first()
     if not per_video_plan:
         return 0
 
-    return (
-        db.query(Subscription)
+    total = (
+        db.query(func.coalesce(func.sum(Subscription.quantity), 0))
         .filter(
             Subscription.user_id == user_id,
             Subscription.plan_id == per_video_plan.id,
@@ -112,8 +116,9 @@ def _count_active_per_video_credits(user_id: int, db: Session) -> int:
                 (Subscription.current_period_end > now)
             ),
         )
-        .count()
+        .scalar()
     )
+    return int(total or 0)
 
 
 def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
@@ -1028,6 +1033,7 @@ def _handle_checkout_completed(session: dict, db: Session):
                         status=SubscriptionStatus.COMPLETED,
                         stripe_checkout_session_id=session_id,
                         amount_paid_cents=amount_paid_cents,
+                        quantity=qty,
                         videos_used=0,
                         current_period_start=now,
                         current_period_end=credit_expiry,

@@ -111,6 +111,10 @@ class Subscription(Base):
     # Usage tracking (for recurring plans with video limits)
     videos_used: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Number of credits in this purchase. 1 for recurring plans and legacy
+    # per-video buys; N for per-video packs bought via the slider.
+    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
     # Payment
     amount_paid_cents: Mapped[int] = mapped_column(Integer, default=0)
 
