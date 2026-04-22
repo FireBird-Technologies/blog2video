@@ -161,8 +161,13 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
         const imageUrl =
           scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
 
+        const lp = scene.layoutProps || {};
+        const focusX = typeof lp.imageFocusX === "number" ? lp.imageFocusX : 50;
+        const focusY = typeof lp.imageFocusY === "number" ? lp.imageFocusY : 50;
+        const resolvedZoom = typeof lp.imageZoom === "number" ? Math.max(1, lp.imageZoom) : 1;
+
         const layoutProps: BloombergLayoutProps = {
-          ...scene.layoutProps,
+          ...lp,
           title: scene.title,
           narration: scene.narration,
           accentColor: data.accentColor || "#5EA2FF",
@@ -170,6 +175,8 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#FFB340",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition: `${focusX}% ${focusY}%`,
+          imageZoom: resolvedZoom,
           layoutType: scene.layout,
           fontFamily: resolvedFontFamily || undefined,
         };

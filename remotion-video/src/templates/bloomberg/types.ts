@@ -32,6 +32,8 @@ export interface BloombergLayoutProps {
   title: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
 
   // Global color/style
   accentColor: string;

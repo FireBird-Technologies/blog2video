@@ -2,6 +2,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   title,
@@ -14,6 +15,9 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   descriptionFontSize,
   aspectRatio = "landscape",
   items = [],
+  imageUrl,
+  imageObjectPosition,
+  imageZoom,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -43,6 +47,14 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+      {imageUrl && (
+        <>
+          <div style={{ position: "absolute", inset: 0 }}>
+            <ZoomCropImg src={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} />
+          </div>
+          <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.65)" }} />
+        </>
+      )}
       {/* Top bar (Title removed) */}
       <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       <div style={{

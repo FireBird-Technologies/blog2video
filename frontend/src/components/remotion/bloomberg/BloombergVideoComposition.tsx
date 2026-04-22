@@ -18,6 +18,8 @@ export interface BloombergSceneInput {
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   voiceoverUrl?: string;
 }
 
@@ -69,8 +71,13 @@ export const BloombergVideoComposition: React.FC<
           BLOOMBERG_LAYOUT_REGISTRY[scene.layout] ??
           BLOOMBERG_LAYOUT_REGISTRY.terminal_narrative;
 
+        const lp = (scene.layoutProps || {}) as Record<string, unknown>;
+        const focusX = typeof lp.imageFocusX === "number" ? lp.imageFocusX : 50;
+        const focusY = typeof lp.imageFocusY === "number" ? lp.imageFocusY : 50;
+        const resolvedZoom = typeof lp.imageZoom === "number" ? lp.imageZoom : (scene.imageZoom ?? 1);
+
         const layoutProps: BloombergLayoutProps = {
-          ...(scene.layoutProps as Record<string, unknown>),
+          ...lp,
           title: scene.title,
           narration: scene.narration,
           accentColor: accentColor || "#5EA2FF",
@@ -78,6 +85,8 @@ export const BloombergVideoComposition: React.FC<
           textColor: textColor || "#FFB340",
           aspectRatio: aspectRatio || "landscape",
           imageUrl: scene.imageUrl,
+          imageObjectPosition: scene.imageObjectPosition ?? `${focusX}% ${focusY}%`,
+          imageZoom: resolvedZoom,
           layoutType: scene.layout,
           fontFamily,
         };
