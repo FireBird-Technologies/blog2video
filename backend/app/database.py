@@ -375,7 +375,6 @@ def init_db():
         Review,
         ProjectTemplateChangeJob,
         BlastCampaign,
-        BlastEmailSend,
     )
     from app.models.subscription import seed_plans
 
