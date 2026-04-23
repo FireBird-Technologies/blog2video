@@ -17,6 +17,127 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "blog2video-embed-preview-no-render-needed",
+    title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+    description:
+      "Blog2Video now lets you generate an embed link for any video draft with scenes so teammates, clients, and readers can preview and share it before the final render.",
+    category: "Product Update",
+    publishedAt: "2026-04-23",
+    readTime: "4 min read",
+    heroEyebrow: "Product Update - April 2026",
+    heroTitle: "Any video draft can now be previewed, embedded, and shared before rendering.",
+    heroDescription:
+      "If a project already has scenes, you can now generate a live embed link and let other people review the video in a browser or on your site without waiting for a final render.",
+    primaryKeyword: "embed video preview without rendering",
+    keywordVariant: "share video preview before render",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/distribution-flywheel",
+      "/blog-to-youtube-video",
+    ],
+    sections: [
+      {
+        heading: "The bottleneck used to be the render",
+        paragraphs: [
+          "Before this update, sharing a work-in-progress video often meant waiting for a full render just to get feedback. That slowed down approvals, client review, and simple publishing workflows where the main question was whether the scenes, pacing, and structure already worked.",
+          "The new embed feature removes that bottleneck. As soon as a project has scenes, Blog2Video can generate a shareable preview link that plays the live video draft directly in the browser.",
+        ],
+      },
+      {
+        heading: "What the new embed feature actually does",
+        paragraphs: [
+          "You can now generate an embed snippet for any project with scenes and place it inside a website, article, knowledge-base page, or internal tool. The person opening it sees the live preview version of the video instead of a rendered export.",
+          "That means the project becomes reviewable and shareable earlier in the workflow. You do not need to spend a render just to show someone what the video is shaping up to look like.",
+        ],
+        bullets: [
+          "Create a shareable preview as soon as scenes exist",
+          "Embed the video draft with an iframe snippet",
+          "Let teammates or clients review the current version before final export",
+        ],
+      },
+      {
+        heading: "Why this matters in real workflows",
+        paragraphs: [
+          "The biggest win is speed. Teams can review structure, branding, voice fit, and scene order before committing to the final render. That makes the render step feel more like publishing and less like guesswork.",
+          "It also makes distribution more flexible. A marketing team can drop the preview into a draft blog post, a founder can send it to a client for approval, and an editor can collect feedback without generating a final file every time something small changes.",
+        ],
+        bullets: [
+          "Faster stakeholder review before publishing",
+          "Less wasted rendering on early drafts",
+          "Easier sharing across blogs, docs, and client workflows",
+        ],
+      },
+      {
+        heading: "A better fit for written-first creation",
+        paragraphs: [
+          "Blog2Video already starts from written content, then turns that material into a scene-by-scene video draft you can edit. The embed feature extends that logic. The draft is no longer trapped inside the editor while you wait for export.",
+          "If your workflow involves article pages, landing pages, newsletters, course portals, or internal review loops, the preview itself is now something you can distribute while the project is still being refined.",
+        ],
+      },
+      {
+        heading: "When to render and when not to",
+        paragraphs: [
+          "Rendering is still the right step when you need the final downloadable asset for YouTube, direct uploads, or polished delivery. But not every moment in the workflow requires that final file.",
+          "If the goal is review, approval, or embedding the current version in a page, the live preview is often enough. That helps teams save renders for the moments when output quality and file delivery actually matter.",
+        ],
+      },
+      {
+        heading: "This is live now",
+        paragraphs: [
+          "Any Blog2Video project with scenes can now generate an embed link and be shared without rendering first. The result is a faster loop from draft to feedback to publish.",
+          "If you already use Blog2Video to turn posts, PDFs, or articles into videos, this update makes the review and sharing part of that workflow much lighter.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Create a video draft from an article",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to render the video before I can embed it?",
+        answer:
+          "No. If the project already has scenes, Blog2Video can generate an embed link that shows the live preview version without requiring a final render first.",
+      },
+      {
+        question: "What is the embed preview useful for?",
+        answer:
+          "It is useful for client review, internal approvals, draft blog embeds, documentation pages, landing pages, and any workflow where people need to see the current version before export.",
+      },
+      {
+        question: "Does rendering still matter after this update?",
+        answer:
+          "Yes. Rendering is still important when you need the final downloadable video file for publishing, uploads, or polished delivery. The new feature simply removes unnecessary rendering during review and sharing.",
+      },
+      {
+        question: "Can I share the preview outside the Blog2Video editor?",
+        answer:
+          "Yes. The feature generates an iframe-based embed snippet, so the preview can be opened or embedded outside the editor as part of your normal content and review workflow.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
+        angle: "Product update announcing that any project with scenes can now be embedded and shared as a live preview before the final render.",
+      },
+      {
+        channel: "video",
+        title: "Share Blog2Video drafts before rendering",
+        angle: "Show a project with scenes, generate the embed link, paste the iframe snippet, and explain how this speeds up review and approvals.",
+      },
+      {
+        channel: "substack",
+        title: "Why removing the render bottleneck matters",
+        angle: "Frame the update around faster stakeholder feedback, fewer wasted renders, and smoother written-to-video workflows.",
+      },
+      {
+        channel: "medium",
+        title: "The missing step between video draft and final render",
+        angle: "Explain why preview-first sharing is a better workflow than rendering every iteration just to gather feedback.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-just-shipped-april-2026",
     title: "Blog2Video Just Shipped: Templates, Mobile, Smarter Newscast, and More",
     description:
