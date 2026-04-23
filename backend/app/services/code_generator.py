@@ -97,7 +97,11 @@ class GenerateSceneCode(dspy.Signature):
       Each bullet is its OWN visible row/card — NEVER dump all bullets into one paragraph.
     - Stagger each item's entrance: opacity and translateX animated with delay = i * 12 frames.
 
-    Images & Logo (MANDATORY — every scene MUST handle these):
+    Images & Logo (MANDATORY — every scene MUST handle these — NO exceptions for intro/outro):
+    - EVERY scene (intro, content, outro) MUST support content images via props.imageUrl. There are
+      NO image-less scene types — the validator REJECTS any scene that does not declare `hasImage`
+      and render props.imageUrl when present. Brand intro/outro scenes still support images
+      (e.g. hero photo behind brand logo, founder photo, product shot, etc.).
     - ALWAYS check props.logoUrl safely and render it when present:
       {props.logoUrl && typeof props.logoUrl === 'string' && (
         <Img src={props.logoUrl} data-logo="1" style={{width: 80, height: 80, objectFit: "contain", ...}} />
@@ -121,9 +125,35 @@ class GenerateSceneCode(dspy.Signature):
         transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
       This lets users adjust image focus/zoom without regenerating the template.
     - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
+      This `hasImage` declaration is MANDATORY in every content scene — the validator REJECTS
+      scenes that do not declare it. Do NOT skip this even when also branching on aspect ratio.
       WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
       WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
       Both modes must look intentionally designed — not like something is missing.
+
+    Aspect-ratio-aware layout (MANDATORY — different orientations need different layouts):
+    - The same component renders into BOTH a 1920x1080 landscape canvas AND a 1080x1920 portrait canvas.
+      A landscape side-by-side layout (image 50% width × full height) becomes a tall narrow strip in
+      portrait if not branched — that looks broken. ALWAYS branch on aspectRatio.
+    - REQUIRED top-of-component declarations (BOTH must be present together — neither replaces the other):
+        const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
+        const isPortrait = props.aspectRatio === 'portrait';
+      Then combine them — there are FOUR layout cases to design for:
+        (1) hasImage  && !isPortrait  → landscape split (image side, text side)
+        (2) hasImage  &&  isPortrait  → portrait stacked (image top, text bottom)
+        (3) !hasImage && !isPortrait  → landscape full-width text, no empty image gap
+        (4) !hasImage &&  isPortrait  → portrait full-width text, no empty image gap
+    - Concrete recipe when hasImage:
+        Landscape branch: flexDirection: 'row', image container width: '50%' height: '100%';
+        text container width: '50%' height: '100%'.
+        Portrait branch:  flexDirection: 'column', image container width: '100%' height: '45%' (top);
+        text container width: '100%' height: '55%' (bottom).
+      The element with data-content-img="1" lives ONLY inside the hasImage branch.
+    - Use isPortrait to also choose font sizes (portrait often needs slightly smaller headings since
+      the canvas is narrower than landscape).
+    - Reference implementation: blackswan/ArcFeatures uses `const p = aspectRatio === "portrait";` and
+      renders entirely different JSX trees with `if (!p && hasImage) { ... } else { ... }`.
+      Notice both `p` AND `hasImage` are declared and used together.
     - When props.imageUrl is ABSENT (hasImage is false): use floating particle dots or geometric decorative shapes
       as visual interest — ALWAYS respect the brand_context background instruction (solid vs gradient).
       If brand_context says "solid backgrounds only", use the solid bg color. If it says "gradient", use the gradient.
@@ -196,43 +226,38 @@ class GenerateSceneCode(dspy.Signature):
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
     image_box_width_fraction_landscape: float = dspy.OutputField(
         desc=(
-            "When props.aspectRatio === 'landscape' (canvas 1920x1080): "
-            "fraction of the SCENE WIDTH occupied by the image container in the code (0.0 to 1.0). "
-            "Examples: 0.5 if the image container takes half the scene width (e.g. width: '50%'), "
-            "1.0 if it spans the full scene width, 0.4 if it's 40% wide. "
+            "Inside the `if (!isPortrait) { ... }` (or `!p && ...`) branch of your code: "
+            "fraction of the LANDSCAPE 1920x1080 canvas WIDTH occupied by the image container (0.0 to 1.0). "
+            "Examples: 0.5 if image container is width: '50%' of the scene, 1.0 if width: '100%'. "
             "Read this directly from the width style you set on the element with data-content-img=\"1\" "
-            "in the landscape branch of your code. "
-            "If the scene has no image container, output 1.0."
+            "in the LANDSCAPE branch. If the scene has no image, output 1.0."
         )
     )
     image_box_height_fraction_landscape: float = dspy.OutputField(
         desc=(
-            "When props.aspectRatio === 'landscape' (canvas 1920x1080): "
-            "fraction of the SCENE HEIGHT occupied by the image container in the code (0.0 to 1.0). "
-            "Examples: 1.0 if the image container takes full height (e.g. height: '100%'), "
-            "0.6 if it's 60% tall, 0.5 if it spans half the scene height. "
-            "Read this directly from the height style you set on the element with data-content-img=\"1\" "
-            "in the landscape branch of your code. "
-            "If the scene has no image container, output 1.0."
+            "Inside the LANDSCAPE branch of your code: "
+            "fraction of the LANDSCAPE 1920x1080 canvas HEIGHT occupied by the image container (0.0 to 1.0). "
+            "Examples: 1.0 if height: '100%' of scene, 0.5 if height: '50%' (top/bottom half). "
+            "Read this from the height style of the LANDSCAPE branch's data-content-img element. "
+            "If the scene has no image, output 1.0."
         )
     )
     image_box_width_fraction_portrait: float = dspy.OutputField(
         desc=(
-            "When props.aspectRatio === 'portrait' (canvas 1080x1920): "
-            "fraction of the SCENE WIDTH occupied by the image container in the code (0.0 to 1.0). "
-            "If the layout flips for portrait (e.g. image goes from side-by-side to stacked top), "
-            "report the portrait-mode width fraction. If portrait reuses the same width as landscape, "
-            "output the same value. "
-            "If the scene has no image container, output 1.0."
+            "Inside the `if (isPortrait) { ... }` (or `p && ...`) branch of your code: "
+            "fraction of the PORTRAIT 1080x1920 canvas WIDTH occupied by the image container (0.0 to 1.0). "
+            "Common portrait layouts use width: '100%' (image stacked above text) → output 1.0. "
+            "Read this from the width style of the PORTRAIT branch's data-content-img element. "
+            "If portrait reuses the landscape branch (same JSX), output the landscape width fraction."
         )
     )
     image_box_height_fraction_portrait: float = dspy.OutputField(
         desc=(
-            "When props.aspectRatio === 'portrait' (canvas 1080x1920): "
-            "fraction of the SCENE HEIGHT occupied by the image container in the code (0.0 to 1.0). "
-            "If the layout flips for portrait (e.g. image takes top half: height: '50%'), report 0.5. "
-            "If portrait reuses the same height as landscape, output the same value. "
-            "If the scene has no image container, output 1.0."
+            "Inside the PORTRAIT branch of your code: "
+            "fraction of the PORTRAIT 1080x1920 canvas HEIGHT occupied by the image container (0.0 to 1.0). "
+            "Common portrait layouts: image is the top 40-50% (height: '45%') → output 0.45. "
+            "Read this from the height style of the PORTRAIT branch's data-content-img element. "
+            "If portrait reuses the landscape branch, output the landscape height fraction."
         )
     )
 

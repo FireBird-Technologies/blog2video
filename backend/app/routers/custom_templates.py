@@ -773,6 +773,12 @@ async def regenerate_code(
     tpl.outro_code = variants["outro_code"]
     tpl.content_codes = json.dumps(variants["content_codes"]) if variants.get("content_codes") else None
     tpl.content_archetype_ids = json.dumps(variants.get("archetype_ids", []))
+    _default_ar = {"landscape": "16 / 9", "portrait": "9 / 16"}
+    tpl.image_box_aspect_ratios = json.dumps({
+        "intro": variants.get("intro_aspect_ratio") or _default_ar,
+        "content": variants.get("content_aspect_ratios") or [],
+        "outro": variants.get("outro_aspect_ratio") or _default_ar,
+    })
 
     _save_version(tpl, "Regenerated", db)
     db.commit()
