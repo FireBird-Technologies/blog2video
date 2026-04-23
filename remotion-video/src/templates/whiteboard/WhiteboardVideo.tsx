@@ -28,12 +28,14 @@ interface SceneData {
 
 interface VideoData {
   projectName: string;
+  heroImage?: string | null;
   accentColor: string;
   bgColor: string;
   textColor: string;
   logo?: string | null;
   logoPosition?: string;
   logoOpacity?: number;
+  logoSize?: string;
   aspectRatio?: string;
   playbackSpeed?: number;
   fontFamily?: string | null;
@@ -151,6 +153,8 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#111827",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
         };
 
@@ -174,9 +178,11 @@ export const WhiteboardVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           src={staticFile(data.logo)}
           position={data.logoPosition || "bottom_right"}
           maxOpacity={data.logoOpacity ?? 0.9}
+          size={data.logoSize || "default"}
           aspectRatio={data.aspectRatio || "landscape"}
         />
       )}
     </AbsoluteFill>
   );
 };
+

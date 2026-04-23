@@ -19,6 +19,8 @@ export interface SceneLayoutProps {
   title: string;
   narration: string;
   imageUrl?: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   accentColor: string;
   bgColor: string;
   textColor: string;

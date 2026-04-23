@@ -4,9 +4,11 @@ import logging
 import os
 import shutil
 import time
+import requests
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 
@@ -235,6 +237,50 @@ def _extract_layout_from_descriptor_obj(descriptor: object, template_id: str) ->
         return None
     layout = descriptor.get("layout") if isinstance(descriptor, dict) else None
     return layout if isinstance(layout, str) else None
+
+
+def _clamp_image_focus(value: object | None) -> float:
+    try:
+        num = float(value)
+    except Exception:
+        return 50.0
+    if num < 0:
+        return 0.0
+    if num > 100:
+        return 100.0
+    return round(num, 2)
+
+
+def _clamp_image_zoom(value: object | None) -> float:
+    try:
+        num = float(value)
+    except Exception:
+        return 1.0
+    if num < 1:
+        return 1.0
+    if num > 12:
+        return 12.0
+    return round(num, 2)
+
+
+def _ensure_layout_props_dict(descriptor: dict) -> dict:
+    lp = descriptor.get("layoutProps")
+    if not isinstance(lp, dict):
+        lp = {}
+    descriptor["layoutProps"] = lp
+    return lp
+
+
+def _apply_default_focus(lp: dict) -> None:
+    lp["imageFocusX"] = _clamp_image_focus(lp.get("imageFocusX", 50))
+    lp["imageFocusY"] = _clamp_image_focus(lp.get("imageFocusY", 50))
+
+
+def _clear_image_assignment(lp: dict) -> None:
+    lp.pop("assignedImage", None)
+    lp.pop("imageFocusX", None)
+    lp.pop("imageFocusY", None)
+    lp.pop("imageZoom", None)
 
 
 def _build_ending_socials_props(project: Project, scene: Scene) -> dict:
@@ -1105,7 +1151,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a project and all related data (local + R2 storage)."""
+    """Manually delete a project row from DB and remove all project storage."""
     project = _get_user_project(project_id, user.id, db)
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
@@ -1119,7 +1165,7 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-    # Delete R2 files
+    # Delete all project files from R2 (images/audio/video/logo)
     if r2_storage.is_r2_configured():
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
@@ -1132,11 +1178,7 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    project.is_active = False
-    project.r2_video_key = None
-    project.r2_video_url = None
-    project.logo_r2_key = None
-    project.logo_r2_url = None
+    db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
 
@@ -1216,38 +1258,29 @@ def delete_asset(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+    local_path = asset.local_path
+    r2_key = asset.r2_key
+
     # If this is an image, clear assignedImage from scenes that reference it
     # and mark those scenes as hideImage=true so they won't get a new generic
     # image auto-assigned later.
     if asset.asset_type.value == "image":
         deleted_filename = asset.filename
         scenes = db.query(Scene).filter(Scene.project_id == project_id).all()
-        scenes_updated = False
-        
         for scene in scenes:
             if not scene.remotion_code:
                 continue
-            
             try:
                 desc = json.loads(scene.remotion_code)
                 layout_props = desc.get("layoutProps", {}) or {}
                 assigned_image = layout_props.get("assignedImage")
-                
-                # If this scene has the deleted image assigned, clear it and lock it to no image
                 if assigned_image == deleted_filename:
-                    layout_props.pop("assignedImage", None)
+                    _clear_image_assignment(layout_props)
                     layout_props["hideImage"] = True
                     desc["layoutProps"] = layout_props
                     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(desc))
-                    scenes_updated = True
             except (json.JSONDecodeError, TypeError):
                 continue
-        
-        if scenes_updated:
-            db.commit()
-
-    local_path = asset.local_path
-    r2_key = asset.r2_key
 
     db.delete(asset)
     db.commit()
@@ -1303,6 +1336,48 @@ MANUAL_TRACKED_FIELDS = {
     "narration_text",
     "extra_hold_seconds",
 }
+
+
+class SceneImageFocusUpdate(BaseModel):
+    image_focus_x: float = Field(default=50, ge=0, le=100)
+    image_focus_y: float = Field(default=50, ge=0, le=100)
+    image_zoom: float | None = Field(default=None, ge=1, le=12)
+
+
+class SceneImageMoveRequest(BaseModel):
+    from_scene_id: int
+    to_scene_id: int
+
+
+class SceneImageSwapRequest(BaseModel):
+    first_scene_id: int
+    second_scene_id: int
+
+
+class SceneImageDuplicateRequest(BaseModel):
+    source_scene_id: int
+    target_scene_id: int
+
+
+class SceneImageAssignExistingRequest(BaseModel):
+    scene_id: int
+    asset_id: int
+
+
+def _parse_scene_descriptor(scene: Scene) -> dict:
+    if not scene.remotion_code:
+        return {}
+    try:
+        parsed = json.loads(scene.remotion_code)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _scene_supports_images(project: Project, scene: Scene) -> bool:
+    descriptor = _parse_scene_descriptor(scene)
+    layout = _extract_layout_from_descriptor_obj(descriptor, project.template) or ""
+    return layout not in get_layouts_without_image(project.template)
 
 
 @router.put("/{project_id}/scenes/{scene_id}", response_model=SceneOut)
@@ -1594,8 +1669,8 @@ async def update_scene_image(
     db: Session = Depends(get_db),
 ):
     """Upload/replace scene image without regenerating the scene layout.
-    If the scene already had an image assigned (generic or scene-specific), that asset
-    is deleted so it does not remain in the project."""
+    Any previous image assigned to this scene is only cleared from the scene;
+    the old asset row and files remain (delete explicitly via the asset API if needed)."""
     import json
     from app.models.scene import Scene
     from app.models.asset import Asset, AssetType
@@ -1610,36 +1685,6 @@ async def update_scene_image(
     )
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
-
-    # If scene already has an image assigned, delete that asset (generic or scene-specific)
-    old_assigned = None
-    if scene.remotion_code:
-        try:
-            desc = json.loads(scene.remotion_code)
-            old_assigned = (desc.get("layoutProps") or {}).get("assignedImage")
-        except (json.JSONDecodeError, TypeError):
-            pass
-    if old_assigned and isinstance(old_assigned, str):
-        old_asset = (
-            db.query(Asset)
-            .filter(Asset.project_id == project_id, Asset.filename == old_assigned)
-            .first()
-        )
-        if old_asset:
-            local_path = old_asset.local_path
-            r2_key = old_asset.r2_key
-            db.delete(old_asset)
-            db.flush()
-            if local_path and os.path.isfile(local_path):
-                try:
-                    os.remove(local_path)
-                except OSError as e:
-                    print(f"[IMAGE_UPDATE] Failed to remove old file {local_path}: {e}")
-            if r2_key:
-                try:
-                    r2_storage.delete_file(r2_key)
-                except Exception as e:
-                    print(f"[IMAGE_UPDATE] R2 delete failed for {r2_key}: {e}")
 
     allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
     if image.content_type not in allowed_types:
@@ -1689,10 +1734,10 @@ async def update_scene_image(
         except (json.JSONDecodeError, TypeError):
             descriptor = {}
 
-    if "layoutProps" not in descriptor:
-        descriptor["layoutProps"] = {}
-    descriptor["layoutProps"]["assignedImage"] = image_filename
-    descriptor["layoutProps"].pop("hideImage", None)
+    layout_props = _ensure_layout_props_dict(descriptor)
+    layout_props["assignedImage"] = image_filename
+    layout_props.pop("hideImage", None)
+    _apply_default_focus(layout_props)
     scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
 
     # Keep project.status and r2_video_* as-is: the exported MP4 stays available until the user
@@ -1707,6 +1752,251 @@ async def update_scene_image(
         print(f"[IMAGE_UPDATE] Warning: Failed to rebuild workspace: {e}")
 
     return scene
+
+
+@router.patch("/{project_id}/scenes/{scene_id}/image-focus", response_model=SceneOut)
+def update_scene_image_focus(
+    project_id: int,
+    scene_id: int,
+    data: SceneImageFocusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    scene = (
+        db.query(Scene)
+        .filter(Scene.id == scene_id, Scene.project_id == project_id)
+        .first()
+    )
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, scene):
+        raise HTTPException(status_code=400, detail="This layout does not support images")
+
+    descriptor = _parse_scene_descriptor(scene)
+    lp = _ensure_layout_props_dict(descriptor)
+    if lp.get("hideImage"):
+        raise HTTPException(status_code=400, detail="Cannot set image focus while image is hidden")
+    if not lp.get("assignedImage"):
+        raise HTTPException(status_code=400, detail="No assigned image found for this scene")
+
+    lp["imageFocusX"] = _clamp_image_focus(data.image_focus_x)
+    lp["imageFocusY"] = _clamp_image_focus(data.image_focus_y)
+    if data.image_zoom is not None:
+        lp["imageZoom"] = _clamp_image_zoom(data.image_zoom)
+    scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(descriptor))
+    db.commit()
+    db.refresh(scene)
+
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_FOCUS] Workspace rebuild failed for project %s: %s", project_id, e)
+    return scene
+
+
+@router.post("/{project_id}/images/move")
+def move_scene_image(
+    project_id: int,
+    data: SceneImageMoveRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    from_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.from_scene_id).first()
+    to_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.to_scene_id).first()
+    if not from_scene or not to_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, to_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    from_desc = _parse_scene_descriptor(from_scene)
+    to_desc = _parse_scene_descriptor(to_scene)
+    from_lp = _ensure_layout_props_dict(from_desc)
+    to_lp = _ensure_layout_props_dict(to_desc)
+    assigned = from_lp.get("assignedImage")
+    if not assigned:
+        raise HTTPException(status_code=400, detail="Source scene has no assigned image")
+
+    to_lp["assignedImage"] = assigned
+    to_lp["hideImage"] = False
+    to_lp["imageFocusX"] = _clamp_image_focus(from_lp.get("imageFocusX", 50))
+    to_lp["imageFocusY"] = _clamp_image_focus(from_lp.get("imageFocusY", 50))
+    _clear_image_assignment(from_lp)
+    from_lp["hideImage"] = True
+
+    from_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(from_desc))
+    to_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(to_desc))
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_MOVE] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image moved"}
+
+
+@router.post("/{project_id}/images/swap")
+def swap_scene_images(
+    project_id: int,
+    data: SceneImageSwapRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    first = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.first_scene_id).first()
+    second = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.second_scene_id).first()
+    if not first or not second:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, first) or not _scene_supports_images(project, second):
+        raise HTTPException(status_code=400, detail="Both scenes must support images to swap")
+
+    first_desc = _parse_scene_descriptor(first)
+    second_desc = _parse_scene_descriptor(second)
+    first_lp = _ensure_layout_props_dict(first_desc)
+    second_lp = _ensure_layout_props_dict(second_desc)
+    first_assigned = first_lp.get("assignedImage")
+    second_assigned = second_lp.get("assignedImage")
+    if not first_assigned and not second_assigned:
+        raise HTTPException(status_code=400, detail="Neither scene has an assigned image")
+
+    first_focus = (
+        _clamp_image_focus(first_lp.get("imageFocusX", 50)),
+        _clamp_image_focus(first_lp.get("imageFocusY", 50)),
+    )
+    second_focus = (
+        _clamp_image_focus(second_lp.get("imageFocusX", 50)),
+        _clamp_image_focus(second_lp.get("imageFocusY", 50)),
+    )
+
+    if second_assigned:
+        first_lp["assignedImage"] = second_assigned
+        first_lp["hideImage"] = False
+        first_lp["imageFocusX"], first_lp["imageFocusY"] = second_focus
+    else:
+        _clear_image_assignment(first_lp)
+        first_lp["hideImage"] = True
+
+    if first_assigned:
+        second_lp["assignedImage"] = first_assigned
+        second_lp["hideImage"] = False
+        second_lp["imageFocusX"], second_lp["imageFocusY"] = first_focus
+    else:
+        _clear_image_assignment(second_lp)
+        second_lp["hideImage"] = True
+
+    first.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(first_desc))
+    second.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(second_desc))
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_SWAP] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Images swapped"}
+
+
+@router.post("/{project_id}/images/duplicate")
+def duplicate_scene_image(
+    project_id: int,
+    data: SceneImageDuplicateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    source_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.source_scene_id).first()
+    target_scene = db.query(Scene).filter(Scene.project_id == project_id, Scene.id == data.target_scene_id).first()
+    if not source_scene or not target_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, target_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    source_desc = _parse_scene_descriptor(source_scene)
+    source_lp = _ensure_layout_props_dict(source_desc)
+    source_filename = source_lp.get("assignedImage")
+    if not source_filename:
+        raise HTTPException(status_code=400, detail="Source scene has no assigned image")
+
+    source_asset = (
+        db.query(Asset)
+        .filter(Asset.project_id == project_id, Asset.filename == source_filename, Asset.asset_type == AssetType.IMAGE)
+        .first()
+    )
+    if not source_asset:
+        raise HTTPException(status_code=404, detail="Source image asset not found")
+
+    target_desc = _parse_scene_descriptor(target_scene)
+    target_lp = _ensure_layout_props_dict(target_desc)
+
+    target_lp["assignedImage"] = source_filename
+    target_lp["hideImage"] = False
+    target_lp["imageFocusX"] = _clamp_image_focus(source_lp.get("imageFocusX", 50))
+    target_lp["imageFocusY"] = _clamp_image_focus(source_lp.get("imageFocusY", 50))
+    target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
+    db.commit()
+
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_DUPLICATE] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image duplicated to target scene"}
+
+
+@router.post("/{project_id}/images/assign-existing")
+def assign_existing_image_to_scene(
+    project_id: int,
+    data: SceneImageAssignExistingRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.models.asset import Asset, AssetType
+    from app.services.remotion import rebuild_workspace
+
+    project = _get_user_project(project_id, user.id, db)
+    target_scene = (
+        db.query(Scene)
+        .filter(Scene.project_id == project_id, Scene.id == data.scene_id)
+        .first()
+    )
+    if not target_scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    if not _scene_supports_images(project, target_scene):
+        raise HTTPException(status_code=400, detail="Target scene layout does not support images")
+
+    source_asset = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project_id,
+            Asset.id == data.asset_id,
+            Asset.asset_type == AssetType.IMAGE,
+        )
+        .first()
+    )
+    if not source_asset:
+        raise HTTPException(status_code=404, detail="Source image asset not found")
+
+    target_desc = _parse_scene_descriptor(target_scene)
+    target_lp = _ensure_layout_props_dict(target_desc)
+
+    target_lp["assignedImage"] = source_asset.filename
+    target_lp["hideImage"] = False
+    target_lp["imageFocusX"] = 50
+    target_lp["imageFocusY"] = 50
+    target_scene.remotion_code = json.dumps(_sanitize_descriptor_for_data_viz(target_desc))
+
+    db.commit()
+    try:
+        rebuild_workspace(project, list(project.scenes), db)
+    except Exception as e:
+        logger.warning("[IMAGE_ASSIGN_EXISTING] Workspace rebuild failed for project %s: %s", project_id, e)
+    return {"detail": "Image assigned to scene"}
 
 
 @router.get("/{project_id}/layouts")
@@ -2070,18 +2360,22 @@ async def regenerate_scene(
         if remove_image:
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
-            descriptor["layoutProps"]["hideImage"] = True
-            descriptor["layoutProps"].pop("imageUrl", None)
-            descriptor["layoutProps"].pop("assignedImage", None)
+            lp = descriptor["layoutProps"]
+            lp["hideImage"] = True
+            lp.pop("imageUrl", None)
+            _clear_image_assignment(lp)
         elif not image and current_descriptor:
             old_lp = current_descriptor.get("layoutProps") or {}
             if "layoutProps" not in descriptor:
                 descriptor["layoutProps"] = {}
+            new_lp = descriptor["layoutProps"]
             old_assigned = old_lp.get("assignedImage")
             if old_assigned:
-                descriptor["layoutProps"]["assignedImage"] = old_assigned
+                new_lp["assignedImage"] = old_assigned
+                new_lp["imageFocusX"] = _clamp_image_focus(old_lp.get("imageFocusX", 50))
+                new_lp["imageFocusY"] = _clamp_image_focus(old_lp.get("imageFocusY", 50))
             if old_lp.get("hideImage"):
-                descriptor["layoutProps"]["hideImage"] = True
+                new_lp["hideImage"] = True
 
         # Preserve custom font sizes from old layoutConfig into the new descriptor
         if is_custom_template(project.template) and "layoutConfig" in descriptor and current_descriptor:

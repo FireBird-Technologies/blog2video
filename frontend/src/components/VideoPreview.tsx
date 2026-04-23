@@ -108,10 +108,13 @@ const StableCustomComposition: React.FC<any> = ({
         if (!SceneComp) return null;
 
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
+        const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
+        const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
+          imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -559,15 +562,15 @@ export default function VideoPreview({
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
-      // In local dev, prefer local media files over R2 URLs
-      // R2 URLs may not be accessible or may have connection issues locally
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
       const isLocalDev = !BACKEND_URL || 
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
       let base: string;
       if (isLocalDev) {
-        base = localPath;
+        base = asset.r2_url ? asset.r2_url : localPath;
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
@@ -596,14 +599,12 @@ export default function VideoPreview({
       const filenameToAsset = new Map<string, typeof imageAssets[0]>();
       imageAssets.forEach((asset) => filenameToAsset.set(asset.filename, asset));
 
-      // 1) First pass: Check for stored assignedImage + hideImage in each scene's layoutProps
-      // This ensures images move with their scenes when reordered, and scenes explicitly
-      // marked hideImage=true never get an auto-assigned generic image.
-      project.scenes.forEach((scene, idx) => {
+      // 1) Honor stored assignedImage (any filename); multiple scenes may share one file.
+      project.scenes.forEach((sceneRow, idx) => {
         let layoutProps: Record<string, unknown> = {};
-        if (scene.remotion_code) {
+        if (sceneRow.remotion_code) {
           try {
-            const descriptor = JSON.parse(scene.remotion_code);
+            const descriptor = JSON.parse(sceneRow.remotion_code);
             layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
           } catch {
             /* legacy */
@@ -612,64 +613,59 @@ export default function VideoPreview({
 
         const hideImage = Boolean((layoutProps as any).hideImage);
         hideImageFlags[idx] = hideImage;
+        if (hideImage) {
+          return;
+        }
 
         const assignedImage = layoutProps.assignedImage as string | undefined;
-        if (!hideImage && assignedImage && filenameToAsset.has(assignedImage)) {
-          const m = assignedImage.match(/^scene_(\d+)_/);
-          if (m) {
-            // Scene-specific assignment must match current scene id
-            const assignedSceneId = parseInt(m[1], 10);
-            if (assignedSceneId === scene.id) {
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          } else {
-            // Generic assignment: enforce 1 generic -> 1 scene in preview
-            if (!usedGenericFiles.has(assignedImage)) {
-              usedGenericFiles.add(assignedImage);
-              sceneImageMap[idx] = resolveUrl(filenameToAsset.get(assignedImage)!);
-            }
-          }
+        if (assignedImage && filenameToAsset.has(assignedImage)) {
+          const asset = filenameToAsset.get(assignedImage)!;
+          sceneImageMap[idx] = resolveUrl(asset);
+          usedGenericFiles.add(assignedImage);
         }
       });
 
-      // 2) Second pass: Scene-specific images (overwrite stored assignments)
-      // Scene-specific images: filename "scene_<sceneId>_<timestamp>.*" (from AI edit upload)
-      const sceneSpecificAssets: { sceneId: number; url: string }[] = [];
+      // 2) Orphan scene_<id>_ files with no layoutProps — bind to matching scene only
+      const sceneSpecificAssets: { sceneId: number; url: string; asset: (typeof imageAssets)[0] }[] =
+        [];
       const genericAssets: typeof imageAssets = [];
       for (const asset of imageAssets) {
         const match = asset.filename.match(/^scene_(\d+)_/);
         if (match) {
           const sceneId = parseInt(match[1], 10);
-          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset) });
+          sceneSpecificAssets.push({ sceneId, url: resolveUrl(asset), asset });
         } else {
           genericAssets.push(asset);
         }
       }
-      // Apply scene-specific images (later uploads overwrite by same scene_id)
-      for (const { sceneId, url } of sceneSpecificAssets) {
+      for (const { sceneId, url, asset } of sceneSpecificAssets) {
         const sceneIdx = project.scenes.findIndex((s) => s.id === sceneId);
-        if (sceneIdx >= 0 && !hideImageFlags[sceneIdx]) {
-          sceneImageMap[sceneIdx] = url;
+        if (sceneIdx < 0 || hideImageFlags[sceneIdx]) continue;
+        let layoutProps: Record<string, unknown> = {};
+        if (project.scenes[sceneIdx].remotion_code) {
+          try {
+            const descriptor = JSON.parse(project.scenes[sceneIdx].remotion_code!);
+            layoutProps = (descriptor.layoutProps as Record<string, unknown>) || {};
+          } catch {
+            /* legacy */
+          }
         }
+        if (layoutProps.assignedImage || layoutProps.hideImage) continue;
+        sceneImageMap[sceneIdx] = url;
+        usedGenericFiles.add(asset.filename);
       }
 
-      // 3) Third pass: Assign generic images to scenes without one yet and not hideImage
+      // 3) Auto-fill remaining scenes with unused generic images
       let genericIdx = 0;
-      for (
-        let sceneIdx = 0;
-        sceneIdx < project.scenes.length && genericIdx < genericAssets.length;
-        sceneIdx++
-      ) {
-        if (sceneImageMap[sceneIdx] == null && !hideImageFlags[sceneIdx]) {
-          // Pick next unused generic asset (enforce 1:1)
-          while (genericIdx < genericAssets.length) {
-            const candidate = genericAssets[genericIdx];
-            genericIdx++;
-            if (usedGenericFiles.has(candidate.filename)) continue;
-            usedGenericFiles.add(candidate.filename);
-            sceneImageMap[sceneIdx] = resolveUrl(candidate);
-            break;
-          }
+      for (let sceneIdx = 0; sceneIdx < project.scenes.length; sceneIdx++) {
+        if (sceneImageMap[sceneIdx] != null || hideImageFlags[sceneIdx]) continue;
+        while (genericIdx < genericAssets.length) {
+          const candidate = genericAssets[genericIdx];
+          genericIdx++;
+          if (usedGenericFiles.has(candidate.filename)) continue;
+          usedGenericFiles.add(candidate.filename);
+          sceneImageMap[sceneIdx] = resolveUrl(candidate);
+          break;
         }
       }
     }

@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, interpolate } from "remotion";
 import { getTileEntryProgress, type MosaicTileEntryPattern } from "./transitions";
+import { ZoomCropImg } from "./components/ZoomCropImg";
+import { drawZoomCroppedImage } from "./drawZoomCroppedImage";
 
 interface MosaicImageRevealProps {
   imageUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   revealProgress: number;
   clarityProgress?: number; // 0 = mosaic tiles, 1 = clear image with tile outlines
   pattern?: MosaicTileEntryPattern;
@@ -27,8 +31,9 @@ interface TileColor {
  * Renders an image as actual mosaic tiles - each tile is a solid color
  * sampled from that region of the image, creating a true mosaic effect.
  */
-export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
-  imageUrl,
+export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({imageUrl,
+  imageObjectPosition,
+  imageZoom,
   revealProgress,
   clarityProgress = 1,
   pattern = "linear",
@@ -58,9 +63,9 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
         return;
       }
 
-      canvas.width = cols;
-      canvas.height = rows;
-      ctx.drawImage(img, 0, 0, cols, rows);
+        canvas.width = cols;
+        canvas.height = rows;
+        drawZoomCroppedImage(ctx, img, cols, rows, imageObjectPosition, imageZoom);
 
       const tiles: TileColor[] = [];
       for (let row = 0; row < rows; row++) {
@@ -102,11 +107,7 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
     img.onerror = () => {
       continueRender(handle);
     };
-  }, [imageUrl, cols, rows, tileW, tileH, handle]);
-
-  if (tileColors.length === 0) {
-    return null;
-  }
+  }, [imageUrl, cols, rows, tileW, tileH, handle, imageObjectPosition, imageZoom]);
 
   if (tileColors.length === 0) {
     return null;
@@ -115,19 +116,14 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
   return (
     <AbsoluteFill style={style}>
       {/* Base clear image - fades in as clarity increases */}
-      <img
-        src={imageUrl}
-        crossOrigin="anonymous"
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity: clarityProgress,
-        }}
-        alt=""
-      />
+      <div style={{ position: "absolute", inset: 0, opacity: clarityProgress }}>
+        <ZoomCropImg
+          src={imageUrl}
+          imageObjectPosition={imageObjectPosition}
+          imageZoom={imageZoom}
+          alt=""
+        />
+      </div>
 
       {/* SVG mosaic tiles - fade out as clarity increases */}
       <svg
@@ -184,3 +180,4 @@ export const MosaicImageReveal: React.FC<MosaicImageRevealProps> = ({
     </AbsoluteFill>
   );
 };
+

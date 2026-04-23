@@ -914,6 +914,59 @@ export const updateSceneImage = (
   );
 };
 
+export const updateSceneImageFocus = (
+  projectId: number,
+  sceneId: number,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom?: number
+) =>
+  api.patch<Scene>(`/projects/${projectId}/scenes/${sceneId}/image-focus`, {
+    image_focus_x: imageFocusX,
+    image_focus_y: imageFocusY,
+    ...(imageZoom !== undefined ? { image_zoom: imageZoom } : {}),
+  });
+
+export const moveSceneImage = (
+  projectId: number,
+  fromSceneId: number,
+  toSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/move`, {
+    from_scene_id: fromSceneId,
+    to_scene_id: toSceneId,
+  });
+
+export const swapSceneImages = (
+  projectId: number,
+  firstSceneId: number,
+  secondSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/swap`, {
+    first_scene_id: firstSceneId,
+    second_scene_id: secondSceneId,
+  });
+
+export const duplicateSceneImage = (
+  projectId: number,
+  sourceSceneId: number,
+  targetSceneId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/duplicate`, {
+    source_scene_id: sourceSceneId,
+    target_scene_id: targetSceneId,
+  });
+
+export const assignExistingImageToScene = (
+  projectId: number,
+  sceneId: number,
+  assetId: number
+) =>
+  api.post<{ detail: string }>(`/projects/${projectId}/images/assign-existing`, {
+    scene_id: sceneId,
+    asset_id: assetId,
+  });
+
 export interface GenerateSceneImageResponse {
   image_base64: string;
   refined_prompt: string;
@@ -1331,5 +1384,10 @@ export const createCustomVoiceClone = (formData: FormData) =>
 
 export const deleteSavedVoice = (id: number) =>
   api.delete<{ ok: boolean }>(`/voices/saved/${id}`);
+
+// ─── Embed API ────────────────────────────────────────────
+
+export const generateEmbedToken = (projectId: number) =>
+  api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
 
 export default api;
