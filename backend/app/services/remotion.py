@@ -988,20 +988,48 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 else:
                     sd.pop("_override_variant", None)
 
+            # Pull aspect ratios stored at template generation time (one per variant)
+            ar_map = custom_data.get("image_box_aspect_ratios") or {}
+            intro_ar = ar_map.get("intro") or "16 / 9"
+            outro_ar = ar_map.get("outro") or "16 / 9"
+            content_ars = ar_map.get("content") or []
+
             # Persist variant assignments to DB (fixes preview bug)
             for idx in range(len(scene_data)):
                 sd = scene_data[idx]
                 scene_obj = scenes[idx] if idx < len(scenes) else None
-                if scene_obj and sd.get("contentVariantIndex") is not None:
-                    try:
-                        desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
-                    except (json.JSONDecodeError, TypeError):
-                        desc = {}
+                if scene_obj is None:
+                    continue
+                try:
+                    desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
+                except (json.JSONDecodeError, TypeError):
+                    desc = {}
+
+                if sd.get("contentVariantIndex") is not None:
                     desc["contentVariantIndex"] = sd["contentVariantIndex"]
                     desc["sceneTypeOverride"] = sd.get("sceneType", "content")
                     if sd.get("contentArchetype"):
                         desc["contentArchetype"] = sd["contentArchetype"]
-                    scene_obj.remotion_code = json.dumps(desc)
+
+                # Inject the correct image-box aspect ratio for this scene's actual variant
+                scene_type_for_ar = sd.get("sceneType", "content")
+                if scene_type_for_ar == "intro":
+                    ar = intro_ar
+                elif scene_type_for_ar == "outro":
+                    ar = outro_ar
+                else:
+                    variant_idx = sd.get("contentVariantIndex")
+                    if isinstance(variant_idx, int) and 0 <= variant_idx < len(content_ars):
+                        ar = content_ars[variant_idx]
+                    elif content_ars:
+                        ar = content_ars[0]
+                    else:
+                        ar = "16 / 9"
+                lp = desc.get("layoutProps") or {}
+                lp["imageBoxAspectRatio"] = ar
+                desc["layoutProps"] = lp
+
+                scene_obj.remotion_code = json.dumps(desc)
 
             db.commit()
             logger.info(

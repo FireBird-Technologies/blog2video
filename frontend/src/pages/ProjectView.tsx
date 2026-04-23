@@ -133,16 +133,18 @@ const PIPELINE_STEPS_UPLOAD = [
  * Resolve the best URL for an asset: R2 URL if available, else local media path.
  */
 function resolveAssetUrl(asset: { r2_url: string | null; filename: string; asset_type: string }, projectId: number): string {
-  // In local dev, prefer local media files over R2 URLs
-  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes('localhost') || BACKEND_URL.includes('127.0.0.1');
-  
-  if (!isLocalDev && asset.r2_url) return asset.r2_url;
-  
+  const mediaBaseUrl =
+    (BACKEND_URL && BACKEND_URL.trim()) ||
+    (typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:8000"
+      : "");
+
+  if (asset.r2_url) return asset.r2_url;
+
   const subdir = asset.asset_type === "image" ? "images" : "audio";
   const localPath = `/media/projects/${projectId}/${subdir}/${asset.filename}`;
-  
-  // Use relative URL in local dev (goes through Vite proxy), absolute in production
-  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+
+  return `${mediaBaseUrl}${localPath}`;
 }
 
 /**
@@ -190,9 +192,13 @@ function resolveVoiceoverUrl(
     const sep = base.includes("?") ? "&" : "?";
     return `${base}${sep}v=${latest.id}`;
   }
-  const isLocalDev = !BACKEND_URL || BACKEND_URL.includes("localhost") || BACKEND_URL.includes("127.0.0.1");
+  const mediaBaseUrl =
+    (BACKEND_URL && BACKEND_URL.trim()) ||
+    (typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:8000"
+      : "");
   const localPath = `/media/projects/${projectId}/audio/${audioFilename}`;
-  return isLocalDev ? localPath : `${BACKEND_URL}${localPath}`;
+  return `${mediaBaseUrl}${localPath}`;
 }
 
 // ─── Audio Player Row ────────────────────────────────────────

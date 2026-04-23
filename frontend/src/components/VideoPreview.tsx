@@ -586,6 +586,7 @@ export default function VideoPreview({
       let base: string;
       if (isLocalDev) {
         base = asset.r2_url ? asset.r2_url : localPath;
+        console.log("base", base);
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
