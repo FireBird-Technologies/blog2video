@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { SpotlightBackground } from "../SpotlightBackground";
 import { SPOTLIGHT_BODY_DEFAULT_FONT_FAMILY } from "../constants";
 import type { SpotlightLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 /**
  * Closer — Final Takeaway
@@ -13,8 +14,9 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
   title,
   narration,
   highlightPhrase,
-  cta,
-  imageUrl,
+  cta,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   textColor,
@@ -142,7 +144,11 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <ZoomCropImg
+              src={imageUrl}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
+            />
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -182,3 +188,4 @@ export const Closer: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

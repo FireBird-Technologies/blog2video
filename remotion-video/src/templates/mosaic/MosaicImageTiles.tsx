@@ -1,9 +1,12 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { AbsoluteFill, useCurrentFrame, interpolate, continueRender, delayRender } from "remotion";
 import { getTileEntryProgress, type MosaicTileEntryPattern } from "./transitions";
+import { drawZoomCroppedImage } from "./drawZoomCroppedImage";
 
 interface MosaicImageTilesProps {
   imageUrl: string;
+  imageObjectPosition?: string;
+  imageZoom?: number;
   tileEntryRange: [number, number];
   tileEntryPattern?: MosaicTileEntryPattern;
   tileEntryIntensity?: number;
@@ -27,8 +30,9 @@ interface TileColor {
  * sweep animation as the background. Each tile samples the average color
  * from that region of the image, creating a true mosaic/pixelated effect.
  */
-export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
-  imageUrl,
+export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({imageUrl,
+  imageObjectPosition,
+  imageZoom,
   tileEntryRange,
   tileEntryPattern = "linear",
   tileEntryIntensity = 24,
@@ -65,9 +69,9 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
         return;
       }
 
-      canvas.width = cols;
-      canvas.height = rows;
-      ctx.drawImage(img, 0, 0, cols, rows);
+        canvas.width = cols;
+        canvas.height = rows;
+        drawZoomCroppedImage(ctx, img, cols, rows, imageObjectPosition, imageZoom);
 
       const tiles: TileColor[] = [];
       for (let row = 0; row < rows; row++) {
@@ -109,7 +113,7 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
     img.onerror = () => {
       continueRender(handle);
     };
-  }, [imageUrl, cols, rows, tileW, tileH, handle]);
+  }, [imageUrl, cols, rows, tileW, tileH, handle, imageObjectPosition, imageZoom]);
 
   if (tileColors.length === 0) {
     return null;
@@ -184,3 +188,4 @@ export const MosaicImageTiles: React.FC<MosaicImageTilesProps> = ({
     </AbsoluteFill>
   );
 };
+

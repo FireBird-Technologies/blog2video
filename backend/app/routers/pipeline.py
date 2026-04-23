@@ -681,6 +681,8 @@ async def _generate_scenes(project: Project, db: Session):
 
             # Build descriptors in the format the rest of the pipeline expects
             # layoutConfig must be present so downstream checks detect custom template scenes
+            # Note: imageBoxAspectRatio is injected per-scene later in remotion.py once
+            # the actual content variant index is known (via match_scenes_to_archetypes).
             descriptors = []
             for sc in structured_contents:
                 descriptors.append({

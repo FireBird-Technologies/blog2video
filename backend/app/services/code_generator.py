@@ -97,12 +97,17 @@ class GenerateSceneCode(dspy.Signature):
       Each bullet is its OWN visible row/card — NEVER dump all bullets into one paragraph.
     - Stagger each item's entrance: opacity and translateX animated with delay = i * 12 frames.
 
-    Images & Logo (MANDATORY — every scene MUST handle these):
+    Images & Logo (MANDATORY — every scene MUST handle these — NO exceptions for intro/outro):
+    - EVERY scene (intro, content, outro) MUST support content images via props.imageUrl. There are
+      NO image-less scene types — the validator REJECTS any scene that does not declare `hasImage`
+      and render props.imageUrl when present. Brand intro/outro scenes still support images
+      (e.g. hero photo behind brand logo, founder photo, product shot, etc.).
     - ALWAYS check props.logoUrl safely and render it when present:
       {props.logoUrl && typeof props.logoUrl === 'string' && (
-        <Img src={props.logoUrl} style={{width: 80, height: 80, objectFit: "contain", ...}} />
+        <Img src={props.logoUrl} data-logo="1" style={{width: 80, height: 80, objectFit: "contain", ...}} />
       )}
       ALWAYS set explicit width + height on logo Img so layout never collapses if image fails to load.
+      ALWAYS add data-logo="1" on the logo Img element (this distinguishes it from content images).
       Use it as a brand watermark (corner), header element, or animated accent — but ALWAYS render it.
     - ALWAYS check props.imageUrl safely and render it prominently when present — NOT just a dim background.
       Use: const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
@@ -111,10 +116,44 @@ class GenerateSceneCode(dspy.Signature):
       Layer gradient overlays for text readability: linear-gradient(to top, rgba(bg,0.95) 0%, transparent 70%)
       plus radial-gradient vignette plus accent color wash with mixBlendMode:"overlay".
       ALWAYS set explicit width + height on image Img elements.
+    - Image focus & zoom (MANDATORY when rendering props.imageUrl):
+      If using <Img> element: add data-content-img="1" and include in style:
+        objectFit: "cover", objectPosition: props.imageObjectPosition || "50% 50%",
+        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
+      If using a <div> with backgroundImage: add data-content-img="1" and include in style:
+        backgroundSize: "cover", backgroundPosition: props.imageObjectPosition || "50% 50%",
+        transform: `scale(${props.imageZoom ?? 1})`, transformOrigin: props.imageObjectPosition || "50% 50%"
+      This lets users adjust image focus/zoom without regenerating the template.
     - ADAPT LAYOUT based on image presence — use `const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');`
+      This `hasImage` declaration is MANDATORY in every content scene — the validator REJECTS
+      scenes that do not declare it. Do NOT skip this even when also branching on aspect ratio.
       WITH image: split layout (image on one side, text on other). Example: width: hasImage ? "50%" : "100%"
       WITHOUT image: text container MUST expand to width: "100%" to fill the full scene. Never leave an empty 50% gap.
       Both modes must look intentionally designed — not like something is missing.
+
+    Aspect-ratio-aware layout (MANDATORY — different orientations need different layouts):
+    - The same component renders into BOTH a 1920x1080 landscape canvas AND a 1080x1920 portrait canvas.
+      A landscape side-by-side layout (image 50% width × full height) becomes a tall narrow strip in
+      portrait if not branched — that looks broken. ALWAYS branch on aspectRatio.
+    - REQUIRED top-of-component declarations (BOTH must be present together — neither replaces the other):
+        const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string');
+        const isPortrait = props.aspectRatio === 'portrait';
+      Then combine them — there are FOUR layout cases to design for:
+        (1) hasImage  && !isPortrait  → landscape split (image side, text side)
+        (2) hasImage  &&  isPortrait  → portrait stacked (image top, text bottom)
+        (3) !hasImage && !isPortrait  → landscape full-width text, no empty image gap
+        (4) !hasImage &&  isPortrait  → portrait full-width text, no empty image gap
+    - Concrete recipe when hasImage:
+        Landscape branch: flexDirection: 'row', image container width: '50%' height: '100%';
+        text container width: '50%' height: '100%'.
+        Portrait branch:  flexDirection: 'column', image container width: '100%' height: '45%' (top);
+        text container width: '100%' height: '55%' (bottom).
+      The element with data-content-img="1" lives ONLY inside the hasImage branch.
+    - Use isPortrait to also choose font sizes (portrait often needs slightly smaller headings since
+      the canvas is narrower than landscape).
+    - Reference implementation: blackswan/ArcFeatures uses `const p = aspectRatio === "portrait";` and
+      renders entirely different JSX trees with `if (!p && hasImage) { ... } else { ... }`.
+      Notice both `p` AND `hasImage` are declared and used together.
     - When props.imageUrl is ABSENT (hasImage is false): use floating particle dots or geometric decorative shapes
       as visual interest — ALWAYS respect the brand_context background instruction (solid vs gradient).
       If brand_context says "solid backgrounds only", use the solid bg color. If it says "gradient", use the gradient.
@@ -160,7 +199,8 @@ class GenerateSceneCode(dspy.Signature):
     - AbsoluteFill, Sequence, Img, random(seed)
 
     Component Props:
-    { displayText, narrationText, imageUrl?, sceneIndex, totalScenes,
+    { displayText, narrationText, imageUrl?, imageObjectPosition?: string, imageZoom?: number,
+      sceneIndex, totalScenes,
       logoUrl?, brandImages?, brandColors: { primary, secondary, accent, background, text },
       aspectRatio: "landscape" | "portrait",
       titleFontSize?: number, descriptionFontSize?: number,
@@ -184,6 +224,42 @@ class GenerateSceneCode(dspy.Signature):
     )
 
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
+    image_box_width_fraction_landscape: float = dspy.OutputField(
+        desc=(
+            "Inside the `if (!isPortrait) { ... }` (or `!p && ...`) branch of your code: "
+            "fraction of the LANDSCAPE 1920x1080 canvas WIDTH occupied by the image container (0.0 to 1.0). "
+            "Examples: 0.5 if image container is width: '50%' of the scene, 1.0 if width: '100%'. "
+            "Read this directly from the width style you set on the element with data-content-img=\"1\" "
+            "in the LANDSCAPE branch. If the scene has no image, output 1.0."
+        )
+    )
+    image_box_height_fraction_landscape: float = dspy.OutputField(
+        desc=(
+            "Inside the LANDSCAPE branch of your code: "
+            "fraction of the LANDSCAPE 1920x1080 canvas HEIGHT occupied by the image container (0.0 to 1.0). "
+            "Examples: 1.0 if height: '100%' of scene, 0.5 if height: '50%' (top/bottom half). "
+            "Read this from the height style of the LANDSCAPE branch's data-content-img element. "
+            "If the scene has no image, output 1.0."
+        )
+    )
+    image_box_width_fraction_portrait: float = dspy.OutputField(
+        desc=(
+            "Inside the `if (isPortrait) { ... }` (or `p && ...`) branch of your code: "
+            "fraction of the PORTRAIT 1080x1920 canvas WIDTH occupied by the image container (0.0 to 1.0). "
+            "Common portrait layouts use width: '100%' (image stacked above text) → output 1.0. "
+            "Read this from the width style of the PORTRAIT branch's data-content-img element. "
+            "If portrait reuses the landscape branch (same JSX), output the landscape width fraction."
+        )
+    )
+    image_box_height_fraction_portrait: float = dspy.OutputField(
+        desc=(
+            "Inside the PORTRAIT branch of your code: "
+            "fraction of the PORTRAIT 1080x1920 canvas HEIGHT occupied by the image container (0.0 to 1.0). "
+            "Common portrait layouts: image is the top 40-50% (height: '45%') → output 0.45. "
+            "Read this from the height style of the PORTRAIT branch's data-content-img element. "
+            "If portrait reuses the landscape branch, output the landscape height fraction."
+        )
+    )
 
 
 # ─── Reward function for dspy.Refine ──────────────────────────
@@ -455,8 +531,9 @@ def _generate_single_scene_sync(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> str:
-    """Generate a single scene using DSPy ChainOfThought + Refine (sync)."""
+) -> tuple[str, dict[str, str]]:
+    """Generate a single scene using DSPy ChainOfThought + Refine (sync).
+    Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
     ensure_dspy_configured()
 
     base_module = dspy.ChainOfThought(
@@ -489,10 +566,34 @@ def _generate_single_scene_sync(
 
     elapsed = time.time() - t0
     code = clean_code(result.code or "")
+
+    # Derive image-box aspect ratios for both orientations from the fractions the AI reported.
+    # Landscape canvas: 1920x1080. Portrait canvas: 1080x1920.
+    def _safe_frac(v: float | None) -> float:
+        try:
+            f = float(v) if v is not None else 1.0
+        except (TypeError, ValueError):
+            return 1.0
+        return min(1.0, max(0.05, f))
+
+    lw = _safe_frac(getattr(result, "image_box_width_fraction_landscape", None))
+    lh = _safe_frac(getattr(result, "image_box_height_fraction_landscape", None))
+    pw = _safe_frac(getattr(result, "image_box_width_fraction_portrait", None))
+    ph = _safe_frac(getattr(result, "image_box_height_fraction_portrait", None))
+
+    landscape_ar = f"{max(1, int(round(1920 * lw)))} / {max(1, int(round(1080 * lh)))}"
+    portrait_ar = f"{max(1, int(round(1080 * pw)))} / {max(1, int(round(1920 * ph)))}"
+    aspect_ratios = {"landscape": landscape_ar, "portrait": portrait_ar}
+
     line_count = code.count("\n") + 1
 
-    print(f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: {line_count} lines in {elapsed:.1f}s")
-    return code
+    print(
+        f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: "
+        f"{line_count} lines in {elapsed:.1f}s, "
+        f"landscape_ar={landscape_ar!r} (w={lw:.2f}, h={lh:.2f}), "
+        f"portrait_ar={portrait_ar!r} (w={pw:.2f}, h={ph:.2f})"
+    )
+    return code, aspect_ratios
 
 
 _SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="scene-gen")
@@ -505,8 +606,9 @@ async def _generate_single_scene(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> str:
-    """Async wrapper — runs the sync Refine call in a dedicated thread pool."""
+) -> tuple[str, dict[str, str]]:
+    """Async wrapper — runs the sync Refine call in a dedicated thread pool.
+    Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         _SCENE_EXECUTOR,
@@ -627,7 +729,10 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         ),
     )
 
-    scenes = await asyncio.gather(*tasks)
+    scene_tuples = await asyncio.gather(*tasks)
+    scenes = [code for code, _ in scene_tuples]
+    # Each entry is a dict {"landscape": "W / H", "portrait": "W / H"}
+    scene_aspect_ratios: list[dict[str, str]] = [ar for _, ar in scene_tuples]
 
     # Log what was generated
     scene_labels = [intro_archetype["id"]] + [a["id"] for a in content_archetypes] + [outro_archetype["id"]]
@@ -663,4 +768,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
         "content_codes": content_codes,
         # Full archetype metadata for content-aware matching at video time
         "archetype_ids": [{"id": a["id"], "best_for": a["best_for"]} for a in content_archetypes],
+        # Image box aspect ratios per scene type — used to configure the image adjustment modal
+        "intro_aspect_ratio": scene_aspect_ratios[0],
+        "outro_aspect_ratio": scene_aspect_ratios[-1],
+        "content_aspect_ratios": scene_aspect_ratios[1:-1],
     }

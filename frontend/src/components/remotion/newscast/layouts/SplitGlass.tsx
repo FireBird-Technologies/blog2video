@@ -32,6 +32,8 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
   lowerThirdHeadline,
   lowerThirdSub,
   imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   textColor,
   titleFontSize,
@@ -99,7 +101,7 @@ export const SplitGlass: React.FC<NewscastLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ zIndex: 60, overflow: "hidden", opacity }}>
-      <NewsCastLayoutImageBackground imageUrl={imageUrl} accentColor={RED} />
+      <NewsCastLayoutImageBackground imageUrl={imageUrl} imageObjectPosition={imageObjectPosition} imageZoom={imageZoom} accentColor={RED} />
       <div
         style={{
           position: "absolute",

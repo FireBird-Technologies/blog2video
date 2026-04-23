@@ -65,6 +65,12 @@ def _build_template_result(tpl) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             content_codes = None
 
+    og_image = ""
+    if brand_kit_data and brand_kit_data.get("images"):
+        imgs = brand_kit_data["images"]
+        if imgs and isinstance(imgs[0], str):
+            og_image = imgs[0]
+
     return {
         "theme": theme,
         "generated_prompt": tpl.generated_prompt or "",
@@ -76,7 +82,9 @@ def _build_template_result(tpl) -> dict[str, Any]:
         "outro_code": tpl.outro_code,
         "content_codes": content_codes,
         "content_archetype_ids": json.loads(tpl.content_archetype_ids) if getattr(tpl, "content_archetype_ids", None) else [],
+        "image_box_aspect_ratios": json.loads(tpl.image_box_aspect_ratios) if getattr(tpl, "image_box_aspect_ratios", None) else None,
         "brand_kit": brand_kit_data,
+        "og_image": og_image,
     }
 
 

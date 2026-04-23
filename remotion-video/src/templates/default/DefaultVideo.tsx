@@ -268,6 +268,10 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           scene.layout === "data_visualization"
             ? convertDataVizProps(scene.layoutProps as Record<string, unknown>)
             : scene.layoutProps;
+        const imageFocusX = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusX ?? 50);
+        const imageFocusY = Number((rawLayoutProps as Record<string, unknown>)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(1, Number((rawLayoutProps as Record<string, unknown>)?.imageZoom ?? 1));
+        const imageObjectPosition = `${Math.max(0, Math.min(100, imageFocusX))}% ${Math.max(0, Math.min(100, imageFocusY))}%`;
 
         // Build props for the layout component
         // IMPORTANT: Ensure computed imageUrl wins over any stale scene.layoutProps.imageUrl
@@ -280,6 +284,8 @@ export const DefaultVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || "#000000",
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition,
+  imageZoom,
           fontFamily: resolvedFontFamily || undefined,
         };
 

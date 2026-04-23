@@ -118,18 +118,19 @@ def validate_component_code(code: str, scene_type: str = "content") -> tuple[boo
         )
 
     # Must reference imageUrl as a conditional — layout must adapt to its presence/absence.
-    # Intro and outro are branded scenes (logo/title/CTA) — image support is optional there.
+    # Required in EVERY scene type (intro, content, outro): every custom-template scene must support
+    # displaying a content image when one is provided, with a graceful fallback when imageUrl is null.
     # Accepts: hasImage, props.imageUrl &&, imageUrl &&, !!props.imageUrl, imageUrl ?
-    if scene_type == "content":
-        has_image_conditional = bool(re.search(
-            r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
-            code,
-        ))
-        if not has_image_conditional:
-            return False, (
-                "Missing conditional imageUrl rendering — scene must declare hasImage and adapt layout: "
-                "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
-            )
+    has_image_conditional = bool(re.search(
+        r'(?:hasImage\b|props\.imageUrl\s*&&|imageUrl\s*&&|!!props\.imageUrl|imageUrl\s*\?[^:])',
+        code,
+    ))
+    if not has_image_conditional:
+        return False, (
+            "Missing conditional imageUrl rendering — every scene (intro/content/outro) must declare "
+            "hasImage and render props.imageUrl when present: "
+            "e.g. const hasImage = !!(props.imageUrl && typeof props.imageUrl === 'string')"
+        )
 
     # Non-monotonic interpolate inputRange causes Remotion runtime crash
     for m in re.finditer(r'interpolate\s*\([^,]+,\s*\[([^\]]+)\]\s*,\s*\[([^\]]+)\]', code):

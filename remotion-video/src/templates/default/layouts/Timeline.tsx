@@ -20,6 +20,8 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
     titleFontSize,
     descriptionFontSize,
     imageUrl,
+    imageObjectPosition,
+  imageZoom,
     fontFamily,
   } = props;
 
@@ -93,8 +95,10 @@ export const Timeline: React.FC<SceneLayoutProps & { imageUrl?: string }> = (pro
                 width: "100%",
                 height: "100%",
                 objectFit: "cover",
+                objectPosition: imageObjectPosition ?? "50% 50%",
                 display: "block", // BUG FIX: Removes baseline whitespace
-                transform: `scale(${interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+                transform: `scale(${Math.max(1, imageZoom ?? 1) * interpolate(entranceSpring, [0, 1], [1.1, 1])})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%",
               }}
             />
             {/* Gradient Overlay */}
