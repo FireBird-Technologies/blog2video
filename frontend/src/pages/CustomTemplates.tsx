@@ -91,8 +91,7 @@ function CustomTemplateRequestModal({
                   Get Expert Help Creating Your Template
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Share your ideas and preferences, and our experts will craft a
-                  custom template tailored specifically to your brand.
+                  Share your ideas, goals, and brand preferences, and our experts will analyze your needs, design tailored concepts, and refine them with your feedback.
                 </p>
               </div>
 
@@ -118,29 +117,6 @@ function CustomTemplateRequestModal({
 
             {/* Form */}
             <form onSubmit={onSubmit} className="space-y-5">
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Template Vision / Requirements{" "}
-                  <span className="text-red-400">*</span>
-                </label>
-
-                <textarea
-                  required
-                  rows={5}
-                  maxLength={3000}
-                  value={description}
-                  onChange={(e) =>
-                    onDescriptionChange(e.target.value)
-                  }
-                  placeholder="Describe your ideal template (e.g. style, colors, tone, layout, inspirations, or links to references)..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {description.length}/3000
-                </p>
-              </div>
 
               {/* Company Info */}
               <div>
@@ -153,7 +129,7 @@ function CustomTemplateRequestModal({
 
                 <textarea
                   rows={3}
-                  maxLength={2000}
+                  maxLength={20000}
                   value={companyInformation}
                   onChange={(e) =>
                     onCompanyInformationChange(e.target.value)
@@ -162,11 +138,9 @@ function CustomTemplateRequestModal({
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
 
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {companyInformation.length}/2000
-                </p>
               </div>
 
+               
               {/* Contact */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -187,6 +161,32 @@ function CustomTemplateRequestModal({
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
               </div>
+
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Template Vision / Requirements{" "}
+                  <span className="text-red-400">*</span>
+                </label>
+
+                <textarea
+                  required
+                  rows={5}
+                  maxLength={3000}
+                  value={description}
+                  onChange={(e) =>
+                    onDescriptionChange(e.target.value)
+                  }
+                  placeholder="Describe your ideal template or give links to references."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {description.length}/3000
+                </p>
+              </div>
+
 
               {/* Error */}
               {error && (
