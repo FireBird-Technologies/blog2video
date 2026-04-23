@@ -47,8 +47,9 @@ function resolveImpactTitleHighlightIndex(
  */
 export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   highlightWord,
   accentColor,
   textColor,
@@ -123,7 +124,9 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
               transform: `scale(${imageScale})`,
             }}
           >
-            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <Img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: imageObjectPosition ?? "50% 50%",
+                transform: `scale(${Math.max(1, imageZoom ?? 1)})`,
+                transformOrigin: imageObjectPosition ?? "50% 50%" }} />
           </div>
         )}
         <div style={{ flex: hasImage && !p ? 1 : "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -179,3 +182,4 @@ export const ImpactTitle: React.FC<SpotlightLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { ErrorModalProvider } from "./contexts/ErrorModalContext";
 import { NoticeModalProvider } from "./contexts/NoticeModalContext";
@@ -10,6 +11,10 @@ import Subscription from "./pages/Subscription";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
+import ToolsHub from "./pages/ToolsHub";
+import ToolPage from "./pages/ToolPage";
+import SubstackDirectoryNichePage from "./pages/SubstackDirectoryNichePage";
+import SubstackPublicationPage from "./pages/SubstackPublicationPage";
 import TemplateStudio from "./pages/TemplateStudio";
 import Navbar from "./components/layout/navbar";
 import MarketingPageView from "./pages/MarketingPageView";
@@ -17,6 +22,10 @@ import TemplatePageView from "./pages/TemplatePageView";
 import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
+import EmbedPreviewPage from "./pages/EmbedPreviewPage";
+import AdminPasswordProtectedRoute from "./components/layout/AdminPasswordProtectedRoute";
+import AdminEmailBlast from "./pages/AdminEmailBlast";
+import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +47,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = `${location.pathname}${location.search || ""}`;
+    trackPageView(path);
+  }, [location.pathname, location.search]);
 
   if (loading) {
     return (
@@ -61,6 +76,20 @@ function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        <Route path="/tools" element={<ToolsHub />} />
+        <Route
+          path="/tools/substack-directory/publication/:publicationSlug"
+          element={<SubstackPublicationPage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug/pricing/:pricingSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route
+          path="/tools/substack-directory/:nicheSlug"
+          element={<SubstackDirectoryNichePage />}
+        />
+        <Route path="/tools/:slug" element={<ToolPage />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}
@@ -108,6 +137,18 @@ function AppRoutes() {
                 <TemplateStudio />
               </PasswordProtectedRoute>
             </ProtectedRoute>
+          }
+        />
+
+        {/* Public embed preview — no auth required */}
+        <Route path="/preview/:token" element={<EmbedPreviewPage />} />
+
+        <Route
+          path="/auto-email"
+          element={
+            <AdminPasswordProtectedRoute>
+              <AdminEmailBlast />
+            </AdminPasswordProtectedRoute>
           }
         />
 

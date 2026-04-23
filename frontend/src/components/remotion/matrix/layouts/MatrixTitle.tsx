@@ -1,7 +1,8 @@
-import { AbsoluteFill, Img, interpolate, useCurrentFrame, spring } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, spring } from "remotion";
 import { MatrixBackground } from "../MatrixBackground";
 import { MATRIX_DEFAULT_FONT_FAMILY } from "../constants";
 import type { MatrixLayoutProps } from "../types";
+import { ZoomCropImg } from "../components/ZoomCropImg";
 
 const GLITCH_CHARS = "アイウエオカキクケコ0123456789!@#$%^&*<>{}[]";
 
@@ -18,8 +19,9 @@ function seededRandom(seed: number): number {
  */
 export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
   title,
-  narration,
-  imageUrl,
+  narration,imageUrl,
+  imageObjectPosition,
+  imageZoom,
   accentColor,
   bgColor,
   aspectRatio,
@@ -112,9 +114,10 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
               transformOrigin: 'center center', // Ensures rotation and scaling are from the center
             }}
           >
-            <Img
+            <ZoomCropImg
               src={imageUrl}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              imageObjectPosition={imageObjectPosition}
+              imageZoom={imageZoom}
             />
           </div>
         )}
@@ -197,3 +200,4 @@ export const MatrixTitle: React.FC<MatrixLayoutProps> = ({
     </AbsoluteFill>
   );
 };
+

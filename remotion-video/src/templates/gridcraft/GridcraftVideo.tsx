@@ -342,6 +342,8 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           textColor: data.textColor || COLORS.DARK,
           aspectRatio: data.aspectRatio || "landscape",
           imageUrl,
+          imageObjectPosition: String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50)))) + "% " + String(Math.max(0, Math.min(100, Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50)))) + "%",
+          imageZoom: Math.max(1, Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1)),
           fontFamily: resolvedFontFamily || undefined,
         };
 
@@ -384,3 +386,4 @@ export const GridcraftVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     </AbsoluteFill>
   );
 };
+
