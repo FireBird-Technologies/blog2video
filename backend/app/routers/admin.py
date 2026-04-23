@@ -14,8 +14,8 @@ from app.services.email import email_service
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 ADMIN_PASSWORD = "blog2video-44"
-BATCH_SIZE = 10
-BATCH_SLEEP = 1.0
+# Resend rate limit: 5 emails/sec. Sleep 0.25s between each send → 4/sec, safe headroom.
+PER_EMAIL_SLEEP = 0.25
 
 
 class BlastEmailRequest(BaseModel):
@@ -81,8 +81,9 @@ async def _run_blast(campaign_id: int, subject: str, body: str, limit: int, offs
             campaign.updated_at = datetime.utcnow()
             db.commit()
 
-            if (i + 1) % BATCH_SIZE == 0:
-                await asyncio.sleep(BATCH_SLEEP)
+            # Throttle to stay under Resend's 5/sec limit.
+            if i + 1 < len(users):
+                await asyncio.sleep(PER_EMAIL_SLEEP)
 
         campaign.status = "done"
         campaign.updated_at = datetime.utcnow()

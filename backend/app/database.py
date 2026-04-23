@@ -180,6 +180,7 @@ def _migrate_sqlite(eng) -> None:
             "current_version_id": "INTEGER",
             "content_codes": "TEXT",
             "content_archetype_ids": "TEXT",
+            "image_box_aspect_ratios": "TEXT",
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():

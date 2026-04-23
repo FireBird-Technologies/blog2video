@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
 import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { chartTableToLegacyRowProps } from "../utils/chartTableDataVizLegacy";
+import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "./remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxConfig";
 
@@ -2092,13 +2093,18 @@ export default function SceneEditModal({
   }, [imageAdjustOpen, imageAdjustSrc]);
 
   const openImageAdjustModal = (src: string) => {
-    const templateCfg = getTemplateConfig(project.template || "default");
-    const ar = getImageBoxAspectRatio(
-      currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
-      project.aspect_ratio || "landscape",
-      templateCfg.baseWidth,
-      templateCfg.baseHeight,
-    );
+    let ar: string;
+    if (project.template?.startsWith("custom_")) {
+      ar = resolveCustomImageBoxAr(scene, project);
+    } else {
+      const templateCfg = getTemplateConfig(project.template || "default");
+      ar = getImageBoxAspectRatio(
+        currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+        project.aspect_ratio || "landscape",
+        templateCfg.baseWidth,
+        templateCfg.baseHeight,
+      );
+    }
     setImageAdjustAspectRatio(ar);
     setImageAdjustSrc(src);
     setIsAdjustDragging(false);

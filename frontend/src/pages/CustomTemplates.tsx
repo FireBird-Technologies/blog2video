@@ -457,7 +457,7 @@ export default function CustomTemplates() {
             onClick={openRequestForm}
             className="mt-3 text-sm text-purple-500 hover:text-purple-700 transition-colors underline underline-offset-2"
           >
-            Or request one from us →
+            Or Get Expert Template  →
           </button>
         </div>
 
