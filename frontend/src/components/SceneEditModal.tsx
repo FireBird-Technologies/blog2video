@@ -2096,18 +2096,25 @@ export default function SceneEditModal({
     if (project.template?.startsWith("custom_")) {
       const ratioMap = project.custom_image_box_aspect_ratios || null;
       const fallbackAr = (editableLayoutProps.imageBoxAspectRatio as string | undefined) || "16 / 9";
+      const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+      const orientationFallback = orientation === "portrait" ? "9 / 16" : "16 / 9";
+      // Each entry can be either a string (legacy) or { landscape, portrait } (current).
+      const pickAr = (entry: string | { landscape?: string; portrait?: string } | undefined): string | null => {
+        if (!entry) return null;
+        if (typeof entry === "string") return entry;
+        return entry[orientation] || entry.landscape || entry.portrait || null;
+      };
       const layoutKey = currentLayoutId || "";
       if (ratioMap) {
-        if (layoutKey === "intro" && ratioMap.intro) {
-          ar = ratioMap.intro;
-        } else if (layoutKey === "outro" && ratioMap.outro) {
-          ar = ratioMap.outro;
+        if (layoutKey === "intro") {
+          ar = pickAr(ratioMap.intro) || fallbackAr || orientationFallback;
+        } else if (layoutKey === "outro") {
+          ar = pickAr(ratioMap.outro) || fallbackAr || orientationFallback;
         } else if (layoutKey.startsWith("content_")) {
           const idx = Number(layoutKey.split("_")[1]);
           const contentRatios = Array.isArray(ratioMap.content) ? ratioMap.content : [];
-          ar = Number.isFinite(idx) && idx >= 0 && idx < contentRatios.length && contentRatios[idx]
-            ? contentRatios[idx]
-            : fallbackAr;
+          const entry = Number.isFinite(idx) && idx >= 0 && idx < contentRatios.length ? contentRatios[idx] : undefined;
+          ar = pickAr(entry) || fallbackAr || orientationFallback;
         } else {
           ar = fallbackAr;
         }

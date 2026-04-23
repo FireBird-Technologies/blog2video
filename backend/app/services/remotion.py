@@ -988,11 +988,27 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 else:
                     sd.pop("_override_variant", None)
 
-            # Pull aspect ratios stored at template generation time (one per variant)
+            # Pull aspect ratios stored at template generation time (one per variant).
+            # Each entry may be either:
+            #   - a dict {"landscape": "W / H", "portrait": "W / H"} (current format)
+            #   - a string "W / H" (legacy format from older templates — used for both orientations)
             ar_map = custom_data.get("image_box_aspect_ratios") or {}
-            intro_ar = ar_map.get("intro") or "16 / 9"
-            outro_ar = ar_map.get("outro") or "16 / 9"
-            content_ars = ar_map.get("content") or []
+            project_orientation = (getattr(project, "aspect_ratio", None) or "landscape").strip().lower()
+            if project_orientation not in ("landscape", "portrait"):
+                project_orientation = "landscape"
+            _fallback_ar = "16 / 9" if project_orientation == "landscape" else "9 / 16"
+
+            def _pick_ar(entry) -> str:
+                if isinstance(entry, dict):
+                    return entry.get(project_orientation) or entry.get("landscape") or _fallback_ar
+                if isinstance(entry, str) and entry.strip():
+                    return entry
+                return _fallback_ar
+
+            intro_ar = _pick_ar(ar_map.get("intro"))
+            outro_ar = _pick_ar(ar_map.get("outro"))
+            content_ars_raw = ar_map.get("content") or []
+            content_ars = [_pick_ar(e) for e in content_ars_raw]
 
             # Persist variant assignments to DB (fixes preview bug)
             for idx in range(len(scene_data)):

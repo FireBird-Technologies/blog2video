@@ -131,9 +131,9 @@ export interface Project {
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
   custom_image_box_aspect_ratios?: {
-    intro?: string;
-    content?: string[];
-    outro?: string;
+    intro?: string | { landscape?: string; portrait?: string };
+    content?: (string | { landscape?: string; portrait?: string })[];
+    outro?: string | { landscape?: string; portrait?: string };
   } | null;
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;

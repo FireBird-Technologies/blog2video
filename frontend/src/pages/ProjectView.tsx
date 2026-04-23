@@ -2275,14 +2275,45 @@ export default function ProjectView() {
     // Compute the correct aspect ratio for the modal preview
     let ar: string;
     if (project?.template?.startsWith("custom_")) {
+      const orientation = project.aspect_ratio === "portrait" ? "portrait" : "landscape";
+      const orientationFallback = orientation === "portrait" ? "9 / 16" : "16 / 9";
+
+      // Each entry can be either a string (legacy) or { landscape, portrait } (current).
+      const pickAr = (
+        entry: string | { landscape?: string; portrait?: string } | undefined,
+      ): string | null => {
+        if (!entry) return null;
+        if (typeof entry === "string") return entry;
+        return entry[orientation] || entry.landscape || entry.portrait || null;
+      };
+
+      // Read scene type + variant + per-scene fallback from the descriptor.
+      let sceneType: string | null = null;
+      let variantIdx: number | null = null;
+      let perSceneAr: string | null = null;
       try {
         const desc = JSON.parse(scene.remotion_code || "{}") as {
+          sceneTypeOverride?: string;
+          contentVariantIndex?: number;
           layoutProps?: { imageBoxAspectRatio?: string };
         };
-        ar = desc.layoutProps?.imageBoxAspectRatio || "16 / 9";
-      } catch {
-        ar = "16 / 9";
+        sceneType = desc.sceneTypeOverride ?? null;
+        variantIdx = typeof desc.contentVariantIndex === "number" ? desc.contentVariantIndex : null;
+        perSceneAr = desc.layoutProps?.imageBoxAspectRatio ?? null;
+      } catch { /* ignore */ }
+
+      const ratioMap = project.custom_image_box_aspect_ratios || null;
+      let lookedUp: string | null = null;
+      if (ratioMap) {
+        if (sceneType === "intro") {
+          lookedUp = pickAr(ratioMap.intro);
+        } else if (sceneType === "outro") {
+          lookedUp = pickAr(ratioMap.outro);
+        } else if (variantIdx !== null && Array.isArray(ratioMap.content)) {
+          lookedUp = pickAr(ratioMap.content[variantIdx]);
+        }
       }
+      ar = lookedUp || perSceneAr || orientationFallback;
     } else {
       let layoutId: string | null = null;
       try {

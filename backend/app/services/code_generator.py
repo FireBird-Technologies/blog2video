@@ -194,21 +194,44 @@ class GenerateSceneCode(dspy.Signature):
     )
 
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
-    image_box_width_fraction: float = dspy.OutputField(
+    image_box_width_fraction_landscape: float = dspy.OutputField(
         desc=(
-            "Fraction of the SCENE WIDTH occupied by the image container you wrote in the code (0.0 to 1.0). "
+            "When props.aspectRatio === 'landscape' (canvas 1920x1080): "
+            "fraction of the SCENE WIDTH occupied by the image container in the code (0.0 to 1.0). "
             "Examples: 0.5 if the image container takes half the scene width (e.g. width: '50%'), "
             "1.0 if it spans the full scene width, 0.4 if it's 40% wide. "
-            "Read this directly from the width style you set on the element with data-content-img=\"1\". "
+            "Read this directly from the width style you set on the element with data-content-img=\"1\" "
+            "in the landscape branch of your code. "
             "If the scene has no image container, output 1.0."
         )
     )
-    image_box_height_fraction: float = dspy.OutputField(
+    image_box_height_fraction_landscape: float = dspy.OutputField(
         desc=(
-            "Fraction of the SCENE HEIGHT occupied by the image container you wrote in the code (0.0 to 1.0). "
+            "When props.aspectRatio === 'landscape' (canvas 1920x1080): "
+            "fraction of the SCENE HEIGHT occupied by the image container in the code (0.0 to 1.0). "
             "Examples: 1.0 if the image container takes full height (e.g. height: '100%'), "
             "0.6 if it's 60% tall, 0.5 if it spans half the scene height. "
-            "Read this directly from the height style you set on the element with data-content-img=\"1\". "
+            "Read this directly from the height style you set on the element with data-content-img=\"1\" "
+            "in the landscape branch of your code. "
+            "If the scene has no image container, output 1.0."
+        )
+    )
+    image_box_width_fraction_portrait: float = dspy.OutputField(
+        desc=(
+            "When props.aspectRatio === 'portrait' (canvas 1080x1920): "
+            "fraction of the SCENE WIDTH occupied by the image container in the code (0.0 to 1.0). "
+            "If the layout flips for portrait (e.g. image goes from side-by-side to stacked top), "
+            "report the portrait-mode width fraction. If portrait reuses the same width as landscape, "
+            "output the same value. "
+            "If the scene has no image container, output 1.0."
+        )
+    )
+    image_box_height_fraction_portrait: float = dspy.OutputField(
+        desc=(
+            "When props.aspectRatio === 'portrait' (canvas 1080x1920): "
+            "fraction of the SCENE HEIGHT occupied by the image container in the code (0.0 to 1.0). "
+            "If the layout flips for portrait (e.g. image takes top half: height: '50%'), report 0.5. "
+            "If portrait reuses the same height as landscape, output the same value. "
             "If the scene has no image container, output 1.0."
         )
     )
@@ -483,8 +506,9 @@ def _generate_single_scene_sync(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> tuple[str, str]:
-    """Generate a single scene using DSPy ChainOfThought + Refine (sync). Returns (code, image_box_aspect_ratio)."""
+) -> tuple[str, dict[str, str]]:
+    """Generate a single scene using DSPy ChainOfThought + Refine (sync).
+    Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
     ensure_dspy_configured()
 
     base_module = dspy.ChainOfThought(
@@ -518,8 +542,8 @@ def _generate_single_scene_sync(
     elapsed = time.time() - t0
     code = clean_code(result.code or "")
 
-    # Derive the image-box aspect ratio from the fractions the AI reported.
-    # Scene canvas is 1920x1080 (landscape) — fractions multiply against this base.
+    # Derive image-box aspect ratios for both orientations from the fractions the AI reported.
+    # Landscape canvas: 1920x1080. Portrait canvas: 1080x1920.
     def _safe_frac(v: float | None) -> float:
         try:
             f = float(v) if v is not None else 1.0
@@ -527,20 +551,24 @@ def _generate_single_scene_sync(
             return 1.0
         return min(1.0, max(0.05, f))
 
-    w_frac = _safe_frac(getattr(result, "image_box_width_fraction", None))
-    h_frac = _safe_frac(getattr(result, "image_box_height_fraction", None))
-    box_w = max(1, int(round(1920 * w_frac)))
-    box_h = max(1, int(round(1080 * h_frac)))
-    image_box_aspect_ratio = f"{box_w} / {box_h}"
+    lw = _safe_frac(getattr(result, "image_box_width_fraction_landscape", None))
+    lh = _safe_frac(getattr(result, "image_box_height_fraction_landscape", None))
+    pw = _safe_frac(getattr(result, "image_box_width_fraction_portrait", None))
+    ph = _safe_frac(getattr(result, "image_box_height_fraction_portrait", None))
+
+    landscape_ar = f"{max(1, int(round(1920 * lw)))} / {max(1, int(round(1080 * lh)))}"
+    portrait_ar = f"{max(1, int(round(1080 * pw)))} / {max(1, int(round(1920 * ph)))}"
+    aspect_ratios = {"landscape": landscape_ar, "portrait": portrait_ar}
 
     line_count = code.count("\n") + 1
 
     print(
         f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: "
-        f"{line_count} lines in {elapsed:.1f}s, ar={image_box_aspect_ratio!r} "
-        f"(w_frac={w_frac:.2f}, h_frac={h_frac:.2f})"
+        f"{line_count} lines in {elapsed:.1f}s, "
+        f"landscape_ar={landscape_ar!r} (w={lw:.2f}, h={lh:.2f}), "
+        f"portrait_ar={portrait_ar!r} (w={pw:.2f}, h={ph:.2f})"
     )
-    return code, image_box_aspect_ratio
+    return code, aspect_ratios
 
 
 _SCENE_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="scene-gen")
@@ -553,8 +581,9 @@ async def _generate_single_scene(
     scene_index: int,
     total_scenes: int,
     scene_purpose: str,
-) -> tuple[str, str]:
-    """Async wrapper — runs the sync Refine call in a dedicated thread pool. Returns (code, image_box_aspect_ratio)."""
+) -> tuple[str, dict[str, str]]:
+    """Async wrapper — runs the sync Refine call in a dedicated thread pool.
+    Returns (code, {"landscape": "W / H", "portrait": "W / H"})."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         _SCENE_EXECUTOR,
@@ -677,7 +706,8 @@ async def generate_component_code(template: CustomTemplate) -> dict[str, str | l
 
     scene_tuples = await asyncio.gather(*tasks)
     scenes = [code for code, _ in scene_tuples]
-    scene_aspect_ratios = [ar for _, ar in scene_tuples]
+    # Each entry is a dict {"landscape": "W / H", "portrait": "W / H"}
+    scene_aspect_ratios: list[dict[str, str]] = [ar for _, ar in scene_tuples]
 
     # Log what was generated
     scene_labels = [intro_archetype["id"]] + [a["id"] for a in content_archetypes] + [outro_archetype["id"]]
