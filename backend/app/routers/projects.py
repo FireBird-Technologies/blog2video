@@ -55,6 +55,9 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
     if is_custom_template(project.template):
         data = _load_custom_template_data(project.template, db=db)
         project.custom_theme = data["theme"] if data else None
+        project.custom_image_box_aspect_ratios = (
+            data.get("image_box_aspect_ratios") if data else None
+        )
         project.custom_template_missing = data is None
         # Expose BrandKit logo URL so the frontend preview can show it
         brand_logo_url = None
@@ -68,6 +71,7 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
         project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
+        project.custom_image_box_aspect_ratios = None
         project.custom_template_missing = False
         project.brand_logo_url = None
     return project

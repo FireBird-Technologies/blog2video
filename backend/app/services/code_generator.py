@@ -194,13 +194,22 @@ class GenerateSceneCode(dspy.Signature):
     )
 
     code: str = dspy.OutputField(desc="Complete SceneComponent code (const SceneComponent = (props) => { ... };)")
-    image_box_aspect_ratio: str = dspy.OutputField(
+    image_box_width_fraction: float = dspy.OutputField(
         desc=(
-            "CSS aspect-ratio string for the image container in this scene. "
-            "Examples: '16 / 9' for landscape widescreen, '4 / 3' for classic landscape, "
-            "'1 / 1' for square, '9 / 16' for portrait. "
-            "Output the ratio that matches the image box dimensions you used in the scene code. "
-            "If the scene has no image box, output '16 / 9' as the default."
+            "Fraction of the SCENE WIDTH occupied by the image container you wrote in the code (0.0 to 1.0). "
+            "Examples: 0.5 if the image container takes half the scene width (e.g. width: '50%'), "
+            "1.0 if it spans the full scene width, 0.4 if it's 40% wide. "
+            "Read this directly from the width style you set on the element with data-content-img=\"1\". "
+            "If the scene has no image container, output 1.0."
+        )
+    )
+    image_box_height_fraction: float = dspy.OutputField(
+        desc=(
+            "Fraction of the SCENE HEIGHT occupied by the image container you wrote in the code (0.0 to 1.0). "
+            "Examples: 1.0 if the image container takes full height (e.g. height: '100%'), "
+            "0.6 if it's 60% tall, 0.5 if it spans half the scene height. "
+            "Read this directly from the height style you set on the element with data-content-img=\"1\". "
+            "If the scene has no image container, output 1.0."
         )
     )
 
@@ -508,10 +517,29 @@ def _generate_single_scene_sync(
 
     elapsed = time.time() - t0
     code = clean_code(result.code or "")
-    image_box_aspect_ratio = (result.image_box_aspect_ratio or "16 / 9").strip()
+
+    # Derive the image-box aspect ratio from the fractions the AI reported.
+    # Scene canvas is 1920x1080 (landscape) — fractions multiply against this base.
+    def _safe_frac(v: float | None) -> float:
+        try:
+            f = float(v) if v is not None else 1.0
+        except (TypeError, ValueError):
+            return 1.0
+        return min(1.0, max(0.05, f))
+
+    w_frac = _safe_frac(getattr(result, "image_box_width_fraction", None))
+    h_frac = _safe_frac(getattr(result, "image_box_height_fraction", None))
+    box_w = max(1, int(round(1920 * w_frac)))
+    box_h = max(1, int(round(1080 * h_frac)))
+    image_box_aspect_ratio = f"{box_w} / {box_h}"
+
     line_count = code.count("\n") + 1
 
-    print(f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: {line_count} lines in {elapsed:.1f}s, ar={image_box_aspect_ratio!r}")
+    print(
+        f"[F7-DEBUG] [REFINE] Scene {scene_index} ({scene_type}) done: "
+        f"{line_count} lines in {elapsed:.1f}s, ar={image_box_aspect_ratio!r} "
+        f"(w_frac={w_frac:.2f}, h_frac={h_frac:.2f})"
+    )
     return code, image_box_aspect_ratio
 
 

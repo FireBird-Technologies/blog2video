@@ -2094,7 +2094,26 @@ export default function SceneEditModal({
   const openImageAdjustModal = (src: string) => {
     let ar: string;
     if (project.template?.startsWith("custom_")) {
-      ar = (editableLayoutProps.imageBoxAspectRatio as string | undefined) || "16 / 9";
+      const ratioMap = project.custom_image_box_aspect_ratios || null;
+      const fallbackAr = (editableLayoutProps.imageBoxAspectRatio as string | undefined) || "16 / 9";
+      const layoutKey = currentLayoutId || "";
+      if (ratioMap) {
+        if (layoutKey === "intro" && ratioMap.intro) {
+          ar = ratioMap.intro;
+        } else if (layoutKey === "outro" && ratioMap.outro) {
+          ar = ratioMap.outro;
+        } else if (layoutKey.startsWith("content_")) {
+          const idx = Number(layoutKey.split("_")[1]);
+          const contentRatios = Array.isArray(ratioMap.content) ? ratioMap.content : [];
+          ar = Number.isFinite(idx) && idx >= 0 && idx < contentRatios.length && contentRatios[idx]
+            ? contentRatios[idx]
+            : fallbackAr;
+        } else {
+          ar = fallbackAr;
+        }
+      } else {
+        ar = fallbackAr;
+      }
     } else {
       const templateCfg = getTemplateConfig(project.template || "default");
       ar = getImageBoxAspectRatio(
