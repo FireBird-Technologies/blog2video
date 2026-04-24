@@ -620,11 +620,14 @@ export default function ProjectView() {
 
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
   const [embedToken, setEmbedToken] = useState<string | null>(null);
   const [embedLoading, setEmbedLoading] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
+  const [previewLinkUrl, setPreviewLinkUrl] = useState<string | null>(null);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
@@ -634,8 +637,6 @@ export default function ProjectView() {
   const [showAspectFormatConfirm, setShowAspectFormatConfirm] = useState(false);
   const [aspectFormatPending, setAspectFormatPending] = useState<"landscape" | "portrait" | null>(null);
   const [aspectFormatSaving, setAspectFormatSaving] = useState(false);
-  const shareAnchorRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const onClickOutside = (evt: MouseEvent) => {
       const target = evt.target as Node;
@@ -1819,12 +1820,30 @@ export default function ProjectView() {
   const handleGetEmbedLink = async () => {
     if (!project) return;
     setEmbedLoading(true);
+    setShowShareDropdown(false);
     try {
       const res = await generateEmbedToken(project.id);
       setEmbedToken(res.data.embed_token);
       setShowEmbedModal(true);
     } catch {
       showError("Could not generate embed link. Please try again.");
+    } finally {
+      setEmbedLoading(false);
+    }
+  };
+
+  const handleCopyPreviewLink = async () => {
+    if (!project) return;
+    setShowShareDropdown(false);
+    setEmbedLoading(true);
+    try {
+      const res = await generateEmbedToken(project.id);
+      const previewUrl = `${import.meta.env.VITE_APP_URL || window.location.origin}/preview/${res.data.embed_token}`;
+      setPreviewLinkUrl(previewUrl);
+      setPreviewLinkCopied(false);
+      setShowPreviewLinkModal(true);
+    } catch {
+      showError("Could not generate preview link. Please try again.");
     } finally {
       setEmbedLoading(false);
     }
@@ -2976,36 +2995,52 @@ export default function ProjectView() {
                       Re-render
                     </button>
 
-                    {/* Share button — inline next to Download */}
-                    {project.r2_video_url && (
-                      <div className="relative" ref={shareAnchorRef}>
-                        <button
-                          onClick={() => setShowShareMenu((v) => !v)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                          Share
-                        </button>
-
-                      </div>
-                    )}
                   </>
                 )}
 
-                {/* Link to Embed — always visible */}
+                {/* Share dropdown — always visible */}
                 {project?.scenes && project.scenes.length > 0 && (
-                  <button
-                    onClick={handleGetEmbedLink}
-                    disabled={embedLoading}
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    {embedLoading ? "Loading..." : "Link to Embed"}
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowShareDropdown((v) => !v)}
+                      disabled={embedLoading}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      {embedLoading ? "Loading..." : "Share"}
+                      <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showShareDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-[100]" onClick={() => setShowShareDropdown(false)} />
+                        <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-[101] py-1 overflow-hidden">
+                          <button
+                            onClick={handleCopyPreviewLink}
+                            className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+                          >
+                            <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            Share Preview Link
+                          </button>
+                          <button
+                            onClick={handleGetEmbedLink}
+                            className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5"
+                          >
+                            <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            Embed
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -3249,6 +3284,56 @@ export default function ProjectView() {
               </button>
             </div>
     
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showPreviewLinkModal && previewLinkUrl && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Link to Preview</h3>
+            <p className="text-sm text-gray-600 mb-5">Share this link to let anyone view the video preview — no account required.</p>
+            <div className="relative">
+              <input
+                readOnly
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-xs font-mono text-gray-700 focus:outline-none"
+                value={previewLinkUrl}
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(previewLinkUrl).then(() => {
+                    setPreviewLinkCopied(true);
+                    setTimeout(() => setPreviewLinkCopied(false), 2000);
+                  }).catch(() => {
+                    // clipboard blocked — user can select and copy manually
+                  });
+                }}
+                className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Copy to clipboard"
+              >
+                {previewLinkCopied ? (
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>,
         document.body
@@ -3734,52 +3819,6 @@ export default function ProjectView() {
           </div>,
           document.body
         )}
-
-      {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
-      {showShareMenu && project?.r2_video_url && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
-          <div
-            className="fixed z-[9999] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1"
-            style={(() => {
-              const rect = shareAnchorRef.current?.getBoundingClientRect();
-              if (!rect) return {};
-              return { top: rect.top - 48, left: rect.right - 130 };
-            })()}
-          >
-            {/* TikTok */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-              title="Copy link for TikTok"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-              </svg>
-            </button>
-            {/* YouTube */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-              title="Copy link for YouTube"
-            >
-              <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
-            </button>
-            {/* Facebook */}
-            <button
-              onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-              title="Share on Facebook"
-            >
-              <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-            </button>
-          </div>
-        </>
-      )}
 
       {/* Upper area: loader when running, editor when complete */}
       {pipelineRunning || templateRelayoutRunning ? (
