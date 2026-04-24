@@ -243,7 +243,9 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
 
         const SceneComp = getSceneComponent(scene, index, totalScenes);
         const imageUrl =
-          scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
+          scene.images.length > 0
+            ? staticFile(scene.images[0])
+            : (scene.ogImageUrl || undefined);
         const focusX = Number(scene.layoutProps?.imageFocusX ?? 50);
         const focusY = Number(scene.layoutProps?.imageFocusY ?? 50);
         const imageZoom = Math.max(1, Number(scene.layoutProps?.imageZoom ?? 1));
@@ -301,7 +303,17 @@ export const GeneratedVideo: React.FC<VideoProps> = ({ dataUrl }) => {
                 logoUrl={sceneProps.logoUrl}
               />
             ) : (
-              <SceneComp {...sceneProps} />
+              <AbsoluteFill
+                style={{
+                  ["--img-pos" as string]: imageObjectPosition,
+                  ["--img-zoom" as string]: String(imageZoom),
+                }}
+              >
+                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+                  <SceneComp {...sceneProps} />
+                </div>
+              </AbsoluteFill>
             )}
             {scene.voiceoverFile && (
               <Audio src={staticFile(scene.voiceoverFile)} playbackRate={playbackSpeed} />
