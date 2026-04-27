@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel, Field
@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.user import User, PlanTier
 from app.models.blast_campaign import BlastCampaign
+from app.models.update_email import UpdateEmail
+from app.models.update_email_send import UpdateEmailSend
 from app.services.email import email_service
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -38,6 +40,10 @@ def _build_user_query(db: Session, user_filter: str):
         q = q.filter(User.plan == PlanTier.FREE)
     elif user_filter == "paid":
         q = q.filter(User.plan != PlanTier.FREE)
+    elif user_filter == "standard":
+        q = q.filter(User.plan == PlanTier.STANDARD)
+    elif user_filter == "pro":
+        q = q.filter(User.plan == PlanTier.PRO)
     return q
 
 
@@ -233,5 +239,124 @@ async def list_campaigns(password: str):
             for c in campaigns
         ]
         return {"campaigns": result, "total_users": 0}
+    finally:
+        db.close()
+
+
+# ─── Update Email (automated weekly drip) ────────────────────────────────────
+
+USER_FILTER_VALUES = Literal["all", "free", "paid", "standard", "pro"]
+
+
+class UpdateEmailRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=500)
+    body: str = Field(..., min_length=1, max_length=20000)
+    password: str
+    user_filter: USER_FILTER_VALUES = "all"
+    batch_size: int = Field(default=50, ge=1, le=500)
+    # UTC hour to send (0-23). -1 means use the server default (UPDATE_EMAIL_SEND_HOUR in config).
+    send_hour: int = Field(default=-1, ge=-1, le=23)
+
+
+def _update_email_dict(e: UpdateEmail, db: Session) -> dict:
+    from sqlalchemy import select
+    remaining = (
+        _build_user_query(db, e.user_filter)
+        .filter(
+            User.id.notin_(
+                select(UpdateEmailSend.user_id)
+                .where(UpdateEmailSend.update_email_id == e.id)
+                .scalar_subquery()
+            )
+        )
+        .count()
+        if e.status != "completed"
+        else 0
+    )
+    return {
+        "id": e.id,
+        "subject": e.subject,
+        "body": e.body,
+        "user_filter": e.user_filter,
+        "batch_size": e.batch_size,
+        "send_hour": e.send_hour,
+        "status": e.status,
+        "total_users": e.total_users,
+        "sent_count": e.sent_count,
+        "failed_count": e.failed_count,
+        "remaining_users": remaining,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+    }
+
+
+@router.post("/update-emails")
+async def create_update_email(payload: UpdateEmailRequest):
+    if payload.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
+
+    db: Session = SessionLocal()
+    try:
+        total_users = _build_user_query(db, payload.user_filter).count()
+        entry = UpdateEmail(
+            subject=payload.subject,
+            body=payload.body,
+            user_filter=payload.user_filter,
+            batch_size=payload.batch_size,
+            send_hour=payload.send_hour,
+            total_users=total_users,
+            status="scheduled",
+        )
+        db.add(entry)
+        db.commit()
+        db.refresh(entry)
+        return _update_email_dict(entry, db)
+    finally:
+        db.close()
+
+
+@router.get("/update-emails")
+async def list_update_emails(password: str):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
+
+    db: Session = SessionLocal()
+    try:
+        emails = db.query(UpdateEmail).order_by(UpdateEmail.created_at.desc()).all()
+        return {"update_emails": [_update_email_dict(e, db) for e in emails]}
+    finally:
+        db.close()
+
+
+@router.get("/update-emails/{email_id}")
+async def get_update_email(email_id: int, password: str):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
+
+    db: Session = SessionLocal()
+    try:
+        entry = db.get(UpdateEmail, email_id)
+        if not entry:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Update email not found")
+        return _update_email_dict(entry, db)
+    finally:
+        db.close()
+
+
+@router.delete("/update-emails/{email_id}")
+async def delete_update_email(email_id: int, password: str):
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
+
+    db: Session = SessionLocal()
+    try:
+        entry = db.get(UpdateEmail, email_id)
+        if not entry:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Update email not found")
+        if entry.status == "running":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot delete a running update email")
+        db.delete(entry)
+        db.commit()
+        return {"deleted": email_id}
     finally:
         db.close()

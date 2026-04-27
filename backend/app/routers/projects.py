@@ -50,6 +50,55 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = get_logger(__name__)
 
 
+import threading as _threading
+
+# URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
+# URL on every project serialization (_inject_custom_theme runs on every GET).
+_BRAND_LOGO_URL_CHECK_TTL_S = 3600.0
+_brand_logo_url_check: dict[str, tuple[float, bool]] = {}
+_brand_logo_url_check_lock = _threading.Lock()
+
+
+def _is_brand_logo_url_reachable(url: str) -> bool:
+    """HEAD-check a brand-kit logo URL, cached for 1 hour.
+    Falls back to a single-byte GET when servers reject HEAD (403/405/501).
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    now = time.time()
+    with _brand_logo_url_check_lock:
+        cached = _brand_logo_url_check.get(url)
+        if cached and cached[0] > now:
+            return cached[1]
+    ok = False
+    try:
+        resp = requests.head(url, timeout=3, allow_redirects=True)
+        ok = resp.status_code < 400
+        if not ok and resp.status_code in (403, 405, 501):
+            resp = requests.get(
+                url, timeout=3, stream=True,
+                headers={"Range": "bytes=0-0"},
+            )
+            ok = resp.status_code < 400
+    except Exception:
+        ok = False
+    with _brand_logo_url_check_lock:
+        _brand_logo_url_check[url] = (now + _BRAND_LOGO_URL_CHECK_TTL_S, ok)
+    return ok
+
+
+def _pick_reachable_brand_logo_url(logos: list) -> str | None:
+    """Return the first brand-kit logo URL that is actually reachable, else None."""
+    for entry in logos or []:
+        url = (
+            entry.get("url", "") if isinstance(entry, dict)
+            else (entry if isinstance(entry, str) else "")
+        )
+        if url and _is_brand_logo_url_reachable(url):
+            return url
+    return None
+
+
 def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
     if is_custom_template(project.template):
@@ -59,15 +108,15 @@ def _inject_custom_theme(project: Project, db: Session | None = None) -> Project
             data.get("image_box_aspect_ratios") if data else None
         )
         project.custom_template_missing = data is None
-        # Expose BrandKit logo URL so the frontend preview can show it
+        # Expose BrandKit logo URL so the frontend preview can show it.
+        # Skip entries that don't actually resolve — a scraped /favicon.ico
+        # fallback often 404s on SPAs, and serving a broken URL to the
+        # frontend just renders a broken-image icon in the preview.
         brand_logo_url = None
         if data:
             bk = data.get("brand_kit")
             if bk:
-                logos = bk.get("logos") or []
-                if logos:
-                    first = logos[0]
-                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
+                brand_logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or [])
         project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
