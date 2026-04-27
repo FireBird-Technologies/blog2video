@@ -19,6 +19,8 @@ from app.models.user import User, PlanTier
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
+from app.models.update_email import UpdateEmail
+from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, saved_voices, template_studio, embed, unsubscribe, admin as admin_router
@@ -187,6 +189,7 @@ async def _periodic_paid_tier_cleanup():
 
 
 from app.constants import FREE_PREMADE_VOICE_IDS as KNOWN_PREMADE_VOICE_IDS
+from app.services.email import email_service
 
 
 def _ensure_prebuilt_voices_seeded() -> None:
@@ -234,6 +237,158 @@ def _ensure_prebuilt_voices_seeded() -> None:
         db.close()
 
 
+def _build_update_email_user_query(db, user_filter: str):
+    from app.models.user import User, PlanTier
+    q = db.query(User).filter(
+        User.is_active == True,  # noqa: E712
+        User.email.isnot(None),
+        User.email != "",
+        User.email_unsubscribed == False,  # noqa: E712
+    )
+    if user_filter == "free":
+        q = q.filter(User.plan == PlanTier.FREE)
+    elif user_filter == "paid":
+        q = q.filter(User.plan != PlanTier.FREE)
+    elif user_filter == "standard":
+        q = q.filter(User.plan == PlanTier.STANDARD)
+    elif user_filter == "pro":
+        q = q.filter(User.plan == PlanTier.PRO)
+    return q
+
+
+async def _run_update_email_batch(email_id: int):
+    """Send one daily batch for the given update email."""
+    db = SessionLocal()
+    try:
+        update_email = db.get(UpdateEmail, email_id)
+        if not update_email or update_email.status not in ("scheduled", "running"):
+            return
+
+        # Users in the target segment who haven't received this email yet
+        from sqlalchemy import select
+        already_sent_subq = (
+            select(UpdateEmailSend.user_id)
+            .where(UpdateEmailSend.update_email_id == email_id)
+            .scalar_subquery()
+        )
+        remaining_users = (
+            _build_update_email_user_query(db, update_email.user_filter)
+            .filter(User.id.notin_(already_sent_subq))
+            .order_by(User.created_at.asc())
+            .limit(update_email.batch_size)
+            .all()
+        )
+
+        # Snapshot total_users on first run (scheduled → running transition)
+        if update_email.status == "scheduled":
+            update_email.total_users = _build_update_email_user_query(db, update_email.user_filter).count()
+            update_email.status = "running"
+            db.commit()
+
+        if not remaining_users:
+            update_email.status = "completed"
+            update_email.updated_at = datetime.utcnow()
+            db.commit()
+            print(f"[UPDATE_EMAIL] id={email_id} completed — all users have been sent this email")
+            return
+
+        print(f"[UPDATE_EMAIL] id={email_id} sending batch of {len(remaining_users)} users")
+
+        for i, user in enumerate(remaining_users):
+            send_status = "sent"
+            try:
+                email_service.send_blast_email(user.email, user.name or "", update_email.subject, update_email.body)
+                update_email.sent_count += 1
+                print(f"[UPDATE_EMAIL] ✓ {user.email}")
+            except Exception as exc:
+                send_status = "failed"
+                update_email.failed_count += 1
+                print(f"[UPDATE_EMAIL] ✗ {user.email}: {exc}")
+
+            send_record = UpdateEmailSend(
+                update_email_id=email_id,
+                user_id=user.id,
+                status=send_status,
+                sent_at=datetime.utcnow(),
+            )
+            db.add(send_record)
+            update_email.updated_at = datetime.utcnow()
+            db.commit()
+
+            if i + 1 < len(remaining_users):
+                await asyncio.sleep(0.25)  # stay under Resend 5/sec limit
+
+        # Check if all eligible users have now been sent
+        total_sent = db.query(UpdateEmailSend).filter(UpdateEmailSend.update_email_id == email_id).count()
+        total_eligible = _build_update_email_user_query(db, update_email.user_filter).count()
+        if total_sent >= total_eligible:
+            update_email.status = "completed"
+            db.commit()
+            print(f"[UPDATE_EMAIL] id={email_id} completed after this batch")
+
+    except Exception as exc:
+        print(f"[UPDATE_EMAIL] id={email_id} scheduler error: {exc}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+async def _periodic_update_email_sender():
+    """Check every minute whether it's time to send the daily batch for each active update email."""
+    # Tracks the last date each email's batch ran. On restart this resets, but
+    # _run_update_email_batch excludes already-sent users via update_email_sends,
+    # so a spurious re-fire just finds remaining_users empty and exits safely.
+    last_run_dates: dict[int, object] = {}
+    while True:
+        await asyncio.sleep(60)
+        try:
+            now_utc = datetime.utcnow()
+            today = now_utc.date()
+
+            db = SessionLocal()
+            try:
+                active_emails = (
+                    db.query(UpdateEmail)
+                    .filter(UpdateEmail.status.in_(["scheduled", "running"]))
+                    .order_by(UpdateEmail.created_at.asc())
+                    .all()
+                )
+                active_ids = [
+                    (e.id, e.send_hour if e.send_hour >= 0 else settings.UPDATE_EMAIL_SEND_HOUR)
+                    for e in active_emails
+                ]
+            finally:
+                db.close()
+
+            for email_id, send_hour in active_ids:
+                if now_utc.hour != send_hour:
+                    continue
+                if last_run_dates.get(email_id) == today:
+                    continue
+                # Survives restarts: check DB for any sends recorded today for this email
+                today_midnight = datetime(today.year, today.month, today.day)
+                db3 = SessionLocal()
+                try:
+                    already_ran_today = (
+                        db3.query(UpdateEmailSend)
+                        .filter(
+                            UpdateEmailSend.update_email_id == email_id,
+                            UpdateEmailSend.sent_at >= today_midnight,
+                        )
+                        .first()
+                    )
+                finally:
+                    db3.close()
+                if already_ran_today:
+                    last_run_dates[email_id] = today  # sync in-memory state
+                    continue
+                last_run_dates[email_id] = today
+                await _run_update_email_batch(email_id)
+
+        except Exception as exc:
+            print(f"[UPDATE_EMAIL] periodic check error: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB and start background tasks."""
@@ -251,9 +406,11 @@ async def lifespan(app: FastAPI):
         traceback.print_exc()
         raise
 
+    update_email_sender = None
     try:
         free_cleanup = asyncio.create_task(_periodic_free_tier_cleanup())
         paid_cleanup = asyncio.create_task(_periodic_paid_tier_cleanup())
+        update_email_sender = asyncio.create_task(_periodic_update_email_sender())
         print("[STARTUP] Background tasks started")
     except Exception as e:
         print(f"[STARTUP] Failed to start background tasks: {e}")
@@ -267,6 +424,8 @@ async def lifespan(app: FastAPI):
             free_cleanup.cancel()
         if paid_cleanup:
             paid_cleanup.cancel()
+        if update_email_sender:
+            update_email_sender.cancel()
     except Exception:
         pass
 

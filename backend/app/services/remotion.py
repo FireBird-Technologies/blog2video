@@ -1057,19 +1057,29 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             # Use brand logo as fallback when no project-level logo was uploaded
             brand_kit = custom_data.get("brand_kit")
             if brand_kit:
-                logos = brand_kit.get("logos", [])
-                if logos:
-                    primary = logos[0] if isinstance(logos[0], dict) else {"url": logos[0]}
-                    logo_url = primary.get("url", "")
-                    if logo_url:
-                        logo_filename = "brand-logo.png"
-                        logo_dest = os.path.join(public_dir, logo_filename)
-                        if _download_url_to_file(logo_url, logo_dest):
-                            # Set as main logo if no project logo exists
-                            if not data.get("logo"):
-                                data["logo"] = logo_filename
-                            data["brandLogo"] = logo_filename
-                            logger.info("Brand logo downloaded to workspace: %s", logo_filename)
+                logos = brand_kit.get("logos", []) or []
+                # Try each URL in order — first one that downloads and
+                # decodes wins. The "primary" entry can be broken (e.g. a
+                # 404 favicon scraped before validation landed), so falling
+                # through to the next candidate is required for those kits.
+                logo_filename = None
+                for entry in logos:
+                    candidate_url = (
+                        entry.get("url", "") if isinstance(entry, dict)
+                        else (entry if isinstance(entry, str) else "")
+                    )
+                    if not candidate_url:
+                        continue
+                    logo_filename = _download_logo_normalized(
+                        candidate_url, public_dir, "brand-logo"
+                    )
+                    if logo_filename:
+                        break
+                if logo_filename:
+                    if not data.get("logo"):
+                        data["logo"] = logo_filename
+                    data["brandLogo"] = logo_filename
+                    logger.info("Brand logo downloaded to workspace: %s", logo_filename)
 
                 # Pass brand images for AI scene components
                 brand_images_raw = brand_kit.get("images", [])
@@ -2148,6 +2158,62 @@ def _download_url_to_file(url: str, dest: str) -> bool:
     except Exception as e:
         logger.warning("[REMOTION] Failed to download %s: %s", url, e)
         return False
+
+
+def _download_logo_normalized(url: str, public_dir: str, base_name: str) -> Optional[str]:
+    """
+    Download a logo URL from an arbitrary source (brand-kit, favicon, etc.) and
+    save it into public_dir as a Chromium-decodable file. Handles ICO favicons,
+    WebP, JPEG, and PNG by re-encoding through Pillow; passes SVG through as-is.
+
+    Remotion renders via headless Chromium, which rejects files whose bytes don't
+    match the filename extension (e.g. an .ico blob saved as brand-logo.png), so
+    normalization is required for third-party logos like https://site/favicon.ico.
+
+    Returns the saved filename (relative to public_dir) on success, else None.
+    """
+    try:
+        from io import BytesIO
+        from PIL import Image
+
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        content = resp.content
+
+        os.makedirs(public_dir, exist_ok=True)
+
+        head = content[:512].lstrip()
+        is_svg = head.startswith(b"<svg") or (
+            head.startswith(b"<?xml") and b"<svg" in head
+        )
+        if is_svg:
+            svg_name = f"{base_name}.svg"
+            with open(os.path.join(public_dir, svg_name), "wb") as f:
+                f.write(content)
+            logger.info("[REMOTION] Saved SVG logo: %s", svg_name)
+            return svg_name
+
+        png_name = f"{base_name}.png"
+        png_path = os.path.join(public_dir, png_name)
+        with Image.open(BytesIO(content)) as img:
+            # For multi-frame ICO, select the largest frame for best quality.
+            if (img.format or "").upper() == "ICO":
+                try:
+                    sizes = sorted(img.ico.sizes(), key=lambda s: s[0] * s[1], reverse=True)
+                    if sizes:
+                        img.size = sizes[0]
+                        img.load()
+                except Exception:
+                    pass
+            img.convert("RGBA").save(png_path, "PNG")
+        logger.info(
+            "[REMOTION] Normalized logo to PNG (source format=%s): %s",
+            getattr(img, "format", "?"), png_name,
+        )
+        return png_name
+    except Exception as e:
+        logger.warning("[REMOTION] Failed to download/normalize logo %s: %s", url, e)
+        return None
 
 
 def _copy_file(src: str, dest: str) -> None:
