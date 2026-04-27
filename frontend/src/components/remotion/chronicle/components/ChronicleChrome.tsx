@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 /**
  * ChronicleChrome — persistent ambient frame around every Chronicle scene.
@@ -24,8 +24,13 @@ interface ChronicleChromeProps {
   textColor?: string;
   /** Reserved — no longer drives a rotation. Kept so callers don't break. */
   disablePageTurn?: boolean;
+  /** When true, overlay the illuminated-manuscript scripture texture in addition to parchment. */
+  showScripture?: boolean;
   children?: React.ReactNode;
 }
+
+const PARCHMENT_TEXTURE = "old-parchment.jpg";
+const SCRIPTURE_TEXTURE = "old-scripture.jpg";
 
 const DUST_MOTES = Array.from({ length: 18 }).map((_, i) => {
   const rng = (seed: number) => {
@@ -45,6 +50,7 @@ const DUST_MOTES = Array.from({ length: 18 }).map((_, i) => {
 export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
   bgColor = "#F1E4C9",
   disablePageTurn = false,
+  showScripture = false,
   children,
 }) => {
   const frame = useCurrentFrame();
@@ -112,6 +118,46 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
         </defs>
         <rect width="100%" height="100%" filter="url(#chronicle-grain)" />
       </svg>
+
+      {/* Parchment photo texture — always on, very subtle so it reads as paper grain not content */}
+      <img
+        src={staticFile(PARCHMENT_TEXTURE)}
+        alt=""
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "50% 50%",
+          opacity: 0.10,
+          filter: "sepia(0.55) contrast(1.05) saturate(0.55) blur(1.5px)",
+          mixBlendMode: "multiply",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+
+      {/* Scripture (illuminated manuscript) — only on hero/quote scenes */}
+      {showScripture && (
+        <img
+          src={staticFile(SCRIPTURE_TEXTURE)}
+          alt=""
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            objectPosition: "50% 50%",
+            opacity: 0.14,
+            filter: "sepia(0.55) contrast(1.05) saturate(0.6)",
+            mixBlendMode: "multiply",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      )}
 
       {/* Warm stain patches */}
       {[
@@ -183,8 +229,10 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
         }}
       />
 
-      {/* Scene content — subtle opacity fade only, no transform */}
-      <AbsoluteFill style={{ opacity: contentOpacity }}>{children}</AbsoluteFill>
+      {/* Scene content — sits above all chrome textures, below spine shadows + dust. */}
+      <AbsoluteFill style={{ opacity: contentOpacity, zIndex: 10 }}>
+        {children}
+      </AbsoluteFill>
 
       {/* Dust motes */}
       {DUST_MOTES.map((m, i) => {
