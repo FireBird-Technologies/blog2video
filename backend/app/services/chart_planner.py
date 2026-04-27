@@ -145,17 +145,25 @@ def get_line_chartable_tables_from_visual_hint(
 
 
 _CANDLESTICK_REQUIRED = {"open", "high", "low", "close"}
+_CANDLESTICK_DATE_KEYWORDS = {"date", "time", "period", "week", "month", "year", "day", "quarter"}
 
 
 def is_candlestick_table(table: dict[str, Any]) -> bool:
-    """Return True if the table contains OHLCV columns (Open, High, Low, Close)."""
+    """Return True if the table has OHLCV columns AND a date/time axis column.
+
+    A multi-symbol snapshot (e.g. SYMBOL | OPEN | HIGH | LOW | CLOSE) has the
+    OHLC columns but no time axis — it should be a terminal_table, not terminal_chart.
+    """
     headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
     found = set()
+    has_date_col = False
     for h in headers:
         for r in _CANDLESTICK_REQUIRED:
             if r in h:
                 found.add(r)
-    return _CANDLESTICK_REQUIRED.issubset(found)
+        if any(kw in h for kw in _CANDLESTICK_DATE_KEYWORDS):
+            has_date_col = True
+    return _CANDLESTICK_REQUIRED.issubset(found) and has_date_col
 
 
 def has_candlestick_table_in_visual_hint(visual_description: str) -> bool:
@@ -408,6 +416,62 @@ def generate_terminal_chart_items(table: dict[str, Any], max_items: int = 8) -> 
     return items
 
 
+def is_ticker_snapshot_table(table: dict[str, Any]) -> bool:
+    """True if the table is a multi-symbol market snapshot (symbol column + % change column).
+
+    These should be rendered as terminal_ticker, not terminal_table.
+    """
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    has_symbol = any(kw in h for h in headers for kw in ("symbol", "ticker", "scrip"))
+    has_pct = any("%" in h for h in headers)
+    return has_symbol and has_pct
+
+
+def generate_terminal_ticker_items(table: dict[str, Any], max_items: int = 10) -> list[str]:
+    """Convert a multi-symbol snapshot table to terminal ticker item strings.
+
+    Detects SYMBOL, PRICE (close > ldcp > last > price), and CHANGE(%) columns by
+    header keywords. Returns empty list if required columns are not found.
+    Output format per item: "SYMBOL  +X.XX%  PRICE"
+    """
+    headers = [str(h or "").strip().lower() for h in (table.get("headers", []) or [])]
+    rows = [r for r in (table.get("rows", []) or []) if isinstance(r, list)]
+    if not headers or not rows:
+        return []
+
+    def _find(keywords: list[str]) -> int | None:
+        for kw in keywords:
+            for i, h in enumerate(headers):
+                if kw in h:
+                    return i
+        return None
+
+    sym_col = _find(["symbol", "ticker", "scrip"])
+    pct_col = _find(["%"])
+    # Prefer close over ldcp for the displayed price
+    price_col = _find(["close", "last", "price", "ldcp"])
+
+    if sym_col is None or pct_col is None:
+        return []
+
+    items = []
+    for row in rows[:max_items]:
+        sym = str(row[sym_col] if sym_col < len(row) else "").strip()
+        pct = str(row[pct_col] if pct_col < len(row) else "").strip()
+        if not sym or not pct:
+            continue
+        # Ensure explicit sign
+        if pct and not pct.startswith(("+", "-")):
+            pct = "+" + pct
+        if price_col is not None and price_col < len(row):
+            price = str(row[price_col]).strip()
+            items.append(f"{sym}  {pct}  {price}")
+        else:
+            items.append(f"{sym}  {pct}")
+
+    return items
+
+
 def generate_terminal_table_items(table: dict[str, Any], max_items: int = 12) -> list[str]:
     """Format a table as pipe-delimited items strings for the TerminalTable layout.
 
@@ -427,6 +491,155 @@ def generate_terminal_table_items(table: dict[str, Any], max_items: int = 12) ->
     data_strs = [_fmt_row(r) for r in rows[: max_items - 1] if any(str(c or "").strip() for c in r)]
 
     items = [header_str] + data_strs
+    return items[:max_items]
+
+
+_TICKER_ARROW_RE = re.compile(
+    # Matches the Motley Fool arrow-block format WITH the Arrow-Thin-Down prefix:
+    # "Arrow-Thin-Down\\\n\\\nSYMBOL NAME\\\n\\\n$PRICE\\\n\\\n+X.X%"
+    r"Arrow-Thin-(?:Down|Up)\s*\\\s*\n"
+    r"\s*\\\s*\n\s*([^\\\n]{1,30}?)\s*\\\s*\n"  # name/symbol line
+    r"\s*\\\s*\n\s*(\$?[\d,]+\.?\d*)\s*\\\s*\n"  # price line
+    r"\s*\\\s*\n\s*([+\-]\d+\.?\d*%)",            # pct change line
+    re.MULTILINE,
+)
+
+_TICKER_BARE_BLOCK_RE = re.compile(
+    # Matches bare backslash-newline blocks WITHOUT the Arrow-Thin prefix:
+    # "S&P 500\\\n\\\n7,108.40\\\n\\\n-0.4%"
+    r"([^\\\n]{1,40})\\\n"    # name line ending with backslash-newline
+    r"\\\n"                    # blank backslash-newline separator
+    r"(\$?[\d,]+\.?\d*)\\\n"  # price line
+    r"\\\n"                    # blank separator
+    r"([+\-]\d+\.?\d*%)",     # pct change line
+    re.MULTILINE,
+)
+
+_TICKER_PAREN_RE = re.compile(
+    # Matches Motley Fool inline format: "CompanyName (\nMSFT\n3.90%\n)"
+    r'\(\s*\n\s*([A-Z]{1,6})\s*\n\s*([+\-]?\d+\.?\d*%)\s*\n\s*\)',
+    re.MULTILINE,
+)
+
+_TICKER_INLINE_RE = re.compile(
+    r"\b([A-Z]{2,5})\b"           # ticker symbol (2-5 caps)
+    r"[^$\d\n]{0,40}"             # optional gap (stock name)
+    r"\$?([\d,]+\.?\d*)"          # price
+    r"[^%\-+\d\n]{0,10}"
+    r"([+\-]\d+\.?\d*%)",         # change pct
+    re.MULTILINE,
+)
+
+_TICKER_STOPWORDS = {
+    "THE", "AND", "FOR", "ARE", "NOT", "BUT", "INC", "LLC", "ETF", "IPO",
+    "CEO", "CFO", "SEC", "NYSE", "USA", "GDP", "FED", "USD", "ALL", "NEW",
+    "ITS", "HAS", "WAS", "THIS", "WITH", "FROM", "INTO", "THAT", "THEY",
+    "WILL", "HAVE", "BEEN", "THEIR", "MORE", "ALSO", "BOTH", "EACH", "OVER",
+}
+
+# Abbreviate long index names to a short label for display
+_NAME_ABBREV = {
+    "S&P 500": "SPX",
+    "DOW JONES": "DJI",
+    "NASDAQ": "NDX",
+    "BITCOIN": "BTC",
+    "ETHEREUM": "ETH",
+}
+
+
+def extract_ticker_items_from_blog(blog_content: str, max_items: int = 10) -> list[str]:
+    """Extract real ticker rows from scraped blog content for terminal_ticker.
+
+    Returns formatted strings: "SYMBOL  +X.XX%  $PRICE"
+    Priority: arrow-block format → tables with Name/Last/Chg% → inline text pattern.
+    """
+    if not blog_content:
+        return []
+
+    seen: set[str] = set()
+    items: list[str] = []
+
+    def _add(raw_name: str, price: str, pct: str) -> None:
+        name = raw_name.strip().upper()
+        # Map long names to short symbols
+        sym = _NAME_ABBREV.get(name, name)
+        # If still long, try to use the last all-caps word as symbol
+        if len(sym) > 7:
+            tokens = [t for t in re.split(r"\s+", sym) if t.isalpha()]
+            short = next((t for t in tokens if 1 <= len(t) <= 6 and t not in _TICKER_STOPWORDS), None)
+            sym = short or sym[:6]
+        sym = sym.lstrip("^").strip()
+        if not sym or sym in seen or sym in _TICKER_STOPWORDS:
+            return
+        seen.add(sym)
+        price_clean = price.strip().lstrip("$").replace(",", "")
+        pct_clean = pct.strip()
+        if not pct_clean.startswith(("+", "-")):
+            pct_clean = "+" + pct_clean
+        items.append(f"{sym:<6}  {pct_clean:<8}  ${price_clean}")
+
+    # Priority 1a: bare backslash-newline block — "S&P 500\\\n\\\n7,108.40\\\n\\\n-0.4%"
+    for m in _TICKER_BARE_BLOCK_RE.finditer(blog_content):
+        if len(items) >= max_items:
+            break
+        _add(m.group(1), m.group(2), m.group(3))
+
+    # Priority 1b: Motley Fool arrow-block format with Arrow-Thin-Down prefix
+    if len(items) < 4:
+        for m in _TICKER_ARROW_RE.finditer(blog_content):
+            if len(items) >= max_items:
+                break
+            _add(m.group(1), m.group(2), m.group(3))
+
+    # Priority 1c: Motley Fool inline paren format — "CompanyName (\nMSFT\n3.90%\n)"
+    # No price available in this format; use pct-only display
+    if len(items) < 4:
+        for m in _TICKER_PAREN_RE.finditer(blog_content):
+            if len(items) >= max_items:
+                break
+            sym = m.group(1).strip()
+            pct = m.group(2).strip()
+            if sym in _TICKER_STOPWORDS or sym in seen:
+                continue
+            seen.add(sym)
+            pct_clean = pct if pct.startswith(("+", "-")) else "+" + pct
+            items.append(f"{sym:<6}  {pct_clean:<8}  —")
+
+    # Priority 2: tables with Name/Last/Chg.% columns
+    if len(items) < 4:
+        try:
+            from app.services.table_extraction import extract_tables_from_content
+            tables = extract_tables_from_content(blog_content)
+        except Exception:
+            tables = []
+        for tbl in tables:
+            if len(items) >= max_items:
+                break
+            hdrs = [str(h).lower() for h in tbl.get("headers", [])]
+            name_i = next((i for i, h in enumerate(hdrs) if h in {"name", "ticker", "symbol"}), -1)
+            last_i = next((i for i, h in enumerate(hdrs) if "last" in h or "price" in h or "close" in h), -1)
+            chg_i = next((i for i, h in enumerate(hdrs) if "chg" in h and "%" in h or h == "chg. %"), -1)
+            if name_i == -1 or last_i == -1 or chg_i == -1:
+                continue
+            for row in tbl.get("rows", []):
+                if len(items) >= max_items:
+                    break
+                name = str(row[name_i] if name_i < len(row) else "").strip()
+                price = str(row[last_i] if last_i < len(row) else "").strip()
+                pct = str(row[chg_i] if chg_i < len(row) else "").strip()
+                if name and price and pct:
+                    _add(name, price, pct)
+
+    # Priority 3: inline "TICKER $price +X%" pattern (last resort)
+    if len(items) < 4:
+        for m in _TICKER_INLINE_RE.finditer(blog_content):
+            if len(items) >= max_items:
+                break
+            sym = m.group(1)
+            if sym in _TICKER_STOPWORDS:
+                continue
+            _add(sym, m.group(2), m.group(3))
+
     return items[:max_items]
 
 

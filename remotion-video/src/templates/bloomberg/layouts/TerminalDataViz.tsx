@@ -139,8 +139,8 @@ function resolvedChartType(
 ): "bar" | "line" | "histogram" {
   if (requested && requested !== "auto") return requested;
   // Time-like labels → prefer line
-  const timeLike = /^(q[1-4]|\d{4}|\d{1,2}[\/\-]\d{2,4}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
-  if (inputs.labels.length >= 3 && inputs.labels.some((l) => timeLike.test(l.trim()))) {
+  const timeLike = /^(q[1-4]|\d{4}|\d{1,2}[\/\-]\d{2,4}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|start|now)/i;
+  if (inputs.labels.length >= 2 && inputs.labels.some((l) => timeLike.test(l.trim()))) {
     return "line";
   }
   return "bar";

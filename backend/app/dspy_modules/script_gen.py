@@ -110,6 +110,15 @@ class BlogToScript(dspy.Signature):
 
     Output the scenes as a JSON array.
 
+    ═══ CONTENT COVERAGE — USE ALL SOURCE DATA (CRITICAL) ═══
+    - You MUST cover the FULL blog_content — do not summarise only the first half or skip sections.
+    - Read blog_content to the end before planning scenes. Every major point, statistic, finding,
+      and section of the article must appear in at least one scene's narration or visual_description.
+    - If video_length forces fewer scenes than topics, merge related points into single scenes —
+      but do NOT silently drop entire sections of the article.
+    - For bloomberg specifically: every numeric claim, statistic, or data point found anywhere in
+      blog_content must be represented. Do not stop extracting data after the first few paragraphs.
+
     ═══ LANGUAGE RULE (CRITICAL) ═══
     - content_language specifies the language of the scraped blog content.
     - Generate ALL output (title, scene titles, narrations, visual_description) EXCLUSIVELY in that language.
@@ -245,6 +254,16 @@ class BlogToScript(dspy.Signature):
             "E.g. instead of 'RSI climbed past 60', write 'buyers stepped in aggressively after the dip, pushing "
             "the stock back toward its highs — reflecting the recovery story this article describes'. "
             "Match framing to chartType: line=trend over time, bar=comparison between categories, histogram=distribution. "
+            "CHART DATA INTEGRITY — CRITICAL, NO EXCEPTIONS: "
+            "NEVER invent, fabricate, extrapolate, or assume any data values. Every number, date, label, and data point "
+            "in your narration MUST come verbatim from the rows/headers provided in this chartable_tables_json entry. "
+            "If a value is not in the supplied rows, do not mention it. "
+            "LAYOUT PRIORITY FOR BLOOMBERG — apply in this order: "
+            "(1) If the table has OHLCV columns (open, high, low, close + date) → preferred_layout MUST be 'terminal_chart'. "
+            "(2) If the table has a time/date column with numeric values but is NOT OHLCV → preferred_layout MUST be 'terminal_dataviz' (line chart). "
+            "(3) If the table is purely categorical with no numeric progression → preferred_layout MUST be 'terminal_table'. "
+            "NEVER assign 'terminal_chart' to any non-OHLCV table, even if it has a time column. "
+            "NEVER assign 'terminal_table' to a table that has a time-series or numeric progression. "
             "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
             "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
             "MUST NOT reference these tables in their narration."
@@ -355,7 +374,34 @@ class ScriptGenerator:
             "analytical, data-grounded, and delivered with conviction from the first word to the last. "
             "(9) BANNED OPENERS — never start a narration with: 'The data shows', 'Looking at', "
             "'As we can see', 'This chart', 'These numbers', 'The table', 'Here we see', 'In this scene'. "
-            "Start with the insight, a named entity, or a strong verb."
+            "Start with the insight, a named entity, or a strong verb. "
+            "(10) DATA INTEGRITY — ABSOLUTE RULE: Never fabricate, invent, or extrapolate any figures. "
+            "Every number, percentage, price, date, or label in your narration MUST exist verbatim in the "
+            "supplied chartable_tables_json rows OR be explicitly stated in blog_content prose. "
+            "If a value is not in the source data, do not mention it. "
+            "(11) CHART LAYOUT ASSIGNMENT — STRICT RULES: "
+            "terminal_chart MUST ONLY be used when the data is a full OHLCV candlestick dataset "
+            "(columns: date/time, open, high, low, close, and optionally volume). "
+            "terminal_dataviz MUST be used for ALL other time-series or line-chartable data "
+            "(e.g. year + revenue, date + price, period + metric). "
+            "terminal_table MUST be used for purely categorical/tabular data with no numeric progression. "
+            "NEVER assign terminal_chart to non-OHLCV data — not even if the data has a time column. "
+            "(12) IMPLICIT TIME-SERIES FROM PROSE — BLOOMBERG EXCLUSIVE: "
+            "Even when chartable_tables_json is empty, scan blog_content for sentences that describe "
+            "a numeric progression over time — e.g. 'revenue grew from $6.8bn to $45.2bn over a decade', "
+            "'margins fell from 32%% to 18%% since 2019', 'users went from 1M in 2015 to 45M in 2024'. "
+            "When you find such a statement: synthesize a terminal_dataviz scene (LINE CHART) from it. "
+            "Extract ONLY the exact figures and time references stated in the text. "
+            "Set visual_description to: "
+            "'SYNTHETIC_TIMESERIES: [{\"label\": \"<start period>\", \"value\": <start number>}, "
+            "{\"label\": \"<end period>\", \"value\": <end number>}] unit=<unit e.g. bn USD, %>'. "
+            "YEAR/LABEL RULE — CRITICAL: Use ONLY labels explicitly stated in the prose. "
+            "If no specific years are given, use 'Start' and 'Now' — NEVER invent a year. "
+            "If no time reference at all exists, omit the label field rather than fabricating one. "
+            "Set preferred_layout to 'terminal_dataviz'. "
+            "The narration must analyse the magnitude and meaning of the change, not restate numbers. "
+            "Only one synthetic scene per distinct metric. "
+            "Skip if chartable_tables_json already covers the same metric."
         ),
     }
 
@@ -582,7 +628,8 @@ class ScriptGenerator:
                 if preferred_layout == "ending_socials" and cta_btn:
                     row["cta_button_text"] = cta_btn
                 raw_idx = scene.get("data_table_index")
-                if preferred_layout == "data_visualization" and isinstance(raw_idx, int):
+                _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"}
+                if preferred_layout in _data_layouts and isinstance(raw_idx, int):
                     row["data_table_index"] = raw_idx
                 validated.append(row)
 
