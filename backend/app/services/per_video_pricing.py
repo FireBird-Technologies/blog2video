@@ -1,49 +1,49 @@
 """
-Per-video pack pricing: three-zone curve shaped to nudge users toward packs.
+Per-video pack pricing: three flat tiers.
 
-Zone A — Flat (qty 1-5):  per_unit = $3.00. No discount. Full margin from casuals.
-Zone B — Sweet spot (qty 6-15): steep 15c/unit drop. Drives pack buys.
-Zone C — Bulk (qty 16+): gentle 2c/unit drop, floored at $0.60
-                         (above Pro's $0.50/video effective rate).
+Zone A — Casual (qty 1-10):  $4.00/video. Full margin from one-off buys.
+Zone B — Pack (qty 11-30):   $3.00/video. The "buy a pack" tier.
+Zone C — Bulk (qty 31+):     $2.80/video. Bulk tier — flat, no further discount.
 
-Intentional quirk: total at qty=10 and qty=15 both equal $22.50. That's the
-"drag from 10 to 15 for 5 free videos" psychological anchor — keep it.
+All three tiers are flat. Crossing qty=10 or qty=30 drops the per-video price
+to the next tier; within a tier nothing changes.
+
+Intentional cliffs:
+  qty=10 -> qty=11: total drops $40 -> $33  ("unlock pack pricing — save $7")
+  qty=30 -> qty=31: total drops $90 -> $86.80 ("unlock bulk pricing")
 
 Frontend mirrors this exactly at frontend/src/lib/perVideoPricing.ts —
-if you change these constants or the formula, change both.
+if you change these constants, change both.
 """
 
-BASE_PRICE_CENTS = 300            # $3.00 flat in Zone A
+CASUAL_PRICE_CENTS = 400          # $4.00 in Zone A (qty 1-10)
+PACK_PRICE_CENTS = 300            # $3.00 in Zone B (qty 11-30)
+BULK_PRICE_CENTS = 280            # $2.80 in Zone C (qty 31+)
 
 # Zone boundaries
-FLAT_ZONE_END = 5                 # qty 1..5 is flat
-SWEET_ZONE_END = 15               # qty 6..15 is steep-discount sweet spot
+CASUAL_ZONE_END = 10
+PACK_ZONE_END = 30
 
-# Per-unit discount rates (cents of drop per extra unit)
-SWEET_ZONE_DROP_CENTS = 15        # Zone B: steep — 3x the old curve
-BULK_ZONE_DROP_CENTS = 1          # Zone C: very gentle, floor hits around qty=105
-
-# Per-unit price anchors
-SWEET_ZONE_END_PRICE_CENTS = 150  # per-unit at qty=15 ($1.50)
-
-# Floor and bounds
-FLOOR_PRICE_CENTS = 60            # $0.60/video — above Pro's effective rate
+# Bounds
 MIN_QUANTITY = 1
 MAX_QUANTITY = 200
 
 # UI anchors (exported for frontend mirror)
-BEST_VALUE_QTY = 10               # "Best value" label
-BEST_DEAL_QTY = 15                # "Best deal — 5 free videos" label
+PACK_TIER_START_QTY = 11
+BULK_TIER_START_QTY = 31
+
+# Legacy aliases — preserved so any external imports keep resolving.
+BEST_VALUE_QTY = PACK_TIER_START_QTY
+BEST_DEAL_QTY = PACK_TIER_START_QTY
 
 
 def per_unit_cents(qty: int) -> int:
     q = max(MIN_QUANTITY, min(qty, MAX_QUANTITY))
-    if q <= FLAT_ZONE_END:
-        return BASE_PRICE_CENTS
-    if q <= SWEET_ZONE_END:
-        return BASE_PRICE_CENTS - (q - FLAT_ZONE_END) * SWEET_ZONE_DROP_CENTS
-    raw = SWEET_ZONE_END_PRICE_CENTS - (q - SWEET_ZONE_END) * BULK_ZONE_DROP_CENTS
-    return max(raw, FLOOR_PRICE_CENTS)
+    if q <= CASUAL_ZONE_END:
+        return CASUAL_PRICE_CENTS
+    if q <= PACK_ZONE_END:
+        return PACK_PRICE_CENTS
+    return BULK_PRICE_CENTS
 
 
 def total_cents(qty: int) -> int:

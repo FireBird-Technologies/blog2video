@@ -5,9 +5,13 @@ import {
   savingsCents,
   formatDollars,
   BASE_PRICE_CENTS,
-  FLAT_ZONE_END,
-  BEST_VALUE_QTY,
-  BEST_DEAL_QTY,
+  CASUAL_ZONE_END,
+  PACK_ZONE_END,
+  PACK_TIER_START_QTY,
+  BULK_TIER_START_QTY,
+  CASUAL_PRICE_CENTS,
+  PACK_PRICE_CENTS,
+  BULK_PRICE_CENTS,
 } from "../lib/perVideoPricing";
 
 type Variant = "compact" | "full";
@@ -55,44 +59,49 @@ export default function PerVideoSliderCard({
   const total = totalCents(qty);
   const saved = savingsCents(qty);
 
-  // Sweet-spot messaging: nudge users into the 6-15 discount band.
-  let badge: { text: string; tone: "value" | "deal" } | null = null;
-  if (qty === BEST_DEAL_QTY) {
-    badge = { text: "Best deal — 5 free videos", tone: "deal" };
-  } else if (qty === BEST_VALUE_QTY) {
-    badge = { text: "Best value", tone: "value" };
-  } else if (qty > FLAT_ZONE_END && qty < BEST_VALUE_QTY) {
-    badge = { text: `Move up to ${BEST_VALUE_QTY} for best value`, tone: "value" };
-  } else if (qty > BEST_VALUE_QTY && qty < BEST_DEAL_QTY) {
-    badge = { text: `${BEST_DEAL_QTY - qty} more for 5 free videos`, tone: "deal" };
-  }
+  // Slider with three equal zones, one per pricing tier. Each zone takes a
+  // third of the width and maps to its tier's qty range. Aligns visually with
+  // the tier strip above.
+  //
+  //   [ casual: pos 0..99 → qty 1..10 ] [ pack: 100..199 → 11..30 ] [ bulk: 200..300 → 31..100 ]
+  //
+  // High slider resolution (0..300) gives smooth pixel-by-pixel dragging.
+  const SLIDER_RES = 300;
+  const ZONE_RES = SLIDER_RES / 3;
 
-  // Non-linear slider: labels are evenly spaced but map to custom qty stops.
-  // This keeps 5, 10, 15 readable instead of crammed at the far left.
-  const STOPS = [1, 5, 10, 15, 25, 50, 100];
   const sliderPosToQty = (pos: number): number => {
-    const segSize = 1 / (STOPS.length - 1);
-    const seg = Math.min(Math.floor(pos / segSize), STOPS.length - 2);
-    const localT = (pos - seg * segSize) / segSize;
-    const q = STOPS[seg] + (STOPS[seg + 1] - STOPS[seg]) * localT;
-    return Math.round(q);
+    const p = Math.max(0, Math.min(pos, SLIDER_RES));
+    if (p < ZONE_RES) {
+      // Casual: 1..10
+      return Math.round(1 + (p / ZONE_RES) * (CASUAL_ZONE_END - 1));
+    }
+    if (p < 2 * ZONE_RES) {
+      // Pack: 11..30
+      const t = (p - ZONE_RES) / ZONE_RES;
+      return Math.round(PACK_TIER_START_QTY + t * (PACK_ZONE_END - PACK_TIER_START_QTY));
+    }
+    // Bulk: 31..100
+    const t = (p - 2 * ZONE_RES) / ZONE_RES;
+    return Math.round(BULK_TIER_START_QTY + t * (100 - BULK_TIER_START_QTY));
   };
   const qtyToSliderPos = (q: number): number => {
-    if (q <= STOPS[0]) return 0;
-    if (q >= STOPS[STOPS.length - 1]) return 1000;
-    for (let i = 0; i < STOPS.length - 1; i++) {
-      if (q <= STOPS[i + 1]) {
-        const localT = (q - STOPS[i]) / (STOPS[i + 1] - STOPS[i]);
-        return Math.round(((i + localT) / (STOPS.length - 1)) * 1000);
-      }
+    if (q <= 1) return 0;
+    if (q <= CASUAL_ZONE_END) {
+      return Math.round(((q - 1) / (CASUAL_ZONE_END - 1)) * ZONE_RES);
     }
-    return 1000;
+    if (q <= PACK_ZONE_END) {
+      const t = (q - PACK_TIER_START_QTY) / (PACK_ZONE_END - PACK_TIER_START_QTY);
+      return Math.round(ZONE_RES + t * ZONE_RES);
+    }
+    const t = (Math.min(q, 100) - BULK_TIER_START_QTY) / (100 - BULK_TIER_START_QTY);
+    return Math.round(2 * ZONE_RES + t * ZONE_RES);
   };
   const sliderPos = qtyToSliderPos(qty);
 
-  // Sweet-spot band: 5 is STOPS[1] = pct 1/6, 15 is STOPS[3] = pct 3/6.
-  const flatPct = (1 / (STOPS.length - 1)) * 100;
-  const sweetPct = (3 / (STOPS.length - 1)) * 100;
+  // Each tier occupies exactly 1/3 of the slider width.
+  // Pack tier spans the middle third — highlight that on the track.
+  const flatPct = 100 / 3;
+  const sweetPct = (100 / 3) * 2;
   const trackBackground =
     `linear-gradient(to right, ` +
     `rgb(243 232 255) 0%, ` +
@@ -101,6 +110,14 @@ export default function PerVideoSliderCard({
     `rgb(216 180 254) ${sweetPct}%, ` +
     `rgb(243 232 255) ${sweetPct}%, ` +
     `rgb(243 232 255) 100%)`;
+
+  // Tick labels at zone boundaries: each at 0%, 33%, 67%, 100%.
+  const TICKS: { qty: number; pct: number; bold: boolean }[] = [
+    { qty: 1,   pct: 0,            bold: false },
+    { qty: 10,  pct: 100 / 3,      bold: true  },
+    { qty: 30,  pct: (100 / 3) * 2, bold: true },
+    { qty: 100, pct: 100,           bold: false },
+  ];
 
   const isCompact = variant === "compact";
   const titleClass = isCompact
@@ -150,50 +167,75 @@ export default function PerVideoSliderCard({
             You save {formatDollars(saved)}
           </div>
         )}
-        {badge && (
-          <div
-            className={
-              badge.tone === "deal"
-                ? "inline-block text-[11px] font-semibold text-white bg-purple-600 rounded-full px-2 py-0.5"
-                : "inline-block text-[11px] font-semibold text-purple-700 bg-purple-100 rounded-full px-2 py-0.5"
-            }
-          >
-            {badge.text}
-          </div>
-        )}
       </div>
 
-      {/* Slider */}
+      {/* Tier strip — three equal-width segments showing the flat pricing
+          tiers. Active tier (where the slider thumb sits) highlights. */}
+      <div className="mb-3 grid grid-cols-3 gap-1 text-[11px] font-medium">
+        {[
+          {
+            label: formatDollars(CASUAL_PRICE_CENTS),
+            range: "1–10",
+            active: qty <= CASUAL_ZONE_END,
+          },
+          {
+            label: formatDollars(PACK_PRICE_CENTS),
+            range: "11–30",
+            active: qty >= PACK_TIER_START_QTY && qty <= PACK_ZONE_END,
+          },
+          {
+            label: formatDollars(BULK_PRICE_CENTS),
+            range: "31+",
+            active: qty >= BULK_TIER_START_QTY,
+          },
+        ].map((tier, i) => (
+          <div
+            key={i}
+            className={`flex flex-col items-center justify-center py-2 rounded-md transition-colors duration-200 ${
+              tier.active
+                ? "bg-purple-600 text-white shadow-sm"
+                : "bg-purple-50 text-purple-700"
+            }`}
+          >
+            <span className="font-semibold">{tier.label}</span>
+            <span
+              className={`text-[10px] ${
+                tier.active ? "text-purple-100" : "text-purple-400"
+              }`}
+            >
+              {tier.range}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Slider — three equal zones, each maps to one tier. */}
       <div className="mb-3">
         <input
           type="range"
           min={0}
-          max={1000}
+          max={SLIDER_RES}
           step={1}
           value={sliderPos}
-          onChange={(e) => setQty(sliderPosToQty(parseInt(e.target.value, 10) / 1000))}
+          onChange={(e) => setQty(sliderPosToQty(parseInt(e.target.value, 10)))}
           style={{ background: trackBackground }}
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-purple-500"
           disabled={disabled || loading}
         />
-        {/* Labels positioned at thumb-center positions, not edge-to-edge. */}
-        {/* Native range thumb ~16px wide, so center travels from 8px to (width-8px). */}
+        {/* Labels at zone boundaries. Thumb center travels from 8px to
+            (width − 8px), so labels use the same calc to align. */}
         <div className="relative h-4 mt-1">
-          {STOPS.map((n, i) => {
-            const purple = n === 5 || n === 10 || n === 15;
-            const pct = (i / (STOPS.length - 1)) * 100;
-            return (
-              <span
-                key={n}
-                className={`absolute text-[10px] -translate-x-1/2 ${
-                  purple ? "font-semibold text-purple-600" : "text-gray-400"
-                }`}
-                style={{ left: `calc(8px + (100% - 16px) * ${pct / 100})` }}
-              >
-                {n}
-              </span>
-            );
-          })}
+          {TICKS.map((tick) => (
+            <span
+              key={tick.qty}
+              className={`absolute text-[10px] -translate-x-1/2 ${
+                tick.bold ? "font-semibold text-purple-600" : "text-gray-400"
+              }`}
+              style={{ left: `calc(8px + (100% - 16px) * ${tick.pct / 100})` }}
+            >
+              {tick.qty}
+            </span>
+          ))}
         </div>
       </div>
 
