@@ -37,6 +37,8 @@ from app.services.chart_planner import (
     get_line_chartable_tables_from_visual_hint,
     _build_chart_props_from_table,
     is_candlestick_table,
+    is_ticker_snapshot_table,
+    extract_ticker_items_from_blog,
 )
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
@@ -499,6 +501,28 @@ async def _generate_script(project: Project, db: Session):
     except Exception:
         layout_catalog = ""
 
+    # For bloomberg: probe scraped content and append data-availability constraints so the
+    # script generator only picks data-driven layouts when the underlying data actually exists.
+    if template_id == "bloomberg" and layout_catalog:
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=2)
+        _raw_tables = extract_tables_from_content(_blog_text) if _blog_text else []
+        _has_ohlcv = any(is_candlestick_table(t) for t in _raw_tables)
+        _constraints: list[str] = []
+        if not _ticker_items:
+            _constraints.append(
+                "- `terminal_ticker` MUST NOT be used: no ticker/price data was found in the scraped content."
+            )
+        if not _has_ohlcv:
+            _constraints.append(
+                "- `terminal_chart` MUST NOT be used: no OHLCV candlestick table was found in the scraped content."
+            )
+        if _constraints:
+            layout_catalog = layout_catalog.rstrip() + (
+                "\n\nData availability constraints (STRICT — do not override):\n"
+                + "\n".join(_constraints)
+            )
+
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
@@ -613,6 +637,14 @@ async def _generate_script(project: Project, db: Session):
             _line_tables = _line_tables + _candlestick_tables
             _used_indices = {idx for idx, _ in _line_tables}
 
+            # terminal_ticker: multi-symbol snapshot tables (symbol + % change columns)
+            _ticker_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices and is_ticker_snapshot_table(t)
+            ]
+            _used_indices |= {idx for idx, _ in _ticker_tables}
+
             # terminal_table: every remaining table with headers + ≥1 row gets its own scene
             _table_tables: list[tuple[int, dict]] = [
                 (idx, t)
@@ -622,14 +654,19 @@ async def _generate_script(project: Project, db: Session):
                 and len(t.get("rows") or []) >= 1
             ]
 
-            _bindings = _line_tables + _table_tables
+            _bindings = _line_tables + _ticker_tables + _table_tables
             if _bindings:
                 _chart_type_by_idx = {
                     orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
                     for orig_idx, t in _bindings
                 }
+                _ticker_indices = {idx for idx, _ in _ticker_tables}
                 _layout_by_idx = {
-                    orig_idx: "terminal_chart" if orig_idx in _used_indices else "terminal_table"
+                    orig_idx: (
+                        "terminal_chart" if orig_idx in _used_indices and orig_idx not in _ticker_indices
+                        else "terminal_ticker" if orig_idx in _ticker_indices
+                        else "terminal_table"
+                    )
                     for orig_idx, _ in _bindings
                 }
                 chartable_tables_json = build_chartable_tables_payload(
@@ -689,6 +726,13 @@ async def _generate_script(project: Project, db: Session):
                 hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
                 if hint:
                     vd = (vd.rstrip() + "\n\n" + hint).strip()
+        elif scene_data.get("preferred_layout") == "terminal_ticker":
+            # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
+            _blog_text = getattr(project, "blog_content", None) or ""
+            _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=10)
+            if _ticker_items:
+                hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
+                vd = (vd.rstrip() + "\n\n" + hint).strip()
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -903,10 +947,16 @@ async def _generate_scenes(project: Project, db: Session):
                 i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
             )
         else:
+            lp_keys = list(descriptor.get("layoutProps", {}).keys())
             logger.info(
                 "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
-                i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
+                i, descriptor.get("layout"), lp_keys,
             )
+            if descriptor.get("layout") == "terminal_dataviz":
+                logger.info(
+                    "[PIPELINE] Scene %s terminal_dataviz full layoutProps=%s",
+                    i, json.dumps(descriptor.get("layoutProps", {})),
+                )
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 

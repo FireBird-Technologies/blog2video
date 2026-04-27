@@ -14,6 +14,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   aspectRatio = "landscape",
   items = [],
   ticker,
+  ohlcvTable,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -32,16 +33,62 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const titleOp = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
   const panelOp = interpolate(frame, [10, 30], [0, 1], { extrapolateRight: "clamp" });
 
+  // Parse ohlcvTable into candles if available; otherwise fall back to items
+  const candlesFromOhlcvTable = (table: { headers: string[]; rows: string[][] }): Candle[] | null => {
+    const hdrs = table.headers.map((h) => String(h).toLowerCase().trim());
+    const findCol = (...kws: string[]) => {
+      for (const kw of kws) {
+        const i = hdrs.findIndex((h) => h.includes(kw));
+        if (i !== -1) return i;
+      }
+      return -1;
+    };
+    const parseNum = (v: string) => {
+      const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const openCol = findCol("open");
+    const highCol = findCol("high");
+    const lowCol = findCol("low");
+    const closeCol = findCol("close");
+    const volCol = findCol("volume", "vol");
+    if (openCol === -1 || highCol === -1 || lowCol === -1 || closeCol === -1) return null;
+    const result: Candle[] = [];
+    for (const row of table.rows) {
+      const o = parseNum(row[openCol] ?? "");
+      const h = parseNum(row[highCol] ?? "");
+      const l = parseNum(row[lowCol] ?? "");
+      const c = parseNum(row[closeCol] ?? "");
+      if (o === null || h === null || l === null || c === null) continue;
+      let v = 0;
+      if (volCol !== -1) {
+        const raw = parseFloat(String(row[volCol] ?? "").replace(/[^0-9.\-]/g, ""));
+        if (Number.isFinite(raw)) v = raw > 1e9 ? raw / 1e9 : raw > 1e6 ? raw / 1e6 : raw;
+      }
+      result.push({ o, h, l, c, v });
+    }
+    return result.length >= 4 ? result : null;
+  };
+
+  const tableParsed = ohlcvTable ? candlesFromOhlcvTable(ohlcvTable) : null;
+
   // Parse optional numeric items as closes; else procedural OHLC
   const parsed = items
     .map((s) => {
+      const parts = String(s).split("|");
+      // Full OHLCV format: "date|open|high|low|close|vol"
+      if (parts.length >= 5) {
+        const c = parseFloat(parts[4]);
+        return Number.isFinite(c) ? c : NaN;
+      }
       const m = String(s).match(/-?\d+(?:\.\d+)?/);
       return m ? parseFloat(m[0]) : NaN;
     })
     .filter((n) => Number.isFinite(n));
 
-  const N = parsed.length >= 8 ? parsed.length : 72;
-  const candles = parsed.length >= 8 ? candlesFromCloses(parsed) : generateCandles(N, 178);
+  const tableCandles = tableParsed ?? (parsed.length >= 8 ? candlesFromCloses(parsed) : null);
+  const N = tableCandles ? tableCandles.length : 72;
+  const candles = tableCandles ?? generateCandles(N, 178);
   const closes = candles.map((k) => k.c);
   const highs = candles.map((k) => k.h);
   const lows = candles.map((k) => k.l);
@@ -180,7 +227,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const botH = p ? 44 : 36;
   const pad = p ? 28 : 36;
   const legendH = p ? 52 : 36;
-  const chartLeft = pad;
+  // Landscape: text panel on left (42%), chart pushed right
+  const chartLeft = p ? pad : "42%";
   const signalStripH = p ? 100 : 0;
   const narrationH = p ? 36 : 0;
 
@@ -226,7 +274,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
       {/* Period info strip */}
       <div style={{
-        position: "absolute", top: topH + 4, left: chartLeft, right: pad,
+        position: "absolute", top: topH + 4, left: pad, right: pad,
         height: legendH,
         display: "flex", alignItems: "center",
         opacity: titleOp,
@@ -235,7 +283,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           {tradingDates[0]} — {tradingDates[tradingDates.length - 1]}  ·  {N} TRADING DAYS
         </span>
       </div>
-
 
       {/* ── Chart SVG area ── */}
       <div style={{
@@ -248,6 +295,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         backgroundColor: BLOOMBERG_COLORS.panelBg,
         opacity: fadeIn,
       }}>
+
         <svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none"
              style={{ display: "block" }}>
 
@@ -553,71 +601,117 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         </svg>
       </div>
 
-      {/* ── Overlay analysis panel — left side, on top of chart ── */}
-      <div style={{
-        position: "absolute",
-        top: topH + legendH + (p ? 24 : 18),
-        left: pad + (p ? 16 : 20),
-        width: p ? "78%" : "38%",
-        background: `rgba(0,0,0,0.45)`,
-        border: `1px solid ${amber}33`,
-        borderLeft: `3px solid ${verdictColor}`,
-        padding: `${p ? 20 : 14}px ${p ? 22 : 18}px`,
-        opacity: panelOp,
-        backdropFilter: "blur(4px)",
-        zIndex: 2,
-      }}>
-        {/* Header row */}
+      {/* ── Analysis panel — left column, does not overlap chart ── */}
+      {!p && (
         <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          marginBottom: p ? 14 : 10,
-          paddingBottom: p ? 10 : 7,
-          borderBottom: `1px solid ${amber}33`,
+          position: "absolute",
+          top: topH + legendH + 8,
+          left: pad,
+          width: `calc(42% - ${pad * 2}px)`,
+          bottom: botH + 4,
+          background: BLOOMBERG_COLORS.panelBg,
+          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          borderLeft: `4px solid ${verdictColor}`,
+          padding: "20px 22px",
+          opacity: panelOp,
+          display: "flex",
+          flexDirection: "column",
+          gap: 0,
+          overflow: "hidden",
         }}>
-          <span style={{ color: amber, fontSize: dSize * (p ? 0.42 : 0.45), letterSpacing: 2, fontWeight: 700 }}>
-            CHART ANALYSIS
-          </span>
-          <span style={{
-            color: "#000", backgroundColor: amber,
-            fontSize: dSize * (p ? 0.35 : 0.38), padding: "2px 8px", letterSpacing: 1, fontWeight: 700,
+          {/* Header row */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            marginBottom: 14,
+            paddingBottom: 10,
+            borderBottom: `1px solid ${amber}44`,
           }}>
-            {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
-          </span>
-        </div>
-
-        {/* Verdict */}
-        <div style={{
-          color: verdictColor, fontSize: dSize * (p ? 0.44 : 0.48), fontWeight: 700,
-          letterSpacing: 2, marginBottom: p ? 12 : 9,
-        }}>
-          {verdict}
-        </div>
-
-        {/* Insight bullets */}
-        {insights.map((txt, i) => (
-          <div key={i} style={{
-            display: "flex", gap: p ? 10 : 8, alignItems: "flex-start",
-            marginBottom: p ? 8 : 6,
-          }}>
-            <span style={{ color: amber, fontSize: dSize * (p ? 0.4 : 0.42), flexShrink: 0, lineHeight: 1.4 }}>›</span>
-            <span style={{ color: "#e8e0cc", fontSize: dSize * (p ? 0.38 : 0.4), lineHeight: 1.45 }}>
-              {txt}
+            <span style={{ color: amber, fontSize: dSize * 0.6, letterSpacing: 2, fontWeight: 700 }}>
+              CHART ANALYSIS
+            </span>
+            <span style={{
+              color: "#000", backgroundColor: amber,
+              fontSize: dSize * 0.52, padding: "3px 10px", letterSpacing: 1, fontWeight: 700,
+            }}>
+              {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
             </span>
           </div>
-        ))}
 
-        {/* Narration */}
-        {narration ? (
+          {/* Verdict */}
           <div style={{
-            marginTop: p ? 12 : 9,
-            paddingTop: p ? 10 : 7,
-            borderTop: `1px solid ${amber}33`,
-            color: `${muted}CC`, fontSize: dSize * (p ? 0.34 : 0.36), lineHeight: 1.45,
+            color: verdictColor, fontSize: dSize * 0.72, fontWeight: 700,
+            letterSpacing: 2, marginBottom: 16,
           }}>
-            {narration}
+            {verdict}
           </div>
-        ) : null}
-      </div>
+
+          {/* Insight bullets */}
+          {insights.map((txt, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 10, alignItems: "flex-start",
+              marginBottom: 10,
+            }}>
+              <span style={{ color: amber, fontSize: dSize * 0.65, flexShrink: 0, lineHeight: 1.4 }}>›</span>
+              <span style={{ color: "#e8e0cc", fontSize: dSize * 0.6, lineHeight: 1.5 }}>
+                {txt}
+              </span>
+            </div>
+          ))}
+
+          {/* Narration */}
+          {narration ? (
+            <div style={{
+              marginTop: "auto",
+              paddingTop: 12,
+              borderTop: `1px solid ${amber}33`,
+              color: `${muted}CC`, fontSize: dSize * 0.52, lineHeight: 1.5,
+            }}>
+              {narration}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Portrait overlay panel (unchanged behaviour) */}
+      {p && (
+        <div style={{
+          position: "absolute",
+          top: topH + legendH + 24,
+          left: pad + 16,
+          width: "78%",
+          background: `rgba(0,0,0,0.45)`,
+          border: `1px solid ${amber}33`,
+          borderLeft: `3px solid ${verdictColor}`,
+          padding: "20px 22px",
+          opacity: panelOp,
+          backdropFilter: "blur(4px)",
+          zIndex: 2,
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${amber}33`,
+          }}>
+            <span style={{ color: amber, fontSize: dSize * 0.42, letterSpacing: 2, fontWeight: 700 }}>CHART ANALYSIS</span>
+            <span style={{ color: "#000", backgroundColor: amber, fontSize: dSize * 0.35, padding: "2px 8px", letterSpacing: 1, fontWeight: 700 }}>
+              {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
+            </span>
+          </div>
+          <div style={{ color: verdictColor, fontSize: dSize * 0.44, fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}>
+            {verdict}
+          </div>
+          {insights.map((txt, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
+              <span style={{ color: amber, fontSize: dSize * 0.4, flexShrink: 0, lineHeight: 1.4 }}>›</span>
+              <span style={{ color: "#e8e0cc", fontSize: dSize * 0.38, lineHeight: 1.45 }}>{txt}</span>
+            </div>
+          ))}
+          {narration ? (
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${amber}33`, color: `${muted}CC`, fontSize: dSize * 0.34, lineHeight: 1.45 }}>
+              {narration}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Portrait: narration + signal strip ── */}
       {p && (

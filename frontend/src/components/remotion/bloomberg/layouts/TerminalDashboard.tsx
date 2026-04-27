@@ -103,9 +103,27 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
             alignItems: "center", justifyContent: "center",
           }}>
             {tiles.map((tile, i) => {
-              const start = i * 8 + 12;
-              const tileOpacity = interpolate(frame, [start, start + 16], [0, 1], { extrapolateRight: "clamp" });
-              const tileSlide = interpolate(frame, [start, start + 16], [14, 0], { extrapolateRight: "clamp" });
+              const dimFrame    = i * 18 + 6;   // stagger wider
+              const activFrame  = i * 18 + 18;  // snap to full brightness
+              const flashEnd    = activFrame + 55; // very slow decay
+
+              const tileOpacity = interpolate(
+                frame,
+                [dimFrame, dimFrame + 2, activFrame, activFrame + 1],
+                [0, 0.35, 0.35, 1],
+                { extrapolateRight: "clamp", extrapolateLeft: "clamp" },
+              );
+              const saturate = frame < activFrame ? 0.3 : 1;
+
+              // Slow amber flash: holds bright for 20 frames then decays over 35
+              const flashAlpha = interpolate(
+                frame,
+                [activFrame, activFrame + 3, activFrame + 20, flashEnd],
+                [0, 1, 1, 0],
+                { extrapolateRight: "clamp", extrapolateLeft: "clamp" },
+              );
+              const isFlashing = flashAlpha > 0.35;
+
               const suffix = tile.suffix || "";
               const isNeg = suffix.trim().startsWith("-");
               const isPos = suffix.trim().startsWith("+");
@@ -120,31 +138,39 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                 <div key={i} style={{
                   position: "relative",
                   width: "88%",
-                  backgroundColor: BLOOMBERG_COLORS.panelBg,
-                  border: `1px solid ${BLOOMBERG_COLORS.border}`,
-                  borderLeft: `3px solid ${amber}`,
+                  backgroundColor: isFlashing ? amber : BLOOMBERG_COLORS.panelBg,
+                  border: `1px solid ${isFlashing ? amber : BLOOMBERG_COLORS.border}`,
+                  borderLeft: `3px solid ${isFlashing ? "#000" : amber}`,
                   padding: "16px 24px",
                   opacity: tileOpacity,
-                  transform: `translateY(${tileSlide}px)`,
+                  filter: `saturate(${saturate})`,
                   display: "flex", alignItems: "center", gap: 20,
+                  overflow: "hidden",
                 }}>
+                  {/* Lamp indicator — square that lights amber on activate */}
+                  <div style={{
+                    position: "absolute", top: 12, right: 14,
+                    width: 6, height: 6,
+                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? "#000" : BLOOMBERG_COLORS.border),
+                  }} />
+
                   {/* Label column */}
                   <div style={{
                     flex: "0 0 auto", minWidth: 110,
                     display: "flex", flexDirection: "column", gap: 6,
                     textAlign: "center", alignItems: "center",
                   }}>
-                    <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
+                    <div style={{ color: isFlashing ? "#000" : BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
                       {tile.label}
                     </div>
-                    <div style={{ color: amber, fontSize: dSize * 1.1, lineHeight: 1 }}>
+                    <div style={{ color: isFlashing ? "#000" : amber, fontSize: dSize * 1.1, lineHeight: 1 }}>
                       {tile.value}
                     </div>
                   </div>
 
                   {/* Sparkline — colored by sign */}
                   <Sparkline
-                    color={signColor}
+                    color={isFlashing ? "#000" : signColor}
                     width={160} height={40}
                     seed={i * 3 + 1}
                     trend={trend}
@@ -154,7 +180,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                   <div style={{ flex: 1 }} />
 
                   {/* Change value — colored by sign */}
-                  <span style={{ color: signColor, fontSize: dSize * 0.95, letterSpacing: 1 }}>
+                  <span style={{ color: isFlashing ? "#000" : signColor, fontSize: dSize * 0.95, letterSpacing: 1 }}>
                     {suffix}
                   </span>
                 </div>
@@ -180,27 +206,56 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
             alignContent: "center", justifyContent: "center",
           }}>
             {tiles.map((tile, i) => {
-              const tileOpacity = interpolate(frame, [i * 8 + 10, i * 8 + 26], [0, 1], { extrapolateRight: "clamp" });
+              const dimFrame   = i * 16 + 8;
+              const activFrame = i * 16 + 20;
+              const flashEnd   = activFrame + 55; // very slow decay
+
+              const tileOpacity = interpolate(
+                frame,
+                [dimFrame, dimFrame + 2, activFrame, activFrame + 1],
+                [0, 0.35, 0.35, 1],
+                { extrapolateRight: "clamp", extrapolateLeft: "clamp" },
+              );
+              const saturate = frame < activFrame ? 0.3 : 1;
+
+              // Slow amber flash: holds bright for 20 frames then decays over 35
+              const flashAlpha = interpolate(
+                frame,
+                [activFrame, activFrame + 3, activFrame + 20, flashEnd],
+                [0, 1, 1, 0],
+                { extrapolateRight: "clamp", extrapolateLeft: "clamp" },
+              );
+              const isFlashing = flashAlpha > 0.35;
+
               const isNeg = (tile.suffix || "").startsWith("-");
               const suffixColor = isNeg ? BLOOMBERG_COLORS.neg : pos;
               const tileW = tiles.length <= 3 ? "30%" : "46%";
+
               return (
                 <div key={i} style={{
                   width: tileW, minHeight: 170,
-                  backgroundColor: BLOOMBERG_COLORS.panelBg,
-                  border: `1px solid ${BLOOMBERG_COLORS.border}`,
-                  borderTop: `2px solid ${amber}`,
+                  backgroundColor: isFlashing ? amber : BLOOMBERG_COLORS.panelBg,
+                  border: `1px solid ${isFlashing ? amber : BLOOMBERG_COLORS.border}`,
+                  borderTop: `2px solid ${isFlashing ? "#000" : amber}`,
                   padding: "20px 24px",
                   display: "flex", flexDirection: "column", justifyContent: "space-between",
                   opacity: tileOpacity,
+                  filter: `saturate(${saturate})`,
+                  position: "relative", overflow: "hidden",
                 }}>
-                  <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
+                  {/* Lamp indicator */}
+                  <div style={{
+                    position: "absolute", top: 10, right: 10,
+                    width: 6, height: 6,
+                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? "#000" : BLOOMBERG_COLORS.border),
+                  }} />
+                  <div style={{ color: isFlashing ? "#000" : BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
                     {tile.label}
                   </div>
-                  <div style={{ color: amber, fontSize: tSize * 0.65, lineHeight: 1 }}>
+                  <div style={{ color: isFlashing ? "#000" : amber, fontSize: tSize * 0.65, lineHeight: 1 }}>
                     {tile.value}
                   </div>
-                  <div style={{ color: suffixColor, fontSize: dSize * 0.85, letterSpacing: 1 }}>
+                  <div style={{ color: isFlashing ? "#000" : suffixColor, fontSize: dSize * 0.85, letterSpacing: 1 }}>
                     {tile.suffix}
                   </div>
                 </div>

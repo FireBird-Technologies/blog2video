@@ -215,9 +215,9 @@ Core rules:
 
 **Per layout (structured props):**
 - **`terminal_boot`:** Generate terse `[OK]`/`[SYS]`/`[INIT]` prefixed log lines relevant to the topic. End with `> _` style prompt.
-- **`terminal_chart`:** Extract indicator values from narration; if none given, generate plausible placeholders clearly labeled with `MA`, `RSI`, `MACD`, `VOL` etc.
-- **`terminal_dashboard`:** Map each index/asset to a KPI tile; use `+` prefix for gains, `-` for losses.
-- **`terminal_ticker`:** One row per asset/name from the narration; align ticker, change %, and price with spaces.
+- **`terminal_chart`:** Leave `items` empty — chart data is injected deterministically from scraped OHLCV tables. Do NOT generate or hallucinate indicator values.
+- **`terminal_dashboard`:** Map each index/asset to a KPI tile; use `+` prefix for gains, `-` for losses. Only use figures explicitly stated in the narration or visual_description.
+- **`terminal_ticker`:** Leave `items` empty — ticker rows are injected deterministically from scraped content. Do NOT invent ticker symbols, prices, or percentage changes.
 - **`terminal_table`:** First row is the header; align columns with `|` separators; keep cell values short.
 - **`terminal_split`:** Contrast two clearly opposing states; left/right must disagree in meaning.
 - **`terminal_quote`:** Extract one tight thesis or desk note from the narration; `highlightWord` must appear verbatim in `quote`.
