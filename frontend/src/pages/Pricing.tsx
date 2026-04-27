@@ -10,6 +10,16 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
+import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import {
+  perUnitCents,
+  totalCents,
+  savingsCents,
+  formatDollars,
+  BASE_PRICE_CENTS,
+  MIN_QUANTITY,
+  MAX_QUANTITY,
+} from "../lib/perVideoPricing";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
@@ -85,11 +95,11 @@ export default function Pricing() {
     }
   };
 
-  const handlePerVideo = async () => {
+  const handlePerVideo = async (quantity: number = 1) => {
     if (!user) return;
     setPerVideoLoading(true);
     try {
-      const res = await createPerVideoCheckout();
+      const res = await createPerVideoCheckout({ quantity });
       if (res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
       }
@@ -99,6 +109,8 @@ export default function Pricing() {
       setPerVideoLoading(false);
     }
   };
+
+  const [perVideoQty, setPerVideoQty] = useState(1);
 
   const isPro = user?.plan === "pro";
   const isStandard = user?.plan === "standard";
@@ -238,47 +250,85 @@ export default function Pricing() {
           </div>
 
           {/* Pay Per Video */}
-          <div className="glass-card p-7 flex flex-col">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Per Video
-              </h3>
-              <p className="text-sm text-gray-400">Pay as you go</p>
-            </div>
-            <div className="mb-6">
-              <span className="text-3xl sm:text-4xl font-bold text-gray-900">$3</span>
-              <span className="text-sm text-gray-400 ml-1">/video</span>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {[
+          {user ? (
+            <PerVideoSliderCard
+              variant="full"
+              loading={perVideoLoading}
+              disabled={isPaid}
+              onBuy={(quantity) => handlePerVideo(quantity)}
+              features={[
                 "No subscription required",
                 "AI script generation",
                 "ElevenLabs voiceover",
-                "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
                 "Custom video templates",
                 "Premium voiceover + cloning",
-                "Buy as many as you need",
-              ].map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-gray-600"
-                >
-                  <CheckIcon />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            {user ? (
-              <button
-                onClick={handlePerVideo}
-                disabled={perVideoLoading || isPaid}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
-              >
-                {perVideoLoading ? "Redirecting…" : "Buy a video"}
-              </button>
-            ) : (
+              ]}
+            />
+          ) : (
+            <div className="glass-card p-7 flex flex-col">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Per Video</h3>
+                <p className="text-sm text-gray-400">Pay as you go</p>
+              </div>
+              <div className="mb-3 space-y-1">
+                <div className="flex items-baseline flex-wrap gap-x-1">
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">
+                    {formatDollars(perUnitCents(perVideoQty))}
+                  </span>
+                  <span className="text-sm text-gray-400">/video</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {perVideoQty} video{perVideoQty === 1 ? "" : "s"}
+                </div>
+                <div className="text-xs text-gray-500 flex items-baseline flex-wrap gap-x-1.5">
+                  <span>Total:</span>
+                  {savingsCents(perVideoQty) > 0 && (
+                    <span className="text-gray-400 line-through">
+                      {formatDollars(BASE_PRICE_CENTS * perVideoQty)}
+                    </span>
+                  )}
+                  <span className="font-semibold text-gray-900">
+                    {formatDollars(totalCents(perVideoQty))}
+                  </span>
+                </div>
+                {savingsCents(perVideoQty) > 0 && (
+                  <div className="text-xs font-medium text-emerald-600">
+                    You save {formatDollars(savingsCents(perVideoQty))}
+                  </div>
+                )}
+              </div>
+              <div className="mb-3">
+                <input
+                  type="range"
+                  min={MIN_QUANTITY}
+                  max={MAX_QUANTITY}
+                  step={1}
+                  value={perVideoQty}
+                  onChange={(e) => setPerVideoQty(parseInt(e.target.value, 10))}
+                  className="w-full h-1.5 bg-purple-100 rounded-full appearance-none cursor-pointer accent-purple-500"
+                />
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-0.5">
+                  <span>1</span><span>25</span><span>50</span><span>75</span><span>100</span>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {[
+                  "No subscription required",
+                  "AI script generation",
+                  "ElevenLabs voiceover",
+                  "Render & download MP4",
+                  "Unlimited AI edit & image generation",
+                  "Custom video templates",
+                  "Premium voiceover + cloning",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-gray-600">
+                    <CheckIcon />
+                    {f}
+                  </li>
+                ))}
+              </ul>
               <div className="flex justify-center">
                 <GoogleAuthButton
                   onSuccess={handleGoogleSuccess}
@@ -287,8 +337,8 @@ export default function Pricing() {
                   width="190"
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Standard */}
           <div className="glass-card p-7 flex flex-col">
