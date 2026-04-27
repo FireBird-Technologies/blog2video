@@ -1,7 +1,7 @@
 """add quantity column to subscriptions
 
 Revision ID: add_qty_to_subs
-Revises: template_change_jobs_cascade
+Revises: add_update_emails
 Create Date: 2026-04-22
 
 Per-video slider lets users buy N credits in one checkout. Previously we
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 
 
 revision: str = "add_qty_to_subs"
-down_revision: Union[str, None] = "template_change_jobs_cascade"
+down_revision: Union[str, None] = "add_update_emails"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
