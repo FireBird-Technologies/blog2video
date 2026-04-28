@@ -125,62 +125,58 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
     """
     Called when a user subscribes to a Pro/Standard plan, or when a plan renews.
 
-    Free grants are consumed first in the usage hierarchy. When a user upgrades
-    to a paid plan, free grants are stripped from video_limit_bonus, and any
-    videos already used are charged against those grants first — so usage that
-    came from free grants disappears along with the grants themselves.
-
-    Formula
-    -------
-        paid_credits      = count of non-expired per-video Subscription rows
-        free_grants       = old_bonus - paid_credits          (≥ 0)
-        usage_from_grants = min(videos_used_this_period, free_grants)
-        new_videos_used   = max(0, videos_used_this_period - usage_from_grants)
-        new_bonus         = paid_credits
-
-    Example
-    -------
-        video_limit_bonus = 4  (2 free grants + 2 paid credits)
-        videos_used_this_period = 2
-        Subscribes to Standard (30 videos/month).
-
-        free_grants       = 4 - 2 = 2
-        usage_from_grants = min(2, 2) = 2   ← both used videos came from grants
-        new_videos_used   = max(0, 2 - 2) = 0
-        new_bonus         = 2
-
-        Result: 30 (plan) + 2 (paid credits) = 32 total, 0 used.
-
-    Another example
-    ---------------
-        video_limit_bonus = 4  (2 free grants + 2 paid credits)
-        videos_used_this_period = 3   ← 2 from grants, 1 from paid credit
-        Subscribes to Standard (30 videos/month).
-
-        free_grants       = 2
-        usage_from_grants = min(3, 2) = 2
-        new_videos_used   = max(0, 3 - 2) = 1
-        new_bonus         = 2
-
-        Result: 30 + 2 = 32 total, 1 used (the 1 video charged against paid credit).
+    Absorption order: base(3) → free_grants → referral_video_bonus → paid_credits.
+    Base and free-grant usage disappears on upgrade. Referral and paid usage carries
+    into the new period's videos_used_this_period so the user doesn't get phantom headroom.
+    referral_video_bonus persists (reduced by what was consumed) — it is NOT wiped on upgrade.
     """
-    old_bonus = getattr(user, "video_limit_bonus", 0) or 0
-    videos_used = user.videos_used_this_period or 0
-    paid_credits = _count_active_per_video_credits(user.id, db)
+    old_bonus      = getattr(user, "video_limit_bonus", 0) or 0
+    referral_bonus = getattr(user, "referral_video_bonus", 0) or 0
+    videos_used    = user.videos_used_this_period or 0
+    paid_credits   = _count_active_per_video_credits(user.id, db)
 
-    free_grants = max(0, old_bonus - paid_credits)
-    usage_from_grants = min(videos_used, free_grants)
-    new_videos_used = max(0, videos_used - usage_from_grants)
+    # Usage absorption order: base(3) → free_grants → referral → paid
+    #
+    # free_grants: portion of old video_limit_bonus that came from free promo grants
+    #   (total old_bonus minus the paid per-video credits within it)
+    # absorbed: usage explained by base + free_grants (these disappear on upgrade)
+    # remaining: usage that survived the free absorption — must come from referral or paid
+    # referral_consumed: how many of the remaining were charged against referral bonus
+    # paid_consumed: what's left, charged against paid credits (carries into new period)
+    # new_videos_used: referral_consumed + paid_consumed (base/free usage disappears)
+    #
+    # Example A — free user: base=3, referral=6, free_grants=2, paid=2, used=8
+    #   free_grants  = old_bonus(4) - paid_credits(2) = 2
+    #   absorbed     = min(8, 3+2) = 5       (3 base + 2 free grants absorbed)
+    #   remaining    = 8 - 5 = 3
+    #   ref_consumed = min(6, 3) = 3         (3 of the 6 referral videos consumed)
+    #   paid_consumed= max(0, 3-3) = 0
+    #   new_used     = 3+0 = 3,  referral_video_bonus = 6
+    #   → new limit = plan + 2 paid + 6 referral = plan+8, used=3, remaining=plan+5
+    #
+    # Example B — base=3, referral=6, free_grants=2, paid=2, used=11
+    #   absorbed=5, remaining=6, ref_consumed=min(6,6)=6, paid_consumed=0
+    #   new_used=6, referral_video_bonus=6
+    #
+    # Example C — base=3, referral=0, free_grants=2, paid=2, used=6
+    #   absorbed=5, remaining=1, ref_consumed=0, paid_consumed=1
+    #   new_used=1, referral_video_bonus=0
+    free_grants      = max(0, old_bonus - paid_credits)
+    absorbed         = min(videos_used, 3 + free_grants)   # 3 = FREE_TIER_INCLUDED_VIDEOS
+    remaining        = max(0, videos_used - absorbed)
+    referral_consumed = min(referral_bonus, remaining)
+    paid_consumed    = max(0, remaining - referral_consumed)
+    new_videos_used  = referral_consumed + paid_consumed
 
-    user.video_limit_bonus = paid_credits
+    user.video_limit_bonus       = paid_credits
+    user.referral_video_bonus    = referral_bonus
     user.videos_used_this_period = new_videos_used
 
     print(
-        f"[BILLING] Recalculated video_limit_bonus for user {user.id}: "
-        f"old_bonus={old_bonus} (free_grants={free_grants}, paid_credits={paid_credits}), "
-        f"videos_used {videos_used} → {new_videos_used} "
-        f"({usage_from_grants} absorbed by free grants), "
-        f"new video_limit_bonus={paid_credits}"
+        f"[BILLING] Recalculated for user {user.id}: "
+        f"old_bonus={old_bonus} (free_grants={free_grants}, paid={paid_credits}), "
+        f"referral={referral_bonus} → consumed={referral_consumed}, "
+        f"videos_used {videos_used} → {new_videos_used}"
     )
 
 
@@ -1189,6 +1185,14 @@ def _handle_invoice_paid(invoice: dict, db: Session):
                 f"{user.video_limit_bonus} → {new_bonus} (expired credits dropped)"
             )
         user.video_limit_bonus = new_bonus
+
+        # Referral bonus resets each billing period — users earn it once per cycle.
+        if user.referral_video_bonus:
+            print(
+                f"[BILLING] invoice.paid: referral_video_bonus reset for user {user.id}: "
+                f"{user.referral_video_bonus} → 0"
+            )
+        user.referral_video_bonus = 0
 
         # Reset usage on the Subscription record too
         if stripe_sub_id:

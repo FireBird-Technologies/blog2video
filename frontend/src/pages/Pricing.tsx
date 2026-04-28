@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -25,6 +25,7 @@ import {
 export default function Pricing() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
@@ -34,10 +35,17 @@ export default function Pricing() {
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
 
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("b2v_ref_code", ref);
+  }, [searchParams]);
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    const refCode = localStorage.getItem("b2v_ref_code");
     try {
-      const res = await googleLogin(response.credential);
+      const res = await googleLogin(response.credential, false, refCode);
+      localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
