@@ -22,6 +22,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import ReferralPanel from "../components/ReferralPanel";
 
 export default function Subscription() {
   const { user, refreshUser, logout } = useAuth();
@@ -514,6 +515,8 @@ export default function Subscription() {
           </div>
         </section>
       </div>
+
+      <ReferralPanel />
 
       {/* Available Plans */}
       <section>

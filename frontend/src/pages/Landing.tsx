@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -439,6 +439,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
@@ -446,6 +447,12 @@ export default function Landing() {
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
   const scrollRef = useScrollReveal();
+
+  // Persist referral code from URL so it survives the Google OAuth redirect
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("b2v_ref_code", ref);
+  }, [searchParams]);
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
@@ -475,8 +482,10 @@ export default function Landing() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    const refCode = localStorage.getItem("b2v_ref_code");
     try {
-      const res = await googleLogin(response.credential);
+      const res = await googleLogin(response.credential, false, refCode);
+      localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
