@@ -65,6 +65,8 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import type { PlayerRef } from "@remotion/player";
+import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
 type PlaybackSpeedOption = number;
@@ -580,6 +582,10 @@ export default function ProjectView() {
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
+  const [sceneExporting, setSceneExporting] = useState(false);
+  const [showSlidesExportMenu, setShowSlidesExportMenu] = useState(false);
+  const previewPlayerRef = useRef<PlayerRef | null>(null);
+  const slidesExportAnchorRef = useRef<HTMLDivElement | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
@@ -1817,6 +1823,32 @@ export default function ProjectView() {
     }
   };
 
+  const handleSceneExport = useCallback(
+    async (format: "pptx" | "pdf" | "zip") => {
+      if (!project) return;
+      if (missingCustomTemplate) {
+        showError("This project cannot export slides because its custom template is missing.");
+        return;
+      }
+      if (!previewPlayerRef.current) {
+        showError("Wait until the preview has finished loading, then try again.");
+        return;
+      }
+      setShowSlidesExportMenu(false);
+      setSceneExporting(true);
+      try {
+        const player = previewPlayerRef.current;
+        if (format === "pptx") await exportScenesPptx(player, project);
+        else if (format === "pdf") await exportScenesPdf(player, project);
+        else await exportScenesPng(player, project);
+      } catch (err) {
+        showError(getErrorMessage(err, "Could not export scenes."));
+      } finally {
+        setSceneExporting(false);
+      }
+    },
+    [project, missingCustomTemplate, showError]
+  );
 
   const handleGetEmbedLink = async () => {
     if (!project) return;
@@ -2999,12 +3031,53 @@ export default function ProjectView() {
                   </>
                 )}
 
+                {/* One slide per scene: ~65% through each scene in the live preview; images waited before capture. */}
+                {project?.scenes && project.scenes.length > 0 && !missingCustomTemplate && (
+                  <div className="relative" ref={slidesExportAnchorRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowShareDropdown(false);
+                        setShowSlidesExportMenu((v) => !v);
+                      }}
+                      disabled={sceneExporting}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-wait text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      title="PowerPoint, PDF, or scene PNGs — each slide uses ~65% through the scene so layout and images look settled."
+                    >
+                      {sceneExporting ? (
+                        <>
+                          <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Exporting…
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 5a2 2 0 012-2h12a2 2 0 012 2v2H4V5zm0 4h16v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9z"
+                            />
+                          </svg>
+                          Export
+                          <svg className="w-3 h-3 ml-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
                 {/* Share — purple; menu includes rendered-video options when MP4 exists */}
                 {project?.scenes && project.scenes.length > 0 && (
                   <div className="relative" ref={shareAnchorRef}>
                     <button
                       type="button"
-                      onClick={() => setShowShareDropdown((v) => !v)}
+                      onClick={() => {
+                        setShowSlidesExportMenu(false);
+                        setShowShareDropdown((v) => !v);
+                      }}
                       disabled={embedLoading}
                       className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                     >
@@ -3053,6 +3126,7 @@ export default function ProjectView() {
                       }
                     >
                       <VideoPreview
+                        ref={previewPlayerRef}
                         project={project}
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
@@ -3895,6 +3969,61 @@ export default function ProjectView() {
                   </div>
                 </>
               )}
+            </div>
+          </>,
+          document.body
+        )}
+
+      {showSlidesExportMenu &&
+        project?.scenes &&
+        project.scenes.length > 0 &&
+        !missingCustomTemplate &&
+        ReactDOM.createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setShowSlidesExportMenu(false)}
+            />
+            <div
+              className="fixed z-[9999] w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+              style={(() => {
+                const el = slidesExportAnchorRef.current;
+                if (!el) return {};
+                const rect = el.getBoundingClientRect();
+                const panelW = 224;
+                let left = rect.right - panelW;
+                if (left < 8) left = 8;
+                if (left + panelW > window.innerWidth - 8) {
+                  left = Math.max(8, window.innerWidth - panelW - 8);
+                }
+                return { top: rect.bottom + 8, left };
+              })()}
+            >
+            
+              <button
+                type="button"
+                disabled={sceneExporting}
+                onClick={() => void handleSceneExport("pptx")}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+              >
+                PowerPoint (.pptx)
+              </button>
+              <button
+                type="button"
+                disabled={sceneExporting}
+                onClick={() => void handleSceneExport("pdf")}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+              >
+                PDF
+              </button>
+              <button
+                type="button"
+                disabled={sceneExporting}
+                onClick={() => void handleSceneExport("zip")}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+              >
+                PNG images (one per scene)
+              </button>
             </div>
           </>,
           document.body
