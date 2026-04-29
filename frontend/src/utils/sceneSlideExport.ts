@@ -1,10 +1,7 @@
 import type { PlayerRef } from "@remotion/player";
 import type { Project } from "../api/client";
-import { renderStillFrame } from "../api/projects";
 import { getSceneExportFrameSchedule } from "./sceneFrameSchedule";
 
-/** Remotion places the live composition inside this element. */
-const REMOTION_PLAYER_SELECTOR = ".__remotion-player";
 const EXPORT_CAPTURE_SCALE = 2;
 
 function finitePositive(value: number, fallback: number): number {
@@ -20,15 +17,6 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click();
   document.body.removeChild(a);
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Could not decode rendered frame."));
-    reader.readAsDataURL(blob);
-  });
 }
 
 function waitForPaint(): Promise<void> {
@@ -47,6 +35,7 @@ async function waitUntilFrame(
   const start = performance.now();
   while (performance.now() - start < maxMs) {
     if (Math.abs(player.getCurrentFrame() - target) <= 1) {
+      await waitForPaint();
       await waitForPaint();
       return;
     }
@@ -210,28 +199,17 @@ async function inlineImagesForCapture(root: HTMLElement): Promise<() => void> {
  * We capture the composition exactly as currently laid out by the Remotion Player
  * so exported positioning matches what the user sees in preview.
  */
-async function captureCompositionToDataUrl(playerContainer: HTMLElement, project: Project): Promise<string> {
-  const compositionEl =
-    (playerContainer.querySelector(REMOTION_PLAYER_SELECTOR) as HTMLElement | null) ??
-    playerContainer;
+async function captureCompositionToDataUrl(playerContainer: HTMLElement): Promise<string> {
+  // Capture the exact surface users see in preview to avoid geometry drift.
+  const captureRoot = playerContainer;
 
   let restoreImages: () => void = () => {};
   try {
-    restoreImages = await inlineImagesForCapture(compositionEl);
+    restoreImages = await inlineImagesForCapture(captureRoot);
   } catch {
     // If image inlining fails (e.g., non-finite canvas ops), continue with raw DOM capture.
     restoreImages = () => {};
   }
-  const stash = {
-    transform: compositionEl.style.transform,
-    top: compositionEl.style.top,
-    left: compositionEl.style.left,
-    right: compositionEl.style.right,
-    bottom: compositionEl.style.bottom,
-    width: compositionEl.style.width,
-    height: compositionEl.style.height,
-    position: compositionEl.style.position,
-  };
 
   try {
     // Keep text metrics consistent with preview by waiting for webfonts.
@@ -248,21 +226,12 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement, project
      * rasterizes that scaled layout into a larger bitmap with content hugging one corner.
      * Lay out at native composition pixels so every export is full-frame like the preview.
      */
-    compositionEl.style.transform = "none";
-    compositionEl.style.top = "0";
-    compositionEl.style.left = "0";
-    compositionEl.style.right = "auto";
-    compositionEl.style.bottom = "auto";
-    // Keep native composition sizing from Remotion; only neutralize fit transform.
-    compositionEl.style.width = "";
-    compositionEl.style.height = "";
-
     await waitForPaint();
 
     const { toPng } = await import("html-to-image");
 
     try {
-      const dataUrl = await toPng(compositionEl, {
+      const dataUrl = await toPng(captureRoot, {
         pixelRatio: EXPORT_CAPTURE_SCALE,
         cacheBust: true,
         skipFonts: false,
@@ -276,7 +245,7 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement, project
       const html2canvas = (await import("html2canvas")).default;
       let canvas: HTMLCanvasElement;
       try {
-        canvas = await html2canvas(compositionEl, {
+        canvas = await html2canvas(captureRoot, {
           scale: EXPORT_CAPTURE_SCALE,
           useCORS: true,
           allowTaint: false,
@@ -285,8 +254,8 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement, project
           foreignObjectRendering: false,
         });
       } catch {
-        // Final fallback: capture player container directly with safest settings.
-        canvas = await html2canvas(playerContainer, {
+        // Final frontend fallback: capture composition at scale 1.
+        canvas = await html2canvas(captureRoot, {
           scale: 1,
           useCORS: true,
           allowTaint: false,
@@ -303,14 +272,6 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement, project
       return dataUrl;
     }
   } finally {
-    compositionEl.style.transform = stash.transform;
-    compositionEl.style.top = stash.top;
-    compositionEl.style.left = stash.left;
-    compositionEl.style.right = stash.right;
-    compositionEl.style.bottom = stash.bottom;
-    compositionEl.style.width = stash.width;
-    compositionEl.style.height = stash.height;
-    compositionEl.style.position = stash.position;
     restoreImages();
   }
 }
@@ -340,24 +301,17 @@ export async function captureSceneSnapshots(
 
   try {
     for (const step of schedule) {
+      player.pause();
       player.seekTo(step.frame);
       await waitUntilFrame(player, step.frame);
       let dataUrl: string;
       try {
-        dataUrl = await captureCompositionToDataUrl(playerContainer, project);
+        dataUrl = await captureCompositionToDataUrl(playerContainer);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        // Prefer preview parity; only fallback to backend still on known non-finite canvas failures.
-        if (msg.toLowerCase().includes("non-finite")) {
-          try {
-            const stillRes = await renderStillFrame(project.id, step.frame);
-            dataUrl = await blobToDataUrl(stillRes.data);
-          } catch {
-            throw new Error(`Scene "${step.title}": ${msg}`);
-          }
-        } else {
-          throw new Error(`Scene "${step.title}": ${msg}`);
-        }
+        throw new Error(
+          `Scene "${step.title}": could not capture preview at frame ${step.frame}. ${msg}`
+        );
       }
       out.push({ dataUrl, title: step.title, safeSlug: step.safeSlug });
     }

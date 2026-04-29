@@ -587,7 +587,6 @@ export default function ProjectView() {
   const [sceneExporting, setSceneExporting] = useState(false);
   const [showSlidesExportMenu, setShowSlidesExportMenu] = useState(false);
   const [slideExportWizard, setSlideExportWizard] = useState<SlideExportWizardState | null>(null);
-  const [slideExportUiHidden, setSlideExportUiHidden] = useState(false);
   const previewPlayerRef = useRef<PlayerRef | null>(null);
   const modalPreviewPlayerRef = useRef<PlayerRef | null>(null);
   const slidesExportAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -1842,7 +1841,6 @@ export default function ProjectView() {
         return;
       }
       setShowSlidesExportMenu(false);
-      setSlideExportUiHidden(false);
       const defaultFractions = project.scenes.map(() => SCENE_EXPORT_TIMELINE_FRACTION);
       setSlideExportWizard({
         format,
@@ -1857,7 +1855,6 @@ export default function ProjectView() {
     async (format: "pptx" | "pdf" | "zip", fractions: number[]) => {
       if (!project) return;
       const exportPlayer = modalPreviewPlayerRef.current ?? previewPlayerRef.current;
-      setSlideExportUiHidden(true);
       setSceneExporting(true);
       try {
         const player = exportPlayer;
@@ -1869,7 +1866,6 @@ export default function ProjectView() {
         showError(getErrorMessage(err, "Could not export scenes."));
       } finally {
         setSceneExporting(false);
-        setSlideExportUiHidden(false);
         setSlideExportWizard(null);
       }
     },
@@ -4034,12 +4030,12 @@ export default function ProjectView() {
       {slideExportWizard &&
         project?.scenes?.length &&
         ReactDOM.createPortal(
-          <div className={`fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-6 ${slideExportUiHidden ? "opacity-0 pointer-events-none" : ""}`}>
+          <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-6">
             <button
               type="button"
               className="absolute inset-0 bg-black/50 backdrop-blur-[2px] border-0 cursor-default"
               aria-label="Close"
-              onClick={() => { setSlideExportWizard(null); setSlideExportUiHidden(false); }}
+              onClick={() => { setSlideExportWizard(null); }}
             />
             <div
               className="relative w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 p-5 sm:p-7"
@@ -4074,13 +4070,25 @@ export default function ProjectView() {
                     : "Download PNGs";
                 return (
                   <>
-                    <p className="mt-3 text-xs font-medium text-gray-800">
-                      Scene {idx + 1} of {n}
-                      <span className="font-normal text-gray-500"> · {title}</span>
-                    </p>
-                    <p className="mt-1 text-[11px] text-gray-500">
-                      Preview at <span className="font-medium text-gray-700">{pct}%</span> of this scene
-                    </p>
+                    <div className="mt-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-800">
+                          Scene {idx + 1} of {n}
+                          <span className="font-normal text-gray-500"> · {title}</span>
+                        </p>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Preview at <span className="font-medium text-gray-700">{pct}%</span> of this scene
+                        </p>
+                        {sceneExporting && (
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-300 border-t-purple-700 animate-spin" />
+                            <span className="text-[11px] font-medium text-purple-800">
+                              Download in progress...
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     {/* Live Remotion player — pixel-perfect, no html2canvas needed.
                         Key includes frame so it remounts (and seeks) on every change. */}
                     <div className="mt-4 rounded-xl overflow-hidden w-full aspect-video bg-black">
@@ -4118,7 +4126,7 @@ export default function ProjectView() {
                         className="w-full h-2 accent-purple-600 cursor-pointer"
                       />
                     </div>
-                    <div className="mt-4 flex items-center gap-2">
+                    <div className="mt-3 flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() =>
@@ -4126,7 +4134,7 @@ export default function ProjectView() {
                             prev && prev.stepIndex > 0 ? { ...prev, stepIndex: prev.stepIndex - 1 } : prev
                           )
                         }
-                        disabled={idx <= 0}
+                        disabled={idx <= 0 || sceneExporting}
                         className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Back
@@ -4140,7 +4148,7 @@ export default function ProjectView() {
                               : prev
                           )
                         }
-                        disabled={idx >= n - 1}
+                        disabled={idx >= n - 1 || sceneExporting}
                         className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Next
@@ -4163,7 +4171,7 @@ export default function ProjectView() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setSlideExportWizard(null); setSlideExportUiHidden(false); }}
+                      onClick={() => { setSlideExportWizard(null); }}
                       className="mt-2 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-800"
                     >
                       Cancel
