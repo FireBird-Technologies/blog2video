@@ -365,6 +365,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
+  const bulkStyleManuallySet = useRef<boolean[]>([false]);
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
   const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
@@ -402,6 +403,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
+  const styleManuallySet = useRef(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
@@ -669,6 +671,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const builtin = templates;
     const customList = customTemplatesRef.current;
     setVideoStyle(styleForPick);
+    styleManuallySet.current = true;
     if (picked.preview_colors) {
       setAccentColor(picked.preview_colors.accent);
       setBgColor(picked.preview_colors.bg);
@@ -683,6 +686,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return videoStyleForBulkTemplateId(tpl, builtin, customList);
       });
     });
+    bulkStyleManuallySet.current = bulkStyleManuallySet.current.map(() => true);
     setTemplate((prev) =>
       prev === "default" ? picked.id : prev
     );
@@ -954,10 +958,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkLogoFile((prev) => [...prev, null]);
     setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
     setBulkLogoOpacity((prev) => [...prev, 0.9]);
+    bulkStyleManuallySet.current = [...bulkStyleManuallySet.current, false];
   };
 
   const removeBulkRow = (index: number) => {
     if (bulkRows.length <= 1) return;
+    bulkStyleManuallySet.current = bulkStyleManuallySet.current.filter((_, i) => i !== index);
     setBulkRows((prev) => prev.filter((_, i) => i !== index));
     setBulkNames((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
@@ -1214,7 +1220,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       return;
     }
     const meta = templates.find((t) => t.id === id);
-    if (meta) {
+    if (meta && !styleManuallySet.current) {
       setVideoStyle(defaultVideoStyleForTemplate(meta));
     }
     if (meta?.preview_colors) {
@@ -1818,6 +1824,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   key={s.id}
                   type="button"
                   onClick={() => {
+                    styleManuallySet.current = true;
                     setVideoStyle(s.id);
                   }}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
@@ -2156,6 +2163,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : templates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
+      const isCustom = id.startsWith("custom_");
+      const canUpdateStyle = (rowIdx: number) =>
+        styleUpdate !== null && (isCustom || !bulkStyleManuallySet.current[rowIdx]);
 
       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
         setBulkApplyTemplateAll(false);
@@ -2164,10 +2174,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
-        if (styleUpdate !== null) {
+        if (canUpdateStyle(activeIndex)) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            next[activeIndex] = styleUpdate;
+            next[activeIndex] = styleUpdate!;
             return next;
           });
         }
@@ -2188,7 +2198,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            targetIndices.forEach((idx) => { next[idx] = styleUpdate; });
+            targetIndices.forEach((idx) => { if (canUpdateStyle(idx)) next[idx] = styleUpdate!; });
             return next;
           });
         }
@@ -2217,10 +2227,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
-      if (styleUpdate !== null) {
+      if (canUpdateStyle(activeIndex)) {
         setBulkVideoStyles((prev) => {
           const next = [...prev];
-          next[activeIndex] = styleUpdate;
+          next[activeIndex] = styleUpdate!;
           return next;
         });
       }
@@ -2415,6 +2425,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     const targetIndices = indexed.map(({ i }) => i);
                     if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
                       setBulkApplyTemplateAll(false);
+                      bulkStyleManuallySet.current[activeIndex] = true;
                       setBulkVideoStyles((prev) => {
                         const next = [...prev];
                         next[activeIndex] = s.id;
@@ -2423,6 +2434,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       return;
                     }
                     if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                      targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
                       setBulkVideoStyles((prev) => {
                         const next = [...prev];
                         targetIndices.forEach((idx) => { next[idx] = s.id; });
@@ -2430,6 +2442,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       });
                       return;
                     }
+                    bulkStyleManuallySet.current[activeIndex] = true;
                     setBulkVideoStyles((prev) => {
                       const next = [...prev];
                       next[activeIndex] = s.id;
