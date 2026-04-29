@@ -22,6 +22,7 @@ interface Props {
   disabled?: boolean;
   variant?: Variant;
   features?: string[];
+  customButton?: React.ReactNode;
 }
 
 const DEFAULT_FEATURES = [
@@ -53,6 +54,7 @@ export default function PerVideoSliderCard({
   disabled = false,
   variant = "compact",
   features = DEFAULT_FEATURES,
+  customButton,
 }: Props) {
   const [qty, setQty] = useState(1);
   const unit = perUnitCents(qty);
@@ -248,18 +250,20 @@ export default function PerVideoSliderCard({
         ))}
       </ul>
 
-      <button
-        type="button"
-        onClick={() => onBuy(qty)}
-        disabled={disabled || loading}
-        className={btnClass}
-      >
-        {loading
-          ? "Redirecting…"
-          : qty === 1
-          ? "Buy a video"
-          : `Buy ${qty} videos`}
-      </button>
+      {customButton ?? (
+        <button
+          type="button"
+          onClick={() => onBuy(qty)}
+          disabled={disabled || loading}
+          className={btnClass}
+        >
+          {loading
+            ? "Redirecting…"
+            : qty === 1
+            ? "Buy a video"
+            : `Buy ${qty} videos`}
+        </button>
+      )}
     </div>
   );
 }
