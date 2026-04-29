@@ -113,6 +113,12 @@ export const renderVideo = (id: number, resolution: string = "720p") =>
 export const getRenderStatus = (id: number) =>
   api.get<RenderStatus>(`/projects/${id}/render-status`);
 
+export const renderStillFrame = (id: number, frame: number) =>
+  api.get<Blob>(`/projects/${id}/render-still`, {
+    params: { frame },
+    responseType: "blob",
+  });
+
 export const downloadVideo = async (id: number, filename?: string) => {
   const urlRes = await api.get<{ url: string }>(`/projects/${id}/download-url`);
   const videoUrl = urlRes.data.url;

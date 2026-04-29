@@ -1,9 +1,15 @@
 import type { PlayerRef } from "@remotion/player";
 import type { Project } from "../api/client";
+import { renderStillFrame } from "../api/projects";
 import { getSceneExportFrameSchedule } from "./sceneFrameSchedule";
 
 /** Remotion places the live composition inside this element. */
 const REMOTION_PLAYER_SELECTOR = ".__remotion-player";
+const EXPORT_CAPTURE_SCALE = 2;
+
+function finitePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -16,10 +22,19 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not decode rendered frame."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function waitForPaint(): Promise<void> {
   return new Promise((resolve) =>
     requestAnimationFrame(() =>
-      requestAnimationFrame(() => window.setTimeout(resolve, 80))
+      requestAnimationFrame(() => window.setTimeout(resolve, 200))
     )
   );
 }
@@ -82,15 +97,24 @@ function simulateObjectFit(
   dh: number,
   fit: "cover" | "contain"
 ): string {
-  const nw = raw.naturalWidth || dw;
-  const nh = raw.naturalHeight || dh;
+  const safeDw = Number.isFinite(dw) && dw > 0 ? dw : 1;
+  const safeDh = Number.isFinite(dh) && dh > 0 ? dh : 1;
+  const nw = raw.naturalWidth || safeDw;
+  const nh = raw.naturalHeight || safeDh;
+  if (!Number.isFinite(nw) || !Number.isFinite(nh) || nw <= 0 || nh <= 0) {
+    const c = document.createElement("canvas");
+    c.width = Math.round(safeDw);
+    c.height = Math.round(safeDh);
+    return c.toDataURL("image/png");
+  }
   const c = document.createElement("canvas");
-  c.width = dw;
-  c.height = dh;
+  c.width = Math.round(safeDw);
+  c.height = Math.round(safeDh);
   const ctx = c.getContext("2d")!;
-  const s = fit === "cover" ? Math.max(dw / nw, dh / nh) : Math.min(dw / nw, dh / nh);
+  const s = fit === "cover" ? Math.max(safeDw / nw, safeDh / nh) : Math.min(safeDw / nw, safeDh / nh);
   const fw = nw * s, fh = nh * s;
-  ctx.drawImage(raw, (dw - fw) / 2, (dh - fh) / 2, fw, fh);
+  if (!Number.isFinite(fw) || !Number.isFinite(fh)) return c.toDataURL("image/png");
+  ctx.drawImage(raw, (safeDw - fw) / 2, (safeDh - fh) / 2, fw, fh);
   return c.toDataURL("image/png");
 }
 
@@ -183,78 +207,127 @@ async function inlineImagesForCapture(root: HTMLElement): Promise<() => void> {
 /**
  * Capture the Remotion composition at its native resolution.
  *
- * WHY we temporarily strip the transform:
- * Remotion applies `transform: translateX(-50%) translateY(-50%) scale(S)` directly
- * on .__remotion-player to fit e.g. 1920×1080 inside a smaller player box.
- *
- * html2canvas uses getBoundingClientRect() to compute child positions relative to the
- * root element. With the scale transform in place, every child's position is in scaled
- * "visual" coordinates while the output canvas is at the logical (1920×1080) size —
- * so all content lands in the top-left corner at the wrong scale.
- *
- * By temporarily setting transform:none + top:0 + left:0, the canvas gets the full
- * 1920×1080 layout and child getBoundingClientRect() values match logical positions.
- * We restore the original styles immediately after the capture resolves.
+ * We capture the composition exactly as currently laid out by the Remotion Player
+ * so exported positioning matches what the user sees in preview.
  */
-async function captureCompositionToDataUrl(playerContainer: HTMLElement): Promise<string> {
+async function captureCompositionToDataUrl(playerContainer: HTMLElement, project: Project): Promise<string> {
   const compositionEl =
     (playerContainer.querySelector(REMOTION_PLAYER_SELECTOR) as HTMLElement | null) ??
     playerContainer;
 
-  const restoreImages = await inlineImagesForCapture(compositionEl);
-
-  // Stash the styles we're about to override.
+  let restoreImages: () => void = () => {};
+  try {
+    restoreImages = await inlineImagesForCapture(compositionEl);
+  } catch {
+    // If image inlining fails (e.g., non-finite canvas ops), continue with raw DOM capture.
+    restoreImages = () => {};
+  }
   const stash = {
     transform: compositionEl.style.transform,
     top: compositionEl.style.top,
     left: compositionEl.style.left,
-    // Keep position:absolute — changing it to static breaks absolutely-placed children.
+    right: compositionEl.style.right,
+    bottom: compositionEl.style.bottom,
+    width: compositionEl.style.width,
+    height: compositionEl.style.height,
+    position: compositionEl.style.position,
   };
 
-  compositionEl.style.transform = "none";
-  compositionEl.style.top = "0";
-  compositionEl.style.left = "0";
-
-  // One full paint cycle so the browser recalculates layout.
-  await waitForPaint();
-
   try {
-    const html2canvas = (await import("html2canvas")).default;
-
-    // Scale:2 on a 1920×1080 element → 3840×2160 px canvas (crisp on any display).
-    const canvas = await html2canvas(compositionEl, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      backgroundColor: null,
-      // Do NOT use foreignObjectRendering: it sizes the SVG via getBoundingClientRect()
-      // which still returns the old visual size right after we changed the transform.
-      foreignObjectRendering: false,
-    });
-
-    const dataUrl = canvas.toDataURL("image/png");
-    if (!dataUrl || dataUrl.length < 300) {
-      throw new Error("Capture produced an empty image — ensure the preview is fully loaded.");
+    // Keep text metrics consistent with preview by waiting for webfonts.
+    if ("fonts" in document) {
+      try {
+        await (document as Document & { fonts?: FontFaceSet }).fonts?.ready;
+      } catch {
+        // ignore
+      }
     }
-    return dataUrl;
+
+    /**
+     * Remotion fits the composition with transforms inside the player box; html-to-image otherwise
+     * rasterizes that scaled layout into a larger bitmap with content hugging one corner.
+     * Lay out at native composition pixels so every export is full-frame like the preview.
+     */
+    compositionEl.style.transform = "none";
+    compositionEl.style.top = "0";
+    compositionEl.style.left = "0";
+    compositionEl.style.right = "auto";
+    compositionEl.style.bottom = "auto";
+    // Keep native composition sizing from Remotion; only neutralize fit transform.
+    compositionEl.style.width = "";
+    compositionEl.style.height = "";
+
+    await waitForPaint();
+
+    const { toPng } = await import("html-to-image");
+
+    try {
+      const dataUrl = await toPng(compositionEl, {
+        pixelRatio: EXPORT_CAPTURE_SCALE,
+        cacheBust: true,
+        skipFonts: false,
+        backgroundColor: "transparent",
+      });
+      if (!dataUrl || dataUrl.length < 300) {
+        throw new Error("html-to-image produced empty output.");
+      }
+      return dataUrl;
+    } catch {
+      const html2canvas = (await import("html2canvas")).default;
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(compositionEl, {
+          scale: EXPORT_CAPTURE_SCALE,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          backgroundColor: null,
+          foreignObjectRendering: false,
+        });
+      } catch {
+        // Final fallback: capture player container directly with safest settings.
+        canvas = await html2canvas(playerContainer, {
+          scale: 1,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          backgroundColor: null,
+          foreignObjectRendering: false,
+        });
+      }
+
+      const dataUrl = canvas.toDataURL("image/png");
+      if (!dataUrl || dataUrl.length < 300) {
+        throw new Error("Capture produced an empty image — ensure the preview is fully loaded.");
+      }
+      return dataUrl;
+    }
   } finally {
-    // Restore original styles — order matters, transform last.
+    compositionEl.style.transform = stash.transform;
     compositionEl.style.top = stash.top;
     compositionEl.style.left = stash.left;
-    compositionEl.style.transform = stash.transform;
+    compositionEl.style.right = stash.right;
+    compositionEl.style.bottom = stash.bottom;
+    compositionEl.style.width = stash.width;
+    compositionEl.style.height = stash.height;
+    compositionEl.style.position = stash.position;
     restoreImages();
   }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/** Seek each scene to ~65%, wait for layout, capture. */
+/**
+ * Seek the player to each scene's chosen frame and capture it.
+ * The player must be visible (not opacity:0) and at full composition size
+ * so html2canvas sees the real layout with no scale transform.
+ */
 export async function captureSceneSnapshots(
   player: PlayerRef,
-  project: Project
+  project: Project,
+  timelineFractions?: number[]
 ): Promise<{ dataUrl: string; title: string; safeSlug: string }[]> {
-  const schedule = getSceneExportFrameSchedule(project);
+  const schedule = getSceneExportFrameSchedule(project, timelineFractions);
   if (!schedule.length) throw new Error("No scenes to export.");
 
   const wasPlaying = player.isPlaying();
@@ -269,16 +342,24 @@ export async function captureSceneSnapshots(
     for (const step of schedule) {
       player.seekTo(step.frame);
       await waitUntilFrame(player, step.frame);
-
+      let dataUrl: string;
       try {
-        const dataUrl = await captureCompositionToDataUrl(playerContainer);
-        out.push({ dataUrl, title: step.title, safeSlug: step.safeSlug });
-      } catch (e) {
-        throw new Error(
-          `Scene "${step.title}": ${e instanceof Error ? e.message : "capture failed"}. ` +
-            "If images are blank, ensure your R2 bucket has CORS (Access-Control-Allow-Origin) configured."
-        );
+        dataUrl = await captureCompositionToDataUrl(playerContainer, project);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Prefer preview parity; only fallback to backend still on known non-finite canvas failures.
+        if (msg.toLowerCase().includes("non-finite")) {
+          try {
+            const stillRes = await renderStillFrame(project.id, step.frame);
+            dataUrl = await blobToDataUrl(stillRes.data);
+          } catch {
+            throw new Error(`Scene "${step.title}": ${msg}`);
+          }
+        } else {
+          throw new Error(`Scene "${step.title}": ${msg}`);
+        }
       }
+      out.push({ dataUrl, title: step.title, safeSlug: step.safeSlug });
     }
   } finally {
     if (wasPlaying) { try { player.play(); } catch { /* ignore */ } }
@@ -295,10 +376,11 @@ function projectBaseName(p: Project): string {
 
 export async function exportScenesPptx(
   player: PlayerRef,
-  project: Project
+  project: Project,
+  timelineFractions?: number[]
 ): Promise<void> {
   const base = projectBaseName(project);
-  const shots = await captureSceneSnapshots(player, project);
+  const shots = await captureSceneSnapshots(player, project, timelineFractions);
   const { default: PptxGenJS } = await import("pptxgenjs");
   const pptx = new PptxGenJS();
 
@@ -310,10 +392,10 @@ export async function exportScenesPptx(
     i.onerror = () => rej(new Error("Could not decode captured frame."));
     i.src = shots[0].dataUrl;
   });
-  const iw = firstImg.naturalWidth || 1920;
-  const ih = firstImg.naturalHeight || 1080;
+  const iw = finitePositive(firstImg.naturalWidth, 1920);
+  const ih = finitePositive(firstImg.naturalHeight, 1080);
   const slideW = 10; // inches
-  const slideH = parseFloat(((ih / iw) * slideW).toFixed(4));
+  const slideH = finitePositive(parseFloat(((ih / iw) * slideW).toFixed(4)), 5.625);
   pptx.defineLayout({ name: "B2V_SLIDE", width: slideW, height: slideH });
   pptx.layout = "B2V_SLIDE";
 
@@ -326,10 +408,11 @@ export async function exportScenesPptx(
 
 export async function exportScenesPdf(
   player: PlayerRef,
-  project: Project
+  project: Project,
+  timelineFractions?: number[]
 ): Promise<void> {
   const base = projectBaseName(project);
-  const shots = await captureSceneSnapshots(player, project);
+  const shots = await captureSceneSnapshots(player, project, timelineFractions);
   const { jsPDF } = await import("jspdf");
   let doc: import("jspdf").jsPDF | null = null;
 
@@ -340,11 +423,8 @@ export async function exportScenesPdf(
       i.onerror = () => rej(new Error("Could not decode capture."));
       i.src = s.dataUrl;
     });
-    const iw = img.naturalWidth || 1920;
-    const ih = img.naturalHeight || 1080;
-    const sc = Math.min(1, 1200 / Math.max(iw, ih));
-    const w = Math.round(iw * sc);
-    const h = Math.round(ih * sc);
+    const w = finitePositive(img.naturalWidth, 1920);
+    const h = finitePositive(img.naturalHeight, 1080);
 
     if (!doc) {
       doc = new jsPDF({ unit: "pt", format: [w, h], orientation: w >= h ? "landscape" : "portrait", compress: true });
@@ -358,25 +438,25 @@ export async function exportScenesPdf(
   doc.save(`${base}_scenes.pdf`);
 }
 
-/**
- * Downloads each scene as its own PNG. A 300 ms gap between each prevents
- * the browser from blocking sequential downloads.
- */
+/** Downloads all scene PNGs as a single zip file. */
 export async function exportScenesPng(
   player: PlayerRef,
-  project: Project
+  project: Project,
+  timelineFractions?: number[]
 ): Promise<void> {
   const base = projectBaseName(project);
-  const shots = await captureSceneSnapshots(player, project);
+  const shots = await captureSceneSnapshots(player, project, timelineFractions);
+
+  const { default: JSZip } = await import("jszip");
+  const zip = new JSZip();
 
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i];
     const b64 = s.dataUrl.split(",")[1] ?? "";
     if (!b64) throw new Error(`Empty image data for scene ${i + 1}.`);
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-    downloadBlob(new Blob([bytes], { type: "image/png" }), `${base}_${s.safeSlug}.png`);
-    if (i < shots.length - 1) await new Promise((r) => window.setTimeout(r, 300));
+    zip.file(`${String(i + 1).padStart(2, "0")}_${s.safeSlug}.png`, b64, { base64: true });
   }
+
+  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  downloadBlob(blob, `${base}_scenes.zip`);
 }

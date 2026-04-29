@@ -1474,6 +1474,61 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     return output_path
 
 
+def render_still(project: Project, frame: int) -> str:
+    """
+    Render a single frame of the project composition using Remotion renderStill.
+    Returns the path to the output PNG file.
+    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    """
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    provision_workspace(project.id, template_id)
+    workspace = get_workspace_dir(project.id)
+    public_dir = os.path.join(workspace, "public")
+    data_json = os.path.join(public_dir, "data.json")
+    if not os.path.exists(data_json):
+        raise RuntimeError(f"render_still missing data.json at: {data_json}")
+    # Some compositions/staticFile resolutions request "/public/data.json".
+    # Mirror data.json there to avoid 404 during Remotion still renders.
+    mirrored_public_dir = os.path.join(public_dir, "public")
+    os.makedirs(mirrored_public_dir, exist_ok=True)
+    mirrored_data_json = os.path.join(mirrored_public_dir, "data.json")
+    try:
+        shutil.copy2(data_json, mirrored_data_json)
+    except Exception:
+        # Non-fatal: original data.json path still exists.
+        pass
+    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/stills")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"frame_{frame}.png")
+    aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    composition_id = get_composition_id(template_id)
+    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
+    preset = presets.get("1080p", presets["1080p"])
+    npx = shutil.which("npx") or "npx"
+    cmd = [
+        npx, "remotion", "still",
+        composition_id,
+        output_path,
+        "--frame", str(frame),
+        "--gl", "angle",
+        "--bundle-cache", "true",
+        "--timeout", "60000",
+        "--width", str(preset["width"]),
+        "--height", str(preset["height"]),
+    ]
+    result = subprocess.run(
+        cmd,
+        cwd=workspace,
+        shell=(os.name == "nt"),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0 or not os.path.exists(output_path):
+        raise RuntimeError(f"Remotion still render failed (frame={frame}): {result.stderr or result.stdout}")
+    return output_path
+
+
 MAX_RENDER_RETRIES = 3  # total attempts (1 initial + 2 retries)
 
 

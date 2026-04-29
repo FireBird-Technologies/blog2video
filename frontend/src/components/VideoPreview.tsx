@@ -200,6 +200,10 @@ interface VideoPreviewProps {
     content_codes: string[] | null;
     outro_code: string | null;
   };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
 }
 
 interface SceneInput {
@@ -512,6 +516,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     onPlaybackSpeedChange,
     playbackSpeedSaving = false,
     precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
   },
   ref
 ) {
@@ -1023,7 +1029,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1040,7 +1046,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           fps={30}
           ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          controls
+          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
