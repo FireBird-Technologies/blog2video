@@ -107,6 +107,11 @@ def _migrate_sqlite(eng) -> None:
             "is_active": "BOOLEAN DEFAULT 1",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
+            "retention_offer_shown_count": "INTEGER DEFAULT 0",
+            "retention_offer_suppressed": "BOOLEAN DEFAULT 0",
+            "email_unsubscribed": "BOOLEAN DEFAULT 0",
+            "referrals_given": "INTEGER DEFAULT 0",
+            "referral_video_bonus": "INTEGER DEFAULT 0",
         }
         with eng.begin() as conn:
             for col_name, col_def in user_migrations.items():
@@ -373,11 +378,12 @@ def init_db():
         ProjectEditHistory,
         SceneEditHistory,
         TemplateVersion,
-        # Ensure SQLite creates the prebuilt_voices table in dev/local.
         PrebuiltVoice,
         Review,
         ProjectTemplateChangeJob,
         BlastCampaign,
+        Referral,
+        ReferralSignup,
     )
     from app.models.subscription import seed_plans
 

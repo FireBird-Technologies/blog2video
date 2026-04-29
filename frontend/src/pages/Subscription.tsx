@@ -22,6 +22,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
+import ReferralPanel from "../components/ReferralPanel";
 
 export default function Subscription() {
   const { user, refreshUser, logout } = useAuth();
@@ -515,6 +516,8 @@ export default function Subscription() {
         </section>
       </div>
 
+      <ReferralPanel />
+
       {/* Available Plans */}
       <section>
         <div className="flex items-center justify-between mb-4">
@@ -576,7 +579,7 @@ export default function Subscription() {
           <PerVideoSliderCard
             variant="compact"
             loading={actionLoading === "per_video"}
-            disabled={isPaid}
+            disabled={false}
             onBuy={async (quantity) => {
               setActionLoading("per_video");
               try {
