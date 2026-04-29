@@ -266,13 +266,18 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const divider2Y = p ? 1190 : 504;
   const priceAxisW = p ? 80 : 56;
   const chartW = VB_W - priceAxisW;
-  const axisFont = p ? 18 : 10;
+  const axisFont = p ? 22 : 14;
   const subLabelFont = p ? 16 : 9;
   const fibFont = p ? 15 : 10;
   const pillFont = p ? 20 : 11;
   const pillH = p ? 32 : 18;
   const xLabelY = p ? priceH + 26 : priceH + 8;
-  const xLabelFont = p ? 16 : 9;
+  const xLabelFont = p ? 20 : 13;
+  const xAxisTitleFont = p ? 12 : 8;
+  const yAxisTitleFont = p ? 12 : 8;
+  const xAxisTitleY = p ? priceH + 10 : priceH + 2;
+  const yAxisTitleX = chartW + priceAxisW / 2;
+  const yAxisTitleY = priceH / 2;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
@@ -491,12 +496,26 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             );
           })()}
 
+          {/* Y-axis label */}
+          <text
+            x={yAxisTitleX}
+            y={yAxisTitleY}
+            transform={`rotate(-90 ${yAxisTitleX} ${yAxisTitleY})`}
+            fill={muted}
+            fontSize={yAxisTitleFont}
+            fontWeight={700}
+            opacity="0.85"
+            textAnchor="middle"
+          >
+            PRICE ($)
+          </text>
+
           {/* Right axis price labels */}
           {[pMax, pMax - pRange * 0.25, pMax - pRange * 0.5, pMax - pRange * 0.75, pMin].map((v, i) => (
             <text key={`ax${i}`}
                   x={chartW + 6}
                   y={i * (priceH / 4) + axisFont + 2}
-                  fill={muted} fontSize={axisFont}>
+                  fill={muted} fontSize={axisFont} fontWeight={700}>
               {v.toFixed(1)}
             </text>
           ))}
@@ -511,12 +530,25 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 <line x1={x} x2={x} y1={priceH} y2={priceH + (p ? 14 : 8)}
                       stroke={`${amber}44`} strokeWidth="1" />
                 <text x={x} y={xLabelY} fill={amber} fontSize={xLabelFont}
-                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.85">
+                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.85" fontWeight={700}>
                   {dateLabel}
                 </text>
               </g>
             );
           })}
+
+          {/* X-axis label */}
+          <text
+            x={chartW / 2}
+            y={xAxisTitleY}
+            fill={amber}
+            fontSize={xAxisTitleFont}
+            fontWeight={700}
+            opacity="0.75"
+            textAnchor="middle"
+          >
+            TRADING DAYS
+          </text>
 
           {/* Divider price → RSI */}
           <line x1="0" x2={VB_W} y1={divider1Y} y2={divider1Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />
