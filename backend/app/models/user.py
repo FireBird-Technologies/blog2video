@@ -37,6 +37,12 @@ class User(Base):
 
     email_unsubscribed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
+    # Lifetime referral counter — never reset on delete/reactivate so the cap cannot be bypassed
+    referrals_given: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    # Permanent referral bonus videos (separate from expiring per-video purchase credits)
+    referral_video_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -49,6 +55,7 @@ class User(Base):
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
 
     @property
     def video_limit(self) -> int:
@@ -59,7 +66,7 @@ class User(Base):
             base = 30
         else:
             base = 100  # Pro
-        return base + (self.video_limit_bonus or 0)
+        return base + (self.video_limit_bonus or 0) + (self.referral_video_bonus or 0)
 
     @property
     def can_create_video(self) -> bool:
