@@ -514,6 +514,36 @@ class EmailService:
 </body>
 </html>"""
 
+    def send_referral_invite_email(self, to_email: str, referrer_name: str, referral_link: str) -> None:
+        first_name = (referrer_name or "").split()[0] if referrer_name else "A friend"
+        subject = f"{first_name} invited you to Blog2Video — get 3 free extra videos"
+
+        text_content = (
+            f"{first_name} invited you to Blog2Video!\n\n"
+            f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
+            f"Sign up through their invite link and get 3 bonus videos on top of your free plan "
+            f"(6 total, no credit card required).\n\n"
+            f"Get started: {referral_link}\n\n"
+            f"Team Blog2Video\n"
+        )
+        html_content = (
+            f"<pre style='font-family:inherit;font-size:15px;white-space:pre-wrap;margin:0;'>"
+            f"{html.escape(first_name)} invited you to Blog2Video!\n\n"
+            f"Blog2Video is an AI tool that turns blog posts into polished videos in minutes.\n\n"
+            f"Sign up through their invite link and get 3 bonus videos on top of your free plan "
+            f"(6 total, no credit card required).\n\n"
+            f"Get started: {referral_link}\n\n"
+            f"Team Blog2Video"
+            f"</pre>"
+        )
+        self.provider.send_email(
+            to=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+            from_email=getattr(settings, "NOREPLY_EMAIL", "noreply@blog2video.app"),
+        )
+
     def send_blast_email(self, user_email: str, user_name: str, subject: str, body: str) -> None:
         first_name = (user_name or "").split()[0] if user_name else "there"
         unsubscribe_url = self._make_unsubscribe_url(user_email)
