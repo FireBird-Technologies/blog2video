@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
@@ -200,6 +200,10 @@ interface VideoPreviewProps {
     content_codes: string[] | null;
     outro_code: string | null;
   };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
 }
 
 interface SceneInput {
@@ -503,24 +507,39 @@ function PlaybackSpeedControl({
   );
 }
 
-export default function VideoPreview({
-  project,
-  logoSizeOverride,
-  logoOpacityOverride,
-  logoPositionOverride,
-  onPlaybackSpeedChange,
-  playbackSpeedSaving = false,
-  precompiledTemplateData,
-}: VideoPreviewProps) {
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+  },
+  ref
+) {
   const templateId = normalizeBuiltInTemplateId(project.template);
   const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = templateId.startsWith("custom_");
 
-  // Ref to Remotion Player — passed to PlaybackSpeedControl so it can keep
-  // the Player's control bar visible while the cursor is over the speed button.
-  const playerRef = useRef<PlayerRef>(null);
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -1010,7 +1029,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1025,9 +1044,10 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
-          ref={playerRef}
+          ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          controls
+          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
@@ -1039,9 +1059,11 @@ export default function VideoPreview({
           currentSpeed={currentPlaybackSpeed}
           saving={playbackSpeedSaving}
           onChange={onPlaybackSpeedChange}
-          playerContainerRef={playerRef}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
         />
       </div>
     </div>
   );
-}
+});
+
+export default VideoPreview;
