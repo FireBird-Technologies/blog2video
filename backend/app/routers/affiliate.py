@@ -1,7 +1,7 @@
 """
 Affiliate / referral program endpoints.
 """
-import uuid
+import re
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,15 +36,35 @@ class InviteResponse(BaseModel):
     failed: int
 
 
+def _build_referral_code(user: User) -> str:
+    """
+    Build stable referral code using username + user id (e.g. mehdi12).
+    Keeps code <= 36 chars to fit DB column.
+    """
+    user_id = str(user.id)
+    raw_name = (user.name or user.email.split("@")[0] if user.email else "user").strip().lower()
+    normalized_name = re.sub(r"[^a-z0-9]+", "", raw_name)
+    if not normalized_name:
+        normalized_name = "user"
+    max_name_len = max(1, 36 - len(user_id))
+    return f"{normalized_name[:max_name_len]}{user_id}"
+
+
 def _get_or_create_referral(user: User, db: Session) -> Referral:
+    expected_code = _build_referral_code(user)
     referral = db.query(Referral).filter_by(referrer_id=user.id, is_active=True).first()
     if not referral:
         referral = Referral(
             referrer_id=user.id,
-            code=str(uuid.uuid4()),
+            code=expected_code,
             is_active=True,
         )
         db.add(referral)
+        db.commit()
+        db.refresh(referral)
+    elif referral.code != expected_code:
+        # Auto-upgrade older UUID style codes to username+id format.
+        referral.code = expected_code
         db.commit()
         db.refresh(referral)
     return referral
