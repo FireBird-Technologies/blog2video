@@ -576,7 +576,7 @@ export default function Subscription() {
           <PerVideoSliderCard
             variant="compact"
             loading={actionLoading === "per_video"}
-            disabled={isPaid}
+            disabled={false}
             onBuy={async (quantity) => {
               setActionLoading("per_video");
               try {
