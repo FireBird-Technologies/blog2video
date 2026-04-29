@@ -41,8 +41,6 @@ const FF = "'Share Tech Mono', monospace";
 const TOP_H = 28;
 const BOT_H = 22;
 
-// ─── Shared chrome (rendered once, never moved)
-
 function Scanlines() {
   return (
     <div style={{
@@ -96,7 +94,7 @@ function Sparkline({ color, width, height, seed, trend }: { color: string; width
   );
 }
 
-// ─── Slide bodies (NO top/bottom bar — only content between the bars)
+// ─── Slide bodies
 
 function SlideTerminalBoot({ active }: { active: boolean }) {
   const [tick, setTick] = useState(0);
@@ -299,19 +297,14 @@ function SlideTerminalTicker({ active }: { active: boolean }) {
 
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: BG, fontFamily: FF, display: "flex", flexDirection: "column" }}>
-      {/* Scrolling tape pinned to top of body zone */}
       <div style={{ height: 18, backgroundColor: "#0A0800", borderBottom: `1px solid ${BORDER}`, overflow: "hidden", display: "flex", alignItems: "center", flexShrink: 0 }}>
         <div style={{ whiteSpace: "nowrap", color: AMBER, fontSize: 8, letterSpacing: 2, transform: `translateX(${-offset}px)` }}>
           {tapeText}   ·   {tapeText}   ·   {tapeText}
         </div>
       </div>
-
-      {/* Column header */}
       <div style={{ margin: "0 8%", height: 18, backgroundColor: HEADER_BG, borderBottom: `1px solid ${AMBER}`, display: "flex", alignItems: "center", padding: "0 10px", flexShrink: 0 }}>
         <span style={{ color: MUTED, fontSize: 7, letterSpacing: 3 }}>SYMBOL  ·  CHANGE  ·  PRICE  ·  TREND</span>
       </div>
-
-      {/* Rows */}
       <div style={{ flex: 1, margin: "0 8%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 0 }}>
         {TICKER_ROWS.map((row, i) => {
           const color = row.pos ? POS : NEG;
@@ -341,7 +334,7 @@ function SlideTerminalTicker({ active }: { active: boolean }) {
   );
 }
 
-// ─── Per-slide metadata
+// ─── Slide metadata
 const SLIDES = [
   { Body: SlideTerminalBoot,      topLabel: "BOOT SEQUENCE",   botLeft: "LIVE SESSION",  botRight: "CPU 42%  MEM 61%" },
   { Body: SlideTerminalDashboard, topLabel: "MARKET OVERVIEW", botLeft: "MARKET DATA",   botRight: undefined },
@@ -349,9 +342,8 @@ const SLIDES = [
 ] as const;
 
 const SLIDE_DURATION = 4000;
-const TRANSITION_MS = 420;
+const TRANSITION_MS = 350;
 
-// ─── Dot navigator
 function SlideDots({ total, current, onDotClick }: { total: number; current: number; onDotClick: (i: number) => void }) {
   return (
     <div style={{ display: "flex", gap: 5, position: "absolute", bottom: 8, right: 12, zIndex: 10 }}>
@@ -367,59 +359,55 @@ function SlideDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-// ─── Main export
 export default function BloombergPreview() {
-  const [current, setCurrent] = useState(0);
+  // `displayed` is what the chrome (top/bottom bar) shows — only updates after transition settles
+  const [displayed, setDisplayed] = useState(0);
+  // `incoming` is the slide currently animating in
+  const [incoming, setIncoming] = useState(0);
+  // `outgoing` is the slide animating out (null when not transitioning)
   const [outgoing, setOutgoing] = useState<number | null>(null);
-  const [transitioning, setTransitioning] = useState(false);
+  // `animating` drives the CSS transforms
+  const [animating, setAnimating] = useState(false);
   const [pulse, setPulse] = useState(0.7);
+  const lockedRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setPulse(0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 350))), 50);
     return () => clearInterval(id);
   }, []);
 
+  // Auto-advance
   useEffect(() => {
-    const id = setInterval(() => triggerTransition((current + 1) % SLIDES.length), SLIDE_DURATION);
+    const id = setInterval(() => triggerTransition((displayed + 1) % SLIDES.length), SLIDE_DURATION);
     return () => clearInterval(id);
-  }, [current]);
+  }, [displayed]);
 
   function triggerTransition(to: number) {
-    if (transitioning || to === current) return;
-    setOutgoing(current);
-    setCurrent(to);
-    // Let React render both, then on next frame kick off the CSS transition
+    if (lockedRef.current || to === displayed) return;
+    lockedRef.current = true;
+
+    // Step 1: mount both slides with no animation (outgoing at 0, incoming at +100%)
+    setOutgoing(displayed);
+    setIncoming(to);
+    setAnimating(false);
+
+    // Step 2: one rAF later, enable CSS transitions and slide both
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTransitioning(true);
-        setTimeout(() => {
-          setOutgoing(null);
-          setTransitioning(false);
-        }, TRANSITION_MS);
-      });
+      setAnimating(true);
+
+      // Step 3: after transition completes, clean up
+      setTimeout(() => {
+        setDisplayed(to);
+        setOutgoing(null);
+        setAnimating(false);
+        lockedRef.current = false;
+      }, TRANSITION_MS + 20);
     });
   }
 
-  const handleDot = (i: number) => triggerTransition(i);
-
+  const { topLabel, botLeft, botRight } = SLIDES[displayed];
   const easing = `cubic-bezier(0.4,0,0.2,1)`;
-  const tx = `${TRANSITION_MS}ms ${easing}`;
-
-  // Outgoing slides left, incoming starts at right and slides to 0
-  const outStyle: React.CSSProperties = {
-    position: "absolute", inset: 0,
-    transform: transitioning ? "translateX(-100%)" : "translateX(0)",
-    transition: transitioning ? `transform ${tx}` : "none",
-    willChange: "transform",
-  };
-  const inStyle: React.CSSProperties = {
-    position: "absolute", inset: 0,
-    transform: transitioning ? "translateX(0)" : "translateX(100%)",
-    transition: transitioning ? `transform ${tx}` : "none",
-    willChange: "transform",
-  };
-
-  const { topLabel, botLeft, botRight } = SLIDES[current];
+  const tx = `transform ${TRANSITION_MS}ms ${easing}`;
 
   return (
     <ScaledCanvas>
@@ -427,7 +415,7 @@ export default function BloombergPreview() {
         <Scanlines />
         <CornerBrackets />
 
-        {/* ── TOP BAR — completely static, never animates ── */}
+        {/* TOP BAR — reads from `displayed`, never jumps */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, height: TOP_H,
           backgroundColor: HEADER_BG, borderBottom: `2px solid ${AMBER}`,
@@ -444,32 +432,40 @@ export default function BloombergPreview() {
           <span style={{ color: AMBER, fontSize: 8, letterSpacing: 2 }}>LIVE</span>
         </div>
 
-        {/* ── BODY ZONE — clipped between bars, slides happen inside ── */}
-        <div style={{
-          position: "absolute", top: TOP_H, left: 0, right: 0, bottom: BOT_H,
-          overflow: "hidden",
-        }}>
-          {/* Outgoing scene — slides out to the left */}
+        {/* BODY ZONE — slides happen inside here */}
+        <div style={{ position: "absolute", top: TOP_H, left: 0, right: 0, bottom: BOT_H, overflow: "hidden" }}>
+          {/* Outgoing slide — moves left */}
           {outgoing !== null && (() => {
             const { Body: OutBody } = SLIDES[outgoing];
             return (
-              <div style={outStyle}>
+              <div style={{
+                position: "absolute", inset: 0,
+                transform: animating ? "translateX(-100%)" : "translateX(0)",
+                transition: animating ? tx : "none",
+                willChange: "transform",
+              }}>
                 <OutBody active={false} />
               </div>
             );
           })()}
-          {/* Incoming scene — slides in from the right */}
+
+          {/* Incoming slide — moves from right to center */}
           {(() => {
-            const InBody = SLIDES[current].Body;
+            const { Body: InBody } = SLIDES[incoming];
             return (
-              <div style={inStyle}>
-                <InBody active={!transitioning} />
+              <div style={{
+                position: "absolute", inset: 0,
+                transform: animating ? "translateX(0)" : (outgoing !== null ? "translateX(100%)" : "translateX(0)"),
+                transition: animating ? tx : "none",
+                willChange: "transform",
+              }}>
+                <InBody active={!animating && outgoing === null} />
               </div>
             );
           })()}
         </div>
 
-        {/* ── BOTTOM BAR — completely static, never animates ── */}
+        {/* BOTTOM BAR — reads from `displayed`, never jumps */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H,
           backgroundColor: HEADER_BG, borderTop: `1px solid ${BORDER}`,
@@ -485,7 +481,7 @@ export default function BloombergPreview() {
           )}
         </div>
 
-        <SlideDots total={SLIDES.length} current={current} onDotClick={handleDot} />
+        <SlideDots total={SLIDES.length} current={displayed} onDotClick={(i) => triggerTransition(i)} />
       </div>
     </ScaledCanvas>
   );
