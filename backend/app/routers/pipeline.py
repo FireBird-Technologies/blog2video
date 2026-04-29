@@ -555,10 +555,11 @@ async def _generate_script(project: Project, db: Session):
     generator = ScriptGenerator()
     # Only append an ending / follow-along scene when the template declares `ending_socials`
     # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
-    include_ending_socials = (
-        not is_custom_template(template_id)
-        and "ending_socials" in get_valid_layouts(template_id)
-    )
+    # For custom templates: enable CTA ending when the template has an "outro" archetype.
+    if is_custom_template(template_id):
+        include_ending_socials = True
+    else:
+        include_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -584,12 +585,18 @@ async def _generate_script(project: Project, db: Session):
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
+    is_custom = is_custom_template(template_id)
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         vd = scene_data["visual_description"]
-        if scene_data.get("preferred_layout") == "ending_socials":
+        preferred = scene_data.get("preferred_layout")
+        if preferred == "ending_socials":
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
+            # Custom templates don't have an ending_socials layout — clear it so
+            # archetype matching assigns the outro slot during scene generation.
+            if is_custom:
+                preferred = None
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -598,7 +605,7 @@ async def _generate_script(project: Project, db: Session):
             visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
-            preferred_layout=scene_data.get("preferred_layout"),
+            preferred_layout=preferred,
         )
         db.add(scene)
 

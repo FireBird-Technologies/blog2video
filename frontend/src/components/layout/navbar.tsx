@@ -30,6 +30,14 @@ const Navbar = () => {
           <span className="text-lg font-semibold text-gray-900">Blog2Video</span>
         </Link>
         <div className="flex items-center gap-4">
+
+           <Link
+            to="/invite-others"
+            className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
+          >
+            Invite others
+          </Link>
+
           {/* Pricing link */}
           <Link
             to="/pricing"

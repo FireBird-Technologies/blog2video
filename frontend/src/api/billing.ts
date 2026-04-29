@@ -28,10 +28,18 @@ export const createCheckoutSession = (
   });
 };
 
-export const createPerVideoCheckout = (projectId?: number) =>
-  api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
+export const createPerVideoCheckout = (
+  options?: number | { projectId?: number; quantity?: number }
+) => {
+  const projectId =
+    typeof options === "number" ? options : options?.projectId;
+  const quantity =
+    typeof options === "object" && options?.quantity ? options.quantity : 1;
+  return api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
     project_id: projectId ?? null,
+    quantity,
   });
+};
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");
