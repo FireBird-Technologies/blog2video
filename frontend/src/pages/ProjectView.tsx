@@ -469,7 +469,12 @@ export default function ProjectView() {
     projectRef.current = project;
   }, [project]);
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
-  const [activeTab, setActiveTab] = useState<Tab>("script");
+  const [activeTab, setActiveTab] = useState<Tab>("scenes");
+  const tabManuallyChanged = useRef(false);
+  const handleTabChange = useCallback((tab: Tab) => {
+    tabManuallyChanged.current = true;
+    setActiveTab(tab);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
@@ -650,7 +655,18 @@ export default function ProjectView() {
   }, []);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
-  const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [expandedScene, setExpandedScene] = useState<number | null>(
+    project?.scenes?.[0]?.id ?? null
+  );
+  const firstSceneAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (firstSceneAutoExpandedRef.current) return;
+    const firstId = project?.scenes?.[0]?.id;
+    if (firstId != null) {
+      firstSceneAutoExpandedRef.current = true;
+      setExpandedScene(firstId);
+    }
+  }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
@@ -715,6 +731,15 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
+
+  // Force back to scenes tab when video finishes generating, resetting the manual-change flag.
+  useEffect(() => {
+    if (pipelineFinished) {
+      tabManuallyChanged.current = false;
+      setActiveTab("scenes");
+    }
+  }, [pipelineFinished]);
+
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
   const clearReviewPopupTimer = useCallback(() => {
@@ -2054,10 +2079,10 @@ export default function ProjectView() {
   };
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: "scenes", label: "Scenes" },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
-    { id: "scenes", label: "Scenes" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -3967,7 +3992,7 @@ export default function ProjectView() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center ${
               activeTab === tab.id
                 ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
@@ -3991,9 +4016,18 @@ export default function ProjectView() {
         {activeTab === "scenes" && (
           <div>
             {project.scenes.length === 0 ? (
-              <p className="text-center py-16 text-xs text-gray-400">
-                Scenes will appear here once generated.
-              </p>
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="flex items-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">Scenes are being generated, please wait…</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
@@ -4118,7 +4152,7 @@ export default function ProjectView() {
                                         e.stopPropagation();
                                         setSceneEditModal(scene);
                                       }}
-                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0"
                                       title="Edit scene"
                                       data-tour={idx === 0 ? "scene-edit-first" : undefined}
                                     >

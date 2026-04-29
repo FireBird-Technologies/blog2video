@@ -85,6 +85,11 @@ def _migrate_sqlite(eng) -> None:
             "font_family": "VARCHAR(255)",
             "is_active": "BOOLEAN DEFAULT 1",
             "embed_token": "VARCHAR(64)",
+            "video_length": "VARCHAR(10) DEFAULT 'auto'",
+            "playback_speed": "REAL DEFAULT 1.0",
+            "content_language": "VARCHAR(10)",
+            "created_at": "DATETIME",
+            "updated_at": "DATETIME",
         }
         with eng.begin() as conn:
             for col_name, col_def in migrations.items():
@@ -186,6 +191,9 @@ def _migrate_sqlite(eng) -> None:
             "content_codes": "TEXT",
             "content_archetype_ids": "TEXT",
             "image_box_aspect_ratios": "TEXT",
+            "generation_failed": "BOOLEAN DEFAULT 0",
+            "created_at": "DATETIME",
+            "updated_at": "DATETIME",
         }
         with eng.begin() as conn:
             for col_name, col_def in ct_migrations.items():
@@ -234,6 +242,7 @@ def _migrate_sqlite(eng) -> None:
             "canceled_at": "DATETIME",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
+            "quantity": "INTEGER DEFAULT 1",
         }
         with eng.begin() as conn:
             for col_name, col_def in sub_migrations.items():
