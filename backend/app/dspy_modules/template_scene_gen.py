@@ -549,6 +549,10 @@ class TemplateSceneGenerator:
 
         tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
         if not tables:
+            # If no table data is available, terminal_chart cannot render — mark as invalid
+            # so the caller's guard falls back to a safe layout.
+            if layout == "terminal_chart":
+                return {**(props or {}), "_invalid_layout": True}
             return props
 
         out = dict(props or {})
@@ -593,6 +597,19 @@ class TemplateSceneGenerator:
                 if symbol:
                     out["ticker"] = symbol
         elif layout == "terminal_table":
+            # If the embedded table is actually a time-series / line-chartable dataset,
+            # reroute to terminal_dataviz instead of wasting it as a static table.
+            _line_props = generate_chart_props_from_table_hints(
+                visual_description=visual_description,
+                scene_title="",
+                narration="",
+            )
+            if _line_props.get("chartType") == "line":
+                non_cs = next((t for t in tables if not is_candlestick_table(t)), None)
+                if non_cs:
+                    out["_reroute_to_dataviz"] = True
+                    out["_dataviz_table"] = non_cs
+                    return out
             items = generate_terminal_table_items(tables[0], max_items=12)
             if items:
                 out["items"] = items
@@ -1286,10 +1303,12 @@ class TemplateSceneGenerator:
                     visual_description=visual_description,
                 )
 
-                # Guard: terminal_chart requires OHLCV data; fall back if not present.
+                # Guard: reroute to terminal_dataviz when the table is line-chartable
+                # (set by terminal_chart with no OHLCV, or terminal_table with time-series data).
                 if validated_props.pop("_reroute_to_dataviz", False):
                     non_cs = validated_props.pop("_dataviz_table", None)
                     if "terminal_dataviz" in self._valid_layouts and non_cs:
+                        prev_layout = layout
                         layout = "terminal_dataviz"
                         validated_props = {
                             "chartTable": {
@@ -1299,14 +1318,15 @@ class TemplateSceneGenerator:
                             "chartType": "line",
                         }
                         logger.info(
-                            "[SCENE_GEN] Scene %s: terminal_chart has no OHLCV, rerouted to terminal_dataviz (line chart)",
+                            "[SCENE_GEN] Scene %s: '%s' rerouted to terminal_dataviz (line chart)",
                             scene_index,
+                            prev_layout,
                         )
                     else:
                         layout = self._fallback_layout
                         validated_props = {}
                         logger.info(
-                            "[SCENE_GEN] Scene %s: terminal_chart rejected (no OHLCV, no dataviz), falling back to '%s'",
+                            "[SCENE_GEN] Scene %s: reroute to terminal_dataviz failed (no valid_layouts match), falling back to '%s'",
                             scene_index,
                             layout,
                         )
@@ -1342,6 +1362,17 @@ class TemplateSceneGenerator:
                         layout = self._fallback_layout
                     logger.info(
                         "[SCENE_GEN] Scene %s: data_visualization had no chart data, falling back to '%s'",
+                        scene_index,
+                        layout,
+                    )
+
+                # terminal_dataviz guard: if we ended up here with no chartTable,
+                # fall back to the template fallback to avoid rendering an empty chart.
+                if layout == "terminal_dataviz" and not has_chart_table:
+                    layout = self._fallback_layout
+                    validated_props = {}
+                    logger.info(
+                        "[SCENE_GEN] Scene %s: terminal_dataviz had no chartTable, falling back to '%s'",
                         scene_index,
                         layout,
                     )
@@ -1409,7 +1440,7 @@ class TemplateSceneGenerator:
             visual_description=visual_description,
         )
 
-        # Guard: terminal_chart requires OHLCV data; fall back if not present.
+        # Guard: reroute to terminal_dataviz when the table is line-chartable.
         if validated_props.pop("_reroute_to_dataviz", False):
             non_cs = validated_props.pop("_dataviz_table", None)
             if "terminal_dataviz" in self._valid_layouts and non_cs:
@@ -1455,6 +1486,16 @@ class TemplateSceneGenerator:
                 layout = self._fallback_layout
             logger.info(
                 "[SCENE_GEN] Regenerate scene %s: data_visualization had no chart data, falling back to '%s'",
+                scene_index,
+                layout,
+            )
+
+        # terminal_dataviz guard: same as above for bloomberg.
+        if layout == "terminal_dataviz" and not has_chart_table:
+            layout = self._fallback_layout
+            validated_props = {}
+            logger.info(
+                "[SCENE_GEN] Regenerate scene %s: terminal_dataviz had no chartTable, falling back to '%s'",
                 scene_index,
                 layout,
             )

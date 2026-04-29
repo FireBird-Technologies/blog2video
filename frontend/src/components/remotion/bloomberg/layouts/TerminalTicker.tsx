@@ -54,7 +54,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
   const marqueeOffset = ((frame * 4) % 2000);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Subtle scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -67,9 +67,9 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
-        opacity: headerOpacity,
+
       }}>
         <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
@@ -233,7 +233,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>

@@ -101,18 +101,8 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
   const cursorVisible = Math.floor(frame / 15) % 2 === 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
-      {/* Top bar */}
-       <BackgroundGraph accentColor={blue} textColor={amber} variant="socials" />
-      <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, height: 48,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
-        display: "flex", alignItems: "center", padding: "0 48px", gap: 24,
-        opacity: topBarOpacity,
-      }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 12 }}>SESSION CLOSE</span>
-      </div>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+      <BackgroundGraph accentColor={blue} textColor={amber} variant="socials" />
 
       {/* Horizontal rules framing centre */}
       <div style={{
@@ -182,18 +172,6 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
         )}
       </div>
 
-      {/* Bottom bar */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: 36,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
-        display: "flex", alignItems: "center", padding: "0 48px",
-        opacity: topBarOpacity,
-      }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 11, letterSpacing: 2 }}>
-          END OF SESSION
-        </span>
-      </div>
     </AbsoluteFill>
   );
 };

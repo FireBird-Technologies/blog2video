@@ -616,8 +616,11 @@ async def _generate_script(project: Project, db: Session):
                 )
 
     elif template_id == "bloomberg":
-        # bloomberg: one terminal_chart scene per line-chartable table, one terminal_table
-        # scene per any remaining usable table — no caps, use all qualifying scraped tables.
+        # bloomberg: one scene per qualifying table — layout depends on table type:
+        #   terminal_chart   → OHLCV candlestick tables only
+        #   terminal_dataviz → non-OHLCV time-series / line-chartable tables
+        #   terminal_ticker  → multi-symbol snapshot tables
+        #   terminal_table   → all remaining tables with headers + ≥1 row
         _all_extracted_tables = extract_tables_from_content(
             getattr(project, "blog_content", None) or ""
         )
@@ -625,17 +628,23 @@ async def _generate_script(project: Project, db: Session):
             _tmp_hint = build_table_context_hint(
                 _all_extracted_tables, max_tables=len(_all_extracted_tables)
             )
-            # terminal_chart: every line-chartable table gets its own scene
-            _line_tables = get_line_chartable_tables_from_visual_hint(_tmp_hint)
-            _used_indices = {idx for idx, _ in _line_tables}
 
-            # Also bind OHLCV/candlestick tables that failed the line-chartable check
-            _candlestick_tables = [
+            # terminal_chart: ONLY true OHLCV/candlestick tables
+            _candlestick_tables: list[tuple[int, dict]] = [
                 (idx, t) for idx, t in enumerate(_all_extracted_tables)
-                if idx not in _used_indices and is_candlestick_table(t)
+                if is_candlestick_table(t)
             ]
-            _line_tables = _line_tables + _candlestick_tables
-            _used_indices = {idx for idx, _ in _line_tables}
+            _candlestick_indices = {idx for idx, _ in _candlestick_tables}
+
+            # terminal_dataviz: non-OHLCV tables that produce a line chart
+            _dataviz_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in get_line_chartable_tables_from_visual_hint(_tmp_hint)
+                if idx not in _candlestick_indices
+            ]
+            _dataviz_indices = {idx for idx, _ in _dataviz_tables}
+
+            _used_indices = _candlestick_indices | _dataviz_indices
 
             # terminal_ticker: multi-symbol snapshot tables (symbol + % change columns)
             _ticker_tables: list[tuple[int, dict]] = [
@@ -643,27 +652,35 @@ async def _generate_script(project: Project, db: Session):
                 for idx, t in enumerate(_all_extracted_tables)
                 if idx not in _used_indices and is_ticker_snapshot_table(t)
             ]
-            _used_indices |= {idx for idx, _ in _ticker_tables}
+            _ticker_indices = {idx for idx, _ in _ticker_tables}
+            _used_indices |= _ticker_indices
 
-            # terminal_table: every remaining table with headers + ≥1 row gets its own scene
+            # terminal_table: every remaining table with headers + ≥1 row gets its own scene.
+            # Exclude tables where every row has only a single cell (e.g. HTML scraper dropped
+            # all value columns, leaving only a date/label column with no data to show).
+            def _table_has_multi_col_rows(t: dict) -> bool:
+                rows = t.get("rows") or []
+                return any(isinstance(r, list) and len(r) >= 2 for r in rows)
+
             _table_tables: list[tuple[int, dict]] = [
                 (idx, t)
                 for idx, t in enumerate(_all_extracted_tables)
                 if idx not in _used_indices
                 and (t.get("headers") or [])
                 and len(t.get("rows") or []) >= 1
+                and _table_has_multi_col_rows(t)
             ]
 
-            _bindings = _line_tables + _ticker_tables + _table_tables
+            _bindings = _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
             if _bindings:
                 _chart_type_by_idx = {
                     orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
                     for orig_idx, t in _bindings
                 }
-                _ticker_indices = {idx for idx, _ in _ticker_tables}
                 _layout_by_idx = {
                     orig_idx: (
-                        "terminal_chart" if orig_idx in _used_indices and orig_idx not in _ticker_indices
+                        "terminal_chart" if orig_idx in _candlestick_indices
+                        else "terminal_dataviz" if orig_idx in _dataviz_indices
                         else "terminal_ticker" if orig_idx in _ticker_indices
                         else "terminal_table"
                     )
@@ -709,7 +726,9 @@ async def _generate_script(project: Project, db: Session):
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
         elif (
-            scene_data.get("preferred_layout") in {"data_visualization", "terminal_chart", "terminal_table"}
+            scene_data.get("preferred_layout") in {
+                "data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"
+            }
             and _all_extracted_tables
         ):
             # Embed only the single bound table so scene_gen has exactly one table to use.
@@ -726,6 +745,25 @@ async def _generate_script(project: Project, db: Session):
                 hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
                 if hint:
                     vd = (vd.rstrip() + "\n\n" + hint).strip()
+        elif (
+            # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
+            # the table binding was supposed to force terminal_dataviz/terminal_table.
+            # Embed the table hint so scene_gen has the data and can produce the right chart.
+            template_id == "bloomberg"
+            and scene_data.get("data_table_index") is not None
+            and _all_extracted_tables
+        ):
+            _fallback_idx = scene_data.get("data_table_index")
+            if isinstance(_fallback_idx, int) and 0 <= _fallback_idx < len(_all_extracted_tables):
+                _fb_table = _all_extracted_tables[_fallback_idx]
+                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=8)
+                if _fb_hint:
+                    vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
+                # Also upgrade the preferred_layout so scene_gen uses the right component.
+                if not is_candlestick_table(_fb_table):
+                    scene_data["preferred_layout"] = "terminal_dataviz"
+                else:
+                    scene_data["preferred_layout"] = "terminal_chart"
         elif scene_data.get("preferred_layout") == "terminal_ticker":
             # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
             _blog_text = getattr(project, "blog_content", None) or ""

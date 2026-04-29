@@ -5,7 +5,6 @@ import type { BloombergLayoutProps } from "../types";
 export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   title,
   narration,
-  accentColor,
   bgColor,
   textColor,
   fontFamily,
@@ -17,7 +16,6 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   const p = aspectRatio === "portrait";
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
-  const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
 
   const tSize = titleFontSize ?? (p ? 87 : 64);
@@ -25,11 +23,11 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   const labelSize = dSize * 0.4;
   const eyebrowSize = dSize * 0.38;
 
-  const eyebrowOp = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-  const titleOp   = interpolate(frame, [8, 28], [0, 1], { extrapolateRight: "clamp" });
-  const titleSlide = interpolate(frame, [8, 28], [24, 0], { extrapolateRight: "clamp" });
-  const bodyOp    = interpolate(frame, [20, 40], [0, 1], { extrapolateRight: "clamp" });
-  const bodySlide = interpolate(frame, [20, 40], [16, 0], { extrapolateRight: "clamp" });
+  const eyebrowOp  = interpolate(frame, [0, 15],  [0, 1], { extrapolateRight: "clamp" });
+  const titleOp    = interpolate(frame, [8, 28],   [0, 1], { extrapolateRight: "clamp" });
+  const titleSlide = interpolate(frame, [8, 28],   [24, 0], { extrapolateRight: "clamp" });
+  const bodyOp     = interpolate(frame, [20, 40],  [0, 1], { extrapolateRight: "clamp" });
+  const bodySlide  = interpolate(frame, [20, 40],  [16, 0], { extrapolateRight: "clamp" });
 
   const cursorOn = Math.floor(frame / 15) % 2 === 0;
   const livePulse = 0.4 + 0.6 * Math.abs(Math.sin(frame / 7));
@@ -50,7 +48,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   const ss = String(Math.floor(frame / 2) % 60).padStart(2, "0");
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -65,9 +63,9 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
-        opacity: eyebrowOp,
+
       }}>
         <DocGlyph color={amber} size={p ? 30 : 26} />
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>NARRATIVE · DESK NOTE</span>
@@ -93,71 +91,59 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
         <Waveform color={amber} width={"100%" as any} height={p ? 48 : 40} frame={frame} seed={7} />
       </div>
 
-      {/* Content */}
-      {p ? (
-        /* Portrait: stacked */
-        <div style={{
-          position: "absolute",
-          top: topH + 64 + 20, left: pad, right: pad, bottom: botH + 12,
-          display: "flex", flexDirection: "column", justifyContent: "center", gap: 28,
-        }}>
-          <div style={{ fontSize: tSize, lineHeight: 1.15, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline", padding: "3px 14px 6px" }}>{title}</span>
-          </div>
+      {/* Content — title centered above narration panel */}
+      <div style={{
+        position: "absolute",
+        top: topH + (p ? 64 : 56) + 16,
+        left: pad, right: pad, bottom: botH + 10,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: p ? 28 : 22,
+      }}>
+        {/* Title — one place, horizontally centered */}
+        {title && (
           <div style={{
-            height: 2, width: "40%",
-            background: `linear-gradient(90deg, ${amber}, ${amber}00)`,
+            textAlign: "center",
+            fontSize: tSize, lineHeight: 1.1,
+            opacity: titleOp,
+            transform: `translateY(${titleSlide}px)`,
+          }}>
+            <span style={{
+              backgroundColor: amber, color: "#000000",
+              display: "inline", padding: "3px 14px 6px",
+            }}>{title}</span>
+          </div>
+        )}
+
+        {/* Divider */}
+        {title && (
+          <div style={{
+            height: p ? 2 : 1, width: "35%", alignSelf: "center",
+            background: `linear-gradient(90deg, ${amber}00, ${amber}, ${amber}00)`,
             opacity: titleOp,
           }} />
-          <NarrativePanel
-            amber={amber}
-            eyebrowSize={eyebrowSize}
-            dSize={dSize}
-            padding="28px 32px"
-            opacity={bodyOp}
-            translateY={bodySlide}
-            typedText={typedText}
-            typing={typing}
-            cursorOn={cursorOn}
-            frame={frame}
-            livePulse={livePulse}
-          />
-        </div>
-      ) : (
-        /* Landscape: full-width stacked — waveform bars above title */
-        <div style={{
-          position: "absolute", top: topH + 56 + 16, left: pad, right: pad, bottom: botH + 10,
-          display: "flex", flexDirection: "column", justifyContent: "center", gap: 22,
-        }}>
-          <div style={{ fontSize: tSize, lineHeight: 1.1, opacity: titleOp, transform: `translateY(${titleSlide}px)` }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline", padding: "3px 14px 6px" }}>{title}</span>
-          </div>
-          <div style={{
-            height: 1, width: "35%",
-            background: `linear-gradient(90deg, ${amber}, ${amber}00)`,
-            opacity: titleOp,
-          }} />
-          <NarrativePanel
-            amber={amber}
-            eyebrowSize={eyebrowSize}
-            dSize={dSize}
-            padding="22px 26px"
-            opacity={bodyOp}
-            translateY={bodySlide}
-            typedText={typedText}
-            typing={typing}
-            cursorOn={cursorOn}
-            frame={frame}
-            livePulse={livePulse}
-          />
-        </div>
-      )}
+        )}
+
+        <NarrativePanel
+          amber={amber}
+          eyebrowSize={eyebrowSize}
+          dSize={dSize}
+          padding={p ? "28px 32px" : "22px 26px"}
+          opacity={bodyOp}
+          translateY={bodySlide}
+          typedText={typedText}
+          typing={typing}
+          cursorOn={cursorOn}
+          frame={frame}
+          livePulse={livePulse}
+        />
+      </div>
 
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
