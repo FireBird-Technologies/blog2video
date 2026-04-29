@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import String, Enum, DateTime, Integer, Boolean
+from sqlalchemy import String, Enum, DateTime, Integer, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from app.database import Base
 
@@ -37,6 +37,12 @@ class User(Base):
 
     email_unsubscribed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
+    # Lifetime referral counter — never reset on delete/reactivate so the cap cannot be bypassed
+    referrals_given: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    # Permanent referral bonus videos (separate from expiring per-video purchase credits)
+    referral_video_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -49,6 +55,7 @@ class User(Base):
     reviews = relationship("Review", back_populates="user", cascade="all, delete-orphan")
     brand_kits = relationship("BrandKit", back_populates="user", cascade="all, delete-orphan")
     template_change_jobs = relationship("ProjectTemplateChangeJob", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    referrals = relationship("Referral", foreign_keys="Referral.referrer_id", cascade="all, delete-orphan", passive_deletes=True)
 
     @property
     def video_limit(self) -> int:
@@ -59,7 +66,7 @@ class User(Base):
             base = 30
         else:
             base = 100  # Pro
-        return base + (self.video_limit_bonus or 0)
+        return base + (self.video_limit_bonus or 0) + (self.referral_video_bonus or 0)
 
     @property
     def can_create_video(self) -> bool:
@@ -75,8 +82,10 @@ class User(Base):
         if not per_video_plan:
             return False
 
-        active_credits = (
-            db.query(Subscription)
+        # Sum Subscription.quantity so slider packs (N credits in one row)
+        # are counted correctly.
+        active_credits = int(
+            db.query(func.coalesce(func.sum(Subscription.quantity), 0))
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
@@ -86,19 +95,19 @@ class User(Base):
                     (Subscription.current_period_end > now)
                 ),
             )
-            .count()
+            .scalar() or 0
         )
 
         current_bonus = self.video_limit_bonus or 0
 
-        total_purchased_credits = (
-            db.query(Subscription)
+        total_purchased_credits = int(
+            db.query(func.coalesce(func.sum(Subscription.quantity), 0))
             .filter(
                 Subscription.user_id == self.id,
                 Subscription.plan_id == per_video_plan.id,
                 Subscription.status == SubscriptionStatus.COMPLETED,
             )
-            .count()
+            .scalar() or 0
         )
 
         expired_credits = total_purchased_credits - active_credits
