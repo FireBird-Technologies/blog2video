@@ -8,6 +8,7 @@ import requests
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
@@ -33,6 +34,8 @@ from app.services.remotion import (
     safe_remove_workspace,
     get_workspace_dir,
     cancel_running_render,
+    render_still,
+    write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
 from app.services.project_cleanup import (
@@ -1161,6 +1164,32 @@ def get_project(
     """Get a single project with all its scenes and assets."""
     project = _get_user_project(project_id, user.id, db)
     return _prepare_project_response(project, user, db)
+
+
+@router.get("/{project_id}/render-still")
+def render_project_still(
+    project_id: int,
+    frame: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Render and return a single PNG frame via Remotion for pixel-perfect slide exports."""
+    if frame < 0:
+        raise HTTPException(status_code=400, detail="frame must be >= 0")
+    project = _get_user_project(project_id, user.id, db)
+    try:
+        # Keep still-render workspace in sync with the latest DB scene state.
+        write_remotion_data(project, list(project.scenes), db)
+        output_path = render_still(project, frame)
+    except Exception as exc:
+        logger.exception("render-still failed project=%s frame=%s", project_id, frame)
+        raise HTTPException(status_code=500, detail=f"Could not render still frame: {exc}") from exc
+
+    return FileResponse(
+        output_path,
+        media_type="image/png",
+        filename=f"project_{project_id}_frame_{frame}.png",
+    )
 
 
 @router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
