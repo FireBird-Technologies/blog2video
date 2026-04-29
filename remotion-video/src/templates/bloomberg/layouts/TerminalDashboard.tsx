@@ -45,7 +45,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
   const ss = String(Math.floor(frame / 2) % 60).padStart(2, "0");
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -60,9 +60,9 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
-        opacity: headerOpacity,
+
       }}>
         {p && <IndexGlyph color={amber} size={30} />}
         <div style={{ flex: 1 }} />
@@ -277,7 +277,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
         <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>

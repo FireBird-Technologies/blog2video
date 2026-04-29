@@ -177,6 +177,8 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 54 : 38);
   const labelSize = dSize * 0.4;
+  const baseDescriptionSize = p ? 54 : 38;
+  const lineDataScale = Math.max(0.75, Math.min(2, dSize / baseDescriptionSize));
 
   const headerOp = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [5, 22], [0, 1], { extrapolateRight: "clamp" });
@@ -238,19 +240,19 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const chartLabel = chartType === "line" ? "LINE CHART" : chartType === "histogram" ? "HISTOGRAM" : "BAR CHART";
 
   // Axis styles
-  const axisTick = { fill: muted, fontSize: p ? 11 : 10, fontFamily: ff, fontWeight: 600 };
+  const axisTick = { fill: muted, fontSize: p ? 18 : 15, fontFamily: ff, fontWeight: 700 };
   const xAxisProps = {
     interval: 0 as const,
-    tick: { ...axisTick, fontSize: p ? 12 : 10 },
+    tick: { ...axisTick, fontSize: p ? 20 : 16 },
     minTickGap: 4,
     angle: inputs.labels.length >= 8 ? (-35 as const) : (0 as const),
     textAnchor: inputs.labels.length >= 8 ? ("end" as const) : ("middle" as const),
-    height: inputs.labels.length >= 8 ? (p ? 72 : 60) : (p ? 36 : 28),
+    height: inputs.labels.length >= 8 ? (p ? 96 : 78) : (p ? 52 : 42),
   };
-  const yAxisWidth = 52;
+  const yAxisWidth = p ? 86 : 72;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0,
@@ -263,9 +265,9 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
-        opacity: headerOp,
+
       }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: blue, fontSize: labelSize * 0.95, letterSpacing: 2, fontWeight: 700 }}>{chartLabel}</span>
@@ -313,6 +315,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               isPortrait
               ff={ff}
               labelSize={labelSize}
+              lineDataScale={lineDataScale}
             />
           </div>
 
@@ -367,6 +370,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               isPortrait={false}
               ff={ff}
               labelSize={labelSize}
+              lineDataScale={lineDataScale}
             />
           </div>
 
@@ -412,7 +416,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: headerBg,
-        borderTop: `1px solid ${border}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, justifyContent: "space-between",
       }}>
         <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
@@ -448,19 +452,23 @@ interface ChartRendererProps {
   isPortrait: boolean;
   ff: string;
   labelSize: number;
+  lineDataScale: number;
 }
 
 const GRID_STROKE = "rgba(255,179,64,0.10)";
 const VALUE_STROKE = "rgba(0,0,0,0.85)";
 const LBL_WEIGHT = 800;
-const LBL_SIZE = 11;
+const LBL_SIZE = 14;
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   chartType, animatedBars, lineData, hasMultiSeries, axisTop,
   xAxisProps, yAxisWidth, axisTick, barColors, trendColor,
-  blue, neg, amber, useCompact, showDots, seriesLabels, ff, labelSize,
+  blue, neg, amber, useCompact, showDots, seriesLabels, ff, labelSize, lineDataScale,
 }) => {
   const margin = { top: 10, right: 16, left: 4, bottom: 8 };
+  const lineLabelSize = Math.round(LBL_SIZE * lineDataScale);
+  const lineDotRadius = Math.max(2.5, 2.5 * lineDataScale);
+  const auxDotRadius = Math.max(2, 2 * lineDataScale);
 
   if (chartType === "line") {
     return (
@@ -478,11 +486,11 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
             domain={["auto", "auto"]} tickFormatter={(v) => fmtTick(Number(v))} />
           <Area type="monotone" dataKey="s0" stroke={trendColor} strokeWidth={2.5}
             fill="url(#bb-line-fill)" fillOpacity={1} isAnimationActive={false}
-            dot={showDots ? { r: 2.5, fill: trendColor, stroke: "#000", strokeWidth: 1 } : false}
+            dot={showDots ? { r: lineDotRadius, fill: trendColor, stroke: "#000", strokeWidth: 1 } : false}
             activeDot={false}>
             {showDots && (
               <LabelList dataKey="s0" position="top" fill={trendColor}
-                fontSize={LBL_SIZE} fontWeight={LBL_WEIGHT} fontFamily={ff}
+                fontSize={lineLabelSize} fontWeight={LBL_WEIGHT} fontFamily={ff}
                 stroke={VALUE_STROKE} strokeWidth={0.9} paintOrder="stroke"
                 formatter={(v: unknown) => fmtCompact(Number(v))} />
             )}
@@ -490,13 +498,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
           {seriesLabels[1] && (
             <Area type="monotone" dataKey="s1" stroke={blue} strokeWidth={2}
               fill="none" strokeDasharray="5 4" isAnimationActive={false}
-              dot={showDots ? { r: 2, fill: blue, stroke: "#000", strokeWidth: 1 } : false}
+              dot={showDots ? { r: auxDotRadius, fill: blue, stroke: "#000", strokeWidth: 1 } : false}
               activeDot={false} />
           )}
           {seriesLabels[2] && (
             <Area type="monotone" dataKey="s2" stroke={neg} strokeWidth={2}
               fill="none" strokeDasharray="5 4" isAnimationActive={false}
-              dot={showDots ? { r: 2, fill: neg, stroke: "#000", strokeWidth: 1 } : false}
+              dot={showDots ? { r: auxDotRadius, fill: neg, stroke: "#000", strokeWidth: 1 } : false}
               activeDot={false} />
           )}
         </ComposedChart>

@@ -23,6 +23,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const neg = BLOOMBERG_COLORS.neg;
+  const pos = "#7BE495";
   const muted = BLOOMBERG_COLORS.muted;
 
   const tSize = titleFontSize ?? (p ? 60 : 77);
@@ -86,15 +87,36 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
     })
     .filter((n) => Number.isFinite(n));
 
-  const tableCandles = tableParsed ?? (parsed.length >= 8 ? candlesFromCloses(parsed) : null);
+  // Only use real OHLCV data — never synthesize fake candles from plain close prices.
+  // If no real data is available, fall back to the deterministic procedural generator
+  // so the layout still renders gracefully while the backend guard re-routes the scene.
+  const tableCandles = tableParsed ?? null;
   const N = tableCandles ? tableCandles.length : 72;
   const candles = tableCandles ?? generateCandles(N, 178);
   const closes = candles.map((k) => k.c);
   const highs = candles.map((k) => k.h);
   const lows = candles.map((k) => k.l);
-  const pMax = Math.max(...highs);
-  const pMin = Math.min(...lows);
-  const pRange = pMax - pMin || 1;
+  // Use the 5th–95th percentile of close prices as the "core range" instead of
+  // raw min/max. This stops a single outlier candle (or two) from dominating the
+  // vertical scale and forcing every other bar to span the chart. Then expand by
+  // 50% above/below so the visible price action fills only ~50% of the chart.
+  const sortedCloses = [...closes].sort((a, b) => a - b);
+  const pct = (frac: number) => {
+    const idx = Math.max(0, Math.min(sortedCloses.length - 1, Math.round(frac * (sortedCloses.length - 1))));
+    return sortedCloses[idx];
+  };
+  const coreLo = pct(0.05);
+  const coreHi = pct(0.95);
+  // Still respect actual highs/lows but clip them to a multiplier of core range
+  const coreRange = (coreHi - coreLo) || 1;
+  const cap = coreRange * 1.5;
+  const pMaxRaw = Math.min(Math.max(...highs), coreHi + cap);
+  const pMinRaw = Math.max(Math.min(...lows), coreLo - cap);
+  const pRangeRaw = (pMaxRaw - pMinRaw) || 1;
+  const yPadFrac = 0.5;
+  const pMax = pMaxRaw + pRangeRaw * yPadFrac;
+  const pMin = pMinRaw - pRangeRaw * yPadFrac;
+  const pRange = pMax - pMin;
   const last = closes[N - 1];
   const prev = closes[N - 2] ?? last;
   const dayChange = last - prev;
@@ -146,7 +168,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   // ── Plain-English chart analysis ──
   const pctChange = ((closes[N - 1] - closes[0]) / Math.max(Math.abs(closes[0]), 0.001)) * 100;
   const verdict = pctChange > 5 ? "BULLISH TREND" : pctChange < -5 ? "BEARISH DECLINE" : "CONSOLIDATING";
-  const verdictColor = pctChange > 5 ? blue : pctChange < -5 ? neg : amber;
+  const verdictColor = pctChange > 5 ? pos : pctChange < -5 ? neg : amber;
 
   // Pre-compute date helpers (used in insights below)
   const _tradingDatesEarly: string[] = (() => {
@@ -253,21 +275,21 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const xLabelFont = p ? 16 : 9;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
-        opacity: fadeIn,
+
       }}>
         <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
         <span style={{ color: amber, fontSize: dSize * 0.7, letterSpacing: 1 }}>
           {last.toFixed(2)}
         </span>
-        <span style={{ color: dayChange >= 0 ? blue : neg, fontSize: labelSize * 1.05, letterSpacing: 1 }}>
+        <span style={{ color: dayChange >= 0 ? pos : neg, fontSize: labelSize * 1.05, letterSpacing: 1 }}>
           {dayChange >= 0 ? "+" : ""}{dayChange.toFixed(2)} ({dayChangePct >= 0 ? "+" : ""}{dayChangePct.toFixed(2)}%)
         </span>
       </div>
@@ -313,7 +335,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             const tf = p ? 13 : 7.5; const bw = p ? 10 : 6; const bh = p ? 14 : 9;
             const chipH = p ? 20 : 13; const gap = p ? 8 : 5;
             const labels = [
-              { color: blue, text: "Up day" },
+              { color: pos, text: "Up day" },
               { color: neg,  text: "Down day" },
             ];
             // Measure chip widths and stack right-to-left from chartW edge
@@ -380,21 +402,24 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           <polyline points={linePts(bbL, visN, N, pMin, pRange, priceH, chartW)}
                     fill="none" stroke={`${amber}77`} strokeWidth="1" />
 
-          {/* Candles */}
+          {/* Candles — bodies/wicks clamped so a single outlier never spans the chart */}
           {candles.slice(0, visN).map((k, i) => {
             const x = (i / (N - 1)) * chartW;
-            const w = Math.max(3, (chartW / N) * 0.65);
-            const yH = ((pMax - k.h) / pRange) * priceH;
-            const yL = ((pMax - k.l) / pRange) * priceH;
-            const yO = ((pMax - k.o) / pRange) * priceH;
-            const yC = ((pMax - k.c) / pRange) * priceH;
+            const w = Math.max(3, Math.min(10, (chartW / N) * 0.5));
+            // Clamp y values into the visible range so wicks can't overflow
+            const clamp = (y: number) => Math.max(0, Math.min(priceH, y));
+            const yH = clamp(((pMax - k.h) / pRange) * priceH);
+            const yL = clamp(((pMax - k.l) / pRange) * priceH);
+            const yO = clamp(((pMax - k.o) / pRange) * priceH);
+            const yC = clamp(((pMax - k.c) / pRange) * priceH);
             const up = k.c >= k.o;
-            const color = up ? blue : neg;
+            const color = up ? pos : neg;
             const top = Math.min(yO, yC);
-            const h = Math.max(1.5, Math.abs(yC - yO));
+            // Cap any single body at 25% of the chart height — never let one bar span
+            const h = Math.min(priceH * 0.25, Math.max(1.5, Math.abs(yC - yO)));
             return (
               <g key={`c${i}`}>
-                <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth="1" />
+                <line x1={x} x2={x} y1={yH} y2={yL} stroke={color} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
                 <rect x={x - w / 2} y={top} width={w} height={h} fill={color} />
               </g>
             );
@@ -551,35 +576,40 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           {(() => {
             const volMaxH = volBot - volTop - (p ? 28 : 12);
             const visCandles = candles.slice(0, visN);
+            // CRITICAL: normalize volumes to [0, 1] using the max volume in the
+            // dataset. Otherwise crypto-scale volumes (billions, divided by 1e9
+            // by the parser) produce values like 17, which would render bars at
+            // 17 × volMaxH SVG units tall — overflowing the entire chart.
+            const maxV = Math.max(...visCandles.map((k) => k.v), 1e-9);
             const avgV = visCandles.reduce((s, k) => s + k.v, 0) / visN;
-            const avgY = volBot - volMaxH * avgV;
-            // Scale synthetic 0-1 volume to look like realistic share counts (millions)
-            const volScale = 8.5; // avg ~4.25M, peak ~8.5M
+            const avgVNorm = avgV / maxV;
+            const avgY = volBot - volMaxH * avgVNorm;
             const fmtVol = (v: number) => {
-              const m = v * volScale;
-              return m >= 1 ? `${m.toFixed(1)}M` : `${(m * 1000).toFixed(0)}K`;
+              if (v >= 1000) return `${(v / 1000).toFixed(1)}B`;
+              if (v >= 1) return `${v.toFixed(1)}M`;
+              return `${(v * 1000).toFixed(0)}K`;
             };
-            // Always label exactly the top 6 bars by volume — consistent, no threshold guesswork
             const sorted = [...visCandles].sort((a, b) => b.v - a.v);
-            const top6 = new Set(sorted.slice(0, 6).map(k => k.v));
+            const top6 = new Set(sorted.slice(0, 6).map((k) => k.v));
             const lf = p ? 12 : 6.5;
-            const barW = Math.max(3, (chartW / N) * 0.65);
+            const barW = Math.max(3, Math.min(10, (chartW / N) * 0.5));
             return (
               <>
                 {visCandles.map((k, i) => {
                   const x = (i / (N - 1)) * chartW;
                   const up = k.c >= k.o;
-                  const h = volMaxH * k.v;
+                  // Normalize this bar's volume into [0, 1] then scale to volMaxH
+                  const h = Math.max(0, Math.min(volMaxH, volMaxH * (k.v / maxV)));
                   const barTop = volBot - h;
                   const showLabel = top6.has(k.v);
                   return (
                     <g key={`v${i}`}>
                       <rect x={x - barW / 2} y={barTop} width={barW} height={h}
-                            fill={up ? blue : neg} opacity="0.85" />
+                            fill={up ? pos : neg} opacity="0.85" />
                       {showLabel && (
                         <text
                           x={x} y={barTop - (p ? 5 : 3)}
-                          fill={up ? blue : neg}
+                          fill={up ? pos : neg}
                           fontSize={lf} textAnchor="middle" fontWeight="700"
                         >
                           {fmtVol(k.v)}
@@ -758,7 +788,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
       }}>
         <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>

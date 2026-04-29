@@ -51,14 +51,14 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
   const headerFontSize = dSize * 0.7;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff }}>
+    <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `2px solid ${amber}`,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
-        opacity: fadeIn,
+
       }}>
       </div>
 
@@ -163,7 +163,7 @@ export const TerminalTable: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderTop: `1px solid ${BLOOMBERG_COLORS.border}`,
+        
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: `0 ${pad}px`,
       }}>
