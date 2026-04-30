@@ -13,7 +13,7 @@ import BloombergPreview from "./templatePreviews/BloombergPreview";
 import ChroniclePreview from "./templatePreviews/ChroniclePreview";
 
 /** Preview components keyed by built-in template id from the API. */
-export const TEMPLATE_PREVIEWS: Record<string, FC> = {
+export const TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   default: DefaultPreview,
   nightfall: NightfallPreview,
   gridcraft: GridcraftPreview,

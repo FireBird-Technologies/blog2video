@@ -230,22 +230,27 @@ function SlideDots({ total, current, onDotClick }: { total: number; current: num
 const SLIDES = [SlideCinematicTitle, SlideGlassStack, SlideGlowMetrics];
 const SLIDE_DURATION = 3500;
 
-export default function NightfallPreview() {
+export default function NightfallPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    if (thumbnailMode) {
+      setActive(true);
+      return;
+    }
     const t = setTimeout(() => setActive(true), 200);
     return () => clearTimeout(t);
-  }, []);
+  }, [thumbnailMode]);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setActive(false);
       setTimeout(() => { setCurrent((c) => (c + 1) % SLIDES.length); setActive(true); }, 150);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   const handleDot = (i: number) => {
     setActive(false);
