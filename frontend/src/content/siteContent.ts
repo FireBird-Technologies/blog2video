@@ -192,74 +192,36 @@ export function getPublicPaths(): string[] {
 
 export function getPublicLinkDetails(path: string) {
   if (path === "/blogs") {
-    return {
-      path,
-      label: "Blog",
-      description:
-        "Educational content, SEO workflows, repurposing playbooks, and product updates for Blog2Video.",
-    };
+    return { path, label: "Blog", description: "Educational content, SEO workflows, repurposing playbooks, and product updates for Blog2Video." };
   }
-
   if (path === "/pricing") {
-    return {
-      path,
-      label: "Pricing",
-      description: "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
-    };
+    return { path, label: "Pricing", description: "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans." };
   }
-
   if (path === "/contact") {
-    return {
-      path,
-      label: "Contact",
-      description: "Talk to Blog2Video about support, enterprise use cases, and team workflows.",
-    };
+    return { path, label: "Contact", description: "Talk to Blog2Video about support, enterprise use cases, and team workflows." };
   }
-
   if (path === toolsHub.path) {
-    return {
-      path,
-      label: "Tools",
-      description: toolsHub.description,
-    };
+    return { path, label: "Tools", description: toolsHub.description };
   }
 
   const marketingPage = getMarketingPage(path);
   if (marketingPage) {
-    return {
-      path,
-      label: marketingPage.heroTitle,
-      description: marketingPage.description,
-    };
+    return { path, label: marketingPage.heroTitle, description: marketingPage.description };
   }
 
   const tool = getToolByPath(path);
   if (tool) {
-    return {
-      path,
-      label: tool.title,
-      description: tool.description,
-    };
+    return { path, label: tool.title, description: tool.description };
   }
 
   if (path.startsWith("/blogs/")) {
     const post = getBlogPost(path.replace("/blogs/", ""));
-    if (post) {
-      return {
-        path,
-        label: post.title,
-        description: post.description,
-      };
-    }
+    if (post) return { path, label: post.title, description: post.description };
   }
 
   const substackDirectoryPage = getSubstackDirectoryPage(path);
   if (substackDirectoryPage) {
-    return {
-      path,
-      label: substackDirectoryPage.title,
-      description: substackDirectoryPage.description,
-    };
+    return { path, label: substackDirectoryPage.title, description: substackDirectoryPage.description };
   }
 
   return null;
@@ -275,12 +237,4 @@ export function getTemplateProfile(slug: string) {
   return templateProfiles.find((template) => template.slug === slug);
 }
 
-export {
-  blogPosts,
-  defaultCta,
-  getTool,
-  getToolByPath,
-  templateProfiles,
-  tools,
-  toolsHub,
-};
+export { blogPosts, defaultCta, getTool, getToolByPath, templateProfiles, tools, toolsHub };

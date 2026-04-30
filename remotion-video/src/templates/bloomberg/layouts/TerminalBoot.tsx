@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
 export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
@@ -21,6 +21,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const panelOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
 
@@ -69,7 +70,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage:
-          "repeating-linear-gradient(to bottom, rgba(255,179,64,0.035) 0px, rgba(255,179,64,0.035) 1px, transparent 1px, transparent 3px)",
+          `repeating-linear-gradient(to bottom, ${amber}09 0px, ${amber}09 1px, transparent 1px, transparent 3px)`,
         pointerEvents: "none",
       }} />
       {/* Moving scan sweep */}
@@ -86,11 +87,11 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>BOOT SEQUENCE</span>
+        <span style={{ color: muted, fontSize: labelSize }}>BOOT SEQUENCE</span>
         <div style={{ flex: 1 }} />
         <span style={{
           display: "inline-block", width: 10, height: 10, borderRadius: 5,
@@ -98,7 +99,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
           boxShadow: `0 0 ${8 * ledPulse}px ${amber}`,
         }} />
         <span style={{ color: amber, fontSize: labelSize, letterSpacing: 2 }}>LIVE</span>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>SESSION {mm}:{ss}</span>
+        <span style={{ color: muted, fontSize: labelSize }}>SESSION {mm}:{ss}</span>
       </div>
 
       {/* Boot panel */}
@@ -131,8 +132,8 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
 
         {/* Panel header */}
         <div style={{
-          backgroundColor: BLOOMBERG_COLORS.headerBg,
-          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          backgroundColor: headerBg,
+          border: `1px solid ${border}`,
           borderBottom: `2px solid ${amber}`,
           padding: `${p ? 14 : 12}px ${p ? 28 : 24}px`,
           display: "flex", alignItems: "center", gap: 16,
@@ -152,8 +153,8 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
 
         {/* Boot log */}
         <div style={{
-          backgroundColor: BLOOMBERG_COLORS.panelBg,
-          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          backgroundColor: panelBg,
+          border: `1px solid ${border}`,
           borderTop: "none",
           padding: `${p ? 26 : 22}px ${p ? 28 : 24}px ${p ? 30 : 26}px`,
         }}>
@@ -173,7 +174,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
               <div key={i} style={{
                 opacity: lineOpacity,
                 display: "flex", alignItems: "center", gap: 14,
-                color: isPrompt ? amber : done ? amber : BLOOMBERG_COLORS.muted,
+                color: isPrompt ? amber : done ? amber : muted,
                 fontSize: logSize,
                 lineHeight: 1.9,
                 letterSpacing: 1,
@@ -201,7 +202,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
                 {!isPrompt && (
                   <span style={{
                     flex: 1, textAlign: "right",
-                    color: done ? amber : BLOOMBERG_COLORS.muted,
+                    color: done ? amber : muted,
                     letterSpacing: 2,
                   }}>
                     {done ? "OK" : `${Math.floor(prog * 100)}%`}
@@ -229,7 +230,7 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
 
         {/* Narration */}
         <div style={{
-          color: BLOOMBERG_COLORS.muted,
+          color: muted,
           fontSize: dSize * 0.65,
           marginTop: 22,
           letterSpacing: 1,
@@ -244,17 +245,17 @@ export const TerminalBoot: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           LIVE SESSION
         </span>
         <div style={{ flex: 1 }} />
-        <MiniStat label="CPU" value={42 + (frame % 8)} color={amber} size={labelSize} />
-        <MiniStat label="MEM" value={61 + (frame % 5)} color={amber} size={labelSize} />
-        <MiniStat label="NET" value={88 + (frame % 4)} color={blue} size={labelSize} />
+        <MiniStat label="CPU" value={42 + (frame % 8)} color={amber} size={labelSize} muted={muted} />
+        <MiniStat label="MEM" value={61 + (frame % 5)} color={amber} size={labelSize} muted={muted} />
+        <MiniStat label="NET" value={88 + (frame % 4)} color={blue} size={labelSize} muted={muted} />
       </div>
     </AbsoluteFill>
   );
@@ -315,8 +316,8 @@ const AuthBar: React.FC<{ frame: number; color: string; width: number }> = ({ fr
   );
 };
 
-const MiniStat: React.FC<{ label: string; value: number; color: string; size: number }> = ({ label, value, color, size }) => (
-  <span style={{ display: "flex", alignItems: "center", gap: 8, color: BLOOMBERG_COLORS.muted, fontSize: size, letterSpacing: 2 }}>
+const MiniStat: React.FC<{ label: string; value: number; color: string; size: number; muted: string }> = ({ label, value, color, size, muted }) => (
+  <span style={{ display: "flex", alignItems: "center", gap: 8, color: muted, fontSize: size, letterSpacing: 2 }}>
     {label}
     <span style={{
       display: "inline-block", width: 60, height: 8,

@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundGraph } from "./BackgroundGraph";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -25,6 +25,7 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 96 : 95);
   const dSize = descriptionFontSize ?? (p ? 41 : 36); 
@@ -57,7 +58,7 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${p ? 40 : 48}px`,
 
@@ -85,7 +86,7 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
           fontWeight: "bold",
           marginBottom: p ? 28 : 36,
         }}>
-          <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+          <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
         </div>
 
         {/* List Box */}
@@ -112,7 +113,7 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
                   color: amber, 
                   fontSize: dSize, 
                   lineHeight: 1.3,
-                  borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`, 
+                  borderBottom: `1px solid ${border}`, 
                   paddingBottom: 12,
                   flex: 1,
                 }}>
@@ -127,11 +128,11 @@ export const TerminalList: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${p ? 40 : 48}px`,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           WATCH LIST
         </span>
       </div>

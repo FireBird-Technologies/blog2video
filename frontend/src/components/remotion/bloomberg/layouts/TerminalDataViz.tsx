@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergChartType, BloombergLayoutProps } from "../types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -91,6 +91,7 @@ function parseChartTable(
 
   if (rows.length < 1) return empty;
 
+  // Detect if first row is actually a header
   const synth = headers.length > 0 && headers.every((h) => /^col_\d+$/i.test(h));
   if ((headers.length === 0 || synth) && rows.length > 0) {
     const candidate = (rows[0] ?? []).map((c) => String(c ?? "").trim());
@@ -141,6 +142,7 @@ function resolvedChartType(
   inputs: ChartInputs,
 ): "bar" | "line" | "histogram" {
   if (requested && requested !== "auto") return requested;
+  // Time-like labels → prefer line
   const timeLike = /^(q[1-4]|\d{4}|\d{1,2}[\/\-]\d{2,4}|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|start|now)/i;
   if (inputs.labels.length >= 2 && inputs.labels.some((l) => timeLike.test(l.trim()))) {
     return "line";
@@ -173,10 +175,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const neg = BLOOMBERG_COLORS.neg;
-  const muted = BLOOMBERG_COLORS.muted;
-  const border = BLOOMBERG_COLORS.border;
-  const panelBg = BLOOMBERG_COLORS.panelBg;
-  const headerBg = BLOOMBERG_COLORS.headerBg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 42 : 30);
@@ -188,6 +187,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const botH = p ? 44 : 36;
   const pad = p ? 36 : 44;
 
+  // ── Chart data ────────────────────────────────────────────────────────────
   const inputs = useMemo(() => {
     const parsed = parseChartTable(chartTable);
     return {
@@ -200,6 +200,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
   const hasMultiSeries = inputs.series.length >= 2;
 
+  // Animation budget
   const barCount = inputs.barRows.length || 1;
   const barBudget = Math.min(fps * 3.5, durationInFrames * 0.75);
   const growFrames = Math.max(10, Math.min(Math.round(fps * 1.2), Math.round(barBudget * 0.6)));
@@ -210,6 +211,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const lineReveal = easeInOutCubic(rawReveal);
   const showDots = rawReveal >= 1;
 
+  // Bar animation
   const animatedBars = useMemo(() => inputs.barRows.map((row, i) => {
     const progress = easeInOutCubic(
       Math.max(0, Math.min(1, (frame - i * stepFrames) / growFrames))
@@ -217,9 +219,11 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
     return { ...row, value: row.value * progress };
   }), [frame, inputs.barRows, stepFrames, growFrames]);
 
+  // Use static (non-animated) values so the Y-axis domain never changes during animation
   const barMax = useMemo(() => Math.max(0, ...inputs.barRows.map((r) => Math.abs(r.value))), [inputs.barRows]);
   const axisTop = useMemo(() => upperBound(barMax), [barMax]);
 
+  // Line chart data
   const maxLen = Math.max(0, ...inputs.series.map((s) => s.values.length));
   const lineData = Array.from({ length: maxLen }).map((_, i) => ({
     label: inputs.labels[i] ?? `${i + 1}`,
@@ -228,6 +232,9 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
     s2: inputs.series[2]?.values[i] ?? null,
   }));
 
+  // Stabilize line chart rendering:
+  // - reveal by nulling future points
+  // - lock Y-axis domain to prevent vertical drift
   const allLineValues = inputs.series.flatMap((s) => s.values).filter((v) => Number.isFinite(v));
   const rawLineMin = allLineValues.length ? Math.min(...allLineValues) : 0;
   const rawLineMax = allLineValues.length ? Math.max(...allLineValues) : 1;
@@ -250,6 +257,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
     lineDomainMax,
   ].map((v) => Number(v.toFixed(2)));
 
+  // lineColors[i] is the definitive color for series i — used in both chart rendering and legend
   const lineColors = [amber, blue, neg] as const;
   const barColors = [amber, blue, neg] as const;
   const useCompact = barCount >= 5 || barMax >= 10_000;
@@ -257,13 +265,16 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const chartLabel = chartType === "line" ? "LINE CHART" : chartType === "histogram" ? "HISTOGRAM" : "BAR CHART";
 
   const chartTitleFont = Math.round(dSize * 0.75);
+  // yAxisWidth: tick numbers + optional rotated title
   const yAxisWidth = Math.round(dSize * 3.2) + (inputs.yAxisLabel ? chartTitleFont + 8 : 0);
+  // xReserve: space below the SVG for x-tick labels + optional x-axis title
   const xAxisTickH = Math.round(dSize * 1.7);
   const xTitleH = inputs.xAxisLabel ? chartTitleFont + 36 : 0;
   const xReserve = xAxisTickH + xTitleH;
 
   const padRight = p ? pad : pad + 340;
   const chartWidth = Math.round(Math.max(100, width - pad - padRight));
+  // chartHeight = the SVG chart area only; ChartRenderer adds xReserve below it
   const titleH = topH + Math.round(tSize * 0.44) + 20;
   const narrationH = p ? Math.round(dSize * 0.62 * 3.5) + 20 : 0;
   const chartHeight = p
@@ -272,11 +283,14 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
+
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
         backgroundColor: headerBg,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
+
       }}>
         <div style={{ flex: 1 }} />
         <span style={{ color: blue, fontSize: labelSize * 0.95, letterSpacing: 2, fontWeight: 600 }}>{chartLabel}</span>
@@ -285,14 +299,17 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
       </div>
 
       {p ? (
+        /* ── Portrait ──────────────────────────────────────────────────── */
         <>
+          {/* Title */}
           <div style={{
             position: "absolute", top: topH + 12, left: pad, right: pad,
             fontSize: tSize * 0.44, opacity: titleOp, letterSpacing: -0.3, fontWeight: 600,
           }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+            <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
+          {/* Chart */}
           <div style={{
             position: "absolute",
             top: titleH,
@@ -312,6 +329,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               lineTicks={lineTicks}
               yAxisWidth={yAxisWidth}
               muted={muted}
+              bg={bg}
               lineColors={lineColors}
               barColors={barColors}
               amber={amber}
@@ -329,6 +347,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
             />
           </div>
 
+          {/* Narration */}
           <div style={{
             position: "absolute",
             top: titleH + chartHeight + xReserve + 12,
@@ -342,14 +361,17 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
           </div>
         </>
       ) : (
+        /* ── Landscape ─────────────────────────────────────────────────── */
         <>
+          {/* Title row */}
           <div style={{
             position: "absolute", top: topH + 10, left: pad, right: pad,
             fontSize: tSize * 0.42, opacity: titleOp, letterSpacing: -0.5,
           }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+            <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
+          {/* Chart area */}
           <div style={{
             position: "absolute",
             top: topH + tSize * 0.42 + 28,
@@ -370,6 +392,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               lineTicks={lineTicks}
               yAxisWidth={yAxisWidth}
               muted={muted}
+              bg={bg}
               lineColors={lineColors}
               barColors={barColors}
               amber={amber}
@@ -429,9 +452,12 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
         backgroundColor: headerBg,
+        
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, justifyContent: "space-between",
       }}>
-        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>DATA VISUALIZATION</span>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
+          DATA VISUALIZATION
+        </span>
         <span style={{ color: muted, fontSize: labelSize, letterSpacing: 1 }}>
           {inputs.barRows.length || maxLen} DATA POINTS
         </span>
@@ -453,6 +479,7 @@ interface ChartRendererProps {
   lineTicks: number[];
   yAxisWidth: number;
   muted: string;
+  bg: string;
   lineColors: readonly [string, string, string];
   barColors: readonly [string, string, string];
   amber: string;
@@ -469,11 +496,12 @@ interface ChartRendererProps {
   yAxisLabel: string;
 }
 
-const GRID_STROKE = "rgba(255,179,64,0.10)";
+const gridStroke = (amber: string) => `${amber}1A`;
 const VALUE_STROKE = "rgba(0,0,0,0.85)";
 const LBL_WEIGHT = 500;
 const MARGIN = { top: 34, right: 42, left: 6, bottom: 8 };
 
+// Static HTML Y-axis: renders tick labels as absolutely-positioned divs, never reflowed by recharts
 const StaticYAxis: React.FC<{
   ticks: number[];
   domain: [number, number];
@@ -507,6 +535,9 @@ const StaticYAxis: React.FC<{
   );
 };
 
+// Static HTML X-axis: renders tick labels as absolutely-positioned divs.
+// Only renders labels that actually fit — skips any label whose slot is
+// narrower than the estimated text width, always keeping first and last.
 const StaticXAxis: React.FC<{
   labels: string[];
   width: number;
@@ -520,6 +551,7 @@ const StaticXAxis: React.FC<{
   const n = labels.length;
   if (n === 0) return null;
   const slotW = width / n;
+  // Shrink font until the longest label fits its slot (min 8px)
   const longestChars = Math.max(...labels.map((l) => l.length));
   const charW = 0.58;
   const fittedSize = Math.max(8, Math.min(fontSize, Math.floor(slotW / (longestChars * charW))));
@@ -547,16 +579,18 @@ const StaticXAxis: React.FC<{
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   chartType, animatedBars, lineData, axisTop,
-  lineDomain, lineTicks, yAxisWidth, muted, lineColors, amber,
+  lineDomain, lineTicks, yAxisWidth, muted, bg, lineColors, amber,
   useCompact, showDots, seriesLabels, ff, dSize,
   chartWidth, chartHeight, xLabels, xAxisLabel, yAxisLabel,
   isPortrait,
 }) => {
-  const tickFont  = Math.round(dSize * 0.74);
-  const valueFont = Math.round(dSize * 0.78);
+  // All font sizes derived from dSize so they scale with the composition resolution
+  const tickFont  = Math.round(dSize * 0.60);
+  const valueFont = Math.round(dSize * 0.66);
   const titleFont = Math.round(dSize * 0.94);
-  const dotR      = Math.round(dSize * 0.14);
+  const dotR      = Math.round(dSize * 0.10);
 
+  // In portrait, thin x-axis to at most 5 evenly-spaced labels to avoid overlap
   const xAxisH = Math.round(dSize * 2.0);
   const xTitleH = xAxisLabel ? titleFont + 28 : 0;
   const totalH = chartHeight + xAxisH + xTitleH + 8;
@@ -568,12 +602,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   const c0 = lineColors[0], c1 = lineColors[1], c2 = lineColors[2];
   const lastIndex = Math.max(0, lineData.length - 1);
 
+  // Only label first, last, and the peak — suppress all others to avoid clutter
   const s0Values = lineData.map((d) => (typeof d.s0 === "number" ? d.s0 : -Infinity));
   const peakIdx = s0Values.indexOf(Math.max(...s0Values));
   const labelledIndices = new Set([0, lastIndex, peakIdx].filter((i) => i >= 0));
 
   const renderPrimaryLineValue = (props: unknown) => {
-    if (isPortrait) return null;
+    if (isPortrait) return null; // portrait: no inline labels, y-axis ticks carry the scale
     const p = props as { x?: number; y?: number; value?: unknown; index?: number };
     const n = Number(p.value);
     if (!Number.isFinite(n)) return null;
@@ -663,12 +698,12 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
                 <stop offset="95%" stopColor={c0} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+            <CartesianGrid stroke={gridStroke(amber)} vertical={false} />
             <XAxis dataKey="label" hide />
             <YAxis hide domain={lineDomain} ticks={lineTicks} width={yAxisWidth} />
             <Area type="monotone" dataKey="s0" stroke={c0} strokeWidth={3}
               fill="url(#bb-line-fill)" fillOpacity={1} isAnimationActive={false}
-              dot={showDots ? { r: dotR, fill: c0, stroke: "#000", strokeWidth: 1.5 } : false}
+              dot={showDots ? { r: dotR, fill: c0, stroke: bg, strokeWidth: 1.5 } : false}
               activeDot={false}>
               {showDots && (
                 <LabelList dataKey="s0" position="top" content={renderPrimaryLineValue} />
@@ -677,13 +712,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
             {seriesLabels[1] && (
               <Area type="monotone" dataKey="s1" stroke={c1} strokeWidth={2.5}
                 fill="none" strokeDasharray="6 4" isAnimationActive={false}
-                dot={showDots ? { r: dotR - 1, fill: c1, stroke: "#000", strokeWidth: 1.5 } : false}
+                dot={showDots ? { r: dotR - 1, fill: c1, stroke: bg, strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
             {seriesLabels[2] && (
               <Area type="monotone" dataKey="s2" stroke={c2} strokeWidth={2.5}
                 fill="none" strokeDasharray="6 4" isAnimationActive={false}
-                dot={showDots ? { r: dotR - 1, fill: c2, stroke: "#000", strokeWidth: 1.5 } : false}
+                dot={showDots ? { r: dotR - 1, fill: c2, stroke: bg, strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
           </ComposedChart>
@@ -719,7 +754,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
           data={animatedBars} margin={MARGIN}
           barCategoryGap="18%" barGap={4}
         >
-          <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+          <CartesianGrid stroke={gridStroke(amber)} vertical={false} />
           <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, axisTop]} ticks={yTicks} width={yAxisWidth} />
           <Bar dataKey="value" isAnimationActive={false}

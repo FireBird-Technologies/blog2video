@@ -3,7 +3,7 @@ import { BLOOMBERG_LAYOUT_REGISTRY } from "./layouts";
 import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
-import { BLOOMBERG_COLORS } from "./constants";
+import { BLOOMBERG_COLORS, derivePalette } from "./constants";
 
 // 70 frames ≈ 2.3 s at 30 fps — slow enough to feel deliberate.
 const HALF = 70;
@@ -226,22 +226,24 @@ const SceneBody: React.FC<{
 // This purely enforces that the amber top line and dim bottom line never
 // flicker or move during transitions.
 const BarOverlay: React.FC<{
+  bgColor: string;
   textColor: string;
   aspectRatio: string;
-}> = ({ textColor, aspectRatio }) => {
+}> = ({ bgColor, textColor, aspectRatio }) => {
   const { width } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const topH = isPortrait ? TOP_P : TOP_L;
   const botH = isPortrait ? BOT_P : BOT_L;
   const amber = textColor || BLOOMBERG_COLORS.amber;
+  const { headerBg, border } = derivePalette(bgColor, amber);
 
   return (
     <>
-      {/* Persistent top bar background (dark, not a solid amber block) */}
+      {/* Persistent top bar background */}
       <div style={{
         position: "absolute",
         top: 0, left: 0, width, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         zIndex: 999,
         pointerEvents: "none",
       }} />
@@ -260,7 +262,7 @@ const BarOverlay: React.FC<{
         zIndex: 1000,
         pointerEvents: "none",
       }} />
-      {/* Main amber divider under the top bar */}
+      {/* Main text-color divider under the top bar */}
       <div style={{
         position: "absolute",
         top: topH - 2, left: 0, width, height: 2,
@@ -272,7 +274,7 @@ const BarOverlay: React.FC<{
       <div style={{
         position: "absolute",
         bottom: 0, left: 0, width, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         zIndex: 999,
         pointerEvents: "none",
       }} />
@@ -280,7 +282,7 @@ const BarOverlay: React.FC<{
       <div style={{
         position: "absolute",
         bottom: botH - 1, left: 0, width, height: 1,
-        backgroundColor: BLOOMBERG_COLORS.border,
+        backgroundColor: border,
         zIndex: 1000,
         pointerEvents: "none",
       }} />
@@ -388,7 +390,7 @@ export const BloombergVideoComposition: React.FC<
       })}
 
       {/* Single permanent bar overlay — sits above all scenes, never moves */}
-      <BarOverlay textColor={textColor || "#FFB340"} aspectRatio={ratio} />
+      <BarOverlay bgColor={bg} textColor={textColor || "#FFB340"} aspectRatio={ratio} />
 
       {logo && (
         <LogoOverlay
