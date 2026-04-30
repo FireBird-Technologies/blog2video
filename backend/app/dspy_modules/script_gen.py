@@ -151,8 +151,8 @@ class BlogToScript(dspy.Signature):
     - This planning happens in your reasoning — the final output is still just preferred_layout per scene.
 
     ═══ TEMPLATE-SPECIFIC RULES ═══
-    - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix):
-    - Choose layout IDs EXACTLY from layout_catalog (e.g. hero_image, article_lead, data_snapshot).
+    - For BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix, newscast, mosaic, blackswan, chronicle,bloomberg):
+    - Choose layout IDs EXACTLY from layout_catalog — the layout_catalog field is the single source of truth for which layout IDs are allowed for this template. Do NOT guess layout IDs from examples here.
     - When include_ending_socials is true: assign preferred_layout "ending_socials" ONLY to the LAST scene in
       scenes_json. No other scene may use "ending_socials" — not the first scene, not the middle, only the final index.
     - ENDING SCENE (when include_ending_socials is true): the LAST scene MUST be a call-to-action grounded in the
@@ -189,10 +189,11 @@ class BlogToScript(dspy.Signature):
     )
     layout_catalog: str = dspy.InputField(
         desc=(
-            "Optional: template-specific layout catalog text. Either layout IDs and short descriptions for "
-            "BUILT-IN templates (default, nightfall, gridcraft, spotlight, whiteboard, newspaper, matrix), "
-            "or arrangement names and descriptions for CUSTOM templates. Use this ONLY to pick a suitable "
-            "preferred_layout per scene; do NOT copy it verbatim into narrations."
+            "Template-specific layout catalog. For BUILT-IN templates (default, nightfall, gridcraft, spotlight, "
+            "whiteboard, newspaper, matrix, newscast, mosaic, blackswan, chronicle), this lists the allowed "
+            "layout IDs and short descriptions. For CUSTOM templates, this lists arrangement names and descriptions. "
+            "This is the SINGLE SOURCE OF TRUTH for which preferred_layout values are valid for this template. "
+            "Use it ONLY to pick a suitable preferred_layout per scene; do NOT copy it verbatim into narrations."
         )
     )
     content_language: str = dspy.InputField(

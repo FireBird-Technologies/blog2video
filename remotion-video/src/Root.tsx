@@ -44,6 +44,10 @@ import {
   calculateBloombergMetadata,
 } from "./templates/bloomberg/BloombergVideo";
 import {
+  ChronicleVideo,
+  calculateChronicleMetadata,
+} from "./templates/chronicle/ChronicleVideo";
+import {
   GeneratedVideo,
   calculateGeneratedMetadata,
 } from "./templates/generated/GeneratedVideo";
@@ -182,6 +186,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateBloombergMetadata}
+      />
+      <Composition
+        id="ChronicleVideo"
+        component={ChronicleVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateChronicleMetadata}
       />
       <Composition
         id="GeneratedVideo"

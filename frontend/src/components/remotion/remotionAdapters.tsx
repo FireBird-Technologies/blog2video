@@ -57,6 +57,12 @@ import {
   type BloombergLayoutType as RemotionBloombergLayoutType,
   type BloombergLayoutProps as RemotionBloombergLayoutProps,
 } from "@remotion-video/templates/bloomberg/layouts";
+import {
+  CHRONICLE_LAYOUT_REGISTRY as REMOTION_CHRONICLE_LAYOUT_REGISTRY,
+  type ChronicleLayoutType as RemotionChronicleLayoutType,
+  type ChronicleLayoutProps as RemotionChronicleLayoutProps,
+} from "@remotion-video/templates/chronicle/layouts";
+import { ChronicleChrome as RemotionChronicleChrome } from "@remotion-video/templates/chronicle/components/ChronicleChrome";
 import { NewsCastBackground } from "./newscast/NewsCastBackground";
 import { NewsCastChrome } from "./newscast/NewsCastChrome";
 import { NewscastSceneZTransition } from "./newscast/NewscastSceneZTransition";
@@ -1399,6 +1405,143 @@ export const RemotionBloombergVideoComposition: React.FC<
           >
             <LayoutComponent {...layoutProps} />
             {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+          </Sequence>
+        );
+      })}
+
+      {logo && (
+        <LogoOverlay
+          src={logo}
+          position={logoPosition || "bottom_right"}
+          maxOpacity={logoOpacity ?? 0.9}
+          size={logoSize ?? 100}
+          aspectRatio={aspectRatio || "landscape"}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// ─── Chronicle ────────────────────────────────────────────────────────────────
+
+export interface RemotionChronicleSceneInput {
+  id: number;
+  order: number;
+  title: string;
+  narration: string;
+  layout: RemotionChronicleLayoutType | string;
+  layoutProps: Record<string, unknown>;
+  durationSeconds: number;
+  imageUrl?: string;
+  voiceoverUrl?: string;
+}
+
+export interface RemotionChronicleVideoCompositionProps {
+  scenes: RemotionChronicleSceneInput[];
+  accentColor: string;
+  bgColor: string;
+  textColor: string;
+  logo?: string | null;
+  logoPosition?: string;
+  logoOpacity?: number;
+  logoSize?: number;
+  aspectRatio?: string;
+  fontFamily?: string;
+}
+
+// book_open has its own dramatic opening animation; every other layout
+// just gets a subtle chrome fade-in. No per-scene rotation/page turn.
+const CHRONICLE_LAYOUTS_WITHOUT_CHROME_FADE = new Set<string>(["book_open"]);
+
+export const RemotionChronicleVideoComposition: React.FC<
+  RemotionChronicleVideoCompositionProps
+> = ({
+  scenes,
+  accentColor,
+  bgColor,
+  textColor,
+  logo,
+  logoPosition,
+  logoOpacity,
+  logoSize,
+  aspectRatio,
+  fontFamily,
+}) => {
+  const FPS = 30;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: bgColor || "#F1E4C9", fontFamily }}>
+      {scenes.map((scene, index) => {
+        const startFrame = scenes
+          .slice(0, index)
+          .reduce(
+            (acc, s) =>
+              acc + Math.max(1, Math.round((s.durationSeconds || 5) * FPS)),
+            0,
+          );
+
+        const durationFrames = Math.max(
+          1,
+          Math.round((scene.durationSeconds || 5) * FPS),
+        );
+
+        const LayoutComponent =
+          REMOTION_CHRONICLE_LAYOUT_REGISTRY[
+            scene.layout as RemotionChronicleLayoutType
+          ] ?? REMOTION_CHRONICLE_LAYOUT_REGISTRY.parchment_scroll;
+
+        const focusX = Math.max(
+          0,
+          Math.min(
+            100,
+            Number((scene.layoutProps as Record<string, unknown>)?.imageFocusX ?? 50),
+          ),
+        );
+        const focusY = Math.max(
+          0,
+          Math.min(
+            100,
+            Number((scene.layoutProps as Record<string, unknown>)?.imageFocusY ?? 50),
+          ),
+        );
+
+        const layoutProps: RemotionChronicleLayoutProps = {
+          ...(scene.layoutProps as Partial<RemotionChronicleLayoutProps>),
+          title: scene.title,
+          narration: scene.narration,
+          imageUrl: scene.imageUrl,
+          imageObjectPosition: `${focusX}% ${focusY}%`,
+          imageZoom: Math.max(
+            1,
+            Number((scene.layoutProps as Record<string, unknown>)?.imageZoom ?? 1),
+          ),
+          accentColor: accentColor || "#B8860B",
+          bgColor: bgColor || "#F1E4C9",
+          textColor: textColor || "#2A1810",
+          aspectRatio: (aspectRatio as "landscape" | "portrait") || "landscape",
+          fontFamily,
+        };
+
+        const skipFade = CHRONICLE_LAYOUTS_WITHOUT_CHROME_FADE.has(String(scene.layout));
+
+        return (
+          <Sequence
+            key={`${scene.id}-${index}`}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={scene.title}
+          >
+            <AbsoluteFill>
+              <RemotionChronicleChrome
+                bgColor={bgColor || "#F1E4C9"}
+                accentColor={accentColor || "#B8860B"}
+                textColor={textColor || "#2A1810"}
+                disablePageTurn={skipFade}
+              >
+                <LayoutComponent {...layoutProps} />
+              </RemotionChronicleChrome>
+              {scene.voiceoverUrl && <Audio src={scene.voiceoverUrl} />}
+            </AbsoluteFill>
           </Sequence>
         );
       })}
