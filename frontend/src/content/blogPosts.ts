@@ -17,6 +17,350 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "ai-linkedin-carousel-generator-from-existing-content",
+    title: "AI LinkedIn Carousel Generator From Existing Content",
+    description:
+      "Turn articles, PDFs, docs, and existing written content into LinkedIn carousel slides you can download as PowerPoint, PDF, or PNG.",
+    category: "Slide workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Editorial illustration of written content being transformed into polished LinkedIn carousel slides and downloadable presentation assets.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Slide workflow",
+    heroTitle: "The best AI LinkedIn carousel workflow starts with real content, not a blank canvas.",
+    heroDescription:
+      "If the article, PDF, or document already exists, the fastest path to a LinkedIn carousel is turning that structure into slides you can export as PDF, PowerPoint, or PNG.",
+    primaryKeyword: "ai linkedin carousel generator",
+    keywordVariant: "linkedin carousel from article",
+    relatedPaths: [
+      "/blog-to-linkedin-video",
+      "/article-to-video",
+      "/pptx-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why carousel creation works better from existing content",
+        paragraphs: [
+          "Most LinkedIn carousels are just structured ideas presented slide by slide: a hook, a few supporting points, proof, and a close. That means the strongest source material is often something you already wrote, such as an article, an explainer page, a PDF, or internal notes.",
+          "Instead of rebuilding the same argument manually in a design tool, an AI carousel workflow can start from the content itself, preserve the logic, and turn it into slides that are already organized around the story.",
+        ],
+      },
+      {
+        heading: "Why the export format matters",
+        paragraphs: [
+          "A carousel is not just one design artifact. You usually need different outputs for different jobs: a PDF for LinkedIn upload, a PowerPoint for editing or client review, and PNG slides for reuse in posts, ads, or other channels.",
+          "That is where most AI carousel tools fall short. They may help generate ideas, but they do not always produce download-ready formats you can actually use across the workflow.",
+        ],
+        bullets: [
+          "PDF is useful for LinkedIn carousel publishing",
+          "PowerPoint is useful when the slides still need editing or review",
+          "PNG slides are useful for repurposing individual frames across channels",
+        ],
+      },
+      {
+        heading: "How Blog2Video fits the workflow",
+        paragraphs: [
+          "Blog2Video already turns written content into structured scenes. That same scene structure can now be exported as slides, which makes it useful for carousel production as well as video.",
+          "You can generate the scenes from the source content, choose the best frame for each slide, then download the result as PowerPoint, PDF, or one PNG per scene. That gives one source asset multiple distribution formats instead of forcing a separate design pass for each one.",
+        ],
+      },
+      {
+        heading: "What this is best for",
+        paragraphs: [
+          "This workflow is strongest for founder posts, B2B explainers, educational threads, research summaries, product lessons, and any content that already has a clear progression from problem to takeaway.",
+          "If the content already teaches something valuable, the carousel becomes a packaging layer rather than a separate content ideation job.",
+        ],
+        bullets: [
+          "Turn an article into a LinkedIn-ready PDF carousel",
+          "Give the same scenes to a teammate as a PowerPoint deck",
+          "Export PNGs for lightweight social reuse",
+        ],
+      },
+      {
+        heading: "A better AI carousel workflow",
+        paragraphs: [
+          "1. Start with a URL, article, PDF, or document you already trust.",
+          "2. Let Blog2Video structure that content into scenes automatically.",
+          "3. Pick the best frame for each scene, then download the slides as PowerPoint, PDF, or PNG depending on where they need to go next.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn content into slides and video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I use Blog2Video for LinkedIn carousel creation?",
+        answer:
+          "Yes. Once your content is structured into scenes, you can export those slides as a PDF for carousel posting, as a PowerPoint deck for editing, or as PNG files for per-slide reuse.",
+      },
+      {
+        question: "Why is PDF export important for LinkedIn carousels?",
+        answer:
+          "Because LinkedIn carousel workflows commonly rely on PDF uploads. If your AI workflow can generate structured slides and export them as PDF, the jump from source content to publishable carousel becomes much shorter.",
+      },
+      {
+        question: "What is the role of PowerPoint and PNG export here?",
+        answer:
+          "PowerPoint is useful for review, client edits, or team collaboration. PNG export is useful when you want each slide as a separate image for social reuse, asset libraries, or design handoff.",
+      },
+      {
+        question: "What source content works best for AI carousel generation?",
+        answer:
+          "Articles, explainers, PDFs, research summaries, documentation, and strong internal notes all work well because they already contain the sequence of ideas a carousel needs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI LinkedIn Carousel Generator From Existing Content",
+        angle: "Capture search intent around turning articles, PDFs, and docs into downloadable LinkedIn carousel slides.",
+      },
+      {
+        channel: "video",
+        title: "Turn Articles Into LinkedIn Carousels With AI",
+        angle: "Show a source article becoming scenes, then export the slides as PDF, PowerPoint, and PNG.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest carousel workflow starts with content you already wrote",
+        angle: "Frame carousel production as repackaging structured ideas rather than designing every slide from zero.",
+      },
+      {
+        channel: "medium",
+        title: "Why the best AI LinkedIn carousel generator is really a content-structuring workflow",
+        angle: "Explain why source material quality and export flexibility matter more than blank-canvas slide generation.",
+      },
+    ],
+  },
+  {
+    slug: "how-to-turn-a-link-into-a-powerpoint-with-ai",
+    title: "How To Turn a Link Into a PowerPoint With AI",
+    description:
+      "Use a published URL as the source, generate structured slides automatically, and download the result as PowerPoint, PDF, or PNG.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of a webpage link being transformed into a PowerPoint deck with structured slides and downloadable outputs.",
+    publishedAt: "2026-04-30",
+    readTime: "7 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "A good link-to-PowerPoint workflow does not copy the page. It restructures the idea.",
+    heroDescription:
+      "If a URL already explains something clearly, AI should help turn that page into a slide deck you can actually download and reuse.",
+    primaryKeyword: "link to powerpoint",
+    keywordVariant: "url to powerpoint with ai",
+    relatedPaths: [
+      "/url-to-video",
+      "/pptx-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why link-to-PPT is a real workflow need",
+        paragraphs: [
+          "A lot of useful presentation material already lives on the web: landing pages, help-center articles, founder essays, research posts, product launch notes, and internal documentation. The problem is that web pages are written for scrolling, not for slides.",
+          "A useful link-to-PowerPoint workflow should identify the structure inside the page, pull out the main sections, and turn them into a deck that is easier to present, review, or repurpose elsewhere.",
+        ],
+      },
+      {
+        heading: "What usually goes wrong",
+        paragraphs: [
+          "The weak version of this workflow is screenshotting a page or dumping paragraphs directly onto slides. That creates decks that feel dense, repetitive, and clearly not designed for presentation.",
+          "The stronger version is restructuring. The AI should convert the page into scene-level or slide-level units, each with one job to do, rather than pretending the webpage layout itself is already a deck.",
+        ],
+        bullets: [
+          "Do not treat a webpage like a finished slide deck",
+          "Extract the logic, not just the text blocks",
+          "Use the URL as the source of truth, then rebuild for presentation",
+        ],
+      },
+      {
+        heading: "Why downloadable formats matter",
+        paragraphs: [
+          "The point of turning a link into slides is not only generating them. It is being able to use them afterward. Some teams need a PowerPoint deck. Some need a PDF to share quickly. Others want individual PNG slides for a content workflow.",
+          "Once Blog2Video structures the source page into scenes, those scenes can now be downloaded as PowerPoint, PDF, or one PNG per scene, which makes the workflow useful beyond video alone.",
+        ],
+      },
+      {
+        heading: "How Blog2Video handles it",
+        paragraphs: [
+          "1. Paste the URL and let Blog2Video read the source structure.",
+          "2. Generate scenes that turn the written material into a clearer presentation sequence.",
+          "3. Review each scene, choose the best frame for the slide, then export as PowerPoint, PDF, or PNG depending on the next step in the workflow.",
+        ],
+        ctaPath: "/url-to-video",
+        ctaLabel: "Start from a URL",
+      },
+      {
+        heading: "Who this is best for",
+        paragraphs: [
+          "This is especially useful for marketers repackaging posts into sales material, operators turning documentation into internal decks, founders converting launch pages into presentation assets, and educators adapting article-style content into teaching slides.",
+          "The source page already did the hard part by organizing the idea. The deck is just a more portable format for the same insight.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I really turn a URL into a PowerPoint deck?",
+        answer:
+          "Yes. If the page already contains a structured explanation, Blog2Video can turn that material into scenes and then export those scenes as a downloadable PowerPoint deck.",
+      },
+      {
+        question: "Why export as PDF or PNG too?",
+        answer:
+          "Because different workflows need different outputs. PowerPoint is useful for editing, PDF is useful for quick sharing, and PNG slides are useful for reusing the deck one frame at a time.",
+      },
+      {
+        question: "What kind of links work best for this?",
+        answer:
+          "Explainer pages, long-form articles, launch posts, documentation, thought-leadership pieces, and educational guides work best because they already have a natural sequence of ideas.",
+      },
+      {
+        question: "Is this better than manually copying a page into slides?",
+        answer:
+          "Yes. Manual copy-paste usually produces bloated decks. A structured workflow is better because it turns the page into presentation units instead of simply transferring webpage text onto slides.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How To Turn a Link Into a PowerPoint With AI",
+        angle: "Capture intent around URL-to-PPT conversion and downloadable slide generation.",
+      },
+      {
+        channel: "video",
+        title: "Paste a Link, Get a PowerPoint Deck",
+        angle: "Show a webpage becoming scenes, then a PowerPoint, PDF, and PNG slide export.",
+      },
+      {
+        channel: "substack",
+        title: "The fastest way to make a deck is to start with a page that already explains the idea",
+        angle: "Lead with the leverage of repackaging existing web content into presentation assets.",
+      },
+      {
+        channel: "medium",
+        title: "Link to PowerPoint with AI: why restructuring matters more than screenshotting",
+        angle: "Explain why the strongest URL-to-PPT workflows rebuild the message for slides instead of copying the page.",
+      },
+    ],
+  },
+  {
+    slug: "ai-ppt-generator-for-articles-pdfs-and-docs",
+    title: "AI PPT Generator for Articles, PDFs, and Docs",
+    description:
+      "Use existing written content as the source for a downloadable PowerPoint deck, PDF handout, or PNG slide set instead of starting from blank slides.",
+    category: "Presentation workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Editorial illustration of articles, PDFs, and documents flowing into an AI-generated PowerPoint deck and slide export workflow.",
+    publishedAt: "2026-04-30",
+    readTime: "8 min read",
+    heroEyebrow: "Presentation workflow",
+    heroTitle: "The most useful AI PPT generator is the one that starts from content you already trust.",
+    heroDescription:
+      "If the article, PDF, or document already contains the thinking, AI should help package it into slides you can edit, share, and repurpose.",
+    primaryKeyword: "ai ppt generator",
+    keywordVariant: "ai powerpoint generator from content",
+    relatedPaths: [
+      "/pptx-to-video",
+      "/pdf-to-video",
+      "/article-to-video",
+      "/blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why AI PPT demand keeps growing",
+        paragraphs: [
+          "Teams already have a huge amount of presentation-ready knowledge in article libraries, PDFs, internal docs, product pages, and educational content. The bottleneck is not always writing the material. It is packaging that material into a usable deck.",
+          "That is why AI PPT demand is growing. People want a faster way to turn trusted source content into slides without recreating the same argument from scratch every time.",
+        ],
+      },
+      {
+        heading: "The best AI PPT workflow is content-first",
+        paragraphs: [
+          "A deck is usually just a compressed explanation. If the source content already has a clear sequence of problem, insight, evidence, and conclusion, the strongest AI workflow is using that structure rather than generating disconnected slide copy from a prompt box.",
+          "This is especially true for explainers, lessons, research summaries, internal training, and product marketing. In those cases, the source content is the asset. The deck is one output format built from it.",
+        ],
+        bullets: [
+          "Start from a source asset you already trust",
+          "Let AI extract sections and convert them into slide-level units",
+          "Use export formats that match how the deck will actually be used",
+        ],
+      },
+      {
+        heading: "Why PowerPoint alone is not enough",
+        paragraphs: [
+          "A lot of teams do want PowerPoint, but not only PowerPoint. They also need PDF handouts for sharing and PNG slides for lightweight design or social workflows.",
+          "Now that Blog2Video can export scene-based slides as PowerPoint, PDF, or one PNG per scene, the same content can support presentation, distribution, review, and repurposing without additional manual rebuilding.",
+        ],
+      },
+      {
+        heading: "Where Blog2Video fits",
+        paragraphs: [
+          "Blog2Video already turns written material into scenes for video. That means the underlying structure needed for a deck is already there: one idea at a time, organized into a progression.",
+          "Once the scenes exist, you can adjust the frame for each slide and export the result in the format you need. That makes Blog2Video useful not only for video creation, but also for slide-based outputs built from the same source content.",
+        ],
+      },
+      {
+        heading: "How to use it",
+        paragraphs: [
+          "1. Start from an article, PDF, doc, or URL.",
+          "2. Generate scenes from that source material.",
+          "3. Export the slide version as PowerPoint, PDF, or PNG depending on whether the next job is presenting, sharing, or repurposing.",
+        ],
+        ctaPath: "/pptx-to-video",
+        ctaLabel: "See the PPT workflow",
+      },
+    ],
+    faq: [
+      {
+        question: "What makes a good AI PPT generator?",
+        answer:
+          "The best ones start from real source material, preserve the structure of the underlying idea, and output formats you can actually use afterward such as PowerPoint, PDF, or PNG slides.",
+      },
+      {
+        question: "Can Blog2Video generate PowerPoint decks from articles or PDFs?",
+        answer:
+          "Yes. It can turn structured source content into scenes, then export those slides as a PowerPoint deck. The same scenes can also be exported as PDF or PNG files.",
+      },
+      {
+        question: "Why would I want PNG slide export too?",
+        answer:
+          "PNG export is useful when you want to reuse individual slides in social posts, creative workflows, design review, or asset libraries without opening the full deck.",
+      },
+      {
+        question: "Who benefits most from this kind of AI PPT workflow?",
+        answer:
+          "Marketers, educators, founders, researchers, operators, and documentation teams all benefit because they already create structured written material that can be repackaged into decks.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "AI PPT Generator for Articles, PDFs, and Docs",
+        angle: "Capture search demand around AI-generated PowerPoint decks built from existing source content.",
+      },
+      {
+        channel: "video",
+        title: "Use AI to Turn Articles and PDFs Into PowerPoint Slides",
+        angle: "Show written content becoming scenes, then a downloadable PPT, PDF, and PNG slide set.",
+      },
+      {
+        channel: "substack",
+        title: "AI PPT is most useful when it packages content you already wrote",
+        angle: "Frame AI presentations as repurposing leverage rather than blank-slide generation.",
+      },
+      {
+        channel: "medium",
+        title: "What an AI PPT generator should actually do for content teams",
+        angle: "Explain why source-asset reuse and export flexibility matter more than generic slide generation.",
+      },
+    ],
+  },
+  {
     slug: "blog2video-embed-preview-no-render-needed",
     title: "Blog2Video Now Lets You Embed and Share Video Previews Without Rendering",
     description:
