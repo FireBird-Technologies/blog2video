@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
 export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
@@ -22,6 +22,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const pos = "#7BE495";
   const neg = BLOOMBERG_COLORS.neg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 64 : 97);
   const dSize = descriptionFontSize ?? (p ? 28 : 32);
@@ -59,19 +60,19 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage:
-          "repeating-linear-gradient(to bottom, rgba(255,179,64,0.025) 0px, rgba(255,179,64,0.025) 1px, transparent 1px, transparent 3px)",
+          `repeating-linear-gradient(to bottom, ${amber}07 0px, ${amber}07 1px, transparent 1px, transparent 3px)`,
         pointerEvents: "none",
       }} />
 
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
 
       }}>
-        <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
+        <span style={{ backgroundColor: amber, color: bg, fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
         <span style={{
           display: "inline-block", width: 10, height: 10, borderRadius: 5,
@@ -84,8 +85,8 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       {/* Scrolling marquee ticker tape */}
       <div style={{
         position: "absolute", top: topH, left: 0, right: 0, height: marqueeH,
-        backgroundColor: "#0A0800",
-        borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+        backgroundColor: headerBg,
+        borderBottom: `1px solid ${border}`,
         overflow: "hidden",
         display: "flex", alignItems: "center",
       }}>
@@ -108,7 +109,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
         justifyContent: p ? "center" : "flex-start",
       }}>
         <ChartGlyph color={amber} size={tSize * 0.5} />
-        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+        <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {/* Column headers */}
@@ -116,7 +117,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
         position: "absolute",
         top: topH + marqueeH + (p ? 76 : 66),
         left: p ? "6%" : "15%", right: p ? "6%" : "15%", height: colH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         borderBottom: `1px solid ${amber}`,
         display: "flex", alignItems: "center", padding: "0 20px", gap: 12,
         opacity: headerOpacity,
@@ -127,7 +128,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
           backgroundColor: tickDot ? amber : `${amber}55`,
         }} />
         <span style={{
-          color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3,
+          color: muted, fontSize: labelSize, letterSpacing: 3,
           flex: p ? "0 0 auto" : 1,
           textAlign: p ? "center" : "left",
         }}>
@@ -148,7 +149,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
           const start = i * 7 + 8;
           const rowOpacity = interpolate(frame, [start, start + 14], [0, 1], { extrapolateRight: "clamp" });
           const isNeg = row.includes("-");
-          const rowBg = i % 2 === 0 ? BLOOMBERG_COLORS.panelBg : BLOOMBERG_COLORS.bg;
+          const rowBg = i % 2 === 0 ? panelBg : bg;
 
           // Tick-flash on entry: bright highlight that fades
           const flash = interpolate(frame, [start + 8, start + 20], [1, 0], {
@@ -170,7 +171,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
               width: p ? "88%" : "70%",
               alignSelf: "center",
               backgroundColor: rowBg,
-              border: `1px solid ${BLOOMBERG_COLORS.border}`,
+              border: `1px solid ${border}`,
               borderTop: "none",
               padding: p ? "14px 20px" : "12px 20px",
               opacity: rowOpacity,
@@ -223,7 +224,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       {/* Narration footer */}
       <div style={{
         position: "absolute", bottom: botH + 8, left: pad, right: pad,
-        color: BLOOMBERG_COLORS.muted, fontSize: dSize * 0.65,
+        color: muted, fontSize: dSize * 0.65,
         opacity: interpolate(frame, [25, 40], [0, 1], { extrapolateRight: "clamp" }),
       }}>
         {narration}
@@ -232,11 +233,11 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           SCREENER
         </span>
         <div style={{ flex: 1 }} />
@@ -244,7 +245,7 @@ export const TerminalTicker: React.FC<BloombergLayoutProps> = ({
           display: "inline-block", width: 8, height: 8, borderRadius: 4,
           backgroundColor: amber, opacity: livePulse,
         }} />
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           TICKS {String(frame).padStart(5, "0")}
         </span>
       </div>
