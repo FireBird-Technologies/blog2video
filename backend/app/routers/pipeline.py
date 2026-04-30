@@ -31,7 +31,15 @@ from app.schemas.schemas import (
 )
 from app.config import settings
 from app.services.scraper import scrape_blog
-from app.services.table_extraction import build_table_context_hint, extract_tables_from_content
+from app.services.table_extraction import build_table_context_hint, build_chartable_tables_payload, extract_tables_from_content
+from app.services.chart_planner import (
+    get_chartable_tables_from_visual_hint,
+    get_line_chartable_tables_from_visual_hint,
+    _build_chart_props_from_table,
+    is_candlestick_table,
+    is_ticker_snapshot_table,
+    extract_ticker_items_from_blog,
+)
 from app.services.scraper import scrape_blog, BlogScrapeFailed
 from app.services.project_cleanup import (
     remove_failed_generation_project,
@@ -493,6 +501,33 @@ async def _generate_script(project: Project, db: Session):
     except Exception:
         layout_catalog = ""
 
+    # For bloomberg: extract tables once upfront — reused for both constraint-building and
+    # table bindings below, avoiding a second parse of the same blog_content string.
+    _bloomberg_pre_tables: list[dict] = []
+    if template_id == "bloomberg":
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _bloomberg_pre_tables = extract_tables_from_content(_blog_text) if _blog_text else []
+
+    # For bloomberg: probe scraped content and append data-availability constraints so the
+    # script generator only picks data-driven layouts when the underlying data actually exists.
+    if template_id == "bloomberg" and layout_catalog:
+        _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=2)
+        _has_ohlcv = any(is_candlestick_table(t) for t in _bloomberg_pre_tables)
+        _constraints: list[str] = []
+        if not _ticker_items:
+            _constraints.append(
+                "- `terminal_ticker` MUST NOT be used: no ticker/price data was found in the scraped content."
+            )
+        if not _has_ohlcv:
+            _constraints.append(
+                "- `terminal_chart` MUST NOT be used: no OHLCV candlestick table was found in the scraped content."
+            )
+        if _constraints:
+            layout_catalog = layout_catalog.rstrip() + (
+                "\n\nData availability constraints (STRICT — do not override):\n"
+                + "\n".join(_constraints)
+            )
+
     content_language = get_content_language_for_project(project)
     requested_video_length = getattr(project, "video_length", "auto") or "auto"
     video_style = getattr(project, "video_style", "explainer") or "explainer"
@@ -555,10 +590,147 @@ async def _generate_script(project: Project, db: Session):
     generator = ScriptGenerator()
     # Only append an ending / follow-along scene when the template declares `ending_socials`
     # in meta.json (e.g. newscast has no EndingSocials layout — forcing it would map to a fallback).
-    include_ending_socials = (
-        not is_custom_template(template_id)
-        and "ending_socials" in get_valid_layouts(template_id)
-    )
+    # For custom templates: enable CTA ending when the template has an "outro" archetype.
+    if is_custom_template(template_id):
+        include_ending_socials = True
+    else:
+        include_ending_socials = "ending_socials" in get_valid_layouts(template_id)
+
+    # Pre-compute table bindings for templates that have dedicated data/table layouts.
+    # Each template block builds `chartable_tables_json` (passed to ScriptGenerator) and
+    # `_all_extracted_tables` (used in the scene-save loop to embed single-table hints).
+    chartable_tables_json = ""
+    _all_extracted_tables: list[dict] = []
+
+    if template_id == "newscast":
+        # newscast: dedicate scenes to data_visualization for any chartable table (line/bar/histogram).
+        # Requires ≥2 chartable tables; caps at 3 scenes.
+        _all_extracted_tables = extract_tables_from_content(
+            getattr(project, "blog_content", None) or ""
+        )
+        if len(_all_extracted_tables) >= 2:
+            _tmp_hint = build_table_context_hint(_all_extracted_tables, max_tables=len(_all_extracted_tables))
+            _chartable = get_chartable_tables_from_visual_hint(_tmp_hint)
+            _capped = _chartable[: min(3, len(_chartable))]
+            if len(_capped) >= 2:
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _capped
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _capped, chart_type_by_index=_chart_type_by_idx
+                )
+
+    elif template_id == "bloomberg":
+        # bloomberg: one scene per qualifying table — layout depends on table type:
+        #   terminal_chart   → OHLCV candlestick tables only
+        #   terminal_dataviz → non-OHLCV time-series / line-chartable tables
+        #   terminal_ticker  → multi-symbol snapshot tables
+        #   terminal_table   → all remaining tables with headers + ≥1 row
+        # Reuse the tables already extracted during the constraint-check above.
+        _all_extracted_tables = _bloomberg_pre_tables
+        if _all_extracted_tables:
+            _tmp_hint = build_table_context_hint(
+                _all_extracted_tables, max_tables=len(_all_extracted_tables)
+            )
+
+            # The three classification passes are independent — run them concurrently
+            # in the thread pool so CPU-bound numeric parsing doesn't serialize.
+            _loop = asyncio.get_event_loop()
+
+            def _classify_candlestick() -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(_all_extracted_tables)
+                    if is_candlestick_table(t)
+                ]
+
+            def _classify_dataviz(hint: str) -> list[tuple[int, dict]]:
+                return get_line_chartable_tables_from_visual_hint(hint)
+
+            def _classify_ticker(tables: list[dict]) -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(tables)
+                    if is_ticker_snapshot_table(t)
+                ]
+
+            (
+                _candlestick_tables,
+                _dataviz_tables_raw,
+                _ticker_tables_all,
+            ) = await asyncio.gather(
+                _loop.run_in_executor(None, _classify_candlestick),
+                _loop.run_in_executor(None, _classify_dataviz, _tmp_hint),
+                _loop.run_in_executor(None, _classify_ticker, _all_extracted_tables),
+            )
+
+            _candlestick_indices = {idx for idx, _ in _candlestick_tables}
+
+            # terminal_dataviz: non-OHLCV tables that produce a line chart
+            _dataviz_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _dataviz_tables_raw
+                if idx not in _candlestick_indices
+            ]
+            _dataviz_indices = {idx for idx, _ in _dataviz_tables}
+
+            _used_indices = _candlestick_indices | _dataviz_indices
+
+            # terminal_ticker: filter out already-claimed indices
+            _ticker_tables: list[tuple[int, dict]] = [
+                (idx, t) for idx, t in _ticker_tables_all
+                if idx not in _used_indices
+            ]
+            _ticker_indices = {idx for idx, _ in _ticker_tables}
+            _used_indices |= _ticker_indices
+
+            # terminal_table: every remaining table with headers + ≥1 row gets its own scene.
+            # Exclude tables where every row has only a single cell (e.g. HTML scraper dropped
+            # all value columns, leaving only a date/label column with no data to show).
+            def _table_has_multi_col_rows(t: dict) -> bool:
+                rows = t.get("rows") or []
+                return any(isinstance(r, list) and len(r) >= 2 for r in rows)
+
+            _table_tables: list[tuple[int, dict]] = [
+                (idx, t)
+                for idx, t in enumerate(_all_extracted_tables)
+                if idx not in _used_indices
+                and (t.get("headers") or [])
+                and len(t.get("rows") or []) >= 1
+                and _table_has_multi_col_rows(t)
+            ]
+
+            # Cap total table-bound scenes at 4 (candlestick first, then dataviz, ticker, table).
+            # Prevents token bloat and keeps scene count reasonable for table-heavy blogs.
+            _MAX_BLOOMBERG_TABLE_SCENES = 4
+            _bindings = (
+                _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
+            )[:_MAX_BLOOMBERG_TABLE_SCENES]
+
+            if _bindings:
+                # Rebuild index sets from the capped list so layout mapping stays correct.
+                _bound_candlestick = {idx for idx, _ in _bindings if idx in _candlestick_indices}
+                _bound_dataviz = {idx for idx, _ in _bindings if idx in _dataviz_indices}
+                _bound_ticker = {idx for idx, _ in _bindings if idx in _ticker_indices}
+
+                _chart_type_by_idx = {
+                    orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
+                    for orig_idx, t in _bindings
+                }
+                _layout_by_idx = {
+                    orig_idx: (
+                        "terminal_chart" if orig_idx in _bound_candlestick
+                        else "terminal_dataviz" if orig_idx in _bound_dataviz
+                        else "terminal_ticker" if orig_idx in _bound_ticker
+                        else "terminal_table"
+                    )
+                    for orig_idx, _ in _bindings
+                }
+                chartable_tables_json = build_chartable_tables_payload(
+                    _bindings,
+                    chart_type_by_index=_chart_type_by_idx,
+                    preferred_layout_by_index=_layout_by_idx,
+                    max_rows=20,
+                )
+
     result = await generator.generate(
         blog_content=project.blog_content,
         blog_images=image_paths,
@@ -569,6 +741,8 @@ async def _generate_script(project: Project, db: Session):
         layout_catalog=layout_catalog,
         content_language=content_language,
         include_ending_socials=include_ending_socials,
+        chartable_tables_json=chartable_tables_json,
+        template_id=template_id or "",
     )
 
     project.name = result["title"]
@@ -584,12 +758,64 @@ async def _generate_script(project: Project, db: Session):
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
+    is_custom = is_custom_template(template_id)
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
         vd = scene_data["visual_description"]
-        if scene_data.get("preferred_layout") == "ending_socials":
+        preferred = scene_data.get("preferred_layout")
+        if preferred == "ending_socials":
             cta = (scene_data.get("cta_button_text") or "").strip()
             if cta:
                 vd = prepend_b2v_cta_to_visual(cta, vd)
+            # Custom templates don't have an ending_socials layout — clear it so
+            # archetype matching assigns the outro slot during scene generation.
+            if is_custom:
+                preferred = None
+        elif (
+            scene_data.get("preferred_layout") in {
+                "data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"
+            }
+            and _all_extracted_tables
+        ):
+            # Embed only the single bound table so scene_gen has exactly one table to use.
+            bound_idx = scene_data.get("data_table_index")
+            # For terminal_chart with no bound index, auto-find the first OHLCV table.
+            if scene_data.get("preferred_layout") == "terminal_chart" and not isinstance(bound_idx, int):
+                for _ci, _ct in enumerate(_all_extracted_tables):
+                    if is_candlestick_table(_ct):
+                        bound_idx = _ci
+                        break
+            if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
+                _bound_table = _all_extracted_tables[bound_idx]
+                _mr = 60 if is_candlestick_table(_bound_table) else 20
+                hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
+                if hint:
+                    vd = (vd.rstrip() + "\n\n" + hint).strip()
+        elif (
+            # Recovery: LLM wrote a non-data layout but data_table_index is still bound —
+            # the table binding was supposed to force terminal_dataviz/terminal_table.
+            # Embed the table hint so scene_gen has the data and can produce the right chart.
+            template_id == "bloomberg"
+            and scene_data.get("data_table_index") is not None
+            and _all_extracted_tables
+        ):
+            _fallback_idx = scene_data.get("data_table_index")
+            if isinstance(_fallback_idx, int) and 0 <= _fallback_idx < len(_all_extracted_tables):
+                _fb_table = _all_extracted_tables[_fallback_idx]
+                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
+                if _fb_hint:
+                    vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
+                # Also upgrade the preferred_layout so scene_gen uses the right component.
+                if not is_candlestick_table(_fb_table):
+                    scene_data["preferred_layout"] = "terminal_dataviz"
+                else:
+                    scene_data["preferred_layout"] = "terminal_chart"
+        elif scene_data.get("preferred_layout") == "terminal_ticker":
+            # Inject real scraped ticker data so scene_gen overrides LLM-hallucinated values.
+            _blog_text = getattr(project, "blog_content", None) or ""
+            _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=10)
+            if _ticker_items:
+                hint = "═══ SCRAPED_TICKER_ROWS ═══\n" + "\n".join(_ticker_items) + "\n═══ END_SCRAPED_TICKER_ROWS ═══"
+                vd = (vd.rstrip() + "\n\n" + hint).strip()
         scene = Scene(
             project_id=project.id,
             order=i + 1,
@@ -598,7 +824,7 @@ async def _generate_script(project: Project, db: Session):
             visual_description=vd,
             duration_seconds=scene_data.get("duration_seconds", 10),
             display_text=display_text,
-            preferred_layout=scene_data.get("preferred_layout"),
+            preferred_layout=preferred,
         )
         db.add(scene)
 
@@ -615,16 +841,13 @@ async def _generate_scenes(project: Project, db: Session):
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
     """
     scenes = project.scenes
-    extracted_tables = extract_tables_from_content(getattr(project, "blog_content", None) or "")
-    # Provide up to 3 tables so newscast can build 2-3 data visualization scenes.
-    table_context_hint = build_table_context_hint(extracted_tables, max_tables=3)
 
-    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields)
+    # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
+    # Each data_visualization scene already carries its single bound TABLE_DATA_HINT_JSON
+    # (embedded during _generate_script); no blanket append needed here.
     scenes_data = []
     for s in scenes:
         _, vis = strip_b2v_cta_from_visual(s.visual_description or "")
-        if table_context_hint:
-            vis = (vis.rstrip() + "\n\n" + table_context_hint).strip()
         scenes_data.append(
             {
                 "title": s.title,
@@ -809,10 +1032,16 @@ async def _generate_scenes(project: Project, db: Session):
                 i, lc.get("arrangement"), len(lc.get("elements", [])), lc.get("decorations"),
             )
         else:
+            lp_keys = list(descriptor.get("layoutProps", {}).keys())
             logger.info(
                 "[PIPELINE] Scene %s stored: legacy layout=%s, layoutProps keys=%s",
-                i, descriptor.get("layout"), list(descriptor.get("layoutProps", {}).keys()),
+                i, descriptor.get("layout"), lp_keys,
             )
+            if descriptor.get("layout") == "terminal_dataviz":
+                logger.info(
+                    "[PIPELINE] Scene %s terminal_dataviz full layoutProps=%s",
+                    i, json.dumps(descriptor.get("layoutProps", {})),
+                )
     db.commit()
     logger.info("[PIPELINE] All %s scene descriptors committed to DB", len(scenes))
 

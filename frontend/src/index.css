@@ -31,7 +31,7 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
     @apply rounded-3xl backdrop-blur-2xl;
   }
-
+   
   /* ─── Legacy glass util (kept for other pages) ─── */
   .glass {
     @apply bg-white/60 backdrop-blur-xl border border-white/20 shadow-[0_1px_3px_rgba(0,0,0,0.04)];

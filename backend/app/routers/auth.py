@@ -17,6 +17,7 @@ from app.models.project import Project
 from app.models.subscription import Subscription
 from app.auth import create_access_token, get_current_user
 from app.services.voice_seed import ensure_free_voices_for_user
+from app.models.referral import Referral, ReferralSignup, REFERRAL_BONUS_VIDEOS, REFERRAL_MAX_SIGNUPS
 from app.services import r2_storage
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.observability.logging import get_logger
@@ -53,6 +54,34 @@ class UserOut(BaseModel):
 AuthResponse.model_rebuild()
 
 
+def _apply_referral_bonus(ref_code: str, new_user: User, db: Session) -> None:
+    try:
+        referral = db.query(Referral).filter_by(code=ref_code, is_active=True).first()
+        if not referral or referral.referrer_id == new_user.id:
+            return
+
+        # Prevent double-grant if this user already has a signup row (retry safety)
+        existing = db.query(ReferralSignup).filter_by(new_user_id=new_user.id).first()
+        if existing:
+            return
+
+        referrer = db.query(User).filter_by(id=referral.referrer_id).first()
+
+        # Write to referral_video_bonus (permanent) — separate from expiring purchase credits
+        new_user.referral_video_bonus = (new_user.referral_video_bonus or 0) + REFERRAL_BONUS_VIDEOS
+
+        if referrer and (referrer.referrals_given or 0) < REFERRAL_MAX_SIGNUPS:
+            referrer.referral_video_bonus = (referrer.referral_video_bonus or 0) + REFERRAL_BONUS_VIDEOS
+            referrer.referrals_given = (referrer.referrals_given or 0) + 1
+
+        db.add(ReferralSignup(referral_id=referral.id, new_user_id=new_user.id))
+        db.commit()
+        db.refresh(new_user)
+    except Exception as e:
+        db.rollback()
+        logger.error("[REFERRAL] Failed to apply bonus for user %s, code %r: %s", new_user.id, ref_code, e)
+
+
 def _delete_project_storage(project: Project) -> None:
     """Delete all storage (local + R2) for a project."""
     if r2_storage.is_r2_configured():
@@ -75,6 +104,7 @@ def _delete_project_storage(project: Project) -> None:
 def google_login(
     body: GoogleLoginRequest,
     reactivate: bool = Query(False, description="Confirm reactivation of a previously deleted account"),
+    ref_code: str | None = Query(None, description="Referral code from an invite link"),
     db: Session = Depends(get_db),
 ):
     """
@@ -140,6 +170,7 @@ def google_login(
         user.is_active = True
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
+        user.referral_video_bonus = 0
         user.period_start = None
         user.stripe_customer_id = None
         user.stripe_subscription_id = None
@@ -158,6 +189,10 @@ def google_login(
 
     db.commit()
     db.refresh(user)
+
+    # Grant referral bonuses for brand-new users only
+    if created_new_user and ref_code:
+        _apply_referral_bonus(ref_code, user, db)
 
     ensure_free_voices_for_user(db, user.id)
 
@@ -271,6 +306,7 @@ def delete_account(
         user.stripe_subscription_id = None
         user.plan = PlanTier.FREE
         user.video_limit_bonus = 0
+        user.referral_video_bonus = 0
         user.period_start = None
 
         db.commit()
