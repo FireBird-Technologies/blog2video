@@ -19,6 +19,7 @@ import { NewscastVideoComposition } from "./newscast/NewscastVideoComposition";
 import { BlackswanVideoComposition } from "./blackswan/BlackswanVideoComposition";
 import { MosaicVideoComposition } from "./mosaic/MosaicVideoComposition";
 import { BloombergVideoComposition } from "./bloomberg/BloombergVideoComposition";
+import { ChronicleVideoComposition } from "./chronicle/ChronicleVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -31,6 +32,7 @@ import {
   RemotionWhiteboardVideoComposition,
   RemotionBlackswanVideoComposition,
   RemotionBloombergVideoComposition,
+  RemotionChronicleVideoComposition,
 } from "./remotionAdapters";
 
 export interface TemplateColors {
@@ -221,6 +223,19 @@ const BLOOMBERG_LAYOUTS = new Set([
   "terminal_options",
   "ending_socials",
 ]);
+
+const CHRONICLE_LAYOUTS = new Set([
+  "book_open",
+  "parchment_scroll",
+  "chapter_plate",
+  "illuminated_quote",
+  "ledger_stats",
+  "versus_folio",
+  "chronicle_timeline",
+  "map_reveal",
+  "decree_seal",
+  "ending_socials",
+]);
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -365,6 +380,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
     baseWidth: 1920,
     baseHeight: 1080,
   },
+  chronicle: {
+    component: ChronicleVideoComposition as React.ComponentType<any>,
+    heroLayout: "book_open",
+    fallbackLayout: "parchment_scroll",
+    validLayouts: CHRONICLE_LAYOUTS,
+    defaultColors: {
+      accent: "#B8860B",
+      bg: "#F1E4C9",
+      text: "#2A1810",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
 };
 
 const DEFAULT_CONFIG = TEMPLATE_REGISTRY.default;
@@ -413,6 +441,8 @@ export function getTemplateConfig(
                         ? RemotionBlackswanVideoComposition
                         : id === "bloomberg"
                           ? RemotionBloombergVideoComposition
+                          : id === "chronicle"
+                            ? RemotionChronicleVideoComposition
                     : null;
 
     if (overrideComponent) {

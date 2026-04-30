@@ -233,11 +233,12 @@ function SlideMetric({ active }: { active: boolean }) {
   );
 }
 
-export default function TemplatePreview() {
+export default function TemplatePreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(true);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setActive(false);
       setTimeout(() => {
@@ -246,7 +247,7 @@ export default function TemplatePreview() {
       }, 150);
     }, 5100);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   const SLIDES = [SlideHeroImage, SlideTextNarration, SlideMetric];
   const ActiveSlide = SLIDES[current];
