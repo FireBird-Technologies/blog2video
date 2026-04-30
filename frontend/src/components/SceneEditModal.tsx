@@ -1033,6 +1033,73 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     ending_socials: [],
   },
+  /** Chronicle — medieval tome layout content keys. ending_socials uses the dedicated CTA / socials block above. */
+  chronicle: {
+    book_open: [],
+    parchment_scroll: [
+      { key: "category", label: "Section tag", type: "string", placeholder: "e.g. Chapter I, Folio II" },
+      { key: "illuminatedLetter", label: "Drop cap letter (optional)", type: "string", placeholder: "Auto from first letter" },
+      {
+        key: "stats",
+        label: "Byline / dating (optional)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+        ],
+        maxItems: 2,
+      },
+    ],
+    chapter_plate: [
+      {
+        key: "subtitle",
+        label: "Kicker above title (optional)",
+        type: "string",
+        placeholder: "e.g. Act One, The Founding Years — leave blank to skip",
+      },
+    ],
+    illuminated_quote: [
+      { key: "quote", label: "Quote (overrides narration)", type: "text" },
+      { key: "highlightPhrase", label: "Phrase to highlight in red", type: "string" },
+      { key: "attribution", label: "Attribution", type: "string" },
+    ],
+    ledger_stats: [
+      {
+        key: "stats",
+        label: "Ledger entries (1-3)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Number" },
+          { key: "label", label: "Descriptor" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    versus_folio: [
+      { key: "leftLabel", label: "Left page heading", type: "string" },
+      { key: "rightLabel", label: "Right page heading", type: "string" },
+      { key: "leftDescription", label: "Left page body", type: "text" },
+      { key: "rightDescription", label: "Right page body", type: "text" },
+    ],
+    chronicle_timeline: [
+      {
+        key: "stats",
+        label: "Waypoints (up to 4)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Year / marker" },
+          { key: "label", label: "Event" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    map_reveal: [],
+    decree_seal: [
+      { key: "word", label: "The blackletter word", type: "string", placeholder: "e.g. DECREED, FINIS, HONOR" },
+      { key: "highlightWord", label: "Alt word (ignored if 'word' set)", type: "string" },
+      { key: "cta", label: "Sign-off", type: "string" },
+    ],
+  },
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
@@ -1113,6 +1180,28 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "titleFontSize",
   "descriptionFontSize",
 ]);
+
+/**
+ * Keys that were once valid for a template/layout but have been deprecated.
+ * They are silently hidden from the editor so stale scene data doesn't surface
+ * dead fields. (The value may still exist in saved `layoutProps` but the
+ * layout component no longer reads it.)
+ */
+const DEPRECATED_LAYOUT_PROP_KEYS: Record<string, Record<string, Set<string>>> = {
+  chronicle: {
+    chapter_plate: new Set(["chapterNumber"]),
+  },
+};
+
+function isDeprecatedLayoutPropKey(
+  template: string | undefined,
+  layoutId: string | null,
+  key: string,
+): boolean {
+  if (!template || !layoutId) return false;
+  const t = template.toLowerCase();
+  return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -2597,7 +2686,14 @@ export default function SceneEditModal({
                     ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
-                          (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+                          (key) =>
+                            !knownKeys.has(key) &&
+                            !HIDDEN_LAYOUT_PROP_KEYS.has(key) &&
+                            !isDeprecatedLayoutPropKey(
+                              project.template,
+                              currentLayoutId,
+                              key,
+                            ),
                         )
                       : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
