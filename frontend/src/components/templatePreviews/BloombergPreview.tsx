@@ -359,7 +359,7 @@ function SlideDots({ total, current, onDotClick }: { total: number; current: num
   );
 }
 
-export default function BloombergPreview() {
+export default function BloombergPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   // `displayed` is what the chrome (top/bottom bar) shows — only updates after transition settles
   const [displayed, setDisplayed] = useState(0);
   // `incoming` is the slide currently animating in
@@ -372,15 +372,17 @@ export default function BloombergPreview() {
   const lockedRef = useRef(false);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => setPulse(0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 350))), 50);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   // Auto-advance
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => triggerTransition((displayed + 1) % SLIDES.length), SLIDE_DURATION);
     return () => clearInterval(id);
-  }, [displayed]);
+  }, [displayed, thumbnailMode]);
 
   function triggerTransition(to: number) {
     if (lockedRef.current || to === displayed) return;

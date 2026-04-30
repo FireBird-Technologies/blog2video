@@ -742,7 +742,7 @@ const SLIDES: SlideComponent[] = [
 
 const SLIDE_DURATION = 4200 as const;
 
-const Blog2VideoPreview: FC = () => {
+const Blog2VideoPreview: FC<{ thumbnailMode?: boolean }> = ({ thumbnailMode = false }) => {
   const [current, setCurrent] = useState<number>(0);
   const [visible, setVisible] = useState<boolean>(true);
   const transRef   = useRef<boolean>(false);
@@ -765,9 +765,10 @@ const Blog2VideoPreview: FC = () => {
   }, []);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => goTo((currentRef.current + 1) % SLIDES.length), SLIDE_DURATION);
     return () => clearInterval(id);
-  }, [goTo]);
+  }, [goTo, thumbnailMode]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
