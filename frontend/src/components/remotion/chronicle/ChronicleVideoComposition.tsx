@@ -3,14 +3,12 @@ import "../../../fonts/chronicle-defaults";
 import { CHRONICLE_BODY_FONT } from "../../../fonts/chronicle-defaults";
 import { AbsoluteFill, Audio, Sequence } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
-import type { TransitionPresentation } from "@remotion/transitions";
-import { flip } from "@remotion/transitions/flip";
 import { CHRONICLE_LAYOUT_REGISTRY } from "./layouts";
 import type { ChronicleLayoutType, ChronicleLayoutProps } from "./types";
 import { LogoOverlay } from "../LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { ChronicleChrome } from "./components/ChronicleChrome";
-import { pageCurl } from "./transitions/pageCurl";
+import { pickChronicleTransition } from "./transitions";
 
 export interface ChronicleSceneInput {
   id: number;
@@ -51,12 +49,76 @@ const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
   "decree_seal",
 ]);
 
-// Hero boundaries get the dramatic page-curl; everything else gets flip.
-const HERO_LAYOUTS_FROM = new Set<ChronicleLayoutType>(["book_open"]);
-const HERO_LAYOUTS_TO = new Set<ChronicleLayoutType>(["ending_socials"]);
+// Per-layout minimum scene durations (in frames @ 30fps). Each chronicle
+// layout has hardcoded animation timings; if the scene's `durationSeconds`
+// is shorter than the layout's natural arc, content gets cut off mid-reveal
+// and the next scene starts before the eye can read anything (= "rushed").
+// These floors guarantee enough room to play intro + hold + outroFade.
+// book_open: settle (0-30) + seal crack (32-54) + cover open (60-100) +
+// title push-in (100-134) + LOTR title burn (112-172) + ink divider (142) +
+// subtitle typing (155-245) + wax seal fade (180-200) + ~30f hold + 18f
+// outroFade ≈ 293f → round to 300 (10s) for headroom. Shorter durations
+// cut off the subtitle mid-typing.
+const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
+  book_open: 300,
+  ending_socials: 200,
+  chronicle_timeline: 200,
+  ledger_stats: 200,
+  versus_folio: 200,
+  chapter_plate: 170,
+  illuminated_quote: 170,
+  parchment_scroll: 170,
+  decree_seal: 170,
+  map_reveal: 170,
+};
 
-const TRANSITION_FRAMES_FLIP = 22;
-const TRANSITION_FRAMES_CURL = 32;
+const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
+  Math.max(frames, LAYOUT_MIN_FRAMES[layout] ?? 150);
+
+// Trim a small tail off the LAST scene's contributed duration in multi-scene
+// videos so the final layout's outroFade lines up with the video end. Skipped
+// for single-scene compositions (Template Studio previews) so layouts get
+// their full window.
+const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
+const trimLastScene = (frames: number) =>
+  Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
+
+/**
+ * Compute the exact total video duration (in frames) that TransitionSeries
+ * will produce for a Chronicle composition. Must stay in sync with the
+ * resolvedScenes calculation inside ChronicleVideoComposition.
+ *
+ * Used by VideoPreview to set the Player's durationInFrames so it matches
+ * the actual rendered length (no brown tail).
+ */
+export const computeChronicleVideoTotalFrames = (
+  scenes: ChronicleSceneInput[],
+  playbackSpeed?: number,
+): number => {
+  const FPS = 30;
+  const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
+
+  if (scenes.length === 0) return FPS * 5;
+
+  const resolved = scenes.map((scene, idx, arr) => {
+    const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
+      ? (scene.layout as ChronicleLayoutType)
+      : ("parchment_scroll" as ChronicleLayoutType);
+    const raw = getSceneDurationFrames(scene.durationSeconds, FPS, resolvedPlaybackSpeed);
+    const withMin = enforceLayoutMinimum(raw, layoutKey);
+    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    return {
+      layoutKey,
+      durationFrames: isLastInMulti ? trimLastScene(withMin) : withMin,
+    };
+  });
+
+  let total = resolved.reduce((sum, s) => sum + s.durationFrames, 0);
+  for (let i = 0; i < resolved.length - 1; i++) {
+    total -= pickChronicleTransition(i, resolved[i].layoutKey, resolved[i + 1].layoutKey).frames;
+  }
+  return Math.max(total, FPS * 5);
+};
 
 export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps> = ({
   scenes,
@@ -75,15 +137,18 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   const resolvedPlaybackSpeed = getPlaybackSpeed(playbackSpeed);
   const fallbackFontFamily = fontFamily || CHRONICLE_BODY_FONT;
 
-  const resolvedScenes = scenes.map((scene) => {
+  const resolvedScenes = scenes.map((scene, idx, arr) => {
     const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
       ? (scene.layout as ChronicleLayoutType)
       : ("parchment_scroll" as ChronicleLayoutType);
-    const durationFrames = getSceneDurationFrames(
+    const raw = getSceneDurationFrames(
       scene.durationSeconds,
       FPS,
       resolvedPlaybackSpeed,
     );
+    const withMin = enforceLayoutMinimum(raw, layoutKey);
+    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    const durationFrames = isLastInMulti ? trimLastScene(withMin) : withMin;
     return { scene, layoutKey, durationFrames };
   });
 
@@ -93,14 +158,9 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   resolvedScenes.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
     runningFrame += s.durationFrames;
-    // Each transition overlaps both scenes by `frames`, so the next scene starts
-    // `frames` earlier than the naive sum. TransitionSeries handles this internally
-    // for layout, but we still need it for matching audio Sequence positions.
     if (i < resolvedScenes.length - 1) {
       const nextLayout = resolvedScenes[i + 1].layoutKey;
-      const isHero =
-        HERO_LAYOUTS_FROM.has(s.layoutKey) || HERO_LAYOUTS_TO.has(nextLayout);
-      runningFrame -= isHero ? TRANSITION_FRAMES_CURL : TRANSITION_FRAMES_FLIP;
+      runningFrame -= pickChronicleTransition(i, s.layoutKey, nextLayout).frames;
     }
   });
 
@@ -159,22 +219,14 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
           }
 
           const nextLayout = resolvedScenes[index + 1].layoutKey;
-          const isHero =
-            HERO_LAYOUTS_FROM.has(layoutKey) || HERO_LAYOUTS_TO.has(nextLayout);
-          const transitionFrames = isHero
-            ? TRANSITION_FRAMES_CURL
-            : TRANSITION_FRAMES_FLIP;
+          const choice = pickChronicleTransition(index, layoutKey, nextLayout);
 
           return (
             <React.Fragment key={`scene-${scene.id}-${index}`}>
               {sequence}
               <TransitionSeries.Transition
-                presentation={
-                  (isHero
-                    ? pageCurl({ direction: "right-to-left", perspective: 2200 })
-                    : flip({ direction: "from-right", perspective: 1600 })) as TransitionPresentation<Record<string, unknown>>
-                }
-                timing={linearTiming({ durationInFrames: transitionFrames })}
+                presentation={choice.presentation}
+                timing={linearTiming({ durationInFrames: choice.frames })}
               />
             </React.Fragment>
           );

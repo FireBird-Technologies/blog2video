@@ -7,8 +7,6 @@ import {
   CalculateMetadataFunction,
 } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
-import type { TransitionPresentation } from "@remotion/transitions";
-import { flip } from "@remotion/transitions/flip";
 import "../../fonts/chronicle-defaults";
 import { CHRONICLE_BODY_FONT } from "../../fonts/chronicle-defaults";
 import { CHRONICLE_LAYOUT_REGISTRY } from "./layouts";
@@ -17,7 +15,7 @@ import type { ChronicleLayoutType, ChronicleLayoutProps } from "./types";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
 import { ChronicleChrome } from "./components/ChronicleChrome";
-import { pageCurl } from "./transitions/pageCurl";
+import { pickChronicleTransition } from "./transitions";
 
 interface SceneData {
   id: number;
@@ -60,11 +58,73 @@ const SCRIPTURE_LAYOUTS = new Set<ChronicleLayoutType>([
   "decree_seal",
 ]);
 
-const HERO_LAYOUTS_FROM = new Set<ChronicleLayoutType>(["book_open"]);
-const HERO_LAYOUTS_TO = new Set<ChronicleLayoutType>(["ending_socials"]);
+// Per-layout minimum scene durations (in frames @ 30fps).
+//
+// Each chronicle layout has hardcoded animation timings. BookOpen has 5 acts
+// (book settle 0-30, seal crack 32-54, cover open 60-100, title push-in
+// 100-134, then a title burn-in + hold) plus an 18-frame outroFade. If
+// `scene.durationSeconds` is shorter than the layout's natural arc, the
+// content gets cut off mid-reveal and the next scene starts before the eye
+// can read anything — which is exactly what feels "rushed."
+//
+// These floors guarantee every layout has enough room to (1) play its
+// intro, (2) hold the content visibly, and (3) complete its outroFade —
+// without rushing.
+// Timeline of book_open's animation (frames @ 30fps, after my 1.55× slowdown):
+//   0-30    book settles in (closed tome)
+//   32-54   wax seal cracks
+//   60-100  cover swings open (slow spring)
+//   100-134 title page pushes in
+//   112-172 title letters burn in (LOTR-style fiery glow ramp)
+//   142     ink divider draws
+//   155-245 subtitle/narration types out word-by-word (up to 90 frames)
+//   180-200 small wax seal signature fades in
+//   then    needs ~30 frames of comfortable hold before outroFade
+//   final   18-frame outroFade
+// Total: ~245 + 30 + 18 = ~293 → round up to 300 (10s) for safety. Anything
+// shorter cuts off the subtitle mid-typing and the title barely holds.
+const LAYOUT_MIN_FRAMES: Record<ChronicleLayoutType, number> = {
+  book_open: 300,
+  ending_socials: 200, // 6.7s — staggered title/narration/socials reveals + hold
+  chronicle_timeline: 200, // staggered timeline items
+  ledger_stats: 200, // staggered stat cells
+  versus_folio: 200, // two staggered halves
+  chapter_plate: 170,
+  illuminated_quote: 170,
+  parchment_scroll: 170,
+  decree_seal: 170,
+  map_reveal: 170,
+};
 
-const TRANSITION_FRAMES_FLIP = 22;
-const TRANSITION_FRAMES_CURL = 32;
+const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
+  Math.max(frames, LAYOUT_MIN_FRAMES[layout] ?? 150);
+
+// On the LAST scene, layouts run their fadeOut to opacity 0 with nothing
+// after to overlap. Trim a small tail off the last scene's contributed
+// duration so the video ends close to where content actually finishes.
+// Only applied when there are MULTIPLE scenes — single-scene compositions
+// (Template Studio previews) need their full window.
+const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
+const trimLastScene = (frames: number) =>
+  Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
+
+const resolveLayoutKey = (raw: string): ChronicleLayoutType =>
+  (raw as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
+    ? (raw as ChronicleLayoutType)
+    : ("parchment_scroll" as ChronicleLayoutType);
+
+const computeSceneFrames = (
+  scenes: SceneData[],
+  fps: number,
+  playbackSpeed: number,
+): number[] =>
+  scenes.map((s, idx, arr) => {
+    const layout = resolveLayoutKey(s.layout);
+    const raw = getSceneDurationFrames(s.durationSeconds, fps, playbackSpeed);
+    const withMin = enforceLayoutMinimum(raw, layout);
+    const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    return isLastInMulti ? trimLastScene(withMin) : withMin;
+  });
 
 export const calculateChronicleMetadata: CalculateMetadataFunction<VideoProps> = async ({
   props,
@@ -77,17 +137,12 @@ export const calculateChronicleMetadata: CalculateMetadataFunction<VideoProps> =
     const data: VideoData = await res.json();
 
     const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
-    const sceneFrames = data.scenes.map((s) =>
-      getSceneDurationFrames(s.durationSeconds, FPS, playbackSpeed),
-    );
+    const sceneFrames = computeSceneFrames(data.scenes, FPS, playbackSpeed);
     let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
-    // Subtract overlap of each transition between adjacent scenes.
     for (let i = 0; i < data.scenes.length - 1; i++) {
-      const fromLayout = (data.scenes[i].layout as ChronicleLayoutType);
-      const toLayout = (data.scenes[i + 1].layout as ChronicleLayoutType);
-      const isHero =
-        HERO_LAYOUTS_FROM.has(fromLayout) || HERO_LAYOUTS_TO.has(toLayout);
-      totalFrames -= isHero ? TRANSITION_FRAMES_CURL : TRANSITION_FRAMES_FLIP;
+      const fromLayout = resolveLayoutKey(data.scenes[i].layout);
+      const toLayout = resolveLayoutKey(data.scenes[i + 1].layout);
+      totalFrames -= pickChronicleTransition(i, fromLayout, toLayout).frames;
     }
     const isPortrait = data.aspectRatio === "portrait";
 
@@ -144,17 +199,12 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const resolvedFontFamily = resolveFontFamily(data.fontFamily ?? null);
   const fallbackFontFamily = resolvedFontFamily || CHRONICLE_BODY_FONT;
 
-  const resolvedScenes = data.scenes.map((scene) => {
-    const layoutKey = (scene.layout as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
-      ? (scene.layout as ChronicleLayoutType)
-      : ("parchment_scroll" as ChronicleLayoutType);
-    const durationFrames = getSceneDurationFrames(
-      scene.durationSeconds,
-      FPS,
-      playbackSpeed,
-    );
-    return { scene, layoutKey, durationFrames };
-  });
+  const sceneFrames = computeSceneFrames(data.scenes, FPS, playbackSpeed);
+  const resolvedScenes = data.scenes.map((scene, idx) => ({
+    scene,
+    layoutKey: resolveLayoutKey(scene.layout),
+    durationFrames: sceneFrames[idx],
+  }));
 
   // Compute scene start frames accounting for transition overlap (for audio sync).
   let runningFrame = 0;
@@ -164,9 +214,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     runningFrame += s.durationFrames;
     if (i < resolvedScenes.length - 1) {
       const nextLayout = resolvedScenes[i + 1].layoutKey;
-      const isHero =
-        HERO_LAYOUTS_FROM.has(s.layoutKey) || HERO_LAYOUTS_TO.has(nextLayout);
-      runningFrame -= isHero ? TRANSITION_FRAMES_CURL : TRANSITION_FRAMES_FLIP;
+      runningFrame -= pickChronicleTransition(i, s.layoutKey, nextLayout).frames;
     }
   });
 
@@ -227,22 +275,14 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           }
 
           const nextLayout = resolvedScenes[index + 1].layoutKey;
-          const isHero =
-            HERO_LAYOUTS_FROM.has(layoutKey) || HERO_LAYOUTS_TO.has(nextLayout);
-          const transitionFrames = isHero
-            ? TRANSITION_FRAMES_CURL
-            : TRANSITION_FRAMES_FLIP;
+          const choice = pickChronicleTransition(index, layoutKey, nextLayout);
 
           return (
             <React.Fragment key={`scene-${scene.id}-${index}`}>
               {sequence}
               <TransitionSeries.Transition
-                presentation={
-                  (isHero
-                    ? pageCurl({ direction: "right-to-left", perspective: 2200 })
-                    : flip({ direction: "from-right", perspective: 1600 })) as TransitionPresentation<Record<string, unknown>>
-                }
-                timing={linearTiming({ durationInFrames: transitionFrames })}
+                presentation={choice.presentation}
+                timing={linearTiming({ durationInFrames: choice.frames })}
               />
             </React.Fragment>
           );

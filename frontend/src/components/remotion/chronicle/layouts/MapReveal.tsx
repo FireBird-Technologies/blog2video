@@ -12,8 +12,9 @@ import { QuillText } from "../components/QuillInk";
 
 /**
  * MapReveal — image layout styled as an unfurled cartographer's map.
- * Image sits inside a torn-parchment frame with compass rose + drawn
- * lat/long ticks + caption on a banner below.
+ * With an image: torn parchment holds the map in the upper band and
+ * narration caption beneath inside the same frame. Without an image,
+ * narration fills the parchment as a gold typographic plate.
  */
 export const MapReveal: React.FC<ChronicleLayoutProps> = ({
   title,
@@ -112,59 +113,106 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
           }}
         >
           {imageUrl ? (
-            <div style={{ width: "100%", height: "100%", position: "relative" }}>
-              <EmbossedImage
-                src={imageUrl}
-                objectPosition={imageObjectPosition}
-                zoom={imageZoom}
-                rotate={0}
-                revealStart={8}
-                matSize={8}
-                inkFrame={false}
-                style={{ width: "100%", height: "100%" }}
-              />
-
-              {/* Faint lat/long grid overlay */}
-              <svg
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                gap: p ? 10 : 14,
+              }}
+            >
+              <div
                 style={{
-                  position: "absolute",
-                  inset: 10,
-                  width: "calc(100% - 20px)",
-                  height: "calc(100% - 20px)",
-                  pointerEvents: "none",
-                  opacity: interpolate(frame, [25, 45], [0, 0.35], {
-                    extrapolateLeft: "clamp",
-                    extrapolateRight: "clamp",
-                  }),
+                  flex: narration ? "1 1 58%" : "1 1 100%",
+                  minHeight: 0,
+                  position: "relative",
                 }}
               >
-                {ticksX.map((t, i) => (
-                  <line
-                    key={`x-${i}`}
-                    x1={`${t.pos}%`}
-                    y1="0"
-                    x2={`${t.pos}%`}
-                    y2="100%"
-                    stroke={textColor}
-                    strokeWidth="0.8"
-                    strokeDasharray="4 6"
+                <EmbossedImage
+                  src={imageUrl}
+                  objectPosition={imageObjectPosition}
+                  zoom={imageZoom}
+                  rotate={0}
+                  revealStart={8}
+                  matSize={8}
+                  inkFrame={false}
+                  style={{ width: "100%", height: "100%" }}
+                />
+
+                {/* Faint lat/long grid overlay */}
+                <svg
+                  style={{
+                    position: "absolute",
+                    inset: 10,
+                    width: "calc(100% - 20px)",
+                    height: "calc(100% - 20px)",
+                    pointerEvents: "none",
+                    opacity: interpolate(frame, [25, 45], [0, 0.35], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    }),
+                  }}
+                >
+                  {ticksX.map((t, i) => (
+                    <line
+                      key={`x-${i}`}
+                      x1={`${t.pos}%`}
+                      y1="0"
+                      x2={`${t.pos}%`}
+                      y2="100%"
+                      stroke={textColor}
+                      strokeWidth="0.8"
+                      strokeDasharray="4 6"
+                    />
+                  ))}
+                  {ticksY.map((t, i) => (
+                    <line
+                      key={`y-${i}`}
+                      x1="0"
+                      y1={`${t.pos}%`}
+                      x2="100%"
+                      y2={`${t.pos}%`}
+                      stroke={textColor}
+                      strokeWidth="0.8"
+                      strokeDasharray="4 6"
+                    />
+                  ))}
+                </svg>
+              </div>
+
+              {narration ? (
+                <div
+                  style={{
+                    flex: "0 0 auto",
+                    padding: p ? "4px 5% 2px" : "2px 6% 0",
+                    textAlign: "center",
+                    fontFamily: CHRONICLE_SMALLCAPS_FONT,
+                    fontSize: (descriptionFontSize ?? (p ? 24 : 22)) * 0.92,
+                    color: textColor,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    lineHeight: 1.35,
+                    opacity: interpolate(frame, [40, 60], [0, 0.92], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    }),
+                  }}
+                >
+                  <QuillText
+                    text={narration}
+                    startFrame={40}
+                    durationFrames={Math.min(90, narration.length * 1.1)}
+                    mode="word"
+                    showCursor={false}
                   />
-                ))}
-                {ticksY.map((t, i) => (
-                  <line
-                    key={`y-${i}`}
-                    x1="0"
-                    y1={`${t.pos}%`}
-                    x2="100%"
-                    y2={`${t.pos}%`}
-                    stroke={textColor}
-                    strokeWidth="0.8"
-                    strokeDasharray="4 6"
-                  />
-                ))}
-              </svg>
+                </div>
+              ) : null}
             </div>
           ) : (
+            // No scene image — gold inscription centered on parchment; depth
+            // from text-shadow only (no panel behind the block).
             <div
               style={{
                 width: "100%",
@@ -173,13 +221,33 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: textColor,
-                opacity: 0.5,
+                padding: p ? "8% 8%" : "6% 10%",
+                textAlign: "center",
                 fontFamily: CHRONICLE_HEADING_FONT,
-                fontSize: 24,
+                color: accentColor,
+                fontSize: descriptionFontSize ?? (p ? 40 : 44),
+                fontWeight: 700,
+                lineHeight: 1.25,
+                letterSpacing: "0.04em",
+                textShadow: `
+                  0 1px 0 rgba(40, 25, 12, 0.22),
+                  0 3px 5px rgba(40, 25, 12, 0.38),
+                  0 7px 14px rgba(40, 25, 12, 0.22),
+                  0 0 18px rgba(184, 134, 11, 0.2)
+                `,
+                opacity: interpolate(frame, [10, 35], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                }),
               }}
             >
-              terra incognita
+              <QuillText
+                text={narration ?? "terra incognita"}
+                startFrame={10}
+                durationFrames={Math.min(110, (narration ?? "terra incognita").length * 1.3)}
+                mode="word"
+                showCursor={false}
+              />
             </div>
           )}
 
@@ -200,35 +268,6 @@ export const MapReveal: React.FC<ChronicleLayoutProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Narration banner */}
-      {narration && (
-        <div
-          style={{
-            marginTop: 24,
-            textAlign: "center",
-            fontFamily: CHRONICLE_SMALLCAPS_FONT,
-            fontSize: descriptionFontSize ?? (p ? 24 : 22),
-            color: textColor,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-            opacity: interpolate(frame, [40, 60], [0, 0.88], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
-            maxWidth: p ? "100%" : "75%",
-            alignSelf: "center",
-          }}
-        >
-          <QuillText
-            text={narration}
-            startFrame={40}
-            durationFrames={Math.min(90, narration.length * 1.1)}
-            mode="word"
-            showCursor={false}
-          />
-        </div>
-      )}
 
       <OrnamentalCorner
         position="bottom-left"
