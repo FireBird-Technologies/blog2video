@@ -33,8 +33,8 @@ import { stripChapterPrefix } from "./ChapterPlate";
  *                 several pages flutter through.
  * Act 4 (64+)     The camera pushes into the opened page and the frame
  *                 becomes the title page — ornamental border draws in,
- *                 the title quill-writes, and a wax-sealed signature
- *                 settles at the bottom.
+ *                 title and subtitle fade in as whole blocks (diary ink),
+ *                 LOTR-style burn glow on the title, wax seal settles below.
  */
 export const BookOpen: React.FC<ChronicleLayoutProps> = ({
   title = "A Story Begins",
@@ -52,17 +52,20 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
   const p = aspectRatio === "portrait" || height > width;
 
   // ── Act timing ──────────────────────────────────────────
-  const SEAL_CRACK_START = 20;
-  const SEAL_CRACK_END = 34;
-  const COVER_OPEN_START = 38;
-  const TITLE_REVEAL_START = 64;
-  const TITLE_PUSH_IN_END = 86;
+  // Slowed ~1.55× from the original (20/34/38/64/86) so the opening
+  // breathes — the closed book sits longer before the seal cracks, the
+  // cover opens with weight, and the title page settles in slowly.
+  const SEAL_CRACK_START = 32;
+  const SEAL_CRACK_END = 54;
+  const COVER_OPEN_START = 60;
+  const TITLE_REVEAL_START = 100;
+  const TITLE_PUSH_IN_END = 134;
 
-  // Act 1: settle in
+  // Act 1: settle in (slowed — softer, weightier landing)
   const bookSettle = spring({
     frame: frame - 2,
     fps,
-    config: { damping: 20, stiffness: 120, mass: 1 },
+    config: { damping: 26, stiffness: 75, mass: 1.4 },
   });
 
   // Act 2: seal crack + clasp release
@@ -86,11 +89,12 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
-  // Act 3: cover opens
+  // Act 3: cover opens — slower swing, heavier mass, softer stiffness so
+  // the cover unhinges with weight, like a real heavy tome.
   const coverSpring = spring({
     frame: frame - COVER_OPEN_START,
     fps,
-    config: { damping: 14, stiffness: 70, mass: 1.1 },
+    config: { damping: 18, stiffness: 38, mass: 1.8 },
   });
   const coverRotate = interpolate(coverSpring, [0, 1], [0, -168]);
 
@@ -690,29 +694,61 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
           />
         </div>
 
-        {/* Title */}
-        <div
-          style={{
-            fontFamily: heading,
-            fontWeight: 900,
-            fontSize: titleFontSize ?? (p ? 88 : 104),
-            color: textColor,
-            lineHeight: 1.08,
-            letterSpacing: "0.02em",
-            textAlign: "center",
-            maxWidth: "90%",
-            textShadow:
-              "1px 1px 0 rgba(184,134,11,0.25), 0 0 18px rgba(184,134,11,0.12)",
-          }}
-        >
-          <QuillText
-            text={cleanTitle}
-            startFrame={TITLE_REVEAL_START + 12}
-            durationFrames={Math.min(50, cleanTitle.length * 1.5)}
-            mode="char"
-            showCursor
-          />
-        </div>
+        {/* Title — golden bloom (map-scene accent family); fades in slowly;
+            glow eases down — no flicker. */}
+        {(() => {
+          const TITLE_BURN_START = TITLE_REVEAL_START + 12;
+          const burnIn = interpolate(
+            frame,
+            [TITLE_BURN_START, TITLE_BURN_START + 30],
+            [0, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+          );
+          const burnPeak = interpolate(
+            frame,
+            [TITLE_BURN_START + 30, TITLE_BURN_START + 60],
+            [1, 0.55],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+          );
+          const burnLevel = burnIn * burnPeak;
+          const heat = burnLevel;
+          const A = hexToRgb(accentColor);
+          const innerGlow = `rgba(${Math.min(255, A.r + 95)}, ${Math.min(255, A.g + 75)}, ${Math.min(255, A.b + 55)}, ${0.88 * heat})`;
+          const midGold = `rgba(${Math.min(255, A.r + 48)}, ${Math.min(255, A.g + 38)}, ${Math.min(255, A.b + 22)}, ${0.72 * heat})`;
+          const outerGold = `rgba(${A.r}, ${A.g}, ${A.b}, ${0.58 * heat})`;
+          const distantGold = `rgba(${Math.round(A.r * 0.42)}, ${Math.round(A.g * 0.38)}, ${Math.round(A.b * 0.28)}, ${0.32 * heat})`;
+          const edgeGold = `rgba(${A.r}, ${A.g}, ${A.b}, 0.28)`;
+          const titleColor = burnLevel > 0.38 ? accentColor : textColor;
+          return (
+            <div
+              style={{
+                fontFamily: heading,
+                fontWeight: 900,
+                fontSize: titleFontSize ?? (p ? 88 : 104),
+                color: titleColor,
+                lineHeight: 1.08,
+                letterSpacing: "0.02em",
+                textAlign: "center",
+                maxWidth: "90%",
+                textShadow: `
+                  0 0 6px ${innerGlow},
+                  0 0 14px ${midGold},
+                  0 0 28px ${outerGold},
+                  0 0 52px ${distantGold},
+                  1px 1px 0 ${edgeGold}
+                `,
+              }}
+            >
+              <QuillText
+                text={cleanTitle}
+                startFrame={TITLE_BURN_START}
+                durationFrames={100}
+                mode="fade"
+                showCursor={false}
+              />
+            </div>
+          );
+        })()}
 
         {/* Ink divider */}
         <div
@@ -746,8 +782,8 @@ export const BookOpen: React.FC<ChronicleLayoutProps> = ({
             <QuillText
               text={narration}
               startFrame={TITLE_REVEAL_START + 55}
-              durationFrames={Math.min(90, narration.length * 1.2)}
-              mode="char"
+              durationFrames={115}
+              mode="fade"
               showCursor={false}
             />
           </div>
@@ -785,6 +821,14 @@ function coverTitleSize(title: string, bookW: number): number {
   if (len <= 28) return bookW * 0.055;
   if (len <= 42) return bookW * 0.045;
   return bookW * 0.038;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const num = parseInt(full, 16);
+  if (Number.isNaN(num)) return { r: 184, g: 134, b: 11 };
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
 
 function darkenHex(hex: string, amt: number): string {

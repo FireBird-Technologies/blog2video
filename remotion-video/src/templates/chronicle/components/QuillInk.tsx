@@ -1,5 +1,5 @@
 import React from "react";
-import { interpolate, useCurrentFrame } from "remotion";
+import { Easing, interpolate, useCurrentFrame } from "remotion";
 
 /**
  * Utility components for Chronicle text reveals.
@@ -13,8 +13,8 @@ interface QuillTextProps {
   durationFrames?: number;
   /** Whether to show a blinking quill cursor while writing. */
   showCursor?: boolean;
-  /** Word-by-word (spring-fade) vs char-by-char (typewriter). */
-  mode?: "word" | "char";
+  /** Word-by-word, char typewriter, or whole-block fade (diary-style ink). */
+  mode?: "word" | "char" | "fade";
   style?: React.CSSProperties;
   /** Optional className (preserved for host styling). */
   className?: string;
@@ -61,6 +61,41 @@ export const QuillText: React.FC<QuillTextProps> = ({
             </span>
           );
         })}
+      </span>
+    );
+  }
+
+  if (mode === "fade") {
+    // Slow, even materialize — ease-in-out keeps the middle gentle (no snap).
+    const smooth = Easing.inOut(Easing.cubic);
+    const op = interpolate(local, [0, durationFrames], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: smooth,
+    });
+    const dy = interpolate(local, [0, durationFrames], [3, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: smooth,
+    });
+    const blurPx = interpolate(local, [0, durationFrames * 0.72], [1.4, 0], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: smooth,
+    });
+    return (
+      <span
+        style={{
+          display: "block",
+          textAlign: "inherit",
+          opacity: op,
+          transform: `translateY(${dy}px)`,
+          filter: blurPx > 0.04 ? `blur(${blurPx}px)` : undefined,
+          ...style,
+        }}
+        className={className}
+      >
+        {text}
       </span>
     );
   }

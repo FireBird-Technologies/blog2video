@@ -203,17 +203,28 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
         }}
       />
 
-      {/* Open-book page edge shadows (persistent spine hint) */}
+      {/* Open-book spread — three-layer shading at zIndex 1, BEHIND content
+          at zIndex 10 so it can never interfere with layouts.
+            1. Left page  — soft inner-shadow extending right from the spine
+            2. Right page — mirror, extending left from the spine
+            3. The fold itself — very thin deeper shadow at exact center
+          Together these give the eye two distinct page surfaces with a
+          gentle crease, without ever drawing a hard vertical seam. */}
       <div
         style={{
           position: "absolute",
           top: 0,
           bottom: 0,
           left: 0,
-          width: isPortrait ? "5%" : "3.5%",
-          background: `linear-gradient(to right, rgba(40,25,12,0.45) 0%, rgba(40,25,12,0.18) 40%, transparent 100%)`,
+          width: "50%",
+          background: `linear-gradient(to right,
+            transparent 0%,
+            transparent 75%,
+            rgba(40,25,12,0.10) 90%,
+            rgba(40,25,12,0.18) 100%)`,
           pointerEvents: "none",
-          zIndex: 50,
+          zIndex: 1,
+          mixBlendMode: "multiply",
         }}
       />
       <div
@@ -222,10 +233,32 @@ export const ChronicleChrome: React.FC<ChronicleChromeProps> = ({
           top: 0,
           bottom: 0,
           right: 0,
-          width: isPortrait ? "5%" : "3.5%",
-          background: `linear-gradient(to left, rgba(40,25,12,0.45) 0%, rgba(40,25,12,0.18) 40%, transparent 100%)`,
+          width: "50%",
+          background: `linear-gradient(to left,
+            transparent 0%,
+            transparent 75%,
+            rgba(40,25,12,0.10) 90%,
+            rgba(40,25,12,0.18) 100%)`,
           pointerEvents: "none",
-          zIndex: 50,
+          zIndex: 1,
+          mixBlendMode: "multiply",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "1.5%",
+          background: `linear-gradient(to right,
+            transparent 0%,
+            rgba(20,10,4,0.22) 50%,
+            transparent 100%)`,
+          pointerEvents: "none",
+          zIndex: 1,
+          mixBlendMode: "multiply",
         }}
       />
 
