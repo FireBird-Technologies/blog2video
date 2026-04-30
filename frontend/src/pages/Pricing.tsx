@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -10,11 +10,13 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 import { pricingSchema } from "../seo/schema";
+import PerVideoSliderCard from "../components/PerVideoSliderCard";
 // import DiscountCodeBadge from "../components/DiscountCodeBadge";
 
 export default function Pricing() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
@@ -24,10 +26,17 @@ export default function Pricing() {
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
 
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("b2v_ref_code", ref);
+  }, [searchParams]);
+
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    const refCode = localStorage.getItem("b2v_ref_code");
     try {
-      const res = await googleLogin(response.credential);
+      const res = await googleLogin(response.credential, false, refCode);
+      localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
@@ -85,11 +94,11 @@ export default function Pricing() {
     }
   };
 
-  const handlePerVideo = async () => {
+  const handlePerVideo = async (quantity: number = 1) => {
     if (!user) return;
     setPerVideoLoading(true);
     try {
-      const res = await createPerVideoCheckout();
+      const res = await createPerVideoCheckout({ quantity });
       if (res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
       }
@@ -102,7 +111,6 @@ export default function Pricing() {
 
   const isPro = user?.plan === "pro";
   const isStandard = user?.plan === "standard";
-  const isPaid = isPro || isStandard;
 
   const monthlyPrice = 50;
   const annualMonthlyPrice = 40;
@@ -238,57 +246,47 @@ export default function Pricing() {
           </div>
 
           {/* Pay Per Video */}
-          <div className="glass-card p-7 flex flex-col">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Per Video
-              </h3>
-              <p className="text-sm text-gray-400">Pay as you go</p>
-            </div>
-            <div className="mb-6">
-              <span className="text-3xl sm:text-4xl font-bold text-gray-900">$3</span>
-              <span className="text-sm text-gray-400 ml-1">/video</span>
-            </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {[
+          {user ? (
+            <PerVideoSliderCard
+              variant="full"
+              loading={perVideoLoading}
+              disabled={false}
+              onBuy={(quantity) => handlePerVideo(quantity)}
+              features={[
                 "No subscription required",
                 "AI script generation",
                 "ElevenLabs voiceover",
-                "Remotion video preview",
                 "Render & download MP4",
                 "Unlimited AI edit & image generation",
                 "Custom video templates",
                 "Premium voiceover + cloning",
-                "Buy as many as you need",
-              ].map((f) => (
-                <li
-                  key={f}
-                  className="flex items-start gap-2.5 text-sm text-gray-600"
-                >
-                  <CheckIcon />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            {user ? (
-              <button
-                onClick={handlePerVideo}
-                disabled={perVideoLoading || isPaid}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
-              >
-                {perVideoLoading ? "Redirecting…" : "Buy a video"}
-              </button>
-            ) : (
-              <div className="flex justify-center">
-                <GoogleAuthButton
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => showError("Google sign-in failed")}
-                  text="continue_with"
-                  width="190"
-                />
-              </div>
-            )}
-          </div>
+              ]}
+            />
+          ) : (
+            <PerVideoSliderCard
+              variant="full"
+              onBuy={() => {}}
+              features={[
+                "No subscription required",
+                "AI script generation",
+                "ElevenLabs voiceover",
+                "Render & download MP4",
+                "Unlimited AI edit & image generation",
+                "Custom video templates",
+                "Premium voiceover + cloning",
+              ]}
+              customButton={
+                <div className="flex justify-center">
+                  <GoogleAuthButton
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => showError("Google sign-in failed")}
+                    text="continue_with"
+                    width="190"
+                  />
+                </div>
+              }
+            />
+          )}
 
           {/* Standard */}
           <div className="glass-card p-7 flex flex-col">

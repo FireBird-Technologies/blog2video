@@ -91,7 +91,7 @@ function CustomTemplateRequestModal({
                   Get Expert Help Creating Your Template
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Share your ideas and preferences, and our experts will understand your brand and craft a custom template tailored just for you.
+                  Share your ideas, goals, and brand preferences, and our experts will analyze your needs, design tailored concepts, and refine them with your feedback.
                 </p>
               </div>
 
@@ -118,6 +118,29 @@ function CustomTemplateRequestModal({
             {/* Form */}
             <form onSubmit={onSubmit} className="space-y-5">
 
+              {/* Company Info */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company / Brand Information{" "}
+                  <span className="text-gray-400 font-normal">
+                    (optional)
+                  </span>
+                </label>
+
+                <textarea
+                  rows={3}
+                  maxLength={20000}
+                  value={companyInformation}
+                  onChange={(e) =>
+                    onCompanyInformationChange(e.target.value)
+                  }
+                  placeholder="Provide context about your company (name, website, industry etc.)"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
+                />
+
+              </div>
+
+               
               {/* Contact */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -140,31 +163,6 @@ function CustomTemplateRequestModal({
               </div>
 
 
-              {/* Company Info */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company / Brand Information{" "}
-                  <span className="text-gray-400 font-normal">
-                    (optional)
-                  </span>
-                </label>
-
-                <textarea
-                  rows={3}
-                  maxLength={2000}
-                  value={companyInformation}
-                  onChange={(e) =>
-                    onCompanyInformationChange(e.target.value)
-                  }
-                  placeholder="Provide context about your company"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
-                />
-
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {companyInformation.length}/2000
-                </p>
-              </div>
-
               {/* Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -180,7 +178,7 @@ function CustomTemplateRequestModal({
                   onChange={(e) =>
                     onDescriptionChange(e.target.value)
                   }
-                  placeholder="Describe your ideal template..."
+                  placeholder="Describe your ideal template or give links to references."
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-purple-300"
                 />
 
@@ -188,6 +186,7 @@ function CustomTemplateRequestModal({
                   {description.length}/3000
                 </p>
               </div>
+
 
               {/* Error */}
               {error && (
@@ -458,7 +457,7 @@ export default function CustomTemplates() {
             onClick={openRequestForm}
             className="mt-3 text-sm text-purple-500 hover:text-purple-700 transition-colors underline underline-offset-2"
           >
-           Get The Experts Help →
+            Or Get Expert Template  →
           </button>
         </div>
 

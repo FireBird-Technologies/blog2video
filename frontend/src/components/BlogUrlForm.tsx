@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -365,6 +365,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
+  const bulkStyleManuallySet = useRef<boolean[]>([false]);
   // Empty string = "not yet set from template"; we derive from template.preview_colors on step 2.
   const [bulkAccentColors, setBulkAccentColors] = useState<string[]>([""]);
   const [bulkBgColors, setBulkBgColors] = useState<string[]>([""]);
@@ -402,6 +403,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Step 2 — video style & template
   const [videoStyle, setVideoStyle] = useState<VideoStyleId>(DEFAULT_VIDEO_STYLE);
+  const styleManuallySet = useRef(false);
   const [template, setTemplate] = useState("default");
   const [templates, setTemplates] = useState<TemplateMeta[]>([]);
   /** Built-in template list fetch (getTemplates) — drives step 2 loading overlay. */
@@ -669,6 +671,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     const builtin = templates;
     const customList = customTemplatesRef.current;
     setVideoStyle(styleForPick);
+    styleManuallySet.current = true;
     if (picked.preview_colors) {
       setAccentColor(picked.preview_colors.accent);
       setBgColor(picked.preview_colors.bg);
@@ -683,6 +686,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return videoStyleForBulkTemplateId(tpl, builtin, customList);
       });
     });
+    bulkStyleManuallySet.current = bulkStyleManuallySet.current.map(() => true);
     setTemplate((prev) =>
       prev === "default" ? picked.id : prev
     );
@@ -789,10 +793,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     return ext ? ALLOWED_EXTENSIONS.includes(`.${ext}`) : false;
   };
 
-  const addDocFiles = (newFiles: FileList | null) => {
-    if (!newFiles) return;
+  /** Add one or more files using functional state so paste / drop handlers never see stale `docFiles`. */
+  const addDocFileArray = useCallback((incoming: File[]) => {
+    if (incoming.length === 0) return;
     setDocError(null);
-    const incoming = Array.from(newFiles);
     for (const f of incoming) {
       if (!isAllowedFile(f)) {
         setDocError(`"${f.name}" is not supported. Use PDF, DOCX, PPTX, Markdown, or TXT.`);
@@ -803,13 +807,56 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         return;
       }
     }
-    const combined = [...docFiles, ...incoming];
-    if (combined.length > MAX_UPLOAD_FILES) {
-      setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`);
-      return;
-    }
-    setDocFiles(combined);
-  };
+    setDocFiles((prev) => {
+      if (prev.length + incoming.length > MAX_UPLOAD_FILES) {
+        setTimeout(() => setDocError(`Maximum ${MAX_UPLOAD_FILES} files allowed.`), 0);
+        return prev;
+      }
+      return [...prev, ...incoming];
+    });
+  }, []);
+
+  const addDocFiles = useCallback((newFiles: FileList | null) => {
+    if (!newFiles || newFiles.length === 0) return;
+    addDocFileArray(Array.from(newFiles));
+  }, [addDocFileArray]);
+
+  /** Plain text from clipboard → single .txt document (same limits as uploads). */
+  const addPastedTextAsTxtFile = useCallback((text: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const file = new File([blob], "pasted-content.txt", { type: "text/plain" });
+    addDocFileArray([file]);
+  }, [addDocFileArray]);
+
+  // Step 1 + Upload: Ctrl+V pastes plain text as a .txt doc, or pasted files as uploads.
+  // Skips when focus is in an input/textarea so project name & other fields work normally.
+  useEffect(() => {
+    if (step !== 1 || mode !== "upload") return;
+
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+
+      const cd = e.clipboardData;
+      if (!cd) return;
+
+      if (cd.files && cd.files.length > 0) {
+        e.preventDefault();
+        addDocFiles(cd.files);
+        return;
+      }
+
+      const text = cd.getData("text/plain");
+      const trimmed = text?.trim() ?? "";
+      if (!trimmed) return;
+
+      e.preventDefault();
+      addPastedTextAsTxtFile(trimmed);
+    };
+
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [step, mode, addDocFiles, addPastedTextAsTxtFile]);
 
   const removeDocFile = (index: number) => {
     setDocFiles((prev) => prev.filter((_, i) => i !== index));
@@ -911,10 +958,12 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
     setBulkLogoFile((prev) => [...prev, null]);
     setBulkLogoPosition((prev) => [...prev, "bottom_right"]);
     setBulkLogoOpacity((prev) => [...prev, 0.9]);
+    bulkStyleManuallySet.current = [...bulkStyleManuallySet.current, false];
   };
 
   const removeBulkRow = (index: number) => {
     if (bulkRows.length <= 1) return;
+    bulkStyleManuallySet.current = bulkStyleManuallySet.current.filter((_, i) => i !== index);
     setBulkRows((prev) => prev.filter((_, i) => i !== index));
     setBulkNames((prev) => prev.filter((_, i) => i !== index));
     setBulkTemplates((prev) => prev.filter((_, i) => i !== index));
@@ -1171,7 +1220,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       return;
     }
     const meta = templates.find((t) => t.id === id);
-    if (meta) {
+    if (meta && !styleManuallySet.current) {
       setVideoStyle(defaultVideoStyleForTemplate(meta));
     }
     if (meta?.preview_colors) {
@@ -1408,7 +1457,22 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             </div>
           )}
           <p className="mt-0.5 text-[11px] text-gray-400 leading-relaxed">
-            Use a paywall-free link for best results.
+            Use a paywall-free link for best results.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                const demoUrls = [
+                  "https://blog2video.app/"
+                  
+                ];
+                const picked = demoUrls[Math.floor(Math.random() * demoUrls.length)];
+                setUrls((prev) => prev.map((u, idx) => (idx === 0 ? picked : u)));
+                setUrlError(null);
+              }}
+              className="text-purple-500 hover:text-purple-700 underline underline-offset-2 transition-colors"
+            >
+              Try a demo link
+            </button>
           </p>
         </div>
       )}
@@ -1421,8 +1485,32 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <span className="text-gray-300 font-normal">(max 5 files, 5 MB each)</span>
           </label>
           <div
-            className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label="Upload documents or paste text"
+            className="relative border-2 border-dashed border-gray-200/80 rounded-xl p-6 text-center hover:border-purple-400/60 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/40"
             onClick={() => docInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                docInputRef.current?.click();
+              }
+            }}
+            onPaste={(e) => {
+              e.stopPropagation();
+              const cd = e.clipboardData;
+              if (cd.files && cd.files.length > 0) {
+                e.preventDefault();
+                addDocFiles(cd.files);
+                return;
+              }
+              const text = cd.getData("text/plain");
+              const trimmed = text?.trim() ?? "";
+              if (trimmed) {
+                e.preventDefault();
+                addPastedTextAsTxtFile(trimmed);
+              }
+            }}
             onDragOver={(e) => {
               e.preventDefault();
               e.currentTarget.classList.add("border-purple-400/60", "bg-purple-50/30");
@@ -1441,9 +1529,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-sm text-gray-500">
-              Drop files here or <span className="text-purple-600 font-medium">browse</span>
+              Drop files here or <span className="text-purple-600 font-medium">paste text (Ctrl+V)</span>
             </p>
-            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text</p>
+            <p className="text-[10px] text-gray-300 mt-1">PDF, Word, PowerPoint, Markdown, Text — or paste plain text as a .txt file</p>
             <input
               ref={docInputRef}
               type="file"
@@ -1736,6 +1824,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   key={s.id}
                   type="button"
                   onClick={() => {
+                    styleManuallySet.current = true;
                     setVideoStyle(s.id);
                   }}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
@@ -2074,6 +2163,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         ? customTemplates.find((t) => t.id === parseInt(id.replace("custom_", "")))?.preview_colors
         : templates.find((t) => t.id === id)?.preview_colors;
       const targetIndices = indexed.map(({ i }) => i);
+      const isCustom = id.startsWith("custom_");
+      const canUpdateStyle = (rowIdx: number) =>
+        styleUpdate !== null && (isCustom || !bulkStyleManuallySet.current[rowIdx]);
 
       if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
         setBulkApplyTemplateAll(false);
@@ -2082,10 +2174,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
           next[activeIndex] = id;
           return next;
         });
-        if (styleUpdate !== null) {
+        if (canUpdateStyle(activeIndex)) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            next[activeIndex] = styleUpdate;
+            next[activeIndex] = styleUpdate!;
             return next;
           });
         }
@@ -2106,7 +2198,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         if (styleUpdate !== null) {
           setBulkVideoStyles((prev) => {
             const next = [...prev];
-            targetIndices.forEach((idx) => { next[idx] = styleUpdate; });
+            targetIndices.forEach((idx) => { if (canUpdateStyle(idx)) next[idx] = styleUpdate!; });
             return next;
           });
         }
@@ -2135,10 +2227,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         next[activeIndex] = id;
         return next;
       });
-      if (styleUpdate !== null) {
+      if (canUpdateStyle(activeIndex)) {
         setBulkVideoStyles((prev) => {
           const next = [...prev];
-          next[activeIndex] = styleUpdate;
+          next[activeIndex] = styleUpdate!;
           return next;
         });
       }
@@ -2333,6 +2425,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     const targetIndices = indexed.map(({ i }) => i);
                     if (bulkApplyTemplateAll && activeIndex !== masterIndex) {
                       setBulkApplyTemplateAll(false);
+                      bulkStyleManuallySet.current[activeIndex] = true;
                       setBulkVideoStyles((prev) => {
                         const next = [...prev];
                         next[activeIndex] = s.id;
@@ -2341,6 +2434,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       return;
                     }
                     if (bulkApplyTemplateAll && activeIndex === masterIndex) {
+                      targetIndices.forEach((idx) => { bulkStyleManuallySet.current[idx] = true; });
                       setBulkVideoStyles((prev) => {
                         const next = [...prev];
                         targetIndices.forEach((idx) => { next[idx] = s.id; });
@@ -2348,6 +2442,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                       });
                       return;
                     }
+                    bulkStyleManuallySet.current[activeIndex] = true;
                     setBulkVideoStyles((prev) => {
                       const next = [...prev];
                       next[activeIndex] = s.id;

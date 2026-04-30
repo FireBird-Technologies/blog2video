@@ -226,6 +226,7 @@ class ProjectOut(BaseModel):
     content_language: Optional[str] = None  # ISO 639-1, e.g. 'en', 'es'. Null = auto-detect from content.
     ai_assisted_editing_count: int = 0
     custom_theme: Optional[dict] = None
+    custom_image_box_aspect_ratios: Optional[dict] = None
     custom_template_missing: bool = False
     brand_logo_url: Optional[str] = None
     review_state: Optional[ReviewStateOut] = None
