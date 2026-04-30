@@ -162,6 +162,8 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   aspectRatio = "landscape",
   chartType: chartTypeProp,
   chartTable,
+  xAxisLabel: xAxisLabelProp,
+  yAxisLabel: yAxisLabelProp,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames, width, height } = useVideoConfig();
@@ -186,7 +188,14 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const botH = p ? 44 : 36;
   const pad = p ? 36 : 44;
 
-  const inputs = useMemo(() => parseChartTable(chartTable), [chartTable]);
+  const inputs = useMemo(() => {
+    const parsed = parseChartTable(chartTable);
+    return {
+      ...parsed,
+      xAxisLabel: xAxisLabelProp ?? parsed.xAxisLabel,
+      yAxisLabel: yAxisLabelProp ?? parsed.yAxisLabel,
+    };
+  }, [chartTable, xAxisLabelProp, yAxisLabelProp]);
   const chartType = useMemo(() => resolvedChartType(chartTypeProp, inputs), [chartTypeProp, inputs]);
 
   const hasMultiSeries = inputs.series.length >= 2;
@@ -263,13 +272,6 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
-      <div style={{
-        position: "absolute", inset: 0,
-        backgroundImage:
-          "repeating-linear-gradient(to bottom, rgba(255,179,64,0.02) 0px, rgba(255,179,64,0.02) 1px, transparent 1px, transparent 3px)",
-        pointerEvents: "none",
-      }} />
-
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
@@ -610,7 +612,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         border: `1px solid ${amber}66`,
         borderRadius: 4,
         padding: "2px 8px",
-        textShadow: `0 0 10px ${amber}88`,
       }}>{yAxisLabel}</span>
     </div>
   ) : null;
@@ -631,7 +632,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         border: `1px solid ${amber}66`,
         borderRadius: 4,
         padding: "2px 10px",
-        textShadow: `0 0 10px ${amber}88`,
       }}>
         {xAxisLabel}
       </span>
