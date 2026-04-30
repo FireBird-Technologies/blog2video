@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundGraph } from "./BackgroundGraph";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -25,6 +25,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   // Font sizing
   const tSize = titleFontSize ?? (p ? 90 : 97);
@@ -65,7 +66,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
       <BackgroundGraph accentColor={blue} textColor={amber} variant="options" />
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
 
@@ -100,7 +101,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
         {/* Header Row */}
         <div style={{
           display: "flex",
-          backgroundColor: BLOOMBERG_COLORS.headerBg,
+          backgroundColor: headerBg,
           border: `1px solid ${amber}`,
           borderBottom: `2px solid ${amber}`,
           opacity: headerOpacity,
@@ -112,7 +113,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
               color: blue,
               fontSize: dSize * 0.7,
               textAlign: "center",
-              borderRight: idx < headerCells.length - 1 ? `1px solid ${BLOOMBERG_COLORS.border}` : 'none'
+              borderRight: idx < headerCells.length - 1 ? `1px solid ${border}` : 'none'
             }}>
               {cell}
             </div>
@@ -131,7 +132,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
                 flex: 1,
                 display: "flex",
                 backgroundColor: rowBg,
-                border: `1px solid ${BLOOMBERG_COLORS.border}`,
+                border: `1px solid ${border}`,
                 borderTop: "none",
                 color: isPut ? BLOOMBERG_COLORS.neg : amber,
                 opacity: rowOpacity,
@@ -143,7 +144,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: dSize * 0.75,
-                    borderRight: idx < cells.length - 1 ? `1px solid ${BLOOMBERG_COLORS.border}` : 'none'
+                    borderRight: idx < cells.length - 1 ? `1px solid ${border}` : 'none'
                   }}>
                     {cell}
                   </div>
@@ -159,7 +160,7 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
         position: "absolute", 
         bottom: botH + (p ? 30 : 40), 
         left: pad, right: pad,
-        color: BLOOMBERG_COLORS.muted, 
+        color: muted, 
         fontSize: dSize * 0.9, // Increased size significantly
         textAlign: "center",
         lineHeight: 1.3,
@@ -171,11 +172,11 @@ export const TerminalOptions: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           OPTIONS MONITOR
         </span>
       </div>

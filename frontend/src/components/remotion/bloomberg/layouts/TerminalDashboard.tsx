@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
 export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
@@ -21,6 +21,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const pos = "#7BE495";
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 54 : 38);
@@ -50,7 +51,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage:
-          "repeating-linear-gradient(to bottom, rgba(255,179,64,0.025) 0px, rgba(255,179,64,0.025) 1px, transparent 1px, transparent 3px)",
+          `repeating-linear-gradient(to bottom, ${amber}07 0px, ${amber}07 1px, transparent 1px, transparent 3px)`,
         pointerEvents: "none",
       }} />
 
@@ -59,7 +60,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
 
@@ -72,7 +73,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
           boxShadow: `0 0 ${8 * livePulse}px ${amber}`,
         }} />
         <span style={{ color: amber, fontSize: labelSize, letterSpacing: 2 }}>LIVE</span>
-        {p && <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>{mm}:{ss} EST</span>}
+        {p && <span style={{ color: muted, fontSize: labelSize }}>{mm}:{ss} EST</span>}
       </div>
 
       {p ? (
@@ -85,7 +86,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
             opacity: titleOpacity,
           }}>
             <div style={{ fontSize: tSize * 0.62, lineHeight: 1.1, textAlign: "center" }}>
-              <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+              <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
             </div>
             <div style={{
               height: 2, width: "40%",
@@ -138,9 +139,9 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                 <div key={i} style={{
                   position: "relative",
                   width: "88%",
-                  backgroundColor: isFlashing ? amber : BLOOMBERG_COLORS.panelBg,
-                  border: `1px solid ${isFlashing ? amber : BLOOMBERG_COLORS.border}`,
-                  borderLeft: `3px solid ${isFlashing ? "#000" : amber}`,
+                  backgroundColor: isFlashing ? amber : panelBg,
+                  border: `1px solid ${isFlashing ? amber : border}`,
+                  borderLeft: `3px solid ${isFlashing ? bg : amber}`,
                   padding: "16px 24px",
                   opacity: tileOpacity,
                   filter: `saturate(${saturate})`,
@@ -151,7 +152,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                   <div style={{
                     position: "absolute", top: 12, right: 14,
                     width: 6, height: 6,
-                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? "#000" : BLOOMBERG_COLORS.border),
+                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? bg : border),
                   }} />
 
                   {/* Label column */}
@@ -160,17 +161,17 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                     display: "flex", flexDirection: "column", gap: 6,
                     textAlign: "center", alignItems: "center",
                   }}>
-                    <div style={{ color: isFlashing ? "#000" : BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
+                    <div style={{ color: isFlashing ? bg : muted, fontSize: labelSize, letterSpacing: 3 }}>
                       {tile.label}
                     </div>
-                    <div style={{ color: isFlashing ? "#000" : amber, fontSize: dSize * 1.1, lineHeight: 1 }}>
+                    <div style={{ color: isFlashing ? bg : amber, fontSize: dSize * 1.1, lineHeight: 1 }}>
                       {tile.value}
                     </div>
                   </div>
 
                   {/* Sparkline — colored by sign */}
                   <Sparkline
-                    color={isFlashing ? "#000" : signColor}
+                    color={isFlashing ? bg : signColor}
                     width={160} height={40}
                     seed={i * 3 + 1}
                     trend={trend}
@@ -180,7 +181,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                   <div style={{ flex: 1 }} />
 
                   {/* Change value — colored by sign */}
-                  <span style={{ color: isFlashing ? "#000" : signColor, fontSize: dSize * 0.95, letterSpacing: 1 }}>
+                  <span style={{ color: isFlashing ? bg : signColor, fontSize: dSize * 0.95, letterSpacing: 1 }}>
                     {suffix}
                   </span>
                 </div>
@@ -195,7 +196,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
             position: "absolute", top: topH + 12, left: pad, right: pad,
             fontSize: tSize * 0.5, opacity: titleOpacity, letterSpacing: -0.5,
           }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+            <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
           <div style={{
@@ -234,9 +235,9 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
               return (
                 <div key={i} style={{
                   width: tileW, minHeight: 170,
-                  backgroundColor: isFlashing ? amber : BLOOMBERG_COLORS.panelBg,
-                  border: `1px solid ${isFlashing ? amber : BLOOMBERG_COLORS.border}`,
-                  borderTop: `2px solid ${isFlashing ? "#000" : amber}`,
+                  backgroundColor: isFlashing ? amber : panelBg,
+                  border: `1px solid ${isFlashing ? amber : border}`,
+                  borderTop: `2px solid ${isFlashing ? bg : amber}`,
                   padding: "20px 24px",
                   display: "flex", flexDirection: "column", justifyContent: "space-between",
                   opacity: tileOpacity,
@@ -247,15 +248,15 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
                   <div style={{
                     position: "absolute", top: 10, right: 10,
                     width: 6, height: 6,
-                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? "#000" : BLOOMBERG_COLORS.border),
+                    backgroundColor: frame >= activFrame && !isFlashing ? amber : (isFlashing ? bg : border),
                   }} />
-                  <div style={{ color: isFlashing ? "#000" : BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 3 }}>
+                  <div style={{ color: isFlashing ? bg : muted, fontSize: labelSize, letterSpacing: 3 }}>
                     {tile.label}
                   </div>
-                  <div style={{ color: isFlashing ? "#000" : amber, fontSize: tSize * 0.65, lineHeight: 1 }}>
+                  <div style={{ color: isFlashing ? bg : amber, fontSize: tSize * 0.65, lineHeight: 1 }}>
                     {tile.value}
                   </div>
-                  <div style={{ color: isFlashing ? "#000" : suffixColor, fontSize: dSize * 0.85, letterSpacing: 1 }}>
+                  <div style={{ color: isFlashing ? bg : suffixColor, fontSize: dSize * 0.85, letterSpacing: 1 }}>
                     {tile.suffix}
                   </div>
                 </div>
@@ -276,11 +277,11 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           MARKET OVERVIEW
         </span>
         {p && (
@@ -290,7 +291,7 @@ export const TerminalDashboard: React.FC<BloombergLayoutProps> = ({
               display: "inline-block", width: 8, height: 8, borderRadius: 4,
               backgroundColor: amber, opacity: livePulse,
             }} />
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+            <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
               TICKS {String(frame).padStart(5, "0")}
             </span>
           </>
