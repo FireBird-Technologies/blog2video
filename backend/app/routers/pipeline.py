@@ -690,6 +690,7 @@ async def _generate_script(project: Project, db: Session):
                     _bindings,
                     chart_type_by_index=_chart_type_by_idx,
                     preferred_layout_by_index=_layout_by_idx,
+                    max_rows=20,
                 )
 
     result = await generator.generate(
@@ -741,7 +742,7 @@ async def _generate_script(project: Project, db: Session):
                         break
             if isinstance(bound_idx, int) and 0 <= bound_idx < len(_all_extracted_tables):
                 _bound_table = _all_extracted_tables[bound_idx]
-                _mr = 60 if is_candlestick_table(_bound_table) else 8
+                _mr = 60 if is_candlestick_table(_bound_table) else 20
                 hint = build_table_context_hint([_bound_table], max_tables=1, max_rows=_mr)
                 if hint:
                     vd = (vd.rstrip() + "\n\n" + hint).strip()
@@ -756,7 +757,7 @@ async def _generate_script(project: Project, db: Session):
             _fallback_idx = scene_data.get("data_table_index")
             if isinstance(_fallback_idx, int) and 0 <= _fallback_idx < len(_all_extracted_tables):
                 _fb_table = _all_extracted_tables[_fallback_idx]
-                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=8)
+                _fb_hint = build_table_context_hint([_fb_table], max_tables=1, max_rows=20)
                 if _fb_hint:
                     vd = (vd.rstrip() + "\n\n" + _fb_hint).strip()
                 # Also upgrade the preferred_layout so scene_gen uses the right component.

@@ -1003,7 +1003,6 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     terminal_dataviz: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
-      { key: "chartType", label: "Chart type (auto, bar, line, histogram)", type: "string" },
     ],
     terminal_list: [
       { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },

@@ -27,8 +27,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const muted = BLOOMBERG_COLORS.muted;
 
   const tSize = titleFontSize ?? (p ? 60 : 77);
-  const dSize = descriptionFontSize ?? (p ? 28 : 36);
-  const labelSize = dSize * 0.4;
+  const dSize = descriptionFontSize ?? (p ? 26 : 32);
+  const labelSize = p ? dSize * 0.65 : dSize * 0.5;
 
   const fadeIn = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
   const titleOp = interpolate(frame, [0, 18], [0, 1], { extrapolateRight: "clamp" });
@@ -245,39 +245,44 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   })();
 
   // ── Layout dimensions ──
-  const topH = p ? 56 : 48;
-  const botH = p ? 44 : 36;
+  const topH = p ? 70 : 48;
+  const botH = p ? 52 : 36;
   const pad = p ? 28 : 36;
-  const legendH = p ? 52 : 36;
+  const legendH = p ? 56 : 36;
   // Landscape: text panel on left (42%), chart pushed right
   const chartLeft = p ? pad : "42%";
-  const signalStripH = p ? 100 : 0;
-  const narrationH = p ? 36 : 0;
+  const signalStripH = p ? 200 : 0;
+  const narrationH = p ? 0 : 0;
 
-  // ── SVG viewBox — portrait gives price panel far more vertical room ──
+  // ── SVG viewBox ──
   const VB_W = 1000;
-  const VB_H = p ? 1400 : 600;
-  const priceH = p ? 1020 : 420;
-  const rsiTop = p ? 1055 : 438;
-  const rsiBot = p ? 1175 : 498;
-  const volTop = p ? 1205 : 508;
-  const volBot = p ? 1385 : 597;
-  const divider1Y = p ? 1038 : 432;
-  const divider2Y = p ? 1190 : 504;
-  const priceAxisW = p ? 80 : 56;
+  const VB_H = 600;
+  const priceH = p ? 540 : 420;
+  const rsiTop = 438;
+  const rsiBot = 498;
+  const volTop = 508;
+  const volBot = 597;
+  const divider1Y = 432;
+  const divider2Y = 504;
+  const priceAxisW = 88;
   const chartW = VB_W - priceAxisW;
-  const axisFont = p ? 22 : 14;
-  const subLabelFont = p ? 16 : 9;
-  const fibFont = p ? 15 : 10;
-  const pillFont = p ? 20 : 11;
-  const pillH = p ? 32 : 18;
-  const xLabelY = p ? priceH + 26 : priceH + 8;
-  const xLabelFont = p ? 20 : 13;
-  const xAxisTitleFont = p ? 12 : 8;
-  const yAxisTitleFont = p ? 12 : 8;
-  const xAxisTitleY = p ? priceH + 10 : priceH + 2;
-  const yAxisTitleX = chartW + priceAxisW / 2;
+  const axisFont = 18;
+  const rightAxisFont = 15;
+  const subLabelFont = 15;
+  const fibFont = 14;
+  const pillFont = 16;
+  const pillH = 26;
+  const xLabelY = priceH + 16;
+  const xLabelFont = p ? 16 : 18;
+  const xAxisTitleFont = 13;
+  const yAxisTitleFont = 15;
+  const xAxisTitleY = priceH + 38;
+  const yAxisTitleX = 18;
   const yAxisTitleY = priceH / 2;
+  const xAxisTitleW = 168;
+  const xAxisTitleH = 28;
+  const yAxisTitleW = 170;
+  const yAxisTitleH = 30;
 
   return (
     <AbsoluteFill style={{ backgroundColor: bg, fontFamily: ff, overflow: "hidden" }}>
@@ -291,10 +296,10 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
       }}>
         <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
-        <span style={{ color: amber, fontSize: dSize * 0.7, letterSpacing: 1 }}>
+        <span style={{ color: amber, fontSize: p ? dSize * 0.9 : dSize * 0.7, letterSpacing: 1 }}>
           {last.toFixed(2)}
         </span>
-        <span style={{ color: dayChange >= 0 ? pos : neg, fontSize: labelSize * 1.05, letterSpacing: 1 }}>
+        <span style={{ color: dayChange >= 0 ? pos : neg, fontSize: p ? dSize * 0.75 : labelSize * 1.05, letterSpacing: 1 }}>
           {dayChange >= 0 ? "+" : ""}{dayChange.toFixed(2)} ({dayChangePct >= 0 ? "+" : ""}{dayChangePct.toFixed(2)}%)
         </span>
       </div>
@@ -306,7 +311,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         display: "flex", alignItems: "center",
         opacity: titleOp,
       }}>
-        <span style={{ color: muted, fontSize: labelSize * 0.9, letterSpacing: 1 }}>
+        <span style={{ color: muted, fontSize: p ? dSize * 0.7 : labelSize * 0.9, letterSpacing: 1 }}>
           {tradingDates[0]} — {tradingDates[tradingDates.length - 1]}  ·  {N} TRADING DAYS
         </span>
       </div>
@@ -323,7 +328,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         opacity: fadeIn,
       }}>
 
-        <svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${VB_H}`} preserveAspectRatio="none"
+        <svg width="100%" height="100%" viewBox={`0 0 ${VB_W} ${p ? priceH + 60 : VB_H}`} preserveAspectRatio={p ? "xMidYMin meet" : "none"}
              style={{ display: "block" }}>
 
           {/* Price gridlines */}
@@ -337,8 +342,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
           {/* Candle type legend — two separate chips, top-right */}
           {(() => {
-            const tf = p ? 13 : 7.5; const bw = p ? 10 : 6; const bh = p ? 14 : 9;
-            const chipH = p ? 20 : 13; const gap = p ? 8 : 5;
+            const tf = p ? 20 : 12; const bw = p ? 14 : 8; const bh = p ? 18 : 12;
+            const chipH = p ? 28 : 18; const gap = p ? 10 : 6;
             const labels = [
               { color: pos, text: "Up day" },
               { color: neg,  text: "Down day" },
@@ -357,7 +362,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                     <g key={text}>
                       <rect x={x} y={ly} width={cw} height={chipH} fill={`${bg}CC`} rx="2" />
                       <rect x={x + 4} y={ly + (chipH - bh) / 2} width={bw} height={bh} fill={color} rx="1" />
-                      <text x={x + 4 + bw + 4} y={ly + chipH * 0.72} fill={muted} fontSize={tf}>{text}</text>
+                <text x={x + 4 + bw + 4} y={ly + chipH * 0.72} fill={muted} fontSize={tf} fontWeight={700}>{text}</text>
                     </g>
                   );
                 })}
@@ -367,21 +372,20 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
           {/* Key price levels — period high, 75%, midpoint, 25%, period low */}
           {[
-            { pct: 1,    label: "Period High" },
-            { pct: 0.75, label: "Upper zone" },
-            { pct: 0.5,  label: "Midpoint" },
-            { pct: 0.25, label: "Lower zone" },
-            { pct: 0,    label: "Period Low" },
+            { pct: 1, label: "Period High" },
+            { pct: 0, label: "Period Low" },
           ].map(({ pct, label }, i) => {
             const price = pMin + pRange * pct;
-            const y = ((pMax - price) / pRange) * priceH;
-            const labelW = p ? 80 : 50;
+            const rawY = ((pMax - price) / pRange) * priceH;
+            const y = pct === 0 ? rawY - (p ? 16 : 10) : rawY;
+            const labelW = p ? 106 : 72;
+            const labelX = chartW - labelW - (p ? 10 : 8);
             return (
               <g key={`kl${i}`}>
                 <line x1="0" x2={chartW} y1={y} y2={y}
                       stroke={`${amber}20`} strokeWidth="1" strokeDasharray="4 5" />
-                <rect x="0" y={y - fibFont - 1} width={labelW} height={fibFont + 2} fill={`${bg}AA`} />
-                <text x="3" y={y - 2} fill={muted} fontSize={fibFont} opacity="0.8">
+                <rect x={labelX} y={y - fibFont - 2} width={labelW} height={fibFont + 4} fill={`${bg}D8`} stroke={`${amber}66`} strokeWidth="0.9" />
+                <text x={labelX + 4} y={y - 1} fill={`${amber}F2`} fontSize={fibFont} opacity="1" fontWeight={700}>
                   {label} {price.toFixed(1)}
                 </text>
               </g>
@@ -389,11 +393,11 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           })}
 
           {/* Event vertical markers */}
-          {events.filter((e) => e < visN).map((e, i) => {
+          {events.filter((e) => e < visN).slice(0, 2).map((e, i) => {
             const x = (e / (N - 1)) * chartW;
             return (
               <line key={`ev${i}`} x1={x} x2={x} y1="0" y2={priceH + 12}
-                    stroke={amber} strokeWidth="1.2" opacity="0.5" />
+                    stroke={amber} strokeWidth="1" opacity="0.25" />
             );
           })}
 
@@ -438,7 +442,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
           {/* MA endpoint labels — anchored to left of right axis, spread apart if close */}
           {(() => {
-            const lf = p ? 13 : 7.5; const lh = p ? 15 : 9; const lw = p ? 88 : 54;
+            const lf = p ? 20 : 13; const lh = p ? 24 : 16; const lw = p ? 140 : 90;
             const vIdx = Math.min(visN - 1, N - 1);
             // Place labels at 85% across so they don't crowd the right axis price pill
             const lx = chartW * 0.85;
@@ -465,20 +469,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             );
           })()}
 
-          {/* Opening price dot + label at bar 0 */}
-          {(() => {
-            const oy = ((pMax - closes[0]) / pRange) * priceH;
-            const lf = p ? 13 : 7.5;
-            return (
-              <g>
-                <circle cx="4" cy={oy} r={p ? 5 : 3} fill={muted} opacity="0.7" />
-                <rect x="8" y={oy - (p ? 10 : 6)} width={p ? 70 : 44} height={p ? 14 : 9} fill={`${bg}BB`} rx="2" />
-                <text x="12" y={oy + (p ? 3 : 2)} fill={muted} fontSize={lf}>
-                  OPEN {closes[0].toFixed(1)}
-                </text>
-              </g>
-            );
-          })()}
+          {/* Opening marker removed to avoid left-side label overlap */}
 
           {/* Current price pill (right axis) */}
           {(() => {
@@ -496,32 +487,78 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             );
           })()}
 
-          {/* Y-axis label */}
-          <text
-            x={yAxisTitleX}
-            y={yAxisTitleY}
-            transform={`rotate(-90 ${yAxisTitleX} ${yAxisTitleY})`}
-            fill={muted}
-            fontSize={yAxisTitleFont}
-            fontWeight={700}
-            opacity="0.85"
-            textAnchor="middle"
-          >
-            PRICE ($)
-          </text>
-
-          {/* Right axis price labels */}
-          {[pMax, pMax - pRange * 0.25, pMax - pRange * 0.5, pMax - pRange * 0.75, pMin].map((v, i) => (
-            <text key={`ax${i}`}
-                  x={chartW + 6}
-                  y={i * (priceH / 4) + axisFont + 2}
-                  fill={muted} fontSize={axisFont} fontWeight={700}>
-              {v.toFixed(1)}
+          {/* Y-axis label — parked on left edge for zero overlap with data */}
+          <g transform={`rotate(-90 ${yAxisTitleX} ${yAxisTitleY})`}>
+            <rect
+              x={yAxisTitleX - yAxisTitleW / 2}
+              y={yAxisTitleY - yAxisTitleH / 2}
+              width={yAxisTitleW}
+              height={yAxisTitleH}
+              rx={p ? 4 : 3}
+              fill={p ? `${amber}EB` : `${bg}F0`}
+              stroke={p ? `${amber}FF` : `${amber}CC`}
+              strokeWidth={p ? "1.5" : "1.25"}
+              filter={`drop-shadow(0 0 ${p ? 12 : 8}px ${amber}AA)`}
+            />
+            <text
+              x={yAxisTitleX}
+              y={yAxisTitleY + yAxisTitleFont * 0.33}
+              fill={p ? BLOOMBERG_COLORS.bg : `${amber}FF`}
+              fontSize={yAxisTitleFont}
+              fontWeight={700}
+              letterSpacing={p ? "2.1" : "1.6"}
+              textAnchor="middle"
+              stroke={p ? `${amber}66` : `${bg}FF`}
+              strokeWidth={p ? "0.5" : "0.8"}
+              paintOrder="stroke"
+              style={{ textShadow: p ? "none" : `0 0 ${p ? 14 : 10}px ${amber}AA` }}
+            >
+              PRICE ($)
             </text>
-          ))}
+          </g>
+
+          {/* Right axis price labels (outside plot area strip) */}
+          {[pMax, pMax - pRange * 0.25, pMax - pRange * 0.5, pMax - pRange * 0.75, pMin].map((v, i) => {
+            const y = i * (priceH / 4) + axisFont + 2;
+            const txt = v.toFixed(1);
+            const padX = p ? 6 : 5;
+            const chipW = Math.min(
+              priceAxisW - 6,
+              txt.length * rightAxisFont * 0.58 + padX * 2,
+            );
+            const chipH = p ? rightAxisFont + 8 : rightAxisFont + 6;
+            return (
+              <g key={`ax${i}`}>
+                <rect
+                  x={chartW + 4}
+                  y={y - chipH + 2}
+                  width={chipW}
+                  height={chipH}
+                  rx={p ? 4 : 3}
+                  fill={`${bg}CC`}
+                  stroke={`${amber}88`}
+                  strokeWidth="1.1"
+                  filter={`drop-shadow(0 0 ${p ? 6 : 4}px ${amber}55)`}
+                />
+                <text
+                  x={chartW + 4 + chipW / 2}
+                  y={y}
+                  fill={`${amber}FF`}
+                  fontSize={rightAxisFont}
+                  fontWeight={700}
+                  stroke={`${bg}BB`}
+                  strokeWidth="0.5"
+                  paintOrder="stroke"
+                  textAnchor="middle"
+                >
+                  {txt}
+                </text>
+              </g>
+            );
+          })}
 
           {/* X-axis date labels */}
-          {[0, 0.25, 0.5, 0.75, 1].map((t, i) => {
+          {[0, 0.33, 0.66, 1].map((t, i) => {
             const idx = Math.min(Math.round(t * (N - 1)), tradingDates.length - 1);
             const x = t * chartW;
             const dateLabel = tradingDates[idx] ?? `Day ${idx + 1}`;
@@ -529,39 +566,57 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               <g key={`xt${i}`}>
                 <line x1={x} x2={x} y1={priceH} y2={priceH + (p ? 14 : 8)}
                       stroke={`${amber}44`} strokeWidth="1" />
-                <text x={x} y={xLabelY} fill={amber} fontSize={xLabelFont}
-                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.85" fontWeight={700}>
+                <text x={x} y={xLabelY} fill={`${amber}F2`} fontSize={xLabelFont}
+                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.95" fontWeight={700}
+                      stroke={`${bg}AA`} strokeWidth="0.45" paintOrder="stroke">
                   {dateLabel}
                 </text>
               </g>
             );
           })}
 
-          {/* X-axis label */}
-          <text
-            x={chartW / 2}
-            y={xAxisTitleY}
-            fill={amber}
-            fontSize={xAxisTitleFont}
-            fontWeight={700}
-            opacity="0.75"
-            textAnchor="middle"
-          >
-            TRADING DAYS
-          </text>
+          {/* X-axis label (soft blended chip for readability) */}
+          <g>
+            <rect
+              x={chartW / 2 - xAxisTitleW / 2}
+              y={xAxisTitleY - xAxisTitleH + (p ? 2 : 1)}
+              width={xAxisTitleW}
+              height={xAxisTitleH}
+              rx={p ? 4 : 3}
+              fill={`${bg}C8`}
+              stroke={`${amber}88`}
+              strokeWidth="1.1"
+              filter={`drop-shadow(0 0 ${p ? 8 : 6}px ${amber}66)`}
+            />
+            <text
+              x={chartW / 2}
+              y={xAxisTitleY - (p ? 4 : 3)}
+              fill={`${amber}FF`}
+              fontSize={xAxisTitleFont}
+              fontWeight={700}
+              letterSpacing={p ? "1.8" : "1.4"}
+              textAnchor="middle"
+              stroke={`${bg}CC`}
+              strokeWidth={p ? "0.7" : "0.5"}
+              paintOrder="stroke"
+              style={{ textShadow: `0 0 ${p ? 12 : 8}px ${amber}88` }}
+            >
+              TRADING DAYS
+            </text>
+          </g>
 
-          {/* Divider price → RSI */}
-          <line x1="0" x2={VB_W} y1={divider1Y} y2={divider1Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />
+          {/* Divider price → RSI (landscape only) */}
+          {!p && <line x1="0" x2={VB_W} y1={divider1Y} y2={divider1Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />}
 
-          {/* RSI subpanel */}
-          {(() => {
+          {/* RSI subpanel (landscape only) */}
+          {!p && (() => {
             const lastR = rsi[Math.min(visN - 2, rsi.length - 1)] ?? 50;
             const rsiColor = lastR > 70 ? neg : lastR < 30 ? blue : amber;
             const ob70y = rsiTop + (rsiBot - rsiTop) * 0.2;
             const os30y = rsiTop + (rsiBot - rsiTop) * 0.8;
             const rx = (Math.min(visN - 1, N - 1) / (N - 1)) * chartW;
             const ry = rsiBot - ((lastR - 20) / 60) * (rsiBot - rsiTop);
-            const lf = p ? 12 : 7;
+            const lf = p ? 14 : 9;
             return (
               <g>
                 {/* RSI label sits in the divider gap above the panel — no overlap */}
@@ -574,12 +629,12 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
                 {/* 70 line — label right-aligned, above line */}
                 <line x1="0" x2={chartW} y1={ob70y} y2={ob70y} stroke={`${neg}35`} strokeWidth="1" strokeDasharray="3 4" />
-                <rect x={chartW - (p ? 90 : 56)} y={ob70y - lf - (p ? 4 : 2)} width={p ? 88 : 54} height={lf + (p ? 3 : 2)} fill={`${bg}AA`} />
+                <rect x={chartW - (p ? 140 : 56)} y={ob70y - lf - (p ? 6 : 2)} width={p ? 138 : 54} height={lf + (p ? 6 : 2)} fill={`${bg}AA`} />
                 <text x={chartW - (p ? 4 : 3)} y={ob70y - (p ? 3 : 2)} fill={`${neg}99`} fontSize={lf} textAnchor="end">Overbought (70)</text>
 
                 {/* 30 line — label right-aligned, below line */}
                 <line x1="0" x2={chartW} y1={os30y} y2={os30y} stroke={`${blue}35`} strokeWidth="1" strokeDasharray="3 4" />
-                <rect x={chartW - (p ? 82 : 50)} y={os30y + (p ? 2 : 1)} width={p ? 80 : 48} height={lf + (p ? 3 : 2)} fill={`${bg}AA`} />
+                <rect x={chartW - (p ? 126 : 50)} y={os30y + (p ? 2 : 1)} width={p ? 124 : 48} height={lf + (p ? 6 : 2)} fill={`${bg}AA`} />
                 <text x={chartW - (p ? 4 : 3)} y={os30y + lf + (p ? 2 : 1)} fill={`${blue}99`} fontSize={lf} textAnchor="end">Oversold (30)</text>
 
                 {/* RSI line */}
@@ -593,19 +648,17 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 />
 
                 {/* End dot only — value already shown in header */}
-                <circle cx={rx} cy={ry} r={p ? 5 : 3} fill={rsiColor} />
+                <circle cx={rx} cy={ry} r={3} fill={rsiColor} />
               </g>
             );
           })()}
 
-          {/* Divider RSI → Volume */}
-          <line x1="0" x2={VB_W} y1={divider2Y} y2={divider2Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />
+          {/* Divider RSI → Volume (landscape only) */}
+          {!p && <line x1="0" x2={VB_W} y1={divider2Y} y2={divider2Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />}
 
-          {/* Volume bars — each bar = one trading day */}
-          <text x="6" y={volTop + subLabelFont + 2} fill={muted} fontSize={subLabelFont} letterSpacing="1">
-            VOLUME (per day)
-          </text>
-          {(() => {
+          {/* Volume bars — landscape only */}
+          {!p && <text x="6" y={volTop + subLabelFont + 2} fill={muted} fontSize={subLabelFont} letterSpacing="1">VOLUME (per day)</text>}
+          {!p && (() => {
             const volMaxH = volBot - volTop - (p ? 28 : 12);
             const visCandles = candles.slice(0, visN);
             // CRITICAL: normalize volumes to [0, 1] using the max volume in the
@@ -622,8 +675,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               return `${(v * 1000).toFixed(0)}K`;
             };
             const sorted = [...visCandles].sort((a, b) => b.v - a.v);
-            const top6 = new Set(sorted.slice(0, 6).map((k) => k.v));
-            const lf = p ? 12 : 6.5;
+            const top6 = new Set(sorted.slice(0, 3).map((k) => k.v));
+            const lf = p ? 14 : 8.5;
             const barW = Math.max(3, Math.min(10, (chartW / N) * 0.5));
             return (
               <>
@@ -653,8 +706,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 {/* Average volume reference line */}
                 <line x1="0" x2={chartW} y1={avgY} y2={avgY}
                       stroke={`${amber}66`} strokeWidth="1" strokeDasharray="5 4" />
-                <rect x={chartW - (p ? 70 : 44)} y={avgY - (p ? 13 : 8)} width={p ? 68 : 42} height={p ? 12 : 8} fill={`${bg}BB`} rx="1" />
-                <text x={chartW - (p ? 36 : 22)} y={avgY - (p ? 3 : 1)} fill={`${amber}AA`} fontSize={lf} textAnchor="middle">
+                <rect x={chartW - 44} y={avgY - 8} width={42} height={8} fill={`${bg}BB`} rx="1" />
+                <text x={chartW - 22} y={avgY - 1} fill={`${amber}AA`} fontSize={lf} textAnchor="middle">
                   AVG {fmtVol(avgV)}
                 </text>
               </>
@@ -688,12 +741,12 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             paddingBottom: 10,
             borderBottom: `1px solid ${amber}44`,
           }}>
-            <span style={{ color: amber, fontSize: dSize * 0.6, letterSpacing: 2, fontWeight: 700 }}>
+            <span style={{ color: amber, fontSize: dSize * 0.6, letterSpacing: 2, fontWeight: 600 }}>
               CHART ANALYSIS
             </span>
             <span style={{
               color: "#000", backgroundColor: amber,
-              fontSize: dSize * 0.52, padding: "3px 10px", letterSpacing: 1, fontWeight: 700,
+              fontSize: dSize * 0.52, padding: "3px 10px", letterSpacing: 1, fontWeight: 600,
             }}>
               {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
             </span>
@@ -701,7 +754,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
 
           {/* Verdict */}
           <div style={{
-            color: verdictColor, fontSize: dSize * 0.72, fontWeight: 700,
+            color: verdictColor, fontSize: dSize * 0.72, fontWeight: 600,
             letterSpacing: 2, marginBottom: 16,
           }}>
             {verdict}
@@ -734,86 +787,44 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         </div>
       )}
 
-      {/* Portrait overlay panel (unchanged behaviour) */}
+      {/* Portrait overlay panel — anchored to bottom-left of chart, doesn't cover price action */}
+      {p && false && null}
+
+      {/* ── Portrait: analysis strip below chart ── */}
       {p && (
         <div style={{
           position: "absolute",
-          top: topH + legendH + 24,
-          left: pad + 16,
-          width: "78%",
-          background: `rgba(0,0,0,0.45)`,
-          border: `1px solid ${amber}33`,
-          borderLeft: `3px solid ${verdictColor}`,
-          padding: "20px 22px",
+          bottom: botH + 4,
+          left: pad, right: pad,
+          height: signalStripH,
+          backgroundColor: BLOOMBERG_COLORS.panelBg,
+          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          borderLeft: `4px solid ${verdictColor}`,
+          display: "flex", flexDirection: "column", justifyContent: "center",
+          padding: "14px 18px",
           opacity: panelOp,
-          backdropFilter: "blur(4px)",
-          zIndex: 2,
+          gap: 8,
         }}>
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${amber}33`,
-          }}>
-            <span style={{ color: amber, fontSize: dSize * 0.42, letterSpacing: 2, fontWeight: 700 }}>CHART ANALYSIS</span>
-            <span style={{ color: "#000", backgroundColor: amber, fontSize: dSize * 0.35, padding: "2px 8px", letterSpacing: 1, fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, paddingBottom: 8, borderBottom: `1px solid ${amber}33` }}>
+            <span style={{ color: verdictColor, fontSize: dSize * 0.85, fontWeight: 700, letterSpacing: 2 }}>
+              {verdict}
+            </span>
+            <span style={{ color: "#000", backgroundColor: amber, fontSize: dSize * 0.65, padding: "3px 10px", letterSpacing: 1, fontWeight: 700 }}>
               {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
             </span>
           </div>
-          <div style={{ color: verdictColor, fontSize: dSize * 0.44, fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}>
-            {verdict}
-          </div>
-          {insights.map((txt, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
-              <span style={{ color: amber, fontSize: dSize * 0.4, flexShrink: 0, lineHeight: 1.4 }}>›</span>
-              <span style={{ color: "#e8e0cc", fontSize: dSize * 0.38, lineHeight: 1.45 }}>{txt}</span>
+          {insights.slice(0, 3).map((txt, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ color: amber, fontSize: dSize * 0.75, flexShrink: 0, marginTop: 1 }}>›</span>
+              <span style={{ color: muted, fontSize: dSize * 0.68, lineHeight: 1.45 }}>{txt}</span>
             </div>
           ))}
           {narration ? (
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${amber}33`, color: `${muted}CC`, fontSize: dSize * 0.34, lineHeight: 1.45 }}>
+            <div style={{ marginTop: 6, paddingTop: 8, borderTop: `1px solid ${amber}22`, color: `${muted}BB`, fontSize: dSize * 0.6, lineHeight: 1.4 }}>
               {narration}
             </div>
           ) : null}
         </div>
-      )}
-
-      {/* ── Portrait: narration + signal strip ── */}
-      {p && (
-        <>
-          <div style={{
-            position: "absolute",
-            bottom: botH + signalStripH + 6,
-            left: pad, right: pad,
-            color: muted, fontSize: dSize * 0.6,
-            opacity: interpolate(frame, [20, 35], [0, 1], { extrapolateRight: "clamp" }),
-            lineHeight: 1.4,
-          }}>
-            {narration}
-          </div>
-
-          {/* Analysis strip for portrait */}
-          <div style={{
-            position: "absolute",
-            bottom: botH + 4,
-            left: pad, right: pad,
-            height: signalStripH,
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
-            borderLeft: `3px solid ${verdictColor}`,
-            display: "flex", flexDirection: "column", justifyContent: "center",
-            padding: "6px 10px",
-            opacity: panelOp,
-            gap: 4,
-          }}>
-            <span style={{ color: verdictColor, fontSize: 11, fontWeight: 700, letterSpacing: 1.5, marginBottom: 2 }}>
-              {verdict}
-            </span>
-            {insights.slice(0, 3).map((txt, i) => (
-              <div key={i} style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                <span style={{ color: amber, fontSize: 9, flexShrink: 0, marginTop: 1 }}>›</span>
-                <span style={{ color: muted, fontSize: 9, lineHeight: 1.35 }}>{txt}</span>
-              </div>
-            ))}
-          </div>
-        </>
       )}
 
       {/* Bottom bar */}
@@ -823,11 +834,11 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
       }}>
-        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: p ? dSize * 0.65 : labelSize, letterSpacing: 2 }}>
           CHART ANALYSIS
         </span>
         <div style={{ flex: 1 }} />
-        <span style={{ color: verdictColor, fontSize: labelSize, letterSpacing: 1, fontWeight: 700 }}>
+        <span style={{ color: verdictColor, fontSize: p ? dSize * 0.65 : labelSize, letterSpacing: 1, fontWeight: 600 }}>
           {verdict}
         </span>
       </div>
