@@ -17,7 +17,7 @@ import type { BloombergLayoutProps, BloombergLayoutType } from "./types";
 import { resolveFontFamily } from "../../fonts/registry";
 import { LogoOverlay } from "../../components/LogoOverlay";
 import { getPlaybackSpeed, getSceneDurationFrames } from "../playbackSpeed";
-import { BLOOMBERG_COLORS } from "./constants";
+import { BLOOMBERG_COLORS, derivePalette } from "./constants";
 
 // 70 frames ≈ 2.3 s at 30 fps — slow enough to feel deliberate.
 const HALF = 70;
@@ -192,18 +192,19 @@ const SceneBody: React.FC<{
   );
 };
 
-const BarOverlay: React.FC<{ textColor: string; aspectRatio: string }> = ({ textColor, aspectRatio }) => {
+const BarOverlay: React.FC<{ bgColor: string; textColor: string; aspectRatio: string }> = ({ bgColor, textColor, aspectRatio }) => {
   const { width } = useVideoConfig();
   const isPortrait = aspectRatio === "portrait";
   const topH = isPortrait ? TOP_P : TOP_L;
   const botH = isPortrait ? BOT_P : BOT_L;
   const amber = textColor || BLOOMBERG_COLORS.amber;
+  const { headerBg, border } = derivePalette(bgColor, amber);
   return (
     <>
       <div style={{
         position: "absolute",
         top: 0, left: 0, width, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         zIndex: 999, pointerEvents: "none",
       }} />
       <div style={{
@@ -227,13 +228,13 @@ const BarOverlay: React.FC<{ textColor: string; aspectRatio: string }> = ({ text
       <div style={{
         position: "absolute",
         bottom: 0, left: 0, width, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         zIndex: 999, pointerEvents: "none",
       }} />
       <div style={{
         position: "absolute",
         bottom: botH - 1, left: 0, width, height: 1,
-        backgroundColor: BLOOMBERG_COLORS.border,
+        backgroundColor: border,
         zIndex: 1000, pointerEvents: "none",
       }} />
     </>
@@ -353,7 +354,7 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const resolvedFontFamily = resolveFontFamily(data?.fontFamily ?? null);
 
   if (!data) {
-    return <AbsoluteFill style={{ backgroundColor: "#000000" }} />;
+    return <AbsoluteFill style={{ backgroundColor: BLOOMBERG_COLORS.bg }} />;
   }
 
   const FPS = 30;
@@ -447,7 +448,7 @@ export const BloombergVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       })}
 
       {/* Single permanent bar overlay — outside every Sequence, never moves */}
-      <BarOverlay textColor={data.textColor || "#FFB340"} aspectRatio={ratio} />
+      <BarOverlay bgColor={bg} textColor={data.textColor || "#FFB340"} aspectRatio={ratio} />
 
       {data.logo && (
         <LogoOverlay

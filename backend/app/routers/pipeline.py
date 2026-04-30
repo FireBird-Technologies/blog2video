@@ -501,13 +501,18 @@ async def _generate_script(project: Project, db: Session):
     except Exception:
         layout_catalog = ""
 
+    # For bloomberg: extract tables once upfront — reused for both constraint-building and
+    # table bindings below, avoiding a second parse of the same blog_content string.
+    _bloomberg_pre_tables: list[dict] = []
+    if template_id == "bloomberg":
+        _blog_text = getattr(project, "blog_content", None) or ""
+        _bloomberg_pre_tables = extract_tables_from_content(_blog_text) if _blog_text else []
+
     # For bloomberg: probe scraped content and append data-availability constraints so the
     # script generator only picks data-driven layouts when the underlying data actually exists.
     if template_id == "bloomberg" and layout_catalog:
-        _blog_text = getattr(project, "blog_content", None) or ""
         _ticker_items = extract_ticker_items_from_blog(_blog_text, max_items=2)
-        _raw_tables = extract_tables_from_content(_blog_text) if _blog_text else []
-        _has_ohlcv = any(is_candlestick_table(t) for t in _raw_tables)
+        _has_ohlcv = any(is_candlestick_table(t) for t in _bloomberg_pre_tables)
         _constraints: list[str] = []
         if not _ticker_items:
             _constraints.append(
@@ -622,36 +627,57 @@ async def _generate_script(project: Project, db: Session):
         #   terminal_dataviz → non-OHLCV time-series / line-chartable tables
         #   terminal_ticker  → multi-symbol snapshot tables
         #   terminal_table   → all remaining tables with headers + ≥1 row
-        _all_extracted_tables = extract_tables_from_content(
-            getattr(project, "blog_content", None) or ""
-        )
+        # Reuse the tables already extracted during the constraint-check above.
+        _all_extracted_tables = _bloomberg_pre_tables
         if _all_extracted_tables:
             _tmp_hint = build_table_context_hint(
                 _all_extracted_tables, max_tables=len(_all_extracted_tables)
             )
 
-            # terminal_chart: ONLY true OHLCV/candlestick tables
-            _candlestick_tables: list[tuple[int, dict]] = [
-                (idx, t) for idx, t in enumerate(_all_extracted_tables)
-                if is_candlestick_table(t)
-            ]
+            # The three classification passes are independent — run them concurrently
+            # in the thread pool so CPU-bound numeric parsing doesn't serialize.
+            _loop = asyncio.get_event_loop()
+
+            def _classify_candlestick() -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(_all_extracted_tables)
+                    if is_candlestick_table(t)
+                ]
+
+            def _classify_dataviz(hint: str) -> list[tuple[int, dict]]:
+                return get_line_chartable_tables_from_visual_hint(hint)
+
+            def _classify_ticker(tables: list[dict]) -> list[tuple[int, dict]]:
+                return [
+                    (idx, t) for idx, t in enumerate(tables)
+                    if is_ticker_snapshot_table(t)
+                ]
+
+            (
+                _candlestick_tables,
+                _dataviz_tables_raw,
+                _ticker_tables_all,
+            ) = await asyncio.gather(
+                _loop.run_in_executor(None, _classify_candlestick),
+                _loop.run_in_executor(None, _classify_dataviz, _tmp_hint),
+                _loop.run_in_executor(None, _classify_ticker, _all_extracted_tables),
+            )
+
             _candlestick_indices = {idx for idx, _ in _candlestick_tables}
 
             # terminal_dataviz: non-OHLCV tables that produce a line chart
             _dataviz_tables: list[tuple[int, dict]] = [
-                (idx, t)
-                for idx, t in get_line_chartable_tables_from_visual_hint(_tmp_hint)
+                (idx, t) for idx, t in _dataviz_tables_raw
                 if idx not in _candlestick_indices
             ]
             _dataviz_indices = {idx for idx, _ in _dataviz_tables}
 
             _used_indices = _candlestick_indices | _dataviz_indices
 
-            # terminal_ticker: multi-symbol snapshot tables (symbol + % change columns)
+            # terminal_ticker: filter out already-claimed indices
             _ticker_tables: list[tuple[int, dict]] = [
-                (idx, t)
-                for idx, t in enumerate(_all_extracted_tables)
-                if idx not in _used_indices and is_ticker_snapshot_table(t)
+                (idx, t) for idx, t in _ticker_tables_all
+                if idx not in _used_indices
             ]
             _ticker_indices = {idx for idx, _ in _ticker_tables}
             _used_indices |= _ticker_indices
@@ -672,17 +698,28 @@ async def _generate_script(project: Project, db: Session):
                 and _table_has_multi_col_rows(t)
             ]
 
-            _bindings = _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
+            # Cap total table-bound scenes at 4 (candlestick first, then dataviz, ticker, table).
+            # Prevents token bloat and keeps scene count reasonable for table-heavy blogs.
+            _MAX_BLOOMBERG_TABLE_SCENES = 4
+            _bindings = (
+                _candlestick_tables + _dataviz_tables + _ticker_tables + _table_tables
+            )[:_MAX_BLOOMBERG_TABLE_SCENES]
+
             if _bindings:
+                # Rebuild index sets from the capped list so layout mapping stays correct.
+                _bound_candlestick = {idx for idx, _ in _bindings if idx in _candlestick_indices}
+                _bound_dataviz = {idx for idx, _ in _bindings if idx in _dataviz_indices}
+                _bound_ticker = {idx for idx, _ in _bindings if idx in _ticker_indices}
+
                 _chart_type_by_idx = {
                     orig_idx: (_build_chart_props_from_table(t) or {}).get("chartType", "auto")
                     for orig_idx, t in _bindings
                 }
                 _layout_by_idx = {
                     orig_idx: (
-                        "terminal_chart" if orig_idx in _candlestick_indices
-                        else "terminal_dataviz" if orig_idx in _dataviz_indices
-                        else "terminal_ticker" if orig_idx in _ticker_indices
+                        "terminal_chart" if orig_idx in _bound_candlestick
+                        else "terminal_dataviz" if orig_idx in _bound_dataviz
+                        else "terminal_ticker" if orig_idx in _bound_ticker
                         else "terminal_table"
                     )
                     for orig_idx, _ in _bindings
