@@ -853,8 +853,8 @@ export default function Landing() {
               },
               {
                 step: "4",
-                title: "Render & share",
-                desc: "Preview instantly, render to MP4 and download or share.",
+                title: "Render & export",
+                desc: "Preview instantly, render to MP4, or export as PowerPoint, PDF, or PNG slides.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 ),
@@ -929,6 +929,11 @@ export default function Landing() {
               {
                 title: "Render progress & instant preview",
                 desc: "Watch your video come to life with a live Remotion Player preview. Render to MP4 with real-time progress tracking — frame by frame.",
+                tag: null,
+              },
+              {
+                title: "Export as slides — PowerPoint, PDF & PNG",
+                desc: "Every scene doubles as a presentation slide. Export as a PowerPoint deck, PDF, or PNG images — ready to upload as LinkedIn or Instagram carousels, or drop into any presentation.",
                 tag: null,
               },
             ].map((f) => (
