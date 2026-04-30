@@ -8,6 +8,7 @@ import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
+import InviteOthers from "./pages/InviteOthers";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -23,8 +24,6 @@ import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 import EmbedPreviewPage from "./pages/EmbedPreviewPage";
-import AdminPasswordProtectedRoute from "./components/layout/AdminPasswordProtectedRoute";
-import AdminEmailBlast from "./pages/AdminEmailBlast";
 import { trackPageView } from "./gtag";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -130,6 +129,16 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/invite-others"
+          element={
+            <ProtectedRoute>
+              <main className="max-w-7xl mx-auto px-6 py-8">
+                <InviteOthers />
+              </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/template-studio-editing-feature"
           element={
             <ProtectedRoute>
@@ -142,15 +151,6 @@ function AppRoutes() {
 
         {/* Public embed preview — no auth required */}
         <Route path="/preview/:token" element={<EmbedPreviewPage />} />
-
-        <Route
-          path="/auto-email"
-          element={
-            <AdminPasswordProtectedRoute>
-              <AdminEmailBlast />
-            </AdminPasswordProtectedRoute>
-          }
-        />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />

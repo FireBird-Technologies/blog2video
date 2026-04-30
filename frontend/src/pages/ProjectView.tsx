@@ -65,8 +65,12 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import { resolveCustomImageBoxAr } from "../utils/customImageBoxAr";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
 import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import type { PlayerRef } from "@remotion/player";
+import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
+import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
 
 type Tab = "script" | "scenes" | "images" | "audio" | "settings";
+type SlideExportWizardState = { format: "pptx" | "pdf" | "zip"; fractions: number[]; stepIndex: number };
 type PlaybackSpeedOption = number;
 const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
 
@@ -469,7 +473,12 @@ export default function ProjectView() {
     projectRef.current = project;
   }, [project]);
   const hasStudioAccess = isPro || (project?.studio_unlocked ?? false);
-  const [activeTab, setActiveTab] = useState<Tab>("script");
+  const [activeTab, setActiveTab] = useState<Tab>("scenes");
+  const tabManuallyChanged = useRef(false);
+  const handleTabChange = useCallback((tab: Tab) => {
+    tabManuallyChanged.current = true;
+    setActiveTab(tab);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { showError } = useErrorModal();
@@ -580,6 +589,14 @@ export default function ProjectView() {
   const [rendered, setRendered] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingStudio, setDownloadingStudio] = useState(false);
+  const [sceneExporting, setSceneExporting] = useState(false);
+  const [showSlidesExportMenu, setShowSlidesExportMenu] = useState(false);
+  const [slideExportWizard, setSlideExportWizard] = useState<SlideExportWizardState | null>(null);
+  const previewPlayerRef = useRef<PlayerRef | null>(null);
+  const modalPreviewPlayerRef = useRef<PlayerRef | null>(null);
+  const slidesExportAnchorRef = useRef<HTMLDivElement | null>(null);
+  const videoPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const slideExportWizardPrevRef = useRef<SlideExportWizardState | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderFrames, setRenderFrames] = useState({ rendered: 0, total: 0 });
   const [renderEtaLabel, setRenderEtaLabel] = useState<string | null>(null);
@@ -620,11 +637,14 @@ export default function ProjectView() {
 
   // Upgrade modal
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [showEmbedModal, setShowEmbedModal] = useState(false);
   const [embedToken, setEmbedToken] = useState<string | null>(null);
   const [embedLoading, setEmbedLoading] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [showPreviewLinkModal, setShowPreviewLinkModal] = useState(false);
+  const [previewLinkUrl, setPreviewLinkUrl] = useState<string | null>(null);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [downloadWarningMode, setDownloadWarningMode] = useState<"render" | "download">("download");
   const [showReRenderWarning, setShowReRenderWarning] = useState(false);
@@ -635,7 +655,6 @@ export default function ProjectView() {
   const [aspectFormatPending, setAspectFormatPending] = useState<"landscape" | "portrait" | null>(null);
   const [aspectFormatSaving, setAspectFormatSaving] = useState(false);
   const shareAnchorRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const onClickOutside = (evt: MouseEvent) => {
       const target = evt.target as Node;
@@ -648,7 +667,18 @@ export default function ProjectView() {
   }, []);
 
   // Scenes tab: expanded scene detail, edit modal, drag reorder
-  const [expandedScene, setExpandedScene] = useState<number | null>(null);
+  const [expandedScene, setExpandedScene] = useState<number | null>(
+    project?.scenes?.[0]?.id ?? null
+  );
+  const firstSceneAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (firstSceneAutoExpandedRef.current) return;
+    const firstId = project?.scenes?.[0]?.id;
+    if (firstId != null) {
+      firstSceneAutoExpandedRef.current = true;
+      setExpandedScene(firstId);
+    }
+  }, [project?.scenes?.[0]?.id]);
   const [sceneEditModal, setSceneEditModal] = useState<Scene | null>(null);
   const [imageAdjustSceneId, setImageAdjustSceneId] = useState<number | null>(null);
   const [imageAdjustSrc, setImageAdjustSrc] = useState<string | null>(null);
@@ -713,6 +743,15 @@ export default function ProjectView() {
   const projectTourSteps = buildProjectTourSteps(project);
   const scenesLoaded = (project?.scenes?.length ?? 0) > 0;
   const pipelineFinished = project?.status === "generated" || project?.status === "done";
+
+  // Force back to scenes tab when video finishes generating, resetting the manual-change flag.
+  useEffect(() => {
+    if (pipelineFinished) {
+      tabManuallyChanged.current = false;
+      setActiveTab("scenes");
+    }
+  }, [pipelineFinished]);
+
   const reviewState = project?.review_state ?? null;
   const isFirstProject = reviewState?.project_sequence === 1;
   const clearReviewPopupTimer = useCallback(() => {
@@ -1815,16 +1854,87 @@ export default function ProjectView() {
     }
   };
 
+  const openSlideExportWizard = useCallback(
+    (format: "pptx" | "pdf" | "zip") => {
+      if (!project?.scenes?.length) return;
+      if (missingCustomTemplate) {
+        showError("This project cannot export slides because its custom template is missing.");
+        return;
+      }
+      if (!previewPlayerRef.current) {
+        showError("Wait until the preview has finished loading, then try again.");
+        return;
+      }
+      setShowSlidesExportMenu(false);
+      const defaultFractions = project.scenes.map(() => SCENE_EXPORT_TIMELINE_FRACTION);
+      setSlideExportWizard({
+        format,
+        fractions: defaultFractions,
+        stepIndex: 0,
+      });
+    },
+    [project, missingCustomTemplate, showError]
+  );
+
+  const runSlideExportWithFractions = useCallback(
+    async (format: "pptx" | "pdf" | "zip", fractions: number[]) => {
+      if (!project) return;
+      const exportPlayer = modalPreviewPlayerRef.current ?? previewPlayerRef.current;
+      setSceneExporting(true);
+      try {
+        const player = exportPlayer;
+        if (!player) { showError("Wait until the preview has finished loading, then try again."); return; }
+        if (format === "pptx") await exportScenesPptx(player, project, fractions);
+        else if (format === "pdf") await exportScenesPdf(player, project, fractions);
+        else await exportScenesPng(player, project, fractions);
+      } catch (err) {
+        showError(getErrorMessage(err, "Could not export scenes."));
+      } finally {
+        setSceneExporting(false);
+        setSlideExportWizard(null);
+      }
+    },
+    [project, showError]
+  );
+
+  useEffect(() => {
+    if (slideExportWizard && !slideExportWizardPrevRef.current) {
+      queueMicrotask(() => {
+        videoPreviewContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    slideExportWizardPrevRef.current = slideExportWizard;
+  }, [slideExportWizard]);
+
+  // No capture effect needed — modal uses a live VideoPreview with initialFrame.
 
   const handleGetEmbedLink = async () => {
     if (!project) return;
     setEmbedLoading(true);
+    setShowShareDropdown(false);
     try {
       const res = await generateEmbedToken(project.id);
       setEmbedToken(res.data.embed_token);
       setShowEmbedModal(true);
     } catch {
       showError("Could not generate embed link. Please try again.");
+    } finally {
+      setEmbedLoading(false);
+    }
+  };
+
+  const handleCopyPreviewLink = async () => {
+    if (!project) return;
+    setShowShareDropdown(false);
+    setEmbedLoading(true);
+    try {
+      const res = await generateEmbedToken(project.id);
+      const previewUrl = `${import.meta.env.VITE_APP_URL || window.location.origin}/preview/${res.data.embed_token}`;
+      setPreviewLinkUrl(previewUrl);
+      setPreviewLinkCopied(false);
+      setShowPreviewLinkModal(true);
+    } catch {
+      showError("Could not generate preview link. Please try again.");
     } finally {
       setEmbedLoading(false);
     }
@@ -2034,10 +2144,10 @@ export default function ProjectView() {
   };
 
   const tabs: { id: Tab; label: string }[] = [
+    { id: "scenes", label: "Scenes" },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
     ...(project.voice_gender !== "none" ? [{ id: "audio" as Tab, label: "Audio" }] : []),
-    { id: "scenes", label: "Scenes" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -2893,119 +3003,95 @@ export default function ProjectView() {
                   </button>
                 )} */}
 
-                {/* Download MP4 */}
-                {!rendered ? (
+                {/* Download — MP4 plus slide exports (PowerPoint, PDF, PNG) in one menu */}
+                <div className="relative" ref={slidesExportAnchorRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShareDropdown(false);
+                      setShowSlidesExportMenu((v) => !v);
+                    }}
+                    disabled={missingCustomTemplate || sceneExporting || downloading}
+                    title="MP4 video, or slides — PowerPoint, PDF, or one PNG per scene (pick the frame per scene before export; default ~85%)."
+                    className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                      missingCustomTemplate
+                        ? "bg-gray-300 text-white cursor-not-allowed"
+                        : !rendered
+                        ? hasError
+                          ? "bg-orange-500 hover:bg-orange-600 text-white"
+                          : "bg-purple-600 hover:bg-purple-700 text-white"
+                        : "bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-100 disabled:text-gray-400"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {downloading ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Downloading…
+                      </>
+                    ) : sceneExporting ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Exporting…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                        Download
+                        <svg className="w-3 h-3 ml-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {rendered && (
                   <button
                     onClick={() => {
                       if (missingCustomTemplate) {
-                        showError("You can't render this video because its custom template has been deleted.");
+                        showError("You can't re-render this video because its custom template has been deleted.");
                         return;
                       }
-                      setHasError(false);
-                      setDownloadWarningMode("render");
-                      setShowDownloadWarning(true);
+                      setShowReRenderWarning(true);
                     }}
-                    disabled={missingCustomTemplate}
-                    className={`px-4 py-1.5 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                      missingCustomTemplate
-                        ? "bg-gray-300 cursor-not-allowed"
-                        : hasError
-                        ? "bg-orange-500 hover:bg-orange-600"
-                        : "bg-purple-600 hover:bg-purple-700"
-                    }`}
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d={hasError
-                          ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                          : "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        }
-                      />
-                    </svg>
-                    {hasError ? "Resume Download" : "Download MP4"}
-                  </button>
-                ) : (
-                  <>
-                    {/* Download MP4 */}
-                    <button
-                      onClick={() => {
-                        setDownloadWarningMode("download");
-                        setShowDownloadWarning(true);
-                      }}
-                      disabled={downloading}
-                      className="px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      {downloading ? (
-                        <>
-                          <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Downloading...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                          Download MP4
-                        </>
-                      )}
-                    </button>
-
-                    {/* Re-render — re-create video with latest changes (deducts video count) */}
-                    <button
-                      onClick={() => {
-                        if (missingCustomTemplate) {
-                          showError("You can't re-render this video because its custom template has been deleted.");
-                          return;
-                        }
-                        setShowReRenderWarning(true);
-                      }}
-                      disabled={rendering || missingCustomTemplate}
-                      className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Re-render
-                    </button>
-
-                    {/* Share button — inline next to Download */}
-                    {project.r2_video_url && (
-                      <div className="relative" ref={shareAnchorRef}>
-                        <button
-                          onClick={() => setShowShareMenu((v) => !v)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                          Share
-                        </button>
-
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Link to Embed — always visible */}
-                {project?.scenes && project.scenes.length > 0 && (
-                  <button
-                    onClick={handleGetEmbedLink}
-                    disabled={embedLoading}
-                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    disabled={rendering || missingCustomTemplate}
+                    className="px-4 py-1.5 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {embedLoading ? "Loading..." : "Link to Embed"}
+                    Re-render
                   </button>
+                )}
+
+                {/* Share — purple; menu includes rendered-video options when MP4 exists */}
+                {project?.scenes && project.scenes.length > 0 && (
+                  <div className="relative" ref={shareAnchorRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSlidesExportMenu(false);
+                        setShowShareDropdown((v) => !v);
+                      }}
+                      disabled={embedLoading}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      {embedLoading ? "Loading..." : "Share"}
+                      <svg className="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -3034,14 +3120,15 @@ export default function ProjectView() {
                         </div>
                       )}
                     <div
+                      ref={videoPreviewContainerRef}
                       className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
-                      style={
-                        project.aspect_ratio === "portrait"
-                          ? { minHeight: "70vh" }
-                          : undefined
-                      }
+                      style={{
+                        position: "relative",
+                        ...(project.aspect_ratio === "portrait" ? { minHeight: "70vh" } : {}),
+                      }}
                     >
                       <VideoPreview
+                        ref={previewPlayerRef}
                         project={project}
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
@@ -3249,6 +3336,56 @@ export default function ProjectView() {
               </button>
             </div>
     
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showPreviewLinkModal && previewLinkUrl && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 transition-all" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => { setShowPreviewLinkModal(false); setPreviewLinkCopied(false); }}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Link to Preview</h3>
+            <p className="text-sm text-gray-600 mb-5">Share this link to let anyone view the video preview — no account required.</p>
+            <div className="relative">
+              <input
+                readOnly
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-xs font-mono text-gray-700 focus:outline-none"
+                value={previewLinkUrl}
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(previewLinkUrl).then(() => {
+                    setPreviewLinkCopied(true);
+                    setTimeout(() => setPreviewLinkCopied(false), 2000);
+                  }).catch(() => {
+                    // clipboard blocked — user can select and copy manually
+                  });
+                }}
+                className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                title="Copy to clipboard"
+              >
+                {previewLinkCopied ? (
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>,
         document.body
@@ -3735,51 +3872,342 @@ export default function ProjectView() {
           document.body
         )}
 
-      {/* Share dropdown — rendered outside glass-card to avoid overflow/backdrop-filter clipping */}
-      {showShareMenu && project?.r2_video_url && (
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareMenu(false)} />
-          <div
-            className="fixed z-[9999] bg-white rounded-xl shadow-lg border border-gray-200/60 p-1.5 flex gap-1"
-            style={(() => {
-              const rect = shareAnchorRef.current?.getBoundingClientRect();
-              if (!rect) return {};
-              return { top: rect.top - 48, left: rect.right - 130 };
-            })()}
-          >
-            {/* TikTok */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
-              title="Copy link for TikTok"
+      {showShareDropdown &&
+        project?.scenes &&
+        project.scenes.length > 0 &&
+        ReactDOM.createPortal(
+          <>
+            <div className="fixed inset-0 z-[9998]" onClick={() => setShowShareDropdown(false)} />
+            <div
+              className="fixed z-[9999] w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+              style={(() => {
+                const el = shareAnchorRef.current;
+                if (!el) return {};
+                const rect = el.getBoundingClientRect();
+                const panelW = 224;
+                let left = rect.right - panelW;
+                if (left < 8) left = 8;
+                if (left + panelW > window.innerWidth - 8) {
+                  left = Math.max(8, window.innerWidth - panelW - 8);
+                }
+                return { top: rect.bottom + 8, left };
+              })()}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
-              </svg>
-            </button>
-            {/* YouTube */}
-            <button
-              onClick={() => { navigator.clipboard.writeText(project.r2_video_url!); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
-              title="Copy link for YouTube"
+              <button
+                type="button"
+                disabled={embedLoading}
+                onClick={() => {
+                  void handleCopyPreviewLink();
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Share Preview Link
+              </button>
+              <button
+                type="button"
+                disabled={embedLoading}
+                onClick={() => {
+                  void handleGetEmbedLink();
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors flex items-center gap-2.5 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <svg className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Embed
+              </button>
+              {project.r2_video_url && (
+                <>
+                  <div className="border-t border-gray-100 my-0.5" />
+                  <p className="px-4 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                    Rendered video
+                  </p>
+                  <div className="px-4 pb-2 flex gap-1 justify-start">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(project.r2_video_url!);
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-black/5 flex items-center justify-center transition-colors"
+                      title="Copy link for TikTok"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 0010.86 4.46v-7.15a8.16 8.16 0 005.58 2.18v-3.45a4.85 4.85 0 01-1.59-.27 4.83 4.83 0 01-1.41-.82V6.69h3z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(project.r2_video_url!);
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-red-50 flex items-center justify-center transition-colors"
+                      title="Copy link for YouTube"
+                    >
+                      <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.open(
+                          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`,
+                          "_blank"
+                        );
+                        setShowShareDropdown(false);
+                      }}
+                      className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                      title="Share on Facebook"
+                    >
+                      <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>,
+          document.body
+        )}
+
+      {showSlidesExportMenu &&
+        !missingCustomTemplate &&
+        ReactDOM.createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setShowSlidesExportMenu(false)}
+            />
+            <div
+              className="fixed z-[9999] w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden"
+              style={(() => {
+                const el = slidesExportAnchorRef.current;
+                if (!el) return {};
+                const rect = el.getBoundingClientRect();
+                const panelW = 224;
+                let left = rect.right - panelW;
+                if (left < 8) left = 8;
+                if (left + panelW > window.innerWidth - 8) {
+                  left = Math.max(8, window.innerWidth - panelW - 8);
+                }
+                return { top: rect.bottom + 8, left };
+              })()}
             >
-              <svg className="w-4 h-4 text-[#FF0000]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-              </svg>
-            </button>
-            {/* Facebook */}
+              <button
+                type="button"
+                disabled={downloading || sceneExporting}
+                onClick={() => {
+                  setShowSlidesExportMenu(false);
+                  if (!rendered) {
+                    setHasError(false);
+                    setDownloadWarningMode("render");
+                    setShowDownloadWarning(true);
+                  } else {
+                    setDownloadWarningMode("download");
+                    setShowDownloadWarning(true);
+                  }
+                }}
+                className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+              >
+                {hasError && !rendered ? "Resume MP4 download" : "MP4 video"}
+              </button>
+              {project?.scenes && project.scenes.length > 0 && (
+                <>
+                  <div className="border-t border-gray-100 my-0.5" />
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("pptx")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PowerPoint (.pptx)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("pdf")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sceneExporting || downloading}
+                    onClick={() => openSlideExportWizard("zip")}
+                    className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-violet-50 hover:text-violet-800 transition-colors disabled:opacity-50"
+                  >
+                    PNG images (one per scene)
+                  </button>
+                </>
+              )}
+            </div>
+          </>,
+          document.body
+        )}
+
+
+      {slideExportWizard &&
+        project?.scenes?.length &&
+        ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-6">
             <button
-              onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(project.r2_video_url!)}`, "_blank"); setShowShareMenu(false); }}
-              className="w-9 h-9 rounded-lg bg-gray-50 hover:bg-blue-50 flex items-center justify-center transition-colors"
-              title="Share on Facebook"
+              type="button"
+              className="absolute inset-0 bg-black/50 backdrop-blur-[2px] border-0 cursor-default"
+              aria-label="Close"
+              onClick={() => { setSlideExportWizard(null); }}
+            />
+            <div
+              className="relative w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 p-5 sm:p-7"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="slide-export-wizard-title"
             >
-              <svg className="w-4 h-4 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-            </button>
-          </div>
-        </>
-      )}
+              <h2 id="slide-export-wizard-title" className="text-sm font-semibold text-gray-900">
+                Choose the frame for each slide
+              </h2>
+              <p className="mt-1 text-xs text-gray-500 leading-snug">
+                The preview below updates while you adjust the slider. Go through each scene, then download — your choices are used for PowerPoint, PDF, and PNG export.
+              </p>
+              {(() => {
+                const w = slideExportWizard;
+                const scenes = project.scenes;
+                const idx = w.stepIndex;
+                const scene = scenes[idx]!;
+                const title = scene.title?.trim() || `Scene ${idx + 1}`;
+                const n = scenes.length;
+                const rawFraction = w.fractions[idx];
+                const safeFraction = Number.isFinite(rawFraction)
+                  ? Math.max(0, Math.min(1, Number(rawFraction)))
+                  : SCENE_EXPORT_TIMELINE_FRACTION;
+                const pct = Math.round(safeFraction * 100);
+                const downloadLabel =
+                  w.format === "pptx"
+                    ? "Download PowerPoint"
+                    : w.format === "pdf"
+                    ? "Download PDF"
+                    : "Download PNGs";
+                return (
+                  <>
+                    <div className="mt-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-800">
+                          Scene {idx + 1} of {n}
+                          <span className="font-normal text-gray-500"> · {title}</span>
+                        </p>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Preview at <span className="font-medium text-gray-700">{pct}%</span> of this scene
+                        </p>
+                        {sceneExporting && (
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-purple-200 bg-purple-50 px-2.5 py-1.5">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-300 border-t-purple-700 animate-spin" />
+                            <span className="text-[11px] font-medium text-purple-800">
+                              Download in progress...
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Live Remotion player — pixel-perfect, no html2canvas needed.
+                        Key includes frame so it remounts (and seeks) on every change. */}
+                    <div className="mt-4 rounded-xl overflow-hidden w-full aspect-video bg-black">
+                      <VideoPreview
+                        key={`modal-preview-${idx}-${pct}`}
+                        ref={modalPreviewPlayerRef}
+                        project={project}
+                        logoSizeOverride={logoSize}
+                        logoOpacityOverride={logoOpacity}
+                        logoPositionOverride={logoPosition}
+                        initialFrame={getSceneExportGlobalFrame(project, idx, safeFraction)}
+                        hideControls
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+                        <span>Position in scene</span>
+                        <span className="tabular-nums font-medium text-gray-700">{pct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={pct}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) / 100;
+                          setSlideExportWizard((prev) => {
+                            if (!prev) return prev;
+                            const fractions = [...prev.fractions];
+                            fractions[prev.stepIndex] = v;
+                            return { ...prev, fractions };
+                          });
+                        }}
+                        className="w-full h-2 accent-purple-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideExportWizard((prev) =>
+                            prev && prev.stepIndex > 0 ? { ...prev, stepIndex: prev.stepIndex - 1 } : prev
+                          )
+                        }
+                        disabled={idx <= 0 || sceneExporting}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSlideExportWizard((prev) =>
+                            prev && prev.stepIndex < n - 1
+                              ? { ...prev, stepIndex: prev.stepIndex + 1 }
+                              : prev
+                          )
+                        }
+                        disabled={idx >= n - 1 || sceneExporting}
+                        className="px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void runSlideExportWithFractions(
+                          w.format,
+                          w.fractions.map((v) =>
+                            Number.isFinite(v) ? Math.max(0, Math.min(1, Number(v))) : SCENE_EXPORT_TIMELINE_FRACTION
+                          )
+                        )
+                      }
+                      disabled={sceneExporting}
+                      className="mt-4 w-full py-2.5 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                    >
+                      {downloadLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSlideExportWizard(null); }}
+                      className="mt-2 w-full py-2 text-xs font-medium text-gray-500 hover:text-gray-800"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Upper area: loader when running, editor when complete */}
       {pipelineRunning || templateRelayoutRunning ? (
@@ -3848,7 +4276,7 @@ export default function ProjectView() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center ${
               activeTab === tab.id
                 ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
@@ -3872,9 +4300,18 @@ export default function ProjectView() {
         {activeTab === "scenes" && (
           <div>
             {project.scenes.length === 0 ? (
-              <p className="text-center py-16 text-xs text-gray-400">
-                Scenes will appear here once generated.
-              </p>
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="flex items-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">Scenes are being generated, please wait…</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
@@ -3999,7 +4436,7 @@ export default function ProjectView() {
                                         e.stopPropagation();
                                         setSceneEditModal(scene);
                                       }}
-                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0"
+                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0"
                                       title="Edit scene"
                                       data-tour={idx === 0 ? "scene-edit-first" : undefined}
                                     >
