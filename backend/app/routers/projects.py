@@ -2095,29 +2095,6 @@ def get_project_layouts(
     valid_layouts = get_valid_layouts(project.template)
     no_image_layouts = get_layouts_without_image(project.template)
 
-    # Clear stale hideImage flags for scenes whose layout is now image-capable.
-    # This happens when a layout is removed from layouts_without_image but existing
-    # scenes still have hideImage=true baked in from the old pipeline run.
-    stale_found = False
-    for scene in project.scenes:
-        if not scene.remotion_code:
-            continue
-        try:
-            desc = _json.loads(scene.remotion_code)
-            lp = desc.get("layoutProps") or {}
-            layout = desc.get("layout") or desc.get("layoutConfig", {}).get("arrangement", "")
-            if layout and layout not in no_image_layouts and lp.get("hideImage") and not lp.get("assignedImage"):
-                stale_found = True
-                break
-        except (ValueError, TypeError):
-            continue
-
-    if stale_found:
-        try:
-            _rebuild_workspace(project, list(project.scenes), db)
-        except Exception as _e:
-            logger.warning("[LAYOUTS] Stale-hideImage rebuild failed for project %s: %s", project.id, _e)
-    
     # Convert layout IDs to human-readable names
     meta = get_meta(project.template)
     schema = meta.get("layout_prop_schema", {}) if meta else {}

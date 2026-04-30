@@ -535,12 +535,6 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             hide_image_flags[i] = bool(lp.get("hideImage", False))
             assigned = lp.get("assignedImage")
             if not assigned:
-                # Clear a legacy hideImage that was set when this layout was in no_image_layouts.
-                # Without clearing it, step 4 would skip the scene and leave it imageless.
-                if hide_image_flags[i]:
-                    lp.pop("hideImage", None)
-                    hide_image_flags[i] = False
-                    dirty.add(i)
                 continue
 
             if hide_image_flags[i]:
