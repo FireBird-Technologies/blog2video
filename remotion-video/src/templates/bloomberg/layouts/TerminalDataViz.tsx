@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergChartType, BloombergLayoutProps } from "../types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -175,10 +175,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const neg = BLOOMBERG_COLORS.neg;
-  const muted = BLOOMBERG_COLORS.muted;
-  const border = BLOOMBERG_COLORS.border;
-  const panelBg = BLOOMBERG_COLORS.panelBg;
-  const headerBg = BLOOMBERG_COLORS.headerBg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 103 : 144);
   const dSize = descriptionFontSize ?? (p ? 42 : 30);
@@ -309,7 +306,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
             position: "absolute", top: topH + 12, left: pad, right: pad,
             fontSize: tSize * 0.44, opacity: titleOp, letterSpacing: -0.3, fontWeight: 600,
           }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+            <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
           {/* Chart */}
@@ -332,6 +329,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               lineTicks={lineTicks}
               yAxisWidth={yAxisWidth}
               muted={muted}
+              bg={bg}
               lineColors={lineColors}
               barColors={barColors}
               amber={amber}
@@ -370,7 +368,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
             position: "absolute", top: topH + 10, left: pad, right: pad,
             fontSize: tSize * 0.42, opacity: titleOp, letterSpacing: -0.5,
           }}>
-            <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+            <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
 
           {/* Chart area */}
@@ -394,6 +392,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               lineTicks={lineTicks}
               yAxisWidth={yAxisWidth}
               muted={muted}
+              bg={bg}
               lineColors={lineColors}
               barColors={barColors}
               amber={amber}
@@ -480,6 +479,7 @@ interface ChartRendererProps {
   lineTicks: number[];
   yAxisWidth: number;
   muted: string;
+  bg: string;
   lineColors: readonly [string, string, string];
   barColors: readonly [string, string, string];
   amber: string;
@@ -496,7 +496,7 @@ interface ChartRendererProps {
   yAxisLabel: string;
 }
 
-const GRID_STROKE = "rgba(255,179,64,0.10)";
+const gridStroke = (amber: string) => `${amber}1A`;
 const VALUE_STROKE = "rgba(0,0,0,0.85)";
 const LBL_WEIGHT = 500;
 const MARGIN = { top: 34, right: 42, left: 6, bottom: 8 };
@@ -579,7 +579,7 @@ const StaticXAxis: React.FC<{
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   chartType, animatedBars, lineData, axisTop,
-  lineDomain, lineTicks, yAxisWidth, muted, lineColors, amber,
+  lineDomain, lineTicks, yAxisWidth, muted, bg, lineColors, amber,
   useCompact, showDots, seriesLabels, ff, dSize,
   chartWidth, chartHeight, xLabels, xAxisLabel, yAxisLabel,
   isPortrait,
@@ -698,12 +698,12 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
                 <stop offset="95%" stopColor={c0} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+            <CartesianGrid stroke={gridStroke(amber)} vertical={false} />
             <XAxis dataKey="label" hide />
             <YAxis hide domain={lineDomain} ticks={lineTicks} width={yAxisWidth} />
             <Area type="monotone" dataKey="s0" stroke={c0} strokeWidth={3}
               fill="url(#bb-line-fill)" fillOpacity={1} isAnimationActive={false}
-              dot={showDots ? { r: dotR, fill: c0, stroke: "#000", strokeWidth: 1.5 } : false}
+              dot={showDots ? { r: dotR, fill: c0, stroke: bg, strokeWidth: 1.5 } : false}
               activeDot={false}>
               {showDots && (
                 <LabelList dataKey="s0" position="top" content={renderPrimaryLineValue} />
@@ -712,13 +712,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
             {seriesLabels[1] && (
               <Area type="monotone" dataKey="s1" stroke={c1} strokeWidth={2.5}
                 fill="none" strokeDasharray="6 4" isAnimationActive={false}
-                dot={showDots ? { r: dotR - 1, fill: c1, stroke: "#000", strokeWidth: 1.5 } : false}
+                dot={showDots ? { r: dotR - 1, fill: c1, stroke: bg, strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
             {seriesLabels[2] && (
               <Area type="monotone" dataKey="s2" stroke={c2} strokeWidth={2.5}
                 fill="none" strokeDasharray="6 4" isAnimationActive={false}
-                dot={showDots ? { r: dotR - 1, fill: c2, stroke: "#000", strokeWidth: 1.5 } : false}
+                dot={showDots ? { r: dotR - 1, fill: c2, stroke: bg, strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
           </ComposedChart>
@@ -754,7 +754,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
           data={animatedBars} margin={MARGIN}
           barCategoryGap="18%" barGap={4}
         >
-          <CartesianGrid stroke={GRID_STROKE} vertical={false} />
+          <CartesianGrid stroke={gridStroke(amber)} vertical={false} />
           <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, axisTop]} ticks={yTicks} width={yAxisWidth} />
           <Bar dataKey="value" isAnimationActive={false}

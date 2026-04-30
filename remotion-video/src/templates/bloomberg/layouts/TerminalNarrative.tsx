@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
 export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
@@ -17,6 +17,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 87 : 64);
   const dSize = descriptionFontSize ?? (p ? 41 : 30);
@@ -53,7 +54,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage:
-          "repeating-linear-gradient(to bottom, rgba(255,179,64,0.025) 0px, rgba(255,179,64,0.025) 1px, transparent 1px, transparent 3px)",
+          `repeating-linear-gradient(to bottom, ${amber}07 0px, ${amber}07 1px, transparent 1px, transparent 3px)`,
         pointerEvents: "none",
       }} />
 
@@ -62,13 +63,13 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
 
       }}>
         <DocGlyph color={amber} size={p ? 30 : 26} />
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>NARRATIVE · DESK NOTE</span>
+        <span style={{ color: muted, fontSize: labelSize }}>NARRATIVE · DESK NOTE</span>
         <div style={{ flex: 1 }} />
         <span style={{
           display: "inline-block", width: 10, height: 10, borderRadius: 5,
@@ -76,7 +77,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
           boxShadow: `0 0 ${8 * livePulse}px ${amber}`,
         }} />
         <span style={{ color: amber, fontSize: labelSize, letterSpacing: 2 }}>LIVE</span>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize }}>{mm}:{ss} EST</span>
+        <span style={{ color: muted, fontSize: labelSize }}>{mm}:{ss} EST</span>
       </div>
 
       {/* Waveform strip pinned to top, below top bar */}
@@ -84,8 +85,8 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
         position: "absolute", top: topH, left: 0, right: 0,
         height: p ? 64 : 56,
         padding: `8px ${pad}px`,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
-        borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+        backgroundColor: headerBg,
+        borderBottom: `1px solid ${border}`,
         opacity: eyebrowOp,
       }}>
         <Waveform color={amber} width={"100%" as any} height={p ? 48 : 40} frame={frame} seed={7} />
@@ -109,7 +110,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
             transform: `translateY(${titleSlide}px)`,
           }}>
             <span style={{
-              backgroundColor: amber, color: "#000000",
+              backgroundColor: amber, color: bg,
               display: "inline", padding: "3px 14px 6px",
             }}>{title}</span>
           </div>
@@ -126,6 +127,9 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
 
         <NarrativePanel
           amber={amber}
+          panelBg={panelBg}
+          border={border}
+          muted={muted}
           eyebrowSize={eyebrowSize}
           dSize={dSize}
           padding={p ? "28px 32px" : "22px 26px"}
@@ -142,11 +146,11 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 18,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           NARRATIVE SESSION
         </span>
         <div style={{ flex: 1 }} />
@@ -154,7 +158,7 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
           display: "inline-block", width: 8, height: 8, borderRadius: 4,
           backgroundColor: amber, opacity: livePulse,
         }} />
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           TICKS {String(frame).padStart(5, "0")}
         </span>
       </div>
@@ -165,15 +169,16 @@ export const TerminalNarrative: React.FC<BloombergLayoutProps> = ({
 // -------- helpers --------
 
 const NarrativePanel: React.FC<{
-  amber: string; eyebrowSize: number; dSize: number;
+  amber: string; panelBg: string; border: string; muted: string;
+  eyebrowSize: number; dSize: number;
   padding: string; opacity: number; translateY: number;
   typedText: string; typing: boolean; cursorOn: boolean;
   frame: number; livePulse: number;
-}> = ({ amber, eyebrowSize, dSize, padding, opacity, translateY, typedText, typing, cursorOn, frame, livePulse }) => (
+}> = ({ amber, panelBg, border, muted, eyebrowSize, dSize, padding, opacity, translateY, typedText, typing, cursorOn, frame, livePulse }) => (
   <div style={{
     position: "relative",
-    backgroundColor: BLOOMBERG_COLORS.panelBg,
-    border: `1px solid ${BLOOMBERG_COLORS.border}`,
+    backgroundColor: panelBg,
+    border: `1px solid ${border}`,
     borderLeft: `3px solid ${amber}`,
     padding,
     opacity, transform: `translateY(${translateY}px)`,
@@ -186,11 +191,11 @@ const NarrativePanel: React.FC<{
         display: "inline-block", width: 6, height: 6, borderRadius: 3,
         backgroundColor: amber, opacity: livePulse,
       }} />
-      <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 3 }}>
+      <span style={{ color: muted, fontSize: eyebrowSize, letterSpacing: 3 }}>
         DESK NOTE  ·  STREAM
       </span>
-      <div style={{ flex: 1, height: 1, backgroundColor: BLOOMBERG_COLORS.border }} />
-      <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: eyebrowSize, letterSpacing: 2 }}>
+      <div style={{ flex: 1, height: 1, backgroundColor: border }} />
+      <span style={{ color: muted, fontSize: eyebrowSize, letterSpacing: 2 }}>
         {String(frame).padStart(5, "0")}
       </span>
     </div>

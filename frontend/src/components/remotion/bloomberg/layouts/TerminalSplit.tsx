@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundGraph } from "./BackgroundGraph";
 
@@ -24,6 +24,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 102 : 107);
   const dSize = descriptionFontSize ?? (p ? 45 : 41);
@@ -47,7 +48,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
 
@@ -66,7 +67,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
         opacity: headerOpacity,
         textTransform: "uppercase"
       }}>
-        <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+        <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
       </div>
 
       {p ? (
@@ -75,13 +76,13 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: pad, height: "25%",
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            backgroundColor: panelBg,
+            border: `1px solid ${border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
             padding: "20px 28px", opacity: leftOpacity,
           }}>
-            <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 8 }}>PANEL A</div>
+            <div style={{ color: muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 8 }}>PANEL A</div>
             <div style={{ color: BLOOMBERG_COLORS.neg, fontSize: tSize * 0.45, lineHeight: 1.1, marginBottom: 10 }}>{leftLabel}</div>
             <div style={{ color: amber, fontSize: dSize * 0.75, lineHeight: 1.4 }}>{leftDescription}</div>
           </div>
@@ -89,13 +90,13 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened) */}
           <div style={{
             position: "absolute", top: "58%", left: pad, right: pad, height: "25%",
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            backgroundColor: panelBg,
+            border: `1px solid ${border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
             padding: "20px 28px", opacity: rightOpacity,
           }}>
-            <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 8 }}>PANEL B</div>
+            <div style={{ color: muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 8 }}>PANEL B</div>
             <div style={{ color: blue, fontSize: tSize * 0.45, lineHeight: 1.1, marginBottom: 10 }}>{rightLabel}</div>
             <div style={{ color: amber, fontSize: dSize * 0.75, lineHeight: 1.4 }}>{rightDescription}</div>
           </div>
@@ -106,13 +107,13 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Left panel (Shortened height via bottom constraint) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: pad, right: "51%", bottom: botH + 120,
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            backgroundColor: panelBg,
+            border: `1px solid ${border}`,
             borderTop: `2px solid ${BLOOMBERG_COLORS.neg}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
             padding: "24px 36px", opacity: leftOpacity,
           }}>
-            <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 12 }}>PANEL A</div>
+            <div style={{ color: muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 12 }}>PANEL A</div>
             <div style={{ color: BLOOMBERG_COLORS.neg, fontSize: tSize * 0.5, lineHeight: 1.1, marginBottom: 14 }}>{leftLabel}</div>
             <div style={{ color: amber, fontSize: dSize * 0.8, lineHeight: 1.5 }}>{leftDescription}</div>
           </div>
@@ -126,13 +127,13 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
           {/* Right panel (Shortened height) */}
           <div style={{
             position: "absolute", top: panelTopOffset, left: "51%", right: pad, bottom: botH + 120,
-            backgroundColor: BLOOMBERG_COLORS.panelBg,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            backgroundColor: panelBg,
+            border: `1px solid ${border}`,
             borderTop: `2px solid ${blue}`,
             display: "flex", flexDirection: "column", justifyContent: "center",
             padding: "24px 36px", opacity: rightOpacity,
           }}>
-            <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 12 }}>PANEL B</div>
+            <div style={{ color: muted, fontSize: labelSize, letterSpacing: 4, marginBottom: 12 }}>PANEL B</div>
             <div style={{ color: blue, fontSize: tSize * 0.5, lineHeight: 1.1, marginBottom: 14 }}>{rightLabel}</div>
             <div style={{ color: amber, fontSize: dSize * 0.8, lineHeight: 1.5 }}>{rightDescription}</div>
           </div>
@@ -143,7 +144,7 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
       <div style={{
         position: "absolute", bottom: botH + 20, left: pad, right: pad,
         textAlign: "center",
-        color: BLOOMBERG_COLORS.muted, fontSize: dSize * 0.65,
+        color: muted, fontSize: dSize * 0.65,
         opacity: interpolate(frame, [20, 35], [0, 1], { extrapolateRight: "clamp" }),
       }}>
         {narration}
@@ -152,11 +153,11 @@ export const TerminalSplit: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           COMPARISON
         </span>
       </div>

@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -25,6 +25,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 104 : 108);
   const dSize = descriptionFontSize ?? (p ? 41 : 36);
@@ -59,7 +60,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
       {/* Top bar - Title removed from here */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
 
@@ -86,7 +87,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
           textAlign: "center",
           textTransform: "uppercase"
         }}>
-          <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
+          <span style={{ backgroundColor: amber, color: bg, display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
         </div>
 
         {/* Metric tiles */}
@@ -101,8 +102,8 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
             const tileSlide = interpolate(frame, [i * 10 + 12, i * 10 + 28], [20, 0], { extrapolateRight: "clamp" });
             return (
               <div key={i} style={{
-                backgroundColor: BLOOMBERG_COLORS.panelBg,
-                border: `1px solid ${BLOOMBERG_COLORS.border}`,
+                backgroundColor: panelBg,
+                border: `1px solid ${border}`,
                 borderTop: `2px solid ${amber}`,
                 padding: p ? "20px 30px" : "32px 48px",
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
@@ -112,11 +113,11 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
               }}>
                 <div style={{ color: amber, fontSize: tSize * 0.85, lineHeight: 1 }}>
                   {tile.value}
-                  <span style={{ fontSize: tSize * 0.4, color: BLOOMBERG_COLORS.muted }}>
+                  <span style={{ fontSize: tSize * 0.4, color: muted }}>
                     {tile.suffix}
                   </span>
                 </div>
-                <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: dSize * 0.6, letterSpacing: 3 }}>
+                <div style={{ color: muted, fontSize: dSize * 0.6, letterSpacing: 3 }}>
                   {tile.label}
                 </div>
               </div>
@@ -126,7 +127,7 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
 
         {/* Narration: Shown below the metrics */}
         <div style={{
-          color: BLOOMBERG_COLORS.muted, 
+          color: muted, 
           fontSize: dSize * 0.7,
           textAlign: "center",
           maxWidth: "80%",
@@ -140,11 +141,11 @@ export const TerminalMetric: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           KEY METRICS
         </span>
       </div>

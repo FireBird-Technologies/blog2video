@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 import { BackgroundHistogramGraph } from "./BackgroundHistogramGraph";
 import { ZoomCropImg } from "../components/ZoomCropImg";
@@ -25,6 +25,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 105 : 107);
   const dSize = descriptionFontSize ?? (p ? 33 : 35);
@@ -59,7 +60,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
       <BackgroundHistogramGraph accentColor={blue} textColor={amber} />
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
 
@@ -109,8 +110,8 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
 
             return (
               <div key={i} style={{
-                backgroundColor: BLOOMBERG_COLORS.panelBg,
-                border: `1px solid ${BLOOMBERG_COLORS.border}`,
+                backgroundColor: panelBg,
+                border: `1px solid ${border}`,
                 borderTop: `3px solid ${amber}`, // Highlight top of card
                 padding: p ? "20px" : "24px",
                 display: "flex",
@@ -130,7 +131,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
                   {name}
                 </span>
                 <span style={{ 
-                  color: BLOOMBERG_COLORS.muted, 
+                  color: muted, 
                   fontSize: dSize * 0.7, 
                   lineHeight: 1.4 
                 }}>
@@ -144,7 +145,7 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
         {/* Increased Narration Size below Cards */}
         <div style={{
           marginTop: p ? 40 : 60,
-          color: BLOOMBERG_COLORS.muted,
+          color: muted,
           fontSize: dSize * 0.85,
           textAlign: "center",
           maxWidth: "80%",
@@ -157,11 +158,11 @@ export const TerminalProfile: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`,
       }}>
-        <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: labelSize, letterSpacing: 2 }}>
+        <span style={{ color: muted, fontSize: labelSize, letterSpacing: 2 }}>
           PREFERENCES
         </span>
       </div>
