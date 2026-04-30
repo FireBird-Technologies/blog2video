@@ -509,10 +509,13 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
             "error": None,
         }
 
-        db = SessionLocal()
+        # Fetch template before the long LLM call, then close the connection
+        # so NeonDB doesn't drop the SSL link during the ~370s codegen.
+        _db_pre = SessionLocal()
         try:
             tpl = (
-                db.query(CustomTemplate)
+                _db_pre.query(CustomTemplate)
+                .options(joinedload(CustomTemplate.brand_kit))
                 .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
                 .first()
             )
@@ -524,13 +527,18 @@ def _run_codegen_background(template_id: int, user_id: int) -> None:
                     "error": "Template not found",
                 }
                 return
+            # Detach from session so attributes remain accessible after close
+            _db_pre.expunge_all()
+        finally:
+            _db_pre.close()
 
-            t_start = time.time()
-            _codegen_progress[template_id]["step"] = "generating_scenes"
-            variants = loop.run_until_complete(generate_component_code(tpl))
+        t_start = time.time()
+        _codegen_progress[template_id]["step"] = "generating_scenes"
+        variants = loop.run_until_complete(generate_component_code(tpl))
 
-            # Expire and re-fetch to avoid stale SSL connections
-            db.expire_all()
+        # Open a fresh connection to save — avoids SSL drop from long idle
+        db = SessionLocal()
+        try:
             tpl = (
                 db.query(CustomTemplate)
                 .filter(CustomTemplate.id == template_id, CustomTemplate.user_id == user_id)
