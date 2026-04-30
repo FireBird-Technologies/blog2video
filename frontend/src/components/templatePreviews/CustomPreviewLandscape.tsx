@@ -388,20 +388,6 @@ export default function CustomPreviewLandscape({
   // If we have actual generated scene code, use CustomPreview (real scenes)
   const hasGeneratedCode = !!(introCode || (contentCodes && contentCodes.length > 0));
 
-  if (thumbnailMode && (previewImageUrl || ogImage)) {
-    return (
-      <div className="w-full h-full min-h-[56px]">
-        <img
-          src={previewImageUrl || ogImage || ""}
-          alt={`${name || "Custom template"} hero scene`}
-          className="w-full h-full min-h-[56px] object-cover"
-          loading="lazy"
-          decoding="async"
-        />
-      </div>
-    );
-  }
-
   if (hasGeneratedCode) {
     return (
       <CustomPreview
@@ -414,7 +400,22 @@ export default function CustomPreviewLandscape({
         previewImageUrl={previewImageUrl}
         logoUrls={logoUrls}
         ogImage={ogImage}
+        thumbnailMode={thumbnailMode}
       />
+    );
+  }
+
+  if (thumbnailMode && (previewImageUrl || ogImage)) {
+    return (
+      <div className="w-full h-full min-h-[56px]">
+        <img
+          src={previewImageUrl || ogImage || ""}
+          alt={`${name || "Custom template"} hero scene`}
+          className="w-full h-full min-h-[56px] object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
     );
   }
 
