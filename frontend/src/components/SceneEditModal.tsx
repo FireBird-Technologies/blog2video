@@ -975,6 +975,8 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     terminal_chart: [
       { key: "ticker", label: "Ticker / symbol tag", type: "string" },
       { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. TRADING DAYS" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. PRICE ($)" },
     ],
     terminal_dashboard: [
       {
@@ -1003,6 +1005,8 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     terminal_dataviz: [
       { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. Year" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
     ],
     terminal_list: [
       { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
@@ -1499,12 +1503,24 @@ export default function SceneEditModal({
             ? directChartTable
             : { headers: ["Label", "Value"], rows: [["", ""]] };
         }
+        // Bloomberg terminal_dataviz: pre-populate xAxisLabel/yAxisLabel from chartTable headers
+        // so the form shows the currently-displayed values even before the user has edited them.
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel && !lpAny.yAxisLabel) {
+            const tbl = normalizeChartTableValue(lpAny.chartTable);
+            if (tbl.headers[0]) lpCopy.xAxisLabel = tbl.headers[0];
+            if (tbl.headers[1]) lpCopy.yAxisLabel = tbl.headers[1];
+          }
+        }
         // Bloomberg terminal_chart: populate ohlcvTable for the editor from stored data or pipe items.
         // Only use pipe-delimited items (real OHLCV format). Never derive synthetic OHLC from
         // arbitrary numbers — older scenes may have hallucinated text-label items that look numeric
         // but are meaningless as OHLCV data (e.g. "PRICE: $24.85", "RSI(14): 68.2").
         if (isBloombergTemplate && layoutId === "terminal_chart") {
           const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel) lpCopy.xAxisLabel = "TRADING DAYS";
+          if (!lpAny.yAxisLabel) lpCopy.yAxisLabel = "PRICE ($)";
           const storedOhlcv = lpAny.ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
           const storedHasRows = storedOhlcv && Array.isArray(storedOhlcv.rows) && storedOhlcv.rows.length >= 4;
           if (!storedHasRows) {

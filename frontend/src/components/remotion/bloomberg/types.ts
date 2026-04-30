@@ -65,6 +65,10 @@ export interface BloombergLayoutProps {
   leftDescription?: string;
   rightDescription?: string;
 
+  // terminal_chart / terminal_dataviz axis labels
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+
   // terminal_dataviz
   chartType?: BloombergChartType;
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };

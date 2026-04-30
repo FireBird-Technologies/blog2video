@@ -15,6 +15,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   items = [],
   ticker,
   ohlcvTable,
+  xAxisLabel,
+  yAxisLabel,
 }) => {
   const frame = useCurrentFrame();
   const p = aspectRatio === "portrait";
@@ -498,7 +500,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               fill={p ? `${amber}EB` : `${bg}F0`}
               stroke={p ? `${amber}FF` : `${amber}CC`}
               strokeWidth={p ? "1.5" : "1.25"}
-              filter={`drop-shadow(0 0 ${p ? 12 : 8}px ${amber}AA)`}
             />
             <text
               x={yAxisTitleX}
@@ -511,9 +512,9 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               stroke={p ? `${amber}66` : `${bg}FF`}
               strokeWidth={p ? "0.5" : "0.8"}
               paintOrder="stroke"
-              style={{ textShadow: p ? "none" : `0 0 ${p ? 14 : 10}px ${amber}AA` }}
+              style={{}}
             >
-              PRICE ($)
+              {yAxisLabel || "PRICE ($)"}
             </text>
           </g>
 
@@ -538,7 +539,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                   fill={`${bg}CC`}
                   stroke={`${amber}88`}
                   strokeWidth="1.1"
-                  filter={`drop-shadow(0 0 ${p ? 6 : 4}px ${amber}55)`}
                 />
                 <text
                   x={chartW + 4 + chipW / 2}
@@ -567,8 +567,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 <line x1={x} x2={x} y1={priceH} y2={priceH + (p ? 14 : 8)}
                       stroke={`${amber}44`} strokeWidth="1" />
                 <text x={x} y={xLabelY} fill={`${amber}F2`} fontSize={xLabelFont}
-                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.95" fontWeight={700}
-                      stroke={`${bg}AA`} strokeWidth="0.45" paintOrder="stroke">
+                      textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"} opacity="0.95" fontWeight={700}>
                   {dateLabel}
                 </text>
               </g>
@@ -586,7 +585,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               fill={`${bg}C8`}
               stroke={`${amber}88`}
               strokeWidth="1.1"
-              filter={`drop-shadow(0 0 ${p ? 8 : 6}px ${amber}66)`}
             />
             <text
               x={chartW / 2}
@@ -599,9 +597,9 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               stroke={`${bg}CC`}
               strokeWidth={p ? "0.7" : "0.5"}
               paintOrder="stroke"
-              style={{ textShadow: `0 0 ${p ? 12 : 8}px ${amber}88` }}
+              style={{}}
             >
-              TRADING DAYS
+              {xAxisLabel || "TRADING DAYS"}
             </text>
           </g>
 
