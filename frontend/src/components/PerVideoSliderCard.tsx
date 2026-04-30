@@ -65,7 +65,7 @@ export default function PerVideoSliderCard({
   // third of the width and maps to its tier's qty range. Aligns visually with
   // the tier strip above.
   //
-  //   [ casual: pos 0..99 → qty 1..10 ] [ pack: 100..199 → 11..30 ] [ bulk: 200..300 → 31..100 ]
+  //   [ casual: pos 0..99 → qty 1..9 ] [ pack: 100..199 → 10..30 ] [ bulk: 200..300 → 31..100 ]
   //
   // High slider resolution (0..300) gives smooth pixel-by-pixel dragging.
   const SLIDER_RES = 300;
@@ -74,11 +74,12 @@ export default function PerVideoSliderCard({
   const sliderPosToQty = (pos: number): number => {
     const p = Math.max(0, Math.min(pos, SLIDER_RES));
     if (p < ZONE_RES) {
-      // Casual: 1..10
+      // Casual: 1..9
+      if (CASUAL_ZONE_END <= 1) return 1;
       return Math.round(1 + (p / ZONE_RES) * (CASUAL_ZONE_END - 1));
     }
     if (p < 2 * ZONE_RES) {
-      // Pack: 11..30
+      // Pack: 10..30
       const t = (p - ZONE_RES) / ZONE_RES;
       return Math.round(PACK_TIER_START_QTY + t * (PACK_ZONE_END - PACK_TIER_START_QTY));
     }
@@ -89,7 +90,9 @@ export default function PerVideoSliderCard({
   const qtyToSliderPos = (q: number): number => {
     if (q <= 1) return 0;
     if (q <= CASUAL_ZONE_END) {
-      return Math.round(((q - 1) / (CASUAL_ZONE_END - 1)) * ZONE_RES);
+      if (CASUAL_ZONE_END <= 1) return 0;
+      // Map max casual qty to p < ZONE_RES so it does not round-trip into pack.
+      return Math.round(((q - 1) / (CASUAL_ZONE_END - 1)) * (ZONE_RES - 1));
     }
     if (q <= PACK_ZONE_END) {
       const t = (q - PACK_TIER_START_QTY) / (PACK_ZONE_END - PACK_TIER_START_QTY);
@@ -177,12 +180,12 @@ export default function PerVideoSliderCard({
         {[
           {
             label: formatDollars(CASUAL_PRICE_CENTS),
-            range: "1–10",
+            range: "1–9",
             active: qty <= CASUAL_ZONE_END,
           },
           {
             label: formatDollars(PACK_PRICE_CENTS),
-            range: "11–30",
+            range: "10–30",
             active: qty >= PACK_TIER_START_QTY && qty <= PACK_ZONE_END,
           },
           {
