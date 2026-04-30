@@ -8,6 +8,7 @@ import Pricing from "./pages/Pricing";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
+import InviteOthers from "./pages/InviteOthers";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
@@ -123,6 +124,16 @@ function AppRoutes() {
             <ProtectedRoute>
               <main className="max-w-7xl mx-auto px-6 py-8">
                 <Subscription />
+              </main>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/invite-others"
+          element={
+            <ProtectedRoute>
+              <main className="max-w-7xl mx-auto px-6 py-8">
+                <InviteOthers />
               </main>
             </ProtectedRoute>
           }

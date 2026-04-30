@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
 import { googleLogin } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -439,6 +439,7 @@ function LandingDemoSection({ demos }: { demos: DemoVideo[] }) {
 export default function Landing() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showError } = useErrorModal();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
@@ -446,6 +447,12 @@ export default function Landing() {
   const [pendingCredential, setPendingCredential] = useState<string | null>(null);
   const [reactivating, setReactivating] = useState(false);
   const scrollRef = useScrollReveal();
+
+  // Persist referral code from URL so it survives the Google OAuth redirect
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("b2v_ref_code", ref);
+  }, [searchParams]);
 
   // Auto-fetch OG images for demos that don't have one; fall back to YouTube thumbnail
   useEffect(() => {
@@ -475,8 +482,10 @@ export default function Landing() {
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) return;
+    const refCode = localStorage.getItem("b2v_ref_code");
     try {
-      const res = await googleLogin(response.credential);
+      const res = await googleLogin(response.credential, false, refCode);
+      localStorage.removeItem("b2v_ref_code");
       login(res.data.access_token, res.data.user);
       navigate("/dashboard");
     } catch (err: any) {
@@ -980,7 +989,7 @@ export default function Landing() {
             Start free. Pay per video. Standard or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first 3 videos are free. Then $3/video pay-as-you-go, $25/month
+            Your first 3 videos are free. Then from $2.80/video pay-as-you-go, $25/month
             (or $20/mo annual), $50/month with unlimited AI edit & image generation,
             or custom plans for enterprise teams.
           </p>
@@ -993,8 +1002,8 @@ export default function Landing() {
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
-              <p className="text-3xl font-bold text-gray-900">$3</p>
-              <p className="text-xs text-gray-400 mt-1">pay as you go</p>
+              <p className="text-3xl font-bold text-gray-900">$4</p>
+              <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center col-span-2 sm:col-span-1">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>

@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
 
+import requests
 from firecrawl import Firecrawl
 from app.config import settings
 
@@ -68,6 +69,29 @@ def _is_in_nav(tag) -> bool:  # type: ignore[no-untyped-def]
         combined = classes + " " + pid
         if any(kw in combined for kw in _NAV_ATTRS):
             return True
+    return False
+
+
+def _is_url_reachable(url: str, timeout: float = 3.0) -> bool:
+    """HEAD-check a URL; retry with a byte-range GET if the server rejects HEAD.
+    Used to filter last-resort favicon fallbacks that many SPAs don't actually
+    serve (e.g. Binance's /favicon.ico returns 404), preventing broken URLs from
+    polluting the brand kit.
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    try:
+        resp = requests.head(url, timeout=timeout, allow_redirects=True)
+        if resp.status_code < 400:
+            return True
+        if resp.status_code in (403, 405, 501):
+            resp = requests.get(
+                url, timeout=timeout, stream=True,
+                headers={"Range": "bytes=0-0"},
+            )
+            return resp.status_code < 400
+    except Exception:
+        pass
     return False
 
 
@@ -139,7 +163,9 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
             if any(r == "apple-touch-icon" for r in rels):
                 tiers[4].append(urljoin(base_url, href))
             elif any(r in ("icon", "shortcut") for r in rels):
-                tiers[6].append(urljoin(base_url, href))
+                icon_url = urljoin(base_url, href)
+                if _is_url_reachable(icon_url):
+                    tiers[6].append(icon_url)
 
     except Exception:
         pass  # Never let logo extraction break the scrape
@@ -148,8 +174,10 @@ def _extract_logo_urls(html: str, base_url: str, og_image: str = "") -> list[str
     if og_image:
         tiers[5].append(og_image)
 
-    # ── Tier 8: /favicon.ico ──────────────────────────────────────────────
-    tiers[7].append(urljoin(base_url, "/favicon.ico"))
+    # ── Tier 8: /favicon.ico (only if the server actually serves it) ──────
+    favicon_url = urljoin(base_url, "/favicon.ico")
+    if _is_url_reachable(favicon_url):
+        tiers[7].append(favicon_url)
 
     # Merge tiers in order, deduplicate, cap at 5
     seen: set[str] = set()

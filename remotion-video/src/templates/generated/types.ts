@@ -82,6 +82,8 @@ export interface GeneratedSceneData {
   durationSeconds: number;
   voiceoverFile: string | null;
   images: string[];
+  /** External image URL (og_image from brand kit) — used when no local image is assigned */
+  ogImageUrl?: string;
   sceneType?: "intro" | "content" | "outro";
   /** Index into content variant array (0-based, cycles) */
   contentVariantIndex?: number;
@@ -89,7 +91,7 @@ export interface GeneratedSceneData {
   structuredContent?: { contentType: string; [key: string]: unknown };
   /** Layout config with font sizes and other per-scene settings */
   layoutConfig?: { titleFontSize?: number; descriptionFontSize?: number; [key: string]: unknown };
-  layoutProps?: { imageFocusX?: number; imageFocusY?: number; [key: string]: unknown };
+  layoutProps?: { imageFocusX?: number; imageFocusY?: number; imageBoxAspectRatio?: string; [key: string]: unknown };
   /** CTA props for outro scenes (socials, website link, CTA button) */
   ctaProps?: {
     socials?: Record<string, { enabled?: boolean; label?: string }>;

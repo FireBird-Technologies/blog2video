@@ -876,6 +876,12 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
     if is_custom_template(template_id):
         from app.services.template_service import _load_custom_template_data
         custom_data = _load_custom_template_data(template_id, db=db)
+        if custom_data:
+            ct_og_image = custom_data.get("og_image", "")
+            if ct_og_image:
+                for sd in scene_data:
+                    if not sd.get("images"):
+                        sd["ogImageUrl"] = ct_og_image
         if custom_data and custom_data.get("theme"):
             data["theme"] = custom_data["theme"]
             theme_colors = custom_data["theme"].get("colors", {})
@@ -988,20 +994,64 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
                 else:
                     sd.pop("_override_variant", None)
 
+            # Pull aspect ratios stored at template generation time (one per variant).
+            # Each entry may be either:
+            #   - a dict {"landscape": "W / H", "portrait": "W / H"} (current format)
+            #   - a string "W / H" (legacy format from older templates — used for both orientations)
+            ar_map = custom_data.get("image_box_aspect_ratios") or {}
+            project_orientation = (getattr(project, "aspect_ratio", None) or "landscape").strip().lower()
+            if project_orientation not in ("landscape", "portrait"):
+                project_orientation = "landscape"
+            _fallback_ar = "16 / 9" if project_orientation == "landscape" else "9 / 16"
+
+            def _pick_ar(entry) -> str:
+                if isinstance(entry, dict):
+                    return entry.get(project_orientation) or entry.get("landscape") or _fallback_ar
+                if isinstance(entry, str) and entry.strip():
+                    return entry
+                return _fallback_ar
+
+            intro_ar = _pick_ar(ar_map.get("intro"))
+            outro_ar = _pick_ar(ar_map.get("outro"))
+            content_ars_raw = ar_map.get("content") or []
+            content_ars = [_pick_ar(e) for e in content_ars_raw]
+
             # Persist variant assignments to DB (fixes preview bug)
             for idx in range(len(scene_data)):
                 sd = scene_data[idx]
                 scene_obj = scenes[idx] if idx < len(scenes) else None
-                if scene_obj and sd.get("contentVariantIndex") is not None:
-                    try:
-                        desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
-                    except (json.JSONDecodeError, TypeError):
-                        desc = {}
+                if scene_obj is None:
+                    continue
+                try:
+                    desc = json.loads(scene_obj.remotion_code) if scene_obj.remotion_code else {}
+                except (json.JSONDecodeError, TypeError):
+                    desc = {}
+
+                if sd.get("contentVariantIndex") is not None:
                     desc["contentVariantIndex"] = sd["contentVariantIndex"]
                     desc["sceneTypeOverride"] = sd.get("sceneType", "content")
                     if sd.get("contentArchetype"):
                         desc["contentArchetype"] = sd["contentArchetype"]
-                    scene_obj.remotion_code = json.dumps(desc)
+
+                # Inject the correct image-box aspect ratio for this scene's actual variant
+                scene_type_for_ar = sd.get("sceneType", "content")
+                if scene_type_for_ar == "intro":
+                    ar = intro_ar
+                elif scene_type_for_ar == "outro":
+                    ar = outro_ar
+                else:
+                    variant_idx = sd.get("contentVariantIndex")
+                    if isinstance(variant_idx, int) and 0 <= variant_idx < len(content_ars):
+                        ar = content_ars[variant_idx]
+                    elif content_ars:
+                        ar = content_ars[0]
+                    else:
+                        ar = "16 / 9"
+                lp = desc.get("layoutProps") or {}
+                lp["imageBoxAspectRatio"] = ar
+                desc["layoutProps"] = lp
+
+                scene_obj.remotion_code = json.dumps(desc)
 
             db.commit()
             logger.info(
@@ -1013,19 +1063,29 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
             # Use brand logo as fallback when no project-level logo was uploaded
             brand_kit = custom_data.get("brand_kit")
             if brand_kit:
-                logos = brand_kit.get("logos", [])
-                if logos:
-                    primary = logos[0] if isinstance(logos[0], dict) else {"url": logos[0]}
-                    logo_url = primary.get("url", "")
-                    if logo_url:
-                        logo_filename = "brand-logo.png"
-                        logo_dest = os.path.join(public_dir, logo_filename)
-                        if _download_url_to_file(logo_url, logo_dest):
-                            # Set as main logo if no project logo exists
-                            if not data.get("logo"):
-                                data["logo"] = logo_filename
-                            data["brandLogo"] = logo_filename
-                            logger.info("Brand logo downloaded to workspace: %s", logo_filename)
+                logos = brand_kit.get("logos", []) or []
+                # Try each URL in order — first one that downloads and
+                # decodes wins. The "primary" entry can be broken (e.g. a
+                # 404 favicon scraped before validation landed), so falling
+                # through to the next candidate is required for those kits.
+                logo_filename = None
+                for entry in logos:
+                    candidate_url = (
+                        entry.get("url", "") if isinstance(entry, dict)
+                        else (entry if isinstance(entry, str) else "")
+                    )
+                    if not candidate_url:
+                        continue
+                    logo_filename = _download_logo_normalized(
+                        candidate_url, public_dir, "brand-logo"
+                    )
+                    if logo_filename:
+                        break
+                if logo_filename:
+                    if not data.get("logo"):
+                        data["logo"] = logo_filename
+                    data["brandLogo"] = logo_filename
+                    logger.info("Brand logo downloaded to workspace: %s", logo_filename)
 
                 # Pass brand images for AI scene components
                 brand_images_raw = brand_kit.get("images", [])
@@ -1417,6 +1477,61 @@ def render_video(project: Project, resolution: str = "1080p") -> str:
     if result.returncode != 0:
         raise RuntimeError(f"Remotion render failed: {result.stderr}")
 
+    return output_path
+
+
+def render_still(project: Project, frame: int) -> str:
+    """
+    Render a single frame of the project composition using Remotion renderStill.
+    Returns the path to the output PNG file.
+    Uses the same workspace and data.json as the video render — pixel-perfect quality.
+    """
+    template_id = validate_template_id(getattr(project, "template", "default"))
+    provision_workspace(project.id, template_id)
+    workspace = get_workspace_dir(project.id)
+    public_dir = os.path.join(workspace, "public")
+    data_json = os.path.join(public_dir, "data.json")
+    if not os.path.exists(data_json):
+        raise RuntimeError(f"render_still missing data.json at: {data_json}")
+    # Some compositions/staticFile resolutions request "/public/data.json".
+    # Mirror data.json there to avoid 404 during Remotion still renders.
+    mirrored_public_dir = os.path.join(public_dir, "public")
+    os.makedirs(mirrored_public_dir, exist_ok=True)
+    mirrored_data_json = os.path.join(mirrored_public_dir, "data.json")
+    try:
+        shutil.copy2(data_json, mirrored_data_json)
+    except Exception:
+        # Non-fatal: original data.json path still exists.
+        pass
+    output_dir = os.path.join(settings.MEDIA_DIR, f"projects/{project.id}/stills")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"frame_{frame}.png")
+    aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    composition_id = get_composition_id(template_id)
+    presets = RESOLUTION_PRESETS.get(aspect_ratio, RESOLUTION_PRESETS["landscape"])
+    preset = presets.get("1080p", presets["1080p"])
+    npx = shutil.which("npx") or "npx"
+    cmd = [
+        npx, "remotion", "still",
+        composition_id,
+        output_path,
+        "--frame", str(frame),
+        "--gl", "angle",
+        "--bundle-cache", "true",
+        "--timeout", "60000",
+        "--width", str(preset["width"]),
+        "--height", str(preset["height"]),
+    ]
+    result = subprocess.run(
+        cmd,
+        cwd=workspace,
+        shell=(os.name == "nt"),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0 or not os.path.exists(output_path):
+        raise RuntimeError(f"Remotion still render failed (frame={frame}): {result.stderr or result.stdout}")
     return output_path
 
 
@@ -2104,6 +2219,62 @@ def _download_url_to_file(url: str, dest: str) -> bool:
     except Exception as e:
         logger.warning("[REMOTION] Failed to download %s: %s", url, e)
         return False
+
+
+def _download_logo_normalized(url: str, public_dir: str, base_name: str) -> Optional[str]:
+    """
+    Download a logo URL from an arbitrary source (brand-kit, favicon, etc.) and
+    save it into public_dir as a Chromium-decodable file. Handles ICO favicons,
+    WebP, JPEG, and PNG by re-encoding through Pillow; passes SVG through as-is.
+
+    Remotion renders via headless Chromium, which rejects files whose bytes don't
+    match the filename extension (e.g. an .ico blob saved as brand-logo.png), so
+    normalization is required for third-party logos like https://site/favicon.ico.
+
+    Returns the saved filename (relative to public_dir) on success, else None.
+    """
+    try:
+        from io import BytesIO
+        from PIL import Image
+
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        content = resp.content
+
+        os.makedirs(public_dir, exist_ok=True)
+
+        head = content[:512].lstrip()
+        is_svg = head.startswith(b"<svg") or (
+            head.startswith(b"<?xml") and b"<svg" in head
+        )
+        if is_svg:
+            svg_name = f"{base_name}.svg"
+            with open(os.path.join(public_dir, svg_name), "wb") as f:
+                f.write(content)
+            logger.info("[REMOTION] Saved SVG logo: %s", svg_name)
+            return svg_name
+
+        png_name = f"{base_name}.png"
+        png_path = os.path.join(public_dir, png_name)
+        with Image.open(BytesIO(content)) as img:
+            # For multi-frame ICO, select the largest frame for best quality.
+            if (img.format or "").upper() == "ICO":
+                try:
+                    sizes = sorted(img.ico.sizes(), key=lambda s: s[0] * s[1], reverse=True)
+                    if sizes:
+                        img.size = sizes[0]
+                        img.load()
+                except Exception:
+                    pass
+            img.convert("RGBA").save(png_path, "PNG")
+        logger.info(
+            "[REMOTION] Normalized logo to PNG (source format=%s): %s",
+            getattr(img, "format", "?"), png_name,
+        )
+        return png_name
+    except Exception as e:
+        logger.warning("[REMOTION] Failed to download/normalize logo %s: %s", url, e)
+        return None
 
 
 def _copy_file(src: str, dest: str) -> None:

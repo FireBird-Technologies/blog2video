@@ -8,6 +8,7 @@ import requests
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
@@ -33,6 +34,8 @@ from app.services.remotion import (
     safe_remove_workspace,
     get_workspace_dir,
     cancel_running_render,
+    render_still,
+    write_remotion_data,
 )
 from app.services.doc_extractor import extract_from_documents
 from app.services.project_cleanup import (
@@ -50,24 +53,77 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 logger = get_logger(__name__)
 
 
+import threading as _threading
+
+# URL → (expires_at_epoch, is_reachable). Avoids HEAD-ing the same brand-logo
+# URL on every project serialization (_inject_custom_theme runs on every GET).
+_BRAND_LOGO_URL_CHECK_TTL_S = 3600.0
+_brand_logo_url_check: dict[str, tuple[float, bool]] = {}
+_brand_logo_url_check_lock = _threading.Lock()
+
+
+def _is_brand_logo_url_reachable(url: str) -> bool:
+    """HEAD-check a brand-kit logo URL, cached for 1 hour.
+    Falls back to a single-byte GET when servers reject HEAD (403/405/501).
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        return False
+    now = time.time()
+    with _brand_logo_url_check_lock:
+        cached = _brand_logo_url_check.get(url)
+        if cached and cached[0] > now:
+            return cached[1]
+    ok = False
+    try:
+        resp = requests.head(url, timeout=3, allow_redirects=True)
+        ok = resp.status_code < 400
+        if not ok and resp.status_code in (403, 405, 501):
+            resp = requests.get(
+                url, timeout=3, stream=True,
+                headers={"Range": "bytes=0-0"},
+            )
+            ok = resp.status_code < 400
+    except Exception:
+        ok = False
+    with _brand_logo_url_check_lock:
+        _brand_logo_url_check[url] = (now + _BRAND_LOGO_URL_CHECK_TTL_S, ok)
+    return ok
+
+
+def _pick_reachable_brand_logo_url(logos: list) -> str | None:
+    """Return the first brand-kit logo URL that is actually reachable, else None."""
+    for entry in logos or []:
+        url = (
+            entry.get("url", "") if isinstance(entry, dict)
+            else (entry if isinstance(entry, str) else "")
+        )
+        if url and _is_brand_logo_url_reachable(url):
+            return url
+    return None
+
+
 def _inject_custom_theme(project: Project, db: Session | None = None) -> Project:
     """Attach custom_theme to a project so ProjectOut serialization includes it."""
     if is_custom_template(project.template):
         data = _load_custom_template_data(project.template, db=db)
         project.custom_theme = data["theme"] if data else None
+        project.custom_image_box_aspect_ratios = (
+            data.get("image_box_aspect_ratios") if data else None
+        )
         project.custom_template_missing = data is None
-        # Expose BrandKit logo URL so the frontend preview can show it
+        # Expose BrandKit logo URL so the frontend preview can show it.
+        # Skip entries that don't actually resolve — a scraped /favicon.ico
+        # fallback often 404s on SPAs, and serving a broken URL to the
+        # frontend just renders a broken-image icon in the preview.
         brand_logo_url = None
         if data:
             bk = data.get("brand_kit")
             if bk:
-                logos = bk.get("logos") or []
-                if logos:
-                    first = logos[0]
-                    brand_logo_url = first.get("url", "") if isinstance(first, dict) else first
+                brand_logo_url = _pick_reachable_brand_logo_url(bk.get("logos") or [])
         project.brand_logo_url = brand_logo_url or None
     else:
         project.custom_theme = None
+        project.custom_image_box_aspect_ratios = None
         project.custom_template_missing = False
         project.brand_logo_url = None
     return project
@@ -1110,6 +1166,32 @@ def get_project(
     return _prepare_project_response(project, user, db)
 
 
+@router.get("/{project_id}/render-still")
+def render_project_still(
+    project_id: int,
+    frame: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Render and return a single PNG frame via Remotion for pixel-perfect slide exports."""
+    if frame < 0:
+        raise HTTPException(status_code=400, detail="frame must be >= 0")
+    project = _get_user_project(project_id, user.id, db)
+    try:
+        # Keep still-render workspace in sync with the latest DB scene state.
+        write_remotion_data(project, list(project.scenes), db)
+        output_path = render_still(project, frame)
+    except Exception as exc:
+        logger.exception("render-still failed project=%s frame=%s", project_id, frame)
+        raise HTTPException(status_code=500, detail=f"Could not render still frame: {exc}") from exc
+
+    return FileResponse(
+        output_path,
+        media_type="image/png",
+        filename=f"project_{project_id}_frame_{frame}.png",
+    )
+
+
 @router.post("/{project_id}/review", response_model=ReviewSubmitResponse)
 def submit_project_review(
     project_id: int,
@@ -1151,7 +1233,7 @@ def delete_project(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a project and all related data (local + R2 storage)."""
+    """Manually delete a project row from DB and remove all project storage."""
     project = _get_user_project(project_id, user.id, db)
 
     # Ensure any active render subprocess is terminated before deleting files/DB row.
@@ -1165,7 +1247,7 @@ def delete_project(
             extra={"project_id": project.id, "user_id": user.id},
         )
 
-    # Delete R2 files
+    # Delete all project files from R2 (images/audio/video/logo)
     if r2_storage.is_r2_configured():
         try:
             r2_storage.delete_project_files(project.user_id, project.id)
@@ -1178,11 +1260,7 @@ def delete_project(
         safe_remove_workspace(get_workspace_dir(project.id))
         shutil.rmtree(project_media, ignore_errors=True)
 
-    project.is_active = False
-    project.r2_video_key = None
-    project.r2_video_url = None
-    project.logo_r2_key = None
-    project.logo_r2_url = None
+    db.delete(project)
     db.commit()
     return {"detail": "Project deleted"}
 

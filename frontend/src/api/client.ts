@@ -130,6 +130,11 @@ export interface Project {
   playback_speed?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
+  custom_image_box_aspect_ratios?: {
+    intro?: string | { landscape?: string; portrait?: string };
+    content?: (string | { landscape?: string; portrait?: string })[];
+    outro?: string | { landscape?: string; portrait?: string };
+  } | null;
   custom_template_missing?: boolean;
   brand_logo_url?: string | null;
   review_state?: ReviewState | null;
@@ -271,8 +276,23 @@ export interface PublicConfig {
 
 // ─── Auth API ─────────────────────────────────────────────
 
-export const googleLogin = (credential: string, reactivate = false) =>
-  api.post<AuthResponse>("/auth/google", { credential }, { params: { reactivate } });
+export const googleLogin = (credential: string, reactivate = false, refCode?: string | null) => {
+  const params: Record<string, unknown> = { reactivate };
+  if (refCode) params.ref_code = refCode;
+  return api.post<AuthResponse>("/auth/google", { credential }, { params });
+};
+
+export const getAffiliateStats = () => api.get<AffiliateStats>("/affiliate/stats");
+export const sendAffiliateInvites = (emails: string[]) =>
+  api.post<{ sent: number; failed: number }>("/affiliate/invite", { emails });
+
+export interface AffiliateStats {
+  link: string;
+  signups_count: number;
+  bonus_earned: number;
+  max_signups: number;
+  bonus_per_signup: number;
+}
 
 export const getMe = () => api.get<UserInfo>("/auth/me");
 
@@ -304,10 +324,18 @@ export const createCheckoutSession = (
   });
 };
 
-export const createPerVideoCheckout = (projectId?: number) =>
-  api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
+export const createPerVideoCheckout = (
+  options?: number | { projectId?: number; quantity?: number }
+) => {
+  const projectId =
+    typeof options === "number" ? options : options?.projectId;
+  const quantity =
+    typeof options === "object" && options?.quantity ? options.quantity : 1;
+  return api.post<{ checkout_url: string }>("/billing/checkout-per-video", {
     project_id: projectId ?? null,
+    quantity,
   });
+};
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");

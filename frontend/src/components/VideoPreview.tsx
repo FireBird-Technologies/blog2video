@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
@@ -110,11 +110,16 @@ const StableCustomComposition: React.FC<any> = ({
         const sc = (s.structuredContent || {}) as Record<string, unknown>;
         const focusX = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusX ?? 50);
         const focusY = Number((s.layoutProps as Record<string, unknown> | undefined)?.imageFocusY ?? 50);
+        const imageZoom = Math.max(
+          1,
+          Number((s.layoutProps as Record<string, unknown> | undefined)?.imageZoom ?? 1),
+        );
         const sceneProps: SceneProps = {
           displayText: s.narration || s.title,
           narrationText: s.narration || "",
           imageUrl: s.imageUrl,
           imageObjectPosition: `${Math.max(0, Math.min(100, focusX))}% ${Math.max(0, Math.min(100, focusY))}%`,
+          imageZoom,
           sceneIndex: i,
           totalScenes,
           logoUrl: project.logo_r2_url || project.brand_logo_url || undefined,
@@ -151,7 +156,17 @@ const StableCustomComposition: React.FC<any> = ({
                 logoUrl={sceneProps.logoUrl}
               />
             ) : (
-              <SceneComp {...sceneProps} />
+              <AbsoluteFill
+                style={{
+                  ["--img-pos" as string]: sceneProps.imageObjectPosition,
+                  ["--img-zoom" as string]: String(imageZoom),
+                }}
+              >
+                <style>{`[data-scene-wrapper] img:not([data-logo]){object-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}[data-scene-wrapper] [data-content-img]{object-position:var(--img-pos,50% 50%) !important;background-position:var(--img-pos,50% 50%) !important;transform:scale(var(--img-zoom,1)) !important;transform-origin:var(--img-pos,50% 50%) !important;}`}</style>
+                <div data-scene-wrapper style={{ width: "100%", height: "100%" }}>
+                  <SceneComp {...sceneProps} />
+                </div>
+              </AbsoluteFill>
             )}
             {s.voiceoverUrl && <Audio src={s.voiceoverUrl} playbackRate={1} />}
           </Sequence>
@@ -185,6 +200,10 @@ interface VideoPreviewProps {
     content_codes: string[] | null;
     outro_code: string | null;
   };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
 }
 
 interface SceneInput {
@@ -488,24 +507,39 @@ function PlaybackSpeedControl({
   );
 }
 
-export default function VideoPreview({
-  project,
-  logoSizeOverride,
-  logoOpacityOverride,
-  logoPositionOverride,
-  onPlaybackSpeedChange,
-  playbackSpeedSaving = false,
-  precompiledTemplateData,
-}: VideoPreviewProps) {
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+  },
+  ref
+) {
   const templateId = normalizeBuiltInTemplateId(project.template);
   const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = templateId.startsWith("custom_");
 
-  // Ref to Remotion Player — passed to PlaybackSpeedControl so it can keep
-  // the Player's control bar visible while the cursor is over the speed button.
-  const playerRef = useRef<PlayerRef>(null);
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -562,15 +596,16 @@ export default function VideoPreview({
       const subdir = asset.asset_type === "image" ? "images" : "audio";
       const localPath = `/media/projects/${project.id}/${subdir}/${asset.filename}`;
       
-      // In local dev, prefer local media files over R2 URLs
-      // R2 URLs may not be accessible or may have connection issues locally
+      // In local dev, prefer R2 when available so projects still preview
+      // even if local /media files were cleaned up.
       const isLocalDev = !BACKEND_URL || 
                          BACKEND_URL.includes('localhost') || 
                          BACKEND_URL.includes('127.0.0.1');
       
       let base: string;
       if (isLocalDev) {
-        base = localPath;
+        base = asset.r2_url ? asset.r2_url : localPath;
+        console.log("base", base);
       } else {
         base = asset.r2_url ? asset.r2_url : `${BACKEND_URL}${localPath}`;
       }
@@ -688,6 +723,10 @@ export default function VideoPreview({
             if (descriptor.ctaProps) {
               ctaProps = descriptor.ctaProps;
             }
+            // Custom templates also store image controls in layoutProps.
+            // Without this, imageFocusX/imageFocusY/imageZoom from remotion_code
+            // are ignored in preview even though they exist in DB.
+            layoutProps = descriptor.layoutProps || {};
             if (descriptor.layoutConfig) {
               layoutConfig = descriptor.layoutConfig;
               layout = descriptor.layoutConfig.arrangement || "full-center";
@@ -990,7 +1029,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1005,9 +1044,10 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
-          ref={playerRef}
+          ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          controls
+          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
@@ -1019,9 +1059,11 @@ export default function VideoPreview({
           currentSpeed={currentPlaybackSpeed}
           saving={playbackSpeedSaving}
           onChange={onPlaybackSpeedChange}
-          playerContainerRef={playerRef}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
         />
       </div>
     </div>
   );
-}
+});
+
+export default VideoPreview;
