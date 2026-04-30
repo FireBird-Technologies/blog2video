@@ -4,7 +4,7 @@ import {
   featuredPostSlugs,
   footerGroups,
   getBlogPost,
-  getPublicLinkDetails,
+  getMarketingPage,
 } from "../../content/siteContent";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -12,7 +12,7 @@ export default function PublicFooter() {
   const { user } = useAuth();
 
   const featuredPages = featuredPagePaths
-    .map((path) => getPublicLinkDetails(path))
+    .map((path) => getMarketingPage(path))
     .filter((page): page is NonNullable<typeof page> => Boolean(page));
   const featuredPosts = featuredPostSlugs
     .map((slug) => getBlogPost(slug))
@@ -30,7 +30,7 @@ export default function PublicFooter() {
               <div className="space-y-3">
                 {featuredPages.map((page) => (
                   <Link key={page.path} to={page.path} className="block">
-                    <p className="text-sm font-semibold text-gray-900">{page.label}</p>
+                    <p className="text-sm font-semibold text-gray-900">{page.heroTitle}</p>
                     <p className="text-sm text-gray-500">{page.description}</p>
                   </Link>
                 ))}
@@ -53,7 +53,7 @@ export default function PublicFooter() {
           </div>
         ) : null}
 
-        <div className="grid gap-8 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid gap-8 md:grid-cols-4">
           <div>
             <div className="mb-3 flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-[11px] font-bold text-white">
@@ -71,8 +71,16 @@ export default function PublicFooter() {
               <p className="mb-3 text-sm font-semibold text-gray-900">{group.title}</p>
               <div className="space-y-2">
                 {group.links.map((path) => {
-                  const page = getPublicLinkDetails(path);
-                  const label = page?.label || path;
+                  const page = getMarketingPage(path);
+                  const label =
+                    page?.heroTitle ||
+                    (path === "/blogs"
+                      ? "Blog"
+                      : path === "/pricing"
+                        ? "Pricing"
+                        : path === "/contact"
+                          ? "Contact"
+                          : path);
 
                   return (
                     <Link

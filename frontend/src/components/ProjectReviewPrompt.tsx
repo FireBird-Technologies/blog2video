@@ -177,7 +177,7 @@ export default function ProjectReviewPrompt({
           <div className="flex items-center justify-between gap-3">
             <a
               href="/invite-others"
-              className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-purple-600 transition-colors relative"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700 hover:bg-purple-100 hover:border-purple-400 transition-all relative"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" />
