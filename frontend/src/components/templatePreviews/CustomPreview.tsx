@@ -125,6 +125,7 @@ interface CustomPreviewProps {
   ogImage?: string;
   onRetry?: () => void;
   onAllScenesEnded?: () => void;
+  thumbnailMode?: boolean;
 }
 
 export default function CustomPreview({
@@ -139,6 +140,7 @@ export default function CustomPreview({
   ogImage,
   onRetry,
   onAllScenesEnded,
+  thumbnailMode = false,
 }: CustomPreviewProps) {
   const [activeScene, setActiveScene] = useState(0);
   const [outgoingScene, setOutgoingScene] = useState<number | null>(null);
@@ -272,6 +274,7 @@ export default function CustomPreview({
   }, []);
 
   const handleSceneEnded = useCallback(() => {
+    if (thumbnailMode) return;
     if (hasMultipleScenes) {
       switchScene((prev) => {
         const isLast = prev === sceneCodes.length - 1;
@@ -279,7 +282,7 @@ export default function CustomPreview({
         return (prev + 1) % sceneCodes.length;
       });
     }
-  }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded]);
+  }, [hasMultipleScenes, sceneCodes.length, switchScene, onAllScenesEnded, thumbnailMode]);
 
   const goToScene = useCallback((idx: number) => {
     switchScene(() => idx);
@@ -412,9 +415,11 @@ export default function CustomPreview({
                     theme={theme}
                     sampleProps={sceneSampleProps[idx]}
                     durationSeconds={5}
-                    loop={!hasMultipleScenes}
+                    loop={!thumbnailMode && !hasMultipleScenes}
+                    thumbnailMode={thumbnailMode}
+                    thumbnailFrame={135}
                     onRetry={onRetry}
-                    onEnded={isActive ? handleSceneEnded : undefined}
+                    onEnded={!thumbnailMode && isActive ? handleSceneEnded : undefined}
                   />
                 )}
               </div>
@@ -424,7 +429,7 @@ export default function CustomPreview({
       </Suspense>
 
       {/* Scene navigation dots (minimal — no layout labels) */}
-      {hasMultipleScenes && (
+      {hasMultipleScenes && !thumbnailMode && (
         <div
           style={{
             position: "absolute",
