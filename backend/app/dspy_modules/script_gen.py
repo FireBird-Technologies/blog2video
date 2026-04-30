@@ -227,7 +227,7 @@ class BlogToScript(dspy.Signature):
         desc=(
             "JSON array of table-to-scene bindings extracted from the blog. Each entry has keys: "
             '"index" (int, original table index), "chartType" (\'line\'|\'bar\'|\'histogram\'|\'auto\'), '
-            '"headers" (list of str), "rows" (list of list of str, up to 8 sample rows), "source" (str), '
+            '"headers" (list of str), "rows" (list of list of str, up to 20 sample rows), "source" (str), '
             'and OPTIONAL "preferred_layout" (str) specifying the layout to use for that scene '
             '(e.g. "terminal_chart", "terminal_table", "data_visualization"). '
             "Empty string when no tables are available. "
@@ -386,22 +386,17 @@ class ScriptGenerator:
             "(e.g. year + revenue, date + price, period + metric). "
             "terminal_table MUST be used for purely categorical/tabular data with no numeric progression. "
             "NEVER assign terminal_chart to non-OHLCV data — not even if the data has a time column. "
-            "(12) IMPLICIT TIME-SERIES FROM PROSE — BLOOMBERG EXCLUSIVE: "
-            "Even when chartable_tables_json is empty, scan blog_content for sentences that describe "
-            "a numeric progression over time — e.g. 'revenue grew from $6.8bn to $45.2bn over a decade', "
-            "'margins fell from 32%% to 18%% since 2019', 'users went from 1M in 2015 to 45M in 2024'. "
-            "When you find such a statement: synthesize a terminal_dataviz scene (LINE CHART) from it. "
-            "Extract ONLY the exact figures and time references stated in the text. "
-            "Set visual_description to: "
-            "'SYNTHETIC_TIMESERIES: [{\"label\": \"<start period>\", \"value\": <start number>}, "
-            "{\"label\": \"<end period>\", \"value\": <end number>}] unit=<unit e.g. bn USD, %>'. "
-            "YEAR/LABEL RULE — CRITICAL: Use ONLY labels explicitly stated in the prose. "
-            "If no specific years are given, use 'Start' and 'Now' — NEVER invent a year. "
-            "If no time reference at all exists, omit the label field rather than fabricating one. "
-            "Set preferred_layout to 'terminal_dataviz'. "
-            "The narration must analyse the magnitude and meaning of the change, not restate numbers. "
-            "Only one synthetic scene per distinct metric. "
-            "Skip if chartable_tables_json already covers the same metric."
+            "(12) DATA VISUALIZATION SCENES — SCRAPED TABLES ONLY (BLOOMBERG STRICT): "
+            "Chart/table scenes (terminal_chart, terminal_dataviz, terminal_table, terminal_ticker, "
+            "data_visualization) MUST be derived EXCLUSIVELY from the scraped tables provided in "
+            "chartable_tables_json. NEVER synthesize, fabricate, or extract chart data from blog_content "
+            "prose, sentences, or narrative claims — even if the prose mentions specific numbers, "
+            "percentages, growth figures, or time references. "
+            "If chartable_tables_json is empty, DO NOT emit any data visualization scenes at all — "
+            "use other layouts (story_stack, headline_insight, side_by_side_brief, etc.) for the content. "
+            "BANNED: do not output 'SYNTHETIC_TIMESERIES' or any other invented chart payload in "
+            "visual_description under any circumstance. Prose-derived charts are forbidden in the "
+            "bloomberg template."
         ),
     }
 

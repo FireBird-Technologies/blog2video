@@ -179,11 +179,8 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
   const headerBg = BLOOMBERG_COLORS.headerBg;
 
   const tSize = titleFontSize ?? (p ? 103 : 144);
-  const dSize = descriptionFontSize ?? (p ? 54 : 38);
+  const dSize = descriptionFontSize ?? (p ? 42 : 30);
   const labelSize = dSize * 0.4;
-  const baseDescriptionSize = p ? 54 : 38;
-  const lineDataScale = Math.max(0.75, Math.min(2, dSize / baseDescriptionSize));
-
   const titleOp = interpolate(frame, [5, 22], [0, 1], { extrapolateRight: "clamp" });
   const panelOp = interpolate(frame, [10, 28], [0, 1], { extrapolateRight: "clamp" });
 
@@ -261,17 +258,21 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
   const chartLabel = chartType === "line" ? "LINE CHART" : chartType === "histogram" ? "HISTOGRAM" : "BAR CHART";
 
-  const yAxisWidth = p ? 86 : 72;
-  // Reserve space below for x-tick labels + optional x-title — must match ChartRenderer constants
-  const xAxisTickH = inputs.labels.length >= 8 ? 78 : 42;
-  const xTitleH = inputs.xAxisLabel ? Math.round(labelSize * 0.8) + 10 : 0;
+  const chartTitleFont = Math.round(dSize * 0.75);
+  // yAxisWidth: tick numbers + optional rotated title
+  const yAxisWidth = Math.round(dSize * 3.2) + (inputs.yAxisLabel ? chartTitleFont + 8 : 0);
+  // xReserve: space below the SVG for x-tick labels + optional x-axis title
+  const xAxisTickH = Math.round(dSize * 1.7);
+  const xTitleH = inputs.xAxisLabel ? chartTitleFont + 36 : 0;
   const xReserve = xAxisTickH + xTitleH;
 
   const padRight = p ? pad : pad + 340;
   const chartWidth = Math.round(Math.max(100, width - pad - padRight));
   // chartHeight = the SVG chart area only; ChartRenderer adds xReserve below it
+  const titleH = topH + Math.round(tSize * 0.44) + 20;
+  const narrationH = p ? Math.round(dSize * 0.62 * 3.5) + 20 : 0;
   const chartHeight = p
-    ? Math.round(Math.max(100, height * 0.35 - xReserve))
+    ? Math.round(Math.max(100, height - titleH - (botH + 10) - narrationH - xReserve - 120))
     : Math.round(Math.max(100, height - (topH + tSize * 0.42 + 28) - (botH + 10) - xReserve));
 
   return (
@@ -293,7 +294,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
 
       }}>
         <div style={{ flex: 1 }} />
-        <span style={{ color: blue, fontSize: labelSize * 0.95, letterSpacing: 2, fontWeight: 700 }}>{chartLabel}</span>
+        <span style={{ color: blue, fontSize: labelSize * 0.95, letterSpacing: 2, fontWeight: 600 }}>{chartLabel}</span>
         <span style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: amber, display: "inline-block", opacity: 0.4 + 0.6 * Math.abs(Math.sin(frame / 7)) }} />
         <span style={{ color: amber, fontSize: labelSize, letterSpacing: 2 }}>LIVE</span>
       </div>
@@ -304,7 +305,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
           {/* Title */}
           <div style={{
             position: "absolute", top: topH + 12, left: pad, right: pad,
-            fontSize: tSize * 0.48, opacity: titleOp, letterSpacing: -0.5, fontWeight: "bold",
+            fontSize: tSize * 0.44, opacity: titleOp, letterSpacing: -0.3, fontWeight: 600,
           }}>
             <span style={{ backgroundColor: amber, color: "#000000", display: "inline-block", padding: "3px 14px 6px" }}>{title}</span>
           </div>
@@ -312,7 +313,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
           {/* Chart */}
           <div style={{
             position: "absolute",
-            top: topH + tSize * 0.48 + 30,
+            top: titleH,
             left: pad, right: pad,
             height: chartHeight + xReserve,
             overflow: "visible",
@@ -337,11 +338,10 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               seriesLabels={inputs.series.map((s) => s.label)}
               isPortrait
               ff={ff}
-              labelSize={labelSize}
-              lineDataScale={lineDataScale}
               chartWidth={chartWidth}
               chartHeight={chartHeight}
               xLabels={inputs.labels}
+              dSize={dSize}
               xAxisLabel={inputs.xAxisLabel}
               yAxisLabel={inputs.yAxisLabel}
             />
@@ -350,8 +350,11 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
           {/* Narration */}
           <div style={{
             position: "absolute",
-            bottom: botH + 10, left: pad, right: pad,
+            top: titleH + chartHeight + xReserve + 12,
+            left: pad, right: pad,
+            bottom: botH + 10,
             color: amber, fontSize: dSize * 0.62, lineHeight: 1.5,
+            overflow: "hidden",
             opacity: panelOp,
           }}>
             {narration}
@@ -397,11 +400,10 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
               seriesLabels={inputs.series.map((s) => s.label)}
               isPortrait={false}
               ff={ff}
-              labelSize={labelSize}
-              lineDataScale={lineDataScale}
               chartWidth={chartWidth}
               chartHeight={chartHeight}
               xLabels={inputs.labels}
+              dSize={dSize}
               xAxisLabel={inputs.xAxisLabel}
               yAxisLabel={inputs.yAxisLabel}
             />
@@ -431,7 +433,7 @@ export const TerminalDataViz: React.FC<BloombergLayoutProps> = ({
             <div style={{ height: 1, backgroundColor: border }} />
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 6, height: 6, backgroundColor: lineColors[0], flexShrink: 0 }} />
-              <span style={{ color: lineColors[0], fontSize: labelSize * 0.9, letterSpacing: 2, fontWeight: 700 }}>
+              <span style={{ color: lineColors[0], fontSize: labelSize * 0.88, letterSpacing: 1.6, fontWeight: 600 }}>
                 {chartLabel}
               </span>
             </div>
@@ -484,8 +486,7 @@ interface ChartRendererProps {
   seriesLabels: string[];
   isPortrait: boolean;
   ff: string;
-  labelSize: number;
-  lineDataScale: number;
+  dSize: number;
   chartWidth: number;
   chartHeight: number;
   xLabels: string[];
@@ -495,11 +496,8 @@ interface ChartRendererProps {
 
 const GRID_STROKE = "rgba(255,179,64,0.10)";
 const VALUE_STROKE = "rgba(0,0,0,0.85)";
-const LBL_WEIGHT = 800;
-const LBL_SIZE = 14;
-
-// Margins must match exactly what recharts uses internally
-const MARGIN = { top: 10, right: 16, left: 4, bottom: 8 };
+const LBL_WEIGHT = 500;
+const MARGIN = { top: 34, right: 42, left: 6, bottom: 8 };
 
 // Static HTML Y-axis: renders tick labels as absolutely-positioned divs, never reflowed by recharts
 const StaticYAxis: React.FC<{
@@ -524,7 +522,7 @@ const StaticYAxis: React.FC<{
           <div key={v} style={{
             position: "absolute", top, right: 6,
             transform: "translateY(-50%)",
-            color: muted, fontSize, fontFamily: ff, fontWeight: 700,
+            color: muted, fontSize, fontFamily: ff, fontWeight: 600,
             whiteSpace: "nowrap", lineHeight: 1,
           }}>
             {formatter(v)}
@@ -535,41 +533,44 @@ const StaticYAxis: React.FC<{
   );
 };
 
-// Static HTML X-axis: renders tick labels as absolutely-positioned divs
+// Static HTML X-axis: renders tick labels as absolutely-positioned divs.
+// Only renders labels that actually fit — skips any label whose slot is
+// narrower than the estimated text width, always keeping first and last.
 const StaticXAxis: React.FC<{
   labels: string[];
-  width: number; // plot area width
-  height: number; // xaxis reserved height
+  width: number;
+  height: number;
   ff: string;
   muted: string;
   fontSize: number;
-  angle: number;
-  leftOffset: number; // = yAxisWidth + margin.left
-  topOffset: number;  // = chartHeight (top of x-axis area)
-}> = ({ labels, width, height, ff, muted, fontSize, angle, leftOffset, topOffset }) => {
+  leftOffset: number;
+  topOffset: number;
+}> = ({ labels, width, height, ff, muted, fontSize, leftOffset, topOffset }) => {
   const n = labels.length;
-  const slotW = n > 0 ? width / n : width;
+  if (n === 0) return null;
+  const slotW = width / n;
+  // Shrink font until the longest label fits its slot (min 8px)
+  const longestChars = Math.max(...labels.map((l) => l.length));
+  const charW = 0.58;
+  const fittedSize = Math.max(8, Math.min(fontSize, Math.floor(slotW / (longestChars * charW))));
   return (
-    <div style={{ position: "absolute", left: leftOffset, top: topOffset, width, height, pointerEvents: "none" }}>
-      {labels.map((lbl, i) => {
-        const cx = Math.round(slotW * i + slotW / 2);
-        return (
-          <div key={i} style={{
-            position: "absolute",
-            left: cx,
-            top: 8,
-            transform: angle !== 0
-              ? `translateX(-50%) rotate(${angle}deg)`
-              : "translateX(-50%)",
-            transformOrigin: angle !== 0 ? "top right" : "center top",
-            color: muted, fontSize, fontFamily: ff, fontWeight: 700,
-            whiteSpace: "nowrap", lineHeight: 1,
-            textAlign: angle !== 0 ? "right" : "center",
-          }}>
-            {lbl}
-          </div>
-        );
-      })}
+    <div style={{
+      position: "absolute", left: leftOffset, top: topOffset,
+      width, height, pointerEvents: "none",
+      display: "flex",
+    }}>
+      {labels.map((lbl, i) => (
+        <div key={i} style={{
+          width: slotW, flexShrink: 0,
+          paddingTop: 6,
+          textAlign: "center",
+          color: muted, fontSize: fittedSize, fontFamily: ff, fontWeight: 600,
+          whiteSpace: "nowrap", lineHeight: 1,
+          boxSizing: "border-box",
+        }}>
+          {lbl}
+        </div>
+      ))}
     </div>
   );
 };
@@ -577,75 +578,118 @@ const StaticXAxis: React.FC<{
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   chartType, animatedBars, lineData, axisTop,
   lineDomain, lineTicks, yAxisWidth, muted, lineColors, amber,
-  useCompact, showDots, seriesLabels, ff, labelSize, lineDataScale,
+  useCompact, showDots, seriesLabels, ff, dSize,
   chartWidth, chartHeight, xLabels, xAxisLabel, yAxisLabel,
+  isPortrait,
 }) => {
-  const tickFontSize = Math.max(12, Math.round(labelSize));
-  const axisLabelSize = Math.max(11, Math.round(labelSize * 0.9));
-  const xAngle = xLabels.length >= 8 ? -35 : 0;
-  const xAxisH = xLabels.length >= 8 ? 78 : 42;
-  const lineLabelSize = Math.round(LBL_SIZE * lineDataScale);
-  const lineDotRadius = Math.max(2.5, 2.5 * lineDataScale);
-  const auxDotRadius = Math.max(2, 2 * lineDataScale);
+  // All font sizes derived from dSize so they scale with the composition resolution
+  const tickFont  = Math.round(dSize * 0.60);
+  const valueFont = Math.round(dSize * 0.66);
+  const titleFont = Math.round(dSize * 0.94);
+  const dotR      = Math.round(dSize * 0.10);
 
-  // Extra bottom space for the X axis title label
-  const xTitleH = xAxisLabel ? axisLabelSize + 10 : 0;
-  const totalH = chartHeight + xAxisH + xTitleH;
+  // In portrait, thin x-axis to at most 5 evenly-spaced labels to avoid overlap
+  const xAxisH = Math.round(dSize * 2.0);
+  const xTitleH = xAxisLabel ? titleFont + 28 : 0;
+  const totalH = chartHeight + xAxisH + xTitleH + 8;
   const plotH = chartHeight - MARGIN.top - MARGIN.bottom;
-  // Split yAxisWidth: left lane for the rotated Y title, right lane for tick numbers
-  const yTitleW = yAxisLabel ? axisLabelSize + 4 : 0;
+  const yTitleW = yAxisLabel ? titleFont + 8 : 0;
   const yTickW = yAxisWidth - yTitleW;
   const plotW = chartWidth - yAxisWidth - MARGIN.left - MARGIN.right;
 
   const c0 = lineColors[0], c1 = lineColors[1], c2 = lineColors[2];
+  const lastIndex = Math.max(0, lineData.length - 1);
+
+  // Only label first, last, and the peak — suppress all others to avoid clutter
+  const s0Values = lineData.map((d) => (typeof d.s0 === "number" ? d.s0 : -Infinity));
+  const peakIdx = s0Values.indexOf(Math.max(...s0Values));
+  const labelledIndices = new Set([0, lastIndex, peakIdx].filter((i) => i >= 0));
+
+  const renderPrimaryLineValue = (props: unknown) => {
+    if (isPortrait) return null; // portrait: no inline labels, y-axis ticks carry the scale
+    const p = props as { x?: number; y?: number; value?: unknown; index?: number };
+    const n = Number(p.value);
+    if (!Number.isFinite(n)) return null;
+    const idx = typeof p.index === "number" ? p.index : 0;
+    if (!labelledIndices.has(idx)) return null;
+
+    const rawX = Number(p.x ?? 0);
+    const rawY = Number(p.y ?? 0);
+    const anchor: "start" | "middle" | "end" =
+      idx <= 0 ? "start" : idx >= lastIndex ? "end" : "middle";
+    const xMin = MARGIN.left + 6;
+    const xMax = chartWidth - MARGIN.right - 6;
+    const x = Math.max(xMin, Math.min(xMax, rawX));
+    const y = Math.max(MARGIN.top + valueFont, rawY - 2);
+
+    return (
+      <text x={x} y={y} fill={c0} fontSize={valueFont} fontWeight={LBL_WEIGHT}
+        fontFamily={ff} textAnchor={anchor} stroke={VALUE_STROKE} strokeWidth={1} paintOrder="stroke">
+        {fmtCompact(n)}
+      </text>
+    );
+  };
+
+  const yTitleEl = yAxisLabel ? (
+    <div style={{
+      position: "absolute", top: MARGIN.top, left: 0,
+      width: yTitleW, height: plotH,
+      display: "flex", justifyContent: "center", alignItems: "center",
+      pointerEvents: "none",
+    }}>
+      <span style={{
+        display: "block", transform: "rotate(-90deg)",
+        color: `${amber}F0`, fontSize: titleFont, fontFamily: ff, fontWeight: 700,
+        whiteSpace: "nowrap", letterSpacing: 1.2,
+        background: `linear-gradient(180deg, ${amber}30, ${amber}12)`,
+        border: `1px solid ${amber}66`,
+        borderRadius: 4,
+        padding: "2px 8px",
+        textShadow: `0 0 10px ${amber}88`,
+      }}>{yAxisLabel}</span>
+    </div>
+  ) : null;
+
+  const xTitleEl = xAxisLabel ? (
+    <div style={{
+      position: "absolute",
+      top: chartHeight + xAxisH + 10,
+      left: yAxisWidth + MARGIN.left, width: plotW,
+      textAlign: "center",
+      pointerEvents: "none", whiteSpace: "nowrap",
+    }}>
+      <span style={{
+        display: "inline-block",
+        color: `${amber}F0`, fontSize: titleFont, fontFamily: ff, fontWeight: 700,
+        letterSpacing: 1.2,
+        background: `linear-gradient(180deg, ${amber}30, ${amber}12)`,
+        border: `1px solid ${amber}66`,
+        borderRadius: 4,
+        padding: "2px 10px",
+        textShadow: `0 0 10px ${amber}88`,
+      }}>
+        {xAxisLabel}
+      </span>
+    </div>
+  ) : null;
 
   if (chartType === "line") {
     return (
       <div style={{ position: "relative", width: chartWidth, height: totalH }}>
-        {/* Y axis title — rotated, in its own left lane */}
-        {yAxisLabel ? (
-          <div style={{
-            position: "absolute",
-            top: MARGIN.top,
-            left: 0,
-            width: yTitleW,
-            height: plotH,
-            display: "flex", justifyContent: "center", alignItems: "center",
-            pointerEvents: "none",
-          }}>
-            <span style={{
-              display: "block",
-              transform: "rotate(-90deg)",
-              color: muted, fontSize: axisLabelSize, fontFamily: ff, fontWeight: 700,
-              whiteSpace: "nowrap",
-            }}>{yAxisLabel}</span>
-          </div>
-        ) : null}
-        {/* Y tick numbers — shifted right of the title lane */}
+        {yTitleEl}
         <StaticYAxis
           ticks={lineTicks} domain={lineDomain}
           width={yTickW} height={plotH}
-          formatter={fmtTick} ff={ff} muted={muted} fontSize={tickFontSize}
+          formatter={fmtTick} ff={ff} muted={muted} fontSize={tickFont}
           leftOffset={yTitleW}
         />
         <StaticXAxis
           labels={xLabels} width={plotW} height={xAxisH}
-          ff={ff} muted={muted} fontSize={tickFontSize} angle={xAngle}
+          ff={ff} muted={muted} fontSize={tickFont}
           leftOffset={yAxisWidth + MARGIN.left}
           topOffset={chartHeight}
         />
-        {/* X axis title */}
-        {xAxisLabel ? (
-          <div style={{
-            position: "absolute",
-            top: chartHeight + xAxisH + 2,
-            left: yAxisWidth + MARGIN.left,
-            width: plotW,
-            textAlign: "center",
-            color: muted, fontSize: axisLabelSize, fontFamily: ff, fontWeight: 700,
-            pointerEvents: "none", whiteSpace: "nowrap",
-          }}>{xAxisLabel}</div>
-        ) : null}
+        {xTitleEl}
         <div style={{ position: "absolute", top: 0, left: 0 }}>
           <ComposedChart width={chartWidth} height={chartHeight} data={lineData} margin={MARGIN}>
             <defs>
@@ -657,27 +701,24 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
             <CartesianGrid stroke={GRID_STROKE} vertical={false} />
             <XAxis dataKey="label" hide />
             <YAxis hide domain={lineDomain} ticks={lineTicks} width={yAxisWidth} />
-            <Area type="monotone" dataKey="s0" stroke={c0} strokeWidth={2.5}
+            <Area type="monotone" dataKey="s0" stroke={c0} strokeWidth={3}
               fill="url(#bb-line-fill)" fillOpacity={1} isAnimationActive={false}
-              dot={showDots ? { r: lineDotRadius, fill: c0, stroke: "#000", strokeWidth: 1 } : false}
+              dot={showDots ? { r: dotR, fill: c0, stroke: "#000", strokeWidth: 1.5 } : false}
               activeDot={false}>
               {showDots && (
-                <LabelList dataKey="s0" position="top" fill={c0}
-                  fontSize={lineLabelSize} fontWeight={LBL_WEIGHT} fontFamily={ff}
-                  stroke={VALUE_STROKE} strokeWidth={0.9} paintOrder="stroke"
-                  formatter={(v: unknown) => fmtCompact(Number(v))} />
+                <LabelList dataKey="s0" position="top" content={renderPrimaryLineValue} />
               )}
             </Area>
             {seriesLabels[1] && (
-              <Area type="monotone" dataKey="s1" stroke={c1} strokeWidth={2}
-                fill="none" strokeDasharray="5 4" isAnimationActive={false}
-                dot={showDots ? { r: lineDotRadius, fill: c1, stroke: "#000", strokeWidth: 1 } : false}
+              <Area type="monotone" dataKey="s1" stroke={c1} strokeWidth={2.5}
+                fill="none" strokeDasharray="6 4" isAnimationActive={false}
+                dot={showDots ? { r: dotR - 1, fill: c1, stroke: "#000", strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
             {seriesLabels[2] && (
-              <Area type="monotone" dataKey="s2" stroke={c2} strokeWidth={2}
-                fill="none" strokeDasharray="5 4" isAnimationActive={false}
-                dot={showDots ? { r: auxDotRadius, fill: c2, stroke: "#000", strokeWidth: 1 } : false}
+              <Area type="monotone" dataKey="s2" stroke={c2} strokeWidth={2.5}
+                fill="none" strokeDasharray="6 4" isAnimationActive={false}
+                dot={showDots ? { r: dotR - 1, fill: c2, stroke: "#000", strokeWidth: 1.5 } : false}
                 activeDot={false} />
             )}
           </ComposedChart>
@@ -686,74 +727,46 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
     );
   }
 
-  // bar / histogram — Y ticks from static domain
+  // bar / histogram
   const yTickCount = 5;
   const yStep = axisTop / (yTickCount - 1);
   const yTicks = Array.from({ length: yTickCount }, (_, i) => Math.round(yStep * i));
 
   return (
     <div style={{ position: "relative", width: chartWidth, height: totalH }}>
-      {yAxisLabel ? (
-        <div style={{
-          position: "absolute",
-          top: MARGIN.top,
-          left: 0,
-          width: yTitleW,
-          height: plotH,
-          display: "flex", justifyContent: "center", alignItems: "center",
-          pointerEvents: "none",
-        }}>
-          <span style={{
-            display: "block",
-            transform: "rotate(-90deg)",
-            color: muted, fontSize: axisLabelSize, fontFamily: ff, fontWeight: 700,
-            whiteSpace: "nowrap",
-          }}>{yAxisLabel}</span>
-        </div>
-      ) : null}
+      {yTitleEl}
       <StaticYAxis
         ticks={yTicks} domain={[0, axisTop]}
         width={yTickW} height={plotH}
-        formatter={fmtTick} ff={ff} muted={muted} fontSize={tickFontSize}
+        formatter={fmtTick} ff={ff} muted={muted} fontSize={tickFont}
         leftOffset={yTitleW}
       />
       <StaticXAxis
         labels={xLabels} width={plotW} height={xAxisH}
-        ff={ff} muted={muted} fontSize={tickFontSize} angle={xAngle}
+        ff={ff} muted={muted} fontSize={tickFont}
         leftOffset={yAxisWidth + MARGIN.left}
         topOffset={chartHeight}
       />
-      {xAxisLabel ? (
-        <div style={{
-          position: "absolute",
-          top: chartHeight + xAxisH + 2,
-          left: yAxisWidth + MARGIN.left,
-          width: plotW,
-          textAlign: "center",
-          color: muted, fontSize: axisLabelSize, fontFamily: ff, fontWeight: 700,
-          pointerEvents: "none", whiteSpace: "nowrap",
-        }}>{xAxisLabel}</div>
-      ) : null}
+      {xTitleEl}
       <div style={{ position: "absolute", top: 0, left: 0 }}>
         <BarChart
-          width={chartWidth}
-          height={chartHeight}
-          data={animatedBars}
-          margin={MARGIN}
-          barCategoryGap="18%"
-          barGap={4}
+          width={chartWidth} height={chartHeight}
+          data={animatedBars} margin={MARGIN}
+          barCategoryGap="18%" barGap={4}
         >
           <CartesianGrid stroke={GRID_STROKE} vertical={false} />
           <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, axisTop]} ticks={yTicks} width={yAxisWidth} />
           <Bar dataKey="value" isAnimationActive={false}
-            radius={chartType === "histogram" ? [0, 0, 0, 0] : [3, 3, 0, 0]}
-            maxBarSize={chartType === "histogram" ? 999 : 58}
+            radius={chartType === "histogram" ? [0, 0, 0, 0] : [4, 4, 0, 0]}
+            maxBarSize={chartType === "histogram" ? 999 : 80}
             fill={amber}>
-            <LabelList dataKey="value" position="top" fill={amber}
-              fontSize={LBL_SIZE} fontWeight={LBL_WEIGHT} fontFamily={ff}
-              stroke={VALUE_STROKE} strokeWidth={0.9} paintOrder="stroke"
-              formatter={(v: unknown) => (useCompact ? fmtBarLabel(v) : fmtCompact(Number(toNum(v as string | number | undefined))))} />
+            {!isPortrait && (
+              <LabelList dataKey="value" position="top" fill={amber}
+                fontSize={valueFont} fontWeight={LBL_WEIGHT} fontFamily={ff}
+                stroke={VALUE_STROKE} strokeWidth={1} paintOrder="stroke"
+                formatter={(v: unknown) => (useCompact ? fmtBarLabel(v) : fmtCompact(Number(toNum(v as string | number | undefined))))} />
+            )}
           </Bar>
         </BarChart>
       </div>

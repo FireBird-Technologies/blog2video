@@ -85,10 +85,10 @@ class BuiltInTemplateSceneToDescriptor(dspy.Signature):
 
     ═══ CHART DATA INTEGRITY — BLOOMBERG TERMINAL/DATAVIZ LAYOUTS ═══
     - NEVER invent, fabricate, or guess year/date labels for chart data points.
-    - Use ONLY the exact labels present in visual_description (e.g. "Start", "Now", "2019", "2024").
-    - If visual_description contains a SYNTHETIC_TIMESERIES block, use its labels verbatim — do not replace
-      generic labels like "Start"/"Now" with invented years.
-    - If no time labels exist in the source data, use the row index (1, 2, 3...) or omit labels entirely.
+    - Chart data MUST come from the scraped table embedded in visual_description (the
+      ═══ TABLE_DATA_HINT_JSON ═══ block). Do NOT synthesize chart data from prose claims.
+    - Use ONLY the exact labels present in the embedded table headers/rows.
+    - If no time labels exist in the source table, use the row index (1, 2, 3...) or omit labels entirely.
     - The chartTable prop is always overridden deterministically from the raw table data — do not set it yourself.
 
     ═══ OUTPUT FORMAT ═══
@@ -524,34 +524,11 @@ class TemplateSceneGenerator:
             out["items"] = ticker_rows
             return out
 
-        # Parse SYNTHETIC_TIMESERIES block for terminal_dataviz line charts.
-        # Format: SYNTHETIC_TIMESERIES: [{"label": "2015", "value": 6.8}, ...] unit=bn USD
-        if layout == "terminal_dataviz" and "SYNTHETIC_TIMESERIES:" in (visual_description or ""):
-            logger.info("[SCENE_GEN] _merge_bloomberg_table_props: detected SYNTHETIC_TIMESERIES for terminal_dataviz")
-            m = re.search(r"SYNTHETIC_TIMESERIES:\s*(\[.*?\])", visual_description, re.DOTALL)
-            if m:
-                try:
-                    points = json.loads(m.group(1))
-                    if isinstance(points, list) and points:
-                        unit_m = re.search(r"unit=([^\s\n]+)", visual_description)
-                        unit = unit_m.group(1) if unit_m else ""
-                        headers = ["Period", f"Value{(' (' + unit + ')') if unit else ''}"]
-                        rows = [[str(p.get("label", i)), str(p.get("value", ""))] for i, p in enumerate(points)]
-                        out = dict(props or {})
-                        out["chartTable"] = {"headers": headers, "rows": rows}
-                        out["chartType"] = "line"
-                        logger.info("[SCENE_GEN] SYNTHETIC_TIMESERIES parsed: headers=%s rows=%s", headers, rows)
-                        return out
-                except (json.JSONDecodeError, TypeError) as e:
-                    logger.warning("[SCENE_GEN] SYNTHETIC_TIMESERIES parse failed: %s", e)
-            else:
-                logger.warning("[SCENE_GEN] SYNTHETIC_TIMESERIES: regex found no match in vd=%s", visual_description[:200])
-
         tables = [t for t in _extract_tables_from_visual_hint(visual_description) if isinstance(t, dict)]
         if not tables:
-            # If no table data is available, terminal_chart cannot render — mark as invalid
-            # so the caller's guard falls back to a safe layout.
-            if layout == "terminal_chart":
+            # No scraped table data available — bloomberg data layouts must NEVER fabricate data
+            # from prose. Mark as invalid so the caller's guard falls back to a non-data layout.
+            if layout in {"terminal_chart", "terminal_dataviz", "terminal_table"}:
                 return {**(props or {}), "_invalid_layout": True}
             return props
 
@@ -1281,11 +1258,6 @@ class TemplateSceneGenerator:
                                 attempt + 1,
                             )
                         continue
-
-                # Force terminal_dataviz for synthetic prose timeseries regardless of LLM layout pick.
-                if "SYNTHETIC_TIMESERIES:" in (visual_description or "") and "terminal_dataviz" in self._valid_layouts:
-                    logger.info("[SCENE_GEN] Scene %s: forcing layout terminal_dataviz (SYNTHETIC_TIMESERIES detected, was '%s')", scene_index, layout)
-                    layout = "terminal_dataviz"
 
                 props = self._parse_props_json(result.layout_props_json)
                 validated_props = self._validate_props(layout, props)
