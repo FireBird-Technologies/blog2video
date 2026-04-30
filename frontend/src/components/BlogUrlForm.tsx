@@ -1871,7 +1871,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-${step}`} />
+                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, previewImageUrl: ct.preview_image_url, logoUrls: ct.logo_urls, ogImage: ct.og_image, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
                         </div>
                         <div className="absolute top-0 left-0.5 z-[5]">
                           <CustomTemplateBadge />
@@ -1917,10 +1917,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
                       {PreviewComp ? (
-                        <PreviewComp key={`${t.id}-${step}`} />
+                        <PreviewComp key={`${t.id}-${step}`} thumbnailMode />
                       ) : (
                         <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                          {t.name}
+                          {desc?.title ?? t.name}
                         </div>
                       )}
                       {isSelected && (
@@ -2494,7 +2494,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape theme={ct.theme} name={ct.name} introCode={ct.intro_code || undefined} outroCode={ct.outro_code || undefined} contentCodes={ct.content_codes || undefined} contentArchetypeIds={ct.content_archetype_ids || undefined} previewImageUrl={ct.preview_image_url} logoUrls={ct.logo_urls} ogImage={ct.og_image} key={`${customId}-bulk-${activeIndex}`} />
+                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, previewImageUrl: ct.preview_image_url, logoUrls: ct.logo_urls, ogImage: ct.og_image, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
                         </div>
                         <div className="absolute top-0.5 left-0.5 z-[5]">
                           <CustomTemplateBadge />
@@ -2540,10 +2540,10 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
                       {PreviewComp ? (
-                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} />
+                        <PreviewComp key={`${t.id}-bulk-${activeIndex}`} thumbnailMode />
                       ) : (
                         <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
-                          {t.name}
+                          {desc?.title ?? t.name}
                         </div>
                       )}
                       {isSelected && (

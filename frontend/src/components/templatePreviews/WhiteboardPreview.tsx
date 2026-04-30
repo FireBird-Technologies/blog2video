@@ -697,7 +697,7 @@ const SLIDES = [
 ];
 const SLIDE_DURATION = 4000;
 
-export default function WhiteboardPreview() {
+export default function WhiteboardPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent]       = useState(0);
   const [visible, setVisible]       = useState(true);
   const transitioningRef            = useRef(false);
@@ -723,11 +723,12 @@ export default function WhiteboardPreview() {
 
   // Auto-advance — uses currentRef so the interval never needs to be recreated
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       goTo((currentRef.current + 1) % SLIDES.length);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-  }, [goTo]);                          // goTo is stable (useCallback, no deps)
+  }, [goTo, thumbnailMode]);                          // goTo is stable (useCallback, no deps)
 
   // Cleanup any pending timeout on unmount
   useEffect(() => {
