@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     UNOSEND_API_KEY: str = ""  # reserved — blast email uses Resend; Unosend path commented in email.py
     FROM_EMAIL: str = "sales@blog2video.app"    # contact/internal emails
     NOREPLY_EMAIL: str = "noreply@blog2video.app"  # user-facing notifications
+    # Automated update email scheduler: UTC hour (0-23) to run the daily batch
+    UPDATE_EMAIL_SEND_HOUR: int = 9
 
     class Config:
         env_file = ".env"

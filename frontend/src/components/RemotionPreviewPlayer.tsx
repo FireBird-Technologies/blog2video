@@ -52,6 +52,8 @@ interface Props {
   onError?: (error: string) => void;
   onRetry?: () => void;
   onEnded?: () => void;
+  thumbnailMode?: boolean;
+  thumbnailFrame?: number;
 }
 
 const FPS = 30;
@@ -68,6 +70,8 @@ export default function RemotionPreviewPlayer({
   onError,
   onRetry,
   onEnded,
+  thumbnailMode = false,
+  thumbnailFrame = 100,
 }: Props) {
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null);
   const [isCompiling, setIsCompiling] = useState(true);
@@ -75,12 +79,33 @@ export default function RemotionPreviewPlayer({
 
   // Listen for 'ended' event via Remotion's ref-based emitter
   useEffect(() => {
+    if (thumbnailMode) return;
     const player = playerRef.current;
     if (!player || !onEnded) return;
     const handler = () => onEnded();
     player.addEventListener("ended", handler);
     return () => player.removeEventListener("ended", handler);
-  }, [onEnded, compileResult]);
+  }, [onEnded, compileResult, thumbnailMode]);
+
+  // In thumbnail mode, play briefly then freeze at a deterministic frame.
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const player = playerRef.current;
+    if (!player) return;
+    let settled = false;
+    const stopAt = Math.max(0, thumbnailFrame);
+    const onFrame = () => {
+      if (settled) return;
+      const current = player.getCurrentFrame();
+      if (current >= stopAt) {
+        settled = true;
+        player.pause();
+        player.seekTo(stopAt);
+      }
+    };
+    player.addEventListener("frameupdate", onFrame);
+    return () => player.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, thumbnailFrame, compileResult]);
 
   const brandColors = useMemo(
     () => ({
@@ -241,8 +266,9 @@ export default function RemotionPreviewPlayer({
           borderRadius: 8,
           overflow: "hidden",
         }}
+        initialFrame={0}
         autoPlay
-        loop={loop}
+        loop={thumbnailMode ? false : loop}
         controls={false}
       />
     </PlayerErrorBoundary>

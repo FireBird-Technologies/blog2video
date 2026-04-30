@@ -63,7 +63,7 @@ export function useErrorModal(): ErrorModalContextType {
   return ctx;
 }
 
-/** Extract a user-facing error message from an API/axios error. */
+/** Extract a user-facing error message from an API/axios error or a thrown Error. */
 export function getErrorMessage(
   err: unknown,
   fallback = DEFAULT_ERROR_MESSAGE
@@ -81,6 +81,9 @@ export function getErrorMessage(
     ) {
       return detail.message;
     }
+  }
+  if (err instanceof Error && err.message.trim()) {
+    return err.message;
   }
   return fallback;
 }

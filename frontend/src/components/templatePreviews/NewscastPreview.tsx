@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { Player } from "@remotion/player";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import { getTemplateConfig } from "../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -86,21 +86,25 @@ const NEWCAST_PREVIEW_SCENES: DemoScene[] = [
 const TEMPLATE_COLORS = { accent: "#E82020", bg: "#060614", text: "#B8C8E0" } as const;
 const AUTO_SWITCH_INTERVAL = 6000; // Switch scenes every 6 seconds
 
-export default function NewscastPreview() {
+export default function NewscastPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
 
   // ─── Auto Scene Switch Logic ───
   useEffect(() => {
+    if (thumbnailMode) return;
     const timer = setInterval(() => {
       setActiveSceneIndex((prev) => (prev + 1) % NEWCAST_PREVIEW_SCENES.length);
     }, AUTO_SWITCH_INTERVAL);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [thumbnailMode]);
 
   const activeScene = NEWCAST_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-  const durationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const fullDurationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const durationInFrames = fullDurationInFrames;
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 90);
   const config = getTemplateConfig("newscast");
   const Composition = config.component as React.ComponentType<any>;
 
@@ -120,20 +124,40 @@ export default function NewscastPreview() {
     [activeScene]
   );
 
+  useEffect(() => {
+    if (!thumbnailMode) return;
+    const p = playerRef.current;
+    if (!p) return;
+    let settled = false;
+    const onFrame = () => {
+      if (settled) return;
+      const current = p.getCurrentFrame();
+      if (current >= thumbnailFrame) {
+        settled = true;
+        p.pause();
+        p.seekTo(thumbnailFrame);
+      }
+    };
+    p.addEventListener("frameupdate", onFrame);
+    return () => p.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+
   return (
     <div className="w-full">
       <div className="relative w-full overflow-hidden shadow-2xl rounded-xl" style={{ aspectRatio: "16/9", background: TEMPLATE_COLORS.bg }}>
         <Player
+          ref={playerRef}
           key={activeSceneIndex} // CRITICAL: Restarts animation on scene change
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
+          initialFrame={0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
           autoPlay
-          loop
+          loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
         />
@@ -146,6 +170,7 @@ export default function NewscastPreview() {
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
+                disabled={thumbnailMode}
                 className={`rounded-full transition-all duration-500 ${
                   isActive
                     ? "h-0.5 w-3 bg-red-500 shadow-[0_0_6px_rgba(232,32,32,0.5)]"

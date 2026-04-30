@@ -10,6 +10,8 @@ export default function PublicHeader() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileTemplatesOpen, setMobileTemplatesOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const templatesDropdownRef = useRef<HTMLDivElement>(null);
   const toolsDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -191,51 +193,78 @@ export default function PublicHeader() {
         <div className="border-t border-gray-100 bg-white px-6 pb-6 pt-4 md:hidden">
           {topNavLinks.map((link) =>
             link.label === "Templates" ? (
-              <div key={link.href} className="py-2">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-purple-600">
-                  Templates
-                </p>
-                <div className="space-y-1 pl-2">
-                  {templateMenuLinks.map((t) => (
-                    <Link
-                      key={t.href}
-                      to={t.href}
-                      className={`block rounded-lg px-3 py-2 text-sm ${
-                        location.pathname === t.href
-                          ? "bg-purple-50 font-medium text-purple-700"
-                          : "text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {t.label}
-                    </Link>
-                  ))}
-                </div>
+              <div key={link.href} className="py-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileTemplatesOpen((o) => !o)}
+                  className="flex w-full items-center justify-between py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  <span className="font-medium">Templates</span>
+                  <svg
+                    className={`h-4 w-4 transition-transform ${mobileTemplatesOpen ? "rotate-180" : ""}`}
+                    viewBox="0 0 20 20" fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {mobileTemplatesOpen && (
+                  <div className="space-y-1 pl-2 pb-1">
+                    {templateMenuLinks.map((t) => (
+                      <Link
+                        key={t.href}
+                        to={t.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`block rounded-lg px-3 py-2 text-sm ${
+                          location.pathname === t.href
+                            ? "bg-purple-50 font-medium text-purple-700"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {t.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : link.label === "Tools" ? (
-              <div key={link.href} className="py-2">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-purple-600">
-                  Tools
-                </p>
-                <div className="space-y-1 pl-2">
-                  {toolsMenuLinks.map((tool) => (
-                    <Link
-                      key={tool.href}
-                      to={tool.href}
-                      className={`block rounded-lg px-3 py-2 text-sm ${
-                        location.pathname === tool.href
-                          ? "bg-purple-50 font-medium text-purple-700"
-                          : "text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {tool.label}
-                    </Link>
-                  ))}
-                </div>
+              <div key={link.href} className="py-1">
+                <button
+                  type="button"
+                  onClick={() => setMobileToolsOpen((o) => !o)}
+                  className="flex w-full items-center justify-between py-2 text-sm text-gray-600 hover:text-gray-900"
+                >
+                  <span className="font-medium">Tools</span>
+                  <svg
+                    className={`h-4 w-4 transition-transform ${mobileToolsOpen ? "rotate-180" : ""}`}
+                    viewBox="0 0 20 20" fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {mobileToolsOpen && (
+                  <div className="space-y-1 pl-2 pb-1">
+                    {toolsMenuLinks.map((tool) => (
+                      <Link
+                        key={tool.href}
+                        to={tool.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`block rounded-lg px-3 py-2 text-sm ${
+                          location.pathname === tool.href
+                            ? "bg-purple-50 font-medium text-purple-700"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {tool.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <Link
                 key={link.href}
                 to={link.href}
+                onClick={() => setMobileOpen(false)}
                 className={`block py-2 text-sm ${
                   location.pathname === link.href
                     ? "font-medium text-purple-700"
