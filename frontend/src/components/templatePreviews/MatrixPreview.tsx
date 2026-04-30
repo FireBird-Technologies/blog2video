@@ -299,16 +299,21 @@ function SlideDots({ total, current, onDotClick }: { total: number; current: num
 const SLIDES = [SlideMatrixTitle, SlideDataStream, SlideCipherMetric];
 const SLIDE_DURATION = 3500;
 
-export default function MatrixPreview() {
+export default function MatrixPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    if (thumbnailMode) {
+      setActive(true);
+      return;
+    }
     const t = setTimeout(() => setActive(true), 200);
     return () => clearTimeout(t);
-  }, []);
+  }, [thumbnailMode]);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setActive(false);
       setTimeout(() => {
@@ -317,7 +322,7 @@ export default function MatrixPreview() {
       }, 150);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-  }, []);
+  }, [thumbnailMode]);
 
   const handleDot = (i: number) => {
     setActive(false);

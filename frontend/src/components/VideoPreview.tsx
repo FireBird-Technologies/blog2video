@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, useRef } from "react";
+import React, { useMemo, useEffect, useState, useCallback, useRef, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { Player } from "@remotion/player";
 import type { PlayerRef } from "@remotion/player";
@@ -11,6 +11,7 @@ import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
+import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import {
   compileComponentCode,
   type SceneProps,
@@ -200,6 +201,10 @@ interface VideoPreviewProps {
     content_codes: string[] | null;
     outro_code: string | null;
   };
+  /** Start the player at this frame and keep it paused there (for modal preview). */
+  initialFrame?: number;
+  /** Hide the Remotion playback controls bar. */
+  hideControls?: boolean;
 }
 
 interface SceneInput {
@@ -503,24 +508,39 @@ function PlaybackSpeedControl({
   );
 }
 
-export default function VideoPreview({
-  project,
-  logoSizeOverride,
-  logoOpacityOverride,
-  logoPositionOverride,
-  onPlaybackSpeedChange,
-  playbackSpeedSaving = false,
-  precompiledTemplateData,
-}: VideoPreviewProps) {
+const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
+  {
+    project,
+    logoSizeOverride,
+    logoOpacityOverride,
+    logoPositionOverride,
+    onPlaybackSpeedChange,
+    playbackSpeedSaving = false,
+    precompiledTemplateData,
+    initialFrame,
+    hideControls = false,
+  },
+  ref
+) {
   const templateId = normalizeBuiltInTemplateId(project.template);
   const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   const isCustom = templateId.startsWith("custom_");
 
-  // Ref to Remotion Player — passed to PlaybackSpeedControl so it can keep
-  // the Player's control bar visible while the cursor is over the speed button.
-  const playerRef = useRef<PlayerRef>(null);
+  // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
+  const playerRef = useRef<PlayerRef | null>(null);
+  const setPlayerRef = useCallback(
+    (node: PlayerRef | null) => {
+      playerRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        (ref as React.MutableRefObject<PlayerRef | null>).current = node;
+      }
+    },
+    [ref]
+  );
 
   // ─── Custom template: fetch + JIT-compile AI-generated scene code ─────
   const [compiledScenes, setCompiledScenes] = useState<CompiledSceneMap | null>(null);
@@ -807,15 +827,31 @@ export default function VideoPreview({
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
+    // Chronicle uses TransitionSeries with scene-minimum enforcement and last-scene
+    // trimming, so its actual rendered length differs from a raw sum. Use its own
+    // calculator to keep the Player duration in sync (no brown tail at the end).
+    if (templateId === "chronicle") {
+      const chronicleScenes = scenes.map((s) => ({
+        id: s.id,
+        order: s.order,
+        title: s.title,
+        narration: s.narration,
+        layout: s.layout,
+        layoutProps: s.layoutProps,
+        durationSeconds: s.durationSeconds,
+        imageUrl: s.imageUrl,
+        voiceoverUrl: s.voiceoverUrl,
+      }));
+      return computeChronicleVideoTotalFrames(chronicleScenes, 1);
+    }
     const sceneFrames = project.scenes.map((s) => {
       const base = Number(s.duration_seconds) || 5;
       const extra = Number(s.extra_hold_seconds) || 0;
       return getSceneDurationFrames(base + extra, FPS, 1);
     });
     const sum = sceneFrames.reduce((a, b) => a + b, 0);
-    // Keep duration aligned with Remotion metadata calculation (no extra padded tail).
     return Math.max(sum, FPS * 5);
-  }, [project.scenes]);
+  }, [project.scenes, templateId, scenes]);
 
   // Preload images and voiceover so they're in browser cache when Remotion renders
   const [mediaReady, setMediaReady] = useState(false);
@@ -1010,7 +1046,7 @@ export default function VideoPreview({
         }}
       >
         <Player
-          key={`preview-${project.id}-${isPortrait ? "p" : "l"}`}
+          key={`preview-${project.id}-${isPortrait ? "p" : "l"}${initialFrame !== undefined ? `-f${initialFrame}` : ""}`}
           component={Composition}
           inputProps={{
             ...inputProps,
@@ -1025,9 +1061,10 @@ export default function VideoPreview({
           compositionWidth={isPortrait ? config.baseHeight : config.baseWidth}
           compositionHeight={isPortrait ? config.baseWidth : config.baseHeight}
           fps={30}
-          ref={playerRef}
+          ref={setPlayerRef}
           playbackRate={currentPlaybackSpeed}
-          controls
+          {...(initialFrame !== undefined ? { initialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
+          controls={!hideControls}
           style={{
             width: "100%",
             height: "100%",
@@ -1039,9 +1076,11 @@ export default function VideoPreview({
           currentSpeed={currentPlaybackSpeed}
           saving={playbackSpeedSaving}
           onChange={onPlaybackSpeedChange}
-          playerContainerRef={playerRef}
+          playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
         />
       </div>
     </div>
   );
-}
+});
+
+export default VideoPreview;

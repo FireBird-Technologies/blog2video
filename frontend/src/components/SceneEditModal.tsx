@@ -27,6 +27,7 @@ import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxCo
 /** Image framing sub-modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
+import { OHLCVTableEditor } from "./OHLCVTableEditor";
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -202,6 +203,8 @@ type FieldType =
   | "string_array"
   | "object_array"
   | "chart_table"
+  | "ohlcv_table"
+  | "pipe_table"
   | "select"
   | "number"
   | "range";
@@ -964,6 +967,139 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
       { key: "stats", label: "Source / publication", type: "object_array", subFields: [{ key: "label", label: "Source" }], maxItems: 1 },
     ],
   },
+  /** Bloomberg Terminal — layout content keys. ending_socials uses the dedicated CTA / socials block. */
+  bloomberg: {
+    terminal_boot: [
+      { key: "items", label: "Boot log lines", type: "string_array", maxItems: 8 },
+    ],
+    terminal_narrative: [],
+    terminal_chart: [
+      { key: "ticker", label: "Ticker / symbol tag", type: "string" },
+      { key: "ohlcvTable", label: "OHLCV Chart Data", type: "ohlcv_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. TRADING DAYS" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. PRICE ($)" },
+    ],
+    terminal_dashboard: [
+      {
+        key: "metrics",
+        label: "KPI tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Change / suffix" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_ticker: [
+      { key: "items", label: "Ticker rows", type: "string_array", maxItems: 10 },
+    ],
+    terminal_table: [
+      { key: "items", label: "Table rows (first row = header)", type: "pipe_table", maxItems: 12 },
+    ],
+    terminal_split: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "leftDescription", label: "Left description", type: "text" },
+      { key: "rightDescription", label: "Right description", type: "text" },
+    ],
+    terminal_dataviz: [
+      { key: "chartTable", label: "Chart data table", type: "chart_table" },
+      { key: "xAxisLabel", label: "X-axis label", type: "string", placeholder: "e.g. Year" },
+      { key: "yAxisLabel", label: "Y-axis label", type: "string", placeholder: "e.g. Revenue ($)" },
+    ],
+    terminal_list: [
+      { key: "items", label: "Watch list items", type: "string_array", maxItems: 8 },
+    ],
+    terminal_metric: [
+      {
+        key: "metrics",
+        label: "Metric tiles",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+          { key: "suffix", label: "Suffix", placeholder: "%" },
+        ],
+        maxItems: 6,
+      },
+    ],
+    terminal_profile: [
+      { key: "items", label: "Profile rows", type: "string_array", maxItems: 8 },
+    ],
+    terminal_options: [
+      { key: "items", label: "Options chain rows (first row = header)", type: "pipe_table", maxItems: 10 },
+    ],
+    ending_socials: [],
+  },
+  /** Chronicle — medieval tome layout content keys. ending_socials uses the dedicated CTA / socials block above. */
+  chronicle: {
+    book_open: [],
+    parchment_scroll: [
+      { key: "category", label: "Section tag", type: "string", placeholder: "e.g. Chapter I, Folio II" },
+      { key: "illuminatedLetter", label: "Drop cap letter (optional)", type: "string", placeholder: "Auto from first letter" },
+      {
+        key: "stats",
+        label: "Byline / dating (optional)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Value" },
+          { key: "label", label: "Label" },
+        ],
+        maxItems: 2,
+      },
+    ],
+    chapter_plate: [
+      {
+        key: "subtitle",
+        label: "Kicker above title (optional)",
+        type: "string",
+        placeholder: "e.g. Act One, The Founding Years — leave blank to skip",
+      },
+    ],
+    illuminated_quote: [
+      { key: "quote", label: "Quote (overrides narration)", type: "text" },
+      { key: "highlightPhrase", label: "Phrase to highlight in red", type: "string" },
+      { key: "attribution", label: "Attribution", type: "string" },
+    ],
+    ledger_stats: [
+      {
+        key: "stats",
+        label: "Ledger entries (1-3)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Number" },
+          { key: "label", label: "Descriptor" },
+        ],
+        maxItems: 3,
+      },
+    ],
+    versus_folio: [
+      { key: "leftLabel", label: "Left page heading", type: "string" },
+      { key: "rightLabel", label: "Right page heading", type: "string" },
+      { key: "leftDescription", label: "Left page body", type: "text" },
+      { key: "rightDescription", label: "Right page body", type: "text" },
+    ],
+    chronicle_timeline: [
+      {
+        key: "stats",
+        label: "Waypoints (up to 4)",
+        type: "object_array",
+        subFields: [
+          { key: "value", label: "Year / marker" },
+          { key: "label", label: "Event" },
+        ],
+        maxItems: 4,
+      },
+    ],
+    map_reveal: [],
+    decree_seal: [
+      { key: "word", label: "The blackletter word", type: "string", placeholder: "e.g. DECREED, FINIS, HONOR" },
+      { key: "highlightWord", label: "Alt word (ignored if 'word' set)", type: "string" },
+      { key: "cta", label: "Sign-off", type: "string" },
+    ],
+  },
   /** Black Swan — layout content keys (typography still uses sliders + meta defaults). ending_socials uses the dedicated CTA / socials block above. */
   blackswan: {
     droplet_intro: [],
@@ -1044,6 +1180,28 @@ const HIDDEN_LAYOUT_PROP_KEYS = new Set([
   "titleFontSize",
   "descriptionFontSize",
 ]);
+
+/**
+ * Keys that were once valid for a template/layout but have been deprecated.
+ * They are silently hidden from the editor so stale scene data doesn't surface
+ * dead fields. (The value may still exist in saved `layoutProps` but the
+ * layout component no longer reads it.)
+ */
+const DEPRECATED_LAYOUT_PROP_KEYS: Record<string, Record<string, Set<string>>> = {
+  chronicle: {
+    chapter_plate: new Set(["chapterNumber"]),
+  },
+};
+
+function isDeprecatedLayoutPropKey(
+  template: string | undefined,
+  layoutId: string | null,
+  key: string,
+): boolean {
+  if (!template || !layoutId) return false;
+  const t = template.toLowerCase();
+  return DEPRECATED_LAYOUT_PROP_KEYS[t]?.[layoutId]?.has(key) ?? false;
+}
 
 // Auto-growing textarea component
 function AutoGrowTextarea({ value, onChange, className, placeholder, minRows = 2 }: {
@@ -1203,6 +1361,7 @@ export default function SceneEditModal({
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
   const isDefaultTemplate = normalizedTemplateId === "default";
+  const isBloombergTemplate = normalizedTemplateId === "bloomberg";
 
   const currentLayoutId = (() => {
     try {
@@ -1424,6 +1583,51 @@ export default function SceneEditModal({
 
             delete (lpCopy as Record<string, unknown>).chartTable;
             delete (lpCopy as Record<string, unknown>).chartType;
+          }
+        }
+        // Bloomberg terminal_dataviz: normalize chartTable on modal open
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          const directChartTable = normalizeChartTableValue(lpAny.chartTable);
+          lpCopy.chartTable = chartTableHasData(directChartTable)
+            ? directChartTable
+            : { headers: ["Label", "Value"], rows: [["", ""]] };
+        }
+        // Bloomberg terminal_dataviz: pre-populate xAxisLabel/yAxisLabel from chartTable headers
+        // so the form shows the currently-displayed values even before the user has edited them.
+        if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel && !lpAny.yAxisLabel) {
+            const tbl = normalizeChartTableValue(lpAny.chartTable);
+            if (tbl.headers[0]) lpCopy.xAxisLabel = tbl.headers[0];
+            if (tbl.headers[1]) lpCopy.yAxisLabel = tbl.headers[1];
+          }
+        }
+        // Bloomberg terminal_chart: populate ohlcvTable for the editor from stored data or pipe items.
+        // Only use pipe-delimited items (real OHLCV format). Never derive synthetic OHLC from
+        // arbitrary numbers — older scenes may have hallucinated text-label items that look numeric
+        // but are meaningless as OHLCV data (e.g. "PRICE: $24.85", "RSI(14): 68.2").
+        if (isBloombergTemplate && layoutId === "terminal_chart") {
+          const lpAny = lpCopy as Record<string, unknown>;
+          if (!lpAny.xAxisLabel) lpCopy.xAxisLabel = "TRADING DAYS";
+          if (!lpAny.yAxisLabel) lpCopy.yAxisLabel = "PRICE ($)";
+          const storedOhlcv = lpAny.ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+          const storedHasRows = storedOhlcv && Array.isArray(storedOhlcv.rows) && storedOhlcv.rows.length >= 4;
+          if (!storedHasRows) {
+            const rawItems = Array.isArray(lpAny.items) ? (lpAny.items as string[]) : [];
+            // Only reconstruct from genuine pipe-delimited OHLCV items: "date|open|high|low|close|vol"
+            const pipeItems = rawItems.filter((s) => String(s).split("|").length >= 5);
+            if (pipeItems.length >= 4) {
+              lpCopy.ohlcvTable = {
+                headers: ["Date", "Open", "High", "Low", "Close", "Volume"],
+                rows: pipeItems.map((s) => {
+                  const p = s.split("|");
+                  return [p[0] ?? "", p[1] ?? "", p[2] ?? "", p[3] ?? "", p[4] ?? "", p[5] ?? ""];
+                }),
+              };
+            }
+            // If no valid OHLCV items found, leave ohlcvTable unset — editor stays empty
+            // and the chart renders procedural candles (correct behaviour for pre-OHLCV scenes)
           }
         }
       } catch { /* ignore */ }
@@ -1718,6 +1922,53 @@ export default function SceneEditModal({
                 delete lp.pieChart;
                 delete lp.lineChart;
                 delete lp.histogram;
+              }
+            }
+            // Bloomberg terminal_dataviz: normalize chartTable on save
+            if (isBloombergTemplate && layoutId === "terminal_dataviz") {
+              const chartTable = normalizeChartTableValue((lp as Record<string, unknown>).chartTable);
+              lp.chartTable = chartTable;
+            }
+            // Bloomberg terminal_chart: regenerate items from edited ohlcvTable so the chart stays in sync
+            if (isBloombergTemplate && layoutId === "terminal_chart") {
+              const ohlcv = (lp as Record<string, unknown>).ohlcvTable as { headers: string[]; rows: string[][] } | undefined;
+              if (ohlcv && Array.isArray(ohlcv.headers) && Array.isArray(ohlcv.rows)) {
+                const hdrs = ohlcv.headers.map((h) => String(h).toLowerCase().trim());
+                const findCol = (...kws: string[]) => {
+                  for (const kw of kws) {
+                    const i = hdrs.findIndex((h) => h.includes(kw));
+                    if (i !== -1) return i;
+                  }
+                  return -1;
+                };
+                const parseNum = (v: string) => {
+                  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+                  return Number.isFinite(n) ? n : null;
+                };
+                const dateCol = findCol("date");
+                const openCol = findCol("open");
+                const highCol = findCol("high");
+                const lowCol = findCol("low");
+                const closeCol = findCol("close");
+                const volCol = findCol("volume", "vol");
+                if (openCol !== -1 && highCol !== -1 && lowCol !== -1 && closeCol !== -1) {
+                  const newItems: string[] = [];
+                  for (const row of ohlcv.rows) {
+                    const o = parseNum(row[openCol] ?? "");
+                    const h = parseNum(row[highCol] ?? "");
+                    const l = parseNum(row[lowCol] ?? "");
+                    const c = parseNum(row[closeCol] ?? "");
+                    if (o === null || h === null || l === null || c === null) continue;
+                    let label = dateCol !== -1 ? String(row[dateCol] ?? "").split(",")[0].trim() : "";
+                    let vol = 0;
+                    if (volCol !== -1) {
+                      const rv = parseFloat(String(row[volCol] ?? "").replace(/[^0-9.\-]/g, ""));
+                      if (Number.isFinite(rv)) vol = rv > 1e9 ? rv / 1e9 : rv > 1e6 ? rv / 1e6 : rv;
+                    }
+                    newItems.push(`${label}|${o.toFixed(2)}|${h.toFixed(2)}|${l.toFixed(2)}|${c.toFixed(2)}|${vol.toFixed(2)}`);
+                  }
+                  if (newItems.length >= 4) lp.items = newItems;
+                }
               }
             }
             // Remove chart keys from layoutProps when entries are empty (so they are not persisted)
@@ -2426,12 +2677,23 @@ export default function SceneEditModal({
                 const suppressExtraKeysForDataViz =
                   (isNewscastTemplate || isNightfallTemplate || isDefaultTemplate) &&
                   currentLayoutId === "data_visualization";
+                const suppressExtraKeysForBloombergChart =
+                  isBloombergTemplate && currentLayoutId === "terminal_chart";
+                const suppressExtraKeysForBloombergDataViz =
+                  isBloombergTemplate && currentLayoutId === "terminal_dataviz";
                 const extraKeys =
-                  suppressExtraKeysForDataViz
+                  (suppressExtraKeysForDataViz || suppressExtraKeysForBloombergChart || suppressExtraKeysForBloombergDataViz)
                     ? []
                     : currentLayoutId && editableLayoutProps
                       ? Object.keys(editableLayoutProps).filter(
-                          (key) => !knownKeys.has(key) && !HIDDEN_LAYOUT_PROP_KEYS.has(key)
+                          (key) =>
+                            !knownKeys.has(key) &&
+                            !HIDDEN_LAYOUT_PROP_KEYS.has(key) &&
+                            !isDeprecatedLayoutPropKey(
+                              project.template,
+                              currentLayoutId,
+                              key,
+                            ),
                         )
                       : [];
                 if (!currentLayoutId || (layoutFields.length === 0 && extraKeys.length === 0)) return null;
@@ -2463,6 +2725,153 @@ export default function SceneEditModal({
                               />
                               <span className="text-xs text-gray-500 tabular-nums">{currentColor.toUpperCase()}</span>
                             </div>
+                          </div>
+                        );
+                      }
+                      if (field.type === "ohlcv_table") {
+                        const raw = editableLayoutProps[field.key] as { headers: string[]; rows: string[][] } | null | undefined;
+                        return (
+                          <div key={field.key}>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                              {field.label}
+                            </label>
+                            <OHLCVTableEditor
+                              value={raw}
+                              onChange={(next) =>
+                                setEditableLayoutProps((prev) => ({ ...prev, [field.key]: next }))
+                              }
+                            />
+                          </div>
+                        );
+                      }
+                      if (field.type === "pipe_table") {
+                        const rawItems = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        // Parse pipe-delimited rows into a 2D grid
+                        const grid: string[][] = rawItems.map((row) =>
+                          String(row).split("|").map((c) => c.trim())
+                        );
+                        const colCount = Math.max(1, ...grid.map((r) => r.length));
+                        // Pad all rows to same width
+                        const paddedGrid = grid.map((r) => {
+                          const padded = [...r];
+                          while (padded.length < colCount) padded.push("");
+                          return padded;
+                        });
+                        const updateGrid = (newGrid: string[][]) => {
+                          const newItems = newGrid.map((row) => row.join(" | "));
+                          setEditableLayoutProps((prev) => ({ ...prev, [field.key]: newItems }));
+                        };
+                        const updateCell = (rowI: number, colI: number, val: string) => {
+                          const newGrid = paddedGrid.map((r) => [...r]);
+                          newGrid[rowI][colI] = val;
+                          updateGrid(newGrid);
+                        };
+                        const addRow = () => {
+                          updateGrid([...paddedGrid, Array(colCount).fill("")]);
+                        };
+                        const removeRow = (rowI: number) => {
+                          updateGrid(paddedGrid.filter((_, i) => i !== rowI));
+                        };
+                        const addColumn = () => {
+                          updateGrid(paddedGrid.map((r) => [...r, ""]));
+                        };
+                        const removeColumn = (colI: number) => {
+                          updateGrid(paddedGrid.map((r) => r.filter((_, i) => i !== colI)));
+                        };
+                        const maxRows = field.maxItems ?? 20;
+                        return (
+                          <div key={field.key}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">{field.label}</label>
+                              <button
+                                type="button"
+                                onClick={addColumn}
+                                className="text-[10px] font-medium text-gray-400 hover:text-purple-600 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add column
+                              </button>
+                            </div>
+                            <div className="rounded-lg border border-gray-200 overflow-x-auto">
+                              <table className="w-full text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-gray-50 border-b border-gray-200">
+                                    {paddedGrid[0]?.map((_, colI) => (
+                                      <th key={colI} className="px-1 py-1 font-medium text-gray-400 text-center relative">
+                                        <div className="flex items-center justify-center gap-1">
+                                          <span className="text-[10px]">Col {colI + 1}</span>
+                                          {colCount > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => removeColumn(colI)}
+                                              className="text-gray-300 hover:text-red-400 transition-colors"
+                                            >
+                                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </th>
+                                    ))}
+                                    <th className="w-6" />
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paddedGrid.map((row, rowI) => (
+                                    <tr
+                                      key={rowI}
+                                      className={rowI === 0
+                                        ? "bg-gray-50/80 border-b-2 border-gray-300"
+                                        : "border-b border-gray-100 last:border-0"}
+                                    >
+                                      {row.map((cell, colI) => (
+                                        <td key={colI} className="px-1 py-0.5">
+                                          <input
+                                            type="text"
+                                            value={cell}
+                                            onChange={(e) => updateCell(rowI, colI, e.target.value)}
+                                            className={`w-full px-2 py-1.5 text-xs rounded border focus:outline-none focus:ring-1 focus:ring-purple-400 ${
+                                              rowI === 0
+                                                ? "font-semibold bg-white border-gray-300 text-gray-700"
+                                                : "bg-white border-gray-200 text-gray-600"
+                                            }`}
+                                            placeholder={rowI === 0 ? `Header ${colI + 1}` : ""}
+                                          />
+                                        </td>
+                                      ))}
+                                      <td className="px-1 py-0.5 text-center">
+                                        {paddedGrid.length > 1 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRow(rowI)}
+                                            className="p-0.5 text-gray-300 hover:text-red-400 transition-colors rounded"
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {paddedGrid.length < maxRows && (
+                              <button
+                                type="button"
+                                onClick={addRow}
+                                className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add row
+                              </button>
+                            )}
                           </div>
                         );
                       }
