@@ -1,3 +1,4 @@
+import asyncio
 import json
 import dspy
 
@@ -271,37 +272,108 @@ class BlogToScript(dspy.Signature):
     )
 
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
+    narrative_summary: str = dspy.OutputField(
+        desc=(
+            "3-5 sentence summary of the ENTIRE video's narrative arc — what story or argument "
+            "is being told, how it progresses, and what conclusion it reaches. Written in content_language. "
+            "This will be passed to each scene expander so every scene stays coherent with the overall flow."
+        )
+    )
     scenes_json: str = dspy.OutputField(
         desc=(
-            'JSON array of scene objects. Each object has keys: "title" (str), '
-            '"narration" (str — length by video_style: explainer 12-25 words; promotional 10-18 words; storytelling about 15-30 words; so voiceover remains concise, and must strictly match selected style), '
-            '"visual_description" (str), "suggested_images" (list of str), '
-            '"duration_seconds" (int), and OPTIONAL "preferred_layout" (str). '
-            'FIRST scene title must be the actual blog title (never "Hero Opening"), '
-            'with a concise narration hook (12-15 words max, 1 sentence) and duration_seconds=6. '
-            'Narrations: storytelling (15-30) words per scene; explainer (12-25) words per scene; promotional (10-18) words max. '
-            'If a hero image exists: visual_description="Hero banner image with title overlay and fade-in", suggested_images=["hero.jpg"]. '
-            'If NO hero image: visual_description="Title text banner: [TITLE] displayed as large bold centered text on gradient background", suggested_images=[]. '
-            'Example with image: [{"title": "How AI is Changing Everything", '
-            '"narration": "Let\'s explore how AI transforms software development.", '
-            '"visual_description": "Hero banner image with title overlay and fade-in", '
-            '"suggested_images": ["hero.jpg"], "duration_seconds": 6, "preferred_layout": "hero_image"}]. '
-            'Example without image: [{"title": "How AI is Changing Everything", '
-            '"narration": "Let\'s explore how AI transforms software development.", '
-            '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
-            '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
-            ' When chartable_tables_json is non-empty: each data_visualization scene MUST include '
-            '"data_table_index" (int) matching its bound entry\'s "index" value from chartable_tables_json. '
-            ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
-            'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
-            'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
-            'the blog topic; "narration" = CTA tied to the article (takeaway, next step, or follow-up) per video_style; '
-            '"visual_description" = CTA ending screen reflecting the topic. Use social_platforms_detected: only '
-            'mention social platforms listed there when inviting followers; if NONE, give a topic-based CTA without '
-            'naming Facebook, Instagram, YouTube, or other networks. '
-            'For that ending scene ONLY, also include "cta_button_text": a short pill label (2–6 words) for the '
-            'button above the website link — in content_language, grounded in the article topic (e.g. "Read the full guide", '
-            '"Explore the tutorial"), not generic English unless the content is English. '
+            'COMPACT outline only — a JSON array where each object has EXACTLY these keys: '
+            '"title" (str), "key_point" (str — 1 sentence describing the core idea of this scene), '
+            '"preferred_layout" (str — layout ID from layout_catalog, or "" if unsure). '
+            'Do NOT include narration, visual_description, suggested_images, or duration_seconds — '
+            'those are generated in a separate expansion step. '
+            'FIRST scene title MUST be the actual blog/video title (never "Hero Opening"). '
+            'Scene count follows video_length: short=4-5, medium=12-15, detailed=15-20, auto=natural. '
+            'When include_ending_socials is true: the LAST scene MUST have preferred_layout="ending_socials" '
+            'and its key_point should summarize the CTA grounded in the article topic. '
+            'Layout diversity rules still apply to preferred_layout assignments. '
+            'Example: [{"title": "How AI Changes Development", "key_point": "AI tools are reshaping how developers write and review code.", "preferred_layout": "hero_image"}, '
+            '{"title": "The Core Problem", "key_point": "Manual code review is slow and error-prone at scale.", "preferred_layout": "data_snapshot"}]'
+        )
+    )
+
+
+class SceneExpander(dspy.Signature):
+    """
+    Expand a single scene outline into full scene content.
+    You are given the blog content, the complete scene outline for context/continuity,
+    and the specific scene to expand. Produce narration, visual description, layout, and images.
+    """
+
+    # ── context ──────────────────────────────────────────────────────────────
+    blog_content: str = dspy.InputField(
+        desc="Full blog text — use it to ground narration and visuals in real content."
+    )
+    full_outline: str = dspy.InputField(
+        desc="JSON array of all scene outlines (title + key_point) for continuity context."
+    )
+    narrative_summary: str = dspy.InputField(
+        desc=(
+            "3-5 sentence summary of the full video's narrative arc. "
+            "Use this to ensure your scene's narration stays coherent and on-thread with the rest of the video. "
+            "Your scene must fit naturally within this overall story/argument."
+        )
+    )
+    scene_index: int = dspy.InputField(
+        desc="0-based index of this scene in the full outline."
+    )
+    total_scenes: int = dspy.InputField(desc="Total number of scenes in the video.")
+    hero_image: str = dspy.InputField(desc="Path to hero/header image (used for scene 0 only).")
+    # ── style / format ────────────────────────────────────────────────────────
+    video_style: str = dspy.InputField(
+        desc="explainer | promotional | storytelling. Tone and structure must match exactly."
+    )
+    aspect_ratio: str = dspy.InputField(desc="landscape (16:9) or portrait (9:16).")
+    content_language: str = dspy.InputField(desc="Output language for all text fields.")
+    # ── scene spec ────────────────────────────────────────────────────────────
+    scene_title: str = dspy.InputField(desc="Title for this scene (from outline).")
+    scene_key_point: str = dspy.InputField(desc="Key point / brief description from outline.")
+    assigned_layout: str = dspy.InputField(
+        desc=(
+            "Layout already planned by the outline stage for layout diversity. "
+            "Use this exact value as preferred_layout in your output — do NOT change it."
+        )
+    )
+    is_hero: bool = dspy.InputField(desc="True only for scene 0 (hero/banner scene).")
+    is_ending: bool = dspy.InputField(
+        desc="True only for the last scene when a CTA ending is requested."
+    )
+    social_platforms_detected: str = dspy.InputField(
+        desc="Social platforms referenced in the blog. Used in ending CTA narration."
+    )
+    # ── outputs ───────────────────────────────────────────────────────────────
+    narration: str = dspy.OutputField(
+        desc=(
+            "Scene narration. Match video_style word counts: explainer 12-25 words; "
+            "promotional 10-18 words; storytelling 15-30 words. "
+            "Hero scene: 1 sentence hook, max 15 words. "
+            "Ending scene: CTA tied to the article topic."
+        )
+    )
+    visual_description: str = dspy.OutputField(
+        desc=(
+            "Specific visual description for the scene. For hero: 'Hero banner image with title overlay and fade-in'. "
+            "For ending: 'CTA ending screen reflecting the topic'. "
+            "For code scenes: 'Show code block with: [code]'. Be specific."
+        )
+    )
+    preferred_layout: str = dspy.OutputField(
+        desc="Copy assigned_layout exactly. Do not pick a different layout."
+    )
+    suggested_images_json: str = dspy.OutputField(
+        desc='JSON array of image filenames/URLs relevant to this scene, e.g. ["hero.jpg"]. Use [] if none.'
+    )
+    duration_seconds: int = dspy.OutputField(
+        desc="Scene duration in seconds. Hero: 6. Others: ~1 sec per 2.5 words, min 5."
+    )
+    cta_button_text: str = dspy.OutputField(
+        desc=(
+            "Only for ending scene: short pill label 2-6 words in content_language, grounded in the article topic "
+            "(e.g. 'Read the full guide', 'Explore the tutorial'). Empty string for all other scenes."
         )
     )
 
@@ -339,66 +411,8 @@ class ScriptGenerator:
         ensure_dspy_configured()
         self._generator = dspy.ChainOfThought(BlogToScript)
         self.generator = dspy.asyncify(self._generator)
-
-    _TEMPLATE_STYLE_HINTS: dict[str, str] = {
-        "bloomberg": (
-            "BLOOMBERG TERMINAL STYLE — mandatory for every single scene, no exceptions: "
-            "You are writing narration for a Bloomberg TV analyst segment, not a data readout. "
-            "The viewer can already SEE the numbers on screen — your job is to deliver the INSIGHT behind them. "
-            "\n\n"
-            "CORE RULE — insight before numbers: Every narration must open with the analytical takeaway, "
-            "then support it with one or two specific figures. NEVER open by listing numbers. "
-            "BAD: 'Revenue was $4.2B, up 34% year-over-year.' "
-            "GOOD: 'Growth is accelerating well ahead of the sector — revenue surged 34% to $4.2B, "
-            "a pace the company hasn't sustained since 2019.' "
-            "\n\n"
-            "RULES — apply all of these: "
-            "(1) Lead with the SO WHAT, not the WHAT. What does this data mean for the company, market, or viewer? "
-            "Every scene must answer: why does this number matter right now? "
-            "(2) Never describe visuals. Ban these phrases entirely: 'as you can see', 'the chart shows', "
-            "'displayed here', 'this graph illustrates', 'looking at the data', 'the numbers show'. "
-            "(3) One insight per scene, fully developed. State the finding → support with a figure → "
-            "explain the implication ('margins fell to 18%, the lowest in five years — cost inflation is "
-            "outrunning pricing power, squeezing the bottom line even as the top line grows'). "
-            "(4) Use analyst language: 'signals', 'indicates', 'points to', 'suggests', 'underscores', "
-            "'reflects', 'driven by', 'pressured by', 'accelerated by', 'despite', 'amid'. "
-            "Avoid dry academic phrases like 'it can be observed that' or 'data indicates a trend'. "
-            "(5) Capture cause and effect explicitly. If something drove a result, say so: "
-            "'the Fed's 50bps cut triggered a relief rally, lifting tech valuations 12% in a single week.' "
-            "(6) Build narrative continuity across scenes. Each scene should advance a central argument, "
-            "not stand as an isolated fact. Reference the thread: 'this margin pressure compounds the "
-            "demand slowdown flagged in the previous quarter.' "
-            "(7) Anchor every scene with at least one concrete figure from the blog — "
-            "a percentage, dollar amount, date, or named comparison. Vague generalisations are forbidden. "
-            "(8) Tone: confident, precise, slightly urgent. Think Bloomberg TV 6am markets open brief — "
-            "analytical, data-grounded, and delivered with conviction from the first word to the last. "
-            "(9) BANNED OPENERS — never start a narration with: 'The data shows', 'Looking at', "
-            "'As we can see', 'This chart', 'These numbers', 'The table', 'Here we see', 'In this scene'. "
-            "Start with the insight, a named entity, or a strong verb. "
-            "(10) DATA INTEGRITY — ABSOLUTE RULE: Never fabricate, invent, or extrapolate any figures. "
-            "Every number, percentage, price, date, or label in your narration MUST exist verbatim in the "
-            "supplied chartable_tables_json rows OR be explicitly stated in blog_content prose. "
-            "If a value is not in the source data, do not mention it. "
-            "(11) CHART LAYOUT ASSIGNMENT — STRICT RULES: "
-            "terminal_chart MUST ONLY be used when the data is a full OHLCV candlestick dataset "
-            "(columns: date/time, open, high, low, close, and optionally volume). "
-            "terminal_dataviz MUST be used for ALL other time-series or line-chartable data "
-            "(e.g. year + revenue, date + price, period + metric). "
-            "terminal_table MUST be used for purely categorical/tabular data with no numeric progression. "
-            "NEVER assign terminal_chart to non-OHLCV data — not even if the data has a time column. "
-            "(12) DATA VISUALIZATION SCENES — SCRAPED TABLES ONLY (BLOOMBERG STRICT): "
-            "Chart/table scenes (terminal_chart, terminal_dataviz, terminal_table, terminal_ticker, "
-            "data_visualization) MUST be derived EXCLUSIVELY from the scraped tables provided in "
-            "chartable_tables_json. NEVER synthesize, fabricate, or extract chart data from blog_content "
-            "prose, sentences, or narrative claims — even if the prose mentions specific numbers, "
-            "percentages, growth figures, or time references. "
-            "If chartable_tables_json is empty, DO NOT emit any data visualization scenes at all — "
-            "use other layouts (story_stack, headline_insight, side_by_side_brief, etc.) for the content. "
-            "BANNED: do not output 'SYNTHETIC_TIMESERIES' or any other invented chart payload in "
-            "visual_description under any circumstance. Prose-derived charts are forbidden in the "
-            "bloomberg template."
-        ),
-    }
+        self._expander = dspy.ChainOfThought(SceneExpander)
+        self.expander = dspy.asyncify(self._expander)
 
     async def generate(
         self,
@@ -415,9 +429,10 @@ class ScriptGenerator:
         template_id: str = "",
     ) -> dict:
         """
-        Generate a video script from blog content (async).
-        Scene count is controlled by `video_length` (auto/short/medium/detailed).
-        video_style (explainer | promotional | storytelling) drives tone and structure.
+        Generate a video script from blog content using a 2-stage parallel pipeline.
+
+        Stage 1: single call → video title + compact scene outline (titles + key points).
+        Stage 2: all scenes expanded in parallel → full narration, visuals, layout per scene.
 
         Returns:
             dict with 'title' and 'scenes' (list of scene dicts)
@@ -425,40 +440,122 @@ class ScriptGenerator:
         social_flags = detect_social_platforms_in_text(blog_content)
         social_hint = format_social_platforms_for_script_prompt(social_flags)
         fallback_ending = self._build_fallback_ending_scene(social_flags)
-        template_style_hint = self._TEMPLATE_STYLE_HINTS.get(template_id or "", "")
 
-        result = await self.generator(
+        style = (video_style or "explainer").strip().lower() or "explainer"
+        length = (video_length or "auto").strip().lower() or "auto"
+        ar = aspect_ratio or "landscape"
+        lang = (content_language or "English").strip()
+        hero = hero_image or "(no hero image available)"
+
+        # ── Stage 1: outline (one fast call, small output) ────────────────────
+        outline_result = await self.generator(
             blog_content=blog_content,
             blog_images=json.dumps(blog_images),
-            hero_image=hero_image or "(no hero image available)",
-            aspect_ratio=aspect_ratio or "landscape",
-            video_style=(video_style or "explainer").strip().lower() or "explainer",
-            video_length=(video_length or "auto").strip().lower() or "auto",
-            layout_catalog=layout_catalog or "",
-            content_language=(content_language or "English").strip(),
+            hero_image=hero,
+            aspect_ratio=ar,
+            video_style=style,
+            video_length=length,
+            layout_catalog="",           # not needed for outline
+            content_language=lang,
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
-            chartable_tables_json=chartable_tables_json or "",
-            template_style_hint=template_style_hint,
+            template_style_hint="",
+            chartable_tables_json=chartable_tables_json,
         )
 
-        # Parse the scenes JSON and apply limits
-        style = (video_style or "explainer").strip().lower() or "explainer"
+        title_str = self._coerce_text_str(getattr(outline_result, "title", None)).strip() or "Untitled"
+        narrative_summary = self._coerce_text_str(getattr(outline_result, "narrative_summary", None)).strip()
+
+        # Parse compact outline from stage 1 (title + key_point + preferred_layout only)
+        outline_scenes = self._parse_outline(
+            outline_result.scenes_json,
+            video_length=length,
+            include_ending_socials=include_ending_socials,
+            fallback_ending=fallback_ending,
+        )
+
+        if not outline_scenes:
+            return {"title": title_str, "scenes": []}
+
+        total = len(outline_scenes)
+        full_outline_json = json.dumps(
+            [{"title": s["title"], "key_point": s.get("key_point", "")} for s in outline_scenes]
+        )
+
+        # ── Stage 2: expand every scene in parallel ───────────────────────────
+        async def expand_scene(idx: int, outline: dict) -> dict:
+            is_hero = idx == 0
+            is_ending = include_ending_socials and idx == total - 1
+            try:
+                res = await self.expander(
+                    blog_content=blog_content[:3000],
+                    full_outline=full_outline_json,
+                    narrative_summary=narrative_summary,
+                    scene_index=idx,
+                    total_scenes=total,
+                    hero_image=hero,
+                    video_style=style,
+                    aspect_ratio=ar,
+                    content_language=lang,
+                    scene_title=outline["title"],
+                    scene_key_point=outline.get("key_point", ""),
+                    assigned_layout=outline.get("preferred_layout") or "",
+                    is_hero=is_hero,
+                    is_ending=is_ending,
+                    social_platforms_detected=social_hint,
+                )
+                suggested = []
+                try:
+                    raw = self._coerce_text_str(getattr(res, "suggested_images_json", "[]"))
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        suggested = parsed
+                except Exception:
+                    pass
+
+                duration = outline.get("duration_seconds", 10)
+                try:
+                    duration = int(getattr(res, "duration_seconds", duration))
+                except Exception:
+                    pass
+
+                scene: dict = {
+                    "title": outline["title"],
+                    "narration": self._coerce_text_str(getattr(res, "narration", "")).strip(),
+                    "visual_description": self._coerce_text_str(getattr(res, "visual_description", "")).strip(),
+                    "preferred_layout": self._coerce_layout_str(getattr(res, "preferred_layout", None)) or outline.get("preferred_layout"),
+                    "suggested_images": suggested or outline.get("suggested_images", []),
+                    "duration_seconds": duration,
+                }
+                if is_ending:
+                    cta = self._coerce_layout_str(getattr(res, "cta_button_text", None))
+                    if cta:
+                        scene["cta_button_text"] = cta
+                    scene["preferred_layout"] = "ending_socials"
+                return scene
+            except Exception:
+                # Fall back to a minimal scene built from the outline
+                return {
+                    "title": outline["title"],
+                    "narration": outline.get("key_point", ""),
+                    "visual_description": outline.get("key_point", ""),
+                    "suggested_images": [],
+                    "duration_seconds": 10,
+                    "preferred_layout": outline.get("preferred_layout"),
+                }
+
+        expanded = await asyncio.gather(*[expand_scene(i, s) for i, s in enumerate(outline_scenes)])
+
+        # Re-apply scene cap and ending enforcement on the expanded result
         scenes = self._parse_scenes(
-            result.scenes_json,
+            json.dumps(list(expanded)),
             video_style=style,
-            video_length=(video_length or "auto").strip().lower() or "auto",
+            video_length=length,
             include_ending_socials=include_ending_socials,
             fallback_ending_scene=fallback_ending,
         )
 
-        title_raw = getattr(result, "title", None)
-        title_str = self._coerce_text_str(title_raw).strip() or "Untitled"
-
-        return {
-            "title": title_str,
-            "scenes": scenes,
-        }
+        return {"title": title_str, "scenes": scenes}
 
     @staticmethod
     def _build_fallback_ending_scene(social_flags: dict[str, bool]) -> dict:
@@ -557,6 +654,45 @@ class ScriptGenerator:
 
             out.append({**scene, "preferred_layout": preferred_layout})
 
+        return out
+
+    def _parse_outline(
+        self,
+        scenes_json: object,
+        video_length: str = "auto",
+        include_ending_socials: bool = False,
+        fallback_ending: dict | None = None,
+    ) -> list[dict]:
+        """Parse the compact stage-1 outline (title + key_point + preferred_layout per scene)."""
+        try:
+            if not isinstance(scenes_json, str):
+                scenes_json = json.dumps(scenes_json) if isinstance(scenes_json, (dict, list)) else str(scenes_json)
+            cleaned = scenes_json.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.split("\n")
+                cleaned = "\n".join(lines[1:-1])
+            raw = json.loads(cleaned)
+            if not isinstance(raw, list):
+                raw = [raw]
+        except (json.JSONDecodeError, Exception):
+            raw = []
+
+        max_scenes = self._max_scenes_for_video_length(video_length)
+
+        # Apply ending slot logic
+        raw = self._apply_ending_socials_placement(
+            raw,
+            include_ending_socials=include_ending_socials,
+            max_scenes=max_scenes,
+            fallback_ending_scene=fallback_ending,
+        )
+
+        out = []
+        for i, scene in enumerate(raw):
+            title = self._coerce_text_str(scene.get("title")).strip() or f"Scene {i + 1}"
+            key_point = self._coerce_text_str(scene.get("key_point") or scene.get("narration") or scene.get("visual_description")).strip()
+            preferred_layout = self._coerce_layout_str(scene.get("preferred_layout")) or None
+            out.append({"title": title, "key_point": key_point, "preferred_layout": preferred_layout})
         return out
 
     def _parse_scenes(
