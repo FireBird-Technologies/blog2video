@@ -104,6 +104,8 @@ const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
 // duration so the video ends close to where content actually finishes.
 // Only applied when there are MULTIPLE scenes — single-scene compositions
 // (Template Studio previews) need their full window.
+// Skip trimming when the last scene has voiceover: audio shares this duration
+// and trimming clips narration before it finishes.
 const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
 const trimLastScene = (frames: number) =>
   Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
@@ -123,7 +125,8 @@ const computeSceneFrames = (
     const raw = getSceneDurationFrames(s.durationSeconds, fps, playbackSpeed);
     const withMin = enforceLayoutMinimum(raw, layout);
     const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
-    return isLastInMulti ? trimLastScene(withMin) : withMin;
+    const hasVoiceover = Boolean(s.voiceoverFile?.trim());
+    return isLastInMulti && !hasVoiceover ? trimLastScene(withMin) : withMin;
   });
 
 export const calculateChronicleMetadata: CalculateMetadataFunction<VideoProps> = async ({

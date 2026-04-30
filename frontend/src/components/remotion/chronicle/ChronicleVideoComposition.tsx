@@ -78,7 +78,8 @@ const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
 // Trim a small tail off the LAST scene's contributed duration in multi-scene
 // videos so the final layout's outroFade lines up with the video end. Skipped
 // for single-scene compositions (Template Studio previews) so layouts get
-// their full window.
+// their full window. Also skipped when the last scene has voiceover — trimming
+// uses the same duration as the <Audio> Sequence and would clip narration.
 const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
 const trimLastScene = (frames: number) =>
   Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
@@ -107,9 +108,11 @@ export const computeChronicleVideoTotalFrames = (
     const raw = getSceneDurationFrames(scene.durationSeconds, FPS, resolvedPlaybackSpeed);
     const withMin = enforceLayoutMinimum(raw, layoutKey);
     const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
+    const trimTail =
+      isLastInMulti && !scene.voiceoverUrl?.trim();
     return {
       layoutKey,
-      durationFrames: isLastInMulti ? trimLastScene(withMin) : withMin,
+      durationFrames: trimTail ? trimLastScene(withMin) : withMin,
     };
   });
 
@@ -148,7 +151,9 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
     );
     const withMin = enforceLayoutMinimum(raw, layoutKey);
     const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
-    const durationFrames = isLastInMulti ? trimLastScene(withMin) : withMin;
+    const trimTail =
+      isLastInMulti && !scene.voiceoverUrl?.trim();
+    const durationFrames = trimTail ? trimLastScene(withMin) : withMin;
     return { scene, layoutKey, durationFrames };
   });
 
