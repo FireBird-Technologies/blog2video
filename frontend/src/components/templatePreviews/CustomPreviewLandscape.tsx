@@ -370,6 +370,7 @@ interface Props {
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
+  thumbnailMode?: boolean;
 }
 
 export default function CustomPreviewLandscape({
@@ -382,9 +383,24 @@ export default function CustomPreviewLandscape({
   previewImageUrl,
   logoUrls,
   ogImage,
+  thumbnailMode = false,
 }: Props) {
   // If we have actual generated scene code, use CustomPreview (real scenes)
   const hasGeneratedCode = !!(introCode || (contentCodes && contentCodes.length > 0));
+
+  if (thumbnailMode && (previewImageUrl || ogImage)) {
+    return (
+      <div className="w-full h-full min-h-[56px]">
+        <img
+          src={previewImageUrl || ogImage || ""}
+          alt={`${name || "Custom template"} hero scene`}
+          className="w-full h-full min-h-[56px] object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+    );
+  }
 
   if (hasGeneratedCode) {
     return (
@@ -403,32 +419,38 @@ export default function CustomPreviewLandscape({
   }
 
   // Fallback: old hardcoded slides for templates without generated code
-  return <FallbackSlides theme={theme} name={name} />;
+  return <FallbackSlides theme={theme} name={name} thumbnailMode={thumbnailMode} />;
 }
 
-function FallbackSlides({ theme, name }: { theme: CustomTemplateTheme; name?: string }) {
+function FallbackSlides({ theme, name, thumbnailMode = false }: { theme: CustomTemplateTheme; name?: string; thumbnailMode?: boolean }) {
   const slides = [SlideCinematic, SlideMetrics, SlideCode];
   const [current, setCurrent] = useState(0);
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    if (thumbnailMode) {
+      setActive(true);
+      return;
+    }
     const t = setTimeout(() => setActive(true), 200);
     return () => clearTimeout(t);
-  }, []);
+  }, [thumbnailMode]);
 
   useEffect(() => {
+    if (thumbnailMode) return;
     const id = setInterval(() => {
       setCurrent((c) => (c + 1) % slides.length);
     }, SLIDE_DURATION);
     return () => clearInterval(id);
-  }, [slides.length]);
+  }, [slides.length, thumbnailMode]);
 
   // Re-trigger active state on slide change so CSS transition fires (mount at 0, then → 1)
   useEffect(() => {
+    if (thumbnailMode) return;
     setActive(false);
     const t = setTimeout(() => setActive(true), 30);
     return () => clearTimeout(t);
-  }, [current]);
+  }, [current, thumbnailMode]);
 
   return (
     <ScaledCanvas>

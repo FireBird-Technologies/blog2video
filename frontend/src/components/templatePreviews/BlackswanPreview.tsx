@@ -175,25 +175,27 @@ function SlideDots({
   );
 }
 
-export default function BlackswanPreview() {
+export default function BlackswanPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const playerRef = useRef<PlayerRef>(null);
   const [sceneIndex, setSceneIndex] = useState(0);
+  const scenes = useMemo(() => (thumbnailMode ? PREVIEW_SCENES.slice(0, 1) : PREVIEW_SCENES), [thumbnailMode]);
 
-  const durationInFrames = useMemo(
-    () => totalDurationFrames(PREVIEW_SCENES, FPS),
-    []
-  );
-  const starts = useMemo(() => sceneStarts(PREVIEW_SCENES, FPS), []);
+  const durationInFrames = useMemo(() => {
+    const total = totalDurationFrames(scenes, FPS);
+    return total;
+  }, [scenes, thumbnailMode]);
+  const thumbnailFrame = useMemo(() => Math.max(0, Math.floor(durationInFrames * 0.85) - 1), [durationInFrames]);
+  const starts = useMemo(() => sceneStarts(scenes, FPS), [scenes]);
 
   const inputProps = useMemo(
     () => ({
-      scenes: PREVIEW_SCENES,
+      scenes,
       accentColor: ACCENT,
       bgColor: BG,
       textColor: TEXT,
       aspectRatio: "landscape" as const,
     }),
-    []
+    [scenes]
   );
 
   useEffect(() => {
@@ -201,12 +203,12 @@ export default function BlackswanPreview() {
     if (!p) return;
     const onFrame = () => {
       const frame = p.getCurrentFrame();
-      setSceneIndex(sceneIndexAtFrame(frame, PREVIEW_SCENES, FPS, durationInFrames));
+      setSceneIndex(sceneIndexAtFrame(frame, scenes, FPS, durationInFrames));
     };
     p.addEventListener("frameupdate", onFrame);
     onFrame();
     return () => p.removeEventListener("frameupdate", onFrame);
-  }, [durationInFrames]);
+  }, [durationInFrames, scenes]);
 
   const seekToScene = (i: number) => {
     const p = playerRef.current;
@@ -224,13 +226,14 @@ export default function BlackswanPreview() {
           ref={playerRef}
           component={BlackswanVideoComposition}
           durationInFrames={durationInFrames}
+          initialFrame={thumbnailMode ? thumbnailFrame : 0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={FPS}
           inputProps={inputProps}
           controls={false}
-          autoPlay
-          loop
+          autoPlay={!thumbnailMode}
+          loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{
             width: INTERNAL_W,
@@ -239,9 +242,12 @@ export default function BlackswanPreview() {
           }}
         />
         <SlideDots
-          total={PREVIEW_SCENES.length}
+          total={scenes.length}
           current={sceneIndex}
-          onDotClick={seekToScene}
+          onDotClick={(i) => {
+            if (thumbnailMode) return;
+            seekToScene(i);
+          }}
         />
       </div>
     </ScaledCanvas>

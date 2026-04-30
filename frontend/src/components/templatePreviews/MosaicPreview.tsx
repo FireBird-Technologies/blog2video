@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { Player } from "@remotion/player";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import { getTemplateConfig } from "../remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -54,11 +54,14 @@ const MOSAIC_PREVIEW_SCENES: DemoScene[] = [
 
 // Use the template-configured default colors so previews match defaults
 
-export default function MosaicPreview() {
+export default function MosaicPreview({ thumbnailMode = false }: { thumbnailMode?: boolean } = {}) {
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
   const activeScene = MOSAIC_PREVIEW_SCENES[activeSceneIndex];
   const fps = 30;
-  const durationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const fullDurationInFrames = Math.round(activeScene.durationSeconds * fps) + 45;
+  const durationInFrames = fullDurationInFrames;
+  const thumbnailFrame = Math.min(Math.max(0, durationInFrames - 1), 100);
   const config = getTemplateConfig("mosaic");
   const Composition = config.component as React.ComponentType<any>;
 
@@ -80,26 +83,47 @@ export default function MosaicPreview() {
   );
 
   useEffect(() => {
+    if (!thumbnailMode) return;
+    const p = playerRef.current;
+    if (!p) return;
+    let settled = false;
+    const onFrame = () => {
+      if (settled) return;
+      const current = p.getCurrentFrame();
+      if (current >= thumbnailFrame) {
+        settled = true;
+        p.pause();
+        p.seekTo(thumbnailFrame);
+      }
+    };
+    p.addEventListener("frameupdate", onFrame);
+    return () => p.removeEventListener("frameupdate", onFrame);
+  }, [thumbnailMode, thumbnailFrame, activeSceneIndex]);
+
+  useEffect(() => {
+    if (thumbnailMode) return;
     const ms = Math.max(500, Math.round(activeScene.durationSeconds * 1000));
     const t = setTimeout(() => {
       setActiveSceneIndex((i) => (i + 1) % MOSAIC_PREVIEW_SCENES.length);
     }, ms);
     return () => clearTimeout(t);
-  }, [activeSceneIndex, activeScene.durationSeconds]);
+  }, [activeSceneIndex, activeScene.durationSeconds, thumbnailMode]);
 
   return (
     <div className="w-full">
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9", background: bgColor }}>
         <Player
+          ref={playerRef}
           component={Composition}
           inputProps={inputProps}
           durationInFrames={durationInFrames}
+          initialFrame={0}
           compositionWidth={1920}
           compositionHeight={1080}
           fps={fps}
           controls={false}
           autoPlay
-          loop
+          loop={!thumbnailMode}
           acknowledgeRemotionLicense
           style={{ width: "100%", height: "100%", display: "block" }}
         />
@@ -111,6 +135,7 @@ export default function MosaicPreview() {
               <button
                 key={scene.id}
                 onClick={() => setActiveSceneIndex(index)}
+                disabled={thumbnailMode}
                 className={`h-1.5 rounded-full transition-all ${isActive ? "w-5" : "w-1.5 bg-white/45 hover:bg-white/70"}`}
                 style={isActive ? { background: accentColor } : undefined}
                 aria-label={`Preview ${scene.title} layout`}
