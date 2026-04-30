@@ -106,6 +106,8 @@ _SHARED_SRC_FILES = [
     "src/fonts/newspaper-defaults.ts",
     # Nightfall template default fonts (bundled, not in registry)
     "src/fonts/nightfall-defaults.ts",
+    # Chronicle template default fonts (bundled, not in registry)
+    "src/fonts/chronicle-defaults.ts",
     # Shared socials renderer used by multiple template layouts
     "src/templates/SocialIcons.tsx",
 ]

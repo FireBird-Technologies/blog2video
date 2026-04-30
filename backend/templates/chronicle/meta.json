@@ -1,0 +1,555 @@
+{
+  "id": "chronicle",
+  "name": "Chronicle",
+  "new_template": true,
+  "description": "Old history-book tome with parchment pages, illuminated drop caps, wax seals and quill-written text. Perfect for history, heritage, mythology and long-form storytelling.",
+  "styles": [
+    "storytelling",
+    "explainer"
+  ],
+  "preview_colors": {
+    "accent": "#B8860B",
+    "bg": "#F1E4C9",
+    "text": "#2A1810"
+  },
+  "composition_id": "ChronicleVideo",
+  "hero_layout": "book_open",
+  "fallback_layout": "parchment_scroll",
+  "valid_layouts": [
+    "book_open",
+    "parchment_scroll",
+    "chapter_plate",
+    "illuminated_quote",
+    "ledger_stats",
+    "versus_folio",
+    "chronicle_timeline",
+    "map_reveal",
+    "decree_seal",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "book_open": {
+      "label": "Book Open (Intro)",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 96
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 30
+        },
+        "hideImage": true
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtitle Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "parchment_scroll": {
+      "label": "Parchment Scroll",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 66,
+          "landscape": 62
+        },
+        "descriptionFontSize": {
+          "portrait": 34,
+          "landscape": 28
+        },
+        "category": "",
+        "illuminatedLetter": "",
+        "stats": []
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "category",
+          "label": "Section Tag",
+          "type": "string"
+        },
+        {
+          "key": "illuminatedLetter",
+          "label": "Drop Cap Letter (optional)",
+          "type": "string",
+          "placeholder": "Auto from first letter"
+        },
+        {
+          "key": "stats",
+          "label": "Byline (optional)",
+          "type": "object_array",
+          "maxItems": 2,
+          "subFields": [
+            { "key": "value", "label": "Value" },
+            { "key": "label", "label": "Label" }
+          ]
+        }
+      ]
+    },
+    "chapter_plate": {
+      "label": "Heraldic Banner",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 72,
+          "landscape": 66
+        },
+        "descriptionFontSize": {
+          "portrait": 32,
+          "landscape": 28
+        },
+        "subtitle": "",
+        "hideImage": true
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Banner Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 24,
+          "max": 240,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Caption Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "subtitle",
+          "label": "Kicker above title (optional)",
+          "type": "string",
+          "placeholder": "e.g. Act One, The Founding Years"
+        }
+      ]
+    },
+    "illuminated_quote": {
+      "label": "Illuminated Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 20
+        },
+        "quote": "",
+        "highlightPhrase": "",
+        "attribution": ""
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Attribution Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote (overrides narration)",
+          "type": "text"
+        },
+        {
+          "key": "highlightPhrase",
+          "label": "Phrase to Highlight in Red",
+          "type": "string"
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string"
+        }
+      ]
+    },
+    "ledger_stats": {
+      "label": "Ledger of Facts",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 64,
+          "landscape": 58
+        },
+        "descriptionFontSize": {
+          "portrait": 22,
+          "landscape": 19
+        },
+        "stats": [
+          { "value": "1215", "label": "Magna Carta signed" },
+          { "value": "40", "label": "Barons rebelling" },
+          { "value": "VII", "label": "Centuries remembered" }
+        ]
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Cell Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Ledger Entries (1-3)",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            { "key": "value", "label": "Number" },
+            { "key": "label", "label": "Descriptor" }
+          ]
+        }
+      ]
+    },
+    "versus_folio": {
+      "label": "Versus Folio",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 54,
+          "landscape": 50
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 24
+        },
+        "leftLabel": "Thus Spoken",
+        "rightLabel": "Thus Proven",
+        "leftDescription": "The claim made by the old stories.",
+        "rightDescription": "What history has since revealed."
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Page Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Page Heading",
+          "type": "string"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Page Heading",
+          "type": "string"
+        },
+        {
+          "key": "leftDescription",
+          "label": "Left Page Body",
+          "type": "text"
+        },
+        {
+          "key": "rightDescription",
+          "label": "Right Page Body",
+          "type": "text"
+        }
+      ]
+    },
+    "chronicle_timeline": {
+      "label": "Chronicle Timeline",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 60,
+          "landscape": 56
+        },
+        "descriptionFontSize": {
+          "portrait": 20,
+          "landscape": 18
+        },
+        "stats": [
+          { "value": "476", "label": "Fall of Rome" },
+          { "value": "800", "label": "Charlemagne crowned" },
+          { "value": "1066", "label": "Norman Conquest" },
+          { "value": "1453", "label": "Fall of Constantinople" }
+        ],
+        "hideImage": true
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Waypoint Label Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Waypoints (up to 4)",
+          "type": "object_array",
+          "maxItems": 4,
+          "subFields": [
+            { "key": "value", "label": "Year / Marker" },
+            { "key": "label", "label": "Event" }
+          ]
+        }
+      ]
+    },
+    "map_reveal": {
+      "label": "Map Reveal",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 52,
+          "landscape": 48
+        },
+        "descriptionFontSize": {
+          "portrait": 24,
+          "landscape": 22
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 14,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Caption Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        }
+      ]
+    },
+    "decree_seal": {
+      "label": "Decree / Seal Punch",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 180,
+          "landscape": 220
+        },
+        "descriptionFontSize": {
+          "portrait": 26,
+          "landscape": 22
+        },
+        "word": "",
+        "highlightWord": "",
+        "cta": "So it was written.",
+        "hideImage": true
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Word Size",
+          "type": "number",
+          "responsive": true,
+          "min": 60,
+          "max": 360,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Preamble Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "word",
+          "label": "The Blackletter Word",
+          "type": "string",
+          "placeholder": "e.g. DECREED, FINIS, HONOR"
+        },
+        {
+          "key": "highlightWord",
+          "label": "Alt word (ignored if 'word' set)",
+          "type": "string"
+        },
+        {
+          "key": "cta",
+          "label": "Sign-off",
+          "type": "string"
+        }
+      ]
+    },
+    "ending_socials": {
+      "label": "Ending / Follow along",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 130,
+          "landscape": 150
+        },
+        "descriptionFontSize": {
+          "portrait": 30,
+          "landscape": 26
+        },
+        "hideImage": true,
+        "socials": [
+          { "platform": "facebook", "enabled": "true", "label": "Facebook" },
+          { "platform": "instagram", "enabled": "true", "label": "Instagram" },
+          { "platform": "youtube", "enabled": "true", "label": "YouTube" },
+          { "platform": "medium", "enabled": "false", "label": "Medium" },
+          { "platform": "substack", "enabled": "false", "label": "Substack" },
+          { "platform": "linkedin", "enabled": "false", "label": "LinkedIn" },
+          { "platform": "tiktok", "enabled": "false", "label": "TikTok" }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Read the full chronicle"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtext Size",
+          "type": "number",
+          "responsive": true,
+          "min": 12,
+          "max": 120,
+          "step": 1
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Ribbon Text",
+          "type": "string"
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            { "key": "platform", "label": "Platform" },
+            { "key": "enabled", "label": "Enabled (true/false)" },
+            { "key": "label", "label": "Label / handle / URL" }
+          ]
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website Ribbon",
+          "type": "select",
+          "options": [
+            { "label": "Enabled", "value": "true" },
+            { "label": "Disabled", "value": "false" }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        }
+      ]
+    }
+  },
+  "layouts_without_image": [
+    "book_open",
+    "chapter_plate",
+    "chronicle_timeline",
+    "decree_seal",
+    "ending_socials"
+  ],
+  "features": [
+    "Medieval tome aesthetic with parchment texture, dust motes, and candle-glow vignette",
+    "Opening book intro with cracking wax seal and page-flip",
+    "Illuminated drop caps and quill-written text reveals",
+    "Embossed sepia image cards with torn-paper treatment",
+    "Heraldic banner title cards for section breaks",
+    "Wax-seal stamps with dust-puff impact",
+    "Red-ribbon banner attributions",
+    "Unfurled cartographer's map image treatment with compass rose",
+    "Blackletter decree word with punch-in seal",
+    "Timeline waypoints drawn in ink",
+    "Versus folios with central 'vs.' medallion",
+    "Page-turn transitions between every scene",
+    "Portrait and landscape responsive layouts"
+  ]
+}
