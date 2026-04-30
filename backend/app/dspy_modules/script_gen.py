@@ -110,6 +110,15 @@ class BlogToScript(dspy.Signature):
 
     Output the scenes as a JSON array.
 
+    ═══ CONTENT COVERAGE — USE ALL SOURCE DATA (CRITICAL) ═══
+    - You MUST cover the FULL blog_content — do not summarise only the first half or skip sections.
+    - Read blog_content to the end before planning scenes. Every major point, statistic, finding,
+      and section of the article must appear in at least one scene's narration or visual_description.
+    - If video_length forces fewer scenes than topics, merge related points into single scenes —
+      but do NOT silently drop entire sections of the article.
+    - For bloomberg specifically: every numeric claim, statistic, or data point found anywhere in
+      blog_content must be represented. Do not stop extracting data after the first few paragraphs.
+
     ═══ LANGUAGE RULE (CRITICAL) ═══
     - content_language specifies the language of the scraped blog content.
     - Generate ALL output (title, scene titles, narrations, visual_description) EXCLUSIVELY in that language.
@@ -206,6 +215,61 @@ class BlogToScript(dspy.Signature):
         )
     )
 
+    template_style_hint: str = dspy.InputField(
+        desc=(
+            "Optional template-specific narration style instructions that OVERRIDE the general rules above. "
+            "When non-empty, apply these instructions to EVERY scene's narration, not just data scenes. "
+            "Empty string means no special override — follow the standard rules."
+        )
+    )
+
+    chartable_tables_json: str = dspy.InputField(
+        desc=(
+            "JSON array of table-to-scene bindings extracted from the blog. Each entry has keys: "
+            '"index" (int, original table index), "chartType" (\'line\'|\'bar\'|\'histogram\'|\'auto\'), '
+            '"headers" (list of str), "rows" (list of list of str, up to 20 sample rows), "source" (str), '
+            'and OPTIONAL "preferred_layout" (str) specifying the layout to use for that scene '
+            '(e.g. "terminal_chart", "terminal_table", "data_visualization"). '
+            "Empty string when no tables are available. "
+            "When non-empty: you MUST emit exactly one scene per entry. "
+            "Use the entry's \"preferred_layout\" value as the scene's preferred_layout; "
+            "if the entry has no preferred_layout, default to \"data_visualization\". "
+            "Each such scene MUST include a \"data_table_index\" field (int) set to that entry's \"index\" value. "
+            "That scene's narration MUST be grounded entirely in the specific table — analyse the data, not just "
+            "recite it. Identify the key pattern (growth, decline, comparison, outlier), explain what it means "
+            "in the context of the article, and give the viewer the insight they couldn't get just by looking at "
+            "the raw numbers. At minimum cite one concrete figure to anchor the analysis. "
+            "For terminal_chart scenes specifically: narration must NEVER just read out numbers or describe what is "
+            "visually on screen. Instead, analyse the data and explain what it MEANS. "
+            "If a 'chart_analysis' object is present, use its pre-computed insights (verdict, trend, momentum, "
+            "biggest_move, range_position, volatility) as your foundation. "
+            "If 'chart_analysis' is absent, derive the analysis yourself from the rows: identify the direction "
+            "(is the close column rising or falling overall?), the magnitude of change, any notable spikes or drops, "
+            "and what the pattern implies. In either case, always: "
+            "(1) state the overall verdict in plain English (e.g. 'prices climbed steadily', 'a sharp reversal hit'), "
+            "(2) explain the 'so what' — why this pattern matters in the context of the blog's topic, "
+            "(3) connect the chart movement to a real-world cause or consequence mentioned in the article, "
+            "(4) write for a smart non-finance reader — avoid all jargon, no RSI/Bollinger/MA references unless "
+            "the article itself discusses them, and if you must use a finance term, explain it in the same breath. "
+            "E.g. instead of 'RSI climbed past 60', write 'buyers stepped in aggressively after the dip, pushing "
+            "the stock back toward its highs — reflecting the recovery story this article describes'. "
+            "Match framing to chartType: line=trend over time, bar=comparison between categories, histogram=distribution. "
+            "CHART DATA INTEGRITY — CRITICAL, NO EXCEPTIONS: "
+            "NEVER invent, fabricate, extrapolate, or assume any data values. Every number, date, label, and data point "
+            "in your narration MUST come verbatim from the rows/headers provided in this chartable_tables_json entry. "
+            "If a value is not in the supplied rows, do not mention it. "
+            "LAYOUT PRIORITY FOR BLOOMBERG — apply in this order: "
+            "(1) If the table has OHLCV columns (open, high, low, close + date) → preferred_layout MUST be 'terminal_chart'. "
+            "(2) If the table has a time/date column with numeric values but is NOT OHLCV → preferred_layout MUST be 'terminal_dataviz' (line chart). "
+            "(3) If the table is purely categorical with no numeric progression → preferred_layout MUST be 'terminal_table'. "
+            "NEVER assign 'terminal_chart' to any non-OHLCV table, even if it has a time column. "
+            "NEVER assign 'terminal_table' to a table that has a time-series or numeric progression. "
+            "These scenes must be placed after the hero/opening scene and before the ending_socials scene. "
+            "Scenes using these layouts MUST NOT appear in any other scene, and other scenes "
+            "MUST NOT reference these tables in their narration."
+        )
+    )
+
     title: str = dspy.OutputField(desc="A compelling title for the video (tone must match video_style)")
     scenes_json: str = dspy.OutputField(
         desc=(
@@ -226,6 +290,8 @@ class BlogToScript(dspy.Signature):
             '"narration": "Let\'s explore how AI transforms software development.", '
             '"visual_description": "Title text banner: How AI is Changing Everything displayed as large bold centered text on gradient background", '
             '"suggested_images": [], "duration_seconds": 6, "preferred_layout": "text_narration"}]'
+            ' When chartable_tables_json is non-empty: each data_visualization scene MUST include '
+            '"data_table_index" (int) matching its bound entry\'s "index" value from chartable_tables_json. '
             ' When include_ending_socials is true: append exactly one final ending scene as the LAST element. '
             'The ending scene MUST set preferred_layout="ending_socials" and MUST NOT appear in any other scene. '
             'That ending scene MUST be a content-grounded call to action: "title" = memorable CTA headline tied to '
@@ -274,6 +340,66 @@ class ScriptGenerator:
         self._generator = dspy.ChainOfThought(BlogToScript)
         self.generator = dspy.asyncify(self._generator)
 
+    _TEMPLATE_STYLE_HINTS: dict[str, str] = {
+        "bloomberg": (
+            "BLOOMBERG TERMINAL STYLE — mandatory for every single scene, no exceptions: "
+            "You are writing narration for a Bloomberg TV analyst segment, not a data readout. "
+            "The viewer can already SEE the numbers on screen — your job is to deliver the INSIGHT behind them. "
+            "\n\n"
+            "CORE RULE — insight before numbers: Every narration must open with the analytical takeaway, "
+            "then support it with one or two specific figures. NEVER open by listing numbers. "
+            "BAD: 'Revenue was $4.2B, up 34% year-over-year.' "
+            "GOOD: 'Growth is accelerating well ahead of the sector — revenue surged 34% to $4.2B, "
+            "a pace the company hasn't sustained since 2019.' "
+            "\n\n"
+            "RULES — apply all of these: "
+            "(1) Lead with the SO WHAT, not the WHAT. What does this data mean for the company, market, or viewer? "
+            "Every scene must answer: why does this number matter right now? "
+            "(2) Never describe visuals. Ban these phrases entirely: 'as you can see', 'the chart shows', "
+            "'displayed here', 'this graph illustrates', 'looking at the data', 'the numbers show'. "
+            "(3) One insight per scene, fully developed. State the finding → support with a figure → "
+            "explain the implication ('margins fell to 18%, the lowest in five years — cost inflation is "
+            "outrunning pricing power, squeezing the bottom line even as the top line grows'). "
+            "(4) Use analyst language: 'signals', 'indicates', 'points to', 'suggests', 'underscores', "
+            "'reflects', 'driven by', 'pressured by', 'accelerated by', 'despite', 'amid'. "
+            "Avoid dry academic phrases like 'it can be observed that' or 'data indicates a trend'. "
+            "(5) Capture cause and effect explicitly. If something drove a result, say so: "
+            "'the Fed's 50bps cut triggered a relief rally, lifting tech valuations 12% in a single week.' "
+            "(6) Build narrative continuity across scenes. Each scene should advance a central argument, "
+            "not stand as an isolated fact. Reference the thread: 'this margin pressure compounds the "
+            "demand slowdown flagged in the previous quarter.' "
+            "(7) Anchor every scene with at least one concrete figure from the blog — "
+            "a percentage, dollar amount, date, or named comparison. Vague generalisations are forbidden. "
+            "(8) Tone: confident, precise, slightly urgent. Think Bloomberg TV 6am markets open brief — "
+            "analytical, data-grounded, and delivered with conviction from the first word to the last. "
+            "(9) BANNED OPENERS — never start a narration with: 'The data shows', 'Looking at', "
+            "'As we can see', 'This chart', 'These numbers', 'The table', 'Here we see', 'In this scene'. "
+            "Start with the insight, a named entity, or a strong verb. "
+            "(10) DATA INTEGRITY — ABSOLUTE RULE: Never fabricate, invent, or extrapolate any figures. "
+            "Every number, percentage, price, date, or label in your narration MUST exist verbatim in the "
+            "supplied chartable_tables_json rows OR be explicitly stated in blog_content prose. "
+            "If a value is not in the source data, do not mention it. "
+            "(11) CHART LAYOUT ASSIGNMENT — STRICT RULES: "
+            "terminal_chart MUST ONLY be used when the data is a full OHLCV candlestick dataset "
+            "(columns: date/time, open, high, low, close, and optionally volume). "
+            "terminal_dataviz MUST be used for ALL other time-series or line-chartable data "
+            "(e.g. year + revenue, date + price, period + metric). "
+            "terminal_table MUST be used for purely categorical/tabular data with no numeric progression. "
+            "NEVER assign terminal_chart to non-OHLCV data — not even if the data has a time column. "
+            "(12) DATA VISUALIZATION SCENES — SCRAPED TABLES ONLY (BLOOMBERG STRICT): "
+            "Chart/table scenes (terminal_chart, terminal_dataviz, terminal_table, terminal_ticker, "
+            "data_visualization) MUST be derived EXCLUSIVELY from the scraped tables provided in "
+            "chartable_tables_json. NEVER synthesize, fabricate, or extract chart data from blog_content "
+            "prose, sentences, or narrative claims — even if the prose mentions specific numbers, "
+            "percentages, growth figures, or time references. "
+            "If chartable_tables_json is empty, DO NOT emit any data visualization scenes at all — "
+            "use other layouts (story_stack, headline_insight, side_by_side_brief, etc.) for the content. "
+            "BANNED: do not output 'SYNTHETIC_TIMESERIES' or any other invented chart payload in "
+            "visual_description under any circumstance. Prose-derived charts are forbidden in the "
+            "bloomberg template."
+        ),
+    }
+
     async def generate(
         self,
         blog_content: str,
@@ -285,6 +411,8 @@ class ScriptGenerator:
         layout_catalog: str = "",
         content_language: str = "English",
         include_ending_socials: bool = False,
+        chartable_tables_json: str = "",
+        template_id: str = "",
     ) -> dict:
         """
         Generate a video script from blog content (async).
@@ -297,6 +425,7 @@ class ScriptGenerator:
         social_flags = detect_social_platforms_in_text(blog_content)
         social_hint = format_social_platforms_for_script_prompt(social_flags)
         fallback_ending = self._build_fallback_ending_scene(social_flags)
+        template_style_hint = self._TEMPLATE_STYLE_HINTS.get(template_id or "", "")
 
         result = await self.generator(
             blog_content=blog_content,
@@ -309,6 +438,8 @@ class ScriptGenerator:
             content_language=(content_language or "English").strip(),
             include_ending_socials=bool(include_ending_socials),
             social_platforms_detected=social_hint,
+            chartable_tables_json=chartable_tables_json or "",
+            template_style_hint=template_style_hint,
         )
 
         # Parse the scenes JSON and apply limits
@@ -491,6 +622,10 @@ class ScriptGenerator:
                 }
                 if preferred_layout == "ending_socials" and cta_btn:
                     row["cta_button_text"] = cta_btn
+                raw_idx = scene.get("data_table_index")
+                _data_layouts = {"data_visualization", "terminal_chart", "terminal_table", "terminal_dataviz"}
+                if preferred_layout in _data_layouts and isinstance(raw_idx, int):
+                    row["data_table_index"] = raw_idx
                 validated.append(row)
 
             return validated

@@ -26,6 +26,20 @@ function asAspectObject(input: unknown, fallback: { portrait: number; landscape:
   };
 }
 
+function asChartTable(input: unknown): { headers: string[]; rows: string[][] } {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    const tbl = input as Record<string, unknown>;
+    const headers = Array.isArray(tbl.headers) ? (tbl.headers as unknown[]).map((h) => asString(h)) : ["Label", "Value"];
+    const rows = Array.isArray(tbl.rows)
+      ? (tbl.rows as unknown[]).map((r) =>
+          Array.isArray(r) ? (r as unknown[]).map((c) => asString(c)) : [asString(r), ""]
+        )
+      : [["", ""]];
+    return { headers, rows };
+  }
+  return { headers: ["Label", "Value"], rows: [["", ""]] };
+}
+
 function asStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
   return input.map((item) => asString(item));
@@ -321,6 +335,97 @@ function renderField(
               Add row
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (field.type === "chart_table") {
+    const table = asChartTable(current[field.key]);
+    const setTable = (next: { headers: string[]; rows: string[][] }) =>
+      updateKey(current, field.key, next, onChange);
+
+    return (
+      <div key={field.key} className="mb-3">
+        <FieldHeader label={field.label} />
+        <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 overflow-x-auto">
+          <table className="min-w-full border-separate border-spacing-0">
+            <thead>
+              <tr>
+                {table.headers.map((header, ci) => (
+                  <th key={`h-${ci}`} className="p-1.5 align-top">
+                    <input
+                      type="text"
+                      value={header}
+                      placeholder={ci === 0 ? "Label" : `Series ${ci}`}
+                      onChange={(e) => {
+                        const headers = [...table.headers];
+                        headers[ci] = e.target.value;
+                        setTable({ headers, rows: table.rows });
+                      }}
+                      className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, ri) => (
+                <tr key={`r-${ri}`}>
+                  {table.headers.map((_, ci) => (
+                    <td key={`c-${ri}-${ci}`} className="p-1.5">
+                      <input
+                        type="text"
+                        value={row[ci] ?? ""}
+                        onChange={(e) => {
+                          const rows = table.rows.map((r) => [...r]);
+                          rows[ri][ci] = e.target.value;
+                          setTable({ headers: table.headers, rows });
+                        }}
+                        className="w-full px-2 py-1.5 text-xs text-gray-700 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setTable({ headers: table.headers, rows: [...table.rows, Array.from({ length: table.headers.length }, () => "")] })}
+              className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
+            >
+              + Row
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const next = [...table.headers, `Series ${table.headers.length}`];
+                setTable({ headers: next, rows: table.rows.map((r) => [...r, ""]) });
+              }}
+              className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-purple-600 hover:border-purple-400 bg-white"
+            >
+              + Column
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (table.rows.length > 1) setTable({ headers: table.headers, rows: table.rows.slice(0, -1) }); }}
+              className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
+            >
+              - Row
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (table.headers.length <= 2) return;
+                setTable({ headers: table.headers.slice(0, -1), rows: table.rows.map((r) => r.slice(0, -1)) });
+              }}
+              className="px-2 py-1 text-[11px] font-medium rounded border border-gray-200 text-gray-600 hover:text-red-500 hover:border-red-300 bg-white"
+            >
+              - Column
+            </button>
+          </div>
         </div>
       </div>
     );
