@@ -16,7 +16,7 @@ export default function InviteOthers() {
           </svg>
           Back to Dashboard
         </button>
-        <h1 className="text-2xl font-semibold text-gray-900">Invite Others</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Share B2V</h1>
         <p className="text-sm text-gray-400 mt-1">
           Invite your friends and earn bonus videos when they sign up.
         </p>

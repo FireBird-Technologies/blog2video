@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "./constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "./constants";
 
 export type BloombergTransitionVariant =
   | "scanline_wipe"
@@ -69,10 +69,10 @@ const easeInOutQuart = Easing.bezier(0.76, 0, 0.24, 1);
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
-const Scanlines: React.FC<{ opacity: number }> = ({ opacity }) => (
+const Scanlines: React.FC<{ opacity: number; color?: string }> = ({ opacity, color = "#FFB340" }) => (
   <div style={{
     position: "absolute", inset: 0, pointerEvents: "none",
-    backgroundImage: "repeating-linear-gradient(to bottom, rgba(255,179,64,0.014) 0px, rgba(255,179,64,0.014) 1px, transparent 1px, transparent 3px)",
+    backgroundImage: `repeating-linear-gradient(to bottom, ${color}04 0px, ${color}04 1px, transparent 1px, transparent 3px)`,
     opacity,
   }} />
 );
@@ -122,12 +122,15 @@ function narrationLead(narration: string, len = 80): string {
 // Camera slowly pushes forward from a wide shot, title types in on approach.
 const NewsWire: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { headerBg, border, muted } = derivePalette(_bg, accentColor);
 
   // Spring-driven camera settle — exactly like newspaper ArticleLead's camera moves
   const cameraSp = spring({ frame, fps, config: { stiffness: 30, damping: 14 } });
@@ -188,14 +191,14 @@ const NewsWire: React.FC<BloombergTransitionProps> = ({
         transformStyle: "preserve-3d",
         transform: `scale(${cameraScale}) rotateX(${cameraRotateX}deg) translateX(${cameraTranslateX}px)`,
       }}>
-        <div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: bgOpacity * 0.93 }} />
-        <Scanlines opacity={bgOpacity} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: _bg, opacity: bgOpacity * 0.93 }} />
+        <Scanlines opacity={bgOpacity} color={accentColor} />
 
         {/* Top bar — function tag + live */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0,
-          height: 36, backgroundColor: BLOOMBERG_COLORS.headerBg,
-          borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+          height: 36, backgroundColor: headerBg,
+          borderBottom: `1px solid ${border}`,
           display: "flex", alignItems: "center", padding: "0 28px", gap: 14,
           opacity: bgOpacity, fontFamily: ff,
           transform: "translateZ(20px)",
@@ -277,7 +280,7 @@ const NewsWire: React.FC<BloombergTransitionProps> = ({
                   <div style={{ color: accentColor, fontSize: 16, fontWeight: 700, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>
                     {s.val}{s.unit}
                   </div>
-                  <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: 8, letterSpacing: "0.2em", marginTop: 2 }}>
+                  <div style={{ color: muted, fontSize: 8, letterSpacing: "0.2em", marginTop: 2 }}>
                     {s.label}
                   </div>
                 </div>
@@ -295,10 +298,13 @@ const NewsWire: React.FC<BloombergTransitionProps> = ({
 // ceiling-mounted camera swivels down to reveal the panel grid.
 const PanelRefresh: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(_bg, accentColor);
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
 
@@ -360,8 +366,8 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
         transformStyle: "preserve-3d",
         transform: `scale(${cameraScale}) rotateX(${cameraRotateX}deg) translateY(${cameraTranslateY}px)`,
       }}>
-        <div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: bgOpacity * 0.95 }} />
-        <Scanlines opacity={bgOpacity} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: _bg, opacity: bgOpacity * 0.95 }} />
+        <Scanlines opacity={bgOpacity} color={accentColor} />
 
         {/* Top amber strip */}
         <div style={{
@@ -372,17 +378,17 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
           fontFamily: ff,
           transform: "translateZ(25px)",
         }}>
-          <span style={{ color: "#000", fontSize: 14, fontWeight: 700, letterSpacing: "0.1em" }}>
+          <span style={{ color: _bg, fontSize: 14, fontWeight: 700, letterSpacing: "0.1em" }}>
             {header}
           </span>
           {nextScene?.layout && (
-            <span style={{ color: "#00000077", fontSize: 9, letterSpacing: "0.14em" }}>
+            <span style={{ color: `${_bg}77`, fontSize: 9, letterSpacing: "0.14em" }}>
               ▸ {nextScene.layout.replace("terminal_", "").toUpperCase()}
             </span>
           )}
           {nextScene?.narration && (
             <span style={{
-              color: "#000000aa", fontSize: 9, letterSpacing: "0.06em",
+              color: `${_bg}AA`, fontSize: 9, letterSpacing: "0.06em",
               overflow: "hidden", whiteSpace: "nowrap",
               maxWidth: "45%",
               opacity: interpolate(frame, [28, 44], [0, 1], { extrapolateRight: "clamp", easing: easeOutCubic }),
@@ -423,8 +429,8 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
 
               return (
                 <div key={i} style={{
-                  backgroundColor: BLOOMBERG_COLORS.panelBg,
-                  border: `1px solid ${BLOOMBERG_COLORS.border}`,
+                  backgroundColor: panelBg,
+                  border: `1px solid ${border}`,
                   borderTop: `2px solid ${accentColor}`,
                   padding: "14px 16px", position: "relative", overflow: "hidden", minHeight: 80,
                   opacity: panelReveal,
@@ -432,7 +438,7 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
                   boxShadow: glowIntensity > 0.05 ? `0 0 ${20 * glowIntensity}px ${accentColor}${Math.floor(glowIntensity * 80).toString(16).padStart(2, "0")}` : "none",
                 }}>
                   <div style={{
-                    color: BLOOMBERG_COLORS.muted,
+                    color: muted,
                     fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
                     marginBottom: 10, fontFamily: ff,
                   }}>
@@ -451,7 +457,7 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
                   </div>
                   <div style={{
                     position: "absolute", top: 10, right: 10, width: 5, height: 5,
-                    backgroundColor: panelReveal > 0.5 ? accentColor : BLOOMBERG_COLORS.border,
+                    backgroundColor: panelReveal > 0.5 ? accentColor : border,
                     opacity: panelReveal,
                   }} />
                 </div>
@@ -469,12 +475,15 @@ const PanelRefresh: React.FC<BloombergTransitionProps> = ({
 // and smoothly swivels to face it head-on, like a rack focus on a monitor.
 const CommandPrompt: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(_bg, accentColor);
 
   // Spring-driven rack focus — camera swings to face the screen
   const cameraSp = spring({ frame, fps, config: { stiffness: 32, damping: 13 } });
@@ -520,23 +529,23 @@ const CommandPrompt: React.FC<BloombergTransitionProps> = ({
         transformStyle: "preserve-3d",
         transform: `scale(${cameraScale}) rotateY(${cameraRotateY}deg) translateX(${cameraTranslateX}px)`,
       }}>
-        <div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: bgOpacity * 0.96 }} />
-        <Scanlines opacity={bgOpacity} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: _bg, opacity: bgOpacity * 0.96 }} />
+        <Scanlines opacity={bgOpacity} color={accentColor} />
 
         {/* Top chrome with breadcrumb */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0,
-          height: 38, backgroundColor: BLOOMBERG_COLORS.headerBg,
-          borderBottom: `1px solid ${BLOOMBERG_COLORS.border}`,
+          height: 38, backgroundColor: headerBg,
+          borderBottom: `1px solid ${border}`,
           display: "flex", alignItems: "center",
           padding: "0 28px", gap: 10, opacity: bgOpacity, fontFamily: ff,
           transform: "translateZ(20px)",
         }}>
-          <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 10, letterSpacing: "0.14em" }}>PANEL 1</span>
-          <span style={{ color: BLOOMBERG_COLORS.border, fontSize: 10 }}>›</span>
+          <span style={{ color: muted, fontSize: 10, letterSpacing: "0.14em" }}>PANEL 1</span>
+          <span style={{ color: border, fontSize: 10 }}>›</span>
           <span style={{ color: accentColor, fontSize: 10, fontWeight: 700, letterSpacing: "0.18em" }}>{fnCode}</span>
           <div style={{ flex: 1 }} />
-          <div style={{ width: 70, height: 5, backgroundColor: BLOOMBERG_COLORS.border }} />
+          <div style={{ width: 70, height: 5, backgroundColor: border }} />
         </div>
 
         {/* Command bar */}
@@ -548,7 +557,7 @@ const CommandPrompt: React.FC<BloombergTransitionProps> = ({
           fontFamily: ff, opacity: bgOpacity,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 18 }}>&gt;</span>
+            <span style={{ color: muted, fontSize: 18 }}>&gt;</span>
             <span style={{
               color: accentColor, fontWeight: 600,
               fontSize: 16, letterSpacing: "0.05em",
@@ -567,8 +576,8 @@ const CommandPrompt: React.FC<BloombergTransitionProps> = ({
               marginLeft: "auto",
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "5px 12px",
-              backgroundColor: goPressed ? "#2fbf5f" : BLOOMBERG_COLORS.border,
-              color: goPressed ? "#000" : BLOOMBERG_COLORS.muted,
+              backgroundColor: goPressed ? "#2fbf5f" : border,
+              color: goPressed ? "#000" : muted,
               fontSize: 10, letterSpacing: "0.2em", fontWeight: 600,
               opacity: goAppear,
               boxShadow: goPressed ? "0 0 16px rgba(47,191,95,0.5)" : "none",
@@ -580,12 +589,12 @@ const CommandPrompt: React.FC<BloombergTransitionProps> = ({
 
           {nextScene?.title && (
             <div style={{
-              color: BLOOMBERG_COLORS.muted,
+              color: muted,
               fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
               paddingLeft: 32,
               opacity: descOpacity,
               transform: `translateY(${descY}px)`,
-              borderLeft: `2px solid ${BLOOMBERG_COLORS.border}`,
+              borderLeft: `2px solid ${border}`,
             }}>
               {nextScene.title.slice(0, 52)}
             </div>
@@ -602,12 +611,15 @@ const CommandPrompt: React.FC<BloombergTransitionProps> = ({
 // 3D lift — like a card rising off a desk.
 const PriceFlash: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(_bg, accentColor);
 
   // Camera push — spring from elevated angle to level
   const cameraSp = spring({ frame, fps, config: { stiffness: 30, damping: 14 } });
@@ -640,8 +652,8 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
         transformStyle: "preserve-3d",
         transform: `scale(${cameraScale}) rotateX(${cameraRotateX}deg)`,
       }}>
-        <div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: bgOpacity * 0.9 }} />
-        <Scanlines opacity={bgOpacity} />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: _bg, opacity: bgOpacity * 0.9 }} />
+        <Scanlines opacity={bgOpacity} color={accentColor} />
 
         {/* Amber bloom — smooth circular glow from center */}
         <div style={{
@@ -662,7 +674,7 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
             position: "absolute", top: "50%", left: "50%",
             transform: `translate(-50%, calc(-50% + ${panelY}px)) scale(${panelScale}) translateZ(30px)`,
             width: "58%", opacity: panelOpacity, fontFamily: ff,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            border: `1px solid ${border}`,
             backgroundColor: "#080808",
           }}>
             <div style={{
@@ -670,7 +682,7 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
               padding: "8px 16px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
-              <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 9, letterSpacing: "0.2em" }}>
+              <span style={{ color: muted, fontSize: 9, letterSpacing: "0.2em" }}>
                 SCRN — {(nextScene?.title || "MOVERS").toUpperCase().slice(0, 24)}
               </span>
               <span style={{ color: accentColor, fontSize: 9, letterSpacing: "0.12em" }}>
@@ -694,14 +706,14 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
               return (
                 <div key={i} style={{
                   padding: "10px 16px",
-                  borderBottom: i < tickerRows.length - 1 ? `1px solid ${BLOOMBERG_COLORS.border}` : "none",
+                  borderBottom: i < tickerRows.length - 1 ? `1px solid ${border}` : "none",
                   display: "flex", alignItems: "center", gap: 14,
                   opacity: rowReveal,
                   transform: `translateY(${rowY}px)`,
                 }}>
                   <span style={{ color: accentColor, fontSize: 12, fontWeight: 700, fontFamily: ff, minWidth: 52 }}>{sym}</span>
                   <span style={{ color: isPos ? "#4ADE80" : BLOOMBERG_COLORS.neg, fontSize: 12, fontFamily: ff, minWidth: 64 }}>{pct}</span>
-                  <span style={{ color: BLOOMBERG_COLORS.muted, fontSize: 10, fontFamily: ff, marginLeft: "auto" }}>{price}</span>
+                  <span style={{ color: muted, fontSize: 10, fontFamily: ff, marginLeft: "auto" }}>{price}</span>
                 </div>
               );
             })}
@@ -714,12 +726,12 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
             transform: `translate(-50%, calc(-50% + ${panelY}px)) scale(${panelScale}) translateZ(30px)`,
             opacity: panelOpacity, fontFamily: ff,
             display: "flex", gap: 14,
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            border: `1px solid ${border}`,
             backgroundColor: "#080808",
           }}>
             <div style={{
               position: "absolute", top: -32, left: 0, right: 0,
-              color: BLOOMBERG_COLORS.muted, fontSize: 9, letterSpacing: "0.16em",
+              color: muted, fontSize: 9, letterSpacing: "0.16em",
               textTransform: "uppercase", fontFamily: ff,
             }}>
               {(nextScene?.title || "").toUpperCase().slice(0, 40)}
@@ -732,12 +744,12 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
               return (
                 <div key={i} style={{
                   padding: "18px 20px", minWidth: 90, textAlign: "center", opacity: rowReveal,
-                  borderRight: i < narrationStats.length - 1 ? `1px solid ${BLOOMBERG_COLORS.border}` : "none",
+                  borderRight: i < narrationStats.length - 1 ? `1px solid ${border}` : "none",
                 }}>
                   <div style={{ color: accentColor, fontSize: 22, fontWeight: 700, fontFamily: ff, fontVariantNumeric: "tabular-nums" }}>
                     {s.val}{s.unit}
                   </div>
-                  <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: 8, letterSpacing: "0.18em", marginTop: 6 }}>{s.label}</div>
+                  <div style={{ color: muted, fontSize: 8, letterSpacing: "0.18em", marginTop: 6 }}>{s.label}</div>
                 </div>
               );
             })}
@@ -750,7 +762,7 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
             transform: `translate(-50%, calc(-50% + ${panelY}px)) scale(${panelScale}) translateZ(30px)`,
             opacity: panelOpacity, fontFamily: ff,
             border: `2px solid ${accentColor}`,
-            backgroundColor: "#000",
+            backgroundColor: _bg,
             padding: "14px 28px",
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
           }}>
@@ -773,12 +785,15 @@ const PriceFlash: React.FC<BloombergTransitionProps> = ({
 // reinforce the sense of depth and weight.
 const ColumnShutter: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(_bg, accentColor);
 
   // Spring-driven camera settle — slight roll straightens out as blinds fall
   const cameraSp = spring({ frame, fps, config: { stiffness: 25, damping: 14 } });
@@ -852,7 +867,7 @@ const ColumnShutter: React.FC<BloombergTransitionProps> = ({
                 }}>
                   {colLabel && easedColProgress > 0.25 && (
                     <span style={{
-                      color: "#000", fontSize: 8, fontWeight: 700,
+                      color: _bg, fontSize: 8, fontWeight: 700,
                       fontFamily: ff, letterSpacing: "0.14em",
                       textTransform: "uppercase", writingMode: "vertical-rl",
                       opacity: labelReveal,
@@ -873,7 +888,7 @@ const ColumnShutter: React.FC<BloombergTransitionProps> = ({
             transform: `translate(-50%, calc(-50% + ${tableY}px)) translateZ(20px)`,
             width: "74%", opacity: tableReveal, fontFamily: ff,
             backgroundColor: "#050505",
-            border: `1px solid ${BLOOMBERG_COLORS.border}`,
+            border: `1px solid ${border}`,
           }}>
             {rawCols.length > 0 && (
               <div style={{
@@ -909,13 +924,13 @@ const ColumnShutter: React.FC<BloombergTransitionProps> = ({
                   display: "grid",
                   gridTemplateColumns: rawCols.length > 0 ? `repeat(${rawCols.length}, 1fr)` : "1fr",
                   padding: "8px 14px", gap: 8,
-                  borderBottom: ri === 0 ? `1px dashed ${BLOOMBERG_COLORS.border}` : "none",
+                  borderBottom: ri === 0 ? `1px dashed ${border}` : "none",
                   opacity: rowOpacity,
                   transform: `translateY(${rowY2}px)`,
                 }}>
                   {(rawCols.length > 0 ? cells.slice(0, rawCols.length) : cells).map((cell, j) => (
                     <span key={j} style={{
-                      color: j === 0 ? "#e8e0cf" : BLOOMBERG_COLORS.muted,
+                      color: j === 0 ? "#e8e0cf" : muted,
                       fontSize: 10, fontFamily: ff,
                     }}>
                       {cell.slice(0, 16)}
@@ -925,7 +940,7 @@ const ColumnShutter: React.FC<BloombergTransitionProps> = ({
               );
             })}
             {rawCols.length === 0 && dataRows.length === 0 && nextScene?.title && (
-              <div style={{ padding: "12px 16px", color: BLOOMBERG_COLORS.muted, fontSize: 10, fontFamily: ff }}>
+              <div style={{ padding: "12px 16px", color: muted, fontSize: 10, fontFamily: ff }}>
                 {nextScene.title.toUpperCase().slice(0, 40)}
               </div>
             )}
@@ -942,12 +957,15 @@ const ColumnShutter: React.FC<BloombergTransitionProps> = ({
 // on separate depth planes (different translateZ) creating a parallax split.
 const PhosphorSlide: React.FC<BloombergTransitionProps> = ({
   accentColor = BLOOMBERG_COLORS.amber,
+  bgColor,
   fontFamily,
   nextScene,
 }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const ff = fontFamily || BLOOMBERG_DEFAULT_FONT_FAMILY;
+  const _bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { panelBg, headerBg, border, muted } = derivePalette(_bg, accentColor);
 
   // Camera crane — very slow spring, settles well past the transition end
   // so the movement feels continuous and unresolved (like a real crane shot)
@@ -995,7 +1013,7 @@ const PhosphorSlide: React.FC<BloombergTransitionProps> = ({
         {/* Dark background layer — furthest back */}
         <div style={{
           position: "absolute", inset: 0,
-          backgroundColor: "#000", opacity: bgOpacity * 0.9,
+          backgroundColor: _bg, opacity: bgOpacity * 0.9,
           transform: "translateZ(-10px)",
         }} />
 
@@ -1045,7 +1063,7 @@ const PhosphorSlide: React.FC<BloombergTransitionProps> = ({
                 }}>
                   {stat.val}{stat.unit}
                 </div>
-                <div style={{ color: BLOOMBERG_COLORS.muted, fontSize: 9, letterSpacing: "0.2em", marginTop: 4 }}>
+                <div style={{ color: muted, fontSize: 9, letterSpacing: "0.2em", marginTop: 4 }}>
                   {stat.label}
                 </div>
               </div>

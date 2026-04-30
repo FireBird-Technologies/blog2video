@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps } from "../types";
 
 export const TerminalChart: React.FC<BloombergLayoutProps> = ({
@@ -26,7 +26,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const bg = bgColor || BLOOMBERG_COLORS.bg;
   const neg = BLOOMBERG_COLORS.neg;
   const pos = "#7BE495";
-  const muted = BLOOMBERG_COLORS.muted;
+  const { panelBg, headerBg, border, muted } = derivePalette(bg, amber);
 
   const tSize = titleFontSize ?? (p ? 60 : 77);
   const dSize = descriptionFontSize ?? (p ? 26 : 32);
@@ -109,7 +109,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   };
   const coreLo = pct(0.05);
   const coreHi = pct(0.95);
-  // Still respect actual highs/lows but clip them to a multiplier of core range
   const coreRange = (coreHi - coreLo) || 1;
   const cap = coreRange * 1.5;
   const pMaxRaw = Math.min(Math.max(...highs), coreHi + cap);
@@ -257,6 +256,9 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const narrationH = p ? 0 : 0;
 
   // ── SVG viewBox ──
+  // Portrait: fixed 1000×600 viewBox (same as landscape) with preserveAspectRatio="meet"
+  // so the chart scales uniformly — no stretching. RSI+Volume sub-panels are hidden
+  // in portrait to keep the price chart large and clean.
   const VB_W = 1000;
   const VB_H = 600;
   const priceH = p ? 540 : 420;
@@ -266,7 +268,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
   const volBot = 597;
   const divider1Y = 432;
   const divider2Y = 504;
-  const priceAxisW = 88;
+  const priceAxisW = p ? 88 : 88;
   const chartW = VB_W - priceAxisW;
   const axisFont = 18;
   const rightAxisFont = 15;
@@ -291,12 +293,12 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
       {/* Top bar */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: topH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 24,
 
       }}>
-        <span style={{ backgroundColor: amber, color: "#000000", fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
+        <span style={{ backgroundColor: amber, color: bg, fontSize: tSize * 0.28, padding: "1px 8px 2px", display: "inline-block" }}>{title}</span>
         <div style={{ flex: 1 }} />
         <span style={{ color: amber, fontSize: p ? dSize * 0.9 : dSize * 0.7, letterSpacing: 1 }}>
           {last.toFixed(2)}
@@ -325,8 +327,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
         left: chartLeft,
         right: pad,
         bottom: botH + (p ? signalStripH + narrationH + 12 : 4),
-        border: `1px solid ${BLOOMBERG_COLORS.border}`,
-        backgroundColor: BLOOMBERG_COLORS.panelBg,
+        border: `1px solid ${border}`,
+        backgroundColor: panelBg,
         opacity: fadeIn,
       }}>
 
@@ -364,7 +366,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                     <g key={text}>
                       <rect x={x} y={ly} width={cw} height={chipH} fill={`${bg}CC`} rx="2" />
                       <rect x={x + 4} y={ly + (chipH - bh) / 2} width={bw} height={bh} fill={color} rx="1" />
-                <text x={x + 4 + bw + 4} y={ly + chipH * 0.72} fill={muted} fontSize={tf} fontWeight={700}>{text}</text>
+                      <text x={x + 4 + bw + 4} y={ly + chipH * 0.72} fill={muted} fontSize={tf} fontWeight={700}>{text}</text>
                     </g>
                   );
                 })}
@@ -417,7 +419,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           {candles.slice(0, visN).map((k, i) => {
             const x = (i / (N - 1)) * chartW;
             const w = Math.max(3, Math.min(10, (chartW / N) * 0.5));
-            // Clamp y values into the visible range so wicks can't overflow
             const clamp = (y: number) => Math.max(0, Math.min(priceH, y));
             const yH = clamp(((pMax - k.h) / pRange) * priceH);
             const yL = clamp(((pMax - k.l) / pRange) * priceH);
@@ -426,7 +427,6 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             const up = k.c >= k.o;
             const color = up ? pos : neg;
             const top = Math.min(yO, yC);
-            // Cap any single body at 25% of the chart height — never let one bar span
             const h = Math.min(priceH * 0.25, Math.max(1.5, Math.abs(yC - yO)));
             return (
               <g key={`c${i}`}>
@@ -460,11 +460,11 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             return (
               <g>
                 <rect x={lx - lw / 2} y={ma20y - lh} width={lw} height={lh} fill={`${bg}DD`} rx="2" />
-                <text x={lx} y={ma20y - 3} fill={amber} fontSize={lf} textAnchor="middle" fontWeight="700">
+                <text x={lx} y={ma20y - 3} fill={amber} fontSize={lf} textAnchor="middle" fontWeight="600">
                   20-day avg {ma20[vIdx].toFixed(1)}
                 </text>
                 <rect x={lx - lw / 2} y={ma50y + 2} width={lw} height={lh} fill={`${bg}DD`} rx="2" />
-                <text x={lx} y={ma50y + lh - 1} fill={blue} fontSize={lf} textAnchor="middle" fontWeight="700">
+                <text x={lx} y={ma50y + lh - 1} fill={blue} fontSize={lf} textAnchor="middle" fontWeight="600">
                   50-day avg {ma50[vIdx].toFixed(1)}
                 </text>
               </g>
@@ -481,8 +481,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 <line x1="0" x2={chartW} y1={y} y2={y}
                       stroke={amber} strokeWidth="1" strokeDasharray="3 3" opacity="0.7" />
                 <rect x={chartW + 2} y={y - pillH / 2} width={priceAxisW - 4} height={pillH} fill={amber} rx="2" />
-                <text x={chartW + priceAxisW / 2} y={y + pillFont / 3} fill={BLOOMBERG_COLORS.bg}
-                      fontSize={pillFont} textAnchor="middle" fontWeight="700">
+                <text x={chartW + priceAxisW / 2} y={y + pillFont / 3} fill={bg}
+                      fontSize={pillFont} textAnchor="middle" fontWeight="600">
                   {last.toFixed(2)}
                 </text>
               </g>
@@ -504,7 +504,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             <text
               x={yAxisTitleX}
               y={yAxisTitleY + yAxisTitleFont * 0.33}
-              fill={p ? BLOOMBERG_COLORS.bg : `${amber}FF`}
+              fill={p ? bg : `${amber}FF`}
               fontSize={yAxisTitleFont}
               fontWeight={700}
               letterSpacing={p ? "2.1" : "1.6"}
@@ -604,7 +604,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           </g>
 
           {/* Divider price → RSI (landscape only) */}
-          {!p && <line x1="0" x2={VB_W} y1={divider1Y} y2={divider1Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />}
+          {!p && <line x1="0" x2={VB_W} y1={divider1Y} y2={divider1Y} stroke={border} strokeWidth="1" />}
 
           {/* RSI subpanel (landscape only) */}
           {!p && (() => {
@@ -621,7 +621,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                 <text x="6" y={divider1Y - (p ? 6 : 3)} fill={muted} fontSize={subLabelFont} letterSpacing="1">
                   Momentum (RSI)
                 </text>
-                <text x={p ? 160 : 92} y={divider1Y - (p ? 6 : 3)} fill={rsiColor} fontSize={subLabelFont} fontWeight="700">
+                <text x={p ? 160 : 92} y={divider1Y - (p ? 6 : 3)} fill={rsiColor} fontSize={subLabelFont} fontWeight="600">
                   {lastR.toFixed(0)} — {lastR > 70 ? "Overbought" : lastR < 30 ? "Oversold" : "Neutral"}
                 </text>
 
@@ -652,7 +652,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           })()}
 
           {/* Divider RSI → Volume (landscape only) */}
-          {!p && <line x1="0" x2={VB_W} y1={divider2Y} y2={divider2Y} stroke={BLOOMBERG_COLORS.border} strokeWidth="1" />}
+          {!p && <line x1="0" x2={VB_W} y1={divider2Y} y2={divider2Y} stroke={border} strokeWidth="1" />}
 
           {/* Volume bars — landscape only */}
           {!p && <text x="6" y={volTop + subLabelFont + 2} fill={muted} fontSize={subLabelFont} letterSpacing="1">VOLUME (per day)</text>}
@@ -693,7 +693,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
                         <text
                           x={x} y={barTop - (p ? 5 : 3)}
                           fill={up ? pos : neg}
-                          fontSize={lf} textAnchor="middle" fontWeight="700"
+                          fontSize={lf} textAnchor="middle" fontWeight="600"
                         >
                           {fmtVol(k.v)}
                         </text>
@@ -722,8 +722,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           left: pad,
           width: `calc(42% - ${pad * 2}px)`,
           bottom: botH + 4,
-          background: BLOOMBERG_COLORS.panelBg,
-          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          background: panelBg,
+          border: `1px solid ${border}`,
           borderLeft: `4px solid ${verdictColor}`,
           padding: "20px 22px",
           opacity: panelOp,
@@ -743,7 +743,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
               CHART ANALYSIS
             </span>
             <span style={{
-              color: "#000", backgroundColor: amber,
+              color: bg, backgroundColor: amber,
               fontSize: dSize * 0.52, padding: "3px 10px", letterSpacing: 1, fontWeight: 600,
             }}>
               {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
@@ -795,8 +795,8 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
           bottom: botH + 4,
           left: pad, right: pad,
           height: signalStripH,
-          backgroundColor: BLOOMBERG_COLORS.panelBg,
-          border: `1px solid ${BLOOMBERG_COLORS.border}`,
+          backgroundColor: panelBg,
+          border: `1px solid ${border}`,
           borderLeft: `4px solid ${verdictColor}`,
           display: "flex", flexDirection: "column", justifyContent: "center",
           padding: "14px 18px",
@@ -807,7 +807,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
             <span style={{ color: verdictColor, fontSize: dSize * 0.85, fontWeight: 700, letterSpacing: 2 }}>
               {verdict}
             </span>
-            <span style={{ color: "#000", backgroundColor: amber, fontSize: dSize * 0.65, padding: "3px 10px", letterSpacing: 1, fontWeight: 700 }}>
+            <span style={{ color: bg, backgroundColor: amber, fontSize: dSize * 0.65, padding: "3px 10px", letterSpacing: 1, fontWeight: 700 }}>
               {ticker || title?.split(" ").slice(0, 2).join(" ").toUpperCase() || "CHART"}
             </span>
           </div>
@@ -828,7 +828,7 @@ export const TerminalChart: React.FC<BloombergLayoutProps> = ({
       {/* Bottom bar */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, height: botH,
-        backgroundColor: BLOOMBERG_COLORS.headerBg,
+        backgroundColor: headerBg,
         
         display: "flex", alignItems: "center", padding: `0 ${pad}px`, gap: 16,
       }}>

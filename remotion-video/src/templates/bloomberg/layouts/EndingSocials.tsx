@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
-import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY } from "../constants";
+import { BLOOMBERG_COLORS, BLOOMBERG_DEFAULT_FONT_FAMILY, derivePalette } from "../constants";
 import type { BloombergLayoutProps, BloombergSocial } from "../types";
 import { SocialIcons } from "../../SocialIcons";
 import { BackgroundGraph } from "./BackgroundGraph";
@@ -86,6 +86,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
   const amber = textColor || BLOOMBERG_COLORS.amber;
   const blue = accentColor || BLOOMBERG_COLORS.accent;
   const bg = bgColor || BLOOMBERG_COLORS.bg;
+  const { border, muted } = derivePalette(bg, amber);
 
   const topBarOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
   const ctaOpacity = interpolate(frame, [8, 25], [0, 1], { extrapolateRight: "clamp" });
@@ -107,11 +108,11 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
       {/* Horizontal rules framing centre */}
       <div style={{
         position: "absolute", top: 68, left: 48, right: 48, height: 1,
-        backgroundColor: BLOOMBERG_COLORS.border, opacity: topBarOpacity,
+        backgroundColor: border, opacity: topBarOpacity,
       }} />
       <div style={{
         position: "absolute", bottom: 90, left: 48, right: 48, height: 1,
-        backgroundColor: BLOOMBERG_COLORS.border, opacity: topBarOpacity,
+        backgroundColor: border, opacity: topBarOpacity,
       }} />
 
       {/* Centre block */}
@@ -134,7 +135,7 @@ export const EndingSocials: React.FC<BloombergLayoutProps> = ({
 
             {websiteLink && (
               <div style={{
-                color: BLOOMBERG_COLORS.muted, fontSize: descriptionFontSize * 0.7,
+                color: muted, fontSize: descriptionFontSize * 0.7,
                 letterSpacing: 2,
               }}>
                 {websiteLink}
