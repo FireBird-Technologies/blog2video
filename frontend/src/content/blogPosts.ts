@@ -17,6 +17,137 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "whats-new-in-blog2video-six-features",
+    title: "What's New in Blog2Video: Six Features Worth Talking About",
+    description:
+      "Bloomberg Terminal and Chronicle templates, per-orientation image framing, PPT/PDF/MP4/PNG export, share URLs and iframes, plus referrals and bulk pricing — all live now.",
+    category: "Product updates",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Overview of Blog2Video product updates including new templates, exports, embeddings, and pricing.",
+    publishedAt: "2026-05-01",
+    readTime: "6 min read",
+    heroEyebrow: "Product updates",
+    heroTitle: "What's New in Blog2Video: Six Features Worth Talking About",
+    heroDescription:
+      "We've been building quietly. Here's what just shipped — new templates, smarter images, flexible exports, effortless embedding, and simpler ways to share and save.",
+    primaryKeyword: "blog2video updates",
+    keywordVariant: "blog2video new features",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/templates/geometric-explainer",
+      "/blogs/best-templates-for-explainer-videos",
+    ],
+    sections: [
+      {
+        heading: "1. Bloomberg Terminal template",
+        paragraphs: [
+          "Finance writers, this one's for you.",
+          "The Bloomberg Terminal template mimics the iconic trading-terminal aesthetic: amber text on a dark canvas, a live ticker rail, monospaced precision, and that unmistakable sense of authority. Whether you're writing about macroeconomics, earnings, rates, or market structure, charts and data render with terminal-grade visual confidence.",
+          "It's calm. It's serious. It's credible.",
+        ],
+      },
+      {
+        heading: "2. Chronicle template",
+        paragraphs: [
+          "Some stories deserve more than a slideshow.",
+          "Chronicle turns long-form posts into something that feels like a page from a carefully printed volume: cream backgrounds, tall serif type, illuminated drop caps on opening letters, ornamental borders, and chapter-like motion — built so history essays, biographies, and narrative explainers get the pace and weight they deserve.",
+          "History buffs will feel right at home.",
+        ],
+      },
+      {
+        heading: "3. Per-orientation image adjustment",
+        paragraphs: [
+          "Images now adapt to whichever layout you're using.",
+          "Landscape or portrait, built-in templates or custom ones — reposition and re-crop so subjects stay framed. No more awkward crops or off-center heroes; one asset, tuned for the frame it lives in.",
+        ],
+      },
+      {
+        heading: "4. Download as PPT, PDF, MP4, or PNG",
+        paragraphs: [
+          "Export the way your audience actually consumes content.",
+          "Blog2Video now supports four outputs: full MP4 video, individual PNG slides, a shareable PDF deck, and PowerPoint. PNG export is especially handy for LinkedIn carousels — turn a video script into slide-by-slide assets ready for your feed.",
+          "One script. Four formats. Every channel covered.",
+        ],
+      },
+      {
+        heading: "5. URL and iframe embeddings",
+        paragraphs: [
+          "Your videos can live wherever you do.",
+          "Every output includes a shareable URL and a ready-to-paste iframe snippet. Drop it into a site, newsletter, Notion page, or docs — no extra upload to a third-party host. Copy, paste, done.",
+        ],
+      },
+      {
+        heading: "6. Referral program and bulk pricing",
+        paragraphs: [
+          "We wanted to make it easy to share Blog2Video with people who'd love it.",
+          "Referrals: share your link. When someone signs up through it, they get three free videos — and so do you. No strings, no clawbacks.",
+          "Bulk pricing scales with volume: 1–9 videos at $4 each, 10–29 at $3 each, and 30+ at $2.80 each. The more you make, the less you pay per video.",
+        ],
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All six features are live now at blog2video.app.",
+          "Made with love by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where can I use the new Bloomberg Terminal and Chronicle templates?",
+        answer:
+          "They are available in the product today alongside your other template choices. Pick the look that matches your story before you generate or export.",
+      },
+      {
+        question: "What can I download from a project?",
+        answer:
+          "You can download MP4 video, a PowerPoint deck, a PDF, or PNG slides — so you can publish as video, slides, print-style PDF, or per-frame images (for example carousels).",
+      },
+      {
+        question: "How do share URLs and iframes work?",
+        answer:
+          "Each output includes a link you can send and an iframe snippet you can paste into webpages or tools that accept embeds, without uploading files elsewhere.",
+      },
+      {
+        question: "How does the referral credit work?",
+        answer:
+          "When someone signs up with your referral link, both you and they receive bonus videos according to the current referral terms — designed so sharing is simple and mutual.",
+      },
+      {
+        question: "How does bulk pricing work?",
+        answer:
+          "Pricing tiers by volume: $4 per video for 1–9, $3 each for 10–29, and $2.80 each for 30 or more, so higher output lowers your per-video cost.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "What's New in Blog2Video: Six Features Worth Talking About",
+        angle:
+          "Announce templates, image controls, multi-format export, embeds, referrals, and bulk pricing in one product-update article.",
+      },
+      {
+        channel: "video",
+        title: "Six New Blog2Video Features in One Tour",
+        angle: "Reuse the embedded YouTube walkthrough and clip per-feature segments for Shorts or LinkedIn.",
+      },
+      {
+        channel: "substack",
+        title: "What we shipped: terminal aesthetics, Chronicle layouts, and four-way export",
+        angle: "Written-first creators get concrete shipping notes they can relate to their own workflows.",
+      },
+      {
+        channel: "medium",
+        title: "Blog2Video product notes — templates, exports, embeds, pricing",
+        angle: "Medium-long commentary on why exports and embeds matter for distribution.",
+      },
+    ],
+  },
+  {
     slug: "ai-linkedin-carousel-generator-from-existing-content",
     title: "AI LinkedIn Carousel Generator From Existing Content",
     description:
