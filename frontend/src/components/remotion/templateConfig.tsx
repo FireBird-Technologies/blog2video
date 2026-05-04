@@ -216,7 +216,6 @@ const BLOOMBERG_LAYOUTS = new Set([
   "terminal_table",
   "terminal_dataviz",
   "terminal_split",
-  "terminal_quote",
   "terminal_list",
   "terminal_metric",
   "terminal_profile",
