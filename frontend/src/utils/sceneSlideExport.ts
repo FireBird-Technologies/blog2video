@@ -1,6 +1,7 @@
 import type { PlayerRef } from "@remotion/player";
 import type { Project } from "../api/client";
 import { getSceneExportFrameSchedule } from "./sceneFrameSchedule";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
 
 const EXPORT_CAPTURE_SCALE = 2;
 
@@ -199,9 +200,16 @@ async function inlineImagesForCapture(root: HTMLElement): Promise<() => void> {
  * We capture the composition exactly as currently laid out by the Remotion Player
  * so exported positioning matches what the user sees in preview.
  */
-async function captureCompositionToDataUrl(playerContainer: HTMLElement): Promise<string> {
+async function captureCompositionToDataUrl(playerContainer: HTMLElement, compositionWidth: number): Promise<string> {
   // Capture the exact surface users see in preview to avoid geometry drift.
   const captureRoot = playerContainer;
+
+  // Scale up from the container's current on-screen size to the composition's native
+  // resolution. In portrait mode the container is much smaller on screen (to fit the
+  // viewport) so a fixed pixelRatio:2 would produce a low-res export; this ensures
+  // the output is always at least the full composition width.
+  const containerW = finitePositive(captureRoot.offsetWidth, compositionWidth);
+  const dynamicScale = Math.max(EXPORT_CAPTURE_SCALE, compositionWidth / containerW);
 
   let restoreImages: () => void = () => {};
   try {
@@ -232,7 +240,7 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement): Promis
 
     try {
       const dataUrl = await toPng(captureRoot, {
-        pixelRatio: EXPORT_CAPTURE_SCALE,
+        pixelRatio: dynamicScale,
         cacheBust: true,
         skipFonts: false,
         backgroundColor: "transparent",
@@ -246,7 +254,7 @@ async function captureCompositionToDataUrl(playerContainer: HTMLElement): Promis
       let canvas: HTMLCanvasElement;
       try {
         canvas = await html2canvas(captureRoot, {
-          scale: EXPORT_CAPTURE_SCALE,
+          scale: dynamicScale,
           useCORS: true,
           allowTaint: false,
           logging: false,
@@ -291,6 +299,10 @@ export async function captureSceneSnapshots(
   const schedule = getSceneExportFrameSchedule(project, timelineFractions);
   if (!schedule.length) throw new Error("No scenes to export.");
 
+  const config = getTemplateConfig(project.template ?? "default");
+  const isPortrait = project.aspect_ratio === "portrait";
+  const compositionWidth = isPortrait ? config.baseHeight : config.baseWidth;
+
   const wasPlaying = player.isPlaying();
   player.pause();
 
@@ -306,7 +318,7 @@ export async function captureSceneSnapshots(
       await waitUntilFrame(player, step.frame);
       let dataUrl: string;
       try {
-        dataUrl = await captureCompositionToDataUrl(playerContainer);
+        dataUrl = await captureCompositionToDataUrl(playerContainer, compositionWidth);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(
