@@ -47,6 +47,19 @@ export default function BlogPostPage() {
                 loading="eager"
               />
             </div>
+            {post.slug === "whats-new-in-blog2video-six-features" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/i6Mo4gMDxBQ"
+                  title="What's New in Blog2Video — six features"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
             {post.slug === "blog-to-video-before-after" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe
