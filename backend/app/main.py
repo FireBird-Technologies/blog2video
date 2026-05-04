@@ -334,13 +334,12 @@ async def _run_update_email_batch(email_id: int):
 
 
 async def _periodic_update_email_sender():
-    """Check every minute whether it's time to send the daily batch for each active update email."""
+    """Check hourly whether it's time to send the daily batch for each active update email."""
     # Tracks the last date each email's batch ran. On restart this resets, but
     # _run_update_email_batch excludes already-sent users via update_email_sends,
     # so a spurious re-fire just finds remaining_users empty and exits safely.
     last_run_dates: dict[int, object] = {}
     while True:
-        await asyncio.sleep(60)
         try:
             now_utc = datetime.utcnow()
             today = now_utc.date()
@@ -387,6 +386,8 @@ async def _periodic_update_email_sender():
 
         except Exception as exc:
             print(f"[UPDATE_EMAIL] periodic check error: {exc}")
+        finally:
+            await asyncio.sleep(3600)
 
 
 @asynccontextmanager

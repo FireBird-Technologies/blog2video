@@ -33,7 +33,11 @@ import {
   SUPPORTED_PROP_TYPES,
 } from "../api/client";
 import { getTemplateConfig } from "../components/remotion/templateConfig";
+import { getPlaybackSpeed, getSceneDurationFrames } from "../components/remotion/playbackSpeed";
 import { getImageBoxAspectRatio, normalizeLayoutId } from "../components/remotion/imageBoxConfig";
+import { BLOOMBERG_LAYOUT_REGISTRY } from "../components/remotion/bloomberg/layouts";
+
+const BLOOMBERG_LAYOUT_IDS = new Set(Object.keys(BLOOMBERG_LAYOUT_REGISTRY));
 import ManifestPropEditor from "../components/template-studio/ManifestPropEditor";
 
 const IMAGE_ADJUST_ZOOM_MIN = 1;
@@ -136,6 +140,48 @@ function getSchema(
   return normalizeTemplateId(template.id) === "newscast"
     ? withTypographyControls(fallbackSchema, { defaultTypography: newscastTypographyDefaults })
     : fallbackSchema;
+}
+
+function layoutSupportsImageForTemplate(template: TemplateMeta | null, layoutId: string): boolean {
+  if (!template || !layoutId) return false;
+  const noImage = template.layouts_without_image ?? [];
+  return !noImage.includes(layoutId);
+}
+
+/** Per-layout defaults for preview (used when sequencing all layouts; not the editable single-layout overrides). */
+function buildResolvedLayoutPropsForPreview(
+  template: TemplateMeta | null,
+  layoutId: string,
+  isPortrait: boolean,
+  imageUrlTrimmed: string,
+  fetchedImageUrl: string,
+  imageFetching: boolean,
+  imageFocusX: number,
+  imageFocusY: number,
+  imageZoom: number,
+): Record<string, unknown> {
+  const schema = getSchema(template, layoutId);
+  if (!schema) return {};
+  const next: Record<string, unknown> = { ...(schema.defaults ?? {}) };
+  schema.fields.forEach((field) => {
+    if (field.type === "number" && field.responsive) {
+      const raw = next[field.key];
+      if (isResponsiveValue(raw)) next[field.key] = isPortrait ? raw.portrait : raw.landscape;
+    }
+  });
+  const supportsImage = layoutSupportsImageForTemplate(template, layoutId);
+  const effectiveUrl =
+    supportsImage && imageUrlTrimmed && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+  if (effectiveUrl) {
+    next.imageFocusX = Math.max(0, Math.min(100, imageFocusX));
+    next.imageFocusY = Math.max(0, Math.min(100, imageFocusY));
+    next.imageZoom = Math.max(IMAGE_ADJUST_ZOOM_MIN, Math.min(IMAGE_ADJUST_ZOOM_MAX, imageZoom));
+  } else {
+    delete next.imageFocusX;
+    delete next.imageFocusY;
+    delete next.imageZoom;
+  }
+  return next;
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -929,6 +975,7 @@ export default function TemplateStudio() {
   const [viewSource, setViewSource] = useState<"frontend" | "remotion">("frontend");
   const [layoutRendering, setLayoutRendering] = useState(false);
   const [layoutRenderError, setLayoutRenderError] = useState<string>("");
+  const [playAllLayouts, setPlayAllLayouts] = useState(false);
 
   // ── Rebuild mode state ──────────────────────────────────────────────────────
   const [aiMode, setAiMode]             = useState<"code-only" | "rebuild">("code-only");
@@ -1025,6 +1072,20 @@ export default function TemplateStudio() {
     const noImage = selectedTemplate.layouts_without_image ?? [];
     return !noImage.includes(selectedLayout);
   }, [selectedTemplate, selectedLayout]);
+
+  const layouts = useMemo(() => {
+    const raw =
+      selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
+    const list = [...new Set((Array.isArray(raw) ? raw : []).filter(Boolean))];
+    if (normalizeTemplateId(selectedTemplateId) === "bloomberg") {
+      return list.filter((id) => BLOOMBERG_LAYOUT_IDS.has(id));
+    }
+    return list;
+  }, [selectedTemplate, selectedTemplateId]);
+
+  useEffect(() => {
+    if (layouts.length <= 1 && playAllLayouts) setPlayAllLayouts(false);
+  }, [layouts.length, playAllLayouts]);
 
   useEffect(() => {
     const url = imageUrl.trim();
@@ -1199,18 +1260,67 @@ export default function TemplateStudio() {
   const inputProps = useMemo(() => {
     const effectiveImageUrl =
       layoutSupportsImage && fetchedImageUrl && !imageFetching ? fetchedImageUrl : undefined;
+
+    const multiSceneList =
+      selectedTemplate && layouts.length > 1 && playAllLayouts
+      ? layouts.map((layoutId, index) => {
+        const trimmed = imageUrl.trim();
+        const lp = buildResolvedLayoutPropsForPreview(
+          selectedTemplate,
+          layoutId,
+          isPortrait,
+          trimmed,
+          fetchedImageUrl,
+          imageFetching,
+          imageFocusX,
+          imageFocusY,
+          imageZoom,
+        );
+        const sceneImageUrl =
+          layoutSupportsImageForTemplate(selectedTemplate, layoutId) &&
+          fetchedImageUrl &&
+          !imageFetching &&
+          trimmed
+            ? fetchedImageUrl
+            : undefined;
+        return {
+          id: index + 1,
+          order: index + 1,
+          title,
+          narration,
+          layout: layoutId,
+          layoutProps: lp,
+          durationSeconds,
+          imageUrl: sceneImageUrl,
+          voiceoverUrl: undefined,
+        };
+      })
+        : null;
+
+    const sequentialBloombergStudio =
+      Boolean(
+        selectedTemplate &&
+          layouts.length > 1 &&
+          playAllLayouts &&
+          selectedTemplateId === "bloomberg",
+      );
+
     return {
-      scenes: [{
-        id: 1,
-        order: 1,
-        title,
-        narration,
-        layout: selectedLayout || config.heroLayout,
-        layoutProps: resolvedLayoutProps,
-        durationSeconds,
-        imageUrl: effectiveImageUrl,
-        voiceoverUrl: undefined,
-      }],
+      scenes: multiSceneList
+        ? multiSceneList
+        : [
+            {
+              id: 1,
+              order: 1,
+              title,
+              narration,
+              layout: selectedLayout || config.heroLayout,
+              layoutProps: resolvedLayoutProps,
+              durationSeconds,
+              imageUrl: effectiveImageUrl,
+              voiceoverUrl: undefined,
+            },
+          ],
       accentColor,
       bgColor,
       textColor,
@@ -1219,6 +1329,7 @@ export default function TemplateStudio() {
       logoOpacity: 0.9,
       logoSize: 100,
       aspectRatio,
+      ...(sequentialBloombergStudio ? { interSceneHalfFrames: 0 } : {}),
     };
   }, [
     title,
@@ -1234,9 +1345,17 @@ export default function TemplateStudio() {
     bgColor,
     textColor,
     aspectRatio,
+    selectedTemplate,
+    layouts,
+    playAllLayouts,
+    selectedTemplateId,
+    isPortrait,
+    imageUrl,
+    imageFocusX,
+    imageFocusY,
+    imageZoom,
   ]);
 
-  const layouts          = selectedTemplate?.valid_layouts || Object.keys(selectedTemplate?.layout_prop_schema ?? {});
   const [studioResolution, setStudioResolution] = useState<"1080p" | "720p">(
     () => (selectedTemplateId === "whiteboard" || selectedTemplateId === "newscast" ||selectedTemplateId === "newspaper" ? "720p" : "1080p"),
   );
@@ -1254,7 +1373,32 @@ export default function TemplateStudio() {
   const baseHeight = studioResolution === "720p" ? 720 : 1080;
   const canvasW          = isPortrait ? baseHeight : baseWidth;
   const canvasH          = isPortrait ? baseWidth : baseHeight;
-  const durationInFrames = Math.max(30, Math.round(durationSeconds * 30));
+  const sceneDurationFrames = Math.max(30, Math.round(durationSeconds * 30));
+  const sequentialPreview =
+    Boolean(selectedTemplate && layouts.length > 1 && playAllLayouts);
+  /** Match each template composition’s total frame count so the Player doesn’t clip or show a brown tail. */
+  const durationInFrames = useMemo(() => {
+    if (!sequentialPreview) return sceneDurationFrames;
+    const fps = 30;
+    const speed = getPlaybackSpeed(undefined);
+    const n = layouts.length;
+    if (n <= 1) return sceneDurationFrames;
+    if (selectedTemplateId === "bloomberg") {
+      const per =
+        viewSource === "remotion"
+          ? Math.max(1, Math.round(durationSeconds * fps))
+          : getSceneDurationFrames(durationSeconds, fps, speed);
+      return n * per;
+    }
+    return n * getSceneDurationFrames(durationSeconds, fps, speed);
+  }, [
+    sequentialPreview,
+    sceneDurationFrames,
+    durationSeconds,
+    layouts.length,
+    selectedTemplateId,
+    viewSource,
+  ]);
 
   const responsiveFields = schema?.fields.filter((f) => f.responsive) ?? [];
   const regularFields    = schema?.fields.filter((f) => !f.responsive) ?? [];
@@ -1626,13 +1770,13 @@ export default function TemplateStudio() {
         .btn-ghost:hover:not(:disabled) { border-color: ${T.accent}; color: ${T.accent}; background: ${T.accentLight}; }
         .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        /* Edit button — matches attached scene edit button style exactly */
+        /* Edit button — compact for preview chrome (single row with toggles) */
         .btn-edit {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 6px 8px;
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 4px 6px;
           background: transparent; color: ${T.textMuted};
-          border: none; border-radius: 8px;
-          font-size: 12px; font-weight: 500; font-family: ${FONT};
+          border: none; border-radius: 7px;
+          font-size: 10px; font-weight: 500; font-family: ${FONT};
           cursor: pointer; transition: color 0.13s, background 0.13s;
           flex-shrink: 0;
         }
@@ -1902,13 +2046,24 @@ export default function TemplateStudio() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        padding: "9px 14px",
+                        gap: "8px",
+                        flexWrap: "nowrap",
+                        padding: "6px 10px",
                         borderBottom: `1px solid ${T.border}`,
                         background: T.surfaceAlt,
+                        minWidth: 0,
                       }}
                     >
                       {/* Left: traffic dots + Edit + Toggle */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          minWidth: 0,
+                          flex: "1 1 auto",
+                        }}
+                      >
                         <div style={{ display: "flex", gap: "5px" }}>
                           {["#ff5f56", "#ffbd2e", "#27c93f"].map((c, i) => (
                             <div
@@ -1948,8 +2103,8 @@ export default function TemplateStudio() {
                         >
                           {(
                             [
-                              { id: "frontend", label: "Frontend file" },
-                              { id: "remotion", label: "Remotion build" },
+                              { id: "frontend", label: "Frontend", full: "Frontend file" },
+                              { id: "remotion", label: "Remotion", full: "Remotion build" },
                             ] as const
                           ).map((opt) => {
                             const active = viewSource === opt.id;
@@ -1957,6 +2112,7 @@ export default function TemplateStudio() {
                               <button
                                 key={opt.id}
                                 type="button"
+                                title={opt.full}
                                 onClick={() =>
                                   setViewSource(
                                     opt.id === "frontend" ? "frontend" : "remotion",
@@ -1964,21 +2120,84 @@ export default function TemplateStudio() {
                                 }
                                 style={{
                                   border: "none",
-                                  borderRadius: "9px",
-                                  padding: "4px 8px",
-                                  fontSize: "10px",
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
                                   background: active ? T.accent : "transparent",
                                   color: active ? "#ffffff" : T.textSub,
                                   transition: "background 0.15s, color 0.15s",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
                                 {opt.label}
                               </button>
                             );
                           })}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px",
+                            borderRadius: "10px",
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            gap: "2px",
+                          }}
+                          title={
+                            layouts.length <= 1
+                              ? "This template only has one layout"
+                              : "Preview every layout back-to-back in the player"
+                          }
+                        >
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="One layout — preview only the selected layout"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(false)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: !playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: !playAllLayouts ? T.accent : "transparent",
+                              color: !playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Single Scene
+                          </button>
+                          <button
+                            type="button"
+                            disabled={layouts.length <= 1}
+                            title="All layouts — play every layout in order"
+                            onClick={() => layouts.length > 1 && setPlayAllLayouts(true)}
+                            style={{
+                              border: "none",
+                              borderRadius: "7px",
+                              padding: "3px 6px",
+                              fontSize: "9px",
+                              fontWeight: playAllLayouts ? 600 : 500,
+                              fontFamily: FONT,
+                              cursor: layouts.length <= 1 ? "not-allowed" : "pointer",
+                              opacity: layouts.length <= 1 ? 0.45 : 1,
+                              background: playAllLayouts ? T.accent : "transparent",
+                              color: playAllLayouts ? "#ffffff" : T.textSub,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            All Scenes
+                          </button>
                         </div>
                       </div>
 
@@ -1987,10 +2206,11 @@ export default function TemplateStudio() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          padding: "2px 8px 2px 4px",
+                          padding: "2px 4px 2px 2px",
                           borderRadius: "10px",
                           background: T.surfaceAlt,
-                          gap: "6px",
+                          gap: "4px",
+                          flexShrink: 0,
                         }}
                       >
                         <div
@@ -2013,9 +2233,9 @@ export default function TemplateStudio() {
                                 onClick={() => setStudioResolution(res)}
                                 style={{
                                   border: "none",
-                                  borderRadius: "9px",
-                                  padding: "4px 8px",
-                                  fontSize: "10px",
+                                  borderRadius: "7px",
+                                  padding: "3px 6px",
+                                  fontSize: "9px",
                                   fontWeight: active ? 600 : 500,
                                   fontFamily: FONT,
                                   cursor: "pointer",
@@ -2032,18 +2252,18 @@ export default function TemplateStudio() {
                         </div>
                         <span
                           style={{
-                            fontSize: "10px",
+                            fontSize: "9px",
                             color: T.textMuted,
                             fontFamily: FONT,
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {canvasW} × {canvasH} · {durationInFrames}f · 30fps
+                          {canvasW}×{canvasH} {durationInFrames}f 30fps
                         </span>
                       </div>
 
                       {/* Right: Rendering badge */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
                         <div
                           style={{
                             width: "5px",
@@ -2054,11 +2274,12 @@ export default function TemplateStudio() {
                         />
                         <span
                           style={{
-                            fontSize: "10px",
+                            fontSize: "8px",
                             color: T.green,
                             fontWeight: 700,
-                            letterSpacing: "0.08em",
+                            letterSpacing: "0.04em",
                             fontFamily: FONT,
+                            whiteSpace: "nowrap",
                           }}
                         >
                           RENDERING
@@ -2080,6 +2301,11 @@ export default function TemplateStudio() {
                       boxShadow: `0 0 0 1px ${T.border}, 0 4px 16px rgba(147,51,234,0.07), 0 16px 48px rgba(0,0,0,0.08)`,
                     }}>
                       <Player
+                        key={
+                          sequentialPreview
+                            ? `seq-${selectedTemplateId}-${layouts.join("|")}-${durationSeconds}`
+                            : `one-${selectedTemplateId}-${selectedLayout}-${durationSeconds}-${viewSource}`
+                        }
                         component={Composition}
                         inputProps={inputProps}
                         durationInFrames={durationInFrames}
@@ -2097,8 +2323,19 @@ export default function TemplateStudio() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", alignItems: "stretch" }}>
                   {[
                     { label: "Template", value: selectedTemplate?.name || "—" },
-                    { label: "Layout",   value: humanize(selectedLayout) || "—" },
-                    { label: "Duration", value: `${durationSeconds}s · ${durationInFrames}f` },
+                    {
+                      label: "Layout",
+                      value:
+                        sequentialPreview
+                          ? `All (${layouts.length} layouts)`
+                          : humanize(selectedLayout) || "—",
+                    },
+                    {
+                      label: "Duration",
+                      value: sequentialPreview
+                        ? `${durationSeconds}s × ${layouts.length} · ${durationInFrames}f`
+                        : `${durationSeconds}s · ${durationInFrames}f`,
+                    },
                     { label: "Canvas",   value: `${canvasW}×${canvasH}` },
                   ].map(({ label, value }) => (
                     <div key={label} className="glass-card" style={{ padding: "9px 12px" }}>
