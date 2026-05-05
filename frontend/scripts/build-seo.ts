@@ -4,8 +4,10 @@ import {
   blogPosts,
   defaultOgImage,
   getBlogPost,
+  getHelpPost,
   getMarketingPage,
   getPublicPaths,
+  helpPosts,
   marketingPages,
   siteName,
   siteUrl,
@@ -20,6 +22,8 @@ import {
   blogPostSchema,
   contactSchema,
   homepageSchema,
+  helpIndexSchema,
+  helpPostSchema,
   marketingPageSchema,
   pricingSchema,
 } from "../src/seo/schema";
@@ -85,6 +89,16 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
+  if (routePath === "/help") {
+    return {
+      title: "Help / How-to",
+      description:
+        "Step-by-step Blog2Video help guides with embedded explainers for creating projects, editing scenes, changing voiceover, and working with templates.",
+      path: routePath,
+      schema: helpIndexSchema(),
+    };
+  }
+
   if (routePath === "/404") {
     return {
       title: "Page Not Found",
@@ -103,6 +117,19 @@ function getSeoPayload(routePath: string): SeoPayload {
         path: routePath,
         image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
         schema: blogPostSchema(post),
+      };
+    }
+  }
+
+  if (routePath.startsWith("/help/")) {
+    const post = getHelpPost(routePath.replace("/help/", ""));
+    if (post) {
+      return {
+        title: post.title,
+        description: post.description,
+        path: routePath,
+        image: post.heroImage ? `${siteUrl}${post.heroImage}` : undefined,
+        schema: helpPostSchema(post),
       };
     }
   }
@@ -277,6 +304,11 @@ Sitemap: ${siteUrl}/sitemap-index.xml
       })),
       blogPosts: blogPosts.map((post) => ({
         path: `/blogs/${post.slug}`,
+        category: post.category,
+        primaryKeyword: post.primaryKeyword,
+      })),
+      helpPosts: helpPosts.map((post) => ({
+        path: `/help/${post.slug}`,
         category: post.category,
         primaryKeyword: post.primaryKeyword,
       })),

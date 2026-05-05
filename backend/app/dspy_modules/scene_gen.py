@@ -2,7 +2,7 @@ import json
 import asyncio
 import dspy
 
-from app.dspy_modules import ensure_dspy_configured
+from app.dspy_modules import ensure_dspy_configured, get_scene_lm
 
 
 # ─── Available layout types and their props ───────────────────
@@ -172,7 +172,7 @@ class SceneCodeGenerator:
 
     def __init__(self):
         ensure_dspy_configured()
-        self._descriptor = dspy.ChainOfThought(SceneToDescriptor)
+        self._descriptor = dspy.Predict(SceneToDescriptor)
         self.descriptor = dspy.asyncify(self._descriptor)
 
     async def generate_scene_descriptor(
@@ -189,14 +189,15 @@ class SceneCodeGenerator:
         if scene_index == 0:
             return {"layout": "hero_image", "layoutProps": {}}
 
-        result = await self.descriptor(
-            scene_title=scene_title,
-            narration=narration,
-            visual_description=visual_description,
-            scene_index=scene_index,
-            total_scenes=total_scenes,
-            layout_descriptions=LAYOUT_DESCRIPTIONS,
-        )
+        with dspy.context(lm=get_scene_lm()):
+            result = await self.descriptor(
+                scene_title=scene_title,
+                narration=narration,
+                visual_description=visual_description,
+                scene_index=scene_index,
+                total_scenes=total_scenes,
+                layout_descriptions=LAYOUT_DESCRIPTIONS,
+            )
 
         # Validate layout
         layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")

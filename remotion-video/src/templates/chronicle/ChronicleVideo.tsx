@@ -109,6 +109,8 @@ const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
 const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
 const trimLastScene = (frames: number) =>
   Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
+// Keep a tiny silent buffer before each non-last page transition.
+const EXTRA_HOLD_FRAMES = 10;
 
 const resolveLayoutKey = (raw: string): ChronicleLayoutType =>
   (raw as ChronicleLayoutType) in CHRONICLE_LAYOUT_REGISTRY
@@ -129,6 +131,9 @@ const computeSceneFrames = (
     return isLastInMulti && !hasVoiceover ? trimLastScene(withMin) : withMin;
   });
 
+const computeSequenceFrames = (sceneFrames: number[]): number[] =>
+  sceneFrames.map((frames, idx, arr) => (idx === arr.length - 1 ? frames : frames + EXTRA_HOLD_FRAMES));
+
 export const calculateChronicleMetadata: CalculateMetadataFunction<VideoProps> = async ({
   props,
 }) => {
@@ -141,7 +146,8 @@ export const calculateChronicleMetadata: CalculateMetadataFunction<VideoProps> =
 
     const playbackSpeed = getPlaybackSpeed(data.playbackSpeed);
     const sceneFrames = computeSceneFrames(data.scenes, FPS, playbackSpeed);
-    let totalFrames = sceneFrames.reduce((sum, f) => sum + f, 0);
+    const sequenceFrames = computeSequenceFrames(sceneFrames);
+    let totalFrames = sequenceFrames.reduce((sum, f) => sum + f, 0);
     for (let i = 0; i < data.scenes.length - 1; i++) {
       const fromLayout = resolveLayoutKey(data.scenes[i].layout);
       const toLayout = resolveLayoutKey(data.scenes[i + 1].layout);
@@ -203,10 +209,12 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const fallbackFontFamily = resolvedFontFamily || CHRONICLE_BODY_FONT;
 
   const sceneFrames = computeSceneFrames(data.scenes, FPS, playbackSpeed);
+  const sequenceFrames = computeSequenceFrames(sceneFrames);
   const resolvedScenes = data.scenes.map((scene, idx) => ({
     scene,
     layoutKey: resolveLayoutKey(scene.layout),
     durationFrames: sceneFrames[idx],
+    sequenceFrames: sequenceFrames[idx],
   }));
 
   // Compute scene start frames accounting for transition overlap (for audio sync).
@@ -214,7 +222,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
   const sceneStartFrames: number[] = [];
   resolvedScenes.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolvedScenes.length - 1) {
       const nextLayout = resolvedScenes[i + 1].layoutKey;
       runningFrame -= pickChronicleTransition(i, s.layoutKey, nextLayout).frames;
@@ -230,7 +238,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, durationFrames } = s;
+          const { scene, layoutKey, sequenceFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
           const imageUrl =
             scene.images.length > 0 ? staticFile(scene.images[0]) : undefined;
@@ -259,7 +267,7 @@ export const ChronicleVideo: React.FC<VideoProps> = ({ dataUrl }) => {
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={durationFrames}
+              durationInFrames={sequenceFrames}
             >
               <ChronicleChrome
                 bgColor={data.bgColor || "#F1E4C9"}

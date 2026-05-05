@@ -1,4 +1,4 @@
-import json
+﻿import json
 import dspy
 from collections import Counter
 
@@ -34,7 +34,7 @@ class PlanTemplateLayouts(dspy.Signature):
         desc='JSON array of scene objects with "title", "narration", "visual_description"'
     )
     total_scenes: int = dspy.InputField(desc="Total number of scenes")
-    video_length: str = dspy.InputField(desc="auto | short | medium | detailed")
+    video_length: str = dspy.InputField(desc="auto | short | medium | detailed | mdetailed")
     content_language: str = dspy.InputField(
         desc="Language for reasoning consistency with scene content"
     )
