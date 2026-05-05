@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import dspy
 
@@ -49,10 +49,11 @@ class BlogToScript(dspy.Signature):
     - Ensure title, scene titles, narrations, and visual_description all reflect the chosen style consistently.
 
     ═══ VIDEO LENGTH RULES (CRITICAL) ═══
-    - video_length values: auto | short | medium | detailed
+    - video_length values: auto | short | medium | detailed | more_detailed
     - short: best-effort 4-5 scenes (cap at 5).
     - medium: best-effort 12–15 scenes (cap at 15).
-    - detailed: best-effort 15–20 scenes (cap at 20).
+    - detailed: best-effort 25-34 scenes (cap at 34).
+    - more_detailed: best-effort 43-50 scenes (cap at 50).
     - auto: choose a natural scene count based on scraped blog_content length and structure,
       but NEVER exceed 20 scenes.
 
@@ -132,7 +133,8 @@ class BlogToScript(dspy.Signature):
     ═══ DIVERSITY TARGETS BY VIDEO LENGTH ═══
     - short (4-5 scenes): use at least 6 distinct layouts. Max 2 scenes may share the same layout.
     - medium (12–15 scenes): use at least 9 distinct layouts. Max 2 scenes may share the same layout.
-    - detailed (15–20 scenes): use at least 10 distinct layouts. Max 4 scenes may share the same layout.
+    - detailed (25-34 scenes): use at least 18 distinct layouts. Max 6 scenes may share the same layout.
+    - more_detailed (43-50 scenes): use at least 25 distinct layouts. Max 8 scenes may share the same layout.
     - For any other length: use at least ceil(total_scenes * 0.7) distinct layouts.
     - These are MINIMUM targets — more variety is always better if the content supports it.
 
@@ -186,7 +188,7 @@ class BlogToScript(dspy.Signature):
         "Write title, scene titles, narrations, and visual_description to match this style exactly."
     )
     video_length: str = dspy.InputField(
-        desc="Video length category controlling scene count: auto | short | medium | detailed."
+        desc="Video length category controlling scene count: auto | short | medium | detailed | more_detailed."
     )
     layout_catalog: str = dspy.InputField(
         desc=(
@@ -288,7 +290,7 @@ class BlogToScript(dspy.Signature):
             'Do NOT include narration, visual_description, suggested_images, or duration_seconds — '
             'those are generated in a separate expansion step. '
             'FIRST scene title MUST be the actual blog/video title (never "Hero Opening"). '
-            'Scene count follows video_length: short=4-5, medium=12-15, detailed=15-20, auto=natural. '
+            'Scene count follows video_length: short=4-5, medium=12-15, detailed=25-30, more_detailed=38-50, auto=natural. '
             'When include_ending_socials is true: the LAST scene MUST have preferred_layout="ending_socials" '
             'and its key_point should summarize the CTA grounded in the article topic. '
             'Layout diversity rules still apply to preferred_layout assignments. '
@@ -410,10 +412,24 @@ class ScriptGenerator:
 
     def __init__(self):
         ensure_dspy_configured()
-        self._generator = dspy.ChainOfThought(BlogToScript)
+        self._generator = dspy.Predict(BlogToScript)
         self.generator = dspy.asyncify(self._generator)
-        self._expander = dspy.ChainOfThought(SceneExpander)
+        self._expander = dspy.Predict(SceneExpander)
         self.expander = dspy.asyncify(self._expander)
+
+    @staticmethod
+    def _normalize_video_length_alias(video_length: str | None) -> str:
+        """
+        Accept both DB compact form ("mdetailed") and prompt form ("more_detailed").
+        DSPy prompt/contracts use "more_detailed".
+        """
+        raw = (video_length or "auto").strip().lower() or "auto"
+        aliases = {
+            "mdetailed": "more_detailed",
+            "more-detailed": "more_detailed",
+            "more detailed": "more_detailed",
+        }
+        return aliases.get(raw, raw)
 
     async def generate(
         self,
@@ -443,7 +459,7 @@ class ScriptGenerator:
         fallback_ending = self._build_fallback_ending_scene(social_flags)
 
         style = (video_style or "explainer").strip().lower() or "explainer"
-        length = (video_length or "auto").strip().lower() or "auto"
+        length = self._normalize_video_length_alias(video_length)
         ar = aspect_ratio or "landscape"
         lang = (content_language or "English").strip()
         hero = hero_image or "(no hero image available)"
@@ -596,15 +612,107 @@ class ScriptGenerator:
 
     def _max_scenes_for_video_length(self, video_length: str) -> int:
         """Maximum number of scenes allowed for the given video length category."""
-        vl = (video_length or "auto").strip().lower()
+        vl = self._normalize_video_length_alias(video_length)
         if vl == "short":
             return 5
         if vl == "medium":
             return 15
         if vl == "detailed":
-            return 20
+            return 30
+        if vl == "more_detailed":
+            return 50
         # auto: best-effort natural scene count, but never exceed 20 scenes
         return 20
+
+    def _min_scenes_for_video_length(self, video_length: str) -> int:
+        """
+        Minimum scene count requirement by selected video length.
+        """
+        vl = self._normalize_video_length_alias(video_length)
+        if vl == "short":
+            return 4
+        if vl == "medium":
+            return 12
+        if vl == "detailed":
+            return 25
+        if vl == "more_detailed":
+            return 43
+        return 0
+
+    def _ensure_min_scene_count(
+        self,
+        scenes: list[dict],
+        *,
+        min_scenes: int,
+        include_ending_socials: bool,
+        fallback_ending_scene: dict | None = None,
+        outline_mode: bool = False,
+    ) -> list[dict]:
+        """Expand existing scene threads up to min_scenes (no generic filler scenes)."""
+        if min_scenes <= 0 or len(scenes) >= min_scenes:
+            return scenes
+
+        out = list(scenes)
+        ending = None
+        if include_ending_socials and out:
+            ending = out[-1]
+            out = out[:-1]
+
+        if not out:
+            return scenes
+
+        # Expand by creating continuation scenes from existing ones in round-robin order.
+        seeds = list(out)
+        seed_idx = 0
+        while len(out) + (1 if ending else 0) < min_scenes:
+            idx = len(out) + 1
+            base = seeds[seed_idx % len(seeds)]
+            seed_idx += 1
+            if outline_mode:
+                base_title = self._coerce_text_str(base.get("title")).strip() or f"Scene {seed_idx}"
+                base_point = self._coerce_text_str(base.get("key_point")).strip()
+                out.append(
+                    {
+                        "title": f"{base_title} — Deep Dive",
+                        "key_point": (
+                            f"{base_point} Add one deeper example, implication, or edge-case from the same topic."
+                            if base_point
+                            else "Add one deeper example, implication, or edge-case from this topic."
+                        ),
+                        "preferred_layout": base.get("preferred_layout"),
+                    }
+                )
+            else:
+                base_title = self._coerce_text_str(base.get("title")).strip() or f"Scene {seed_idx}"
+                base_narration = self._coerce_text_str(base.get("narration")).strip()
+                base_visual = self._coerce_text_str(base.get("visual_description")).strip()
+                out.append(
+                    {
+                        "title": f"{base_title} — Deep Dive",
+                        "narration": (
+                            f"{base_narration} Add one concrete supporting detail that expands this same point."
+                            if base_narration
+                            else "Add one concrete supporting detail that expands this same point."
+                        ),
+                        "visual_description": (
+                            f"{base_visual} Extend with one additional concrete example grounded in the article."
+                            if base_visual
+                            else "Extend this scene with one additional concrete example grounded in the article."
+                        ),
+                        "suggested_images": base.get("suggested_images", []),
+                        "duration_seconds": base.get("duration_seconds", 10),
+                        "preferred_layout": base.get("preferred_layout"),
+                    }
+                )
+
+        if ending:
+            out.append(ending)
+        elif include_ending_socials:
+            out.append(fallback_ending_scene or self._build_fallback_ending_scene({}))
+            # If appending ending caused overflow, keep ending and trim body.
+            if len(out) > min_scenes:
+                out = out[: max(0, min_scenes - 1)] + [out[-1]]
+        return out
 
     @staticmethod
     def _norm_layout_key(raw: str | None) -> str:
@@ -687,6 +795,13 @@ class ScriptGenerator:
             max_scenes=max_scenes,
             fallback_ending_scene=fallback_ending,
         )
+        raw = self._ensure_min_scene_count(
+            raw,
+            min_scenes=self._min_scenes_for_video_length(video_length),
+            include_ending_socials=include_ending_socials,
+            fallback_ending_scene=fallback_ending,
+            outline_mode=True,
+        )
 
         out = []
         for i, scene in enumerate(raw):
@@ -735,6 +850,13 @@ class ScriptGenerator:
                 include_ending_socials=include_ending_socials,
                 max_scenes=max_scenes,
                 fallback_ending_scene=fallback_ending_scene,
+            )
+            kept = self._ensure_min_scene_count(
+                kept,
+                min_scenes=self._min_scenes_for_video_length(video_length),
+                include_ending_socials=include_ending_socials,
+                fallback_ending_scene=fallback_ending_scene,
+                outline_mode=False,
             )
 
             validated = []

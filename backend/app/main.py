@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import warnings
 import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
@@ -10,6 +11,22 @@ from fastapi import FastAPI
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("app").setLevel(logging.INFO)
+
+# Suppress LiteLLM's LoggingWorker noise — background telemetry tasks that
+# don't affect functionality but flood the console with warnings.
+class _SuppressLiteLLMWorkerFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "LoggingWorker" not in record.getMessage()
+
+logging.getLogger("asyncio").addFilter(_SuppressLiteLLMWorkerFilter())
+
+# Also suppress the RuntimeWarnings about unawaited coroutines from the same source.
+warnings.filterwarnings(
+    "ignore",
+    message="coroutine '(LoggingWorker|Logging\\.async).*' was never awaited",
+    category=RuntimeWarning,
+    module="litellm",
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 

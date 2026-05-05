@@ -26,6 +26,18 @@ else:
     if "sslmode" not in settings.DATABASE_URL:
         connect_args["sslmode"] = "require"
 
+    # TCP keepalives prevent Neon (and intermediate firewalls/NATs) from
+    # killing connections that sit idle while a long DSPy/LLM call awaits.
+    # pool_pre_ping only checks on checkout; a connection already held by an
+    # active session is not re-pinged, so a 30-60s LLM await can silently
+    # break the socket and the next commit fails with "server closed the
+    # connection unexpectedly". Keepalives keep the socket warm at the OS
+    # level — first probe at 30s idle, then every 10s, give up after 5.
+    connect_args["keepalives"] = 1
+    connect_args["keepalives_idle"] = 30
+    connect_args["keepalives_interval"] = 10
+    connect_args["keepalives_count"] = 5
+
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,

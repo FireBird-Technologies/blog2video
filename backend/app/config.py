@@ -6,6 +6,9 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    # Environment: "production" uses Claude Sonnet; anything else uses DeepSeek
+    ENVIRONMENT: str = os.environ.get("ENVIRONMENT", "local")
+
     # API Keys
     ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""

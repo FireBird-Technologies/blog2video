@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import asyncio
 import logging
@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -537,30 +538,39 @@ async def _generate_script(project: Project, db: Session):
     ) -> str:
         """Prevent hallucination: if content is short, downshift scene count.
 
-        Only applies when user explicitly requests a longer video length.
+        Word thresholds per tier (content must meet minimum to justify the length):
+          short        — no minimum
+          medium       — 5 00 words  (else → short)
+          detailed     — 1 500 words  (else → medium or short)
+          more_detailed— 2 000 words  (else → detailed, medium, or short)
         """
         req = (requested or "auto").strip().lower()
-        if req not in {"detailed", "medium", "short", "auto"}:
+        if req not in {"mdetailed", "detailed", "medium", "short", "auto"}:
             return "auto"
         if req in {"auto", "short"}:
             return req
 
         text = (blog_content or "").strip()
-        # Count words in prose-ish content; keep it simple and robust.
         words = len([w for w in re.split(r"\s+", text) if w])
 
-        # Heuristic thresholds:
-        # - Very short posts can't support 15–20 distinct scenes without invention.
-        # - This keeps output grounded in the actual source.
         if req == "medium":
-            return "short" if words < 250 else "medium"
+            return "short" if words < 500 else "medium"
 
-        # req == "detailed"
-        if words < 250:
+        if req == "detailed":
+            if words < 500:
+                return "short"
+            if words < 1500:
+                return "medium"
+            return "detailed"
+
+        # req == "more_detailed"
+        if words < 500:
             return "short"
-        if words < 600:
+        if words < 1500:
             return "medium"
-        return "detailed"
+        if words < 2000:
+            return "detailed"
+        return "mdetailed"
 
     effective_video_length = _effective_video_length_for_content(
         getattr(project, "blog_content", None), requested_video_length, video_style
@@ -731,11 +741,23 @@ async def _generate_script(project: Project, db: Session):
                     max_rows=20,
                 )
 
+    # Release the DB connection during the long-running DSPy/LLM calls below.
+    # Neon (serverless PostgreSQL) closes idle connections, and pool_pre_ping
+    # only verifies liveness on checkout — a session already holding a
+    # connection through a 30-60s LLM await can't be re-pinged, so the next
+    # commit fails with "server closed the connection unexpectedly". We
+    # capture the values we'll need post-LLM, drop the connection, run both
+    # LLM calls cold, then re-attach the project to a fresh connection.
+    _project_id = project.id
+    _project_aspect_ratio = getattr(project, "aspect_ratio", "landscape") or "landscape"
+    _project_blog_content = project.blog_content
+    db.close()
+
     result = await generator.generate(
-        blog_content=project.blog_content,
+        blog_content=_project_blog_content,
         blog_images=image_paths,
         hero_image=hero_image,
-        aspect_ratio=getattr(project, "aspect_ratio", "landscape") or "landscape",
+        aspect_ratio=_project_aspect_ratio,
         video_style=video_style,
         video_length=effective_video_length,
         layout_catalog=layout_catalog,
@@ -745,18 +767,21 @@ async def _generate_script(project: Project, db: Session):
         template_id=template_id or "",
     )
 
-    project.name = result["title"]
-
-    # Clear existing scenes for this project
-    db.query(Scene).filter(Scene.project_id == project.id).delete()
-    db.flush()
-
-    # Template-aware display text generation
-    video_style = getattr(project, "video_style", None) or "explainer"
+    # Template-aware display text generation (second LLM call — still no DB held)
     scenes_raw: list[dict] = result["scenes"]
-
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
+
+    # Re-attach the original project instance to a fresh connection.
+    # add() on a detached-but-previously-persistent instance issues UPDATE on
+    # next flush (not INSERT), and pool_pre_ping verifies the new checkout.
+    db.add(project)
+    project.name = result["title"]
+
+    # Clear existing scenes for this project (moved here so it runs in the
+    # same fresh transaction as the new scene inserts).
+    db.query(Scene).filter(Scene.project_id == project.id).delete()
+    db.flush()
 
     is_custom = is_custom_template(template_id)
     for i, (scene_data, display_text) in enumerate(zip(scenes_raw, display_texts)):
@@ -840,6 +865,40 @@ async def _generate_scenes(project: Project, db: Session):
     title/narration/visual_description which don't change during TTS generation.
     Running them concurrently via asyncio.gather cuts wall-clock time significantly.
     """
+    # Force a fresh DB checkout at the start of this step. Pipeline-step
+    # boundaries (script → scenes) leave a connection that may have been
+    # silently dropped by Neon during the previous LLM call. pool_pre_ping
+    # can miss SSL/Windows-10053 failures because they manifest mid-query
+    # rather than on the SELECT-1 probe. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    _project_id = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() before scene generation; invalidating session and retrying query: %s",
+            _project_id,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+    try:
+        project = db.query(Project).filter(Project.id == _project_id).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on pre-scenes reload; invalidating and retrying once: %s",
+            _project_id,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _project_id).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_project_id} disappeared before scene generation")
+
     scenes = project.scenes
 
     # Build scenes_data BEFORE launching concurrent tasks (captures immutable fields).
@@ -931,10 +990,45 @@ async def _generate_scenes(project: Project, db: Session):
     # Run both concurrently
     _, descriptors = await asyncio.gather(_voiceover_task(), _descriptor_task())
 
-    # Re-load scenes to pick up voiceover changes from per-thread DB sessions
-    # CRITICAL: We MUST explicitly expire the existing Scene objects in the Identity Map, 
-    # otherwise SQLAlchemy will return the stale `duration_seconds` (e.g. 10.0 or 5.0) 
-    # instead of the newly calculated audio lengths, overwriting them when we commit `remotion_code`.
+    # Force a fresh DB checkout. The descriptor task is a long LLM call that
+    # runs concurrently with the voiceover task — if voiceovers finish first,
+    # the main session sits idle through the rest of the descriptor await and
+    # Neon may silently drop the connection. Closing here releases any stale
+    # connection back to the pool; the next query checks out a fresh one.
+    # On Windows + SSL this close can itself raise OperationalError if the TCP
+    # socket is already severed; handle it and invalidate the session so we can
+    # continue with a fresh checkout instead of aborting the whole pipeline.
+    _pid = project.id
+    try:
+        db.close()
+    except OperationalError as close_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on db.close() after scene tasks; invalidating session and retrying query: %s",
+            _pid,
+            close_err,
+        )
+        try:
+            db.invalidate()
+        except Exception:
+            pass
+
+    try:
+        project = db.query(Project).filter(Project.id == _pid).first()
+    except OperationalError as query_err:
+        logger.warning(
+            "[PIPELINE] Project %s: transient DB disconnect on post-close reload; invalidating and retrying once: %s",
+            _pid,
+            query_err,
+        )
+        db.invalidate()
+        project = db.query(Project).filter(Project.id == _pid).first()
+
+    if project is None:
+        raise RuntimeError(f"Project {_pid} disappeared during scene generation")
+
+    # Re-load scenes to pick up voiceover changes from per-thread DB sessions.
+    # expire_all is now redundant (db.close already cleared the identity map),
+    # but kept as a no-op safeguard in case future code re-fetches before this.
     db.expire_all()
     scenes = project.scenes
 
