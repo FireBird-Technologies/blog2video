@@ -57,6 +57,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
 import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
+import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import { normalizeVideoStyle } from "../constants/videoStyles";
@@ -4234,9 +4235,31 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
-                      <div
+                      <SceneListRow
                         key={scene.id}
-                        data-scene-row
+                        scene={scene}
+                        index={idx}
+                        expanded={isExpanded}
+                        showAudio={project.voice_gender !== "none"}
+                        isDragging={isDragging}
+                        isDropTarget={isDropTarget}
+                        onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
+                        onEdit={() => setSceneEditModal(scene)}
+                        onDelete={() => setSceneToDelete(scene)}
+                        onDragHandleStart={(e) => {
+                          setDraggedSceneId(scene.id);
+                          e.dataTransfer.setData("text/plain", String(scene.id));
+                          e.dataTransfer.effectAllowed = "move";
+                          const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
+                          if (row) {
+                            const rect = row.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(row as Element, e.clientX - rect.left, e.clientY - rect.top);
+                          }
+                        }}
+                        onDragHandleEnd={() => {
+                          setDraggedSceneId(null);
+                          setDragOverSceneId(null);
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -4267,126 +4290,8 @@ export default function ProjectView() {
                             .then(() => loadProject())
                             .finally(() => setReorderSaving(false));
                         }}
-                        className={`transition-all duration-150 ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${isDropTarget ? "ring-2 ring-purple-400 ring-inset rounded-lg" : ""}`}
                       >
-                        <div className="flex items-stretch gap-0">
-                          {/* Drag handle — only this area starts the drag */}
-                          <div
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedSceneId(scene.id);
-                              e.dataTransfer.setData("text/plain", String(scene.id));
-                              e.dataTransfer.effectAllowed = "move";
-                              const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
-                              if (row) {
-                                const rect = row.getBoundingClientRect();
-                                e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
-                              }
-                            }}
-                            onDragEnd={() => {
-                              setDraggedSceneId(null);
-                              setDragOverSceneId(null);
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
-                            title="Drag to reorder"
-                          >
-                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
-                            </svg>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            {/* Clickable scene header */}
-                              <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedScene(isExpanded ? null : scene.id)
-                              }
-                              className="w-full text-left glass-card p-4 md:border-l-2 md:border-l-purple-200 md:hover:border-l-purple-400 transition-all rounded-r-lg border"
-                            >
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                <div className="flex items-start sm:items-center gap-3 w-full">
-                                  <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    {scene.order}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="text-xs md:text-sm font-medium text-gray-900 whitespace-normal leading-tight">
-                                      {scene.title}
-                                    </h3>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSceneEditModal(scene);
-                                      }}
-                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0"
-                                      title="Edit scene"
-                                      data-tour={idx === 0 ? "scene-edit-first" : undefined}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                      <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
-                                    </button>
-
-                                    <div className="flex items-center gap-1.5">
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                          scene.remotion_code ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
-                                        }`}
-                                      >
-                                        Scene
-                                      </span>
-                                      {project.voice_gender !== "none" && (
-                                        <span
-                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                            scene.voiceover_path ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
-                                          }`}
-                                        >
-                                          Audio
-                                        </span>
-                                      )}
-                                      <span className="text-[11px] text-gray-300 ml-1">
-                                        {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
-                                      </span>
-
-                                      <svg
-                                        className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${isExpanded ? "rotate-180" : ""}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                      </svg>
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSceneToDelete(scene);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-2 sm:ml-4"
-                                    title="Delete scene"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    <span className="hidden sm:inline-block text-xs font-medium">Delete</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </button>
-
-                            {/* Expanded scene detail */}
-                            {isExpanded && (
+                        {isExpanded && (
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
@@ -4765,9 +4670,7 @@ export default function ProjectView() {
                                 })()}
                               </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
+                      </SceneListRow>
                     );
                   })}
                 </div>

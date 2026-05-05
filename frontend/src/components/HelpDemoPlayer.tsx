@@ -22,6 +22,8 @@ import CustomTemplateCreator, {
 } from "./CustomTemplateCreator";
 import MyVoices, { type MyVoicesDemoMode } from "../pages/MyVoices";
 import SharedProjectTabs, { type ProjectTabId, type ProjectTabItem } from "./ProjectTabs";
+import SceneListRow from "./SceneListRow";
+import HelpFakeTemplatePreview from "./helpDemoTemplatePreview";
 import ProjectTemplateSettingsCard from "./ProjectTemplateSettingsCard";
 import ProductSceneCard from "./SceneCard";
 import SceneEditModal, { type SceneEditModalDemoMode } from "./SceneEditModal";
@@ -483,7 +485,7 @@ const HELP_PROJECT_TABS: ProjectTabItem[] = [
 function ProjectTabs({ active }: { active: ProjectTabId }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <SharedProjectTabs tabs={HELP_PROJECT_TABS} active={active} onChange={() => undefined} />
+      <SharedProjectTabs tabs={HELP_PROJECT_TABS} active={active} onChange={() => undefined} size="lg" />
     </div>
   );
 }
@@ -679,26 +681,7 @@ function BrowserStage({
 
 function ChangeTemplateScreen({ focus }: { focus: string }) {
   const pickerOpen = focus === "change-template" || focus === "confirm" || focus === "review";
-  const fakeTemplatePreview = (
-    <div
-      style={{
-        minHeight: 74,
-        background: "linear-gradient(135deg, #111827 0%, #312e81 52%, #7c3aed 100%)",
-        color: "#fff",
-        padding: 12,
-        display: "grid",
-        alignContent: "center",
-        gap: 8,
-      }}
-    >
-      <div style={{ height: 7, width: "42%", borderRadius: 999, background: "rgba(255,255,255,0.85)" }} />
-      <div style={{ height: 22, width: "78%", borderRadius: 8, background: "rgba(255,255,255,0.20)" }} />
-      <div style={{ display: "flex", gap: 6 }}>
-        <span style={{ height: 6, flex: 1, borderRadius: 999, background: "rgba(255,255,255,0.50)" }} />
-        <span style={{ height: 6, flex: 1, borderRadius: 999, background: "rgba(255,255,255,0.28)" }} />
-      </div>
-    </div>
-  );
+  const cardFakePreview = <HelpFakeTemplatePreview templateId="nightfall" thumbnail />;
 
   const tabsHighlighted = focus === "settings-tab";
 
@@ -746,7 +729,7 @@ function ChangeTemplateScreen({ focus }: { focus: string }) {
               projectName="AI Search Explainer"
               templateMetas={[]}
               emphasizeChangeButton={focus === "change-template"}
-              previewOverride={fakeTemplatePreview}
+              previewOverride={cardFakePreview}
               onChangeTemplate={() => undefined}
             />
           </div>
@@ -858,6 +841,38 @@ function HelpVideoStage({
   );
 }
 
+const HELP_DEMO_SCENES: Scene[] = [
+  {
+    id: 1,
+    project_id: 101,
+    order: 1,
+    title: "How AI search reshapes discovery",
+    narration_text: "AI search is changing how people find answers, summarising results instead of just linking to them.",
+    display_text: "AI search is changing how people find answers.",
+    visual_description: "Search bar with floating answer card",
+    remotion_code: JSON.stringify({ layout: "statement" }),
+    voiceover_path: "scene_1.mp3",
+    duration_seconds: 6,
+    extra_hold_seconds: 0,
+    created_at: "2026-05-05T00:00:00Z",
+  },
+  DEMO_SCENE,
+  {
+    id: 5,
+    project_id: 101,
+    order: 5,
+    title: "What this means for SEO",
+    narration_text: "Optimising for AI answers means writing content that is easy for models to extract and cite.",
+    display_text: "Write content that AI can extract and cite.",
+    visual_description: "Diagram of a model citing a blog post",
+    remotion_code: JSON.stringify({ layout: "statement" }),
+    voiceover_path: "scene_5.mp3",
+    duration_seconds: 8,
+    extra_hold_seconds: 0,
+    created_at: "2026-05-05T00:00:00Z",
+  },
+];
+
 function ProjectScenesHelpStage({
   focus,
 }: {
@@ -866,27 +881,11 @@ function ProjectScenesHelpStage({
   const showCards = focus !== "tab";
   const showModal = focus === "fields" || focus === "save";
   const highlightEdit = focus === "editor";
+  const tabsHighlighted = focus === "tab";
 
   return (
-    <div style={{ height: "100%", borderRadius: 34, overflow: "hidden", background: colors.panel, boxShadow: shadow, border: `1px solid ${colors.border}` }}>
-      <div style={{ height: 54, display: "flex", alignItems: "center", gap: 10, padding: "0 20px", borderBottom: `1px solid ${colors.border}`, background: "#fff" }}>
-        <span style={{ width: 14, height: 14, borderRadius: 999, background: colors.red }} />
-        <span style={{ width: 14, height: 14, borderRadius: 999, background: colors.amber }} />
-        <span style={{ width: 14, height: 14, borderRadius: 999, background: colors.green }} />
-        <div style={{ marginLeft: 18, borderRadius: 999, background: colors.panelSoft, color: colors.muted, padding: "8px 18px", fontSize: 16, fontWeight: 700 }}>
-          app.blog2video.com/project/ai-search-explainer
-        </div>
-      </div>
-      <div
-        style={{
-          position: "relative",
-          height: "calc(100% - 54px)",
-          minHeight: 660,
-          background: colors.background,
-          padding: 32,
-          overflow: "hidden",
-        }}
-      >
+    <BrowserStage url="app.blog2video.com/project/142">
+      <div style={{ padding: 32, position: "relative", minHeight: 660 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 22 }}>
           <div>
             <p style={eyebrowStyle}>Project</p>
@@ -896,21 +895,32 @@ function ProjectScenesHelpStage({
         </div>
         <div
           style={{
-            border: focus === "tab" ? `2px solid ${colors.purple}` : "2px solid transparent",
-            borderRadius: 999,
-            padding: 8,
-            display: "inline-flex",
-            marginBottom: 18,
-            ...focusStyle(focus === "tab"),
+            display: "inline-block",
+            marginBottom: 22,
+            padding: 4,
+            borderRadius: 18,
+            background: tabsHighlighted ? "rgba(124, 58, 237, 0.10)" : "transparent",
+            boxShadow: tabsHighlighted ? "0 0 0 3px rgba(124, 58, 237, 0.18)" : "none",
+            transition: "all 200ms ease",
           }}
         >
           <ProjectTabs active="scenes" />
         </div>
         {showCards ? (
-          <div style={{ display: "grid", gap: 14 }}>
-            <HelpSceneCard />
-            <HelpSceneCard active={highlightEdit} />
-            <HelpSceneCard />
+          <div className="space-y-2" style={{ pointerEvents: "none" }}>
+            {HELP_DEMO_SCENES.map((scene, i) => (
+              <SceneListRow
+                key={scene.id}
+                scene={scene}
+                index={i}
+                expanded={false}
+                showAudio
+                highlightEdit={highlightEdit && scene.id === DEMO_SCENE.id}
+                onToggleExpand={() => undefined}
+                onEdit={() => undefined}
+                onDelete={() => undefined}
+              />
+            ))}
           </div>
         ) : (
           <Card style={{ minHeight: 420, display: "grid", placeItems: "center", color: colors.muted }}>
@@ -950,7 +960,7 @@ function ProjectScenesHelpStage({
           </div>
         ) : null}
       </div>
-    </div>
+    </BrowserStage>
   );
 }
 
@@ -1094,13 +1104,6 @@ const HELP_DEMO_CUSTOM_TEMPLATES: CustomTemplateItem[] = [];
 const HELP_DEMO_MY_VOICES: SavedVoiceFromAPI[] = [];
 const HELP_DEMO_VOICE_PREVIEWS: Record<string, VoicePreview> = {};
 
-const FAKE_TEMPLATE_PALETTES: Record<string, { from: string; via: string; to: string; accent: string }> = {
-  spotlight: { from: "#0F172A", via: "#312E81", to: "#7C3AED", accent: "#A78BFA" },
-  nightfall: { from: "#0B1120", via: "#1E1B4B", to: "#A855F7", accent: "#C4B5FD" },
-  gridcraft: { from: "#0EA5E9", via: "#2563EB", to: "#1E1B4B", accent: "#7DD3FC" },
-  default: { from: "#7C3AED", via: "#A855F7", to: "#F472B6", accent: "#FDE68A" },
-};
-
 function fakeTemplatePreview({
   templateId,
   thumbnail,
@@ -1109,73 +1112,7 @@ function fakeTemplatePreview({
   selected: boolean;
   thumbnail: boolean;
 }) {
-  const palette = FAKE_TEMPLATE_PALETTES[templateId] ?? FAKE_TEMPLATE_PALETTES.default;
-  const labelText = thumbnail ? "Sample" : (TEMPLATE_DESCRIPTIONS[templateId]?.title ?? "Sample template");
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        aspectRatio: "16 / 9",
-        background: `linear-gradient(135deg, ${palette.from} 0%, ${palette.via} 55%, ${palette.to} 100%)`,
-        color: "#fff",
-        padding: thumbnail ? 8 : 18,
-        display: "grid",
-        alignContent: "center",
-        gap: thumbnail ? 4 : 10,
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <span
-        style={{
-          height: thumbnail ? 4 : 8,
-          width: "30%",
-          borderRadius: 999,
-          background: palette.accent,
-          opacity: 0.95,
-        }}
-      />
-      <span
-        style={{
-          height: thumbnail ? 10 : 22,
-          width: "78%",
-          borderRadius: thumbnail ? 4 : 8,
-          background: "rgba(255,255,255,0.92)",
-        }}
-      />
-      <span
-        style={{
-          height: thumbnail ? 6 : 12,
-          width: "55%",
-          borderRadius: thumbnail ? 3 : 6,
-          background: "rgba(255,255,255,0.55)",
-        }}
-      />
-      {!thumbnail ? (
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <span style={{ height: 8, flex: 1, borderRadius: 999, background: "rgba(255,255,255,0.45)" }} />
-          <span style={{ height: 8, flex: 1, borderRadius: 999, background: "rgba(255,255,255,0.25)" }} />
-          <span style={{ height: 8, flex: 1, borderRadius: 999, background: "rgba(255,255,255,0.15)" }} />
-        </div>
-      ) : null}
-      <span
-        aria-hidden
-        style={{
-          position: "absolute",
-          right: thumbnail ? 6 : 14,
-          bottom: thumbnail ? 4 : 12,
-          fontSize: thumbnail ? 8 : 12,
-          letterSpacing: 1.2,
-          textTransform: "uppercase",
-          fontWeight: 800,
-          color: "rgba(255,255,255,0.78)",
-        }}
-      >
-        {labelText}
-      </span>
-    </div>
-  );
+  return <HelpFakeTemplatePreview templateId={templateId} thumbnail={thumbnail} />;
 }
 
 function buildCreateProjectDemoMode(focus: string): BlogUrlFormDemoMode {
