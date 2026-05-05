@@ -114,6 +114,166 @@ function downloadText(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatHours(value: number) {
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value)} hrs`;
+}
+
+function ContentRepurposingCalculator() {
+  const [monthlyPosts, setMonthlyPosts] = useState(8);
+  const [averageWords, setAverageWords] = useState(1400);
+  const [reuseRate, setReuseRate] = useState(75);
+  const [clipsPerVideo, setClipsPerVideo] = useState(4);
+  const [manualHoursPerVideo, setManualHoursPerVideo] = useState(3.5);
+  const [automationMinutesPerVideo, setAutomationMinutesPerVideo] = useState(35);
+
+  const result = useMemo(() => {
+    const repurposedPosts = monthlyPosts * (reuseRate / 100);
+    const longFormVideos = Math.max(Math.round(repurposedPosts), 0);
+    const shortClips = longFormVideos * clipsPerVideo;
+    const socialPosts = longFormVideos * 3 + shortClips;
+    const estimatedVideoMinutes = Math.max((averageWords / 150) * longFormVideos, 0);
+    const manualHours = longFormVideos * manualHoursPerVideo;
+    const automatedHours = (longFormVideos * automationMinutesPerVideo) / 60;
+    const savedHours = Math.max(manualHours - automatedHours, 0);
+
+    return {
+      repurposedPosts,
+      longFormVideos,
+      shortClips,
+      socialPosts,
+      estimatedVideoMinutes,
+      manualHours,
+      automatedHours,
+      savedHours,
+    };
+  }, [
+    automationMinutesPerVideo,
+    averageWords,
+    clipsPerVideo,
+    manualHoursPerVideo,
+    monthlyPosts,
+    reuseRate,
+  ]);
+
+  const shareableSummary = [
+    `Monthly posts: ${formatNumber(monthlyPosts)}`,
+    `Repurposed posts: ${formatNumber(result.repurposedPosts)}`,
+    `Long-form videos: ${formatNumber(result.longFormVideos)}`,
+    `Short clips: ${formatNumber(result.shortClips)}`,
+    `Social posts: ${formatNumber(result.socialPosts)}`,
+    `Estimated video runtime: ${formatNumber(result.estimatedVideoMinutes)} minutes`,
+    `Production hours saved: ${formatHours(result.savedHours)}`,
+  ].join("\n");
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="rounded-3xl border border-gray-200 bg-gray-50/70 p-6">
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field label="Blog posts per month" hint="New or existing posts">
+            <input
+              type="number"
+              className={inputClassName()}
+              value={monthlyPosts}
+              min={0}
+              onChange={(event) => setMonthlyPosts(Number(event.target.value) || 0)}
+            />
+          </Field>
+          <Field label="Average words per post" hint="Used for runtime">
+            <input
+              type="number"
+              className={inputClassName()}
+              value={averageWords}
+              min={0}
+              onChange={(event) => setAverageWords(Number(event.target.value) || 0)}
+            />
+          </Field>
+          <Field label="Posts worth repurposing" hint="% of monthly output">
+            <input
+              type="number"
+              className={inputClassName()}
+              value={reuseRate}
+              min={0}
+              max={100}
+              onChange={(event) => setReuseRate(clamp(Number(event.target.value) || 0, 0, 100))}
+            />
+          </Field>
+          <Field label="Short clips per video" hint="LinkedIn, Shorts, Reels">
+            <input
+              type="number"
+              className={inputClassName()}
+              value={clipsPerVideo}
+              min={0}
+              onChange={(event) => setClipsPerVideo(Number(event.target.value) || 0)}
+            />
+          </Field>
+          <Field label="Manual hours per video" hint="Script, edit, render">
+            <input
+              type="number"
+              step="0.25"
+              className={inputClassName()}
+              value={manualHoursPerVideo}
+              min={0}
+              onChange={(event) => setManualHoursPerVideo(Number(event.target.value) || 0)}
+            />
+          </Field>
+          <Field label="Automated minutes per video" hint="Review and polish">
+            <input
+              type="number"
+              className={inputClassName()}
+              value={automationMinutesPerVideo}
+              min={0}
+              onChange={(event) => setAutomationMinutesPerVideo(Number(event.target.value) || 0)}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <MetricCard
+            label="Long-form videos"
+            value={formatNumber(result.longFormVideos)}
+            helper={`${formatNumber(result.repurposedPosts)} posts are eligible after your reuse-rate assumption.`}
+          />
+          <MetricCard
+            label="Short clips"
+            value={formatNumber(result.shortClips)}
+            helper="Short-form clips that can be extracted from the long-form video set."
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Social posts"
+            value={formatNumber(result.socialPosts)}
+            helper="A simple mix of clips plus supporting text posts."
+          />
+          <MetricCard
+            label="Video runtime"
+            value={`${formatNumber(result.estimatedVideoMinutes)} min`}
+            helper="Estimated narrated minutes from your average word count."
+          />
+          <MetricCard
+            label="Hours saved"
+            value={formatHours(result.savedHours)}
+            helper="Manual production time minus automated review time."
+          />
+        </div>
+        <div className="rounded-2xl border border-purple-100 bg-purple-50/70 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-gray-900">Repurposing plan</p>
+            <CopyButton value={shareableSummary} label="Copy summary" />
+          </div>
+          <ul className="mt-4 space-y-2 text-sm leading-relaxed text-gray-600">
+            <li>Prioritize posts that already bring search traffic, demos, or signup intent.</li>
+            <li>Use one long-form video as the source for clips, quote cards, and newsletter embeds.</li>
+            <li>Build an outreach angle around the calculator result when pitching resource pages.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MediumCalculator() {
   const [views, setViews] = useState(50000);
   const [memberRate, setMemberRate] = useState(28);
@@ -1097,6 +1257,8 @@ function SubstackDirectoryExplorer() {
 
 export function ToolWidget({ slug }: ToolWidgetProps) {
   switch (slug) {
+    case "content-repurposing-calculator":
+      return <ContentRepurposingCalculator />;
     case "medium-partner-program-earnings-calculator":
       return <MediumCalculator />;
     case "substack-revenue-calculator":

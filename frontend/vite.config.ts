@@ -14,6 +14,9 @@ export default defineConfig({
       "@remotion-video/templates": isCI
           ? path.resolve(__dirname, "./src/components/remotion")
           : path.resolve(__dirname, "../remotion-video/src/templates"),
+      // Local alias pulls sources from sibling `remotion-video/`; Rollup resolves peer
+      // deps from that folder unless we pin them to the frontend install.
+      recharts: path.resolve(__dirname, "node_modules/recharts"),
     },
   },
   server: {
