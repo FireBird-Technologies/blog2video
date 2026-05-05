@@ -80,7 +80,7 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-    videoLength?: "short" | "medium" | "detailed",
+    videoLength?: "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
@@ -112,10 +112,11 @@ const MAX_BULK_LINKS = (() => {
 })();
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
-const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
+const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "more_detailed", string> = {
   short: "Short  ~  30 sec – 1 min",
   medium: "Medium  ~  1 - 3 mins",
   detailed: "Detailed  ~  3 – 8 mins",
+  more_detailed: "More Detailed  ~  8+ mins",
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
@@ -672,7 +673,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
-  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
+  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed" | "more_detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
   const bulkStyleManuallySet = useRef<boolean[]>([false]);
@@ -697,7 +698,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
-  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
+  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed" | "more_detailed">("short");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -805,8 +806,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   );
 
   const renderVideoLengthDropdown = (
-    value: "short" | "medium" | "detailed",
-    onSelect: (next: "short" | "medium" | "detailed") => void
+    value: "short" | "medium" | "detailed" | "more_detailed",
+    onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
   ) => (
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
@@ -822,7 +823,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
-          {(["short", "medium", "detailed"] as const).map((opt) => (
+          {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => (
             <button
               key={opt}
               type="button"
