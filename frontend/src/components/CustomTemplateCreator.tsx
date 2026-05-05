@@ -14,11 +14,27 @@ import {
   type VideoStyleId,
 } from "../constants/videoStyles";
 
+/** Read-only demo mode used by help videos: skips API calls, seeds state, renders inline. */
+export interface CustomTemplateCreatorDemoMode {
+  step?: 1 | 2;
+  url?: string;
+  templateName?: string;
+  sourceUrl?: string;
+  accentColor?: string;
+  scrapedScreenshotUrl?: string;
+  scrapedOgImage?: string;
+  scrapedLogoUrls?: string[];
+  supportedVideoStyle?: VideoStyleId;
+  themeOverride?: CustomTemplateTheme;
+}
+
 interface Props {
   onCreated: (template: CustomTemplateItem) => void;
   onCancel: () => void;
   /** Pre-selects supported video style (explainer / promotional / storytelling) for the new template. */
   initialVideoStyle?: VideoStyleId;
+  /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
+  demoMode?: CustomTemplateCreatorDemoMode;
 }
 
 const DEFAULT_THEME: CustomTemplateTheme = {
@@ -36,27 +52,214 @@ const DEFAULT_THEME: CustomTemplateTheme = {
   },
 };
 
-export default function CustomTemplateCreator({ onCreated, onCancel, initialVideoStyle }: Props) {
-  const [step, setStep] = useState<1 | 2>(1);
-  const [url, setUrl] = useState("");
+export function CustomTemplateCreatorDemoModal({ step = 1 }: { step?: 1 | 2 }) {
+  const theme = {
+    ...DEFAULT_THEME,
+    colors: {
+      ...DEFAULT_THEME.colors,
+      accent: "#7C3AED",
+      bg: "#FFFFFF",
+      text: "#111827",
+      surface: "#F5F3FF",
+      muted: "#9CA3AF",
+    },
+    fonts: { heading: "Inter", body: "Inter", mono: "JetBrains Mono" },
+  };
+  const accentColor = theme.colors.accent;
+  const templateName = "Your Brand Template";
+  const supportedVideoStyle: VideoStyleId = "explainer";
+
+  return (
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-900">
+          {step === 1 ? "Extract Theme" : "Review & Save"}
+        </h2>
+        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-center pt-4">
+        <div className="flex items-center gap-0">
+          {[1, 2].map((s) => (
+            <div key={s} className="flex items-center">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                s <= step ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-400"
+              }`}>
+                {s < step ? (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : s}
+              </div>
+              {s < 2 && <div className={`w-10 h-0.5 transition-colors ${s < step ? "bg-purple-600" : "bg-gray-200"}`} />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-6 py-5 space-y-5">
+        {step === 1 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Enter a website URL and we'll extract its colors, fonts, and style to create a custom video template.
+            </p>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                Website URL
+              </label>
+              <input
+                type="url"
+                readOnly
+                value="https://yourbrand.com"
+                className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+              />
+            </div>
+            <button className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+              Extract Theme
+            </button>
+            <p className="text-xs text-gray-400 text-center">
+              Scraping website and analyzing design... this may take 10-20 seconds.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div
+              className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+              style={{
+                background: theme.colors.bg,
+                aspectRatio: "16/9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["accent", "bg", "text", "surface", "muted"] as const).map((key) => (
+                  <div
+                    key={key}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 6,
+                      backgroundColor: key === "accent" ? accentColor : theme.colors[key],
+                      border: `1.5px solid ${theme.colors.text}15`,
+                    }}
+                  />
+                ))}
+              </div>
+              <p style={{ fontFamily: `${theme.fonts.heading}, sans-serif`, fontSize: 14, fontWeight: 700, color: theme.colors.text, margin: 0 }}>
+                {templateName}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
+                Template Name
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={templateName}
+                className="w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                Extracted Colors
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col items-center gap-1.5">
+                  <label className="relative cursor-pointer">
+                    <div className="w-8 h-8 rounded-full border-2 border-purple-400 shadow-sm ring-2 ring-purple-200" style={{ backgroundColor: accentColor }} />
+                    <input type="color" readOnly value={accentColor} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                  </label>
+                  <span className="text-[10px] text-purple-500 font-medium">accent</span>
+                </div>
+                {(["bg", "text", "surface", "muted"] as const).map((key) => (
+                  <div key={key} className="flex flex-col items-center gap-1.5">
+                    <div className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm" style={{ backgroundColor: theme.colors[key] }} />
+                    <span className="text-[10px] text-gray-400 capitalize">{key}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+                Template Style Category
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="inline-block px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-medium">
+                  {VIDEO_STYLE_OPTIONS.find((s) => s.id === supportedVideoStyle)?.label ?? supportedVideoStyle}
+                </span>
+                <button type="button" className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors">
+                  <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Brand Identity</span>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600">{theme.fonts.heading}</span>
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">Solid</span>
+              </div>
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">Visual Patterns</span>
+              <div className="flex flex-wrap gap-2">
+                {["rounded cards", "balanced spacing", "rounded images", "centered"].map((tag) => (
+                  <span key={tag} className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-50 text-purple-600 capitalize">{tag}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors">
+                Back
+              </button>
+              <button className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+                Save Template
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function CustomTemplateCreator({ onCreated, onCancel, initialVideoStyle, demoMode }: Props) {
+  const isDemo = !!demoMode;
+  const [step, setStep] = useState<1 | 2>(demoMode?.step ?? 1);
+  const [url, setUrl] = useState(demoMode?.url ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<CustomTemplateTheme>(DEFAULT_THEME);
-  const [accentColor, setAccentColor] = useState(DEFAULT_THEME.colors.accent);
-  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(
-    () => initialVideoStyle ?? "explainer"
+  const [theme, setTheme] = useState<CustomTemplateTheme>(demoMode?.themeOverride ?? DEFAULT_THEME);
+  const [accentColor, setAccentColor] = useState(
+    demoMode?.accentColor ?? demoMode?.themeOverride?.colors.accent ?? DEFAULT_THEME.colors.accent
   );
-  const [templateName, setTemplateName] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
+  const [supportedVideoStyle, setSupportedVideoStyle] = useState<VideoStyleId>(
+    () => demoMode?.supportedVideoStyle ?? initialVideoStyle ?? "explainer"
+  );
+  const [templateName, setTemplateName] = useState(demoMode?.templateName ?? "");
+  const [sourceUrl, setSourceUrl] = useState(demoMode?.sourceUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
   const styleRef = useRef<HTMLDivElement>(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [createdTemplate, setCreatedTemplate] = useState<CustomTemplateItem | null>(null);
   const [codeGenError, setCodeGenError] = useState<string | null>(null);
-  const [scrapedLogoUrls, setScrapedLogoUrls] = useState<string[]>([]);
-  const [scrapedOgImage, setScrapedOgImage] = useState("");
-  const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState("");
+  const [scrapedLogoUrls, setScrapedLogoUrls] = useState<string[]>(demoMode?.scrapedLogoUrls ?? []);
+  const [scrapedOgImage, setScrapedOgImage] = useState(demoMode?.scrapedOgImage ?? "");
+  const [scrapedScreenshotUrl, setScrapedScreenshotUrl] = useState(demoMode?.scrapedScreenshotUrl ?? "");
   const [extractedReason, setExtractedReason] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [genStep, setGenStep] = useState<string>("");
@@ -89,6 +292,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
 
   // Step 1: Extract theme from URL
   const handleExtract = async () => {
+    if (isDemo) return;
     if (!url.trim()) return;
     setLoading(true);
     setError(null);
@@ -117,6 +321,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
 
   // Step 2: Save template then trigger generation inline
   const handleSave = async () => {
+    if (isDemo) return;
     if (!templateName.trim()) return;
     setSaving(true);
     setError(null);
@@ -182,8 +387,8 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
   const isGenerating = saving || generatingCode;
   const isDone = !isGenerating && !codeGenError && createdTemplate?.intro_code;
 
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+  const modal = (
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-4" : "fixed inset-0 z-[60] flex items-center justify-center p-4"}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -468,7 +673,7 @@ export default function CustomTemplateCreator({ onCreated, onCancel, initialVide
           )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+  return isDemo ? modal : ReactDOM.createPortal(modal, document.body);
 }
