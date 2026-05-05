@@ -104,6 +104,38 @@ export interface BlogPost {
   distributionPlan: DistributionAsset[];
 }
 
+export interface HelpMedia {
+  src: string;
+  alt: string;
+}
+
+export interface HelpStep {
+  title: string;
+  body: string[];
+  bullets?: string[];
+  image?: HelpMedia;
+  videoKey?: string;
+}
+
+export interface HelpPost {
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  heroImage?: string;
+  heroImageAlt?: string;
+  publishedAt: string;
+  readTime: string;
+  heroEyebrow: string;
+  heroTitle: string;
+  heroDescription: string;
+  primaryKeyword: string;
+  keywordVariant: string;
+  relatedPaths: string[];
+  steps: HelpStep[];
+  faq: FaqItem[];
+}
+
 export interface ToolDefinition {
   slug: string;
   path: string;

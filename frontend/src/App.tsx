@@ -12,6 +12,8 @@ import InviteOthers from "./pages/InviteOthers";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import BlogPostPage from "./pages/BlogPostPage";
+import HelpIndex from "./pages/HelpIndex";
+import HelpPostPage from "./pages/HelpPostPage";
 import ToolsHub from "./pages/ToolsHub";
 import ToolPage from "./pages/ToolPage";
 import SubstackDirectoryNichePage from "./pages/SubstackDirectoryNichePage";
@@ -75,6 +77,8 @@ function AppRoutes() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/blogs" element={<Blog />} />
         <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        <Route path="/help" element={<HelpIndex />} />
+        <Route path="/help/:slug" element={<HelpPostPage />} />
         <Route path="/tools" element={<ToolsHub />} />
         <Route
           path="/tools/substack-directory/publication/:publicationSlug"
