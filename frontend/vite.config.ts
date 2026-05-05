@@ -10,14 +10,31 @@ const isCI = isCloudflare || isVercel;
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      "@remotion-video/templates": isCI
+    // Array form required so RegExp entries can co-exist with string entries.
+    // The sibling `remotion-video/` workspace is pulled in via the
+    // `@remotion-video/templates` alias in local dev. Its source files may
+    // import packages that live only in `remotion-video/node_modules` (or that
+    // Rollup/Vite cannot find from there because the project root is
+    // `frontend/`). The aliases below redirect those imports to the frontend's
+    // own `node_modules` where the packages are installed.
+    alias: [
+      {
+        find: "@remotion-video/templates",
+        replacement: isCI
           ? path.resolve(__dirname, "./src/components/remotion")
           : path.resolve(__dirname, "../remotion-video/src/templates"),
-      // Local alias pulls sources from sibling `remotion-video/`; Rollup resolves peer
-      // deps from that folder unless we pin them to the frontend install.
-      recharts: path.resolve(__dirname, "node_modules/recharts"),
-    },
+      },
+      // All `@fontsource/*` CSS imports from remotion-video source files.
+      {
+        find: /^@fontsource\/(.*)/,
+        replacement: path.resolve(__dirname, "node_modules/@fontsource/$1"),
+      },
+      // recharts is used by newscast / bloomberg compositions in remotion-video.
+      {
+        find: "recharts",
+        replacement: path.resolve(__dirname, "node_modules/recharts"),
+      },
+    ],
   },
   server: {
     port: 5173,
