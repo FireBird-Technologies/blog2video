@@ -13,7 +13,7 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
-const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
+const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
 
 export default function TemplatePageView() {
   const location = useLocation();

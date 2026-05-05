@@ -16,24 +16,24 @@ import type {
   TemplateMeta,
   VoicePreview,
 } from "../api/client";
-import BlogUrlForm, { type BlogUrlFormDemoMode } from "./BlogUrlForm";
+import BlogUrlForm, { type BlogUrlFormDemoMode } from "../components/BlogUrlForm";
 import CustomTemplateCreator, {
   type CustomTemplateCreatorDemoMode,
-} from "./CustomTemplateCreator";
+} from "../components/CustomTemplateCreator";
 import MyVoices, { type MyVoicesDemoMode } from "../pages/MyVoices";
-import SharedProjectTabs, { type ProjectTabId, type ProjectTabItem } from "./ProjectTabs";
-import SceneListRow from "./SceneListRow";
-import HelpFakeTemplatePreview from "./helpDemoTemplatePreview";
-import ProjectTemplateSettingsCard from "./ProjectTemplateSettingsCard";
-import ProductSceneCard from "./SceneCard";
-import SceneEditModal, { type SceneEditModalDemoMode } from "./SceneEditModal";
+import SharedProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
+import SceneListRow from "../components/SceneListRow";
+import HelpFakeTemplatePreview from "./HelpFakeTemplatePreview";
+import ProjectTemplateSettingsCard from "../components/ProjectTemplateSettingsCard";
+import ProductSceneCard from "../components/SceneCard";
+import SceneEditModal, { type SceneEditModalDemoMode } from "../components/SceneEditModal";
 import TemplateChangePickerDemo from "./TemplateChangePickerDemo";
-import VoiceItem from "./VoiceItem";
+import VoiceItem from "../components/VoiceItem";
 import {
   CustomTemplateBadge,
   TEMPLATE_DESCRIPTIONS,
   TEMPLATE_PREVIEWS,
-} from "./templatePreviewRegistry";
+} from "../components/templatePreviewRegistry";
 
 type HelpFlowKey =
   | "create-project"

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Player } from "@remotion/player";
-import { getTemplateConfig } from "./remotion/templateConfig";
+import { getTemplateConfig } from "../components/remotion/templateConfig";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

@@ -1,4 +1,4 @@
-import { TEMPLATE_DESCRIPTIONS } from "./templatePreviewRegistry";
+import { TEMPLATE_DESCRIPTIONS } from "../components/templatePreviewRegistry";
 
 const FAKE_TEMPLATE_PALETTES: Record<string, { from: string; via: string; to: string; accent: string }> = {
   spotlight: { from: "#0F172A", via: "#312E81", to: "#7C3AED", accent: "#A78BFA" },
