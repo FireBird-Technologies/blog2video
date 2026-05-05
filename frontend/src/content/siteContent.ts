@@ -2,6 +2,7 @@ import { alternativePages } from "./alternativePages";
 import { blogPosts } from "./blogPosts";
 import { coreCommercialPages } from "./corePages";
 import { featurePages } from "./featurePages";
+import { helpPosts } from "./helpPosts";
 import { defaultCta, templateProfiles } from "./marketingBase";
 import { programmaticPages } from "./programmaticPages";
 import { resourcePages } from "./resourcePages";
@@ -31,6 +32,7 @@ export const topNavLinks = [
   { href: "/for-technical-bloggers", label: "Use Cases" },
   { href: "/templates/geometric-explainer", label: "Templates" },
   { href: toolsHub.path, label: "Tools" },
+  { href: "/help", label: "Help" },
   { href: "/blogs", label: "Blog" },
   { href: "/pricing", label: "Pricing" },
 ];
@@ -113,6 +115,7 @@ export const footerGroups = [
     title: "Tools",
     links: [
       toolsHub.path,
+      "/tools/content-repurposing-calculator",
       "/tools/medium-partner-program-earnings-calculator",
       "/tools/substack-revenue-calculator",
       "/tools/markdown-to-medium-substack-formatter",
@@ -123,8 +126,10 @@ export const footerGroups = [
   {
     title: "Resources",
     links: [
+      "/video-seo-checklist",
       "/distribution-flywheel",
       "/measurement-playbook",
+      "/help",
       "/blogs",
       "/contact",
       "/pricing",
@@ -137,6 +142,7 @@ export const featuredPagePaths = [
   "/pdf-to-video",
   "/for-technical-bloggers",
   "/for-medium-writers",
+  "/video-seo-checklist",
   "/distribution-flywheel",
   "/measurement-playbook",
 ];
@@ -151,11 +157,16 @@ export function getBlogPost(slug: string): BlogPost | undefined {
   return blogPosts.find((post) => post.slug === slug);
 }
 
+export function getHelpPost(slug: string) {
+  return helpPosts.find((post) => post.slug === slug);
+}
+
 export function getDisplayTitle(path: string): string {
   if (path === "/") return "Home";
   if (path === "/pricing") return "Pricing";
   if (path === "/contact") return "Contact";
   if (path === "/blogs") return "Blog";
+  if (path === "/help") return "Help";
   if (path === toolsHub.path) return "Tools";
 
   const marketingPage = getMarketingPage(path);
@@ -167,6 +178,12 @@ export function getDisplayTitle(path: string): string {
   const blogSlugPrefix = "/blogs/";
   if (path.startsWith(blogSlugPrefix)) {
     const post = getBlogPost(path.replace(blogSlugPrefix, ""));
+    if (post) return post.title;
+  }
+
+  const helpSlugPrefix = "/help/";
+  if (path.startsWith(helpSlugPrefix)) {
+    const post = getHelpPost(path.replace(helpSlugPrefix, ""));
     if (post) return post.title;
   }
 
@@ -182,15 +199,20 @@ export function getPublicPaths(): string[] {
     "/pricing",
     "/contact",
     "/blogs",
+    "/help",
     toolsHub.path,
     ...marketingPages.map((page) => page.path),
     ...tools.map((tool) => tool.path),
     ...substackDirectoryPaths,
     ...blogPosts.map((post) => `/blogs/${post.slug}`),
+    ...helpPosts.map((post) => `/help/${post.slug}`),
   ];
 }
 
 export function getPublicLinkDetails(path: string) {
+  if (path === "/help") {
+    return { path, label: "Help", description: "Step-by-step Blog2Video help guides with embedded visual walkthroughs." };
+  }
   if (path === "/blogs") {
     return { path, label: "Blog", description: "Educational content, SEO workflows, repurposing playbooks, and product updates for Blog2Video." };
   }
@@ -219,6 +241,11 @@ export function getPublicLinkDetails(path: string) {
     if (post) return { path, label: post.title, description: post.description };
   }
 
+  if (path.startsWith("/help/")) {
+    const post = getHelpPost(path.replace("/help/", ""));
+    if (post) return { path, label: post.title, description: post.description };
+  }
+
   const substackDirectoryPage = getSubstackDirectoryPage(path);
   if (substackDirectoryPage) {
     return { path, label: substackDirectoryPage.title, description: substackDirectoryPage.description };
@@ -237,4 +264,4 @@ export function getTemplateProfile(slug: string) {
   return templateProfiles.find((template) => template.slug === slug);
 }
 
-export { blogPosts, defaultCta, getTool, getToolByPath, templateProfiles, tools, toolsHub };
+export { blogPosts, defaultCta, helpPosts, getTool, getToolByPath, templateProfiles, tools, toolsHub };

@@ -9,6 +9,7 @@ import { tools, toolsHub } from "../content/tools";
 import type {
   BlogPost,
   FaqItem,
+  HelpPost,
   MarketingPage,
   SubstackNiche,
   SubstackPublication,
@@ -160,6 +161,23 @@ export function blogIndexSchema() {
     breadcrumbList([
       { name: "Home", path: "/" },
       { name: "Blog", path: "/blogs" },
+    ]),
+  ];
+}
+
+export function helpIndexSchema() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: `${siteName} Help / How-to`,
+      url: `${siteUrl}/help`,
+      description:
+        "Step-by-step Blog2Video help guides with embedded explainers for project creation, scene editing, voiceover, and templates.",
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Help", path: "/help" },
     ]),
   ];
 }
@@ -375,6 +393,58 @@ export function blogPostSchema(post: BlogPost) {
 
   const faq = faqSchema(post.faq, {
     pageUrl: `${siteUrl}/blogs/${post.slug}`,
+    name: `FAQ — ${post.title}`,
+  });
+  if (faq) schemas.push(faq);
+
+  return schemas;
+}
+
+export function helpPostSchema(post: HelpPost) {
+  const articleImage = post.heroImage ? `${siteUrl}${post.heroImage}` : defaultOgImage;
+  const pagePath = `/help/${post.slug}`;
+  const pageUrl = `${siteUrl}${pagePath}`;
+  const schemas: Record<string, unknown>[] = [
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      name: post.title,
+      headline: post.title,
+      description: post.description,
+      datePublished: post.publishedAt,
+      dateModified: post.publishedAt,
+      mainEntityOfPage: pageUrl,
+      image: articleImage,
+      totalTime: `PT${Math.max(1, Number.parseInt(post.readTime, 10) || 5)}M`,
+      step: post.steps.map((step, index) => ({
+        "@type": "HowToStep",
+        position: index + 1,
+        name: step.title,
+        text: [...step.body, ...(step.bullets ?? [])].join(" "),
+        image: step.image ? `${siteUrl}${step.image.src}` : undefined,
+      })),
+      author: {
+        "@type": "Person",
+        name: "Arslan Shahid",
+      },
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+        logo: {
+          "@type": "ImageObject",
+          url: `${siteUrl}/Logo-Firebird.webp`,
+        },
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "Help", path: "/help" },
+      { name: post.title, path: pagePath },
+    ]),
+  ];
+
+  const faq = faqSchema(post.faq, {
+    pageUrl,
     name: `FAQ — ${post.title}`,
   });
   if (faq) schemas.push(faq);

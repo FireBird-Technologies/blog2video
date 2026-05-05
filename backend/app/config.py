@@ -6,6 +6,9 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
+    # Environment: "production" uses Claude Sonnet; anything else uses DeepSeek
+    ENVIRONMENT: str = os.environ.get("ENVIRONMENT", "local")
+
     # API Keys
     ANTHROPIC_API_KEY: str = ""
     ELEVENLABS_API_KEY: str = ""
@@ -13,6 +16,7 @@ class Settings(BaseSettings):
     EXA_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    OPEN_ROUTER_KEY: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_CODE_MODEL: str = "gemini-2.5-flash"
     # Used automatically when an image is attached (vision-guided layout editing).
