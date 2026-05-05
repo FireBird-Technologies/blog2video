@@ -12,7 +12,7 @@ import {
 import { helpPostSchema } from "../seo/schema";
 import NotFoundPage from "./NotFoundPage";
 
-const HelpDemoPlayer = lazy(() => import("../components/HelpDemoPlayer"));
+const HelpDemoPlayer = lazy(() => import("../help/HelpDemoPlayer"));
 
 export default function HelpPostPage() {
   const { slug } = useParams<{ slug: string }>();

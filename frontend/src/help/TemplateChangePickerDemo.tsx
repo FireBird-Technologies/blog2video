@@ -1,10 +1,10 @@
-import CraftYourTemplateCard from "./CraftYourTemplateCard";
+import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import {
   CustomTemplateBadge,
   NewTemplateBadge,
   TEMPLATE_DESCRIPTIONS,
-} from "./templatePreviewRegistry";
-import HelpFakeTemplatePreview from "./helpDemoTemplatePreview";
+} from "../components/templatePreviewRegistry";
+import HelpFakeTemplatePreview from "./HelpFakeTemplatePreview";
 
 export default function TemplateChangePickerDemo({
   tab = "builtin",

@@ -4,7 +4,7 @@ import PublicFooter from "../components/public/PublicFooter";
 import PublicHeader from "../components/public/PublicHeader";
 import Seo from "../components/seo/Seo";
 
-const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
+const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
 import {
   blogPosts,
   getBlogPost,
