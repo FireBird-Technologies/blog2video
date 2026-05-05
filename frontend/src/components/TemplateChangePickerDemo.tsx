@@ -3,18 +3,8 @@ import {
   CustomTemplateBadge,
   NewTemplateBadge,
   TEMPLATE_DESCRIPTIONS,
-  TEMPLATE_PREVIEWS,
 } from "./templatePreviewRegistry";
-
-function TemplateAssignPreview({ templateId }: { templateId: string }) {
-  const PreviewComp = TEMPLATE_PREVIEWS[templateId];
-  if (PreviewComp) return <PreviewComp thumbnailMode />;
-  return (
-    <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-xs text-gray-400">
-      {TEMPLATE_DESCRIPTIONS[templateId]?.title ?? templateId}
-    </div>
-  );
-}
+import HelpFakeTemplatePreview from "./helpDemoTemplatePreview";
 
 export default function TemplateChangePickerDemo({
   tab = "builtin",
@@ -126,7 +116,7 @@ export default function TemplateChangePickerDemo({
               {tab === "custom" ? (
                 <CustomTemplatePreview template={dummyCustomTemplates[0]} />
               ) : (
-                <TemplateAssignPreview templateId={templateChangeDraft} />
+                <HelpFakeTemplatePreview templateId={templateChangeDraft} />
               )}
             </div>
             <div className="px-3 py-2 bg-purple-50/80 flex items-center justify-between gap-2">
@@ -145,7 +135,6 @@ export default function TemplateChangePickerDemo({
             {tab === "builtin" ? (
               <div className="grid grid-cols-3 gap-4">
                 {builtInTemplates.map((template) => {
-                  const PreviewComp = TEMPLATE_PREVIEWS[template.id];
                   const desc = TEMPLATE_DESCRIPTIONS[template.id];
                   const isSel = templateChangeDraft === template.id;
                   return (
@@ -161,13 +150,7 @@ export default function TemplateChangePickerDemo({
                       }`}
                     >
                       <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                        {PreviewComp ? (
-                          <PreviewComp thumbnailMode />
-                        ) : (
-                          <div className="w-full min-h-[56px] bg-gray-100 flex items-center justify-center text-[10px] text-gray-400 px-1">
-                            {template.name}
-                          </div>
-                        )}
+                        <HelpFakeTemplatePreview templateId={template.id} thumbnail />
                         {template.new_template && (
                           <div className="absolute top-0.5 left-0.5 z-[1]">
                             <NewTemplateBadge />
