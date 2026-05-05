@@ -3,6 +3,120 @@ import type { MarketingPage } from "./seoTypes";
 
 export const resourcePages: MarketingPage[] = [
   createPage({
+    path: "/video-seo-checklist",
+    title: "Video SEO Checklist for Google and YouTube Rankings",
+    description:
+      "A practical video SEO checklist for ranking videos on Google, YouTube, Shorts, and embedded article pages.",
+    eyebrow: "Checklist",
+    heroTitle: "The video SEO checklist for ranking on Google and YouTube",
+    heroDescription:
+      "Use this checklist before publishing every repurposed blog video: keyword targeting, script structure, metadata, chapters, embeds, schema, thumbnails, and distribution links.",
+    category: "resource",
+    primaryKeyword: "video SEO checklist",
+    keywordVariant: "YouTube SEO checklist",
+    badges: ["Google video results", "YouTube metadata", "Repurposed blog videos"],
+    proofPoints: [
+      "Covers the full path from source article to published video, not just tags and titles.",
+      "Works for YouTube videos, embedded blog videos, Shorts, and product explainers.",
+      "Built as a linkable resource for SEO, content marketing, and repurposing resource pages.",
+    ],
+    workflowSteps: [
+      "Choose a source article with search intent, product relevance, or proven audience engagement.",
+      "Map the target video keyword, title angle, thumbnail promise, and first 30 seconds before editing.",
+      "Publish with optimized metadata, chapters, transcript, embed context, and VideoObject schema where possible.",
+      "Distribute the video back through the article, newsletter, social clips, and internal links.",
+    ],
+    sections: [
+      {
+        title: "Pre-production checklist",
+        body: [
+          "Video SEO starts before the file exists. The winning videos usually have a clear query, a visible promise, and a script that answers the viewer's question quickly.",
+        ],
+        bullets: [
+          "Pick one primary keyword and one secondary variation.",
+          "Confirm the search intent: tutorial, comparison, definition, review, or example.",
+          "Turn the first 30 seconds into a direct answer, not a slow introduction.",
+          "Plan the thumbnail and title together so they make one clear promise.",
+          "Use the original article headings as the first draft of the video structure.",
+        ],
+      },
+      {
+        title: "On-page and YouTube metadata checklist",
+        body: [
+          "Metadata should make the video easy for viewers and search engines to understand. Avoid keyword stuffing. The title, description, chapters, and surrounding page copy should all reinforce the same topic.",
+        ],
+        bullets: [
+          "Put the primary keyword or close variant in the title naturally.",
+          "Write a description that summarizes the outcome, links to the canonical article, and includes useful resources.",
+          "Add chapters with descriptive labels that match real sections of the video.",
+          "Upload or generate a clean transcript so the topic is machine-readable.",
+          "Use tags sparingly for variants, brand terms, and common misspellings.",
+        ],
+      },
+      {
+        title: "Embedded video SEO checklist",
+        body: [
+          "For blog-to-video workflows, the article page matters as much as the YouTube page. A strong embed gives Google more context and gives visitors another reason to stay.",
+        ],
+        bullets: [
+          "Embed the video near the section where it answers the reader's intent.",
+          "Add a short text summary below the embed for skimmers and crawlers.",
+          "Use VideoObject schema when you control the page markup.",
+          "Link from the video description back to the article and from the article back to the video.",
+          "Add internal links from related blog posts, use-case pages, and tool pages.",
+        ],
+      },
+      {
+        title: "Distribution checklist",
+        body: [
+          "A video has a better chance of ranking when it earns early engagement and sits inside a connected content system. Repurpose the same video into smaller assets instead of treating publish day as the finish line.",
+        ],
+        bullets: [
+          "Cut 3 to 5 short clips from the strongest moments.",
+          "Post one clip with a link to the canonical article or YouTube video.",
+          "Send the video in a newsletter with a short editorial note.",
+          "Add the video to relevant resource pages, comparison pages, and onboarding docs.",
+          "Refresh the original article if the video adds new examples or explanations.",
+        ],
+      },
+    ],
+    recommendedTemplate: "spotlight",
+    recommendedTemplateReason:
+      "Spotlight works well for SEO-focused explainers because it turns hooks, keywords, and proof points into clear high-retention scenes.",
+    faq: [
+      {
+        question: "What is video SEO?",
+        answer:
+          "Video SEO is the practice of making videos easier to discover, understand, and rank across YouTube, Google video results, embedded pages, and social platforms.",
+      },
+      {
+        question: "Does embedding a video help a blog post rank?",
+        answer:
+          "It can help when the video supports the page's search intent, keeps visitors engaged, and is surrounded by useful text, links, and structured data. The embed should strengthen the page rather than sit there as decoration.",
+      },
+      {
+        question: "Should every blog post become a video?",
+        answer:
+          "No. Prioritize posts with proven traffic, high commercial intent, strong tutorials, visual explanations, or topics where YouTube also shows demand.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/content-repurposing-calculator",
+      "/blog-to-youtube-video",
+      "/distribution-flywheel",
+      "/blogs/video-seo-ranking-traffic-blog2video",
+    ],
+    cta: {
+      title: "Turn the checklist into a repeatable video workflow",
+      body:
+        "Paste a finished article into Blog2Video, generate a narrated video, then use this checklist to publish it with stronger metadata, embeds, and distribution.",
+      primaryLabel: "Try Blog2Video free",
+      primaryHref: "/",
+      secondaryLabel: "Use the calculator",
+      secondaryHref: "/tools/content-repurposing-calculator",
+    },
+  }),
+  createPage({
     path: "/distribution-flywheel",
     title: "Blog2Video Distribution Flywheel for Medium, Substack, and Video",
     description:
