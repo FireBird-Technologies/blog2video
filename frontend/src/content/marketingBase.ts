@@ -160,6 +160,154 @@ export const templateProfiles: TemplateProfile[] = [
       "What the new rules mean for your sector",
     ],
   },
+  {
+    slug: "blackswan",
+    name: "BlackSwan",
+    description:
+      "A dark, cinematic template with fluid motion, neon-lit water effects, and dramatic storytelling energy.",
+    bestFor: "Cinematic narratives, brand films, high-stakes stories, and visually immersive content.",
+    differentiator:
+      "Delivers a full cinematic feel — fluid animations, neon water effects, and arc-driven layouts — without needing a film crew.",
+    styleFit: "Best for cinematic storytelling and content that demands visual drama.",
+    previewSceneKey: "preview-blackswan",
+    layouts: [
+      "droplet_intro",
+      "neon_narrative",
+      "arc_features",
+      "flight_path",
+      "dive_insight",
+      "signal_split",
+      "pulse_metric",
+      "reactor_code",
+      "ending_socials",
+    ],
+    longDescription:
+      "BlackSwan is a cinematic dark template built for content that needs to feel visually immersive and emotionally resonant. Fluid neon-water animations, glowing arc shapes, and bird-in-flight motion create a sense of scale and drama that most AI video templates can't match. Layouts like Droplet Intro, Neon Narrative, Flight Path, and Dive Insight are designed for storytelling-first content — brand films, long-form explainers, and high-stakes narratives where the visual intensity matches the weight of the message.",
+    idealFor: [
+      "Brand films and company story videos",
+      "High-stakes product or technology narratives",
+      "Cinematic explainers and long-form storytelling",
+      "Event recaps and keynote highlight reels",
+      "Founder manifestos and vision statements",
+    ],
+    exampleTopics: [
+      "Why we built this company from nothing",
+      "The technology that changes everything",
+      "A cinematic look at five years of product evolution",
+    ],
+  },
+  {
+    slug: "mosaic",
+    name: "Mosaic",
+    description:
+      "A bold, art-forward template that fragments visuals into tiled compositions with expressive typography.",
+    bestFor: "Creative content, art direction, culture writing, design showcases, and editorial pieces.",
+    differentiator:
+      "Turns written content into an art-directed visual experience — fragmented image tiles, kinetic text, and expressive color work together to feel designed rather than generated.",
+    styleFit: "Best for art, design, culture, and creatively-led content.",
+    previewSceneKey: "preview-mosaic",
+    layouts: [
+      "mosaic_title",
+      "mosaic_text",
+      "mosaic_phrases",
+      "mosaic_stream",
+      "mosaic_punch",
+      "mosaic_metric",
+      "mosaic_close",
+      "ending_socials",
+    ],
+    longDescription:
+      "Mosaic is an art-forward template that fragments images into tiled compositions and pairs them with expressive kinetic typography. The template is built for content where visual identity matters as much as the message — design showcases, culture writing, editorial art direction, and creative campaigns. Layouts like Mosaic Phrases, Mosaic Stream, and Mosaic Punch prioritize rhythm and visual flow, making the final video feel like a designed artifact rather than an auto-generated slide deck.",
+    idealFor: [
+      "Art and design showcases",
+      "Culture, fashion, and lifestyle editorial content",
+      "Creative agency and portfolio pieces",
+      "Music, film, and entertainment content",
+      "Brand identity and campaign storytelling",
+    ],
+    exampleTopics: [
+      "The design principles behind our rebrand",
+      "How street culture shapes modern product aesthetics",
+      "Five artists redefining visual storytelling in 2025",
+    ],
+  },
+  {
+    slug: "bloomberg",
+    name: "Bloomberg",
+    description:
+      "A terminal-style financial template with live-data aesthetics, ticker chrome, and market-desk authority.",
+    bestFor: "Finance content, market analysis, economic explainers, and data-driven business reporting.",
+    differentiator:
+      "Gives financial and data-heavy content the visual authority of a professional trading terminal — ticker feeds, dashboard panels, and chart overlays without the custom build cost.",
+    styleFit: "Best for finance, economics, business data, and market reporting.",
+    previewSceneKey: "preview-bloomberg",
+    layouts: [
+      "terminal_boot",
+      "terminal_narrative",
+      "terminal_metric",
+      "terminal_chart",
+      "terminal_dashboard",
+      "terminal_list",
+      "terminal_split",
+      "terminal_table",
+      "terminal_ticker",
+      "terminal_data_viz",
+      "terminal_profile",
+      "terminal_options",
+      "ending_socials",
+    ],
+    longDescription:
+      "Bloomberg is a terminal-style template that brings the visual language of professional financial media to video content. Dark backgrounds, amber-on-black monospace data panels, live-market ticker chrome, and chart overlays create an aesthetic that immediately signals credibility to finance audiences. Layouts cover the full range of financial storytelling — from Terminal Boot and Narrative panels to Metric dashboards, Chart overlays, Split comparisons, Table data views, and Ticker feeds — so market analysis, economic explainers, and data-heavy business reporting all render with appropriate authority.",
+    idealFor: [
+      "Market analysis and financial commentary",
+      "Economic explainers and macro trend breakdowns",
+      "Earnings reports and company performance recaps",
+      "Investment thesis and portfolio strategy content",
+      "Fintech product and API explainers",
+    ],
+    exampleTopics: [
+      "Q3 earnings breakdown: what the numbers actually mean",
+      "Why the yield curve inversion matters for your portfolio",
+      "How central bank policy shapes startup valuations",
+    ],
+  },
+  {
+    slug: "chronicle",
+    name: "Chronicle",
+    description:
+      "A richly textured historical template with parchment, wax seals, illuminated drop caps, and archival gravitas.",
+    bestFor: "History content, long-form narrative journalism, biographical storytelling, and archival research.",
+    differentiator:
+      "Wraps written history and narrative journalism in a visual system that feels genuinely archival — illuminated manuscripts, embossed imagery, book-page transitions, and quill-ink motion give the content earned gravitas.",
+    styleFit: "Best for history, biography, long-form narrative, and archival storytelling.",
+    previewSceneKey: "preview-chronicle",
+    layouts: [
+      "book_open",
+      "parchment_scroll",
+      "chapter_plate",
+      "chronicle_timeline",
+      "illuminated_quote",
+      "ledger_stats",
+      "map_reveal",
+      "decree_seal",
+      "versus_folio",
+      "ending_socials",
+    ],
+    longDescription:
+      "Chronicle is a historically-styled template that draws from illuminated manuscripts, archival documents, and antique cartography to create a visual language appropriate for serious historical and biographical content. Parchment textures, wax seal transitions, embossed imagery, ornamental borders, and quill-ink animations give the template a sense of earned authority. Layouts like Book Open, Chronicle Timeline, Map Reveal, and Decree Seal are purpose-built for narrative history, long-form journalism, and biographical storytelling where the visual weight should match the depth of the content.",
+    idealFor: [
+      "Historical analysis and documentary-style content",
+      "Biographical profiles and life-story narratives",
+      "Long-form narrative journalism",
+      "Academic and archival research explainers",
+      "Heritage, culture, and tradition storytelling",
+    ],
+    exampleTopics: [
+      "The rise and fall of the Roman grain trade",
+      "Ada Lovelace: the first programmer the world forgot",
+      "How the Silk Road shaped the modern global economy",
+    ],
+  },
 ];
 
 export const templateBySlug = Object.fromEntries(
