@@ -1,24 +1,14 @@
 import { useState, useEffect } from "react";
-import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
-import GridcraftPreview from "./templatePreviews/GridcraftPreview";
-import SpotlightPreview from "./templatePreviews/SpotlightPreview";
-import MatrixPreview from "./templatePreviews/MatrixPreview";
-import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
-import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
-import BlackswanPreview from "./templatePreviews/BlackswanPreview";
 import BloombergPreview from "./templatePreviews/BloombergPreview";
-import ChroniclePreview from "./templatePreviews/ChroniclePreview";
-import MosaicPreview from "./templatePreviews/MosaicPreview";
+import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
 import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
-import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
+import BloombergPreviewPortrait from "./templatePreviews/portrait/BloombergPreviewPortrait";
 import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
-import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
 import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
 
-
-type TemplateId = "nightfall" | "newscast" | "whiteboard" | "spotlight" | "gridcraft" | "bloomberg" | "chronicle" | "blackswan" | "mosaic" | "matrix" | "newspaper" | "default";
+type TemplateId = "nightfall" | "newscast" | "bloomberg" | "whiteboard";
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -42,40 +32,10 @@ const TEMPLATES: TemplateInfo[] = [
     hasPortrait: true,
   },
   {
-    id: "spotlight",
-    name: "Spotlight",
-    description: "Bold kinetic typography that puts headlines and numbers at center stage — built for YouTube explainers, promotional clips, and short-form hooks.",
-    hasPortrait: true,
-  },
-  {
-    id: "gridcraft",
-    name: "Gridcraft",
-    description: "Warm bento-style editorial layouts with cards, metrics, and clear hierarchy — perfect for comparisons, listicles, and data-driven stories.",
-    hasPortrait: true,
-  },
-  {
     id: "bloomberg",
     name: "Bloomberg",
     description: "Terminal-style financial template with amber-on-dark panels, ticker chrome, and market-desk authority — ideal for finance, economics, and data-heavy reporting.",
-    hasPortrait: false,
-  },
-  {
-    id: "chronicle",
-    name: "Chronicle",
-    description: "Richly textured historical template with parchment, wax seals, and illuminated drop caps — built for history essays, biographies, and long-form narrative journalism.",
-    hasPortrait: false,
-  },
-  {
-    id: "blackswan",
-    name: "BlackSwan",
-    description: "Dark cinematic template with fluid neon-water motion and dramatic arc layouts — built for brand films, high-stakes narratives, and visually immersive storytelling.",
-    hasPortrait: false,
-  },
-  {
-    id: "mosaic",
-    name: "Mosaic",
-    description: "Art-forward fragmented tile compositions with expressive kinetic typography — built for creative, culture, and design-led content.",
-    hasPortrait: false,
+    hasPortrait: true,
   },
   {
     id: "whiteboard",
@@ -83,47 +43,20 @@ const TEMPLATES: TemplateInfo[] = [
     description: "Hand-drawn marker animations on a cream canvas. Stick figures and story-beat layouts ideal for educational content.",
     hasPortrait: true,
   },
-  {
-    id: "matrix",
-    name: "Matrix",
-    description: "Glitch-forward cyberpunk terminal aesthetic with green-on-black monospace and typewriter animations — perfect for developer content and technical deep dives.",
-    hasPortrait: false,
-  },
-  {
-    id: "newspaper",
-    name: "Newspaper",
-    description: "Editorial news format with serif headlines, drop caps, and timelines — great for newsletters, current-events analysis, and commentary.",
-    hasPortrait: false,
-  },
-  {
-    id: "default",
-    name: "Geometric",
-    description: "Clean geometric explainer with deliberate hierarchy and diagram-friendly layouts — built for tutorials, walkthroughs, and technical lessons.",
-    hasPortrait: false,
-  },
 ];
 
 const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   nightfall: NightfallPreview,
   newscast: NewscastPreview,
-  spotlight: SpotlightPreview,
-  gridcraft: GridcraftPreview,
   bloomberg: BloombergPreview,
-  chronicle: ChroniclePreview,
-  blackswan: BlackswanPreview,
-  mosaic: MosaicPreview,
   whiteboard: WhiteboardPreview,
-  matrix: MatrixPreview,
-  newspaper: NewsPaperPreview,
-  default: DefaultPreview,
 };
 
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
   newscast: NewscastPreviewPortrait,
-  spotlight: SpotlightPreviewPortrait,
+  bloomberg: BloombergPreviewPortrait,
   whiteboard: WhiteboardPreviewPortrait,
-  gridcraft: GridcraftPreviewPortrait,
 };
 
 type InputMode = "url" | "bulk" | "upload";
