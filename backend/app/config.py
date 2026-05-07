@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     R2_PUBLIC_URL: str = ""  # e.g. https://media.yourdomain.com or https://pub-xxx.r2.dev
     R2_KEY_PREFIX: str = ""  # Set to "dev" (or any string) locally to avoid overwriting production R2 data
 
+    # Crafted templates (separate from built-ins and user custom templates)
+    CRAFTED_TEMPLATES_ENABLED: bool = False
+    CRAFTED_TEMPLATE_ADMIN_EMAILS: str = ""  # comma-separated emails allowed to publish/grant
+    CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
+    CRAFTED_TEMPLATE_CACHE_TTL_SECONDS: int = 86400
+    CRAFTED_TEMPLATE_MAX_PACKAGE_BYTES: int = 25 * 1024 * 1024
+    CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 2 * 1024 * 1024
+
     # Render reliability/progress controls
     RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))
     RENDER_STALL_SECONDS: int = int(os.environ.get("RENDER_STALL_SECONDS", "300"))

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import ReactDOM from "react-dom";
 import {
@@ -15,6 +15,7 @@ import {
   LayoutInfo,
 } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import { useNavigate } from "react-router-dom";
 import UpgradePlanModal from "./UpgradePlanModal";
@@ -28,6 +29,171 @@ import { getImageBoxAspectRatio, normalizeLayoutId } from "./remotion/imageBoxCo
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
 import { OHLCVTableEditor } from "./OHLCVTableEditor";
+
+type CraftedImageBoxEntry = string | { landscape?: string; portrait?: string } | undefined;
+
+type CraftedImageBoxConfig = {
+  default?: CraftedImageBoxEntry;
+  layouts?: Record<string, CraftedImageBoxEntry>;
+} & Record<string, unknown>;
+
+type FontSizePair = { title: number; desc: number };
+type CraftedFontSizeLeaf = {
+  title?: number;
+  desc?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+};
+type CraftedFontSizeEntry = CraftedFontSizeLeaf | {
+  landscape?: CraftedFontSizeLeaf;
+  portrait?: CraftedFontSizeLeaf;
+};
+type CraftedFontSizeConfig = {
+  default?: CraftedFontSizeEntry;
+  layouts?: Record<string, CraftedFontSizeEntry>;
+} & Record<string, unknown>;
+
+const CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES = [
+  "frontend/imageBoxConfig.json",
+  "imageBoxConfig.json",
+  "frontend/config/imageBoxConfig.json",
+];
+const CRAFTED_FONT_SIZE_CONFIG_CANDIDATES = [
+  "frontend/fontSizeDefaults.json",
+  "frontend/fontDefaults.json",
+  "fontSizeDefaults.json",
+  "fontDefaults.json",
+  "frontend/config/fontSizeDefaults.json",
+];
+
+const _normalizeLayoutKey = (layoutId: string | null): string => {
+  return String(layoutId || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+};
+
+const _pickCraftedAr = (
+  entry: CraftedImageBoxEntry,
+  orientation: "landscape" | "portrait",
+): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    const v = entry.trim();
+    return v || null;
+  }
+  const v = (entry[orientation] || entry.landscape || entry.portrait || "").trim();
+  return v || null;
+};
+
+const _resolveCraftedImageBoxArFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): string | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_IMAGE_BOX_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedImageBoxConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedImageBoxConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+
+  const directRecord = parsed as Record<string, CraftedImageBoxEntry>;
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedAr(hit, orientation);
+};
+
+const _toFiniteFontNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
+const _pickCraftedFontPair = (
+  entry: CraftedFontSizeEntry | undefined,
+  orientation: "landscape" | "portrait",
+): FontSizePair | null => {
+  if (!entry || typeof entry !== "object") return null;
+  const e = entry as Record<string, unknown>;
+  const oriented =
+    ((e[orientation] as Record<string, unknown> | undefined) || (e.landscape as Record<string, unknown> | undefined) || (e.portrait as Record<string, unknown> | undefined) || e);
+  const title =
+    _toFiniteFontNumber(oriented.title) ??
+    _toFiniteFontNumber(oriented.titleFontSize);
+  const desc =
+    _toFiniteFontNumber(oriented.desc) ??
+    _toFiniteFontNumber(oriented.descriptionFontSize);
+  if (title == null && desc == null) return null;
+  return {
+    title: Math.round(title ?? 44),
+    desc: Math.round(desc ?? 24),
+  };
+};
+
+const _resolveCraftedFontDefaultsFromFiles = (
+  filesMap: Record<string, string> | null,
+  layoutId: string | null,
+  aspectRatio: string | null | undefined,
+): FontSizePair | null => {
+  if (!filesMap) return null;
+  const orientation: "landscape" | "portrait" = aspectRatio === "portrait" ? "portrait" : "landscape";
+  let configRaw: string | null = null;
+  for (const p of CRAFTED_FONT_SIZE_CONFIG_CANDIDATES) {
+    if (typeof filesMap[p] === "string" && filesMap[p].trim()) {
+      configRaw = filesMap[p];
+      break;
+    }
+  }
+  if (!configRaw) return null;
+
+  let parsed: CraftedFontSizeConfig | null = null;
+  try {
+    parsed = JSON.parse(configRaw) as CraftedFontSizeConfig;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const rawLayout = _normalizeLayoutKey(layoutId);
+  const normalizedAlias = _normalizeLayoutKey(layoutId ? normalizeLayoutId(layoutId) : null);
+  const byLayouts = parsed.layouts && typeof parsed.layouts === "object"
+    ? parsed.layouts
+    : null;
+  const directRecord = parsed as Record<string, CraftedFontSizeEntry>;
+
+  const hit =
+    (byLayouts && (byLayouts[rawLayout] ?? byLayouts[normalizedAlias])) ??
+    directRecord[rawLayout] ??
+    directRecord[normalizedAlias] ??
+    parsed.default;
+
+  return _pickCraftedFontPair(hit, orientation);
+};
 
 /** Layout default font sizes: [portrait, landscape] or single number for both. */
 const LAYOUT_FONT_DEFAULTS: Record<string, Record<string, { title: number | [number, number]; desc?: number | [number, number] }>> = {
@@ -1524,6 +1690,7 @@ export default function SceneEditModal({
   const canUseAI = isPro || aiUsageCount < 3;
 
   const isCustomTemplate = (project.template || "").startsWith("custom_");
+  const isCraftedTemplate = (project.template || "").startsWith("crafted_");
   const normalizedTemplateId = (project.template || "default").toLowerCase();
   const isNewscastTemplate = normalizedTemplateId === "newscast" || normalizedTemplateId === "newsreport";
   const isNightfallTemplate = normalizedTemplateId === "nightfall";
@@ -1573,8 +1740,19 @@ export default function SceneEditModal({
     return sorted.length > 1 && sorted[sorted.length - 1].id === scene.id;
   })();
   const isEndingScene = currentLayoutId === "ending_socials" || isCustomOutro;
+  const [craftedFrontendFiles, setCraftedFrontendFiles] = useState<Record<string, string> | null>(null);
+  const { craftedTemplates } = useCraftedTemplates();
+  const craftedDefaultFontSizes = useMemo(() => {
+    if (!isCraftedTemplate) return null;
+    return _resolveCraftedFontDefaultsFromFiles(
+      craftedFrontendFiles,
+      currentLayoutId,
+      project.aspect_ratio || "landscape",
+    );
+  }, [isCraftedTemplate, craftedFrontendFiles, currentLayoutId, project.aspect_ratio]);
 
   const defaultFontSizes =
+    craftedDefaultFontSizes ??
     getDefaultFontSizesFromSchema(
       layouts?.layout_prop_schema,
       currentLayoutId,
@@ -1864,12 +2042,19 @@ export default function SceneEditModal({
       } catch { /* ignore */ }
     }
     setEditableStructuredContent(scInit);
+    const craftedDefaults = isCraftedTemplate
+      ? _resolveCraftedFontDefaultsFromFiles(
+          craftedFrontendFiles,
+          layoutId,
+          project.aspect_ratio || "landscape",
+        )
+      : null;
     const schemaDefaults = getDefaultFontSizesFromSchema(
       layouts?.layout_prop_schema,
       layoutId,
       project.aspect_ratio || "landscape"
     );
-    const defaults = schemaDefaults ?? getDefaultFontSizes(
+    const defaults = craftedDefaults ?? schemaDefaults ?? getDefaultFontSizes(
       project.template || "default",
       layoutId,
       project.aspect_ratio || "landscape"
@@ -1878,7 +2063,16 @@ export default function SceneEditModal({
     if (!ds) ds = String(defaults.desc);
     setTitleFontSize(ts);
     setDescriptionFontSize(ds);
-  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, openImageAdjustOnOpen]);
+  }, [open, scene.id, scene.title, scene.remotion_code, scene.extra_hold_seconds, project.template, project.aspect_ratio, project.blog_url, layouts?.layout_prop_schema, craftedFrontendFiles, isCraftedTemplate, openImageAdjustOnOpen]);
+
+  useEffect(() => {
+    if (!open || !isCraftedTemplate || !project.template) {
+      setCraftedFrontendFiles(null);
+      return;
+    }
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    setCraftedFrontendFiles((found?.frontend_files as Record<string, string> | null) || null);
+  }, [open, isCraftedTemplate, project.template, craftedTemplates]);
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
@@ -2516,6 +2710,23 @@ export default function SceneEditModal({
     let ar: string;
     if (project.template?.startsWith("custom_")) {
       ar = resolveCustomImageBoxAr(scene, project);
+    } else if (isCraftedTemplate) {
+      const craftedAr = _resolveCraftedImageBoxArFromFiles(
+        craftedFrontendFiles,
+        currentLayoutId,
+        project.aspect_ratio || "landscape",
+      );
+      if (craftedAr) {
+        ar = craftedAr;
+      } else {
+        const templateCfg = getTemplateConfig(project.template || "default");
+        ar = getImageBoxAspectRatio(
+          currentLayoutId ? normalizeLayoutId(currentLayoutId) : null,
+          project.aspect_ratio || "landscape",
+          templateCfg.baseWidth,
+          templateCfg.baseHeight,
+        );
+      }
     } else {
       const templateCfg = getTemplateConfig(project.template || "default");
       ar = getImageBoxAspectRatio(
