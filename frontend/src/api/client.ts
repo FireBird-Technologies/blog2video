@@ -437,6 +437,45 @@ export interface LayoutPropSchema {
 export const getTemplates = (style?: string) =>
   api.get<TemplateMeta[]>(style ? `/templates?style=${encodeURIComponent(style)}` : "/templates");
 
+export interface TemplateAvailabilitySignal {
+  has_custom_templates: boolean;
+  has_crafted_templates: boolean;
+}
+
+export const getTemplateAvailabilitySignal = () =>
+  api.get<TemplateAvailabilitySignal>("/projects/template-availability");
+
+export interface CraftedTemplateItem {
+  id: string;
+  name: string;
+  description?: string;
+  styles?: string[];
+  preview_colors?: { accent: string; bg: string; text: string };
+  composition_id?: string;
+  hero_layout?: string;
+  fallback_layout?: string;
+  valid_layouts?: string[];
+  layouts_without_image?: string[];
+  layout_prop_schema?: Record<string, LayoutPropSchema>;
+  theme?: CustomTemplateTheme;
+  intro_code?: string | null;
+  outro_code?: string | null;
+  content_codes?: string[] | null;
+  content_archetype_ids?: (string | { id: string; best_for?: string[] })[] | null;
+  frontend_files?: Record<string, string> | null;
+  frontend_entry_rel?: string | null;
+  frontend_layout_index_rel?: string | null;
+  frontend_mount_id?: string | null;
+  preview_image_url?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export const listCraftedTemplates = () =>
+  api.get<CraftedTemplateItem[]>("/crafted-templates");
+
 export interface AspectValue {
   portrait: number;
   landscape: number;

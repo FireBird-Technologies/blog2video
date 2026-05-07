@@ -8,11 +8,13 @@ import {
   generateTemplateCode,
   type CustomTemplateItem,
 } from "../api/client";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { sendCustomTemplateRequest } from "../api/enterprise";
 import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
+import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 
 const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
@@ -244,7 +246,9 @@ function CustomTemplateRequestModal({
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
+  const [activeTemplatesTab, setActiveTemplatesTab] = useState<"custom" | "crafted">("custom");
   const [loaded, setLoaded] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
   const [creatorKey, setCreatorKey] = useState(0);
@@ -264,6 +268,7 @@ export default function CustomTemplates() {
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const readyCraftedTemplates = craftedTemplates.filter((ct) => !!ct.theme);
 
   useEffect(() => {
     loadTemplates();
@@ -429,7 +434,7 @@ export default function CustomTemplates() {
   };
 
   // ─── Empty state ──────────────────────────────────────────
-  if (loaded && templates.length === 0) {
+  if (loaded && templates.length === 0 && readyCraftedTemplates.length === 0) {
     return (
       <>
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -510,36 +515,63 @@ export default function CustomTemplates() {
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Custom Templates
-            <span className="text-sm font-normal text-gray-400 ml-2">({templates.length})</span>
-          </h2>
-          <div className="flex items-center gap-4">
-            {/* Primary Action */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {activeTemplatesTab === "custom" ? "Custom Templates" : "Expert Customized Templates"}
+              <span className="text-sm font-normal text-gray-400 ml-2">
+                ({activeTemplatesTab === "custom" ? templates.length : readyCraftedTemplates.length})
+              </span>
+            </h2>
+            <div className="flex items-center gap-4">
+              {activeTemplatesTab === "custom" && (
+                <button
+                  onClick={() => {
+                    setCreatorInitialVideoStyle(undefined);
+                    setCreatorKey((k) => k + 1);
+                    setShowCreator(true);
+                  }}
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+                >
+                  Create New +
+                </button>
+              )}
+              <button
+                onClick={openRequestForm}
+                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+              >
+                Get Expert Template
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
             <button
-              onClick={() => {
-                setCreatorInitialVideoStyle(undefined);
-                setCreatorKey((k) => k + 1);
-                setShowCreator(true);
-              }}
-              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+              type="button"
+              onClick={() => setActiveTemplatesTab("custom")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeTemplatesTab === "custom"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
             >
-              Create New +
+              Custom
             </button>
-
-            {/* Secondary Action */}
             <button
-              onClick={openRequestForm}
-              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+              type="button"
+              onClick={() => setActiveTemplatesTab("crafted")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeTemplatesTab === "crafted"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
             >
-              Get Expert Template
+              Expert Customized
             </button>
           </div>
         </div>
 
         {/* Grid */}
-        {!loaded ? (
+        {activeTemplatesTab === "custom" && !loaded ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="glass-card p-4 animate-pulse">
@@ -549,7 +581,7 @@ export default function CustomTemplates() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : activeTemplatesTab === "custom" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((tpl) => (
               <div key={tpl.id} className="glass-card overflow-hidden group">
@@ -690,6 +722,67 @@ export default function CustomTemplates() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : craftedTemplatesLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="glass-card p-4 animate-pulse">
+                <div className="w-full aspect-video bg-gray-200 rounded-lg mb-3" />
+                <div className="h-4 bg-gray-200 rounded w-2/3 mb-2" />
+                <div className="h-3 bg-gray-100 rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        ) : readyCraftedTemplates.length === 0 ? (
+          <div className="glass-card p-10 text-center">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">No expert customized templates yet</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Request an expert customized template and it will appear here once assigned to your account.
+            </p>
+            <button
+              onClick={openRequestForm}
+              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
+            >
+              Get Expert Template
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {readyCraftedTemplates.map((tpl) => {
+              const styleId = normalizeVideoStyle((tpl.styles?.[0] || "storytelling") as string);
+              return (
+                <div key={tpl.id} className="glass-card overflow-hidden">
+                  <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
+                    <CustomPreviewLandscape
+                      theme={tpl.theme!}
+                      name={tpl.name}
+                      introCode={tpl.intro_code || undefined}
+                      outroCode={tpl.outro_code || undefined}
+                      contentCodes={tpl.content_codes || undefined}
+                      contentArchetypeIds={tpl.content_archetype_ids || undefined}
+                      validLayouts={tpl.valid_layouts || undefined}
+                      frontendFiles={tpl.frontend_files || undefined}
+                      frontendEntryRel={tpl.frontend_entry_rel || undefined}
+                      previewImageUrl={tpl.preview_image_url}
+                      logoUrls={tpl.logo_urls || undefined}
+                      ogImage={tpl.og_image || undefined}
+                      showLoaderOnEmptyOrError
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate mb-1">{tpl.name}</h3>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-medium">
+                        Expert Customized
+                      </span>
+                      <span className="shrink-0 px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">
+                        {STYLE_LABELS[styleId] ?? styleId}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

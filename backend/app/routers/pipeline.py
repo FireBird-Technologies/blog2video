@@ -75,9 +75,13 @@ from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
     get_valid_layouts,
+    get_hero_layout,
+    get_fallback_layout,
     is_custom_template,
+    is_crafted_template,
     _load_custom_template_data,
 )
+from app.services.crafted_template_service import validate_crafted_template_access
 from app.services.email import email_service, EmailServiceError
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["pipeline"])
@@ -103,6 +107,94 @@ _pipelines_failed = _meter.create_counter(
     unit="1",
     description="Number of pipelines that failed",
 )
+
+
+def _descriptor_layout_name(template_id: str, descriptor: dict) -> str | None:
+    """Extract effective layout from descriptor payload."""
+    if is_custom_template(template_id):
+        cfg = descriptor.get("layoutConfig") if isinstance(descriptor, dict) else None
+        if isinstance(cfg, dict):
+            name = cfg.get("arrangement")
+            return name if isinstance(name, str) else None
+        return None
+    name = descriptor.get("layout") if isinstance(descriptor, dict) else None
+    return name if isinstance(name, str) else None
+
+
+def _normalize_layout_id(value: str | None) -> str:
+    return (value or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _sanitize_script_layouts(
+    template_id: str,
+    scenes_raw: list[dict],
+    *,
+    include_ending_socials: bool,
+) -> list[dict]:
+    """Ensure script-stage preferred_layout is valid + diverse for template.
+
+    - Keeps only template-valid layout IDs.
+    - Forces hero layout on first scene and ending_socials only on last scene (when enabled).
+    - Replaces invalid/random picks with diverse valid alternatives.
+    """
+    if not scenes_raw:
+        return scenes_raw
+    if is_custom_template(template_id):
+        return scenes_raw
+
+    valid = {x for x in get_valid_layouts(template_id) if isinstance(x, str) and x.strip()}
+    if not valid:
+        return scenes_raw
+
+    hero_layout = _normalize_layout_id(get_hero_layout(template_id))
+    fallback_layout = _normalize_layout_id(get_fallback_layout(template_id))
+    if fallback_layout not in valid:
+        fallback_layout = next(iter(valid))
+
+    supports_ending = "ending_socials" in valid and include_ending_socials
+    last_idx = len(scenes_raw) - 1
+    usage: dict[str, int] = {}
+    prev_layout: str | None = None
+
+    def _pick_diverse(exclude: set[str] | None = None) -> str:
+        banned = set(exclude or set())
+        candidates = [l for l in valid if l not in banned]
+        if not candidates:
+            candidates = list(valid)
+        # least-used first, deterministic tie-breaker by name
+        candidates.sort(key=lambda l: (usage.get(l, 0), l))
+        return candidates[0] if candidates else fallback_layout
+
+    for i, scene in enumerate(scenes_raw):
+        desired = _normalize_layout_id(scene.get("preferred_layout"))
+        if i == 0 and hero_layout in valid:
+            desired = hero_layout
+        elif supports_ending and i == last_idx:
+            desired = "ending_socials"
+        elif desired not in valid:
+            desired = ""
+        elif desired == "ending_socials":
+            # ending_socials is reserved for final scene only.
+            desired = ""
+
+        if not desired:
+            excludes = set()
+            if prev_layout:
+                excludes.add(prev_layout)
+            if supports_ending:
+                excludes.add("ending_socials")
+            desired = _pick_diverse(excludes)
+
+        # Try to avoid consecutive duplicates even when valid was provided.
+        if prev_layout and desired == prev_layout and i != 0 and not (supports_ending and i == last_idx):
+            alt = _pick_diverse({prev_layout, "ending_socials"} if supports_ending else {prev_layout})
+            desired = alt or desired
+
+        scene["preferred_layout"] = desired
+        usage[desired] = usage.get(desired, 0) + 1
+        prev_layout = desired
+
+    return scenes_raw
 
 
 # ─── Single async generate endpoint ──────────────────────────
@@ -496,9 +588,13 @@ async def _generate_script(project: Project, db: Session):
     hero_image = image_paths[0] if image_paths else ""
 
     # Determine template and load its layout prompt (layout-only catalog).
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     try:
-        layout_catalog = get_layout_prompt(template_id)
+        layout_catalog = get_layout_prompt(template_id, db=db, user_id=project.user_id)
     except Exception:
         layout_catalog = ""
 
@@ -769,6 +865,11 @@ async def _generate_script(project: Project, db: Session):
 
     # Template-aware display text generation (second LLM call — still no DB held)
     scenes_raw: list[dict] = result["scenes"]
+    scenes_raw = _sanitize_script_layouts(
+        template_id,
+        scenes_raw,
+        include_ending_socials=include_ending_socials,
+    )
     display_gen = DisplayTextGenerator(template_id, video_style=video_style, content_language=content_language)
     display_texts = await display_gen.generate_for_scenes(scenes_raw)
 
@@ -918,7 +1019,11 @@ async def _generate_scenes(project: Project, db: Session):
 
     # Prepare scene descriptor generator
     db.refresh(project)
-    template_id = validate_template_id(project.template if project.template else "default")
+    template_id = validate_template_id(
+        project.template if project.template else "default",
+        db=db,
+        user_id=project.user_id,
+    )
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
     scene_gen = TemplateSceneGenerator(template_id)
@@ -1119,6 +1224,9 @@ async def _generate_scenes(project: Project, db: Session):
             except (json.JSONDecodeError, TypeError):
                 pass
         scene.remotion_code = json.dumps(descriptor)
+        resolved_layout = _descriptor_layout_name(template_id, descriptor)
+        if resolved_layout:
+            scene.preferred_layout = resolved_layout
         if has_layout_config:
             lc = descriptor["layoutConfig"]
             logger.info(
@@ -1336,10 +1444,19 @@ async def render_video_endpoint(
             "r2_video_url": project.r2_video_url,
         }
 
-    if is_custom_template(project.template) and _load_custom_template_data(project.template, db=db) is None:
+    if (is_custom_template(project.template) or is_crafted_template(project.template)) and _load_custom_template_data(
+        project.template,
+        db=db,
+        user_id=project.user_id,
+    ) is None:
         raise HTTPException(
             status_code=409,
-            detail="This project uses a deleted custom template. Rendering is blocked because the template no longer exists.",
+            detail="This project uses a missing template. Rendering is blocked because the template is unavailable.",
+        )
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, project.user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="This project no longer has access to its crafted template.",
         )
 
     # Align per-video credits with Stripe (same as project creation) before any limit check.
@@ -1678,4 +1795,9 @@ def _get_project(project_id: int, user_id: int, db: Session) -> Project:
     )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if is_crafted_template(project.template) and not validate_crafted_template_access(project.template, user_id, db):
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this project's crafted template has been revoked.",
+        )
     return project

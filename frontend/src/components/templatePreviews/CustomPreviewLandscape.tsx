@@ -367,9 +367,14 @@ interface Props {
   outroCode?: string;
   contentCodes?: string[];
   contentArchetypeIds?: (string | { id: string; best_for?: string[] })[];
+  validLayouts?: string[] | null;
+  frontendFiles?: Record<string, string> | null;
+  frontendEntryRel?: string | null;
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
+  showLoaderOnEmptyOrError?: boolean;
+  thumbnailFrame?: number;
   thumbnailMode?: boolean;
 }
 
@@ -380,15 +385,22 @@ export default function CustomPreviewLandscape({
   outroCode,
   contentCodes,
   contentArchetypeIds,
+  validLayouts,
+  frontendFiles,
+  frontendEntryRel,
   previewImageUrl,
   logoUrls,
   ogImage,
+  showLoaderOnEmptyOrError = false,
+  thumbnailFrame = 135,
   thumbnailMode = false,
 }: Props) {
-  // If we have actual generated scene code, use CustomPreview (real scenes)
-  const hasGeneratedCode = !!(introCode || (contentCodes && contentCodes.length > 0));
+  // Prefer runtime preview when either generated scene snippets or frontend module graph exists.
+  const hasRuntimePreview =
+    !!(introCode || (contentCodes && contentCodes.length > 0)) ||
+    !!(frontendFiles && Object.keys(frontendFiles).length > 0 && frontendEntryRel);
 
-  if (hasGeneratedCode) {
+  if (hasRuntimePreview) {
     return (
       <CustomPreview
         theme={theme}
@@ -397,9 +409,14 @@ export default function CustomPreviewLandscape({
         outroCode={outroCode}
         contentCodes={contentCodes}
         contentArchetypeIds={contentArchetypeIds}
+        validLayouts={validLayouts}
+        frontendFiles={frontendFiles}
+        frontendEntryRel={frontendEntryRel}
         previewImageUrl={previewImageUrl}
         logoUrls={logoUrls}
         ogImage={ogImage}
+        showLoaderOnEmptyOrError={showLoaderOnEmptyOrError}
+        thumbnailFrame={thumbnailFrame}
         thumbnailMode={thumbnailMode}
       />
     );

@@ -7,13 +7,20 @@ import {
   Sequence,
   Audio,
 } from "remotion";
-import { BACKEND_URL, Project, getTemplateCode } from "../api/client";
+import {
+  BACKEND_URL,
+  Project,
+  getTemplateCode,
+  type CraftedTemplateItem,
+} from "../api/client";
+import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
 import { getPlaybackSpeed, getSceneDurationFrames } from "./remotion/playbackSpeed";
 import { computeChronicleVideoTotalFrames } from "./remotion/chronicle/ChronicleVideoComposition";
 import {
   compileComponentCode,
+  compileModuleGraphEntry,
   type SceneProps,
 } from "../utils/compileComponent";
 import { LogoOverlay } from "./remotion/LogoOverlay";
@@ -523,10 +530,95 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   ref
 ) {
   const templateId = normalizeBuiltInTemplateId(project.template);
-  const config = useMemo(() => getTemplateConfig(templateId), [templateId]);
-  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
-
   const isCustom = templateId.startsWith("custom_");
+  const isCrafted = templateId.startsWith("crafted_");
+  const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
+
+  // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
+  // Crafted templates use the same data shape as a built-in (scenes with a
+  // `layout` string), but the composition lives in R2 instead of the repo.
+  // We pull the matching entry from /crafted-templates, runtime-compile its
+  // frontend bundle, and use that compiled component as the Player composition.
+  // Without this, getTemplateConfig falls back to `default` and the project
+  // view shows DefaultVideoComposition with crafted layout names it can't map.
+  const craftedItem = useMemo<CraftedTemplateItem | null>(() => {
+    if (!isCrafted) return null;
+    return craftedTemplates.find((d) => d.id === project.template) ?? null;
+  }, [craftedTemplates, isCrafted, project.template]);
+  const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
+  const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
+
+  useEffect(() => {
+    if (!isCrafted) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    // Still waiting on the crafted item fetch — keep the player locked behind
+    // the loading overlay so it never falls back to DefaultVideoComposition
+    // with unknown layout names mid-mount.
+    if (!craftedItem) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      return;
+    }
+    if (!craftedItem.frontend_files || !craftedItem.frontend_entry_rel) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(false);
+      return;
+    }
+    let cancelled = false;
+    setIsCompilingCrafted(true);
+    compileModuleGraphEntry(craftedItem.frontend_files, craftedItem.frontend_entry_rel)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setCompiledCrafted(() => result.component);
+        } else {
+          console.error("[VideoPreview] Crafted bundle compile failed:", result.error);
+          setCompiledCrafted(null);
+        }
+        setIsCompilingCrafted(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[VideoPreview] Crafted bundle compile threw:", err);
+        setCompiledCrafted(null);
+        setIsCompilingCrafted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCrafted, craftedItem]);
+
+  const config = useMemo(() => {
+    const base = getTemplateConfig(templateId);
+    if (isCrafted && craftedItem) {
+      const validLayouts =
+        Array.isArray(craftedItem.valid_layouts) && craftedItem.valid_layouts.length > 0
+          ? new Set(craftedItem.valid_layouts)
+          : base.validLayouts;
+      const fallbackLayout = craftedItem.fallback_layout || base.fallbackLayout;
+      const heroLayout = craftedItem.hero_layout || base.heroLayout;
+      const previewColors = craftedItem.preview_colors;
+      return {
+        ...base,
+        validLayouts,
+        fallbackLayout,
+        heroLayout,
+        defaultColors: previewColors
+          ? {
+              accent: previewColors.accent || base.defaultColors.accent,
+              bg: previewColors.bg || base.defaultColors.bg,
+              text: previewColors.text || base.defaultColors.text,
+            }
+          : base.defaultColors,
+      };
+    }
+    return base;
+  }, [templateId, isCrafted, craftedItem]);
+
+  const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
   // Ref to Remotion Player — passed to PlaybackSpeedControl and forwarded for slide export.
   const playerRef = useRef<PlayerRef | null>(null);
@@ -965,9 +1057,17 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     ? Object.keys(compiledScenes).filter((k) => k.startsWith("content_")).length
     : 0;
 
-  const Composition = (isCustom && compiledScenes) ? StableCustomComposition : config.component;
+  const Composition = (isCustom && compiledScenes)
+    ? StableCustomComposition
+    : (isCrafted && compiledCrafted)
+      ? compiledCrafted
+      : config.component;
 
-  const isPreviewLoading = (isCustom && isCompiling) || isPreloadingMedia || !mediaReady;
+  const isPreviewLoading =
+    (isCustom && isCompiling) ||
+    (isCrafted && (craftedTemplatesLoading || !craftedItem || isCompilingCrafted || !compiledCrafted)) ||
+    isPreloadingMedia ||
+    !mediaReady;
 
   // Show unified loader until template + media are fully ready.
   if (isPreviewLoading) {
