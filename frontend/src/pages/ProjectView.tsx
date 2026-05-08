@@ -55,7 +55,9 @@ import ProjectReviewPrompt from "../components/ProjectReviewPrompt";
 import VideoPreview from "../components/VideoPreview";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge } from "../components/templatePreviewRegistry";
-import CustomPreview from "../components/templatePreviews/CustomPreview";
+import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../components/ProjectTemplateSettingsCard";
+import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
+import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import { normalizeVideoStyle } from "../constants/videoStyles";
@@ -69,7 +71,7 @@ import type { PlayerRef } from "@remotion/player";
 import { exportScenesPptx, exportScenesPdf, exportScenesPng } from "../utils/sceneSlideExport";
 import { getSceneExportGlobalFrame, SCENE_EXPORT_TIMELINE_FRACTION } from "../utils/sceneFrameSchedule";
 
-type Tab = "script" | "scenes" | "images" | "audio" | "settings";
+type Tab = ProjectTabId;
 type SlideExportWizardState = { format: "pptx" | "pdf" | "zip"; fractions: number[]; stepIndex: number };
 type PlaybackSpeedOption = number;
 const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const;
@@ -352,104 +354,6 @@ function AudioRow({
           preload="metadata"
         />
       )}
-    </div>
-  );
-}
-
-/** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
-function TemplateAssignPreview({
-  templateId,
-  customTemplates,
-  projectCustomTheme,
-  projectName,
-  variant,
-}: {
-  templateId: string;
-  customTemplates: CustomTemplateItem[];
-  projectCustomTheme: Project["custom_theme"];
-  projectName?: string;
-  variant: "large" | "thumb";
-}) {
-  if (templateId.startsWith("custom_")) {
-    const cid = parseInt(templateId.replace("custom_", ""), 10);
-    const ct = customTemplates.find((c) => c.id === cid);
-    if (ct) {
-      return variant === "large" ? (
-        <CustomPreview
-          theme={ct.theme}
-          name={ct.name}
-          previewImageUrl={ct.preview_image_url}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          logoUrls={ct.logo_urls}
-          ogImage={ct.og_image}
-        />
-      ) : (
-        <CustomPreviewLandscape
-          theme={ct.theme}
-          name={ct.name}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          previewImageUrl={ct.preview_image_url}
-          logoUrls={ct.logo_urls}
-          ogImage={ct.og_image}
-        />
-      );
-    }
-    if (projectCustomTheme) {
-      const fallback = (
-        <CustomPreview
-          theme={projectCustomTheme}
-          name={projectName || "Custom"}
-          previewImageUrl={null}
-          introCode={undefined}
-          outroCode={undefined}
-          contentCodes={undefined}
-          contentArchetypeIds={undefined}
-          logoUrls={undefined}
-          ogImage={undefined}
-        />
-      );
-      if (variant === "thumb") {
-        return (
-          <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">{fallback}</div>
-        );
-      }
-      return fallback;
-    }
-    return (
-      <div
-        className={`flex w-full items-center justify-center bg-gray-100 text-center text-xs text-gray-400 ${
-          variant === "thumb" ? "min-h-[64px] max-h-[80px] p-2" : "aspect-video p-4"
-        }`}
-      >
-        Custom template preview unavailable
-      </div>
-    );
-  }
-
-  const Comp = TEMPLATE_PREVIEWS[templateId];
-  if (Comp) {
-    if (variant === "thumb") {
-      return (
-        <div className="relative w-full overflow-hidden max-h-[80px] min-h-[64px] bg-gray-50">
-          <Comp key={templateId} />
-        </div>
-      );
-    }
-    return <Comp key={templateId} />;
-  }
-  return (
-    <div
-      className={`flex w-full items-center justify-center bg-gray-100 text-gray-300 ${
-        variant === "thumb" ? "min-h-[64px] max-h-[80px] text-[10px] px-1" : "aspect-video text-sm"
-      }`}
-    >
-      {templateId}
     </div>
   );
 }
@@ -2143,7 +2047,7 @@ export default function ProjectView() {
     navigate(`/dashboard?${params.toString()}`);
   };
 
-  const tabs: { id: Tab; label: string }[] = [
+  const tabs: ProjectTabItem[] = [
     { id: "scenes", label: "Scenes" },
     { id: "script", label: "Script" },
     { id: "images", label: "Images" },
@@ -4272,21 +4176,7 @@ export default function ProjectView() {
         />
       )}
       {/* Pill tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-full sm:w-fit" data-tour="tabs-container">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`flex-1 sm:flex-none px-2 sm:px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-center ${
-              activeTab === tab.id
-                ? "bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <ProjectTabs tabs={tabs} active={activeTab} onChange={handleTabChange} containerDataTour="tabs-container" />
 
       {/* Tab content */}
       <div>
@@ -4345,9 +4235,31 @@ export default function ProjectView() {
                     const isDropTarget = dragOverSceneId === scene.id && !isDragging;
 
                     return (
-                      <div
+                      <SceneListRow
                         key={scene.id}
-                        data-scene-row
+                        scene={scene}
+                        index={idx}
+                        expanded={isExpanded}
+                        showAudio={project.voice_gender !== "none"}
+                        isDragging={isDragging}
+                        isDropTarget={isDropTarget}
+                        onToggleExpand={() => setExpandedScene(isExpanded ? null : scene.id)}
+                        onEdit={() => setSceneEditModal(scene)}
+                        onDelete={() => setSceneToDelete(scene)}
+                        onDragHandleStart={(e) => {
+                          setDraggedSceneId(scene.id);
+                          e.dataTransfer.setData("text/plain", String(scene.id));
+                          e.dataTransfer.effectAllowed = "move";
+                          const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
+                          if (row) {
+                            const rect = row.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(row as Element, e.clientX - rect.left, e.clientY - rect.top);
+                          }
+                        }}
+                        onDragHandleEnd={() => {
+                          setDraggedSceneId(null);
+                          setDragOverSceneId(null);
+                        }}
                         onDragOver={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -4378,126 +4290,8 @@ export default function ProjectView() {
                             .then(() => loadProject())
                             .finally(() => setReorderSaving(false));
                         }}
-                        className={`transition-all duration-150 ${isDragging ? "opacity-40 scale-[0.98]" : ""} ${isDropTarget ? "ring-2 ring-purple-400 ring-inset rounded-lg" : ""}`}
                       >
-                        <div className="flex items-stretch gap-0">
-                          {/* Drag handle — only this area starts the drag */}
-                          <div
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedSceneId(scene.id);
-                              e.dataTransfer.setData("text/plain", String(scene.id));
-                              e.dataTransfer.effectAllowed = "move";
-                              const row = (e.currentTarget as HTMLElement).closest("[data-scene-row]");
-                              if (row) {
-                                const rect = row.getBoundingClientRect();
-                                e.dataTransfer.setDragImage(row, e.clientX - rect.left, e.clientY - rect.top);
-                              }
-                            }}
-                            onDragEnd={() => {
-                              setDraggedSceneId(null);
-                              setDragOverSceneId(null);
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className="flex items-center justify-center w-10 flex-shrink-0 rounded-l-lg border border-r-0 border-purple-200 bg-purple-50 cursor-grab active:cursor-grabbing hover:bg-purple-100 select-none touch-none"
-                            title="Drag to reorder"
-                          >
-                            <svg className="w-5 h-5 text-purple-800 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 6h2v2H8V6zm0 5h2v2H8v-2zm0 5h2v2H8v-2zm5-10h2v2h-2V6zm0 5h2v2h-2v-2zm0 5h2v2h-2v-2z" />
-                            </svg>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            {/* Clickable scene header */}
-                              <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedScene(isExpanded ? null : scene.id)
-                              }
-                              className="w-full text-left glass-card p-4 md:border-l-2 md:border-l-purple-200 md:hover:border-l-purple-400 transition-all rounded-r-lg border"
-                            >
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                <div className="flex items-start sm:items-center gap-3 w-full">
-                                  <span className="text-xs font-medium text-purple-600 bg-purple-50 w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    {scene.order}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="text-xs md:text-sm font-medium text-gray-900 whitespace-normal leading-tight">
-                                      {scene.title}
-                                    </h3>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSceneEditModal(scene);
-                                      }}
-                                      className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-colors flex-shrink-0"
-                                      title="Edit scene"
-                                      data-tour={idx === 0 ? "scene-edit-first" : undefined}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                      </svg>
-                                      <span className="hidden sm:inline-block text-xs font-medium">Edit</span>
-                                    </button>
-
-                                    <div className="flex items-center gap-1.5">
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                          scene.remotion_code ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
-                                        }`}
-                                      >
-                                        Scene
-                                      </span>
-                                      {project.voice_gender !== "none" && (
-                                        <span
-                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                            scene.voiceover_path ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-300"
-                                          }`}
-                                        >
-                                          Audio
-                                        </span>
-                                      )}
-                                      <span className="text-[11px] text-gray-300 ml-1">
-                                        {(scene.duration_seconds ?? 0) + (scene.extra_hold_seconds ?? 0)}s
-                                      </span>
-
-                                      <svg
-                                        className={`w-4 h-4 text-gray-300 transition-transform ml-1 ${isExpanded ? "rotate-180" : ""}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                      </svg>
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSceneToDelete(scene);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex-shrink-0 ml-2 sm:ml-4"
-                                    title="Delete scene"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    <span className="hidden sm:inline-block text-xs font-medium">Delete</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </button>
-
-                            {/* Expanded scene detail */}
-                            {isExpanded && (
+                        {isExpanded && (
                               <div className="ml-4 mt-1 glass-card p-5 border-l-2 border-l-purple-100 space-y-4 rounded-r-lg border border-t-0">
                                 {/* Narration */}
                                 <div>
@@ -4876,9 +4670,7 @@ export default function ProjectView() {
                                 })()}
                               </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
+                      </SceneListRow>
                     );
                   })}
                 </div>
@@ -5335,82 +5127,19 @@ export default function ProjectView() {
             </div>
           </div>
 
-          <div>
-            <h2 className="text-base font-medium text-gray-900 mb-1">Project Template</h2>
-            <p className="text-xs text-gray-400 mb-5">
-              Rebuild scene layouts for a new template while preserving narration, display text, voiceovers.
-            </p>
-            <div className="glass-card p-6 overflow-visible relative z-20">
-              {(() => {
-                const tid = assignedTemplateId;
-                const selectedCustom =
-                  tid.startsWith("custom_") && project
-                    ? customTemplatesList.find((ct) => ct.id === parseInt(tid.replace("custom_", ""), 10))
-                    : null;
-                const selectedDesc = TEMPLATE_DESCRIPTIONS[tid];
-                const assignedBuiltinNew =
-                  !tid.startsWith("custom_") && templateMetas.some((t) => t.id === tid && t.new_template === true);
-                return (
-                  <div className="flex flex-row items-stretch gap-4">
-                    <div className="shrink-0 self-start w-[9.5rem] sm:w-40 rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.08)]">
-                      <TemplateAssignPreview
-                        templateId={tid}
-                        customTemplates={customTemplatesList}
-                        projectCustomTheme={project?.custom_theme ?? null}
-                        projectName={project?.name}
-                        variant="thumb"
-                      />
-                      <div className="px-2 py-1.5 bg-purple-50/80 flex items-center justify-center gap-1">
-                        <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shrink-0">
-                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-between items-end text-right gap-2 min-h-0">
-                      <div className="flex flex-col items-end gap-1">
-                        <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                          Current template
-                        </label>
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          <span className="text-sm font-semibold text-gray-800">
-                            {selectedCustom ? selectedCustom.name : selectedDesc?.title ?? tid}
-                          </span>
-                          {assignedBuiltinNew && <NewTemplateBadge className="shrink-0" />}
-                          {selectedCustom && (
-                            <span
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shrink-0"
-                              style={{ backgroundColor: selectedCustom.preview_colors.accent }}
-                            >
-                              Custom
-                            </span>
-                          )}
-                        </div>
-                        {selectedCustom ? (
-                          <div className="text-[11px] text-gray-400">Custom template</div>
-                        ) : selectedDesc?.subtitle ? (
-                          <div className="text-[11px] text-gray-400">{selectedDesc.subtitle}</div>
-                        ) : null}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
-                        onClick={() => {
-                          setTemplateChangeDraft(assignedTemplateId);
-                          setTemplateChangePickerTab(assignedTemplateId.startsWith("custom_") ? "custom" : "builtin");
-                          setShowTemplateChangeModal(true);
-                        }}
-                        className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-semibold rounded-xl transition-colors"
-                      >
-                        Change template
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+          <ProjectTemplateSettingsCard
+            templateId={assignedTemplateId}
+            customTemplates={customTemplatesList}
+            projectCustomTheme={project?.custom_theme ?? null}
+            projectName={project?.name}
+            templateMetas={templateMetas}
+            disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
+            onChangeTemplate={() => {
+              setTemplateChangeDraft(assignedTemplateId);
+              setTemplateChangePickerTab(assignedTemplateId.startsWith("custom_") ? "custom" : "builtin");
+              setShowTemplateChangeModal(true);
+            }}
+          />
 
           <div>
             <h2 className="text-base font-medium text-gray-900 mb-1">Global Text Sizes</h2>

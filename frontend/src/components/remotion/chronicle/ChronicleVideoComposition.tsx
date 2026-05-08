@@ -83,6 +83,8 @@ const enforceLayoutMinimum = (frames: number, layout: ChronicleLayoutType) =>
 const LAST_SCENE_TAIL_TRIM_FRAMES = 60;
 const trimLastScene = (frames: number) =>
   Math.max(Math.floor(frames * 0.65), frames - LAST_SCENE_TAIL_TRIM_FRAMES);
+// Keep a tiny silent buffer before each non-last page transition.
+const EXTRA_HOLD_FRAMES = 10;
 
 /**
  * Compute the exact total video duration (in frames) that TransitionSeries
@@ -110,13 +112,16 @@ export const computeChronicleVideoTotalFrames = (
     const isLastInMulti = idx === arr.length - 1 && arr.length > 1;
     const trimTail =
       isLastInMulti && !scene.voiceoverUrl?.trim();
+    const sequenceFrames =
+      isLastInMulti ? (trimTail ? trimLastScene(withMin) : withMin) : (trimTail ? trimLastScene(withMin) : withMin) + EXTRA_HOLD_FRAMES;
     return {
       layoutKey,
       durationFrames: trimTail ? trimLastScene(withMin) : withMin,
+      sequenceFrames,
     };
   });
 
-  let total = resolved.reduce((sum, s) => sum + s.durationFrames, 0);
+  let total = resolved.reduce((sum, s) => sum + s.sequenceFrames, 0);
   for (let i = 0; i < resolved.length - 1; i++) {
     total -= pickChronicleTransition(i, resolved[i].layoutKey, resolved[i + 1].layoutKey).frames;
   }
@@ -154,7 +159,8 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
     const trimTail =
       isLastInMulti && !scene.voiceoverUrl?.trim();
     const durationFrames = trimTail ? trimLastScene(withMin) : withMin;
-    return { scene, layoutKey, durationFrames };
+    const sequenceFrames = isLastInMulti ? durationFrames : durationFrames + EXTRA_HOLD_FRAMES;
+    return { scene, layoutKey, durationFrames, sequenceFrames };
   });
 
   // Compute scene start frames so we can position voiceover audio absolutely.
@@ -162,7 +168,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
   const sceneStartFrames: number[] = [];
   resolvedScenes.forEach((s, i) => {
     sceneStartFrames[i] = runningFrame;
-    runningFrame += s.durationFrames;
+    runningFrame += s.sequenceFrames;
     if (i < resolvedScenes.length - 1) {
       const nextLayout = resolvedScenes[i + 1].layoutKey;
       runningFrame -= pickChronicleTransition(i, s.layoutKey, nextLayout).frames;
@@ -178,7 +184,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
     >
       <TransitionSeries>
         {resolvedScenes.map((s, index) => {
-          const { scene, layoutKey, durationFrames } = s;
+          const { scene, layoutKey, sequenceFrames } = s;
           const LayoutComponent = CHRONICLE_LAYOUT_REGISTRY[layoutKey];
 
           const rawProps = (scene.layoutProps ?? {}) as Record<string, unknown>;
@@ -205,7 +211,7 @@ export const ChronicleVideoComposition: React.FC<ChronicleVideoCompositionProps>
           const sequence = (
             <TransitionSeries.Sequence
               key={`seq-${scene.id}-${index}`}
-              durationInFrames={durationFrames}
+              durationInFrames={sequenceFrames}
             >
               <ChronicleChrome
                 bgColor={bgColor || "#F1E4C9"}

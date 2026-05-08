@@ -1,4 +1,4 @@
-import enum
+﻿import enum
 from datetime import datetime
 from sqlalchemy import String, Text, Enum, DateTime, ForeignKey, Integer, Boolean, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -60,8 +60,8 @@ class Project(Base):
     video_style: Mapped[str] = mapped_column(String(30), default="explainer")
 
     # Video length selection controls how many scenes are generated.
-    # Values: auto, short (6-8), medium (12-15), detailed (15-20)
-    video_length: Mapped[str] = mapped_column(String(10), default="auto")
+    # Values: auto, short (4-5), medium (12-15), detailed (23-30), mdetailed (35-40)
+    video_length: Mapped[str] = mapped_column(String(20), default="auto")
     playback_speed: Mapped[float] = mapped_column(Float, default=1.0)
 
     # Content language: ISO 639-1 code (e.g. 'en', 'es'). Defaults to scraped content language.

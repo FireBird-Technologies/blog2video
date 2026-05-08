@@ -5534,4 +5534,546 @@ export const blogPosts: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "zoom-recording-to-summary-video",
+    title: "How to Turn a Zoom Recording Into a Summary Video",
+    description:
+      "Turn Zoom meeting recordings into polished summary videos your team can watch, share, and reference — without sitting through the full replay.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Illustration of a Zoom meeting recording being structured into a summary video with scenes, narration, and branded visuals.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Nobody wants to watch a 90-minute Zoom replay. A summary video they will actually watch.",
+    heroDescription:
+      "Zoom recordings pile up and go unwatched. Turning the key moments into a structured summary video gives your team, clients, and stakeholders something worth their time.",
+    primaryKeyword: "zoom recording to summary video",
+    keywordVariant: "turn zoom meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/google-meet-recording-to-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "Why Zoom recordings go unwatched",
+        paragraphs: [
+          "Most Zoom recordings are long. An hour-long meeting might contain ten minutes of real signal — a key decision, a product update, a process change. The rest is preamble, crosstalk, and follow-up questions. Asking someone to watch the full recording to find those ten minutes is not a reasonable ask.",
+          "A summary video solves this. It takes the most important points from the meeting and turns them into a tight, watchable asset that someone can absorb in under five minutes — without needing to scrub through the full replay.",
+        ],
+      },
+      {
+        heading: "Start with the transcript or AI summary",
+        paragraphs: [
+          "Zoom automatically generates a transcript for most recorded meetings when transcription is enabled. If you use Zoom AI Companion, you also get an auto-generated meeting summary with action items and key topics.",
+          "Either asset works as source material. The transcript captures everything verbatim. The AI summary distills the main points. Both can be exported and turned into a structured video.",
+        ],
+        bullets: [
+          "Enable Zoom transcription in your account settings before the meeting",
+          "Download the .vtt or .txt transcript after the meeting ends",
+          "Or export the Zoom AI Companion summary as plain text",
+          "If using a third-party recorder, export whatever text summary is available",
+        ],
+      },
+      {
+        heading: "Structure the content before you video it",
+        paragraphs: [
+          "A transcript needs light editing before it becomes a good video source. Remove the filler, the off-topic tangents, and the repeated points. Keep the decisions made, the action items assigned, the context that newcomers would need, and any data or metrics that were discussed.",
+          "A well-edited transcript or summary becomes a tight document: two to four paragraphs, a bullet list of decisions and next steps, and any key numbers. That is the right size for a three-to-five-minute video.",
+        ],
+      },
+      {
+        heading: "Turn it into a video with Blog2Video",
+        paragraphs: [
+          "Upload the edited transcript or summary as a document — PDF, Word, or plain text. Blog2Video reads the structure, extracts the key points, and maps them into a scene-by-scene outline.",
+          "Choose a template that fits the audience. Whiteboard works well for internal team updates. Nightfall or Newscast works for client-facing or executive briefings. Geometric Explainer is clean for product update videos that need clarity over flair.",
+          "Review the scenes, adjust any narration, then render. The output is a polished video your team can watch in minutes instead of rewinding through an hour-long recording.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Zoom transcript into a video",
+      },
+      {
+        heading: "Where to share the summary video",
+        paragraphs: [
+          "A Zoom summary video has multiple distribution paths. Share it as a link in the follow-up email so attendees can revisit decisions. Post it in the project Slack channel for async teammates. Embed it in the meeting notes doc or Notion page. For client-facing meetings, send it as a polished recap that replaces the traditional written summary.",
+          "Because it is a real video and not just another wall of text, people are far more likely to actually watch and absorb it.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Can I upload a Zoom transcript directly to Blog2Video?",
+        answer:
+          "Yes. Export the transcript as a .txt or .docx file and upload it as a document. Blog2Video structures the content into scenes automatically.",
+      },
+      {
+        question: "Does this work with Zoom AI Companion summaries?",
+        answer:
+          "Yes. Copy the Zoom AI Companion summary into a document, save it as PDF or Word, and upload it. The summary format — with key topics and action items — maps well into a structured video.",
+      },
+      {
+        question: "How long should the source document be for a good summary video?",
+        answer:
+          "A condensed summary of 300 to 600 words is ideal. If you're working from a full transcript, edit it down to the key decisions, action items, and context before uploading.",
+      },
+      {
+        question: "What template works best for meeting summary videos?",
+        answer:
+          "Whiteboard is approachable and clear for internal team updates. Newscast works well for executive briefings. Nightfall gives client-facing recaps a polished, premium feel.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Zoom Recording Into a Summary Video",
+        angle: "Capture intent from teams and managers who want a better way to share meeting outcomes than a long recording link.",
+      },
+      {
+        channel: "video",
+        title: "Zoom Transcript to Summary Video in 5 Minutes",
+        angle: "Screen demo: paste a Zoom transcript, generate scenes, pick a template, render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Zoom recap deserves more than a recording link nobody will click.",
+        angle: "Frame the summary video as a respect-for-attention format for async teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Zoom meeting transcript into a summary video your team will actually watch",
+        angle: "Walk through the transcript-to-video workflow step by step with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "google-meet-recording-to-video",
+    title: "How to Turn a Google Meet Recording Into a Summary Video",
+    description:
+      "Export your Google Meet transcript or Gemini summary and convert it into a shareable summary video — no editing software required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Illustration of a Google Meet recording transcript being converted into a structured summary video asset.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Google Meet transcripts are underused. Turn them into videos your team will actually watch.",
+    heroDescription:
+      "Every recorded Google Meet generates a transcript in Google Drive. That text is all you need to produce a polished summary video — with no editing timeline, no cameras, and no post-production.",
+    primaryKeyword: "google meet recording to video",
+    keywordVariant: "turn google meet into summary video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/microsoft-teams-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Google Meet gives you after a recorded call",
+        paragraphs: [
+          "When you record a Google Meet session, two assets land in Google Drive automatically: the video recording file and a transcript document. The transcript is a time-stamped, speaker-labeled text file. If you have Google Workspace with Gemini features enabled, you may also receive an AI-generated meeting summary.",
+          "Most people open the recording. Almost nobody opens the transcript. That is a missed opportunity — the transcript is cleaner, faster to process, and far more useful as source material for a summary video.",
+        ],
+      },
+      {
+        heading: "Getting the transcript out of Google Drive",
+        paragraphs: [
+          "Open the meeting folder in Google Drive. Find the transcript file — it usually appears as a Google Doc named after the meeting. Open it, review the content, and export it as a Word document or plain text file.",
+          "Before exporting, do a light edit pass: remove off-topic exchanges, repeated points, and anything that would confuse someone who wasn't on the call. What remains should be the key context, decisions made, and next steps.",
+        ],
+        bullets: [
+          "Find the transcript in the meeting folder in Google Drive",
+          "Open it as a Google Doc and remove filler, tangents, and repeated points",
+          "Keep decisions, action items, data discussed, and key context",
+          "Export as .docx or copy the cleaned text into a new document",
+        ],
+      },
+      {
+        heading: "Using Gemini summaries as source material",
+        paragraphs: [
+          "If your Google Workspace plan includes Gemini, the meeting summary is often better source material than the raw transcript. Gemini summaries include a concise breakdown of what was discussed, who said what, and what was decided — all without the transcript noise.",
+          "Copy the Gemini summary into a Google Doc, add any context that was missing, and use that as your video source. A well-structured Gemini summary can become a three-to-five-minute video with minimal editing.",
+        ],
+      },
+      {
+        heading: "Turning the document into a summary video",
+        paragraphs: [
+          "Upload the exported document to Blog2Video. The system reads the structure, pulls out the key points, and generates a scene-by-scene outline. You can review and edit each scene before rendering.",
+          "For internal updates, the Whiteboard or Geometric Explainer templates keep things clear and approachable. For cross-functional or leadership briefings, Newscast or Nightfall give the output a more polished, professional look.",
+          "Once rendered, share the video link instead of the recording — people are far more likely to watch a five-minute summary than scrub through an hour-long replay.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Meet transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find my Google Meet transcript?",
+        answer:
+          "After a recorded meeting, Google Drive automatically saves both the video and a transcript document in a folder named after the meeting. Find it in Drive and open it as a Google Doc.",
+      },
+      {
+        question: "Can I use a Gemini meeting summary instead of the full transcript?",
+        answer:
+          "Yes. Gemini summaries are already condensed and structured, which makes them ideal source material. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What file format should I export the transcript in?",
+        answer:
+          "Export as .docx from Google Docs, or copy the text and save it as a plain text file. Both formats upload cleanly to Blog2Video.",
+      },
+      {
+        question: "What template works best for Google Meet summary videos?",
+        answer:
+          "Whiteboard and Geometric Explainer work well for internal team recaps. Newscast and Nightfall are better for leadership briefings or client-facing summaries where a polished look matters.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Google Meet Recording Into a Summary Video",
+        angle: "Capture async-team and remote-work intent around Google Workspace workflows and meeting documentation.",
+      },
+      {
+        channel: "video",
+        title: "Google Meet Transcript to Video in Minutes",
+        angle: "Screen demo: export the transcript from Google Drive, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "The Google Meet transcript sitting in your Drive is worth more than you think.",
+        angle: "Frame as a no-effort async video workflow for distributed teams.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Google Meet transcript into a summary video using AI",
+        angle: "Step-by-step walkthrough covering transcript export, Gemini summaries, and Blog2Video rendering.",
+      },
+    ],
+  },
+  {
+    slug: "fireflies-recording-to-summary-video",
+    title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+    description:
+      "Export your Fireflies.ai transcript or AI summary and convert it into a polished summary video — shareable, watchable, and built from content you already captured.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-blog-to-video.png",
+    heroImageAlt:
+      "Illustration of a Fireflies.ai meeting transcript being converted into a structured summary video with scenes and narration.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Fireflies.ai captures everything. Now make it watchable.",
+    heroDescription:
+      "Fireflies.ai automatically transcribes and summarizes your meetings. That structured output is exactly what you need to create a tight summary video — without re-watching or re-editing the recording.",
+    primaryKeyword: "fireflies recording to summary video",
+    keywordVariant: "turn fireflies ai meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Fireflies.ai gives you after a meeting",
+        paragraphs: [
+          "Fireflies.ai joins your calls as a bot and automatically generates a full transcript, a structured AI summary, and a list of action items. These outputs are available immediately after the meeting ends and can be accessed from the Fireflies dashboard or shared directly with your team.",
+          "The AI summary is particularly well-structured: it breaks the meeting into topic sections, captures key decisions, and pulls out follow-up items. That structure is ideal source material for a summary video — you don't need to do much work before it's ready to use.",
+        ],
+      },
+      {
+        heading: "Exporting the summary from Fireflies",
+        paragraphs: [
+          "In your Fireflies dashboard, open the meeting you want to convert. You can copy the AI-generated summary directly, or export the full transcript as a text or PDF file.",
+          "For video production, the AI summary works better than the raw transcript. It is already condensed and organized around topics rather than time codes. If you want more detail in specific sections, you can add context from the transcript before uploading.",
+        ],
+        bullets: [
+          "Open the meeting in the Fireflies dashboard",
+          "Copy the AI summary or export the transcript as PDF or text",
+          "Add any context that the summary compressed too aggressively",
+          "Keep decisions, action items, data points, and key conclusions",
+        ],
+      },
+      {
+        heading: "Why the Fireflies summary structure makes great video source material",
+        paragraphs: [
+          "Most meeting transcripts are noisy — speaker labels, filler words, repeated questions, and tangents. Fireflies AI summaries strip that noise and leave behind a document that already reads like a well-organized brief.",
+          "That brief structure maps directly onto a scene-based video. Each topic section becomes a scene. Each key decision or action item becomes a bullet or callout. The video reflects the actual meeting outcome rather than its unedited transcript.",
+        ],
+      },
+      {
+        heading: "Generating the video",
+        paragraphs: [
+          "Upload the Fireflies summary document to Blog2Video. The system reads the structure, generates scene descriptions and narration, and builds a scene outline you can review.",
+          "For internal team updates or retrospectives, the Whiteboard or Geometric Explainer templates keep the tone collaborative and clear. For sales call summaries or client briefings, Nightfall or Newscast give the output a more authoritative feel.",
+          "Render the video, share the link in your Slack, email, or project tool, and let the team absorb the meeting in five minutes instead of fifty.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Fireflies summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video work with Fireflies.ai transcripts?",
+        answer:
+          "Yes. Export the Fireflies transcript or AI summary as a PDF or text file and upload it to Blog2Video. The structured summary format converts into scenes cleanly.",
+      },
+      {
+        question: "Should I use the Fireflies AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better source material because it's already organized by topic and free of transcript noise. Use the full transcript if you need more detail in specific sections.",
+      },
+      {
+        question: "How long does the Fireflies summary need to be?",
+        answer:
+          "A typical Fireflies AI summary for a 30-to-60-minute meeting is already the right length — 300 to 700 words. That generates a three-to-five-minute summary video without further editing.",
+      },
+      {
+        question: "What template works best for meeting summary videos from Fireflies?",
+        answer:
+          "Whiteboard or Geometric Explainer for internal team content. Nightfall or Newscast for client-facing or leadership-level briefings.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Fireflies.ai Recording Into a Summary Video",
+        angle: "Capture intent from Fireflies users looking to do more with their AI meeting summaries.",
+      },
+      {
+        channel: "video",
+        title: "Fireflies.ai Summary to Video in Minutes",
+        angle: "Demo: export the Fireflies AI summary, upload to Blog2Video, generate and render.",
+      },
+      {
+        channel: "substack",
+        title: "Your Fireflies summary is already a video script. You just need to render it.",
+        angle: "Frame as the missing step in the Fireflies workflow for teams who want better async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Fireflies.ai meeting summaries into summary videos",
+        angle: "Workflow walkthrough covering export, upload, template selection, and async sharing.",
+      },
+    ],
+  },
+  {
+    slug: "microsoft-teams-recording-to-video",
+    title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+    description:
+      "Export your Teams meeting transcript or Copilot summary and convert it into a polished summary video your team can actually watch — no editing timeline required.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-article-tools.png",
+    heroImageAlt:
+      "Illustration of a Microsoft Teams meeting recording being converted into a structured summary video for async sharing.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Meeting workflow",
+    heroTitle: "Teams records everything. The summary video is what your team will actually consume.",
+    heroDescription:
+      "Microsoft Teams automatically transcribes recorded meetings and, with Copilot, generates structured summaries. Turn that output into a video your team can watch in five minutes instead of replaying an hour-long call.",
+    primaryKeyword: "microsoft teams recording to summary video",
+    keywordVariant: "turn teams meeting into video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/google-meet-recording-to-video",
+    ],
+    sections: [
+      {
+        heading: "What Microsoft Teams gives you after a recorded meeting",
+        paragraphs: [
+          "When you record a Teams meeting, the recording is saved to SharePoint or OneDrive, and a transcript is generated automatically if transcription is enabled. If your organization uses Microsoft 365 Copilot, you also get an AI-generated meeting summary with key discussion points, decisions, and action items.",
+          "The Copilot summary is the most useful asset for video production. It is already organized, condensed, and structured around meeting outcomes rather than raw verbatim dialogue.",
+        ],
+      },
+      {
+        heading: "Getting the transcript or Copilot summary",
+        paragraphs: [
+          "After the meeting ends, open the meeting in your Teams calendar. The transcript and Copilot Recap are accessible from the meeting details panel. You can copy the Copilot summary directly or download the transcript as a .docx or .vtt file from the recording controls.",
+          "For a summary video, the Copilot Recap is usually the better starting point. If Copilot is not available, clean up the raw transcript — remove filler speech, repeated questions, and anything tangential to the main outcomes.",
+        ],
+        bullets: [
+          "Open the meeting in Teams calendar and find the Recap or transcript",
+          "Copy the Copilot Recap summary or download the .docx transcript",
+          "Edit the transcript down to decisions, action items, and key context",
+          "Save as a Word document or plain text file for upload",
+        ],
+      },
+      {
+        heading: "Why summary videos work better than recording links for async teams",
+        paragraphs: [
+          "A recording link shared in Teams or Outlook asks something unreasonable of teammates who weren't there: watch an hour of footage to find the five minutes that matter to them. Most people don't. The meeting's outcomes get lost in a recording nobody replays.",
+          "A summary video changes the format. It is short, structured, and watchable. It fits in an email, a Teams message, or a SharePoint page. People who weren't on the call can catch up without committing to the full replay.",
+        ],
+      },
+      {
+        heading: "Converting the summary to video",
+        paragraphs: [
+          "Upload the Teams Copilot Recap or edited transcript to Blog2Video as a document. The system structures the content into scenes with narration and visual layouts automatically.",
+          "Newscast works well for formal briefings and cross-functional updates. Whiteboard or Geometric Explainer suits internal team recaps. Nightfall is a strong choice when the meeting outcome is being shared with external stakeholders or leadership.",
+          "Share the rendered video in the Teams channel, attach it to the follow-up email, or embed it in the relevant SharePoint page alongside the written notes.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Teams summary into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a recorded Teams meeting?",
+        answer:
+          "Open the meeting in your Teams calendar. The transcript and Copilot Recap appear in the meeting details panel. You can copy the text or download the transcript as a .docx file.",
+      },
+      {
+        question: "Can I use Microsoft Copilot summaries as source material?",
+        answer:
+          "Yes. Copilot Recap summaries are already structured around topics and action items, which makes them ideal for video. Copy the summary, add any missing context, and upload it as a document.",
+      },
+      {
+        question: "What if my organization doesn't have Microsoft 365 Copilot?",
+        answer:
+          "Use the standard Teams transcript. Download it as a .docx, edit out the filler and tangents, and keep decisions, action items, and key context. That document works just as well as a Copilot summary.",
+      },
+      {
+        question: "What template works best for Teams meeting summary videos?",
+        answer:
+          "Newscast for formal cross-functional briefings. Whiteboard or Geometric Explainer for internal team updates. Nightfall for leadership or stakeholder-facing outputs.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Microsoft Teams Recording Into a Summary Video",
+        angle: "Target enterprise and Microsoft 365 users looking for better async meeting documentation than raw recording links.",
+      },
+      {
+        channel: "video",
+        title: "Teams Copilot Recap to Summary Video",
+        angle: "Demo: copy the Copilot Recap, upload to Blog2Video, generate scenes, render and share.",
+      },
+      {
+        channel: "substack",
+        title: "Nobody is watching your Teams recordings. A summary video they will.",
+        angle: "Frame async video as a respect-for-time default for enterprise teams on Microsoft 365.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn Microsoft Teams meeting summaries into short videos your team will actually watch",
+        angle: "Step-by-step workflow using Copilot Recap export and Blog2Video with template recommendations.",
+      },
+    ],
+  },
+  {
+    slug: "loom-recording-to-summary-video",
+    title: "How to Turn a Loom Recording Into a Summary Video",
+    description:
+      "Use Loom's transcript or AI summary to create a structured summary video — easier to share, watch, and distribute than a raw screen recording.",
+    category: "Workflow",
+    heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
+    heroImageAlt:
+      "Illustration of a Loom screen recording transcript being converted into a structured, shareable summary video.",
+    publishedAt: "2026-05-07",
+    readTime: "6 min read",
+    heroEyebrow: "Recording workflow",
+    heroTitle: "Loom records the walkthrough. A summary video makes it distributable.",
+    heroDescription:
+      "Loom is great for async communication — but a ten-minute screen recording walkthrough is not always the right format for every audience. Turn the Loom transcript or AI summary into a polished summary video that works anywhere.",
+    primaryKeyword: "loom recording to summary video",
+    keywordVariant: "turn loom into video summary",
+    relatedPaths: [
+      "/blog-to-video",
+      "/article-to-video",
+      "/blogs/zoom-recording-to-summary-video",
+      "/blogs/fireflies-recording-to-summary-video",
+    ],
+    sections: [
+      {
+        heading: "When a Loom is not enough",
+        paragraphs: [
+          "Loom is excellent for casual async communication — quick walkthroughs, developer handoffs, product feedback, and async status updates. But a raw Loom recording has real distribution limits. It lives in the Loom platform, requires an account to view in some contexts, and does not embed cleanly in all destinations.",
+          "A summary video solves the distribution problem. It takes the substance of the Loom walkthrough — the key points, the decisions, the instructions — and packages it into a format that works in emails, newsletters, docs, websites, and any platform that accepts video embeds.",
+        ],
+      },
+      {
+        heading: "Getting the transcript from Loom",
+        paragraphs: [
+          "Every Loom recording automatically generates a transcript. Open the recording, find the Transcript tab, and copy the text. Loom also offers AI-powered summaries that condense the recording into a short overview — these are available on Pro and Business plans.",
+          "For a summary video, the AI summary is the better starting point. It strips the verbal filler, repetition, and false starts that make raw transcripts noisy. If you need more detail, pull specific sections from the full transcript and weave them in.",
+        ],
+        bullets: [
+          "Open the Loom recording and find the Transcript tab",
+          "Copy the AI summary if available, or the full transcript",
+          "Edit down to the key points, steps, or decisions",
+          "Save as a plain text or Word document for upload",
+        ],
+      },
+      {
+        heading: "What types of Loom recordings convert best",
+        paragraphs: [
+          "Product walkthroughs, feature explanations, onboarding tutorials, code reviews, and async feedback sessions all work extremely well as summary video source material. These Looms already have a clear structure: here is the context, here is what we built, here is what it does, here is what you need to do.",
+          "Internal process documentation Looms are also strong candidates. If someone recorded a walkthrough of a complex internal tool or workflow, a summary video can replace it as the onboarding asset — easier to embed in documentation, easier to update, and easier to share with new hires.",
+        ],
+      },
+      {
+        heading: "Converting the Loom summary to video",
+        paragraphs: [
+          "Upload the Loom summary or edited transcript to Blog2Video. The platform structures the content into a scene outline, generates narration, and maps each section to an appropriate visual layout.",
+          "For walkthroughs and technical explanations, Geometric Explainer or Matrix keeps things clear and code-friendly. For product demos or feature announcements, Nightfall or Spotlight gives the output a polished, professional finish. For educational or onboarding content, Whiteboard keeps the tone approachable.",
+          "Once rendered, the video can be embedded anywhere, shared as a direct link, or downloaded as MP4, PDF, or PNG slides depending on how you want to distribute it.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Turn your Loom transcript into a video",
+      },
+    ],
+    faq: [
+      {
+        question: "Where do I find the transcript for a Loom recording?",
+        answer:
+          "Open the recording in your Loom library and select the Transcript tab. You can copy the full text from there. AI summaries are available on Pro and Business plans under the Summary tab.",
+      },
+      {
+        question: "Should I use the Loom AI summary or the full transcript?",
+        answer:
+          "The AI summary is usually better — it's already condensed and removes the verbal filler that makes raw transcripts hard to work with. Use the full transcript for detail-heavy walkthroughs where the steps need to stay precise.",
+      },
+      {
+        question: "What types of Loom recordings work best as summary videos?",
+        answer:
+          "Product walkthroughs, onboarding tutorials, feature explanations, code reviews, and async process documentation all convert well because they already have a clear structure the video can follow.",
+      },
+      {
+        question: "Can I distribute the summary video outside of Loom?",
+        answer:
+          "Yes. Blog2Video generates a standard MP4 video with a shareable URL and iframe embed code. You can distribute it anywhere — emails, websites, Notion docs, Slack, or embedded in help documentation.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Turn a Loom Recording Into a Summary Video",
+        angle: "Capture intent from Loom users who want better distribution options and a more structured output format.",
+      },
+      {
+        channel: "video",
+        title: "Loom Transcript to Summary Video",
+        angle: "Demo: copy the Loom AI summary, upload to Blog2Video, generate scenes, render, embed.",
+      },
+      {
+        channel: "substack",
+        title: "Loom recordings are great for async — but summary videos travel further.",
+        angle: "Frame as a distribution upgrade for teams who already rely on Loom for async communication.",
+      },
+      {
+        channel: "medium",
+        title: "How to turn a Loom recording into a structured summary video with AI",
+        angle: "Workflow walkthrough covering transcript export, AI summary, Blog2Video scene generation, and distribution options.",
+      },
+    ],
+  },
 ];

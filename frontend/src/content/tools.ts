@@ -12,6 +12,65 @@ export const toolsHub = {
 
 export const tools: ToolDefinition[] = [
   {
+    slug: "content-repurposing-calculator",
+    path: "/tools/content-repurposing-calculator",
+    title: "Content Repurposing Calculator",
+    description:
+      "Estimate how many videos, shorts, social posts, and saved production hours your monthly blog output can create.",
+    eyebrow: "Calculator",
+    heroTitle: "Calculate how much video content your blog archive can generate.",
+    heroDescription:
+      "Enter your monthly blog output, average post length, and reuse cadence to see the long-form videos, short clips, social posts, and production hours hiding in your written content.",
+    category: "calculator",
+    icon: "CR",
+    primaryKeyword: "content repurposing calculator",
+    keywordVariant: "blog to video content calculator",
+    badges: ["Blog-to-video math", "Short-form estimates", "Hours saved"],
+    proofPoints: [
+      "Translates blog cadence into realistic long-form video and short-form clip volume.",
+      "Shows how much manual production time automation can save each month.",
+      "Creates a simple outreach-worthy asset for content repurposing resource pages.",
+    ],
+    sections: [
+      {
+        title: "What this calculator estimates",
+        body: [
+          "Most content teams underestimate the amount of video inventory already sitting inside their blog, newsletter, or resource library. This calculator starts with the posts you publish each month, then models how many videos, clips, and social assets those posts can support.",
+          "The output is a planning estimate, not a promise. Use it to decide whether repurposing should be a weekly workflow, a campaign sprint, or a larger video SEO program.",
+        ],
+      },
+      {
+        title: "How to use the result",
+        body: [
+          "If the calculator shows a meaningful volume of videos or clips, start with posts that already rank, convert, or explain a core product idea. Those pieces usually deserve video treatment before net-new topics.",
+        ],
+        bullets: [
+          "Use long-form videos for YouTube, demos, and evergreen explainers.",
+          "Use short clips for LinkedIn, Shorts, Reels, and newsletter embeds.",
+          "Use the saved-hours estimate to compare manual editing against an automated workflow.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What counts as repurposed content?",
+        answer:
+          "Repurposed content is any new asset created from an existing source, such as turning one blog post into a narrated video, short clips, social posts, or a newsletter section.",
+      },
+      {
+        question: "Can this calculator help with video SEO planning?",
+        answer:
+          "Yes. It helps estimate how many optimized video assets you can create from existing written content, which makes it easier to plan YouTube, Google video results, and cross-channel distribution.",
+      },
+    ],
+    relatedPaths: [
+      "/video-seo-checklist",
+      "/distribution-flywheel",
+      "/blog-to-video",
+      "/blogs/how-to-distribute-one-article-across-blog-newsletter-youtube-and-shorts",
+    ],
+  },
+  {
     slug: "medium-partner-program-earnings-calculator",
     path: "/tools/medium-partner-program-earnings-calculator",
     title: "Medium Partner Program Earnings Calculator",

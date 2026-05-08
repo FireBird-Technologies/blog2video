@@ -80,10 +80,20 @@ function isCustomSavedVoice(s: SavedVoiceFromAPI): boolean {
   return s.source === "custom" || !!s.custom_voice_id;
 }
 
-export default function MyVoices() {
+/** Read-only demo mode used by help videos: skips API calls, seeds state, renders modal inline. */
+export interface MyVoicesDemoMode {
+  showCreateModal?: boolean;
+  createMode?: "form" | "prompt" | "clone";
+  myVoicesData?: SavedVoiceFromAPI[];
+  customVoicesData?: CustomVoiceFromAPI[];
+  prebuiltVoicesData?: ElevenLabsVoice[];
+}
+
+export default function MyVoices({ demoMode }: { demoMode?: MyVoicesDemoMode } = {}) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isDemo = !!demoMode;
+  const isPro = isDemo ? true : user?.plan === "pro" || user?.plan === "standard";
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -148,10 +158,20 @@ export default function MyVoices() {
   const [addingCustomVoiceId, setAddingCustomVoiceId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setVoices(demoMode?.prebuiltVoicesData ?? []);
+      setLoaded(true);
+      return;
+    }
     loadVoices();
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
+    if (isDemo) {
+      setMyVoices(demoMode?.myVoicesData ?? []);
+      setMyVoicesLoaded(true);
+      return;
+    }
     const load = async () => {
       setMyVoicesLoaded(false);
       try {
@@ -164,9 +184,14 @@ export default function MyVoices() {
       }
     };
     load();
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
+    if (isDemo) {
+      setCustomVoicesList(demoMode?.customVoicesData ?? []);
+      setCustomVoicesListLoaded(true);
+      return;
+    }
     const load = async () => {
       setCustomVoicesListLoaded(false);
       try {
@@ -179,7 +204,13 @@ export default function MyVoices() {
       }
     };
     load();
-  }, []);
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (!isDemo) return;
+    if (demoMode?.showCreateModal) setShowDesignModal(true);
+    if (demoMode?.createMode) setCreateVoiceMode(demoMode.createMode);
+  }, [isDemo, demoMode?.showCreateModal, demoMode?.createMode]);
 
   useEffect(() => {
     if (prebuiltTab === "Custom voice") {
@@ -955,9 +986,9 @@ export default function MyVoices() {
         subtitle="Create and use custom voices in your videos. Upgrade to Pro or Standard to unlock."
       />
 
-      {showDesignModal &&
-        ReactDOM.createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+      {showDesignModal && (() => {
+        const modal = (
+          <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center p-8" : "fixed inset-0 z-50 flex items-center justify-center p-8"}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDesignModal(false)} />
             <div className="relative w-full max-w-xl bg-white border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 mt-5 max-h-[85vh] overflow-y-auto transition-all duration-300">
               <div className="flex items-center justify-between mb-6">
@@ -1543,9 +1574,10 @@ export default function MyVoices() {
 
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+        );
+        return isDemo ? modal : ReactDOM.createPortal(modal, document.body);
+      })()}
     </div>
   );
 }

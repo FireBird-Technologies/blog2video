@@ -126,7 +126,7 @@ export interface Project {
   custom_voice_id: string | null;
   aspect_ratio: string;
   video_style?: VideoStyleId;
-  video_length?: "auto" | "short" | "medium" | "detailed";
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   playback_speed?: number;
   ai_assisted_editing_count?: number;
   custom_theme?: CustomTemplateTheme | null;
@@ -698,7 +698,7 @@ export const createProject = (
   aspect_ratio?: string,
   template?: string,
   video_style?: VideoStyleId,
-  video_length?: "auto" | "short" | "medium" | "detailed",
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed",
   content_language?: string | null
 ) =>
   api.post<Project>("/projects", {
@@ -726,7 +726,7 @@ export interface BulkProjectItem {
   name?: string;
   template?: string;
   video_style?: VideoStyleId;
-  video_length?: "auto" | "short" | "medium" | "detailed";
+  video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
   voice_gender?: string;
   voice_accent?: string;
   accent_color?: string;
@@ -781,7 +781,7 @@ export const createProjectFromDocs = (
     aspect_ratio?: string;
     template?: string;
     video_style?: VideoStyleId;
-    video_length?: "auto" | "short" | "medium" | "detailed";
+    video_length?: "auto" | "short" | "medium" | "detailed" | "more_detailed";
     content_language?: string | null;
   } = {}
 ) => {

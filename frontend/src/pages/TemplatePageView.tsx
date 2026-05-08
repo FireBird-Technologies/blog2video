@@ -13,7 +13,7 @@ import { getSceneLayoutLabel } from "../utils/layoutLabels";
 import NotFoundPage from "./NotFoundPage";
 import { marketingPageSchema } from "../seo/schema";
 
-const BlogDemoPlayer = lazy(() => import("../components/BlogDemoPlayer"));
+const BlogDemoPlayer = lazy(() => import("../help/BlogDemoPlayer"));
 
 export default function TemplatePageView() {
   const location = useLocation();
@@ -38,14 +38,14 @@ export default function TemplatePageView() {
       {/* Template Navigation Strip */}
       <div className="border-b border-gray-100 bg-white">
         <div className="mx-auto max-w-6xl px-6">
-          <nav className="flex gap-1 overflow-x-auto py-3 scrollbar-hide" aria-label="Templates">
+          <nav className="flex flex-wrap gap-1 py-3" aria-label="Templates">
             {templateProfiles.map((t) => {
               const isActive = slug === t.slug;
               return (
                 <Link
                   key={t.slug}
                   to={`/templates/${t.slug}`}
-                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-purple-600 text-white"
                       : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
