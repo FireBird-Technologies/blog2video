@@ -7,25 +7,19 @@ import DiscountBanner from "../DiscountBanner";
 export default function PublicHeader() {
   const { user } = useAuth();
   const location = useLocation();
-  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileTemplatesOpen, setMobileTemplatesOpen] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
-  const templatesDropdownRef = useRef<HTMLDivElement>(null);
   const toolsDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setTemplatesOpen(false);
     setToolsOpen(false);
     setMobileOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (templatesDropdownRef.current && !templatesDropdownRef.current.contains(e.target as Node)) {
-        setTemplatesOpen(false);
-      }
       if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(e.target as Node)) {
         setToolsOpen(false);
       }
@@ -36,9 +30,6 @@ export default function PublicHeader() {
 
   if (user) return null;
 
-  const isTemplatesActive =
-    location.pathname.startsWith("/templates") ||
-    location.pathname === "/custom-branded-video-templates";
   const isToolsActive = location.pathname === "/tools" || location.pathname.startsWith("/tools/");
 
   return (
@@ -46,6 +37,7 @@ export default function PublicHeader() {
       {/* Banner above navbar so it appears first on scroll */}
       {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
+      {/* ── Row 1: main nav ── */}
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-600 text-sm font-bold text-white">
@@ -56,118 +48,82 @@ export default function PublicHeader() {
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-4 md:flex">
-          {/* Main links */}
           {!user && (
             <>
-          {topNavLinks.map((link) =>
-            link.label === "Templates" ? (
-              <div key={link.href} ref={templatesDropdownRef} className="relative">
-                <button
-                  onClick={() => {
-                    setTemplatesOpen(!templatesOpen);
-                    setToolsOpen(false);
-                  }}
-                  className={`flex items-center gap-1 text-sm transition-colors ${
-                    isTemplatesActive ? "text-purple-700 font-medium" : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  Templates
-                  <svg
-                    className={`h-3.5 w-3.5 transition-transform ${templatesOpen ? "rotate-180" : ""}`}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+              {topNavLinks.map((link) =>
+                link.label === "Templates" ? (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className={`text-sm transition-colors ${
+                      location.pathname.startsWith("/templates") || location.pathname === "/custom-branded-video-templates"
+                        ? "text-purple-700 font-medium"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-
-                {templatesOpen && (
-                  <div className="absolute left-1/2 top-full mt-3 w-80 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
-                    {templateMenuLinks.map((t) => (
-                      <Link
-                        key={t.href}
-                        to={t.href}
-                        className={`block rounded-lg px-3 py-2.5 transition-colors ${
-                          location.pathname === t.href
-                            ? "bg-purple-50 text-purple-700"
-                            : "hover:bg-gray-50"
-                        }`}
+                    Templates
+                  </Link>
+                ) : link.label === "Tools" ? (
+                  <div key={link.href} ref={toolsDropdownRef} className="relative">
+                    <button
+                      onClick={() => setToolsOpen(!toolsOpen)}
+                      className={`flex items-center gap-1 text-sm transition-colors ${
+                        isToolsActive ? "text-purple-700 font-medium" : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      Tools
+                      <svg
+                        className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
                       >
-                        <p className="text-sm font-medium text-gray-900">{t.label}</p>
-                        <p className="text-xs text-gray-500">{t.description}</p>
-                      </Link>
-                    ))}
+                        <path
+                          fillRule="evenodd"
+                          d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+
+                    {toolsOpen && (
+                      <div className="absolute left-1/2 top-full mt-3 w-[32rem] -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
+                        {toolsMenuLinks.map((tool) => (
+                          <Link
+                            key={tool.href}
+                            to={tool.href}
+                            className={`block rounded-xl px-4 py-3 transition-colors ${
+                              location.pathname === tool.href
+                                ? "bg-purple-50 text-purple-700"
+                                : "hover:bg-gray-50"
+                            }`}
+                          >
+                            <p className="text-base font-semibold text-gray-900">{tool.label}</p>
+                            <p className="mt-1 text-sm leading-relaxed text-gray-500">{tool.description}</p>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ) : link.label === "Tools" ? (
-              <div key={link.href} ref={toolsDropdownRef} className="relative">
-                <button
-                  onClick={() => {
-                    setToolsOpen(!toolsOpen);
-                    setTemplatesOpen(false);
-                  }}
-                  className={`flex items-center gap-1 text-sm transition-colors ${
-                    isToolsActive ? "text-purple-700 font-medium" : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  Tools
-                  <svg
-                    className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+                ) : (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className={`text-sm transition-colors ${
+                      location.pathname === link.href
+                        ? "text-purple-700 font-medium"
+                        : "text-gray-500 hover:text-gray-900"
+                    }`}
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-
-                {toolsOpen && (
-                  <div className="absolute left-1/2 top-full mt-3 w-[32rem] -translate-x-1/2 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
-                    {toolsMenuLinks.map((tool) => (
-                      <Link
-                        key={tool.href}
-                        to={tool.href}
-                        className={`block rounded-xl px-4 py-3 transition-colors ${
-                          location.pathname === tool.href
-                            ? "bg-purple-50 text-purple-700"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <p className="text-base font-semibold text-gray-900">{tool.label}</p>
-                        <p className="mt-1 text-sm leading-relaxed text-gray-500">{tool.description}</p>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
+                    {link.label}
+                  </Link>
+                )
+              )}
               <Link
-                key={link.href}
-                to={link.href}
-                className={`text-sm transition-colors ${
-                  location.pathname === link.href
-                    ? "text-purple-700 font-medium"
-                    : "text-gray-500 hover:text-gray-900"
-                }`}
+                to="/contact"
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
               >
-                {link.label}
+                Contact
               </Link>
-            )
-          )}
-            <Link
-              to="/contact"
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
-            >
-              Contact
-            </Link>
             </>
           )}
         </div>
@@ -187,6 +143,7 @@ export default function PublicHeader() {
           </svg>
         </button>
       </div>
+
 
       {/* Mobile menu */}
       {mobileOpen && (
