@@ -1295,6 +1295,217 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+
+  "preview-bloomberg": {
+    template: "bloomberg",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Terminal Boot", durationSeconds: 7,
+        narration: "Terminal Boot launches the Bloomberg template with an amber-on-black system initialization sequence. Loading bars, database connections, and authenticated-session chrome create the visual language of a professional trading terminal from the first frame.",
+        layout: "terminal_boot",
+        layoutProps: {},
+      },
+      {
+        id: 2, order: 2, title: "Terminal Narrative", durationSeconds: 8,
+        narration: "Terminal Narrative presents body text in amber monospace on a dark canvas with live ticker chrome and corner brackets. Every paragraph of financial commentary, market analysis, or economic explainer reads with the authority of a professional data terminal.",
+        layout: "terminal_narrative",
+        layoutProps: { title: "Bloomberg: Terminal-Style Finance Template" },
+      },
+      {
+        id: 3, order: 3, title: "Terminal Metrics", durationSeconds: 8,
+        narration: "Terminal Metric surfaces key numbers in large amber figures on dark panel tiles. Each metric flashes in with a light burst and shows a trend indicator, making data-driven sections feel like live market data rather than a static slide.",
+        layout: "terminal_metric",
+        layoutProps: {
+          metrics: [
+            { value: "4.31", label: "10Y Yield", suffix: "%" },
+            { value: "+0.84", label: "S&P 500", suffix: "%" },
+            { value: "189K", label: "NFP", suffix: "" },
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Terminal List", durationSeconds: 8,
+        narration: "Terminal List presents structured items as terminal-style line entries with index numbers and amber text. Each item types in sequentially, preserving the ordered structure of the original article inside a Bloomberg-style data panel.",
+        layout: "terminal_list",
+        layoutProps: {
+          title: "Bloomberg Template Layouts",
+          items: [
+            "Terminal Boot — animated system initialization with loading bars",
+            "Terminal Narrative — body text with ticker and corner-bracket chrome",
+            "Terminal Metric — live-data tile panels with trend indicators",
+            "Terminal Chart — animated chart overlays on dark canvas",
+            "Terminal Ticker — scrolling quote feed with sparklines",
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Terminal Ticker", durationSeconds: 7,
+        narration: "Terminal Ticker presents a scrolling equity feed with symbol, change, price, and animated sparkline for each row. The format brings the visual language of a live market screener to any data-driven content that benefits from financial authority.",
+        layout: "terminal_ticker",
+        layoutProps: {},
+      },
+    ],
+  },
+
+  "preview-chronicle": {
+    template: "chronicle",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Book Open", durationSeconds: 7,
+        narration: "Book Open reveals the Chronicle template on a parchment canvas with an illuminated drop cap and weighted serif typography. The layout signals immediately that the content has earned the treatment of a carefully typeset volume.",
+        layout: "book_open",
+        layoutProps: { title: "Chronicle: Historical Archival Template", titleFontSize: 72, descriptionFontSize: 26 },
+      },
+      {
+        id: 2, order: 2, title: "Parchment Scroll", durationSeconds: 8,
+        narration: "Parchment Scroll presents narrative body text on aged paper texture with ornamental borders and quill-ink animation. The layout is built for long paragraphs of historical context, biographical prose, and archival writing that deserves more than a generic slide.",
+        layout: "parchment_scroll",
+        layoutProps: { title: "The Record of Ages", titleFontSize: 52, descriptionFontSize: 24, category: "Historical Record" },
+      },
+      {
+        id: 3, order: 3, title: "Chronicle Timeline", durationSeconds: 8,
+        narration: "Chronicle Timeline presents a sequence of historical events along a vertical spine with illuminated date markers and serif annotations. Each entry animates in from the margin, giving chronological narratives the weight and pacing they deserve.",
+        layout: "chronicle_timeline",
+        layoutProps: {
+          title: "A Timeline of Events",
+          stats: [
+            { value: "1215", label: "Magna Carta signed at Runnymede" },
+            { value: "1440", label: "Gutenberg press transforms publishing" },
+            { value: "1776", label: "Declaration of Independence drafted" },
+            { value: "1989", label: "World Wide Web conceived" },
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Illuminated Quote", durationSeconds: 7,
+        narration: "Illuminated Quote renders a key passage with drop cap styling, attribution, and parchment-backed ornamentation. Use it for the defining statement of the video — the line that carries the historical or biographical weight of the entire piece.",
+        layout: "illuminated_quote",
+        layoutProps: {
+          quote: "History is not the past. It is the stories we tell about the past.",
+          attribution: "— Chronicle Template",
+        },
+      },
+      {
+        id: 5, order: 5, title: "Ledger Stats", durationSeconds: 7,
+        narration: "Ledger Stats presents data in a hand-ruled ledger format with embossed column headers and period typography. It brings the visual authority of archival record-keeping to any content that needs to present numbers with historical weight.",
+        layout: "ledger_stats",
+        layoutProps: {
+          title: "By the Record",
+          stats: [
+            { value: "10", label: "Chronicle layouts" },
+            { value: "800", label: "Years of history covered" },
+            { value: "100+", label: "AI narration voices" },
+          ],
+        },
+      },
+    ],
+  },
+
+  "preview-mosaic": {
+    template: "mosaic",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Mosaic Title", durationSeconds: 7,
+        narration: "Mosaic Title opens the template with fragmented image tiles assembling into a composition on a warm stone background. The tiled reveal creates visual rhythm from the first frame, signaling that this video is designed rather than generated.",
+        layout: "mosaic_title",
+        layoutProps: {},
+      },
+      {
+        id: 2, order: 2, title: "Mosaic Stream", durationSeconds: 8,
+        narration: "Mosaic Stream presents bullet points as animated tiles that flow onto the canvas one by one. The terracotta linework and editorial pacing give even a simple list the feel of a curated editorial spread.",
+        layout: "mosaic_stream",
+        layoutProps: {
+          items: [
+            "Fragmented tile compositions with expressive color",
+            "Kinetic typography built for cultural and creative content",
+            "Art-directed layouts that feel designed, not generated",
+          ],
+        },
+      },
+      {
+        id: 3, order: 3, title: "Mosaic Phrases", durationSeconds: 7,
+        narration: "Mosaic Phrases cycles short statements across the canvas with editorial timing and terracotta accents. The layout is ideal for content that wants to communicate a sequence of ideas with rhythm and visual confidence.",
+        layout: "mosaic_phrases",
+        layoutProps: {
+          phrases: [
+            "Art-forward. Story-driven.",
+            "Designed for culture and creativity.",
+            "Tiles that tell the whole story.",
+          ],
+        },
+      },
+      {
+        id: 4, order: 4, title: "Mosaic Metric", durationSeconds: 7,
+        narration: "Mosaic Metric surfaces key numbers inside the tile grid with large display figures and warm accent lines. The layout brings precision to creative content — useful when the story has a number worth centering.",
+        layout: "mosaic_metric",
+        layoutProps: {
+          metrics: [
+            { value: "8", label: "Mosaic layouts", suffix: "" },
+            { value: "100+", label: "AI voices", suffix: "" },
+          ],
+        },
+      },
+      {
+        id: 5, order: 5, title: "Mosaic Text", durationSeconds: 7,
+        narration: "Mosaic Text presents body paragraphs inside the tile grid with editorial typesetting and warm paper texture. The layout gives written content the same art-directed quality as the opening tiles, keeping the visual identity consistent across every scene.",
+        layout: "mosaic_text",
+        layoutProps: { title: "Every layout is a tile. Every tile is the story." },
+      },
+    ],
+  },
+
+  "preview-blackswan": {
+    template: "blackswan",
+    scenes: [
+      {
+        id: 1, order: 1, title: "Droplet Intro", durationSeconds: 7,
+        narration: "Droplet Intro opens the BlackSwan template with neon-cyan ripples radiating across a black canvas. The fluid animation and dark atmosphere set the tone for cinematic storytelling from the very first frame.",
+        layout: "droplet_intro",
+        layoutProps: {},
+      },
+      {
+        id: 2, order: 2, title: "Neon Narrative", durationSeconds: 8,
+        narration: "Neon Narrative presents body text on a dark canvas with neon-cyan accent lines and glowing arc shapes behind the content. The layout is designed for high-stakes explanations where the visual atmosphere should match the weight of the message.",
+        layout: "neon_narrative",
+        layoutProps: { title: "BlackSwan: Cinematic Dark Template" },
+      },
+      {
+        id: 3, order: 3, title: "Dive Insight", durationSeconds: 7,
+        narration: "Dive Insight animates a key quote with one word glowing in neon cyan brighter than the rest. Use it for the defining line of the video — the phrase that anchors the entire narrative and stays with the viewer.",
+        layout: "dive_insight",
+        layoutProps: {
+          quote: "Cinematic visuals. No film crew. No stock footage.",
+          highlightWord: "Cinematic",
+        },
+      },
+      {
+        id: 4, order: 4, title: "Signal Split", durationSeconds: 8,
+        narration: "Signal Split divides the frame into two neon-lit columns with contrasting labels and descriptions. The layout is built for comparisons, before-and-after sequences, and dual-perspective arguments that benefit from cinematic framing.",
+        layout: "signal_split",
+        layoutProps: {
+          leftLabel: "Before",
+          rightLabel: "After",
+          leftDescription: "Raw written content sitting in a document",
+          rightDescription: "Cinematic video with narration, transitions, and depth",
+        },
+      },
+      {
+        id: 5, order: 5, title: "Arc Features", durationSeconds: 8,
+        narration: "Arc Features presents a list of capabilities with glowing neon arc shapes framing the content. Each item reveals in sequence against the dark backdrop, giving feature overviews and brand narratives a high-production-value visual frame.",
+        layout: "arc_features",
+        layoutProps: {
+          title: "BlackSwan Layouts",
+          items: [
+            "Droplet Intro — fluid neon ripple opening with cinematic depth",
+            "Neon Narrative — body text with arc glow and dark atmosphere",
+            "Dive Insight — animated quote with neon-highlighted keyword",
+            "Signal Split — dual-column cinematic comparison layout",
+            "Reactor Code — dark code panel with neon syntax highlighting",
+          ],
+        },
+      },
+    ],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -1306,6 +1517,10 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   matrix: { accent: "#00FF41", bg: "#000000", text: "#00FF41" },
   newspaper: { accent: "#FFE34D", bg: "#FAFAF8", text: "#111111" },
   newscast: { accent: "#E82020", bg: "#060614", text: "#B8C8E0" },
+  bloomberg: { accent: "#5EA2FF", bg: "#000000", text: "#FFB340" },
+  chronicle: { accent: "#B8860B", bg: "#F1E4C9", text: "#2A1810" },
+  mosaic: { accent: "#C26240", bg: "#EAE4DA", text: "#2A2A28" },
+  blackswan: { accent: "#00E5FF", bg: "#000000", text: "#DFFFFF" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -1317,6 +1532,10 @@ const TEMPLATE_LABELS: Record<string, string> = {
   matrix: "Matrix",
   newspaper: "Newspaper",
   newscast: "Newscast",
+  bloomberg: "Bloomberg",
+  chronicle: "Chronicle",
+  mosaic: "Mosaic",
+  blackswan: "BlackSwan",
 };
 
 interface BlogDemoPlayerProps {

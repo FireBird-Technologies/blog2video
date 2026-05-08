@@ -1,20 +1,14 @@
 import { useState, useEffect } from "react";
-// import DefaultPreview from "./templatePreviews/DefaultPreview";
 import NightfallPreview from "./templatePreviews/NightfallPreview";
-// import GridcraftPreview from "./templatePreviews/GridcraftPreview";
-import SpotlightPreview from "./templatePreviews/SpotlightPreview";
-// import MatrixPreview from "./templatePreviews/MatrixPreview";
+import BloombergPreview from "./templatePreviews/BloombergPreview";
 import WhiteboardPreview from "./templatePreviews/WhiteboardPreview";
-// import NewsPaperPreview from "./templatePreviews/NewsPaperPreview";
 import NightfallPreviewPortrait from "./templatePreviews/portrait/NightfallPreviewPortrait";
-import SpotlightPreviewPortrait from "./templatePreviews/portrait/SpotlightPreviewPortrait";
+import BloombergPreviewPortrait from "./templatePreviews/portrait/BloombergPreviewPortrait";
 import WhiteboardPreviewPortrait from "./templatePreviews/portrait/WhiteboardPreviewPortrait";
-// import GridcraftPreviewPortrait from "./templatePreviews/portrait/GridcraftPreviewPortrait";
 import NewscastPreview from "./templatePreviews/NewscastPreview";
 import NewscastPreviewPortrait from "./templatePreviews/portrait/NewscastPreviewPortrait";
 
-
-type TemplateId = "nightfall" | /* "gridcraft" | */ "newscast" | /* "default" | */ /* "matrix" | */ "whiteboard" /* | "newspaper" */;
+type TemplateId = "nightfall" | "newscast" | "bloomberg" | "whiteboard";
 type Orientation = "landscape" | "portrait";
 
 interface TemplateInfo {
@@ -37,53 +31,32 @@ const TEMPLATES: TemplateInfo[] = [
     description: "A dynamic breaking-news template featuring a hero section, headline, live ticker, pull quotes, claim vs. facts panels, and a newsroom-style timeline, with optional full-bleed background images.",
     hasPortrait: true,
   },
-  // {
-  //   id: "gridcraft",
-  //   name: "Gridcraft",
-  //   description: "Warm bento-style editorial layouts. Cards, metrics, and clear hierarchy — perfect for comparisons and data-driven stories.",
-  //   hasPortrait: true,
-  // },
-  // {
-  //   id: "default",
-  //   name: "Default",
-  //   description: "Clean geometric explainer style with a purple accent. Versatile layout with hero images, bullet lists, code blocks, and metrics.",
-  //   hasPortrait: false,
-  // },
-  // {
-  //   id: "matrix",
-  //   name: "Matrix",
-  //   description: "Digital rain and terminal aesthetics with green-on-black. Perfect for tech, cybersecurity, and developer content.",
-  //   hasPortrait: false,
-  // },
+  {
+    id: "bloomberg",
+    name: "Bloomberg",
+    description: "Terminal-style financial template with amber-on-dark panels, ticker chrome, and market-desk authority — ideal for finance, economics, and data-heavy reporting.",
+    hasPortrait: true,
+  },
   {
     id: "whiteboard",
     name: "Whiteboard",
     description: "Hand-drawn marker animations on a cream canvas. Stick figures and story-beat layouts ideal for educational content.",
     hasPortrait: true,
   },
-  // {
-  //   id: "newspaper",
-  //   name: "Newspaper",
-  //   description: "Editorial news style with pull quotes, fact-check panels, and timelines — great for in-depth explainers and journalism.",
-  //   hasPortrait: false,
-  // },
 ];
 
 const LANDSCAPE_PREVIEWS: Record<TemplateId, React.ComponentType> = {
   nightfall: NightfallPreview,
-  // default: DefaultPreview,
-  // gridcraft: GridcraftPreview,
   newscast: NewscastPreview,
-  // matrix: MatrixPreview,
+  bloomberg: BloombergPreview,
   whiteboard: WhiteboardPreview,
-  // newspaper: NewsPaperPreview,
 };
 
 const PORTRAIT_PREVIEWS: Partial<Record<TemplateId, React.ComponentType>> = {
   nightfall: NightfallPreviewPortrait,
   newscast: NewscastPreviewPortrait,
+  bloomberg: BloombergPreviewPortrait,
   whiteboard: WhiteboardPreviewPortrait,
-  // gridcraft: GridcraftPreviewPortrait,
 };
 
 type InputMode = "url" | "bulk" | "upload";
