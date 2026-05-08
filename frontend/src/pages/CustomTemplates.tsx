@@ -15,6 +15,7 @@ import CustomTemplateCreator from "../components/CustomTemplateCreator";
 import CustomTemplateEditor from "../components/CustomTemplateEditor";
 import CustomPreview from "../components/templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import { VIDEO_STYLE_OPTIONS, normalizeVideoStyle, type VideoStyleId } from "../constants/videoStyles";
 
 const STYLE_LABELS = Object.fromEntries(VIDEO_STYLE_OPTIONS.map((s) => [s.id, s.label])) as Record<string, string>;
@@ -753,19 +754,15 @@ export default function CustomTemplates() {
               return (
                 <div key={tpl.id} className="glass-card overflow-hidden">
                   <div className="relative overflow-hidden rounded-t-xl min-h-[120px] aspect-video">
-                    <CustomPreviewLandscape
-                      theme={tpl.theme!}
+                    {/* Crafted templates ship a self-contained preview file in
+                        their bundle — render it directly without pulling the
+                        full layout package. Falls back to the static preview
+                        image (then placeholder) when the source isn't bundled. */}
+                    <CraftedTemplatePreview
+                      templateId={tpl.id}
+                      previewSource={tpl.preview_file ?? null}
+                      previewImageUrl={tpl.preview_image_url ?? null}
                       name={tpl.name}
-                      introCode={tpl.intro_code || undefined}
-                      outroCode={tpl.outro_code || undefined}
-                      contentCodes={tpl.content_codes || undefined}
-                      contentArchetypeIds={tpl.content_archetype_ids || undefined}
-                      validLayouts={tpl.valid_layouts || undefined}
-                      frontendFiles={tpl.frontend_files || undefined}
-                      frontendEntryRel={tpl.frontend_entry_rel || undefined}
-                      previewImageUrl={tpl.preview_image_url}
-                      logoUrls={tpl.logo_urls || undefined}
-                      ogImage={tpl.og_image || undefined}
                       showLoaderOnEmptyOrError
                     />
                   </div>

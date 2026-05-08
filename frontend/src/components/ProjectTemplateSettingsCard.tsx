@@ -7,8 +7,7 @@ import {
 } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
-
-const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
+import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
 
 /** Built-in or custom template preview for settings / picker (matches BlogUrlForm step 2 styling). */
 export function TemplateAssignPreview({
@@ -28,40 +27,19 @@ export function TemplateAssignPreview({
 }) {
   if (templateId.startsWith("crafted_")) {
     const ct = craftedTemplates.find((c) => c.id === templateId);
-    if (ct?.theme) {
-      return variant === "large" ? (
-        <CustomPreview
-          theme={ct.theme}
+    // Render the lightweight bundled marquee preview rather than the full
+    // scene-by-scene playback. The settings card is a "what template am I
+    // using" affordance, not a video preview surface — the marquee is the
+    // right level of detail and it doesn't need the layout package.
+    if (ct) {
+      return (
+        <CraftedTemplatePreview
+          templateId={ct.id}
+          previewSource={ct.preview_file ?? null}
+          previewImageUrl={ct.preview_image_url ?? null}
           name={ct.name}
-          previewImageUrl={ct.preview_image_url}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          validLayouts={ct.valid_layouts || undefined}
-          frontendFiles={ct.frontend_files || undefined}
-          frontendEntryRel={ct.frontend_entry_rel || undefined}
-          logoUrls={ct.logo_urls || undefined}
-          ogImage={ct.og_image || undefined}
+          thumbnailMode={variant === "thumb"}
           showLoaderOnEmptyOrError
-        />
-      ) : (
-        <CustomPreviewLandscape
-          theme={ct.theme}
-          name={ct.name}
-          introCode={ct.intro_code || undefined}
-          outroCode={ct.outro_code || undefined}
-          contentCodes={ct.content_codes || undefined}
-          contentArchetypeIds={ct.content_archetype_ids || undefined}
-          validLayouts={ct.valid_layouts || undefined}
-          frontendFiles={ct.frontend_files || undefined}
-          frontendEntryRel={ct.frontend_entry_rel || undefined}
-          previewImageUrl={ct.preview_image_url}
-          logoUrls={ct.logo_urls || undefined}
-          ogImage={ct.og_image || undefined}
-          showLoaderOnEmptyOrError
-          thumbnailMode
-          thumbnailFrame={CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME}
         />
       );
     }

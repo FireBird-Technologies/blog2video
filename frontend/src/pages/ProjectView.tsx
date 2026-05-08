@@ -49,7 +49,10 @@ import { useNoticeModal } from "../contexts/NoticeModalContext";
 import { trackGoogleAdsPurchaseConversion } from "../gtag";
 import StatusBadge from "../components/StatusBadge";
 import ScriptPanel from "../components/ScriptPanel";
-import SceneEditModal, { SceneImageItem, getDefaultFontSizes, getDefaultFontSizesFromSchema } from "../components/SceneEditModal";
+import SceneEditModal, {
+  SceneImageItem,
+  resolveDefaultFontSizesForScene,
+} from "../components/SceneEditModal";
 import ChatPanel from "../components/ChatPanel";
 import UpgradeModal from "../components/UpgradeModal";
 import UpgradePlanModal from "../components/UpgradePlanModal";
@@ -61,6 +64,7 @@ import ProjectTemplateSettingsCard, { TemplateAssignPreview } from "../component
 import ProjectTabs, { type ProjectTabId, type ProjectTabItem } from "../components/ProjectTabs";
 import SceneListRow from "../components/SceneListRow";
 import CustomPreviewLandscape from "../components/templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "../components/templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "../components/CraftYourTemplateCard";
 import { normalizeVideoStyle } from "../constants/videoStyles";
 import { getPendingUpload } from "../stores/pendingUpload";
@@ -81,8 +85,6 @@ const PLAYBACK_SPEED_OPTIONS: readonly number[] = [0.5, 1, 1.5, 2, 2.5] as const
 /** Image framing modal: uniform zoom only (no rectangular crop resize). */
 const IMAGE_ADJUST_ZOOM_MIN = 1;
 const IMAGE_ADJUST_ZOOM_MAX = 8;
-const CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME = 128; // ~85% of 5s * 30fps first scene
-
 const TABS_GUIDE_SEEN_KEY = "blog2video_tabs_guide_seen";
 const TABS_CONTAINER_STEP: Step = {
   target: '[data-tour="tabs-container"]',
@@ -429,7 +431,15 @@ export default function ProjectView() {
   } | null>(null);
   const [submittingTemplateRelayout, setSubmittingTemplateRelayout] = useState(false);
   const templateRelayoutPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
+
+  useEffect(() => {
+    if (!project?.template?.startsWith("crafted_")) return;
+    const found = craftedTemplates.find((ct) => ct.id === project.template);
+    if (!found?.frontend_files) {
+      void ensureCraftedTemplateDetail(project.template);
+    }
+  }, [project?.template, craftedTemplates, ensureCraftedTemplateDetail]);
 
 
   useEffect(() => {
@@ -3775,22 +3785,13 @@ export default function ProjectView() {
                             >
                               <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                                 <div className="relative z-0 min-h-[56px] pointer-events-none">
-                                  <CustomPreviewLandscape
-                                    theme={ct.theme!}
+                                  <CraftedTemplatePreview
+                                    templateId={craftedId}
+                                    previewSource={ct.preview_file ?? null}
+                                    previewImageUrl={ct.preview_image_url ?? null}
                                     name={ct.name}
-                                    introCode={ct.intro_code || undefined}
-                                    outroCode={ct.outro_code || undefined}
-                                    contentCodes={ct.content_codes || undefined}
-                                    contentArchetypeIds={ct.content_archetype_ids || undefined}
-                                    validLayouts={ct.valid_layouts || undefined}
-                                    frontendFiles={ct.frontend_files || undefined}
-                                    frontendEntryRel={ct.frontend_entry_rel || undefined}
-                                    previewImageUrl={ct.preview_image_url}
-                                    logoUrls={ct.logo_urls || undefined}
-                                    ogImage={ct.og_image || undefined}
-                                    showLoaderOnEmptyOrError
                                     thumbnailMode
-                                    thumbnailFrame={CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME}
+                                    showLoaderOnEmptyOrError
                                   />
                                 </div>
                                 <div className="pointer-events-none absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500 text-white shadow-sm">
@@ -4438,8 +4439,17 @@ export default function ProjectView() {
                                     const layoutId = desc.layoutConfig?.arrangement ?? desc.layout ?? "text_narration";
                                     const template = project.template ?? "default";
                                     const aspectRatio = project.aspect_ratio ?? "landscape";
-                                    const schemaDefaults = getDefaultFontSizesFromSchema(layoutPropSchema ?? undefined, layoutId, aspectRatio);
-                                    const defaults = schemaDefaults ?? getDefaultFontSizes(template, layoutId, aspectRatio);
+                                    const craftedFrontendFiles =
+                                      template.startsWith("crafted_")
+                                        ? (craftedTemplates.find((ct) => ct.id === template)?.frontend_files as Record<string, string> | null) || null
+                                        : null;
+                                    const defaults = resolveDefaultFontSizesForScene({
+                                      template,
+                                      layoutId,
+                                      aspectRatio,
+                                      layoutPropSchema: layoutPropSchema ?? undefined,
+                                      craftedFrontendFiles,
+                                    });
                                     const override = sceneFontOverrides[scene.id];
                                     const isCustomTpl = (template).startsWith("custom_");
                                     const storedTitle = isCustomTpl ? desc.layoutConfig?.titleFontSize : desc.layoutProps?.titleFontSize;
@@ -4515,7 +4525,12 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{titleClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {titleClamped}
+                                                  {storedTitle == null && override?.title == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>
@@ -4543,7 +4558,12 @@ export default function ProjectView() {
                                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                   </svg>
                                                 ) : null}
-                                                <span className="text-xs font-medium text-purple-600 tabular-nums">{descClamped}</span>
+                                                <span className="text-xs font-medium text-purple-600 tabular-nums">
+                                                  {descClamped}
+                                                  {storedDesc == null && override?.desc == null && (
+                                                    <span className="ml-1 text-[10px] font-normal text-gray-300">(default)</span>
+                                                  )}
+                                                </span>
                                               </div>
                                             </div>
                                           </div>

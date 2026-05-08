@@ -17,7 +17,8 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Download a crafted template package from R2 and restore it into "
             "local source folders (backend/templates, frontend/src/components/remotion, "
-            "remotion-video/src/templates)."
+            "remotion-video/src/templates, plus merged static files under frontend/public "
+            "and remotion-video/public)."
         )
     )
     parser.add_argument("--template-id", required=True, help="Local template id to restore into.")
@@ -53,11 +54,25 @@ def _safe_write_text(path: Path, content: str, overwrite: bool) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _safe_write_bytes(path: Path, content: bytes, overwrite: bool) -> None:
+    if path.exists() and not overwrite:
+        raise FileExistsError(f"Refusing to overwrite existing file: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+
+
 def _download_text_required(key: str) -> str:
     text = r2_storage.download_text(key)
     if text is None:
         raise FileNotFoundError(f"Missing R2 object: {key}")
     return text
+
+
+def _download_bytes_required(key: str) -> bytes:
+    blob = r2_storage.download_bytes(key)
+    if blob is None:
+        raise FileNotFoundError(f"Missing R2 object: {key}")
+    return blob
 
 
 def _resolve_section_files(manifest: dict, section: str, default_prefix: str) -> list[str]:
@@ -138,6 +153,26 @@ def main() -> None:
         _safe_write_text(remotion_target / local_rel, body, args.overwrite)
         restored_remotion += 1
 
+    frontend_public = REPO_ROOT / "frontend" / "public"
+    remotion_public = REPO_ROOT / "remotion-video" / "public"
+    files_index = manifest.get("files", {})
+    restored_public = 0
+    if isinstance(files_index, dict):
+        for rel_key in sorted(files_index.keys()):
+            if not isinstance(rel_key, str):
+                continue
+            rel_norm = rel_key.replace("\\", "/").lstrip("/")
+            if not rel_norm.startswith("public/"):
+                continue
+            inner = rel_norm[len("public/") :]
+            parts = inner.split("/")
+            if not inner or ".." in parts or any(not p for p in parts):
+                continue
+            blob = _download_bytes_required(f"{r2_prefix}/{_strip_prefix(rel_norm, r2_prefix)}")
+            _safe_write_bytes(frontend_public / inner, blob, args.overwrite)
+            _safe_write_bytes(remotion_public / inner, blob, args.overwrite)
+            restored_public += 1
+
     print(json.dumps(
         {
             "template_id": template_id,
@@ -147,6 +182,7 @@ def main() -> None:
             "remotion_dir": str(remotion_target),
             "restored_frontend_files": restored_frontend,
             "restored_remotion_files": restored_remotion,
+            "restored_public_files": restored_public,
         },
         ensure_ascii=False,
         indent=2,

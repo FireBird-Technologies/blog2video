@@ -124,6 +124,9 @@ def _build_crafted_template_result(package: dict[str, Any]) -> dict[str, Any]:
         "frontend_entry_rel": package.get("frontend_entry_rel") or "",
         "frontend_layout_index_rel": package.get("frontend_layout_index_rel") or "",
         "frontend_mount_id": package.get("frontend_mount_id") or "",
+        "public_asset_urls": package.get("public_asset_urls") or {},
+        "public_r2_relpaths": package.get("public_r2_relpaths") or [],
+        "crafted_r2_prefix": package.get("crafted_r2_prefix") or "",
     }
 
 

@@ -370,6 +370,7 @@ interface Props {
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
+  publicAssetUrls?: Record<string, string> | null;
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
@@ -388,6 +389,7 @@ export default function CustomPreviewLandscape({
   validLayouts,
   frontendFiles,
   frontendEntryRel,
+  publicAssetUrls,
   previewImageUrl,
   logoUrls,
   ogImage,
@@ -412,6 +414,7 @@ export default function CustomPreviewLandscape({
         validLayouts={validLayouts}
         frontendFiles={frontendFiles}
         frontendEntryRel={frontendEntryRel}
+        publicAssetUrls={publicAssetUrls}
         previewImageUrl={previewImageUrl}
         logoUrls={logoUrls}
         ogImage={ogImage}

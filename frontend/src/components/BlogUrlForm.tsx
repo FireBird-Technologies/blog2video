@@ -11,6 +11,7 @@ import UpgradePlanModal from "./UpgradePlanModal";
 import { TEMPLATE_PREVIEWS, TEMPLATE_DESCRIPTIONS, NewTemplateBadge, CustomTemplateBadge } from "./templatePreviewRegistry";
 import CustomPreview from "./templatePreviews/CustomPreview";
 import CustomPreviewLandscape from "./templatePreviews/CustomPreviewLandscape";
+import CraftedTemplatePreview from "./templatePreviews/CraftedTemplatePreview";
 import CraftYourTemplateCard from "./CraftYourTemplateCard";
 import VoiceItem, { formatVoiceSubtitle, getMyVoiceDisplayName, subtitleForSavedVoice } from "./VoiceItem";
 
@@ -243,12 +244,23 @@ interface VideoLightboxProps {
   customTemplate?: CustomTemplateItem | CraftedTemplateItem | null;
 }
 function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, customTemplate }: VideoLightboxProps) {
+  const { ensureCraftedTemplateDetail } = useCraftedTemplates();
   const PreviewComp = TEMPLATE_PREVIEWS[templateId];
   const desc = TEMPLATE_DESCRIPTIONS[templateId];
   const title = customTemplate ? customTemplate.name : (desc?.title ?? templateId);
   const subtitle = customTemplate
     ? (templateId.startsWith("crafted_") ? "Expert customized template" : "Custom template")
     : desc?.subtitle;
+
+  // Crafted templates ship summary-only by default; the full layout package
+  // (frontend_files, frontend_entry_rel, public_asset_urls) is fetched here
+  // on demand so the lightbox can render the real composition. The context
+  // dedupes concurrent calls and caches the result.
+  useEffect(() => {
+    if (templateId.startsWith("crafted_")) {
+      void ensureCraftedTemplateDetail(templateId);
+    }
+  }, [templateId, ensureCraftedTemplateDetail]);
 
   // Close on Escape
   useEffect(() => {
@@ -287,7 +299,7 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
           {/* Video content */}
           <div className="bg-black">
             {customTemplate && customTemplate.theme ? (
-              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
+              <CustomPreview theme={customTemplate.theme} name={customTemplate.name} previewImageUrl={customTemplate.preview_image_url ?? undefined} introCode={customTemplate.intro_code || undefined} outroCode={customTemplate.outro_code || undefined} contentCodes={customTemplate.content_codes || undefined} contentArchetypeIds={customTemplate.content_archetype_ids || undefined} validLayouts={(customTemplate as any).valid_layouts || undefined} frontendFiles={(customTemplate as any).frontend_files || undefined} frontendEntryRel={(customTemplate as any).frontend_entry_rel || undefined} publicAssetUrls={templateId.startsWith("crafted_") ? ((customTemplate as CraftedTemplateItem).public_asset_urls ?? undefined) : undefined} logoUrls={customTemplate.logo_urls ?? undefined} ogImage={customTemplate.og_image ?? undefined} showLoaderOnEmptyOrError={templateId.startsWith("crafted_")} />
             ) : PreviewComp ? (
               <PreviewComp />
             ) : (
@@ -2178,8 +2190,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
             ) : selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
-            ) : selectedCrafted && selectedCrafted.theme ? (
-              <CustomPreview theme={selectedCrafted.theme} name={selectedCrafted.name} previewImageUrl={selectedCrafted.preview_image_url} introCode={selectedCrafted.intro_code || undefined} outroCode={selectedCrafted.outro_code || undefined} contentCodes={selectedCrafted.content_codes || undefined} contentArchetypeIds={selectedCrafted.content_archetype_ids || undefined} validLayouts={selectedCrafted.valid_layouts || undefined} frontendFiles={selectedCrafted.frontend_files || undefined} frontendEntryRel={selectedCrafted.frontend_entry_rel || undefined} showLoaderOnEmptyOrError key={`selected-crafted-${selectedCrafted.id}-${step}`} />
+            ) : selectedCrafted && (selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
+              <CraftedTemplatePreview
+                templateId={selectedCrafted.id}
+                previewSource={selectedCrafted.preview_file ?? null}
+                previewImageUrl={selectedCrafted.preview_image_url ?? null}
+                name={selectedCrafted.name}
+                showLoaderOnEmptyOrError
+                key={`selected-crafted-${selectedCrafted.id}-${step}`}
+              />
             ) : template.startsWith("crafted_") && craftedTemplatesLoading ? (
               <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
                 <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
@@ -2288,7 +2307,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: item.type === "crafted", thumbnailFrame: item.type === "crafted" ? CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME : 135, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreview
+                              templateId={item.id}
+                              previewSource={(ct as any).preview_file ?? null}
+                              previewImageUrl={ct.preview_image_url ?? null}
+                              name={ct.name}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-${step}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-${step}`} />
+                          )}
                         </div>
                         <div className="absolute top-0 left-0.5 z-[5]">
                           {item.type === "custom" ? <CustomTemplateBadge /> : (
@@ -2833,8 +2864,15 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             <div className="relative">
               {selectedCustomBulk ? (
                 <CustomPreview theme={selectedCustomBulk.theme} name={selectedCustomBulk.name} previewImageUrl={selectedCustomBulk.preview_image_url} introCode={selectedCustomBulk.intro_code || undefined} outroCode={selectedCustomBulk.outro_code || undefined} contentCodes={selectedCustomBulk.content_codes || undefined} contentArchetypeIds={selectedCustomBulk.content_archetype_ids || undefined} logoUrls={selectedCustomBulk.logo_urls} ogImage={selectedCustomBulk.og_image} key={`selected-bulk-custom-${tpl}-${activeIndex}-${step}`} />
-              ) : selectedCraftedBulk && selectedCraftedBulk.theme ? (
-                <CustomPreview theme={selectedCraftedBulk.theme} name={selectedCraftedBulk.name} previewImageUrl={selectedCraftedBulk.preview_image_url} introCode={selectedCraftedBulk.intro_code || undefined} outroCode={selectedCraftedBulk.outro_code || undefined} contentCodes={selectedCraftedBulk.content_codes || undefined} contentArchetypeIds={selectedCraftedBulk.content_archetype_ids || undefined} validLayouts={selectedCraftedBulk.valid_layouts || undefined} frontendFiles={selectedCraftedBulk.frontend_files || undefined} frontendEntryRel={selectedCraftedBulk.frontend_entry_rel || undefined} showLoaderOnEmptyOrError key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`} />
+              ) : selectedCraftedBulk && (selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
+                <CraftedTemplatePreview
+                  templateId={selectedCraftedBulk.id}
+                  previewSource={selectedCraftedBulk.preview_file ?? null}
+                  previewImageUrl={selectedCraftedBulk.preview_image_url ?? null}
+                  name={selectedCraftedBulk.name}
+                  showLoaderOnEmptyOrError
+                  key={`selected-bulk-crafted-${tpl}-${activeIndex}-${step}`}
+                />
               ) : tpl.startsWith("crafted_") && craftedTemplatesLoading ? (
                 <div className="w-full aspect-video bg-[#1a1a2e] flex items-center justify-center">
                   <span className="w-7 h-7 border-2 border-purple-200/50 border-t-purple-500 rounded-full animate-spin" />
@@ -2965,7 +3003,19 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     >
                       <div className="relative isolate overflow-hidden max-h-[70px] min-h-[56px]">
                         <div className="relative z-0 min-h-[56px]">
-                          <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: item.type === "crafted", thumbnailFrame: item.type === "crafted" ? CRAFTED_TEMPLATE_MENU_THUMBNAIL_FRAME : 135, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                          {item.type === "crafted" ? (
+                            <CraftedTemplatePreview
+                              templateId={item.id}
+                              previewSource={(ct as any).preview_file ?? null}
+                              previewImageUrl={ct.preview_image_url ?? null}
+                              name={ct.name}
+                              thumbnailMode
+                              showLoaderOnEmptyOrError
+                              key={`${customId}-bulk-${activeIndex}`}
+                            />
+                          ) : (
+                            <CustomPreviewLandscape {...({ theme: ct.theme, name: ct.name, introCode: ct.intro_code || undefined, outroCode: ct.outro_code || undefined, contentCodes: ct.content_codes || undefined, contentArchetypeIds: ct.content_archetype_ids || undefined, validLayouts: (ct as any).valid_layouts, frontendFiles: (ct as any).frontend_files, frontendEntryRel: (ct as any).frontend_entry_rel, publicAssetUrls: (ct as any).public_asset_urls, previewImageUrl: ct.preview_image_url, logoUrls: (ct as any).logo_urls, ogImage: (ct as any).og_image, showLoaderOnEmptyOrError: false, thumbnailFrame: 135, thumbnailMode: true } as any)} key={`${customId}-bulk-${activeIndex}`} />
+                          )}
                         </div>
                         <div className="absolute top-0.5 left-0.5 z-[5]">
                           {item.type === "custom" ? <CustomTemplateBadge /> : (

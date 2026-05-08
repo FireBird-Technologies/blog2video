@@ -163,6 +163,107 @@ export async function compileComponentCode(
   }
 }
 
+/**
+ * Compile a single self-contained TSX preview component.
+ *
+ * Designed for the marquee preview file shipped with each crafted template
+ * (see backend/templates/CRAFTED_TEMPLATE_FOLDER_SPEC.md §4). Authoring
+ * rules: default-export a component, accept `{ thumbnailMode?: boolean }`,
+ * and only import from "react".
+ *
+ * Imports/exports are stripped and the file is run through Babel with the
+ * react + typescript presets. React is injected as a free variable.
+ */
+export async function compilePreviewComponent(
+  code: string,
+): Promise<{ success: true; component: React.ComponentType<{ thumbnailMode?: boolean }> } | { success: false; error: string }> {
+  try {
+    const Babel = await loadBabel();
+    const cleaned = code
+      .replace(/^\s*import\s+[^;\n]*;?\s*$/gm, "")
+      .replace(/^\s*export\s+default\s+/gm, "const __PreviewComponent__ = ")
+      .replace(/^\s*export\s+/gm, "");
+    const transformed = Babel.transform(cleaned, {
+      presets: ["react", "typescript"],
+      filename: "preview.tsx",
+    });
+    if (!transformed?.code) {
+      return { success: false, error: "Babel transform returned empty code" };
+    }
+    // eslint-disable-next-line no-new-func
+    const factory = new Function(
+      "React",
+      "useState",
+      "useEffect",
+      "useRef",
+      "useMemo",
+      "useCallback",
+      transformed.code + "\nreturn typeof __PreviewComponent__ !== 'undefined' ? __PreviewComponent__ : null;",
+    );
+    const component = factory(
+      React,
+      React.useState,
+      React.useEffect,
+      React.useRef,
+      React.useMemo,
+      React.useCallback,
+    );
+    if (typeof component !== "function") {
+      return { success: false, error: "Preview file did not produce a default-exported component" };
+    }
+    return { success: true, component: component as React.ComponentType<{ thumbnailMode?: boolean }> };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Compile a self-contained TS/JSON data module (no React, no JSX).
+ *
+ * Designed for crafted template data files like `frontend/layoutFields.ts`
+ * that ship in the bundle and export plain data via `export const X = {…}`
+ * or `export default {…}`. Imports/exports are stripped, the file is run
+ * through Babel's TypeScript preset (with module → CommonJS), and the
+ * resulting `module.exports` object is returned for the caller to read.
+ *
+ * Returns `null` on any failure (compile error, malformed source, throw).
+ * Callers should treat that as "no override" and fall back accordingly.
+ */
+export async function compileDataModule(
+  source: string,
+): Promise<Record<string, unknown> | null> {
+  if (!source || !source.trim()) return null;
+  // Plain JSON shortcut — no Babel needed.
+  const trimmed = source.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return { default: parsed, ...(parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}) };
+    } catch {
+      // fall through to Babel path
+    }
+  }
+  try {
+    const Babel = await loadBabel();
+    const transformed = Babel.transform(source, {
+      presets: ["typescript"],
+      plugins: ["transform-modules-commonjs"],
+      filename: "data.ts",
+    });
+    if (!transformed?.code) return null;
+    const moduleObj = { exports: {} as Record<string, unknown> };
+    const noopRequire = (): Record<string, unknown> => ({});
+    // eslint-disable-next-line no-new-func
+    const factory = new Function("exports", "module", "require", transformed.code);
+    factory(moduleObj.exports, moduleObj, noopRequire);
+    return moduleObj.exports;
+  } catch (err) {
+    console.warn("[compileDataModule] failed:", err);
+    return null;
+  }
+}
+
 function normalizeRelPath(path: string): string {
   return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
 }
@@ -245,7 +346,8 @@ function pickComponentExport(exportsObj: Record<string, unknown>): React.Compone
 
 export async function compileModuleGraphEntry(
   filesMap: Record<string, string>,
-  entryRelPath: string
+  entryRelPath: string,
+  publicAssetUrls?: Record<string, string> | null,
 ): Promise<MultiFileCompileResult> {
   try {
     const Babel = await loadBabel();
@@ -259,6 +361,23 @@ export async function compileModuleGraphEntry(
       return { success: false, error: `Entry not found in frontend_files: ${entryRelPath}` };
     }
 
+    const staticFileOverrides =
+      publicAssetUrls && typeof publicAssetUrls === "object" ? publicAssetUrls : null;
+    const remotionRuntime =
+      staticFileOverrides && Object.keys(staticFileOverrides).length > 0
+        ? ({
+            ...Remotion,
+            staticFile: (filePath: string) => {
+              const key = String(filePath || "")
+                .replace(/\\/g, "/")
+                .replace(/^\.+\//, "")
+                .replace(/^\/+/, "");
+              const mapped = staticFileOverrides[key];
+              if (mapped) return mapped;
+              return Remotion.staticFile(filePath);
+            },
+          } as typeof Remotion)
+        : Remotion;
     const moduleCache = new Map<string, Record<string, unknown>>();
     const compiling = new Set<string>();
     const makeMissingModuleStub = (specifier: string): Record<string, unknown> => {
@@ -366,7 +485,7 @@ export async function compileModuleGraphEntry(
           return makeMissingModuleStub(spec);
         }
         if (spec === "remotion") {
-          return Remotion;
+          return remotionRuntime;
         }
         // Tolerate side-effect-only externals (fonts/styles/aliases) in browser preview runtime.
         return {};
