@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import logging
 import os
@@ -187,7 +187,7 @@ _ALLOWED_MIME_TYPES = {
 }
 _ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"}
 _VALID_VIDEO_STYLES = {"explainer", "promotional", "storytelling"}
-_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed"}
+_VALID_VIDEO_LENGTHS = {"auto", "short", "medium", "detailed", "mdetailed"}
 _MIN_PLAYBACK_SPEED = 0.5
 _MAX_PLAYBACK_SPEED = 2.5
 _ACTIVE_TEMPLATE_CHANGE_STATUSES = {"queued", "running"}
@@ -231,10 +231,18 @@ def _normalize_video_length(video_length: str | None) -> str:
     raw = (video_length or "").strip().lower()
     if not raw:
         return "auto"
+    # Frontend label uses "more_detailed"; DB/domain uses compact "mdetailed"
+    # (projects.video_length was introduced as VARCHAR(10)).
+    aliases = {
+        "more_detailed": "mdetailed",
+        "more-detailed": "mdetailed",
+        "more detailed": "mdetailed",
+    }
+    raw = aliases.get(raw, raw)
     if raw not in _VALID_VIDEO_LENGTHS:
         raise HTTPException(
             status_code=422,
-            detail="video_length must be one of: auto, short, medium, detailed",
+            detail="video_length must be one of: auto, short, medium, detailed, more detailed",
         )
     return raw
 

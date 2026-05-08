@@ -1250,9 +1250,174 @@ interface Props {
   availableImageItems: SceneImageItem[];
   onSaved: () => void;
   openImageAdjustOnOpen?: boolean;
+  /** When set, the modal renders read-only inside a help video (no API calls, inline render). */
+  demoMode?: SceneEditModalDemoMode;
 }
 
 type EditMode = "manual" | "ai";
+
+/** Read-only demo mode used by help videos: skips API calls, seeds editing state, renders inline. */
+export interface SceneEditModalDemoMode {
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}
+
+export function SceneEditModalDemo({
+  scene,
+  editMode = "manual",
+  regenerateVoiceover = false,
+}: {
+  scene: Scene;
+  editMode?: EditMode;
+  regenerateVoiceover?: boolean;
+}) {
+  const inputClass =
+    "w-full px-3 py-2 text-sm text-gray-700 leading-relaxed border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+  const textareaClass = `${inputClass} resize-none overflow-hidden`;
+
+  return (
+    <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Edit Scene {scene.order}</h2>
+        <button className="p-1 rounded-full border border-purple-500/80 text-purple-600 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="p-6 overflow-y-auto flex-1">
+        <div>
+          <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Editing mode
+          </h4>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                editMode === "manual"
+                  ? "border-purple-500 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Manual editing
+            </button>
+            <button
+              type="button"
+              className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                editMode === "ai"
+                  ? "border-purple-500 bg-purple-50 text-purple-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              AI-Assisted editing
+            </button>
+          </div>
+          {editMode === "ai" && (
+            <p className="mt-1 text-xs text-gray-600 font-medium">
+              AI-Assisted-Editing limit: Unlimited
+            </p>
+          )}
+        </div>
+
+        {editMode === "manual" ? (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Title</h4>
+              <input type="text" readOnly value={scene.title} className={inputClass} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Display text
+              </h4>
+              <textarea
+                readOnly
+                value={scene.display_text ?? scene.narration_text}
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Layout
+              </h4>
+              <select disabled value="statement" className={`${inputClass} bg-white`}>
+                <option value="statement">Statement</option>
+              </select>
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Scene image
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                <button className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <button className="group relative flex items-center justify-center w-20 h-20 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50/50 hover:bg-purple-100/50 transition-colors text-purple-700">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-4">
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Visual description <span className="normal-case tracking-normal text-gray-300">(optional)</span>
+              </h4>
+              <textarea
+                readOnly
+                value="Make the scene more concise and emphasize the main takeaway."
+                className={textareaClass}
+                rows={2}
+              />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                Narration text (voiceover script)
+              </h4>
+              <textarea readOnly value={scene.narration_text} className={textareaClass} rows={3} />
+              <p className="mt-1.5 text-xs text-gray-400">
+                This controls the spoken narration and scene timing. Display text is edited in Manual mode.
+              </p>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+              <input
+                type="checkbox"
+                readOnly
+                checked={regenerateVoiceover}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Regenerate voiceover</span>
+                <p className="text-[11px] text-gray-400 mt-0.5">Create new audio for this scene after saving.</p>
+              </div>
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div className="p-6 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-2">
+        <button className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+          Cancel
+        </button>
+        <button className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors">
+          {editMode === "manual" ? "Save changes" : "Apply AI edit"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function SceneEditModal({
   open,
@@ -1263,8 +1428,10 @@ export default function SceneEditModal({
   availableImageItems,
   onSaved,
   openImageAdjustOnOpen = false,
+  demoMode,
 }: Props) {
-  const [editMode, setEditMode] = useState<EditMode>("manual");
+  const isDemo = !!demoMode;
+  const [editMode, setEditMode] = useState<EditMode>(demoMode?.editMode ?? "manual");
   const [title, setTitle] = useState(scene.title);
   const [description, setDescription] = useState("");
   const [displayText, setDisplayText] = useState("");
@@ -1273,7 +1440,7 @@ export default function SceneEditModal({
   const [descriptionFontSize, setDescriptionFontSize] = useState<string>("");
   const [editableLayoutProps, setEditableLayoutProps] = useState<Record<string, unknown>>({});
   const [editableStructuredContent, setEditableStructuredContent] = useState<Record<string, unknown>>({});
-  const [regenerateVoiceover, setRegenerateVoiceover] = useState(false);
+  const [regenerateVoiceover, setRegenerateVoiceover] = useState(demoMode?.regenerateVoiceover ?? false);
   const [extraHoldSeconds, setExtraHoldSeconds] = useState<string>("");
   const ENDING_SOCIALS_KEYS = [
     "instagram",
@@ -1715,12 +1882,13 @@ export default function SceneEditModal({
 
   // Fetch layouts when modal opens (needed for manual mode: image support check and layout names)
   useEffect(() => {
+    if (isDemo) return;
     if (open && !layouts) {
       getValidLayouts(project.id)
         .then((res) => setLayouts(res.data))
         .catch(() => showError("Failed to load layouts"));
     }
-  }, [open, project.id, layouts]);
+  }, [open, project.id, layouts, isDemo]);
 
   useEffect(() => {
     if (!open || !shouldAutoOpenAdjustRef.current || imageAdjustOpen) return;
@@ -1778,6 +1946,7 @@ export default function SceneEditModal({
   }, [layoutOpen]);
 
   const handleSave = async (override?: { imageFocusX?: number; imageFocusY?: number; imageZoom?: number }) => {
+    if (isDemo) return;
     if (editMode === "manual") {
       setLoading(true);
       try {
@@ -2413,9 +2582,9 @@ export default function SceneEditModal({
 
   const manualOnly = editMode === "manual";
 
-  return ReactDOM.createPortal(
+  const modalTree = (
     <>
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className={isDemo ? "absolute inset-0 z-10 flex items-center justify-center" : "fixed inset-0 z-[100] flex items-center justify-center"}>
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
@@ -4059,7 +4228,7 @@ export default function SceneEditModal({
         </div>
       </div>
     )}
-    </>,
-    document.body
+    </>
   );
+  return isDemo ? modalTree : ReactDOM.createPortal(modalTree, document.body);
 }

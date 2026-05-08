@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -43,6 +43,25 @@ function videoStyleForBulkTemplateId(
   return defaultVideoStyleForTemplate(builtinTemplates.find((t) => t.id === templateId));
 }
 
+/** Read-only demo mode used by help videos: forces step + seeds state without firing API calls. */
+export interface BlogUrlFormDemoMode {
+  step: 1 | 2 | 3;
+  url?: string;
+  name?: string;
+  videoLength?: "short" | "medium" | "detailed";
+  template?: string;
+  videoStyle?: VideoStyleId;
+  voiceGender?: "female" | "male" | "none";
+  voiceAccent?: string;
+  customVoiceId?: string;
+  templatesData?: TemplateMeta[];
+  customTemplatesData?: CustomTemplateItem[];
+  myVoicesData?: SavedVoiceFromAPI[];
+  voicePreviewsData?: Record<string, VoicePreview>;
+  /** Replaces every built-in template preview with a static filler (used by help videos). */
+  templatePreviewOverride?: (opts: { templateId: string; selected: boolean; thumbnail: boolean }) => ReactNode;
+}
+
 interface Props {
   onSubmit: (
     url: string,
@@ -61,7 +80,7 @@ interface Props {
     uploadFiles?: File[],
     template?: string,
     videoStyle?: VideoStyleId,
-    videoLength?: "short" | "medium" | "detailed",
+    videoLength?: "short" | "medium" | "detailed" | "more_detailed",
     contentLanguage?: string | null
   ) => Promise<void>;
   /** Bulk create: one call with array of configs; per-project logo via logoIndices + logoFiles. */
@@ -71,6 +90,8 @@ interface Props {
   onClose?: () => void;
   /** Invoked before navigating to My Templates to craft a template (e.g. close the new-project modal). */
   onDismissFlow?: () => void;
+  /** When set, the form renders in read-only demo mode for help videos. */
+  demoMode?: BlogUrlFormDemoMode;
 }
 
 const MAX_UPLOAD_FILES = 5;
@@ -91,10 +112,11 @@ const MAX_BULK_LINKS = (() => {
 })();
 
 /** Estimated wall-clock range per tier (UI only; backend still uses short | medium | detailed). */
-const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed", string> = {
+const VIDEO_LENGTH_DURATION_LABELS: Record<"short" | "medium" | "detailed" | "more_detailed", string> = {
   short: "Short  ~  30 sec – 1 min",
   medium: "Medium  ~  1 - 3 mins",
   detailed: "Detailed  ~  3 – 8 mins",
+  more_detailed: "More Detailed  ~  8+ mins",
 };
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt"];
@@ -294,6 +316,291 @@ function TemplateVideoLightbox({ templateId, onClose, onSelect, isSelected, cust
   );
 }
 
+type BlogUrlFormDemoStep = 1 | 2 | 3;
+
+/**
+ * @deprecated Use `<BlogUrlForm demoMode={...} />` directly. Kept temporarily for backwards compatibility.
+ */
+export function BlogUrlFormDemoModal({
+  step,
+  focus = "source",
+}: {
+  step: BlogUrlFormDemoStep;
+  focus?: "new" | "source" | "template" | "voice" | "generate";
+}) {
+  const selectedTemplateId = "spotlight";
+  const SelectedPreview = TEMPLATE_PREVIEWS[selectedTemplateId];
+  const selectedDesc = TEMPLATE_DESCRIPTIONS[selectedTemplateId];
+  const demoTemplates = ["spotlight", "nightfall", "gridcraft", "default"];
+
+  const inputClass =
+    "w-full px-4 py-2.5 bg-white/80 border border-gray-200/60 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-transparent transition-all";
+
+  const step1 = (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 flex flex-col space-y-5 min-h-0">
+        <div className="flex gap-1 p-1 bg-gray-100/60 rounded-xl w-fit">
+          {(["url", "upload", "bulk"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                mode === "url" ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {mode === "url" ? "Link" : mode === "upload" ? "Upload" : "Multi Link"}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Blog / Article URL
+          </label>
+          <input
+            type="url"
+            readOnly
+            value="https://yourblog.com/how-ai-search-works"
+            className={`${inputClass} ${focus === "source" ? "ring-2 ring-purple-500/40 border-transparent" : ""}`}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Project name <span className="normal-case text-gray-300">(optional)</span>
+          </label>
+          <input type="text" readOnly value="AI Search Explainer" className={inputClass} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Estimated duration
+          </label>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-xl border border-gray-200/60 bg-white/80 px-4 py-2.5 text-left text-sm text-gray-700"
+          >
+            <span>Medium  ~  1 - 3 mins</span>
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 flex gap-2 pt-1">
+        <button
+          type="button"
+          className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+        >
+          Go to step 2
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const step2 = (
+    <div className="space-y-5">
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+          Selected Template
+        </label>
+        <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
+          <div className="relative">{SelectedPreview ? <SelectedPreview /> : null}</div>
+          <div className="px-4 py-2.5 bg-purple-50/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-800">{selectedDesc?.title ?? "Spotlight"}</span>
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">{selectedDesc?.subtitle}</div>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            Video Style
+          </label>
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-gray-100/60 rounded-xl justify-center">
+            {VIDEO_STYLES.map((style) => (
+              <button
+                key={style.id}
+                type="button"
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  style.id === "promotional" ? "bg-white text-purple-600 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {style.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-1.5 font-medium">
+          Suggested templates for the selected video style
+        </p>
+        <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[220px] overflow-y-auto bg-gray-50/40">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <CraftYourTemplateCard
+              variant="default"
+              isPro
+              onClick={() => undefined}
+              onKeyDown={() => undefined}
+            />
+            {demoTemplates.map((templateId) => {
+              const Preview = TEMPLATE_PREVIEWS[templateId];
+              const desc = TEMPLATE_DESCRIPTIONS[templateId];
+              const selected = templateId === selectedTemplateId;
+              return (
+                <div
+                  key={templateId}
+                  className={`relative rounded-lg overflow-hidden cursor-pointer transition-all group ${
+                    selected
+                      ? "border-2 border-purple-500 shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                      : "border-2 border-gray-200/60 hover:border-purple-300/60"
+                  }`}
+                >
+                  <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
+                    {Preview ? <Preview thumbnailMode /> : null}
+                    {selected && (
+                      <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1 transition-colors ${selected ? "bg-purple-50/80" : "bg-white/80"}`}>
+                    <div className="text-[10px] font-semibold text-gray-800 truncate">{desc?.title ?? templateId}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button type="button" className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button type="button" className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+          Go to step 3
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const voiceRows = [
+    { name: "Rachel", subtitle: "Female - American - clear product narration", selected: true },
+    { name: "Alice", subtitle: "Female - British - soft and polished", selected: false },
+    { name: "Bill", subtitle: "Male - American - friendly and articulate", selected: false },
+  ];
+
+  const step3 = (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-50/60 border border-purple-200/50">
+        <svg className="w-4 h-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+        </svg>
+        <p className="text-[11px] text-purple-600 leading-relaxed">
+          Choose narration language. Keep <span className="font-semibold">Auto</span> to detect from content.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+          Language
+        </label>
+        <button type="button" className="flex w-full items-center justify-between rounded-xl border border-gray-200/60 bg-white/80 px-4 py-2.5 text-left text-sm text-gray-700">
+          <span>Auto</span>
+          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <p className="text-[11px] text-gray-500">Language of the video content</p>
+      </div>
+      <label className="flex items-center gap-2.5 cursor-pointer select-none p-3 rounded-xl bg-gray-50/60 border border-gray-200/60 hover:border-gray-300/60 transition-all">
+        <input type="checkbox" readOnly checked={false} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500/30 cursor-pointer accent-purple-600" />
+        <div>
+          <span className="text-sm font-medium text-gray-700">No voiceover</span>
+          <p className="text-[11px] text-gray-400 mt-0.5">Text-only video, no narration audio</p>
+        </div>
+      </label>
+      <div>
+        <label className="block text-[11px] font-medium text-gray-400 mb-3 uppercase tracking-wider">
+          Voice - Select and Play to Preview
+        </label>
+        <div className="space-y-2 max-h-[320px] overflow-y-auto">
+          {voiceRows.map((voice) => (
+            <VoiceItem
+              key={voice.name}
+              name={voice.name}
+              subtitle={voice.subtitle}
+              hasPreview
+              isPlaying={focus === "voice" && voice.selected}
+              onPlay={() => undefined}
+              isSelected={voice.selected}
+              actions={
+                voice.selected ? (
+                  <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : null
+              }
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" className="px-5 py-3 text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors border border-gray-200/60">
+          Back
+        </button>
+        <button
+          type="button"
+          className={`flex-1 py-3 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
+            focus === "generate" ? "bg-purple-700 ring-4 ring-purple-500/20" : "bg-purple-600 hover:bg-purple-700"
+          }`}
+        >
+          Generate Video
+        </button>
+      </div>
+    </div>
+  );
+
+  const content = step === 1 ? step1 : step === 2 ? step2 : step3;
+
+  return (
+    <div className="relative w-full max-w-xl bg-white/90 backdrop-blur-xl border border-gray-200/40 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.08)] p-7 max-h-[85vh] overflow-y-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-base font-semibold text-gray-900">New Project</h2>
+        <button className="text-gray-300 hover:text-gray-500 transition-colors">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <StepIndicator current={step} total={3} />
+      <div className="relative min-h-[420px] flex flex-col">
+        <div className="min-h-[420px] flex flex-col">{content}</div>
+      </div>
+    </div>
+  );
+}
+
 function deriveNameFromUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -334,14 +641,18 @@ function getFileExtension(s: string): string | null {
   }
 }
 
-export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow }: Props) {
+export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, onClose, onDismissFlow, demoMode }: Props) {
   const { user } = useAuth();
   const { showError } = useErrorModal();
   const navigate = useNavigate();
-  const isPro = user?.plan === "pro" || user?.plan === "standard";
+  const isPro = demoMode ? true : user?.plan === "pro" || user?.plan === "standard";
+  const isDemo = !!demoMode;
 
   // Wizard step
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(demoMode?.step ?? 1);
+  useEffect(() => {
+    if (demoMode?.step) setStep(demoMode.step);
+  }, [demoMode?.step]);
 
   // Step 1 — input
   const [mode, setMode] = useState<"url" | "upload" | "bulk">("url");
@@ -362,7 +673,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [bulkVoiceAccent, setBulkVoiceAccent] = useState<string[]>(["american"]);
   const [bulkCustomVoiceId, setBulkCustomVoiceId] = useState<string[]>([]);
   const [bulkContentLanguage, setBulkContentLanguage] = useState<string[]>(["auto"]);
-  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed")[]>(["short"]);
+  const [bulkVideoLength, setBulkVideoLength] = useState<("short" | "medium" | "detailed" | "more_detailed")[]>(["short"]);
   const [bulkAspectRatio, setBulkAspectRatio] = useState<("landscape" | "portrait")[]>(["landscape"]);
   const [bulkVideoStyles, setBulkVideoStyles] = useState<VideoStyleId[]>([DEFAULT_VIDEO_STYLE]);
   const bulkStyleManuallySet = useRef<boolean[]>([false]);
@@ -387,7 +698,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   const [voiceGender, setVoiceGender] = useState<"female" | "male" | "none">("female");
   const [voiceAccent, setVoiceAccent] = useState<string>("american");
   const [contentLanguage, setContentLanguage] = useState<string>("auto");
-  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed">("short");
+  const [videoLength, setVideoLength] = useState<"short" | "medium" | "detailed" | "more_detailed">("short");
   const [customVoiceId, setCustomVoiceId] = useState("");
   const [voicePreviews, setVoicePreviews] = useState<Record<string, VoicePreview>>({});
   const [myVoicesList, setMyVoicesList] = useState<SavedVoiceFromAPI[]>([]);
@@ -495,8 +806,8 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   );
 
   const renderVideoLengthDropdown = (
-    value: "short" | "medium" | "detailed",
-    onSelect: (next: "short" | "medium" | "detailed") => void
+    value: "short" | "medium" | "detailed" | "more_detailed",
+    onSelect: (next: "short" | "medium" | "detailed" | "more_detailed") => void
   ) => (
     <details className="relative group">
       <summary className="list-none w-full px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 flex items-center justify-between">
@@ -512,7 +823,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       </summary>
       <div className="absolute z-20 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
         <div className="max-h-[18.5rem] overflow-y-auto py-1">
-          {(["short", "medium", "detailed"] as const).map((opt) => (
+          {(["short", "medium", "detailed", "more_detailed"] as const).map((opt) => (
             <button
               key={opt}
               type="button"
@@ -536,6 +847,34 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // Load templates, voice previews, and user's saved voices once
   useEffect(() => {
     let mounted = true;
+    if (isDemo) {
+      if (demoMode?.templatesData) setTemplates(demoMode.templatesData);
+      if (demoMode?.customTemplatesData) setCustomTemplates(demoMode.customTemplatesData);
+      if (demoMode?.myVoicesData) setMyVoicesList(demoMode.myVoicesData);
+      if (demoMode?.voicePreviewsData) setVoicePreviews(demoMode.voicePreviewsData);
+      if (demoMode?.url) setUrls([demoMode.url]);
+      if (demoMode?.name) setName(demoMode.name);
+      if (demoMode?.videoLength) setVideoLength(demoMode.videoLength);
+      if (demoMode?.template) {
+        setTemplate(demoMode.template);
+        templateManuallySelectedRef.current = true;
+      }
+      if (demoMode?.videoStyle) {
+        setVideoStyle(demoMode.videoStyle);
+        styleManuallySet.current = true;
+      }
+      if (demoMode?.voiceGender) setVoiceGender(demoMode.voiceGender);
+      if (demoMode?.voiceAccent) setVoiceAccent(demoMode.voiceAccent);
+      if (demoMode?.customVoiceId) setCustomVoiceId(demoMode.customVoiceId);
+      setBuiltinTemplatesLoading(false);
+      setSessionBuiltinInitDone(true);
+      setMyVoicesLoading(false);
+      setCustomTemplatesLoading(false);
+      sessionRandomAppliedRef.current = true;
+      return () => {
+        mounted = false;
+      };
+    }
     getTemplates()
       .then((r) => {
         if (mounted) {
@@ -700,6 +1039,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
 
   // Preload voice preview audio on mount so it's ready by step 3
   useEffect(() => {
+    if (isDemo) return;
     const base = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
     for (const key of VOICE_PREVIEW_KEYS) {
       if (preloadedAudioRef.current[key]) continue;
@@ -709,7 +1049,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
       a.src = url;
       preloadedAudioRef.current[key] = a;
     }
-  }, []);
+  }, [isDemo]);
 
   // Cleanup audio only on unmount; do not clear preloadedAudioRef so step 3 can use it
   useEffect(() => {
@@ -1000,6 +1340,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
   // ─── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemo) return;
     if (step !== 3) return;
     const enteredAt = step3EnteredAtRef.current;
     if (enteredAt != null && Date.now() - enteredAt < 400) return;
@@ -1772,7 +2113,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
         </label>
         <div className="rounded-xl overflow-hidden border-2 border-purple-500 shadow-[0_0_0_4px_rgba(124,58,237,0.1)]">
           <div className="relative">
-            {selectedCustom ? (
+            {demoMode?.templatePreviewOverride && !selectedCustom ? (
+              demoMode.templatePreviewOverride({ templateId: template, selected: true, thumbnail: false })
+            ) : selectedCustom ? (
               <CustomPreview theme={selectedCustom.theme} name={selectedCustom.name} previewImageUrl={selectedCustom.preview_image_url} introCode={selectedCustom.intro_code || undefined} outroCode={selectedCustom.outro_code || undefined} contentCodes={selectedCustom.content_codes || undefined} contentArchetypeIds={selectedCustom.content_archetype_ids || undefined} logoUrls={selectedCustom.logo_urls} ogImage={selectedCustom.og_image} key={`selected-custom-${selectedCustom.id}-${step}`} />
             ) : SelectedPreviewComp ? (
               <SelectedPreviewComp key={`selected-${template}-${step}`} />
@@ -1916,7 +2259,9 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                     }`}
                   >
                     <div className="relative overflow-hidden max-h-[70px] min-h-[56px]">
-                      {PreviewComp ? (
+                      {demoMode?.templatePreviewOverride ? (
+                        demoMode.templatePreviewOverride({ templateId: t.id, selected: isSelected, thumbnail: true })
+                      ) : PreviewComp ? (
                         <PreviewComp key={`${t.id}-${step}`} thumbnailMode />
                       ) : (
                         <div className="w-full h-full min-h-[56px] bg-gray-100 flex items-center justify-center text-gray-300 text-[10px]">
