@@ -400,6 +400,38 @@ def _write_crafted_template_files(workspace: str, crafted_data: dict) -> None:
         f.write(shim)
     logger.info("Wrote crafted GeneratedVideo.tsx shim (mount=%s)", mount_id)
 
+    _write_crafted_public_assets(workspace, crafted_data)
+
+
+def _write_crafted_public_assets(workspace: str, crafted_data: dict) -> None:
+    """Copy bundled `public/*` from R2 into the render workspace so staticFile() resolves locally."""
+    prefix = (crafted_data.get("crafted_r2_prefix") or "").strip().strip("/")
+    rel_paths = crafted_data.get("public_r2_relpaths")
+    if not prefix or not isinstance(rel_paths, list) or not rel_paths:
+        return
+    public_root = os.path.join(workspace, "public")
+    os.makedirs(public_root, exist_ok=True)
+    for raw in rel_paths:
+        if not isinstance(raw, str):
+            continue
+        norm = raw.replace("\\", "/").strip("/")
+        if not norm.startswith("public/"):
+            continue
+        inner = norm[len("public/") :]
+        parts = inner.split("/")
+        if not inner or ".." in parts or any(not p for p in parts):
+            continue
+        key = f"{prefix}/{norm}" if prefix else norm
+        blob = r2_storage.download_bytes(key)
+        if blob is None:
+            logger.warning("[REMOTION] Crafted public asset missing from R2: %s", key)
+            continue
+        dst = os.path.join(public_root, *[p for p in parts if p])
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "wb") as f:
+            f.write(blob)
+        logger.info("[REMOTION] Wrote crafted public asset %s (%d bytes)", inner, len(blob))
+
 
 def _wrap_generated_code(raw_code: str) -> str:
     """

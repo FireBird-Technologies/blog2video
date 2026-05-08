@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
-from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.services.crafted_template_service import (
@@ -15,6 +14,7 @@ from app.services.crafted_template_service import (
     load_crafted_template_package,
     invalidate_crafted_template_cache,
     crafted_cache_stats,
+    validate_crafted_template_access,
 )
 
 router = APIRouter(prefix="/api/crafted-templates", tags=["crafted-templates"])
@@ -36,14 +36,6 @@ class CraftedTemplateGrantRequest(BaseModel):
     public_template_id: str = Field(..., min_length=4, max_length=140, pattern=r"^crafted_[a-z0-9_-]+$")
 
 
-def _is_publish_admin(user: User) -> bool:
-    allowed = str(getattr(settings, "CRAFTED_TEMPLATE_ADMIN_EMAILS", "") or "").strip()
-    if not allowed:
-        return False
-    allowed_emails = {x.strip().lower() for x in allowed.split(",") if x.strip()}
-    return (user.email or "").strip().lower() in allowed_emails
-
-
 @router.get("")
 def list_crafted_templates(
     user: User = Depends(get_current_user),
@@ -59,9 +51,61 @@ def get_crafted_cache_stats(
     user: User = Depends(get_current_user),
 ):
     # Lightweight observability endpoint for rollout verification.
-    if not _is_publish_admin(user):
-        raise HTTPException(status_code=403, detail="Admin access required.")
+    # Auth-only (no admin gate) — operated via Postman by the project owner.
     return crafted_cache_stats()
+
+
+@router.get("/{template_id}")
+def get_crafted_template_detail(
+    template_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not is_crafted_templates_enabled():
+        raise HTTPException(status_code=404, detail="Crafted templates are disabled.")
+    if not validate_crafted_template_access(template_id, user.id, db):
+        raise HTTPException(status_code=403, detail="You do not have access to this crafted template.")
+    package = load_crafted_template_package(
+        template_id=template_id,
+        user_id=user.id,
+        db=db,
+        require_entitlement=True,
+    )
+    if not package:
+        raise HTTPException(status_code=404, detail="Crafted template package not found.")
+    meta = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+    return {
+        "id": package.get("template_id") or template_id,
+        "name": package.get("name") or "",
+        "description": meta.get("description", ""),
+        "styles": meta.get("styles", [package.get("supported_video_style", "explainer")]),
+        "preview_colors": meta.get("preview_colors"),
+        "hero_layout": meta.get("hero_layout"),
+        "fallback_layout": meta.get("fallback_layout"),
+        "valid_layouts": meta.get("valid_layouts"),
+        "layouts_without_image": meta.get("layouts_without_image"),
+        "layout_prop_schema": meta.get("layout_prop_schema"),
+        "template_type": "crafted",
+        "crafted": True,
+        "composition_id": "GeneratedVideo",
+        "intro_code": package.get("intro_code"),
+        "outro_code": package.get("outro_code"),
+        "content_codes": package.get("content_codes"),
+        "content_archetype_ids": package.get("content_archetype_ids"),
+        "frontend_files": package.get("frontend_files") or {},
+        "frontend_entry_rel": package.get("frontend_entry_rel") or "",
+        "frontend_layout_index_rel": package.get("frontend_layout_index_rel") or "",
+        "frontend_mount_id": package.get("frontend_mount_id") or "",
+        "preview_file": package.get("preview_file"),
+        "preview_file_rel": package.get("preview_file_rel"),
+        "layout_fields": package.get("layout_fields"),
+        "layout_fields_rel": package.get("layout_fields_rel"),
+        "preview_image_url": package.get("preview_image_url"),
+        "public_asset_urls": package.get("public_asset_urls") or {},
+        "theme": package.get("theme"),
+        "logo_urls": meta.get("logo_urls"),
+        "og_image": meta.get("og_image"),
+    }
 
 
 @router.post("/admin/publish")
@@ -72,8 +116,6 @@ def publish_crafted(
 ):
     if not is_crafted_templates_enabled():
         raise HTTPException(status_code=400, detail="Crafted templates are disabled.")
-    if not _is_publish_admin(user):
-        raise HTTPException(status_code=403, detail="Admin access required.")
 
     style = (payload.supported_video_style or "explainer").strip().lower()
     if style not in {"explainer", "promotional", "storytelling"}:
@@ -99,8 +141,19 @@ def publish_crafted(
         raise HTTPException(status_code=422, detail="R2 package validation failed for published template.")
 
     # Keep latest validated metadata cached in DB as optional L2 fallback.
+    # The list endpoint serves directly from this cache so it stays cheap;
+    # it must therefore include everything the marquee preview card needs:
+    # preview image URL, preview source code, and theme tokens.
     try:
-        row.cached_meta_json = json.dumps(package.get("meta") or {}, ensure_ascii=False)
+        meta_payload = package.get("meta") if isinstance(package.get("meta"), dict) else {}
+        cached_meta_payload = dict(meta_payload)
+        cached_meta_payload["preview_image_url"] = package.get("preview_image_url")
+        cached_meta_payload["preview_file"] = package.get("preview_file")
+        cached_meta_payload["preview_file_rel"] = package.get("preview_file_rel")
+        cached_meta_payload["layout_fields"] = package.get("layout_fields")
+        cached_meta_payload["layout_fields_rel"] = package.get("layout_fields_rel")
+        cached_meta_payload["theme"] = package.get("theme")
+        row.cached_meta_json = json.dumps(cached_meta_payload, ensure_ascii=False)
         row.status = "active"
         db.commit()
     except Exception:
@@ -122,8 +175,6 @@ def grant_crafted_access(
 ):
     if not is_crafted_templates_enabled():
         raise HTTPException(status_code=400, detail="Crafted templates are disabled.")
-    if not _is_publish_admin(user):
-        raise HTTPException(status_code=403, detail="Admin access required.")
 
     from app.models.crafted_template import CraftedTemplate
 

@@ -11,6 +11,7 @@ import {
   BACKEND_URL,
   Project,
   getTemplateCode,
+  type CraftedTemplateDetail,
   type CraftedTemplateItem,
 } from "../api/client";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
@@ -532,7 +533,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
   const templateId = normalizeBuiltInTemplateId(project.template);
   const isCustom = templateId.startsWith("custom_");
   const isCrafted = templateId.startsWith("crafted_");
-  const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
+  const { craftedTemplates, loading: craftedTemplatesLoading, ensureCraftedTemplateDetail } = useCraftedTemplates();
 
   // ─── Crafted template: fetch + JIT-compile R2-bundled frontend ─────────
   // Crafted templates use the same data shape as a built-in (scenes with a
@@ -545,6 +546,13 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     if (!isCrafted) return null;
     return craftedTemplates.find((d) => d.id === project.template) ?? null;
   }, [craftedTemplates, isCrafted, project.template]);
+  const craftedDetail = useMemo<CraftedTemplateDetail | null>(() => {
+    if (!craftedItem) return null;
+    if (craftedItem.frontend_files && craftedItem.frontend_entry_rel) {
+      return craftedItem as CraftedTemplateDetail;
+    }
+    return null;
+  }, [craftedItem]);
   const [compiledCrafted, setCompiledCrafted] = useState<React.ComponentType<any> | null>(null);
   const [isCompilingCrafted, setIsCompilingCrafted] = useState(false);
 
@@ -562,14 +570,24 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
       setIsCompilingCrafted(true);
       return;
     }
-    if (!craftedItem.frontend_files || !craftedItem.frontend_entry_rel) {
+    if (!craftedDetail) {
+      setCompiledCrafted(null);
+      setIsCompilingCrafted(true);
+      void ensureCraftedTemplateDetail(templateId);
+      return;
+    }
+    if (!craftedDetail.frontend_files || !craftedDetail.frontend_entry_rel) {
       setCompiledCrafted(null);
       setIsCompilingCrafted(false);
       return;
     }
     let cancelled = false;
     setIsCompilingCrafted(true);
-    compileModuleGraphEntry(craftedItem.frontend_files, craftedItem.frontend_entry_rel)
+    compileModuleGraphEntry(
+      craftedDetail.frontend_files,
+      craftedDetail.frontend_entry_rel,
+      craftedDetail.public_asset_urls,
+    )
       .then((result) => {
         if (cancelled) return;
         if (result.success) {
@@ -589,7 +607,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     return () => {
       cancelled = true;
     };
-  }, [isCrafted, craftedItem]);
+  }, [isCrafted, craftedItem, craftedDetail, ensureCraftedTemplateDetail, templateId]);
 
   const config = useMemo(() => {
     const base = getTemplateConfig(templateId);

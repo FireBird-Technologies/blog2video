@@ -123,6 +123,8 @@ interface CustomPreviewProps {
   validLayouts?: string[] | null;
   frontendFiles?: Record<string, string> | null;
   frontendEntryRel?: string | null;
+  /** Crafted template: URLs for bundled `public/` paths (Remotion staticFile keys). */
+  publicAssetUrls?: Record<string, string> | null;
   previewImageUrl?: string | null;
   logoUrls?: string[];
   ogImage?: string;
@@ -143,6 +145,7 @@ export default function CustomPreview({
   validLayouts,
   frontendFiles,
   frontendEntryRel,
+  publicAssetUrls,
   previewImageUrl,
   logoUrls,
   ogImage,
@@ -275,7 +278,11 @@ export default function CustomPreview({
       }, 8000);
 
       const compileModule = async () => {
-        const result = await compileModuleGraphEntry(frontendFiles || {}, frontendEntryRel || "");
+        const result = await compileModuleGraphEntry(
+          frontendFiles || {},
+          frontendEntryRel || "",
+          publicAssetUrls,
+        );
         if (cancelled) return;
         clearTimeout(compileTimeoutRef.current);
         if (result.success) {
@@ -336,7 +343,7 @@ export default function CustomPreview({
       cancelled = true;
       clearTimeout(compileTimeoutRef.current);
     };
-  }, [sceneCodes, hasFrontendRuntime, frontendFiles, frontendEntryRel]);
+  }, [sceneCodes, hasFrontendRuntime, frontendFiles, frontendEntryRel, publicAssetUrls]);
 
   // Cleanup fade timer on unmount
   useEffect(() => {
@@ -372,6 +379,17 @@ export default function CustomPreview({
 
   // ─── No code yet — show blank placeholder ─────────────────────
   if (!hasCode && !hasFrontendRuntime) {
+    if (previewImageUrl) {
+      return (
+        <img
+          src={previewImageUrl}
+          alt={`${name || "Template"} preview`}
+          style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 8, display: "block" }}
+          loading="lazy"
+          decoding="async"
+        />
+      );
+    }
     if (showLoaderOnEmptyOrError) {
       return (
         <div

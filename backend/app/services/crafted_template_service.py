@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 CRAFTED_PREFIX = "crafted_"
 DEFAULT_MAX_PACKAGE_BYTES = 25 * 1024 * 1024
-DEFAULT_MAX_FILE_BYTES = 2 * 1024 * 1024
+DEFAULT_MAX_FILE_BYTES = 8 * 1024 * 1024
 DEFAULT_CACHE_TTL_SECONDS = 300
 _VALID_STYLES = {"explainer", "promotional", "storytelling"}
 
@@ -188,6 +188,26 @@ def _required_module_files(
     return mount_id, entry_rel, layout_index_rel, module_files
 
 
+def _frontend_preview_rel(manifest: dict[str, Any]) -> str:
+    """
+    Resolve the optional marquee preview file path from the manifest.
+    Returns "" when no preview file was bundled.
+    """
+    section = manifest.get("frontend") if isinstance(manifest.get("frontend"), dict) else {}
+    raw = section.get("preview") if isinstance(section.get("preview"), str) else ""
+    return _norm_rel_path(raw) if raw else ""
+
+
+def _frontend_layout_fields_rel(manifest: dict[str, Any]) -> str:
+    """
+    Resolve the optional SceneEditModal layout_fields file path from the
+    manifest. Returns "" when no layoutFields.ts/json was bundled.
+    """
+    section = manifest.get("frontend") if isinstance(manifest.get("frontend"), dict) else {}
+    raw = section.get("layout_fields") if isinstance(section.get("layout_fields"), str) else ""
+    return _norm_rel_path(raw) if raw else ""
+
+
 def _required_remotion_files(manifest: dict[str, Any], template_key: str) -> tuple[str, str, str, list[str]]:
     """
     Built-in-style remotion contract for crafted templates.
@@ -209,6 +229,26 @@ def _required_remotion_files(manifest: dict[str, Any], template_key: str) -> tup
         default_entry="TemplateVideo.tsx",
         default_layout_index="layouts/index.ts",
     )
+
+
+def _public_assets_from_manifest(r2_prefix: str, files_map: Any) -> tuple[dict[str, str], list[str]]:
+    """Map `public/<path>` bundle entries to staticFile keys and public CDN URLs; list R2 keys for render."""
+    urls: dict[str, str] = {}
+    relpaths: list[str] = []
+    if not isinstance(files_map, dict):
+        return {}, []
+    for raw_key in files_map.keys():
+        if not isinstance(raw_key, str):
+            continue
+        norm = _norm_rel_path(raw_key)
+        if not norm.startswith("public/"):
+            continue
+        inner = norm[len("public/") :]
+        if not inner or not _is_safe_rel_path(inner):
+            continue
+        relpaths.append(norm)
+        urls[inner] = r2_storage.public_url(_join_r2_key(r2_prefix, norm))
+    return urls, sorted(set(relpaths))
 
 
 def _required_frontend_files(manifest: dict[str, Any], template_key: str) -> tuple[str, str, str, list[str]]:
@@ -552,6 +592,14 @@ def load_crafted_template_package(
             "fonts": {},
         }
 
+    public_asset_urls, public_r2_relpaths = _public_assets_from_manifest(template_row.r2_prefix, files_map)
+
+    preview_file_rel = _frontend_preview_rel(manifest)
+    preview_file_code = _read_text(preview_file_rel) if preview_file_rel else None
+
+    layout_fields_rel = _frontend_layout_fields_rel(manifest)
+    layout_fields_code = _read_text(layout_fields_rel) if layout_fields_rel else None
+
     package = {
         "template_id": template_id,
         "template_key": template_row.template_key,
@@ -578,11 +626,84 @@ def load_crafted_template_package(
         "frontend_entry_rel": frontend_entry_rel,
         "frontend_layout_index_rel": frontend_layout_index_rel,
         "frontend_mount_id": frontend_mount_id,
+        "preview_file": preview_file_code,
+        "preview_file_rel": preview_file_rel or None,
+        "layout_fields": layout_fields_code,
+        "layout_fields_rel": layout_fields_rel or None,
         "preview_image_url": r2_storage.public_url(_join_r2_key(template_row.r2_prefix, _norm_rel_path(manifest.get("preview_image", "assets/preview.jpg")))),
+        "public_asset_urls": public_asset_urls,
+        "public_r2_relpaths": public_r2_relpaths,
+        "crafted_r2_prefix": template_row.r2_prefix,
         "manifest": manifest,
     }
     _put_cache(template_id, package)
     return package
+
+
+def _resolve_preview_image_url_from_manifest(prefix: str, manifest_path: str) -> str | None:
+    if not manifest_path:
+        return None
+    manifest = r2_storage.download_json(manifest_path)
+    if not isinstance(manifest, dict):
+        return None
+    preview_rel = _norm_rel_path(manifest.get("preview_image", "assets/preview.jpg"))
+    if not _is_safe_rel_path(preview_rel):
+        return None
+    return r2_storage.public_url(_join_r2_key(prefix, preview_rel))
+
+
+def _list_summary_from_cached_meta(
+    tpl: CraftedTemplate,
+    cached_meta: dict[str, Any],
+    *,
+    fallback_preview_url: str | None = None,
+) -> dict[str, Any]:
+    preview_image_url = (
+        cached_meta.get("preview_image_url")
+        if isinstance(cached_meta.get("preview_image_url"), str)
+        else fallback_preview_url
+    )
+    theme = cached_meta.get("theme")
+    if not isinstance(theme, dict):
+        theme = {}
+    styles = cached_meta.get("styles")
+    if not isinstance(styles, list):
+        styles = [tpl.supported_video_style]
+    preview_file = cached_meta.get("preview_file")
+    if not isinstance(preview_file, str):
+        preview_file = None
+    preview_file_rel = cached_meta.get("preview_file_rel")
+    if not isinstance(preview_file_rel, str):
+        preview_file_rel = None
+    layout_fields = cached_meta.get("layout_fields")
+    if not isinstance(layout_fields, str):
+        layout_fields = None
+    layout_fields_rel = cached_meta.get("layout_fields_rel")
+    if not isinstance(layout_fields_rel, str):
+        layout_fields_rel = None
+    return {
+        "id": tpl.public_template_id,
+        "name": tpl.name,
+        "description": cached_meta.get("description", "") if isinstance(cached_meta.get("description"), str) else "",
+        "styles": styles,
+        "preview_colors": cached_meta.get("preview_colors"),
+        "hero_layout": cached_meta.get("hero_layout"),
+        "fallback_layout": cached_meta.get("fallback_layout"),
+        "valid_layouts": cached_meta.get("valid_layouts"),
+        "layouts_without_image": cached_meta.get("layouts_without_image"),
+        "layout_prop_schema": cached_meta.get("layout_prop_schema"),
+        "template_type": "crafted",
+        "crafted": True,
+        "composition_id": "GeneratedVideo",
+        "preview_image_url": preview_image_url,
+        "preview_file": preview_file,
+        "preview_file_rel": preview_file_rel,
+        "layout_fields": layout_fields,
+        "layout_fields_rel": layout_fields_rel,
+        "theme": theme,
+        "logo_urls": cached_meta.get("logo_urls"),
+        "og_image": cached_meta.get("og_image"),
+    }
 
 
 def list_user_crafted_templates(user_id: int, db: Session) -> list[dict[str, Any]]:
@@ -607,44 +728,20 @@ def list_user_crafted_templates(user_id: int, db: Session) -> list[dict[str, Any
     )
     out: list[dict[str, Any]] = []
     for tpl, _ent in rows:
-        data = load_crafted_template_package(
-            template_id=tpl.public_template_id,
-            user_id=user_id,
-            db=db,
-            require_entitlement=True,
-        )
-        if not data:
-            continue
-        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
-        out.append(
-            {
-                "id": tpl.public_template_id,
-                "name": tpl.name,
-                "description": meta.get("description", ""),
-                "styles": meta.get("styles", [tpl.supported_video_style]),
-                "preview_colors": meta.get("preview_colors"),
-                "hero_layout": meta.get("hero_layout"),
-                "fallback_layout": meta.get("fallback_layout"),
-                "valid_layouts": meta.get("valid_layouts"),
-                "layouts_without_image": meta.get("layouts_without_image"),
-                "layout_prop_schema": meta.get("layout_prop_schema"),
-                "template_type": "crafted",
-                "crafted": True,
-                "composition_id": "GeneratedVideo",
-                "intro_code": data.get("intro_code"),
-                "outro_code": data.get("outro_code"),
-                "content_codes": data.get("content_codes"),
-                "content_archetype_ids": data.get("content_archetype_ids"),
-                "frontend_files": data.get("frontend_files") or {},
-                "frontend_entry_rel": data.get("frontend_entry_rel") or "",
-                "frontend_layout_index_rel": data.get("frontend_layout_index_rel") or "",
-                "frontend_mount_id": data.get("frontend_mount_id") or "",
-                "preview_image_url": data.get("preview_image_url"),
-                "theme": data.get("theme"),
-                "logo_urls": meta.get("logo_urls"),
-                "og_image": meta.get("og_image"),
-            }
-        )
+        cached_meta: dict[str, Any] = {}
+        try:
+            loaded = json.loads(tpl.cached_meta_json) if isinstance(tpl.cached_meta_json, str) and tpl.cached_meta_json.strip() else {}
+            if isinstance(loaded, dict):
+                cached_meta = loaded
+        except Exception:
+            cached_meta = {}
+        fallback_preview_url = None
+        if not isinstance(cached_meta.get("preview_image_url"), str):
+            fallback_preview_url = _resolve_preview_image_url_from_manifest(
+                tpl.r2_prefix,
+                tpl.manifest_path or _join_r2_key(tpl.r2_prefix, "manifest.json"),
+            )
+        out.append(_list_summary_from_cached_meta(tpl, cached_meta, fallback_preview_url=fallback_preview_url))
     return out
 
 

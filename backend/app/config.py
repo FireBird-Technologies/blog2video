@@ -80,11 +80,10 @@ class Settings(BaseSettings):
 
     # Crafted templates (separate from built-ins and user custom templates)
     CRAFTED_TEMPLATES_ENABLED: bool = False
-    CRAFTED_TEMPLATE_ADMIN_EMAILS: str = ""  # comma-separated emails allowed to publish/grant
     CRAFTED_TEMPLATE_R2_PREFIX: str = ""  # optional namespace, e.g. "dev" | "staging" | "prod"
     CRAFTED_TEMPLATE_CACHE_TTL_SECONDS: int = 86400
     CRAFTED_TEMPLATE_MAX_PACKAGE_BYTES: int = 25 * 1024 * 1024
-    CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 2 * 1024 * 1024
+    CRAFTED_TEMPLATE_MAX_FILE_BYTES: int = 8 * 1024 * 1024
 
     # Render reliability/progress controls
     RENDER_MAX_SECONDS: int = int(os.environ.get("RENDER_MAX_SECONDS", "2700"))

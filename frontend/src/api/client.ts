@@ -445,7 +445,7 @@ export interface TemplateAvailabilitySignal {
 export const getTemplateAvailabilitySignal = () =>
   api.get<TemplateAvailabilitySignal>("/projects/template-availability");
 
-export interface CraftedTemplateItem {
+export interface CraftedTemplateSummary {
   id: string;
   name: string;
   description?: string;
@@ -458,6 +458,22 @@ export interface CraftedTemplateItem {
   layouts_without_image?: string[];
   layout_prop_schema?: Record<string, LayoutPropSchema>;
   theme?: CustomTemplateTheme;
+  preview_image_url?: string | null;
+  /** Source code for the marquee preview component (optional, compiled at runtime). */
+  preview_file?: string | null;
+  /** Bundle-relative path to the marquee preview source. */
+  preview_file_rel?: string | null;
+  /** Source for SceneEditModal field defs per layout (TS/JSON, compiled at runtime). */
+  layout_fields?: string | null;
+  /** Bundle-relative path to the layout_fields source. */
+  layout_fields_rel?: string | null;
+  logo_urls?: string[] | null;
+  og_image?: string | null;
+  template_type?: "crafted";
+  crafted?: boolean;
+}
+
+export interface CraftedTemplateItem extends CraftedTemplateSummary {
   intro_code?: string | null;
   outro_code?: string | null;
   content_codes?: string[] | null;
@@ -466,15 +482,17 @@ export interface CraftedTemplateItem {
   frontend_entry_rel?: string | null;
   frontend_layout_index_rel?: string | null;
   frontend_mount_id?: string | null;
-  preview_image_url?: string | null;
-  logo_urls?: string[] | null;
-  og_image?: string | null;
-  template_type?: "crafted";
-  crafted?: boolean;
+  /** R2/CDN URLs keyed like Remotion staticFile("fonts/foo.woff2") → full URL */
+  public_asset_urls?: Record<string, string> | null;
 }
 
+export interface CraftedTemplateDetail extends CraftedTemplateItem {}
+
 export const listCraftedTemplates = () =>
-  api.get<CraftedTemplateItem[]>("/crafted-templates");
+  api.get<CraftedTemplateSummary[]>("/crafted-templates");
+
+export const getCraftedTemplateDetail = (templateId: string) =>
+  api.get<CraftedTemplateDetail>(`/crafted-templates/${encodeURIComponent(templateId)}`);
 
 export interface AspectValue {
   portrait: number;
