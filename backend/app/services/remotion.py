@@ -356,11 +356,25 @@ def _write_crafted_template_files(workspace: str, crafted_data: dict) -> None:
                 return rel[len(prefix):]
         return rel
 
+    workspace_fonts_root = os.path.join(workspace, "src", "fonts")
+
     for rel_path, code in files_map.items():
         if not isinstance(rel_path, str) or not isinstance(code, str):
             continue
         # Keep only path inside the remotion folder root.
         local_rel = _strip_known_prefix(rel_path)
+        normalized = local_rel.replace("\\", "/").lstrip("/")
+        inner_font: str | None = None
+        if normalized.startswith("fonts/"):
+            inner_font = normalized[len("fonts/") :]
+        elif normalized.startswith("src/fonts/"):
+            inner_font = normalized[len("src/fonts/") :]
+        if inner_font and not any(part in ("", "..") for part in inner_font.split("/")):
+            dst = os.path.join(workspace_fonts_root, *[p for p in inner_font.split("/") if p])
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            with open(dst, "w", encoding="utf-8") as f:
+                f.write(code if code.endswith("\n") else code + "\n")
+            continue
         dst = os.path.join(mount_root, *[p for p in local_rel.split("/") if p])
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         with open(dst, "w", encoding="utf-8") as f:
@@ -431,6 +445,35 @@ def _write_crafted_public_assets(workspace: str, crafted_data: dict) -> None:
         with open(dst, "wb") as f:
             f.write(blob)
         logger.info("[REMOTION] Wrote crafted public asset %s (%d bytes)", inner, len(blob))
+
+
+def _resolve_crafted_logo_public_path(crafted_data: dict) -> str | None:
+    """Return a bundled public logo path suitable for Remotion staticFile()."""
+    candidate_paths: list[str] = []
+
+    public_asset_urls = crafted_data.get("public_asset_urls")
+    if isinstance(public_asset_urls, dict):
+        candidate_paths.extend(str(path).replace("\\", "/").strip("/") for path in public_asset_urls.keys())
+
+    rel_paths = crafted_data.get("public_r2_relpaths")
+    if isinstance(rel_paths, list):
+        for raw in rel_paths:
+            if not isinstance(raw, str):
+                continue
+            norm = raw.replace("\\", "/").strip("/")
+            if norm.startswith("public/"):
+                candidate_paths.append(norm[len("public/") :])
+
+    preferred_pattern = re.compile(r"(?:^|/)(?:laduc-)?(?:brand-)?logo\.(?:png|jpe?g|webp|svg)$", re.IGNORECASE)
+    fallback_pattern = re.compile(r"logo.*\.(?:png|jpe?g|webp|svg)$", re.IGNORECASE)
+
+    for path in candidate_paths:
+        if preferred_pattern.search(path):
+            return path
+    for path in candidate_paths:
+        if fallback_pattern.search(path):
+            return path
+    return None
 
 
 def _wrap_generated_code(raw_code: str) -> str:
@@ -991,6 +1034,11 @@ def write_remotion_data(project: Project, scenes: list[Scene], db: Session) -> s
         from app.services.template_service import _load_custom_template_data
         custom_data = _load_custom_template_data(template_id, db=db, user_id=getattr(project, "user_id", None))
         if custom_data:
+            if is_crafted_template(template_id) and not data.get("logo"):
+                crafted_logo_file = _resolve_crafted_logo_public_path(custom_data)
+                if crafted_logo_file:
+                    data["logo"] = crafted_logo_file
+                    logger.info("[REMOTION] Using crafted bundled logo: %s", crafted_logo_file)
             ct_og_image = custom_data.get("og_image", "")
             if ct_og_image:
                 for sd in scene_data:
