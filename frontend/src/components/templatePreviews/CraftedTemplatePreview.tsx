@@ -5,6 +5,12 @@ interface CraftedTemplatePreviewProps {
   /** Stable identifier for module caching across re-mounts. */
   templateId: string;
   /**
+   * When set (e.g. current user id), compiled preview modules are cached under
+   * this scope so another account in the same browser tab cannot reuse the
+   * previous user's compiled preview.
+   */
+  compileCacheScope?: string;
+  /**
    * Source code of the crafted template's marquee preview file
    * (frontend/<TemplateName>Preview.tsx). When null/empty, falls back
    * to previewImageUrl, then to the placeholder.
@@ -23,25 +29,30 @@ interface CraftedTemplatePreviewProps {
 const moduleCache = new Map<string, React.ComponentType<{ thumbnailMode?: boolean }>>();
 const inFlight = new Map<string, Promise<React.ComponentType<{ thumbnailMode?: boolean }> | null>>();
 
+function moduleKey(scope: string | undefined, templateId: string) {
+  return scope ? `${scope}:${templateId}` : templateId;
+}
+
 async function getOrCompile(
+  cacheKey: string,
   templateId: string,
   source: string,
 ): Promise<React.ComponentType<{ thumbnailMode?: boolean }> | null> {
-  const cached = moduleCache.get(templateId);
+  const cached = moduleCache.get(cacheKey);
   if (cached) return cached;
-  const pending = inFlight.get(templateId);
+  const pending = inFlight.get(cacheKey);
   if (pending) return pending;
   const task = compilePreviewComponent(source).then((res) => {
     if (res.success) {
-      moduleCache.set(templateId, res.component);
+      moduleCache.set(cacheKey, res.component);
       return res.component;
     }
     console.warn(`[crafted-preview] compile failed for ${templateId}:`, res.error);
     return null;
   }).finally(() => {
-    inFlight.delete(templateId);
+    inFlight.delete(cacheKey);
   });
-  inFlight.set(templateId, task);
+  inFlight.set(cacheKey, task);
   return task;
 }
 
@@ -79,14 +90,16 @@ function PlaceholderTile({ name, showLoader }: { name?: string; showLoader: bool
 
 export default function CraftedTemplatePreview({
   templateId,
+  compileCacheScope,
   previewSource,
   previewImageUrl,
   name,
   thumbnailMode = false,
   showLoaderOnEmptyOrError = false,
 }: CraftedTemplatePreviewProps) {
+  const cacheKey = moduleKey(compileCacheScope, templateId);
   const [Component, setComponent] = useState<React.ComponentType<{ thumbnailMode?: boolean }> | null>(
-    () => moduleCache.get(templateId) ?? null,
+    () => moduleCache.get(cacheKey) ?? null,
   );
   const [compileFailed, setCompileFailed] = useState(false);
   const cancelledRef = useRef(false);
@@ -100,7 +113,7 @@ export default function CraftedTemplatePreview({
         cancelledRef.current = true;
       };
     }
-    const existing = moduleCache.get(templateId);
+    const existing = moduleCache.get(cacheKey);
     if (existing) {
       setComponent(() => existing);
       setCompileFailed(false);
@@ -108,7 +121,7 @@ export default function CraftedTemplatePreview({
         cancelledRef.current = true;
       };
     }
-    void getOrCompile(templateId, previewSource).then((c) => {
+    void getOrCompile(cacheKey, templateId, previewSource).then((c) => {
       if (cancelledRef.current) return;
       if (c) {
         setComponent(() => c);
@@ -121,7 +134,7 @@ export default function CraftedTemplatePreview({
     return () => {
       cancelledRef.current = true;
     };
-  }, [templateId, previewSource]);
+  }, [cacheKey, templateId, previewSource]);
 
   if (Component) {
     return <Component thumbnailMode={thumbnailMode} />;
