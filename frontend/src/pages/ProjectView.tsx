@@ -3624,6 +3624,7 @@ export default function ProjectView() {
                         projectCustomTheme={project.custom_theme ?? null}
                         projectName={project.name}
                         variant="large"
+                        previewCompileScope={user?.id != null ? String(user.id) : undefined}
                       />
                     </div>
                     <div className="px-3 py-2 bg-purple-50/80 flex items-center justify-between gap-2">
@@ -3787,6 +3788,7 @@ export default function ProjectView() {
                                 <div className="relative z-0 min-h-[56px] pointer-events-none">
                                   <CraftedTemplatePreview
                                     templateId={craftedId}
+                                    compileCacheScope={user?.id != null ? String(user.id) : undefined}
                                     previewSource={ct.preview_file ?? null}
                                     previewImageUrl={ct.preview_image_url ?? null}
                                     name={ct.name}
@@ -5235,6 +5237,7 @@ export default function ProjectView() {
             projectCustomTheme={project?.custom_theme ?? null}
             projectName={project?.name}
             templateMetas={templateMetas}
+            previewCompileScope={user?.id != null ? String(user.id) : undefined}
             disabled={submittingTemplateRelayout || templateRelayoutRunning || missingCustomTemplate}
             onChangeTemplate={() => {
               setTemplateChangeDraft(assignedTemplateId);
