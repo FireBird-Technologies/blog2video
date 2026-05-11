@@ -136,6 +136,10 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
       .then((res) => {
         const next = res.data || [];
         setSummaries(next);
+        // Full crafted bundles are memory-only. When the list is refreshed,
+        // drop any previously compiled/fetched detail so browser previews pick
+        // up freshly uploaded frontend files from R2 instead of stale chrome.
+        setDetailsById({});
         writeCache(user.id, next);
       })
       .catch(() => {
