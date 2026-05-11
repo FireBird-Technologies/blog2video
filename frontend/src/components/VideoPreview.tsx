@@ -11,9 +11,11 @@ import {
   BACKEND_URL,
   Project,
   getTemplateCode,
+  getValidLayouts,
   type CraftedTemplateDetail,
   type CraftedTemplateItem,
 } from "../api/client";
+import { getDefaultFontSizesFromSchema } from "./SceneEditModal";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
 import { getTemplateConfig, normalizeBuiltInTemplateId } from "./remotion/templateConfig";
 import { resolveFontFamily } from "../fonts/registry";
@@ -199,6 +201,11 @@ const StableCustomComposition: React.FC<any> = ({
 
 interface VideoPreviewProps {
   project: Project;
+  /**
+   * `layout_prop_schema` from backend `meta.json` (via GET `/projects/:id/layouts`).
+   * When omitted, VideoPreview loads it itself (unless template is custom).
+   */
+  layoutPropSchema?: Record<string, { defaults?: Record<string, unknown> }>;
   logoSizeOverride?: number;
   logoOpacityOverride?: number;
   logoPositionOverride?: string;
@@ -232,6 +239,28 @@ interface SceneInput {
 
 /** Map of scene type keys ("intro", "content_0", ..., "outro") to compiled React components. */
 type CompiledSceneMap = Record<string, React.FC<SceneProps>>;
+
+/** Fill missing title/description font sizes from meta.json layout_prop_schema (matches SceneEditModal). */
+function mergeMetaFontSizesIntoLayoutProps(
+  layoutProps: Record<string, unknown>,
+  layoutId: string | null | undefined,
+  aspectRatio: string,
+  schema: Record<string, { defaults?: Record<string, unknown> }> | null | undefined,
+): Record<string, unknown> {
+  if (!layoutId || !schema || Object.keys(schema).length === 0) return layoutProps;
+  const titleRaw = layoutProps.titleFontSize;
+  const descRaw = layoutProps.descriptionFontSize;
+  const hasTitle = typeof titleRaw === "number" && Number.isFinite(titleRaw);
+  const hasDesc = typeof descRaw === "number" && Number.isFinite(descRaw);
+  if (hasTitle && hasDesc) return layoutProps;
+  const ar = aspectRatio === "portrait" ? "portrait" : "landscape";
+  const fromSchema = getDefaultFontSizesFromSchema(schema, layoutId, ar);
+  if (!fromSchema) return layoutProps;
+  const next = { ...layoutProps };
+  if (!hasTitle) next.titleFontSize = fromSchema.title;
+  if (!hasDesc) next.descriptionFontSize = fromSchema.desc;
+  return next;
+}
 
 // ─── YouTube-style playback speed control ────────────────────────────────────
 
@@ -519,6 +548,7 @@ function PlaybackSpeedControl({
 const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function VideoPreview(
   {
     project,
+    layoutPropSchema,
     logoSizeOverride,
     logoOpacityOverride,
     logoPositionOverride,
@@ -635,6 +665,47 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     }
     return base;
   }, [templateId, isCrafted, craftedItem]);
+
+  const [fetchedLayoutPropSchema, setFetchedLayoutPropSchema] = useState<Record<
+    string,
+    { defaults?: Record<string, unknown> }
+  > | null>(null);
+
+  useEffect(() => {
+    if (layoutPropSchema !== undefined || !project.id || isCustom) {
+      return;
+    }
+    let cancelled = false;
+    void getValidLayouts(project.id).then((lr) => {
+      if (cancelled) return;
+      const s = lr.data.layout_prop_schema;
+      setFetchedLayoutPropSchema(
+        s && typeof s === "object" ? (s as Record<string, { defaults?: Record<string, unknown> }>) : null,
+      );
+    }).catch(() => {
+      if (!cancelled) setFetchedLayoutPropSchema(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, project.template, isCustom, layoutPropSchema]);
+
+  const effectiveLayoutPropSchema = useMemo((): Record<string, { defaults?: Record<string, unknown> }> | null => {
+    if (layoutPropSchema !== undefined) {
+      return layoutPropSchema;
+    }
+    if (fetchedLayoutPropSchema && Object.keys(fetchedLayoutPropSchema).length > 0) {
+      return fetchedLayoutPropSchema;
+    }
+    if (
+      isCrafted &&
+      craftedItem?.layout_prop_schema &&
+      typeof craftedItem.layout_prop_schema === "object"
+    ) {
+      return craftedItem.layout_prop_schema as Record<string, { defaults?: Record<string, unknown> }>;
+    }
+    return null;
+  }, [layoutPropSchema, fetchedLayoutPropSchema, isCrafted, craftedItem]);
 
   const resolvedFontFamily = resolveFontFamily(project.font_family ?? null);
 
@@ -918,6 +989,15 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
 
       const onScreenText = scene.display_text ?? scene.narration_text;
 
+      if (!isCustom) {
+        layoutProps = mergeMetaFontSizesIntoLayoutProps(
+          layoutProps,
+          layout,
+          project.aspect_ratio || "landscape",
+          effectiveLayoutPropSchema ?? undefined,
+        );
+      }
+
       return {
         id: scene.id,
         order: scene.order,
@@ -933,7 +1013,7 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         voiceoverUrl,
       };
     });
-  }, [project, config]);
+  }, [project, config, isCustom, effectiveLayoutPropSchema]);
 
   const totalDurationFrames = useMemo(() => {
     const FPS = 30;
