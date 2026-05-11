@@ -2193,6 +2193,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
             ) : selectedCrafted && (selectedCrafted.preview_file || selectedCrafted.preview_image_url || selectedCrafted.theme) ? (
               <CraftedTemplatePreview
                 templateId={selectedCrafted.id}
+                compileCacheScope={user?.id != null ? String(user.id) : undefined}
                 previewSource={selectedCrafted.preview_file ?? null}
                 previewImageUrl={selectedCrafted.preview_image_url ?? null}
                 name={selectedCrafted.name}
@@ -2310,6 +2311,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           {item.type === "crafted" ? (
                             <CraftedTemplatePreview
                               templateId={item.id}
+                              compileCacheScope={user?.id != null ? String(user.id) : undefined}
                               previewSource={(ct as any).preview_file ?? null}
                               previewImageUrl={ct.preview_image_url ?? null}
                               name={ct.name}
@@ -2867,6 +2869,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
               ) : selectedCraftedBulk && (selectedCraftedBulk.preview_file || selectedCraftedBulk.preview_image_url || selectedCraftedBulk.theme) ? (
                 <CraftedTemplatePreview
                   templateId={selectedCraftedBulk.id}
+                  compileCacheScope={user?.id != null ? String(user.id) : undefined}
                   previewSource={selectedCraftedBulk.preview_file ?? null}
                   previewImageUrl={selectedCraftedBulk.preview_image_url ?? null}
                   name={selectedCraftedBulk.name}
@@ -3006,6 +3009,7 @@ export default function BlogUrlForm({ onSubmit, onSubmitBulk, loading, asModal, 
                           {item.type === "crafted" ? (
                             <CraftedTemplatePreview
                               templateId={item.id}
+                              compileCacheScope={user?.id != null ? String(user.id) : undefined}
                               previewSource={(ct as any).preview_file ?? null}
                               previewImageUrl={ct.preview_image_url ?? null}
                               name={ct.name}

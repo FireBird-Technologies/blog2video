@@ -17,6 +17,7 @@ export function TemplateAssignPreview({
   projectCustomTheme,
   projectName,
   variant,
+  previewCompileScope,
 }: {
   templateId: string;
   customTemplates: CustomTemplateItem[];
@@ -24,6 +25,8 @@ export function TemplateAssignPreview({
   projectCustomTheme: Project["custom_theme"];
   projectName?: string;
   variant: "large" | "thumb";
+  /** Pass current user id string so crafted preview compile cache cannot cross accounts. */
+  previewCompileScope?: string;
 }) {
   if (templateId.startsWith("crafted_")) {
     const ct = craftedTemplates.find((c) => c.id === templateId);
@@ -35,6 +38,7 @@ export function TemplateAssignPreview({
       return (
         <CraftedTemplatePreview
           templateId={ct.id}
+          compileCacheScope={previewCompileScope}
           previewSource={ct.preview_file ?? null}
           previewImageUrl={ct.preview_image_url ?? null}
           name={ct.name}
@@ -149,6 +153,7 @@ export default function ProjectTemplateSettingsCard({
   disabled = false,
   emphasizeChangeButton = false,
   previewOverride,
+  previewCompileScope,
   onChangeTemplate,
 }: {
   templateId: string;
@@ -160,6 +165,7 @@ export default function ProjectTemplateSettingsCard({
   disabled?: boolean;
   emphasizeChangeButton?: boolean;
   previewOverride?: ReactNode;
+  previewCompileScope?: string;
   onChangeTemplate: () => void;
 }) {
   const selectedCustom =
@@ -192,6 +198,7 @@ export default function ProjectTemplateSettingsCard({
                 projectCustomTheme={projectCustomTheme}
                 projectName={projectName}
                 variant="thumb"
+                previewCompileScope={previewCompileScope}
               />
             )}
             <div className="px-2 py-1.5 bg-purple-50/80 flex items-center justify-center gap-1">
