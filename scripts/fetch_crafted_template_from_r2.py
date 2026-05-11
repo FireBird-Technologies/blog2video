@@ -9,7 +9,25 @@ BACKEND_DIR = REPO_ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from app.config import settings
 from app.services import r2_storage
+
+
+def crafted_r2_namespace_prefix() -> str:
+    return str(getattr(settings, "CRAFTED_TEMPLATE_R2_PREFIX", "") or "").strip().strip("/")
+
+
+def apply_crafted_r2_namespace(prefix: str) -> str:
+    """Same as bundle script: prepend CRAFTED_TEMPLATE_R2_PREFIX when set (e.g. staging)."""
+    normalized = str(prefix or "").strip().strip("/")
+    ns = crafted_r2_namespace_prefix()
+    if not ns:
+        return normalized
+    if not normalized:
+        return ns
+    if normalized == ns or normalized.startswith(f"{ns}/"):
+        return normalized
+    return f"{ns}/{normalized}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,7 +43,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--r2-prefix",
         required=True,
-        help="R2 prefix used when uploading crafted package (for example: crafted-templates/foo-20260506-123000).",
+        help=(
+            "R2 prefix folder for the crafted bundle (the path containing manifest.json). "
+            "Example: crafted-templates/newspaper_brief-crafted-template-20260506-120000 — not just 'staging'. "
+            "If backend CRAFTED_TEMPLATE_R2_PREFIX is set, it is prepended when missing (matches upload behavior)."
+        ),
     )
     parser.add_argument(
         "--manifest-path",
@@ -104,14 +126,25 @@ def main() -> None:
     if not template_id:
         raise ValueError("template-id is required")
 
-    r2_prefix = args.r2_prefix.strip().strip("/")
+    r2_prefix = apply_crafted_r2_namespace(args.r2_prefix.strip().strip("/"))
     if not r2_prefix:
         raise ValueError("r2-prefix is required")
 
     manifest_key = (args.manifest_path or f"{r2_prefix}/manifest.json").strip().strip("/")
+    manifest_key = apply_crafted_r2_namespace(manifest_key)
     manifest = r2_storage.download_json(manifest_key)
     if not manifest:
-        raise FileNotFoundError(f"Could not download manifest: {manifest_key}")
+        ns_hint = crafted_r2_namespace_prefix()
+        extra = ""
+        if ns_hint:
+            extra = (
+                f" If your bucket keys are under '{ns_hint}/...', either set CRAFTED_TEMPLATE_R2_PREFIX in backend/.env "
+                f"or pass the full prefix (e.g. {ns_hint}/crafted-templates/<bundle-folder>)."
+            )
+        raise FileNotFoundError(
+            f"Could not download manifest at key: {manifest_key}.{extra} "
+            f"Also use --template-id as the **local folder name** (e.g. newspaper_brief), not crafted_* ids."
+        )
 
     backend_target = REPO_ROOT / "backend" / "templates" / template_id
     frontend_target = REPO_ROOT / "frontend" / "src" / "components" / "remotion" / template_id

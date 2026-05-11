@@ -3049,6 +3049,7 @@ export default function ProjectView() {
                       <VideoPreview
                         ref={previewPlayerRef}
                         project={project}
+                        layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
                         logoPositionOverride={logoPosition}
@@ -4109,6 +4110,7 @@ export default function ProjectView() {
                         key={`modal-preview-${idx}-${pct}`}
                         ref={modalPreviewPlayerRef}
                         project={project}
+                        layoutPropSchema={layoutPropSchema !== null ? layoutPropSchema : undefined}
                         logoSizeOverride={logoSize}
                         logoOpacityOverride={logoOpacity}
                         logoPositionOverride={logoPosition}
