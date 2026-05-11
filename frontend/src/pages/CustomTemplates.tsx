@@ -9,6 +9,7 @@ import {
   type CustomTemplateItem,
 } from "../api/client";
 import { useCraftedTemplates } from "../contexts/CraftedTemplatesContext";
+import { useAuth } from "../hooks/useAuth";
 import { sendCustomTemplateRequest } from "../api/enterprise";
 import { preloadBabel } from "../utils/compileComponent";
 import CustomTemplateCreator from "../components/CustomTemplateCreator";
@@ -247,7 +248,9 @@ function CustomTemplateRequestModal({
 export default function CustomTemplates() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { craftedTemplates, loading: craftedTemplatesLoading } = useCraftedTemplates();
+  const previewCompileScope = user?.id != null ? String(user.id) : undefined;
   const [templates, setTemplates] = useState<CustomTemplateItem[]>([]);
   const [activeTemplatesTab, setActiveTemplatesTab] = useState<"custom" | "crafted">("custom");
   const [loaded, setLoaded] = useState(false);
@@ -737,15 +740,9 @@ export default function CustomTemplates() {
         ) : readyCraftedTemplates.length === 0 ? (
           <div className="glass-card p-10 text-center">
             <h3 className="text-base font-semibold text-gray-900 mb-2">No expert customized templates yet</h3>
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-gray-400 max-w-md mx-auto">
               Request an expert customized template and it will appear here once assigned to your account.
             </p>
-            <button
-              onClick={openRequestForm}
-              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all duration-200"
-            >
-              Get Expert Template
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -760,6 +757,7 @@ export default function CustomTemplates() {
                         image (then placeholder) when the source isn't bundled. */}
                     <CraftedTemplatePreview
                       templateId={tpl.id}
+                      compileCacheScope={previewCompileScope}
                       previewSource={tpl.preview_file ?? null}
                       previewImageUrl={tpl.preview_image_url ?? null}
                       name={tpl.name}

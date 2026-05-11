@@ -11,13 +11,17 @@ import { useAuth } from "../hooks/useAuth";
 interface CraftedTemplatesContextValue {
   craftedTemplates: CraftedTemplateItem[];
   loading: boolean;
-  refresh: () => Promise<void>;
+  refresh: (opts?: { silent?: boolean }) => Promise<void>;
   ensureCraftedTemplateDetail: (templateId: string) => Promise<CraftedTemplateDetail | null>;
 }
 
-// v3: summary now carries preview_file source (bundled marquee preview).
-const CACHE_KEY = "b2v_crafted_templates_cache_v3";
-const LEGACY_CACHE_KEYS = ["b2v_crafted_templates_cache_v2", "b2v_crafted_templates_cache"];
+// v4: summaries cached without preview/layout source (those stay in memory only).
+const CACHE_KEY = "b2v_crafted_templates_cache_v4";
+const LEGACY_CACHE_KEYS = [
+  "b2v_crafted_templates_cache_v3",
+  "b2v_crafted_templates_cache_v2",
+  "b2v_crafted_templates_cache",
+];
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 interface CraftedTemplatesCachePayload {
@@ -46,6 +50,12 @@ const BUNDLE_FIELDS_TO_STRIP = [
   "frontend_layout_index_rel",
   "frontend_mount_id",
   "public_asset_urls",
+  /** Marquee preview TS — fetch from API / keep in RAM; never persist (privacy + quota). */
+  "preview_file",
+  "preview_file_rel",
+  /** Layout field defs source — same as preview: entitlement-sensitive, refetch after cache hit. */
+  "layout_fields",
+  "layout_fields_rel",
 ] as const;
 
 function sanitizeForCache(template: CraftedTemplateSummary): CraftedTemplateSummary {
@@ -59,7 +69,7 @@ function sanitizeForCache(template: CraftedTemplateSummary): CraftedTemplateSumm
 const CraftedTemplatesContext = createContext<CraftedTemplatesContextValue>({
   craftedTemplates: [],
   loading: false,
-  refresh: async () => {},
+  refresh: async () => undefined,
   ensureCraftedTemplateDetail: async () => null,
 });
 
@@ -98,10 +108,10 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
   const { user, loading: authLoading } = useAuth();
   const [summaries, setSummaries] = useState<CraftedTemplateSummary[]>([]);
   // Full template bundles (layout files, intro/outro/content code, public asset
-  // URLs) live ONLY in this in-memory map. They are intentionally never
-  // persisted to localStorage — the list summary + bundled preview source is
-  // all that gets cached on disk. Reload the tab → details are re-fetched
-  // from R2 on demand.
+  // URLs) live ONLY in this in-memory map. Preview / layout_fields sources are
+  // also memory-only: localStorage holds metadata (names, theme, schema refs)
+  // so switching accounts or devices never leaves another user's preview code
+  // on disk. Reload → silent revalidate or explicit refresh repopulates.
   const [detailsById, setDetailsById] = useState<Record<string, CraftedTemplateDetail>>({});
   const [loading, setLoading] = useState(false);
   const inFlightRef = useRef<Promise<void> | null>(null);
@@ -112,7 +122,7 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
     [summaries, detailsById]
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user?.id) {
       setSummaries([]);
       setDetailsById({});
@@ -120,7 +130,8 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
       return;
     }
     if (inFlightRef.current) return inFlightRef.current;
-    setLoading(true);
+    const silent = !!opts?.silent;
+    if (!silent) setLoading(true);
     const req = listCraftedTemplates()
       .then((res) => {
         const next = res.data || [];
@@ -128,10 +139,10 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
         writeCache(user.id, next);
       })
       .catch(() => {
-        setSummaries([]);
+        if (!silent) setSummaries([]);
       })
       .finally(() => {
-        setLoading(false);
+        if (!silent) setLoading(false);
         inFlightRef.current = null;
       });
     inFlightRef.current = req;
@@ -175,6 +186,7 @@ export function CraftedTemplatesProvider({ children }: { children: ReactNode }) 
     if (cached) {
       setSummaries(cached.templates);
       setLoading(false);
+      void refresh({ silent: true });
       return;
     }
     void refresh();
