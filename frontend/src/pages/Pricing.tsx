@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CredentialResponse } from "@react-oauth/google";
-import { googleLogin, createCheckoutSession, createPerVideoCheckout } from "../api/client";
+import { googleLogin, createCheckoutSession, createPerVideoCheckout, sendEnterpriseContact } from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import GoogleAuthButton from "../components/public/GoogleAuthButton";
@@ -111,6 +112,40 @@ export default function Pricing() {
 
   const isPro = user?.plan === "pro";
   const isStandard = user?.plan === "standard";
+
+  const [serviceModal, setServiceModal] = useState<"designer" | "editing" | null>(null);
+  const [serviceName, setServiceName] = useState("");
+  const [serviceEmail, setServiceEmail] = useState("");
+  const [serviceDesc, setServiceDesc] = useState("");
+  const [serviceLoading, setServiceLoading] = useState(false);
+  const [serviceSuccess, setServiceSuccess] = useState(false);
+
+  const closeServiceModal = () => {
+    setServiceModal(null);
+    setServiceName("");
+    setServiceEmail("");
+    setServiceDesc("");
+    setServiceSuccess(false);
+  };
+
+  const handleServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServiceLoading(true);
+    try {
+      await sendEnterpriseContact({
+        name: serviceName,
+        company: serviceModal === "designer" ? "Designer-Crafted Templates" : "Video Editing Service",
+        contact_details: serviceEmail,
+        message: serviceDesc,
+      });
+      setServiceSuccess(true);
+      setTimeout(closeServiceModal, 3000);
+    } catch (err: any) {
+      showError(getErrorMessage(err, "Something went wrong. Please try again."));
+    } finally {
+      setServiceLoading(false);
+    }
+  };
 
   const monthlyPrice = 50;
   const annualMonthlyPrice = 40;
@@ -652,6 +687,92 @@ export default function Pricing() {
         </div>
       </div>
 
+      {/* Services */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
+        <div className="text-center mb-10">
+          <p className="text-xs font-medium text-purple-600 mb-2 tracking-widest uppercase">Services</p>
+          <h2 className="text-2xl font-bold text-gray-900">Done for you</h2>
+          <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">
+            Need something built or made for you? We offer hands-on services for teams that want results without the DIY.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Designer-Crafted Templates */}
+          <div className="glass-card p-7 flex flex-col">
+            <div className="mb-5">
+              <span className="inline-block px-2.5 py-0.5 bg-purple-50 text-purple-600 text-xs font-semibold rounded-full mb-3">
+                Designer
+              </span>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Designer-Crafted Templates</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                We don't just apply brand colors — we design with intention. Each template is crafted around your visual identity: typographic rhythm, spacing ratios, color harmony, and motion that feels considered rather than generated. The result is a video template that looks like it came from a design studio, not a drag-and-drop builder.
+              </p>
+            </div>
+            <ul className="space-y-2.5 mb-8 flex-1">
+              {[
+                "Custom-built for your brand system",
+                "Typography & color hierarchy",
+                "Refined motion & transitions",
+                "Consistent with your website or style guide",
+                "Delivered as a reusable Blog2Video template",
+                "Revisions included",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2.5 text-sm text-gray-600">
+                  <CheckIcon />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mb-4">
+              <span className="text-sm text-gray-400">Pricing on request</span>
+            </div>
+            <button
+              onClick={() => setServiceModal("designer")}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+            >
+              Contact us for info
+            </button>
+          </div>
+
+          {/* Video Editing Service */}
+          <div className="glass-card p-7 flex flex-col">
+            <div className="mb-5">
+              <span className="inline-block px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full mb-3">
+                Done For You
+              </span>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Video Editing Service</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Hand us your blog posts, articles, or PDFs and we'll handle everything — scripting, voiceover selection, visual editing, and delivery. Ideal for teams that want a high-quality video output without spending time inside the tool.
+              </p>
+            </div>
+            <ul className="space-y-2.5 mb-8 flex-1">
+              {[
+                "We turn your content into finished videos",
+                "Script writing & editing",
+                "Voiceover selection & production",
+                "Template selection & customisation",
+                "Thumbnail & caption delivery",
+                "Turnaround within agreed timeline",
+              ].map((f) => (
+                <li key={f} className="flex items-start gap-2.5 text-sm text-gray-600">
+                  <CheckIcon />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mb-4">
+              <span className="text-sm text-gray-400">Pricing on request</span>
+            </div>
+            <button
+              onClick={() => setServiceModal("editing")}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors"
+            >
+              Contact us for info
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* FAQ */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
         <h3 className="text-lg font-semibold text-gray-900 text-center mb-8">
@@ -704,6 +825,99 @@ export default function Pricing() {
         onReactivate={handleReactivate}
         reactivating={reactivating}
       />
+
+      {serviceModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {serviceModal === "designer" ? "Designer-Crafted Templates" : "Video Editing Service"}
+              </h2>
+              <button onClick={closeServiceModal} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {serviceSuccess ? (
+              <div className="py-6 text-center space-y-3">
+                <div className="w-10 h-10 mx-auto rounded-full bg-green-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Message sent!</h3>
+                <p className="text-xs text-gray-500">We'll get back to you shortly.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-4">
+                  {serviceModal === "designer"
+                    ? "Tell us about the brand or company you want templates for and we'll follow up to discuss the project."
+                    : "Give us a rough idea of what you need and we'll take it from there."}
+                </p>
+                <form onSubmit={handleServiceSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={serviceName}
+                      onChange={(e) => setServiceName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Jane Doe"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={serviceEmail}
+                      onChange={(e) => setServiceEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="jane@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                    <textarea
+                      required
+                      value={serviceDesc}
+                      onChange={(e) => setServiceDesc(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      placeholder={
+                        serviceModal === "designer"
+                          ? "Tell us about the brand or company you'd like templates for — name, website, industry, and any relevant context."
+                          : "How many videos do you need, and how often? Anything else we should know."
+                      }
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeServiceModal}
+                      className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={serviceLoading}
+                      className="px-4 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-60"
+                    >
+                      {serviceLoading ? "Sending..." : "Send message"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
